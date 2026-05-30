@@ -1,0 +1,33 @@
+{
+  "name": "fueltracks",
+  "version": "1.0.0",
+  "description": "B2B SaaS fleet tracking platform backend (TCP, REST, DB, WebSockets)",
+  "main": "backend/server.js",
+  "scripts": {
+    "start:api": "node backend/server.js",
+    "start:tcp": "node tcp-server/server.js",
+    "dev:api": "nodemon backend/server.js",
+    "dev:tcp": "nodemon tcp-server/server.js",
+    "simulator": "node scripts/deviceSimulator.js",
+    "db:init": "node scripts/dbInit.js",
+    "start:frontend": "npm --prefix frontend run dev",
+    "build:frontend": "npm --prefix frontend run build"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "pg": "^8.11.5",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  },
+  "author": "Antigravity",
+  "license": "ISC"
+}

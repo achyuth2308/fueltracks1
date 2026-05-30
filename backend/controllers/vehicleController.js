@@ -1,0 +1,405 @@
+// ============================================================
+// VEHICLE CONTROLLER
+// Handles CRUD operations, history tracking, route lines, alerts, and reports
+// ============================================================
+
+const VehicleModel = require('../models/vehicleModel');
+const GpsModel = require('../models/gpsModel');
+const GroupModel = require('../models/groupModel');
+
+const VehicleController = {
+  /**
+   * Get all vehicles with latest status
+   */
+  async getAllVehicles(req, res, next) {
+    try {
+      const { page, limit, search, groupId } = req.query;
+      const parsedPage = parseInt(page) || 1;
+      const parsedLimit = parseInt(limit) || 100;
+
+      // If groupId is provided, ensure user has access to it
+      if (groupId && req.user.role !== 'superadmin') {
+        const hasAccess = await GroupModel.belongsToOrg(groupId, req.user.orgId);
+        if (!hasAccess) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to group.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const result = await VehicleModel.findAll(req.user.orgId, req.user.role, {
+        page: parsedPage,
+        limit: parsedLimit,
+        search,
+        groupId
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result.vehicles,
+        pagination: result.pagination
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Get single vehicle details + latest state
+   */
+  async getVehicleById(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      const groups = await VehicleModel.getGroups(id);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          ...vehicle,
+          groups
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Create vehicle (IMEI is mandatory)
+   */
+  async createVehicle(req, res, next) {
+    try {
+      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds } = req.body;
+
+      if (!imei || !/^\d{15}$/.test(imei)) {
+        return res.status(400).json({
+          success: false,
+          error: 'A valid 15-digit IMEI number is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Determine organization to assign to
+      let targetOrgId = req.user.orgId;
+      if (req.user.role === 'superadmin' && orgId) {
+        targetOrgId = orgId;
+      }
+
+      // Check if IMEI already exists
+      const existing = await VehicleModel.findByImei(imei);
+      if (existing) {
+        return res.status(409).json({
+          success: false,
+          error: 'A vehicle with this IMEI is already registered.',
+          code: 'IMEI_ALREADY_EXISTS'
+        });
+      }
+
+      const newVehicle = await VehicleModel.create({
+        orgId: targetOrgId,
+        imei,
+        name,
+        plate,
+        model,
+        driverName,
+        driverPhone
+      });
+
+      // Assign to groups if provided
+      if (groupIds && Array.isArray(groupIds)) {
+        // Filter groupIds to only those that belong to targetOrgId (or all if superadmin)
+        const validGroupIds = [];
+        for (const gId of groupIds) {
+          if (req.user.role === 'superadmin') {
+            validGroupIds.push(gId);
+          } else {
+            const belongs = await GroupModel.belongsToOrg(gId, targetOrgId);
+            if (belongs) validGroupIds.push(gId);
+          }
+        }
+        if (validGroupIds.length > 0) {
+          await VehicleModel.assignToGroups(newVehicle.id, validGroupIds);
+        }
+      }
+
+      res.status(201).json({
+        success: true,
+        data: newVehicle,
+        message: 'Vehicle registered successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Update vehicle details
+   */
+  async updateVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds } = req.body;
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // Prevent dealers changing org to something they don't own
+      let targetOrgId = orgId;
+      if (orgId && req.user.role !== 'superadmin' && orgId !== req.user.orgId) {
+        return res.status(403).json({
+          success: false,
+          error: 'Cannot reassign vehicle to another dealer organization.',
+          code: 'FORBIDDEN'
+        });
+      }
+
+      const updated = await VehicleModel.update(id, {
+        name,
+        plate,
+        model,
+        driverName,
+        driverPhone,
+        isActive,
+        orgId: targetOrgId
+      });
+
+      if (!updated) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      // Update group assignments if provided
+      if (groupIds && Array.isArray(groupIds)) {
+        const activeOrg = targetOrgId || updated.org_id;
+        const validGroupIds = [];
+        for (const gId of groupIds) {
+          if (req.user.role === 'superadmin') {
+            validGroupIds.push(gId);
+          } else {
+            const belongs = await GroupModel.belongsToOrg(gId, activeOrg);
+            if (belongs) validGroupIds.push(gId);
+          }
+        }
+        await VehicleModel.assignToGroups(id, validGroupIds);
+      }
+
+      res.status(200).json({
+        success: true,
+        data: updated,
+        message: 'Vehicle updated successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Delete vehicle (Soft delete)
+   */
+  async deleteVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const deleted = await VehicleModel.delete(id);
+      if (!deleted) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Vehicle deleted successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Get paginated GPS history
+   */
+  async getVehicleHistory(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate, page, limit } = req.query;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const result = await GpsModel.getHistory(id, {
+        startDate,
+        endDate,
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 100
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result.points,
+        pagination: result.pagination
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Get route coordinates list for polyline mapping
+   */
+  async getVehicleRoute(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const points = await GpsModel.getRoute(id, { startDate, endDate });
+
+      res.status(200).json({
+        success: true,
+        data: points
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Get vehicle reports (daily summary + aggregates)
+   */
+  async getVehicleReport(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const report = await GpsModel.getReport(id, { startDate, endDate });
+
+      res.status(200).json({
+        success: true,
+        data: report
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Get alerts history
+   */
+  async getVehicleAlerts(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { page, limit, alertType } = req.query;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const result = await GpsModel.getAlerts(id, {
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 50,
+        alertType
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result.alerts,
+        pagination: result.pagination
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+};
+
+module.exports = VehicleController;
