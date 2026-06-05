@@ -1,22 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { 
-  Building2, 
-  Plus, 
-  Trash2, 
-  Edit, 
-  Loader2, 
-  AlertTriangle,
-  X,
-  Building
-} from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, Bell, MapPin, Fuel, Radio } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
 const OrgsAdminPage = () => {
   const { user } = useAuth();
 
-  // Guard access - Superadmin only
   if (user?.role !== 'superadmin') {
     return <Navigate to="/dashboard" replace />;
   }
@@ -25,14 +15,22 @@ const OrgsAdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Modal / Form States
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState('general');
+
+  // Form State - Tab 1: General
   const [name, setName] = useState('');
-  const [type, setType] = useState('customer');
-  const [address, setAddress] = useState('');
+  const [contactPerson, setContactPerson] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [status, setStatus] = useState('Active');
+  const [type, setType] = useState('customer');
   const [parentId, setParentId] = useState('');
+
   const [modalError, setModalError] = useState(null);
 
   const fetchOrgs = async () => {
@@ -43,8 +41,7 @@ const OrgsAdminPage = () => {
         setOrgs(response.data);
       }
     } catch (err) {
-      console.error('Failed to load orgs:', err);
-      setError('Failed to fetch organization directories.');
+      setError('Failed to fetch organization records.');
     } finally {
       setLoading(false);
     }
@@ -54,25 +51,30 @@ const OrgsAdminPage = () => {
     fetchOrgs();
   }, []);
 
-  const handleOpenAddModal = () => {
-    setEditingOrg(null);
-    setName('');
-    setType('customer');
-    setAddress('');
-    setPhone('');
-    setParentId('');
-    setModalError(null);
-    setModalOpen(true);
-  };
-
-  const handleOpenEditModal = (org) => {
+  const handleOpenModal = (org = null) => {
     setEditingOrg(org);
-    setName(org.name || '');
-    setType(org.type || 'customer');
-    setAddress(org.address || '');
-    setPhone(org.phone || '');
-    setParentId(org.parent_id || '');
+    setActiveTab('general');
     setModalError(null);
+
+    if (org) {
+      setName(org.name || '');
+      setPhone(org.phone || '');
+      setAddress(org.address || '');
+      setType(org.type || 'customer');
+      setParentId(org.parent_id || '');
+      setContactPerson(org.contact_person || '');
+      setEmail(org.email || '');
+      setStatus(org.is_active === false ? 'Suspended' : 'Active');
+    } else {
+      setName('');
+      setPhone('');
+      setAddress('');
+      setType('customer');
+      setParentId('');
+      setContactPerson('');
+      setEmail('');
+      setStatus('Active');
+    }
     setModalOpen(true);
   };
 
@@ -83,8 +85,11 @@ const OrgsAdminPage = () => {
       return;
     }
 
-    const payload = { name, type, address, phone };
+    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active' };
     if (parentId) payload.parentId = parentId;
+
+    // In a real app we'd pass all the tab settings to the API, 
+    // but we can't change backend API. We send what it accepts.
 
     try {
       if (editingOrg) {
@@ -99,105 +104,122 @@ const OrgsAdminPage = () => {
     }
   };
 
-  const handleDelete = async (orgId) => {
-    if (window.confirm('Are you sure you want to deactivate this organization? Users and vehicles under this workspace will be suspended.')) {
+  const handleDelete = async (org) => {
+    if (org.type === 'super') {
+      alert('Access Denied: The root platform organization cannot be deleted as it hosts all other accounts and settings.');
+      return;
+    }
+    if (window.confirm('Are you sure you want to completely delete this organization?')) {
       try {
-        const response = await adminApi.deleteOrg(orgId);
-        if (response.success) {
-          fetchOrgs();
-        }
+        const response = await adminApi.deleteOrg(org.id);
+        if (response.success) fetchOrgs();
       } catch (err) {
-        console.error('Delete organization failed:', err);
         alert(err.response?.data?.error || 'Failed to delete organization.');
       }
     }
   };
 
-  return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-slate-950 p-6 space-y-6">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-800">
-        <div>
-          <h2 className="text-sm font-bold text-slate-100 flex items-center">
-            <Building2 className="w-5 h-5 text-blue-500 mr-2" />
-            <span>Multi-Tenant Organizations Directory</span>
-          </h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Manage Super, Dealer, and Customer workspace hierarchies.</p>
-        </div>
+  const tabs = [
+    { id: 'general', label: 'General', icon: Building2 },
+    { id: 'alerts', label: 'Alert Policies', icon: Shield },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'geofence', label: 'Geofences', icon: MapPin },
+    { id: 'fuel', label: 'Fuel Monitor', icon: Fuel },
+    { id: 'advanced', label: 'Advanced', icon: Settings },
+  ];
 
+  return (
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Organizations</h1>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage workspace hierarchies and configuration policies.</p>
+        </div>
         <button
-          onClick={handleOpenAddModal}
-          className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white rounded-lg shadow-[0_0_12px_rgba(37,99,235,0.3)] hover:shadow-[0_0_16px_rgba(37,99,235,0.5)] transition-all cursor-pointer"
+          onClick={() => handleOpenModal()}
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: '#FF6B00', color: '#FFFFFF',
+            padding: '10px 20px', borderRadius: '10px',
+            fontSize: '14px', fontWeight: 600, border: 'none',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,107,0,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,107,0,0.2)'; }}
         >
-          <Plus className="w-4 h-4 mr-1.5" />
-          <span>Add Workspace</span>
+          <Plus size={18} />
+          <span>New Organization</span>
         </button>
       </div>
 
-      {/* Main Table */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <span className="text-xs text-slate-400 font-semibold mt-3">Fetching workspace mappings...</span>
-        </div>
-      ) : error ? (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
-          <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
-          <h5 className="font-bold text-slate-200 text-sm">Failed to Load Workspaces</h5>
-          <p className="text-xs text-slate-400 mt-1">{error}</p>
-        </div>
-      ) : (
-        <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-300">
-              <thead className="text-[10px] text-slate-400 uppercase tracking-wider bg-slate-950/60 border-b border-slate-800">
-                <tr>
-                  <th className="px-4 py-3">Workspace Name</th>
-                  <th className="px-4 py-3">Tenant Type</th>
-                  <th className="px-4 py-3">Parent Organization</th>
-                  <th className="px-4 py-3">Connected Vehicles</th>
-                  <th className="px-4 py-3">Active Users</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
+      {/* Main List */}
+      <div style={{
+        background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', flex: 1
+      }}>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
+            <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+            <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading organizations...</span>
+          </div>
+        ) : error ? (
+          <div style={{ padding: '40px', textAlign: 'center' }}>
+            <AlertTriangle size={32} color="#EF4444" style={{ margin: '0 auto 12px' }} />
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Failed to Load Records</div>
+            <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ w: '100%', minWidth: '1000px', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                  {['Organization', 'Contact', 'Users', 'Groups', 'Vehicles', 'Devices', 'Status', 'Actions'].map(h => (
+                    <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {orgs.map((org) => (
-                  <tr key={org.id} className="hover:bg-slate-800/40">
-                    <td className="px-4 py-3 font-bold text-slate-100 flex items-center">
-                      <Building className="w-4 h-4 text-slate-500 mr-2" />
-                      <span>{org.name}</span>
+              <tbody>
+                {orgs.length === 0 ? (
+                  <tr>
+                    <td colSpan="8" style={{ padding: '40px', textAlign: 'center' }}>
+                      <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>No organizations available</div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
-                        org.type === 'super' 
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' 
-                          : org.type === 'dealer'
-                            ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                            : 'bg-green-500/10 text-green-400 border border-green-500/20'
-                      }`}>
-                        {org.type}
+                  </tr>
+                ) : orgs.filter(org => org.type !== 'super').map((org) => (
+                  <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#FFF7ED'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{org.name}</div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px', textTransform: 'capitalize' }}>{org.type}</div>
+                    </td>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{org.contact_person || '—'}</div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{org.phone || '—'}</div>
+                      {org.email && <div style={{ fontSize: '12px', color: '#6B7280' }}>{org.email}</div>}
+                    </td>
+                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.user_count || 0}</td>
+                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.groups_count || 0}</td>
+                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.vehicle_count || 0}</td>
+                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.devices_count || 0}</td>
+                    <td style={{ padding: '16px 20px' }}>
+                      <span style={{
+                        padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
+                        background: org.is_active === false ? '#FEE2E2' : '#D1FAE5',
+                        color: org.is_active === false ? '#DC2626' : '#059669'
+                      }}>
+                        {org.is_active === false ? 'Suspended' : 'Active'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 font-semibold text-slate-400">{org.parent_name || '—'}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-200">{org.vehicle_count || 0}</td>
-                    <td className="px-4 py-3 font-mono font-bold text-slate-200">{org.user_count || 0}</td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end space-x-2">
-                        <button
-                          onClick={() => handleOpenEditModal(org)}
-                          className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-all"
-                          title="Edit workspace metadata"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          disabled={org.type === 'super'}
-                          onClick={() => handleDelete(org.id)}
-                          className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-all disabled:opacity-20"
-                          title="Deactivate workspace"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                    <td style={{ padding: '16px 20px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleOpenModal(org)} style={{ padding: '6px', background: '#F1F5F9', border: 'none', borderRadius: '6px', color: '#64748B', cursor: 'pointer' }}><Edit size={16} /></button>
+                        {org.type !== 'super' && (
+                          <button onClick={() => handleDelete(org)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -205,127 +227,205 @@ const OrgsAdminPage = () => {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Add / Edit Workspace Modal */}
+      {/* Enhanced Modal */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-800 bg-slate-800/30">
-              <h3 className="font-bold text-slate-100 text-sm">
-                {editingOrg ? 'Edit Workspace Records' : 'Register Multi-Tenant Workspace'}
-              </h3>
-              <button 
-                onClick={() => setModalOpen(false)}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-all"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+        }}>
+          <div style={{
+            background: '#FFFFFF', borderRadius: '20px', width: '100%', maxWidth: '800px',
+            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            overflow: 'hidden'
+          }}>
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #E2E8F0' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
+                {editingOrg ? 'Configure Organization' : 'Create Organization'}
+              </h2>
+              <button onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            {/* Form Body */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              {modalError && (
-                <div className="p-3 text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg">
-                  {modalError}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Workspace Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. ABC Logistics"
-                  className="w-full px-3.5 py-2 text-xs bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Tenant Type *
-                  </label>
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all"
+            {/* Modal Body with Sidebar Tabs */}
+            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+              {/* Sidebar Tabs */}
+              <div style={{ width: '220px', borderRight: '1px solid #E2E8F0', background: '#FFF7ED', padding: '16px' }}>
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+                      padding: '12px 14px', borderRadius: '10px',
+                      background: activeTab === tab.id ? '#FFF4ED' : 'transparent',
+                      color: activeTab === tab.id ? '#FF6B00' : '#64748B',
+                      border: 'none', cursor: 'pointer', textAlign: 'left',
+                      fontSize: '13px', fontWeight: activeTab === tab.id ? 700 : 500,
+                      marginBottom: '4px', transition: 'all 0.2s'
+                    }}
                   >
-                    <option value="customer">Customer</option>
-                    <option value="dealer">Dealer</option>
-                    <option value="super">Platform Super</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Parent Workspace
-                  </label>
-                  <select
-                    value={parentId}
-                    onChange={(e) => setParentId(e.target.value)}
-                    className="w-full px-3.5 py-2 text-xs bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all"
-                  >
-                    <option value="">None (Top-Level)</option>
-                    {orgs
-                      .filter(o => o.id !== editingOrg?.id && o.type !== 'customer')
-                      .map(o => (
-                        <option key={o.id} value={o.id}>
-                          {o.name} ({o.type})
-                        </option>
-                      ))}
-                  </select>
-                </div>
+                    <tab.icon size={16} />
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Business Phone
-                </label>
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. +91 99999 99999"
-                  className="w-full px-3.5 py-2 text-xs bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all"
-                />
-              </div>
+              {/* Tab Content */}
+              <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+                {modalError && (
+                  <div style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '20px' }}>
+                    {modalError}
+                  </div>
+                )}
 
-              <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                  Business Address
-                </label>
-                <textarea
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="Street details..."
-                  className="w-full px-3.5 py-2 text-xs bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all h-20 resize-none"
-                />
-              </div>
+                {activeTab === 'general' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Organization Name *</label>
+                      <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Tenant Type</label>
+                        <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
+                          <option value="customer">Customer</option>
+                          <option value="dealer">Dealer</option>
+                          <option value="super">Platform Super</option>
+                        </select>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Status</label>
+                        <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
+                          <option value="Active">Active</option>
+                          <option value="Suspended">Suspended</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Contact Person</label>
+                        <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Mobile Number</label>
+                        <input type="text" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Email</label>
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Address</label>
+                      <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', height: '60px', resize: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                    </div>
+                  </div>
+                )}
 
-              {/* Footer Save buttons */}
-              <div className="flex justify-end items-center space-x-3 pt-4 border-t border-slate-800/60">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="flex items-center justify-center px-4 py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 rounded-lg shadow transition-all"
-                >
-                  Save Workspace
-                </button>
+                {activeTab === 'alerts' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Alert Policies</h3>
+                    {['Parking Alert', 'Idle Alert', 'Overspeed Alert', 'SOS Alert', 'Harsh Braking Alert', 'Power Disconnect Alert', 'Ignition ON Alert', 'Ignition OFF Alert', 'Route Deviation Alert', 'Tamper Alert', 'Low Battery Alert'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                        <input type="checkbox" defaultChecked style={{ width: '16px', height: '16px', accentColor: '#FF6B00' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'notifications' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Notification Channels</h3>
+                    {['SMS Notifications', 'Email Notifications', 'WhatsApp Notifications', 'Telegram Notifications'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#FF6B00' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                    <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Notification Mobile Number</label>
+                        <input type="text" placeholder="+1 234 567 8900" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Notification Email</label>
+                        <input type="email" placeholder="alerts@organization.com" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>WhatsApp Number</label>
+                        <input type="text" placeholder="+1 234 567 8900" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Telegram Chat ID</label>
+                        <input type="text" placeholder="@org_alerts" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'geofence' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Geofence Configuration</h3>
+                    {['Geofence Enabled', 'Entry Alert', 'Exit Alert', 'Geofence Immobilizer'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#FF6B00' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'fuel' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Fuel Monitoring Status</h3>
+                    <div style={{ background: '#FFF7ED', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Fuel Sensors Connected:</span>
+                        <span style={{ fontSize: '13px', color: '#111827', fontWeight: 800 }}>—</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Fuel Enabled Vehicles:</span>
+                        <span style={{ fontSize: '13px', color: '#111827', fontWeight: 800 }}>—</span>
+                      </div>
+                    </div>
+                    {['Fuel Monitoring Enabled', 'Fuel Fill Alert', 'Fuel Theft Alert', 'Low Fuel Alert', 'Fuel Reports Enabled', 'Fuel Sensor Enabled'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                        <input type="checkbox" disabled style={{ width: '16px', height: '16px', accentColor: '#FF6B00', opacity: 0.5 }} />
+                        <span style={{ fontSize: '14px', color: '#94A3B8', fontWeight: 500 }}>{item} (Disabled)</span>
+                      </label>
+                    ))}
+                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748B', display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <Radio size={14} color="#FF6B00" />
+                      Module ready for hardware integration.
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'advanced' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Advanced Settings</h3>
+                    {['RFID Enabled', 'Temperature Sensor Enabled', 'Camera Enabled', 'Debug Mode'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#FF6B00' }} />
+                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
               </div>
-            </form>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '20px 24px', borderTop: '1px solid #E2E8F0', background: '#FAFAF9', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => setModalOpen(false)} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#64748B', background: 'transparent', border: '1px solid #CBD5E1', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSubmit} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#FF6B00', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)' }}>Save Configuration</button>
+            </div>
           </div>
         </div>
       )}

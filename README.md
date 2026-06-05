@@ -62,8 +62,7 @@ You can launch the components using these npm scripts:
   ```
 - **Run Backend REST API (Port 3001)**:
   ```bash
-  npm run start:api
-  ```
+c  ```
 - **Run Device Simulator (Mock devices sending tracks)**:
   ```bash
   npm run simulator

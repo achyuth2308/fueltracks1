@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
+  Briefcase,
+  FileText,
+  ClipboardList,
+  Archive,
   Truck,
-  Building2,
   Users,
+  Settings,
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Layers,
-  Activity,
-  Settings,
-  HelpCircle,
+  Cpu,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -20,61 +21,34 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
-  const isSuperAdmin = user?.role === 'superadmin';
-  const isDealer = user?.role === 'dealer';
-
   const navGroups = [
     {
-      label: 'Operations',
+      label: '',
       items: [
-        {
-          name: 'Fleet Monitor',
-          path: '/dashboard',
-          icon: LayoutDashboard,
-          roles: ['superadmin', 'dealer', 'customer'],
-        },
-      ],
-    },
-    {
-      label: 'Management',
-      items: [
-        {
-          name: 'Vehicles',
-          path: '/admin/vehicles',
-          icon: Truck,
-          roles: ['superadmin', 'dealer'],
-        },
-        {
-          name: 'Organizations',
-          path: '/admin/organizations',
-          icon: Building2,
-          roles: ['superadmin'],
-        },
-        {
-          name: 'Users',
-          path: '/admin/users',
-          icon: Users,
-          roles: ['superadmin', 'dealer'],
-        },
+        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin'] },
+        { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
+        { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['superadmin', 'dealer', 'customer'] },
       ],
     },
   ];
-
-  const roleColors = {
-    superadmin: { bg: 'rgba(37,99,235,0.12)', text: '#60a5fa', border: 'rgba(37,99,235,0.25)' },
-    dealer: { bg: 'rgba(16,185,129,0.1)', text: '#34d399', border: 'rgba(16,185,129,0.25)' },
-    customer: { bg: 'rgba(99,102,241,0.1)', text: '#a5b4fc', border: 'rgba(99,102,241,0.25)' },
-  };
-  const rc = roleColors[user?.role] || roleColors.customer;
-
-  const initials = user?.name
-    ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
-    : 'U';
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
+
+  const initials = user?.name
+    ? user.name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
+    : 'U';
+
+  const roleLabel = user?.role || 'Customer';
 
   return (
     <>
@@ -84,7 +58,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
           style={{
             position: 'fixed', inset: 0, zIndex: 40,
-            background: 'rgba(7, 10, 22, 0.7)',
+            background: 'rgba(17, 24, 39, 0.5)',
             backdropFilter: 'blur(4px)',
           }}
           className="md:hidden"
@@ -93,163 +67,90 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
 
       <aside
         style={{
-          width: collapsed ? '64px' : '220px',
-          minWidth: collapsed ? '64px' : '220px',
-          transition: 'width 0.25s ease, min-width 0.25s ease',
-          background: 'linear-gradient(180deg, #0c1526 0%, #0a1020 100%)',
-          borderRight: '1px solid rgba(255,255,255,0.05)',
+          width: collapsed ? '72px' : '260px',
+          minWidth: collapsed ? '72px' : '260px',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          background: '#FFFFFF',
+          borderRight: '1px solid #E2E8F0',
+          boxShadow: '4px 0 24px rgba(0,0,0,0.02)',
           display: 'flex',
           flexDirection: 'column',
-          height: '100vh',
+          height: '100%',
           position: 'relative',
           flexShrink: 0,
           zIndex: 50,
         }}
         className={`${isOpen ? '' : '-translate-x-full'} md:translate-x-0 fixed md:static transition-transform`}
       >
-        {/* Logo Header */}
+        {/* User Profile Header */}
         <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          padding: collapsed ? '0 16px' : '0 16px 0 16px',
-          height: '56px',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
-          flexShrink: 0,
+          padding: '24px 16px 16px',
+          borderBottom: '1px solid #F1F5F9',
+          display: 'flex', flexDirection: 'column', gap: '16px',
+          alignItems: collapsed ? 'center' : 'flex-start',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '30px', height: '30px',
-              background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-              borderRadius: '8px',
+              width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
+              background: '#FF6B00', color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 4px 12px rgba(37,99,235,0.4)',
+              fontSize: '14px', fontWeight: 700,
+              boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
             }}>
-              <Truck size={14} color="white" />
+              {initials}
             </div>
             {!collapsed && (
-              <div style={{ animation: 'fade-in 0.2s ease' }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#e2e8f0', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-                  FuelTracks
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {user?.name || 'Administrator'}
                 </div>
-                <div style={{ fontSize: '9px', fontWeight: 500, color: '#4a5568', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                  Enterprise
+                <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'capitalize' }}>
+                  {roleLabel}
                 </div>
               </div>
             )}
           </div>
-
-          {!collapsed && (
-            <button
-              onClick={() => setCollapsed(true)}
-              style={{
-                width: '22px', height: '22px',
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.06)',
-                borderRadius: '6px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', color: '#4a5568',
-                transition: 'all 0.15s',
-                flexShrink: 0,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#7c8db0'; e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#4a5568'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
-            >
-              <ChevronLeft size={12} />
-            </button>
-          )}
         </div>
 
         {/* Expand Button (collapsed state) */}
-        {collapsed && (
-          <button
-            onClick={() => setCollapsed(false)}
-            style={{
-              position: 'absolute', right: '-12px', top: '72px',
-              width: '24px', height: '24px',
-              background: '#131d30',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', color: '#7c8db0',
-              zIndex: 10,
-              transition: 'all 0.15s',
-            }}
-          >
-            <ChevronRight size={12} />
-          </button>
-        )}
-
-        {/* User Card */}
-        {!collapsed && (
-          <div style={{ padding: '12px', borderBottom: '1px solid rgba(255,255,255,0.04)', flexShrink: 0 }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '8px 10px',
-              background: 'rgba(255,255,255,0.025)',
-              borderRadius: '8px',
-              border: '1px solid rgba(255,255,255,0.04)',
-            }}>
-              <div style={{
-                width: '30px', height: '30px', borderRadius: '8px', flexShrink: 0,
-                background: `linear-gradient(135deg, ${rc.bg.replace(')', ', 0.6)').replace('rgba', 'rgba')} 0%, ${rc.bg} 100%)`,
-                border: `1px solid ${rc.border}`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '11px', fontWeight: 700, color: rc.text,
-              }}>
-                {initials}
-              </div>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user?.name || 'User'}
-                </div>
-                <div style={{
-                  display: 'inline-flex', alignItems: 'center',
-                  padding: '1px 6px', borderRadius: '99px', marginTop: '2px',
-                  background: rc.bg, color: rc.text,
-                  border: `1px solid ${rc.border}`,
-                  fontSize: '9px', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase',
-                }}>
-                  {user?.role}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Collapsed Avatar */}
-        {collapsed && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)', flexShrink: 0 }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '8px',
-              background: `rgba(37,99,235,0.15)`,
-              border: `1px solid rgba(37,99,235,0.3)`,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: 700, color: '#60a5fa',
-            }}>
-              {initials}
-            </div>
-          </div>
-        )}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          style={{
+            position: 'absolute', right: '-14px', top: '24px',
+            width: '28px', height: '28px',
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#64748B',
+            zIndex: 60,
+            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#7C3AED'; e.currentTarget.style.borderColor = '#7C3AED'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+          className="hidden md:flex"
+        >
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 8px' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 12px' }}>
           {navGroups.map((group) => {
-            const visibleItems = group.items.filter(item => item.roles.includes(user?.role));
+            const visibleItems = group.items.filter(item => item.roles.includes(user?.role) || !user?.role);
             if (visibleItems.length === 0) return null;
             return (
-              <div key={group.label} style={{ marginBottom: '4px' }}>
-                {!collapsed && (
+              <div key={group.label || 'top'} style={{ marginBottom: '16px' }}>
+                {!collapsed && group.label && (
                   <div style={{
-                    fontSize: '9px', fontWeight: 700, letterSpacing: '0.1em',
-                    textTransform: 'uppercase', color: '#2d3748',
-                    padding: '8px 10px 4px',
+                    fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em',
+                    textTransform: 'uppercase', color: '#94A3B8',
+                    padding: '0 12px 8px',
                   }}>
                     {group.label}
                   </div>
                 )}
-                {collapsed && <div style={{ height: '8px' }} />}
+                {collapsed && group.label && <div style={{ height: '12px' }} />}
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -260,27 +161,45 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                       style={({ isActive }) => ({
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '10px',
-                        padding: collapsed ? '8px' : '8px 10px',
-                        borderRadius: '8px',
-                        fontSize: '13px',
+                        gap: '12px',
+                        padding: collapsed ? '10px' : '10px 14px',
+                        borderRadius: '10px',
+                        fontSize: '14px',
                         fontWeight: isActive ? 600 : 500,
-                        color: isActive ? '#60a5fa' : '#4a5568',
+                        color: isActive ? '#FF6B00' : '#475569',
                         textDecoration: 'none',
                         justifyContent: collapsed ? 'center' : 'flex-start',
-                        background: isActive ? 'rgba(37,99,235,0.1)' : 'transparent',
-                        borderLeft: isActive ? '3px solid #2563eb' : '3px solid transparent',
-                        marginBottom: '2px',
-                        transition: 'all 0.15s ease',
+                        background: isActive ? '#FFF4ED' : 'transparent',
+                        marginBottom: '4px',
+                        transition: 'all 0.2s ease',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
+                        position: 'relative'
                       })}
+                      onMouseEnter={e => {
+                        if (!e.currentTarget.style.background.includes('FFF4ED')) {
+                          e.currentTarget.style.color = '#7C3AED';
+                          e.currentTarget.style.background = '#F8FAFC';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!e.currentTarget.style.background.includes('FFF4ED')) {
+                          e.currentTarget.style.color = '#475569';
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
                     >
                       {({ isActive }) => (
                         <>
-                          <Icon size={16} style={{ flexShrink: 0 }} />
+                          {isActive && !collapsed && (
+                            <div style={{
+                              position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
+                              background: '#FF6B00', borderRadius: '0 4px 4px 0'
+                            }} />
+                          )}
+                          <Icon size={18} style={{ flexShrink: 0 }} />
                           {!collapsed && (
-                            <span style={{ fontSize: '13px' }}>{item.name}</span>
+                            <span style={{ flex: 1 }}>{item.name}</span>
                           )}
                         </>
                       )}
@@ -292,35 +211,30 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           })}
         </nav>
 
-        {/* Footer */}
         <div style={{
-          padding: '8px',
-          borderTop: '1px solid rgba(255,255,255,0.05)',
+          padding: '16px 12px',
+          borderTop: '1px solid #F1F5F9',
           flexShrink: 0,
         }}>
           <button
             onClick={handleLogout}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              gap: '10px',
-              width: '100%',
-              padding: collapsed ? '8px' : '8px 10px',
+              display: 'flex', alignItems: 'center', gap: '12px',
+              width: '100%', padding: collapsed ? '10px' : '10px 14px',
               background: 'transparent',
               border: 'none',
-              borderRadius: '8px',
-              color: '#374151',
-              fontSize: '13px',
-              fontWeight: 500,
+              color: '#EF4444',
               cursor: 'pointer',
-              transition: 'all 0.15s',
+              justifyContent: collapsed ? 'center' : 'flex-start',
+              borderRadius: '10px',
+              fontSize: '14px', fontWeight: 600,
+              transition: 'all 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
-            onMouseLeave={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <LogOut size={16} style={{ flexShrink: 0 }} />
-            {!collapsed && <span>Sign Out</span>}
+            <LogOut size={18} style={{ flexShrink: 0 }} />
+            {!collapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>

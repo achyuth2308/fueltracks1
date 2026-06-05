@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const UserModel = require('../models/userModel');
 const env = require('../config/env');
+const AuditService = require('../services/auditService');
 
 const AuthController = {
   /**
@@ -37,6 +38,25 @@ const AuthController = {
       // Check password
       const isMatch = await bcrypt.compare(password, user.password);
       if (!isMatch) {
+        // Audit: login failed
+        try {
+          await AuditService.log({
+            auditType: 'login',
+            entityType: 'User',
+            entityId: user.id,
+            entityName: user.name || user.email,
+            action: 'LOGIN_FAILED',
+            newData: { email: user.email, reason: 'Invalid password' },
+            performedById: user.id,
+            performedByName: user.name,
+            performedByEmail: user.email,
+            performedByRole: user.role,
+            orgId: user.org_id,
+            orgName: user.org_name,
+            ipAddress: AuditService.getIp(req),
+            userAgent: AuditService.getUserAgent(req),
+          });
+        } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
         return res.status(401).json({
           success: false,
           error: 'Invalid email or password.',
@@ -58,6 +78,26 @@ const AuthController = {
 
       // Update last login
       await UserModel.updateLastLogin(user.id);
+
+      // Audit: login success
+      try {
+        await AuditService.log({
+          auditType: 'login',
+          entityType: 'User',
+          entityId: user.id,
+          entityName: user.name || user.email,
+          action: 'LOGIN_SUCCESS',
+          newData: { email: user.email, role: user.role },
+          performedById: user.id,
+          performedByName: user.name,
+          performedByEmail: user.email,
+          performedByRole: user.role,
+          orgId: user.org_id,
+          orgName: user.org_name,
+          ipAddress: AuditService.getIp(req),
+          userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
 
       res.status(200).json({
         success: true,
@@ -86,8 +126,21 @@ const AuthController = {
    */
   async logout(req, res, next) {
     try {
-      // In a fully stateless app, the client simply discards the token.
-      // We return success to indicate the server acknowledges logout.
+      // Audit: logout
+      try {
+        await AuditService.log({
+          auditType: 'login',
+          entityType: 'User',
+          entityId: req.user?.userId,
+          action: 'LOGOUT',
+          performedById: req.user?.userId,
+          performedByRole: req.user?.role,
+          orgId: req.user?.orgId,
+          ipAddress: AuditService.getIp(req),
+          userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+
       res.status(200).json({
         success: true,
         message: 'Logout successful'

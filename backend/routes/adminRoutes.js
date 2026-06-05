@@ -4,6 +4,7 @@
 
 const express = require('express');
 const AdminController = require('../controllers/adminController');
+const OnboardController = require('../controllers/OnboardController');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
 
@@ -41,5 +42,17 @@ router.delete('/groups/:id', authorize('superadmin', 'dealer'), AdminController.
 // STATS SUMMARY (Dashboard counts)
 // ============================================================
 router.get('/dashboard/stats', AdminController.getDashboardStats);
+
+// ============================================================
+// ONBOARDING & DEVICES
+// ============================================================
+router.get('/devices', authorize('superadmin', 'dealer'), AdminController.getDevices);
+router.delete('/devices/:id', authorize('superadmin', 'dealer'), AdminController.deleteDevice);
+router.post('/onboard/devices', authorize('superadmin', 'dealer'), OnboardController.onboardDevices);
+
+// ============================================================
+// BILLING
+// ============================================================
+router.get('/billing/expired', authorize('superadmin', 'dealer'), AdminController.getExpiredBillingLicenses);
 
 module.exports = router;

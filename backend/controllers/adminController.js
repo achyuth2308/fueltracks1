@@ -7,7 +7,10 @@ const bcrypt = require('bcryptjs');
 const OrgModel = require('../models/orgModel');
 const UserModel = require('../models/userModel');
 const GroupModel = require('../models/groupModel');
+const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
+const db = require('../config/db');
+const AuditService = require('../services/auditService');
 
 const AdminController = {
   // ============================================================
@@ -61,7 +64,7 @@ const AdminController = {
 
   async createOrg(req, res, next) {
     try {
-      const { name, type, parentId, address, phone } = req.body;
+      const { name, type, parentId, address, phone, contactPerson, email } = req.body;
 
       if (!name || !type) {
         return res.status(400).json({
@@ -90,7 +93,9 @@ const AdminController = {
         type,
         parentId: parentOrgId,
         address,
-        phone
+        phone,
+        contactPerson,
+        email
       });
 
       res.status(201).json({
@@ -98,6 +103,17 @@ const AdminController = {
         data: newOrg,
         message: 'Organization created successfully.'
       });
+      // Audit: organization created
+      try {
+        await AuditService.log({
+          auditType: 'organization', entityType: 'Organization',
+          entityId: newOrg.id, entityName: newOrg.name, action: 'CREATED',
+          newData: { name: newOrg.name, type: newOrg.type, email: newOrg.email },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: newOrg.id, orgName: newOrg.name,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -106,12 +122,21 @@ const AdminController = {
   async updateOrg(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, address, phone, isActive } = req.body;
+      const { name, type, address, phone, isActive, contactPerson, email } = req.body;
+
+      // Fetch old org
+      const oldOrg = await OrgModel.findById(id);
+      if (!oldOrg) {
+        return res.status(404).json({
+          success: false,
+          error: 'Organization not found.',
+          code: 'ORG_NOT_FOUND'
+        });
+      }
 
       if (req.user.role !== 'superadmin' && id !== req.user.orgId) {
         // Dealers can only update their child orgs
-        const org = await OrgModel.findById(id);
-        if (!org || org.parent_id !== req.user.orgId) {
+        if (oldOrg.parent_id !== req.user.orgId) {
           return res.status(403).json({
             success: false,
             error: 'Access denied to update organization.',
@@ -120,20 +145,46 @@ const AdminController = {
         }
       }
 
-      const updated = await OrgModel.update(id, { name, type, address, phone, isActive });
-      if (!updated) {
-        return res.status(404).json({
-          success: false,
-          error: 'Organization not found.',
-          code: 'ORG_NOT_FOUND'
-        });
-      }
+      const oldData = {
+        name: oldOrg.name,
+        type: oldOrg.type,
+        address: oldOrg.address,
+        phone: oldOrg.phone,
+        isActive: oldOrg.is_active,
+        contactPerson: oldOrg.contact_person,
+        email: oldOrg.email
+      };
+
+      const updated = await OrgModel.update(id, { name, type, address, phone, isActive, contactPerson, email });
 
       res.status(200).json({
         success: true,
         data: updated,
         message: 'Organization updated successfully.'
       });
+
+      const newData = {
+        name: updated.name !== undefined ? updated.name : name,
+        type: updated.type !== undefined ? updated.type : type,
+        address: updated.address !== undefined ? updated.address : address,
+        phone: updated.phone !== undefined ? updated.phone : phone,
+        isActive: updated.is_active !== undefined ? updated.is_active : isActive,
+        contactPerson: updated.contact_person !== undefined ? updated.contact_person : contactPerson,
+        email: updated.email !== undefined ? updated.email : email
+      };
+
+      // Audit: organization updated
+      try {
+        await AuditService.log({
+          auditType: 'organization', entityType: 'Organization',
+          entityId: id, entityName: updated.name, action: 'UPDATED',
+          oldData,
+          newData,
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: id, orgName: updated.name,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -167,6 +218,16 @@ const AdminController = {
         success: true,
         message: 'Organization deactivated successfully.'
       });
+      // Audit: organization deleted
+      try {
+        await AuditService.log({
+          auditType: 'organization', entityType: 'Organization',
+          entityId: id, action: 'DELETED',
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: id,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -254,6 +315,17 @@ const AdminController = {
         data: newUser,
         message: 'User created successfully.'
       });
+      // Audit: user created
+      try {
+        await AuditService.log({
+          auditType: 'user', entityType: 'User',
+          entityId: newUser.id, entityName: newUser.name || newUser.email, action: 'CREATED',
+          newData: { email: newUser.email, role: newUser.role, name: newUser.name },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: targetOrgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -262,7 +334,7 @@ const AdminController = {
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
-      const { email, role, name, phone, isActive, groupIds } = req.body;
+      const { email, role, name, phone, isActive, orgId, groupIds } = req.body;
 
       // Ownership check for dealers editing other users
       if (req.user.role !== 'superadmin') {
@@ -283,14 +355,29 @@ const AdminController = {
         }
       }
 
-      const updated = await UserModel.update(id, { email, role, name, phone, isActive });
-      if (!updated) {
+      // Fetch old data for audit
+      const oldUser = await UserModel.findById(id);
+      if (!oldUser) {
         return res.status(404).json({
           success: false,
           error: 'User not found.',
           code: 'USER_NOT_FOUND'
         });
       }
+      const oldGroups = await GroupModel.getUserGroups(id);
+      const oldGroupIds = oldGroups.map(g => g.id);
+      const oldGroupNames = await GroupModel.getNamesByIds(oldGroupIds);
+
+      const oldData = {
+        email: oldUser.email,
+        role: oldUser.role,
+        name: oldUser.name,
+        phone: oldUser.phone,
+        isActive: oldUser.is_active,
+        groupNames: oldGroupNames
+      };
+
+      const updated = await UserModel.update(id, { email, role, name, phone, isActive, orgId });
 
       // Update user group assignments
       if (groupIds && Array.isArray(groupIds)) {
@@ -311,6 +398,31 @@ const AdminController = {
         data: updated,
         message: 'User updated successfully.'
       });
+
+      const finalGroupIds = groupIds !== undefined ? groupIds : oldGroupIds;
+      const finalGroupNames = await GroupModel.getNamesByIds(finalGroupIds);
+
+      const newData = {
+        email: updated.email !== undefined ? updated.email : email,
+        role: updated.role !== undefined ? updated.role : role,
+        name: updated.name !== undefined ? updated.name : name,
+        phone: updated.phone !== undefined ? updated.phone : phone,
+        isActive: updated.is_active !== undefined ? updated.is_active : isActive,
+        groupNames: finalGroupNames
+      };
+
+      // Audit: user updated
+      try {
+        await AuditService.log({
+          auditType: 'user', entityType: 'User',
+          entityId: id, entityName: updated.name || updated.email, action: 'UPDATED',
+          oldData,
+          newData,
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -344,6 +456,16 @@ const AdminController = {
         success: true,
         message: 'User deactivated successfully.'
       });
+      // Audit: user deleted
+      try {
+        await AuditService.log({
+          auditType: 'user', entityType: 'User',
+          entityId: id, action: 'DELETED',
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -366,7 +488,7 @@ const AdminController = {
 
   async createGroup(req, res, next) {
     try {
-      const { name, description, orgId } = req.body;
+      const { name, description, orgId, vehicleIds } = req.body;
 
       if (!name) {
         return res.status(400).json({
@@ -387,11 +509,26 @@ const AdminController = {
         description
       });
 
+      if (vehicleIds && Array.isArray(vehicleIds)) {
+        await GroupModel.assignVehiclesToGroup(newGroup.id, vehicleIds);
+      }
+
       res.status(201).json({
         success: true,
         data: newGroup,
         message: 'Group created successfully.'
       });
+      // Audit: group created
+      try {
+        await AuditService.log({
+          auditType: 'group', entityType: 'Group',
+          entityId: newGroup.id, entityName: newGroup.name, action: 'CREATED',
+          newData: { name: newGroup.name, description: newGroup.description },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: targetOrgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -400,7 +537,7 @@ const AdminController = {
   async updateGroup(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, description, isActive } = req.body;
+      const { name, description, isActive, orgId, vehicleIds } = req.body;
 
       if (req.user.role !== 'superadmin') {
         const belongs = await GroupModel.belongsToOrg(id, req.user.orgId);
@@ -413,13 +550,29 @@ const AdminController = {
         }
       }
 
-      const updated = await GroupModel.update(id, { name, description, isActive });
-      if (!updated) {
+      // Fetch old data for audit
+      const oldGroup = await GroupModel.findById(id);
+      if (!oldGroup) {
         return res.status(404).json({
           success: false,
           error: 'Group not found.',
           code: 'GROUP_NOT_FOUND'
         });
+      }
+      const oldVehicleIds = await GroupModel.getAssignedVehicleIds(id);
+      const oldVehicleNames = await VehicleModel.getNamesByIds(oldVehicleIds);
+
+      const oldData = {
+        name: oldGroup.name,
+        description: oldGroup.description,
+        isActive: oldGroup.is_active,
+        vehicleNames: oldVehicleNames
+      };
+
+      const updated = await GroupModel.update(id, { name, description, isActive, orgId });
+
+      if (vehicleIds && Array.isArray(vehicleIds)) {
+        await GroupModel.assignVehiclesToGroup(id, vehicleIds);
       }
 
       res.status(200).json({
@@ -427,6 +580,29 @@ const AdminController = {
         data: updated,
         message: 'Group updated successfully.'
       });
+
+      const finalVehicleIds = vehicleIds !== undefined ? vehicleIds : oldVehicleIds;
+      const finalVehicleNames = await VehicleModel.getNamesByIds(finalVehicleIds);
+
+      const newData = {
+        name: updated.name !== undefined ? updated.name : name,
+        description: updated.description !== undefined ? updated.description : description,
+        isActive: updated.is_active !== undefined ? updated.is_active : isActive,
+        vehicleNames: finalVehicleNames
+      };
+
+      // Audit: group updated
+      try {
+        await AuditService.log({
+          auditType: 'group', entityType: 'Group',
+          entityId: id, entityName: updated.name, action: 'UPDATED',
+          oldData,
+          newData,
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -460,6 +636,16 @@ const AdminController = {
         success: true,
         message: 'Group deleted successfully.'
       });
+      // Audit: group deleted
+      try {
+        await AuditService.log({
+          auditType: 'group', entityType: 'Group',
+          entityId: id, action: 'DELETED',
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -477,6 +663,133 @@ const AdminController = {
       });
     } catch (err) {
       next(err);
+    }
+  },
+
+  async getDevices(req, res) {
+    try {
+      let query = `
+        SELECT d.*, o.name as org_name
+        FROM devices d
+        LEFT JOIN organizations o ON d.org_id = o.id
+      `;
+      let params = [];
+
+      if (req.user.role !== 'superadmin') {
+        query += ` WHERE d.org_id = $1`;
+        params.push(req.user.orgId);
+      }
+
+      query += ` ORDER BY d.created_at DESC`;
+
+      const result = await db.query(query, params);
+      res.json({ success: true, data: result.rows });
+    } catch (err) {
+      console.error('Error fetching devices:', err);
+      res.status(500).json({ success: false, error: 'Failed to fetch devices' });
+    }
+  },
+
+  async deleteDevice(req, res) {
+    try {
+      const { id } = req.params;
+
+      if (req.user.role !== 'superadmin') {
+        const deviceRes = await db.query('SELECT org_id FROM devices WHERE id = $1', [id]);
+        if (deviceRes.rows.length === 0) {
+          return res.status(404).json({ success: false, error: 'Device not found.' });
+        }
+        if (deviceRes.rows[0].org_id !== req.user.orgId) {
+          return res.status(403).json({ success: false, error: 'Access denied.' });
+        }
+      }
+
+      const result = await db.query('DELETE FROM devices WHERE id = $1 RETURNING id', [id]);
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Device not found.' });
+      }
+
+      res.status(200).json({ success: true, message: 'Device deleted successfully.' });
+      // Audit: device deleted
+      try {
+        await AuditService.log({
+          auditType: 'device', entityType: 'Device',
+          entityId: id, action: 'DELETED',
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+    } catch (err) {
+      console.error('Error deleting device:', err);
+      res.status(500).json({ success: false, error: 'Failed to delete device' });
+    }
+  },
+
+  // ============================================================
+  // BILLING
+  // ============================================================
+  async getExpiredBillingLicenses(req, res, next) {
+    try {
+      let whereClause = `v.is_active = TRUE AND v.licence_expire_date <= CURRENT_DATE`;
+      const params = [];
+
+      if (req.user.role !== 'superadmin') {
+        params.push(req.user.orgId);
+        whereClause += ` AND (v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
+      }
+
+      const query = `
+        SELECT 
+          v.id AS db_vehicle_id, 
+          v.metadata->>'vehicleId' AS vehicle_id,
+          v.name AS vehicle_name, 
+          v.imei AS device_id, 
+          v.model AS device_model, 
+          v.gps_sim_no, 
+          v.licence_issued_date, 
+          v.licence_expire_date, 
+          d.licence_id, 
+          o.name AS org_name, 
+          p.name AS dealer_name
+        FROM vehicles v
+        JOIN organizations o ON v.org_id = o.id
+        LEFT JOIN organizations p ON o.parent_id = p.id
+        LEFT JOIN devices d ON v.imei = d.device_id
+        WHERE ${whereClause}
+        ORDER BY v.licence_expire_date ASC
+      `;
+
+      const result = await db.query(query, params);
+
+      const data = result.rows.map(row => {
+        let licenceType = 'Unknown';
+        if (row.licence_id) {
+          if (row.licence_id.startsWith('ST')) licenceType = 'Starter';
+          else if (row.licence_id.startsWith('BC')) licenceType = 'Basic';
+          else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
+        }
+        
+        return {
+          licenceId: row.licence_id || '-',
+          vehicleId: row.vehicle_id || '-',
+          vehicleName: row.vehicle_name,
+          licenceType: licenceType,
+          deviceId: row.device_id,
+          organization: row.org_name,
+          deviceModel: row.device_model || '-',
+          dealerName: row.dealer_name || row.org_name,
+          gpsSimNo: row.gps_sim_no || '-',
+          licenceIssuedDate: row.licence_issued_date,
+          licenceExpiryDate: row.licence_expire_date,
+          status: 'Expired'
+        };
+      });
+
+      res.status(200).json({ success: true, data });
+    } catch (err) {
+      console.error('Error fetching expired licenses:', err);
+      res.status(500).json({ success: false, error: 'Failed to fetch billing data' });
     }
   }
 };

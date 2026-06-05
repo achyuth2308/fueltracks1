@@ -45,7 +45,8 @@ const UserModel = {
       // Super admin sees all users
       query = `SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
                       u.is_active, u.last_login, u.created_at,
-                      o.name as org_name
+                      o.name as org_name,
+                      (SELECT string_agg(g.name, ', ') FROM user_groups ug JOIN groups g ON ug.group_id = g.id WHERE ug.user_id = u.id) as group_names
                FROM users u
                JOIN organizations o ON u.org_id = o.id
                ORDER BY u.created_at DESC`;
@@ -54,7 +55,8 @@ const UserModel = {
       // Dealer sees users in their org and child orgs
       query = `SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
                       u.is_active, u.last_login, u.created_at,
-                      o.name as org_name
+                      o.name as org_name,
+                      (SELECT string_agg(g.name, ', ') FROM user_groups ug JOIN groups g ON ug.group_id = g.id WHERE ug.user_id = u.id) as group_names
                FROM users u
                JOIN organizations o ON u.org_id = o.id
                WHERE u.org_id = $1
@@ -83,7 +85,7 @@ const UserModel = {
   /**
    * Update user
    */
-  async update(userId, { email, role, name, phone, isActive }) {
+  async update(userId, { email, role, name, phone, isActive, orgId }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -93,6 +95,7 @@ const UserModel = {
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
     if (phone !== undefined) { fields.push(`phone = $${paramIndex++}`); values.push(phone); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
+    if (orgId !== undefined) { fields.push(`org_id = $${paramIndex++}`); values.push(orgId); }
 
     if (fields.length === 0) return null;
 
@@ -130,7 +133,7 @@ const UserModel = {
    */
   async delete(userId) {
     const result = await db.query(
-      `UPDATE users SET is_active = FALSE WHERE id = $1 RETURNING id`,
+      `DELETE FROM users WHERE id = $1 RETURNING id`,
       [userId]
     );
     return result.rows[0] || null;

@@ -10,28 +10,28 @@ const DashboardLayout = ({ vehicles = [] }) => {
 
   if (loading) {
     return (
-      <div className="loading-screen">
+      <div className="loading-screen" style={{ background: '#f8fafc' }}>
         <div style={{ position: 'relative', width: '48px', height: '48px' }}>
           <div style={{
             position: 'absolute', inset: 0,
-            border: '2px solid rgba(37,99,235,0.12)',
-            borderTopColor: '#2563eb',
+            border: '2px solid rgba(249,115,22,0.12)',
+            borderTopColor: '#ea580c',
             borderRadius: '50%',
             animation: 'spin 0.75s linear infinite',
           }} />
           <div style={{
             position: 'absolute', inset: '8px',
-            border: '2px solid rgba(37,99,235,0.08)',
-            borderTopColor: 'rgba(37,99,235,0.4)',
+            border: '2px solid rgba(249,115,22,0.08)',
+            borderTopColor: 'rgba(249,115,22,0.4)',
             borderRadius: '50%',
             animation: 'spin 1.2s linear infinite reverse',
           }} />
         </div>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '13px', fontWeight: 600, color: '#7c8db0', letterSpacing: '0.02em' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563', letterSpacing: '0.02em' }}>
             Loading FuelTracks
           </div>
-          <div style={{ fontSize: '10px', color: '#2d3748', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Restoring session...
           </div>
         </div>
@@ -46,21 +46,23 @@ const DashboardLayout = ({ vehicles = [] }) => {
   return (
     <div style={{
       display: 'flex',
+      flexDirection: 'column',
       height: '100vh',
-      background: '#0a0f1e',
+      background: '#f8fafc',
       overflow: 'hidden',
     }}>
-      <Sidebar
-        isOpen={mobileSidebarOpen}
-        toggleMobileSidebar={setMobileSidebarOpen}
+      <Topbar
+        onMenuClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        vehicles={vehicles}
       />
 
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
-        <Topbar
-          onMenuClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-          vehicles={vehicles}
+      <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <Sidebar
+          isOpen={mobileSidebarOpen}
+          toggleMobileSidebar={setMobileSidebarOpen}
         />
-        <main style={{ flex: 1, overflowY: 'auto', background: '#0a0f1e', position: 'relative' }}>
+        
+        <main style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
           <Outlet />
         </main>
       </div>

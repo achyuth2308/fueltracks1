@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, ArrowRight, Loader2, AlertCircle, Zap } from 'lucide-react';
+import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye, ShieldCheck, Map, Activity, BarChart2, Server } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#60a5fa' },
-  { label: 'Dealer', email: 'dealer@abclogistics.com', color: '#34d399' },
-  { label: 'Customer', email: 'customer@abcfleet.com', color: '#a78bfa' },
+  { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#f97316' },
+  { label: 'Dealer', email: 'dealer@abclogistics.com', color: '#f97316' },
+  { label: 'Customer', email: 'customer@abcfleet.com', color: '#f97316' },
 ];
 
 const LoginPage = () => {
@@ -15,7 +15,7 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [focusedField, setFocusedField] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,194 +39,219 @@ const LoginPage = () => {
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'radial-gradient(ellipse 80% 60% at 20% 20%, rgba(37,99,235,0.07) 0%, transparent 55%), radial-gradient(ellipse 60% 50% at 80% 80%, rgba(99,102,241,0.05) 0%, transparent 55%), #0a0f1e',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px',
-      fontFamily: 'Inter, sans-serif',
-    }}>
-      {/* Grid background */}
-      <div style={{
-        position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none',
-        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.025) 1px, transparent 1px)',
-        backgroundSize: '28px 28px',
-      }} />
+    <div className="login-page min-h-screen flex items-start pt-[4vh] justify-center bg-gradient-to-br from-orange-50 via-white to-orange-100 font-sans px-6 pb-6 text-slate-800 relative overflow-hidden">
 
-      <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: '400px' }}>
-        {/* Logo */}
-        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-          <div style={{
-            width: '52px', height: '52px', margin: '0 auto 14px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            borderRadius: '14px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 32px rgba(37,99,235,0.4), 0 0 0 1px rgba(37,99,235,0.3)',
-          }}>
-            <Truck size={24} color="white" />
-          </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.03em', margin: 0 }}>
-            FuelTracks
-          </h1>
-          <p style={{ fontSize: '12px', color: '#4a5568', marginTop: '4px', fontWeight: 500, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-            Enterprise Fleet Intelligence
-          </p>
-        </div>
+      <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center z-10">
 
-        {/* Card */}
-        <div style={{
-          background: 'linear-gradient(160deg, #0f1729 0%, #0c1422 100%)',
-          border: '1px solid rgba(255,255,255,0.07)',
-          borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset',
-        }}>
-          <div style={{ marginBottom: '22px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#e2e8f0', margin: '0 0 4px', letterSpacing: '-0.02em' }}>
-              Sign in to your account
+        {/* Left Side */}
+        <div className="hidden lg:flex flex-col space-y-8">
+          <div>
+            {/* Logo + Title */}
+            <div className="flex items-center gap-3 mb-5">
+              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-2.5 rounded-xl shadow-lg">
+                <Map className="text-white" size={26} />
+              </div>
+              <h1
+                className="text-3xl font-black tracking-wide leading-none"
+                style={{
+                  background: 'linear-gradient(90deg, #FF6B00 0%, #FF8C42 30%,  #FF8C42 100%)',
+                  WebkitBackgroundClip: 'text',
+                  backgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  filter: 'drop-shadow(0 4px 12px rgba(255,107,0,0.15))'
+                }}
+              >FUELTRACKS</h1>
+            </div>
+
+            {/* Premium Badge */}
+            <div className="inline-flex items-center gap-2 mb-6">
+              <span
+                className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full"
+                style={{
+                  background: 'linear-gradient(90deg, rgba(255,107,0,0.12), rgba(124,77,255,0.12))',
+                  border: '1px solid rgba(168,85,247,0.3)',
+                  color: '#7C3AED',
+                  backdropFilter: 'blur(8px)'
+                }}
+              >
+                🟠 Live GPS &nbsp;•&nbsp; Telematics &nbsp;•&nbsp; Fleet Operations
+              </span>
+            </div>
+
+            <h2
+              className="text-lg font-bold mb-4 leading-snug"
+              style={{ color: '#1F2937', letterSpacing: '0.01em' }}
+            >
+              Real-Time Fleet Tracking &amp;<br />Telematics Platform
             </h2>
-            <p style={{ fontSize: '12px', color: '#4a5568' }}>
-              Access your fleet management dashboard
+            <p
+              className="max-w-md leading-relaxed"
+              style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.75' }}
+            >
+              Monitor your fleet in real-time, optimize operations, improve efficiency and drive your business forward.
             </p>
           </div>
 
-          {/* Error */}
-          {(error || authError) && (
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '10px 12px', marginBottom: '16px',
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.2)',
-              borderRadius: '8px',
-              animation: 'slide-in-up 0.2s ease',
-            }}>
-              <AlertCircle size={14} color="#f87171" style={{ flexShrink: 0 }} />
-              <span style={{ fontSize: '12px', color: '#f87171', fontWeight: 500 }}>
-                {error || authError}
-              </span>
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {/* Email */}
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: '#4a5568', marginBottom: '6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                Email
-              </label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                onFocus={() => setFocusedField('email')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="name@company.com"
-                style={{
-                  width: '100%', padding: '10px 12px',
-                  background: 'rgba(0,0,0,0.4)',
-                  border: `1px solid ${focusedField === 'email' ? '#2563eb' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius: '8px', color: '#e2e8f0', fontSize: '13px',
-                  fontFamily: 'Inter, sans-serif', outline: 'none',
-                  boxShadow: focusedField === 'email' ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
-                  transition: 'all 0.15s ease', boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', fontWeight: 600, color: '#4a5568', marginBottom: '6px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                <span>Password</span>
-                <span style={{ color: '#2563eb', cursor: 'pointer', textTransform: 'none', letterSpacing: 'normal', fontWeight: 500 }}>Forgot?</span>
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                onFocus={() => setFocusedField('password')}
-                onBlur={() => setFocusedField(null)}
-                placeholder="••••••••"
-                style={{
-                  width: '100%', padding: '10px 12px',
-                  background: 'rgba(0,0,0,0.4)',
-                  border: `1px solid ${focusedField === 'password' ? '#2563eb' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius: '8px', color: '#e2e8f0', fontSize: '13px',
-                  fontFamily: 'Inter, sans-serif', outline: 'none',
-                  boxShadow: focusedField === 'password' ? '0 0 0 3px rgba(37,99,235,0.12)' : 'none',
-                  transition: 'all 0.15s ease', boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={loading}
+          {/* Map Graphic Section */}
+          <div className="relative w-full mt-4 bg-transparent opacity-80">
+            {/* World Map — warm orange tint */}
+            <img
+              src="/world.svg"
+              alt="World Map"
+              className="w-full h-auto block"
               style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
-                width: '100%', padding: '11px',
-                background: loading ? 'rgba(37,99,235,0.4)' : 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                border: '1px solid rgba(37,99,235,0.4)',
-                borderRadius: '8px', color: 'white', fontSize: '13px', fontWeight: 600,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                boxShadow: loading ? 'none' : '0 4px 16px rgba(37,99,235,0.35)',
-                transition: 'all 0.2s ease', marginTop: '4px',
-                fontFamily: 'Inter, sans-serif',
+                opacity: 0.55,
+                filter: 'contrast(1.2) brightness(0.9) sepia(1) saturate(3) hue-rotate(10deg)'
               }}
-            >
-              {loading ? (
-                <><Loader2 size={15} style={{ animation: 'spin 0.75s linear infinite' }} /> Authenticating...</>
-              ) : (
-                <><span>Sign In</span><ArrowRight size={15} /></>
-              )}
-            </button>
-          </form>
+            />
+
+            {/* Overlay container */}
+            <div className="absolute inset-0">
+
+              {/* Static route lines connecting nodes */}
+              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
+                <path d="M 23 32 Q 35 10 50 22" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                <path d="M 50 22 Q 58 15 65 40" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                <path d="M 65 40 Q 75 55 80 72" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+              </svg>
+
+              {/* North America (USA) */}
+              <div className="absolute" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -50%)' }}>
+                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                </div>
+              </div>
+              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -170%)' }}>
+                <Truck size={10} />
+              </div>
+
+              {/* Europe */}
+              <div className="absolute" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -50%)' }}>
+                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                </div>
+              </div>
+              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -170%)' }}>
+                <Truck size={10} />
+              </div>
+
+              {/* India */}
+              <div className="absolute" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -50%)' }}>
+                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                </div>
+              </div>
+              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -170%)' }}>
+                <Truck size={10} />
+              </div>
+
+              {/* Australia */}
+              <div className="absolute" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -50%)' }}>
+                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                </div>
+              </div>
+              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -170%)' }}>
+                <Truck size={10} />
+              </div>
+            </div>
+          </div>
+
+
+
         </div>
 
-        {/* Demo accounts */}
-        <div style={{
-          marginTop: '16px',
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.05)',
-          borderRadius: '12px',
-          padding: '14px 16px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-            <Zap size={11} color="#4a5568" />
-            <span style={{ fontSize: '10px', fontWeight: 700, color: '#2d3748', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              Quick Demo Access
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {DEMO_ACCOUNTS.map(acc => (
-              <button
-                key={acc.email}
-                onClick={() => fillDemo(acc)}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '7px 10px', borderRadius: '6px',
-                  background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.04)',
-                  cursor: 'pointer', transition: 'all 0.15s',
-                  fontFamily: 'Inter, sans-serif',
-                  width: '100%',
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)'; }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: acc.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: acc.color }}>{acc.label}</span>
-                  <span style={{ fontSize: '11px', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{acc.email}</span>
+        {/* Right Side - Login Form */}
+        <div className="w-full max-w-md mx-auto mt-[5%] lg:ml-auto lg:mr-0">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_20px_50px_rgba(249,115,22,0.18)] border-2 border-orange-300">
+
+            <div className="flex flex-col items-center mb-8 text-center">
+
+              <h2 className="text-3xl text-gray-900 font-extrabold mb-2">Welcome Back!</h2>
+              <p className="text-slate-900 text-sm">Sign in to access your fleet operations dashboard</p>
+            </div>
+
+            {(error || authError) && (
+              <div className="flex items-center gap-2 p-3 mb-6 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+                <AlertCircle size={16} />
+                <span>{error || authError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">Username / Email</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-800">
+                    <User size={18} />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your username or email"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
+                  />
                 </div>
-                <span style={{ fontSize: '10px', color: '#2d3748', fontFamily: 'JetBrains Mono, monospace' }}>password123</span>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-slate-900 mb-2">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-800">
+                    <Lock size={18} />
+                  </div>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Enter your password"
+                    className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-800 hover:text-slate-900"
+                  >
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500 accent-orange-500" />
+                  <span className="text-sm font-medium text-slate-900">Remember Me</span>
+                </label>
+                <a href="#" className="text-sm font-semibold text-orange-500 hover:text-orange-600">Forgot Password?</a>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 py-3.5 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed hover:opacity-90"
+                style={{
+                  background: 'linear-gradient(90deg, #FF6B00 0%, #f97316 40%, #a855f7 80%, #7C3AED 100%)',
+                  boxShadow: '0 4px 14px rgba(249,115,22,0.35), 0 4px 14px rgba(124,77,255,0.2)'
+                }}
+              >
+                {loading ? <Loader2 size={18} className="animate-spin" /> : <><ArrowRight size={18} /> LOGIN</>}
               </button>
-            ))}
+            </form>
+
+            <div className="mt-8 bg-orange-50/60 border border-orange-100 rounded-xl p-4 flex items-center justify-center gap-3">
+              <div className="text-orange-500 bg-white p-2 rounded-lg shadow-sm border border-orange-100">
+                <Users size={20} />
+              </div>
+              <p className="text-sm text-slate-700 font-medium">
+                Access is automatically determined based on your account permissions.
+              </p>
+            </div>
+
           </div>
+
         </div>
       </div>
     </div>
