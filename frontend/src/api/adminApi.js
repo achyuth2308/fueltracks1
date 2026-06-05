@@ -2,7 +2,7 @@ import axiosInstance from './axios';
 
 // Organizations
 export const getOrgs = async () => {
-  const response = await axiosInstance.get('/api/admin/orgs');
+  const response = await axiosInstance.get(`/api/admin/orgs?t=${Date.now()}`);
   return response.data;
 };
 
@@ -16,6 +16,8 @@ export const createOrg = async (data) => {
   return response.data;
 };
 
+export const getExpiredLicenses = () => axiosInstance.get('/api/admin/billing/expired').then(r => r.data);
+
 export const updateOrg = async (id, data) => {
   const response = await axiosInstance.put(`/api/admin/orgs/${id}`, data);
   return response.data;
@@ -28,7 +30,7 @@ export const deleteOrg = async (id) => {
 
 // Users
 export const getUsers = async () => {
-  const response = await axiosInstance.get('/api/admin/users');
+  const response = await axiosInstance.get(`/api/admin/users?t=${Date.now()}`);
   return response.data;
 };
 
@@ -49,7 +51,7 @@ export const deleteUser = async (id) => {
 
 // Groups
 export const getGroups = async () => {
-  const response = await axiosInstance.get('/api/admin/groups');
+  const response = await axiosInstance.get(`/api/admin/groups?t=${Date.now()}`);
   return response.data;
 };
 
@@ -70,6 +72,23 @@ export const deleteGroup = async (id) => {
 
 // Stats
 export const getDashboardStats = async () => {
-  const response = await axiosInstance.get('/api/admin/dashboard/stats');
+  const response = await axiosInstance.get(`/api/admin/dashboard/stats?t=${Date.now()}`);
+  return response.data;
+};
+
+// Audit Logs
+export const getAuditLogs = async (params = {}) => {
+  const query = new URLSearchParams({ ...params, t: Date.now() }).toString();
+  const response = await axiosInstance.get(`/api/audit?${query}`);
+  return response.data;
+};
+
+export const getAuditLogById = async (id) => {
+  const response = await axiosInstance.get(`/api/audit/${id}`);
+  return response.data;
+};
+
+export const getAuditStats = async () => {
+  const response = await axiosInstance.get(`/api/audit/stats?t=${Date.now()}`);
   return response.data;
 };

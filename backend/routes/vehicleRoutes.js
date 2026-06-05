@@ -18,6 +18,7 @@ router.get('/:id', VehicleController.getVehicleById);
 router.post('/', authorize('superadmin', 'dealer'), VehicleController.createVehicle);
 router.put('/:id', authorize('superadmin', 'dealer'), VehicleController.updateVehicle);
 router.delete('/:id', authorize('superadmin'), VehicleController.deleteVehicle);
+router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController.migrateVehicle);
 
 // Analytics, History & Live Route
 router.get('/:id/history', VehicleController.getVehicleHistory);

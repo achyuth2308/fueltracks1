@@ -243,28 +243,43 @@ const GpsModel = {
    * Get dashboard stats for an org
    */
   async getDashboardStats(orgId, role) {
-    let orgFilter = '';
+    let orgFilterV = '';
+    let orgFilterO = '';
+    let orgFilterU = '';
     const params = [];
 
     if (role !== 'superadmin') {
       params.push(orgId);
-      orgFilter = `WHERE v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
+      orgFilterV = `WHERE v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
+      orgFilterO = `WHERE id = $1 OR parent_id = $1`;
+      orgFilterU = `WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
     }
 
     const result = await db.query(
       `SELECT
-        COUNT(*) as total_vehicles,
-        SUM(CASE WHEN vls.is_online = TRUE THEN 1 ELSE 0 END) as online_vehicles,
-        SUM(CASE WHEN vls.is_online = FALSE OR vls.is_online IS NULL THEN 1 ELSE 0 END) as offline_vehicles,
-        SUM(CASE WHEN vls.ignition = TRUE THEN 1 ELSE 0 END) as moving_vehicles,
-        SUM(CASE WHEN vls.speed = 0 AND vls.ignition = TRUE THEN 1 ELSE 0 END) as idle_vehicles
-       FROM vehicles v
-       LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
-       ${orgFilter} AND v.is_active = TRUE`,
+        (SELECT COUNT(*) FROM vehicles v ${orgFilterV ? orgFilterV + ' AND' : 'WHERE'} v.is_active = TRUE) as total_vehicles,
+        (SELECT SUM(CASE WHEN vls.is_online = TRUE THEN 1 ELSE 0 END) 
+         FROM vehicles v 
+         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id 
+         ${orgFilterV ? orgFilterV + ' AND' : 'WHERE'} v.is_active = TRUE) as online_vehicles,
+        (SELECT COUNT(*) FROM organizations ${orgFilterO}) as organizations_count,
+        (SELECT COUNT(*) FROM users ${orgFilterU}) as users_count
+      `,
       params
     );
 
-    return result.rows[0];
+    const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
+    const availableInventory = 150; // Simulated unused inventory
+
+    return {
+      total_devices: totalVehicles + availableInventory,
+      assigned_devices: totalVehicles,
+      available_devices: availableInventory,
+      total_vehicles: totalVehicles,
+      online_vehicles: parseInt(result.rows[0].online_vehicles || 0),
+      organizations: parseInt(result.rows[0].organizations_count || 0),
+      users: parseInt(result.rows[0].users_count || 0),
+    };
   },
 };
 

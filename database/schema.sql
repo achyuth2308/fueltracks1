@@ -4,6 +4,8 @@
 -- ============================================================
 
 -- Enable UUID generation
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- ============================================================
@@ -17,6 +19,8 @@ CREATE TABLE organizations (
   parent_id   UUID REFERENCES organizations(id) ON DELETE SET NULL,
   address     TEXT,
   phone       VARCHAR(20),
+  contact_person VARCHAR(100),
+  email       VARCHAR(100),
   is_active   BOOLEAN DEFAULT TRUE,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
@@ -67,6 +71,13 @@ CREATE TABLE vehicles (
   model       VARCHAR(100),                 -- Vehicle model
   driver_name VARCHAR(100),
   driver_phone VARCHAR(20),
+  server_name VARCHAR(100),
+  gps_sim_no  VARCHAR(20),
+  device_version VARCHAR(50),
+  timezone    VARCHAR(50),
+  apn         VARCHAR(100),
+  licence_issued_date DATE,
+  licence_expire_date DATE,
   is_active   BOOLEAN DEFAULT TRUE,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()

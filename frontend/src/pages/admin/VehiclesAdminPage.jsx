@@ -1,19 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye, Cpu, CheckCircle } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye, Server, MapPin, CheckCircle, ChevronRight, X, Building2, Users2, Activity } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
-import AddVehicleModal from '../../components/modals/AddVehicleModal';
 import { useAuth } from '../../hooks/useAuth';
 
 const StatusDot = ({ online }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
-      width: '7px', height: '7px', borderRadius: '50%',
-      background: online ? '#10b981' : '#374151',
-      boxShadow: online ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
+      width: '8px', height: '8px', borderRadius: '50%',
+      background: online ? '#10B981' : '#94A3B8',
+      boxShadow: online ? '0 0 6px rgba(16,185,129,0.4)' : 'none',
     }} />
-    <span style={{ fontSize: '10px', fontWeight: 600, color: online ? '#34d399' : '#374151' }}>
+    <span style={{ fontSize: '11px', fontWeight: 600, color: online ? '#10B981' : '#64748B' }}>
       {online ? 'Online' : 'Offline'}
     </span>
   </div>
@@ -26,15 +25,16 @@ const VehiclesAdminPage = () => {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+
+  // Details Panel State
+  const [viewingVehicle, setViewingVehicle] = useState(null);
 
   const fetchVehicles = async () => {
     setLoading(true);
     try {
-      const res = await vehicleApi.getVehicles();
+      const res = await vehicleApi.getVehicles({ t: Date.now() });
       if (res.success) setVehicles(res.data);
     } catch (err) {
       setError('Failed to load fleet registry.');
@@ -44,21 +44,21 @@ const VehiclesAdminPage = () => {
   useEffect(() => {
     fetchVehicles();
     if (user?.role === 'superadmin') {
-      adminApi.getOrgs().then(res => { if (res.success) setOrgs(res.data); }).catch(() => {});
+      adminApi.getOrgs().then(res => { if (res.success) setOrgs(res.data); }).catch(() => { });
     }
   }, [user]);
 
-  const handleSave = async (payload) => {
-    if (selectedVehicle) await vehicleApi.updateVehicle(selectedVehicle.id, payload);
-    else await vehicleApi.createVehicle(payload);
-    fetchVehicles();
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      const res = await vehicleApi.deleteVehicle(id);
-      if (res.success) { setDeleteConfirm(null); fetchVehicles(); }
-    } catch (err) { alert(err.response?.data?.error || 'Delete failed.'); }
+  const handleDelete = async (id, e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('Are you sure you want to remove this vehicle from the registry?')) {
+      try {
+        const res = await vehicleApi.deleteVehicle(id);
+        if (res.success) {
+          if (viewingVehicle?.id === id) setViewingVehicle(null);
+          fetchVehicles();
+        }
+      } catch (err) { alert(err.response?.data?.error || 'Delete failed.'); }
+    }
   };
 
   const filtered = vehicles.filter(v =>
@@ -68,187 +68,250 @@ const VehiclesAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '24px', background: '#0a0f1e', minHeight: 'calc(100vh - 56px)' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-            <Truck size={16} color="#2563eb" />
-            <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.03em' }}>Vehicle Registry</h1>
-          </div>
-          <p style={{ fontSize: '12px', color: '#374151' }}>Register IMEI-linked GPS devices and manage fleet assets</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Vehicle Assets</h1>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage fleet assets, telemetry mapping, and real-time tracking.</p>
         </div>
         <button
-          onClick={() => { setSelectedVehicle(null); setModalOpen(true); }}
+          onClick={() => navigate('/admin/vehicles/add')}
           style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            padding: '9px 16px',
-            background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-            border: '1px solid rgba(37,99,235,0.5)',
-            borderRadius: '8px', color: 'white', fontSize: '13px', fontWeight: 600,
-            cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            boxShadow: '0 4px 12px rgba(37,99,235,0.3)',
-            transition: 'all 0.2s ease',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: '#FF6B00', color: '#FFFFFF',
+            padding: '10px 20px', borderRadius: '10px',
+            fontSize: '14px', fontWeight: 600, border: 'none',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
+            transition: 'all 0.2s ease'
           }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,107,0,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,107,0,0.2)'; }}
         >
-          <Plus size={14} /> Register Vehicle
+          <Plus size={18} />
+          <span>Register Vehicle</span>
         </button>
       </div>
 
-      {/* Stats bar */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {[
-          { label: 'Total Vehicles', value: vehicles.length, color: '#7c8db0' },
-          { label: 'Online', value: vehicles.filter(v => v.is_online).length, color: '#10b981' },
-          { label: 'Offline', value: vehicles.filter(v => !v.is_online).length, color: '#374151' },
-        ].map(s => (
-          <div key={s.label} style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '8px 14px', borderRadius: '8px',
-            background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)',
-          }}>
-            <span style={{ fontSize: '20px', fontWeight: 800, color: s.color, fontFamily: 'JetBrains Mono, monospace' }}>{s.value}</span>
-            <span style={{ fontSize: '11px', color: '#2d3748', fontWeight: 500 }}>{s.label}</span>
-          </div>
-        ))}
-      </div>
+      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
 
-      {/* Search */}
-      <div style={{ position: 'relative', width: '280px', marginBottom: '14px' }}>
-        <Search size={13} color="#2d3748" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          placeholder="Search name, plate, IMEI..."
-          style={{
-            width: '100%', padding: '8px 10px 8px 30px',
-            background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.05)',
-            borderRadius: '7px', color: '#e2e8f0', fontSize: '12px',
-            fontFamily: 'Inter, sans-serif', outline: 'none', boxSizing: 'border-box',
-            transition: 'border-color 0.15s',
-          }}
-          onFocus={e => e.target.style.borderColor = 'rgba(37,99,235,0.5)'}
-          onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.05)'}
-        />
-      </div>
+        {/* Left Side: List */}
+        <div style={{
+          background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
+          flex: viewingVehicle ? '1' : '100%', transition: 'all 0.3s ease', overflow: 'hidden'
+        }}>
+          {/* Search Bar */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+              <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
+              <input
+                type="text"
+                placeholder="Search name, plate, IMEI..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 14px 10px 38px',
+                  borderRadius: '10px', border: '1px solid #CBD5E1',
+                  fontSize: '14px', outline: 'none', color: '#111827', boxSizing: 'border-box'
+                }}
+              />
+            </div>
 
-      {/* Table */}
-      <div style={{
-        background: 'linear-gradient(160deg, #0f1729 0%, #0c1422 100%)',
-        border: '1px solid rgba(255,255,255,0.05)',
-        borderRadius: '12px', overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-      }}>
-        {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '48px' }}>
-            <div style={{ width: '24px', height: '24px', border: '2px solid rgba(37,99,235,0.15)', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} />
-            <span style={{ fontSize: '12px', color: '#2d3748' }}>Loading registry...</span>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '13px', fontWeight: 600 }}>
+              <span style={{ color: '#64748B' }}>Total: <span style={{ color: '#111827' }}>{vehicles.length}</span></span>
+              <span style={{ color: '#64748B' }}>Online: <span style={{ color: '#10B981' }}>{vehicles.filter(v => v.is_online).length}</span></span>
+            </div>
           </div>
-        ) : error ? (
-          <div style={{ padding: '32px', textAlign: 'center' }}>
-            <AlertTriangle size={24} color="#ef4444" style={{ margin: '0 auto 8px', display: 'block' }} />
-            <p style={{ fontSize: '12px', color: '#f87171' }}>{error}</p>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  {['Vehicle', 'Plate', 'IMEI', 'Organization', 'Driver', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', fontSize: '10px', fontWeight: 700, color: '#2d3748', textAlign: 'left', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,0,0,0.2)', whiteSpace: 'nowrap' }}>
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#2d3748', fontSize: '12px', fontStyle: 'italic' }}>
-                      No vehicles found. Register a new one.
-                    </td>
+
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+              <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading fleet registry...</span>
+            </div>
+          ) : error ? (
+            <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
+              <AlertTriangle size={32} color="#EF4444" style={{ margin: '0 auto 12px' }} />
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Failed to Load Records</div>
+              <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
+              <table style={{ minWidth: '2400px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                    {['Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks', 'Action'].map(h => (
+                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  filtered.map(v => (
-                    <tr key={v.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', transition: 'background 0.15s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan="25" style={{ padding: '60px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No vehicles found.</td>
+                    </tr>
+                  ) : filtered.map((v) => (
+                    <tr
+                      key={v.id}
+                      onClick={() => setViewingVehicle(v)}
+                      style={{
+                        borderBottom: '1px solid #F1F5F9', cursor: 'pointer',
+                        background: viewingVehicle?.id === v.id ? '#FFF4ED' : 'transparent',
+                        transition: 'background 0.2s',
+                        whiteSpace: 'nowrap'
+                      }}
+                      onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#FFF7ED'; }}
+                      onMouseLeave={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>{v.name}</div>
-                        {v.make && <div style={{ fontSize: '10px', color: '#374151', marginTop: '1px' }}>{v.make} {v.model}</div>}
-                      </td>
-                      <td style={{ padding: '11px 14px', fontSize: '12px', fontWeight: 600, color: '#7c8db0', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.04em' }}>{v.plate || '—'}</td>
-                      <td style={{ padding: '11px 14px', fontSize: '11px', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.imei}</td>
-                      <td style={{ padding: '11px 14px', fontSize: '12px', color: '#7c8db0', fontWeight: 500 }}>{v.org_name || '—'}</td>
-                      <td style={{ padding: '11px 14px' }}>
-                        {v.driver_name ? (
-                          <div>
-                            <div style={{ fontSize: '12px', fontWeight: 600, color: '#e2e8f0' }}>{v.driver_name}</div>
-                            <div style={{ fontSize: '10px', color: '#374151', fontFamily: 'JetBrains Mono, monospace' }}>{v.driver_phone || '—'}</div>
-                          </div>
-                        ) : <span style={{ fontSize: '11px', color: '#2d3748', fontStyle: 'italic' }}>Unassigned</span>}
-                      </td>
-                      <td style={{ padding: '11px 14px' }}>
-                        <StatusDot online={v.is_online} />
-                      </td>
-                      <td style={{ padding: '11px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <button onClick={() => navigate(`/vehicles/${v.id}`)} title="Monitor"
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#60a5fa'; e.currentTarget.style.background = 'rgba(37,99,235,0.1)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = 'transparent'; }}>
-                            <Eye size={14} />
-                          </button>
-                          <button onClick={() => { setSelectedVehicle(v); setModalOpen(true); }} title="Edit"
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#fbbf24'; e.currentTarget.style.background = 'rgba(245,158,11,0.1)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = 'transparent'; }}>
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => setDeleteConfirm(v.id)} title="Delete"
-                            style={{ width: '28px', height: '28px', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151', transition: 'all 0.15s' }}
-                            onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.color = '#374151'; e.currentTarget.style.background = 'transparent'; }}>
-                            <Trash2 size={14} />
-                          </button>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.metadata?.vehicleId || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.name || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.plate || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.imei || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.server_name || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.last_seen ? new Date(v.last_seen).toLocaleString() : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{v.gps_sim_no || '-'}</td>
+                      <td style={{ padding: '16px 20px' }}><StatusDot online={v.is_online} /></td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.model || 'nill'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.device_version || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.timezone || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.apn || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_issued_date ? new Date(v.licence_issued_date).toLocaleDateString('en-GB') : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.created_at ? new Date(v.created_at).toLocaleDateString('en-GB') : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_expire_date ? new Date(v.licence_expire_date).toLocaleDateString('en-GB') : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.madeIn || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.mfgDate || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.chassisNo || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.altVehicleName || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.serviceEngineer || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.salesman || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.ticketId || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.sensorNo || '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.metadata?.remarks || '-'}</td>
+                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', color: '#FF6B00' }}>
+                          <Eye size={16} />
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Right Side: Details Panel */}
+        {viewingVehicle && (
+          <div style={{
+            width: '380px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
+          }}>
+            {/* Details Header */}
+            <div style={{ padding: '24px', borderBottom: '1px solid #F1F5F9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{
+                  width: '64px', height: '64px', borderRadius: '16px', background: '#FFF4ED',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
+                }}>
+                  <Truck size={32} color="#FF6B00" />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ padding: '4px 10px', borderRadius: '8px', background: viewingVehicle.is_online ? '#D1FAE5' : '#F1F5F9', color: viewingVehicle.is_online ? '#059669' : '#64748B', fontSize: '11px', fontWeight: 700 }}>
+                    {viewingVehicle.is_online ? 'LIVE' : 'OFFLINE'}
+                  </div>
+                  <button
+                    onClick={() => setViewingVehicle(null)}
+                    style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', transition: 'background 0.2s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#F1F5F9'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingVehicle.name}</h2>
+              <p style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'monospace' }}>{viewingVehicle.plate || 'No Plate'}</p>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button onClick={(e) => { e.stopPropagation(); navigate(`/vehicles/${viewingVehicle.id}`); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#FFF4ED', border: '1px solid #FFEDD5', color: '#FF6B00', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <Eye size={16} /> Live Monitor
+                </button>
+                <button onClick={(e) => { e.stopPropagation(); navigate(`/admin/vehicles/edit/${viewingVehicle.id}`); }} style={{ padding: '10px', borderRadius: '8px', background: '#FFF7ED', border: '1px solid #E2E8F0', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <Edit2 size={16} />
+                </button>
+                <button onClick={(e) => handleDelete(viewingVehicle.id, e)} style={{ padding: '10px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Details Content */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+              <div>
+                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Operational Context</h3>
+                <div style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Organization</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingVehicle.org_name || 'None'}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users2 size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Group</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Server size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Device</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700, fontFamily: 'monospace' }}>IMEI: {viewingVehicle.imei}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Telemetry & Activity</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>Current Location</span>
+                  <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>
+                    {viewingVehicle.lat && viewingVehicle.lng ? `${Number(viewingVehicle.lat).toFixed(4)}, ${Number(viewingVehicle.lng).toFixed(4)}` : 'Unknown'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>Current Speed</span>
+                  <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingVehicle.current_speed || 0} km/h</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
+                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>Last Update</span>
+                  <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>
+                    {viewingVehicle.last_update ? new Date(viewingVehicle.last_update).toLocaleTimeString() : 'Never'}
+                  </span>
+                </div>
+              </div>
+
+            </div>
           </div>
         )}
       </div>
 
-      {/* Delete Confirm Modal */}
-      {deleteConfirm && (
-        <div className="modal-overlay" onClick={() => setDeleteConfirm(null)}>
-          <div className="modal-box" style={{ maxWidth: '360px', padding: '24px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Trash2 size={16} color="#ef4444" />
-              </div>
-              <div>
-                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#e2e8f0', margin: 0 }}>Delete Vehicle</h3>
-                <p style={{ fontSize: '11px', color: '#4a5568', margin: 0 }}>Telemetry logs will be preserved</p>
-              </div>
-            </div>
-            <p style={{ fontSize: '12px', color: '#7c8db0', marginBottom: '18px' }}>Are you sure you want to remove this vehicle from the registry?</p>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-              <button onClick={() => setDeleteConfirm(null)} style={{ padding: '7px 14px', background: 'transparent', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '7px', color: '#4a5568', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Cancel</button>
-              <button onClick={() => handleDelete(deleteConfirm)} style={{ padding: '7px 14px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '7px', color: '#f87171', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <AddVehicleModal isOpen={modalOpen} onClose={() => setModalOpen(false)} onSave={handleSave} vehicle={selectedVehicle} orgs={orgs} />
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes fadeInRight {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}} />
     </div>
   );
 };

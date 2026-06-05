@@ -11,7 +11,7 @@ const VehicleModel = {
    */
   async findByImei(imei) {
     const result = await db.query(
-      `SELECT v.*, o.name as org_name
+      `SELECT v.*, v.metadata, o.name as org_name
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        WHERE v.imei = $1`,
@@ -25,7 +25,7 @@ const VehicleModel = {
    */
   async findById(vehicleId) {
     const result = await db.query(
-      `SELECT v.*,
+      `SELECT v.*, v.metadata,
               o.name as org_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
@@ -97,6 +97,8 @@ const VehicleModel = {
     const result = await db.query(
       `SELECT v.id, v.org_id, v.imei, v.name, v.plate, v.model,
               v.driver_name, v.driver_phone, v.is_active, v.created_at,
+              v.server_name, v.gps_sim_no, v.device_version, v.timezone,
+              v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
               o.name as org_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
@@ -125,17 +127,17 @@ const VehicleModel = {
   /**
    * Create a new vehicle (IMEI is required!)
    */
-  async create({ orgId, imei, name, plate, model, driverName, driverPhone }) {
+  async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata }) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
       // Insert vehicle
       const result = await client.query(
-        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
          RETURNING *`,
-        [orgId, imei, name, plate, model, driverName, driverPhone]
+        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}]
       );
       const vehicle = result.rows[0];
 
@@ -159,7 +161,7 @@ const VehicleModel = {
   /**
    * Update vehicle
    */
-  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId }) {
+  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -171,6 +173,16 @@ const VehicleModel = {
     if (driverPhone !== undefined) { fields.push(`driver_phone = $${paramIndex++}`); values.push(driverPhone); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
     if (orgId !== undefined) { fields.push(`org_id = $${paramIndex++}`); values.push(orgId); }
+
+    // New fields
+    if (serverName !== undefined) { fields.push(`server_name = $${paramIndex++}`); values.push(serverName); }
+    if (gpsSimNo !== undefined) { fields.push(`gps_sim_no = $${paramIndex++}`); values.push(gpsSimNo); }
+    if (deviceVersion !== undefined) { fields.push(`device_version = $${paramIndex++}`); values.push(deviceVersion); }
+    if (timezone !== undefined) { fields.push(`timezone = $${paramIndex++}`); values.push(timezone); }
+    if (apn !== undefined) { fields.push(`apn = $${paramIndex++}`); values.push(apn); }
+    if (licenceIssuedDate !== undefined) { fields.push(`licence_issued_date = $${paramIndex++}`); values.push(licenceIssuedDate || null); }
+    if (licenceExpireDate !== undefined) { fields.push(`licence_expire_date = $${paramIndex++}`); values.push(licenceExpireDate || null); }
+    if (metadata !== undefined) { fields.push(`metadata = $${paramIndex++}`); values.push(metadata); }
 
     if (fields.length === 0) return null;
 
@@ -190,6 +202,17 @@ const VehicleModel = {
     const result = await db.query(
       `UPDATE vehicles SET is_active = FALSE WHERE id = $1 RETURNING id`,
       [vehicleId]
+    );
+    return result.rows[0] || null;
+  },
+
+  /**
+   * Migrate vehicle to a new IMEI device
+   */
+  async migrate(vehicleId, newImei) {
+    const result = await db.query(
+      `UPDATE vehicles SET imei = $1 WHERE id = $2 RETURNING *`,
+      [newImei, vehicleId]
     );
     return result.rows[0] || null;
   },
@@ -247,6 +270,18 @@ const VehicleModel = {
       client.release();
     }
   },
+
+  /**
+   * Get vehicle names by array of IDs
+   */
+  async getNamesByIds(ids) {
+    if (!ids || ids.length === 0) return [];
+    const result = await db.query(
+      `SELECT name FROM vehicles WHERE id = ANY($1)`,
+      [ids]
+    );
+    return result.rows.map(row => row.name);
+  }
 };
 
 module.exports = VehicleModel;

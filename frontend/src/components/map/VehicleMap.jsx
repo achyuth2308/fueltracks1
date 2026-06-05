@@ -20,6 +20,19 @@ const FitBoundsToTrail = ({ coords }) => {
   return null;
 };
 
+// Auto-resize map when container dimensions change (e.g., sidebar removed)
+const ResizeMap = () => {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+};
+
 // SVG truck icon generator
 const createLiveTruckIcon = (ignition) => {
   const color = ignition ? '#22c55e' : '#ef4444'; // green if ignition is ON, else red
@@ -100,16 +113,17 @@ const VehicleMap = ({ vehicleId, initialLat, initialLng, initialIgnition }) => {
   const center = coords.length > 0 ? coords[coords.length - 1] : defaultCenter;
 
   return (
-    <div className="w-full h-full dark-map border border-slate-800 rounded-xl overflow-hidden shadow-2xl relative">
+    <div className="w-full h-full border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
       <MapContainer
         center={center}
         zoom={15}
         className="w-full h-full"
         zoomControl={false}
       >
+        <ResizeMap />
         <TileLayer
-          attribution='&copy; <a href="https://carto.com/">CartoDB</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; OpenStreetMap contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
         {coords.length > 0 && <FitBoundsToTrail coords={coords} />}

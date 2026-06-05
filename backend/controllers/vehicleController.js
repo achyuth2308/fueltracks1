@@ -6,6 +6,7 @@
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const GroupModel = require('../models/groupModel');
+const AuditService = require('../services/auditService');
 
 const VehicleController = {
   /**
@@ -93,12 +94,20 @@ const VehicleController = {
    */
   async createVehicle(req, res, next) {
     try {
-      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds } = req.body;
+      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata } = req.body;
 
       if (!imei || !/^\d{15}$/.test(imei)) {
         return res.status(400).json({
           success: false,
           error: 'A valid 15-digit IMEI number is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      if (!name || name.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: 'Vehicle Name is mandatory.',
           code: 'VALIDATION_ERROR'
         });
       }
@@ -126,7 +135,15 @@ const VehicleController = {
         plate,
         model,
         driverName,
-        driverPhone
+        driverPhone,
+        serverName,
+        gpsSimNo,
+        deviceVersion,
+        timezone,
+        apn,
+        licenceIssuedDate,
+        licenceExpireDate,
+        metadata
       });
 
       // Assign to groups if provided
@@ -151,6 +168,17 @@ const VehicleController = {
         data: newVehicle,
         message: 'Vehicle registered successfully.'
       });
+      // Audit: vehicle created
+      try {
+        await AuditService.log({
+          auditType: 'vehicle', entityType: 'Vehicle',
+          entityId: newVehicle.id, entityName: newVehicle.name, action: 'CREATED',
+          newData: { imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, metadata },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: targetOrgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -162,7 +190,15 @@ const VehicleController = {
   async updateVehicle(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds } = req.body;
+      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata } = req.body;
+
+      if (!name || name.trim() === '') {
+        return res.status(400).json({
+          success: false,
+          error: 'Vehicle Name is mandatory.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -186,6 +222,32 @@ const VehicleController = {
         });
       }
 
+      // Fetch old data for audit
+      const oldVehicle = await VehicleModel.findById(id);
+      if (!oldVehicle) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+      const oldGroups = await VehicleModel.getGroups(id);
+      const oldGroupIds = oldGroups.map(g => g.id);
+      const oldGroupNames = await GroupModel.getNamesByIds(oldGroupIds);
+
+      const oldData = {
+        name: oldVehicle.name,
+        plate: oldVehicle.plate,
+        model: oldVehicle.model,
+        driverName: oldVehicle.driver_name,
+        driverPhone: oldVehicle.driver_phone,
+        isActive: oldVehicle.is_active,
+        serverName: oldVehicle.server_name,
+        gpsSimNo: oldVehicle.gps_sim_no,
+        metadata: oldVehicle.metadata,
+        groupNames: oldGroupNames
+      };
+
       const updated = await VehicleModel.update(id, {
         name,
         plate,
@@ -193,16 +255,16 @@ const VehicleController = {
         driverName,
         driverPhone,
         isActive,
-        orgId: targetOrgId
+        orgId: targetOrgId,
+        serverName,
+        gpsSimNo,
+        deviceVersion,
+        timezone,
+        apn,
+        licenceIssuedDate,
+        licenceExpireDate,
+        metadata
       });
-
-      if (!updated) {
-        return res.status(404).json({
-          success: false,
-          error: 'Vehicle not found.',
-          code: 'VEHICLE_NOT_FOUND'
-        });
-      }
 
       // Update group assignments if provided
       if (groupIds && Array.isArray(groupIds)) {
@@ -224,6 +286,35 @@ const VehicleController = {
         data: updated,
         message: 'Vehicle updated successfully.'
       });
+
+      const finalGroupIds = groupIds !== undefined ? groupIds : oldGroupIds;
+      const finalGroupNames = await GroupModel.getNamesByIds(finalGroupIds);
+
+      const newData = {
+        name: updated.name !== undefined ? updated.name : name,
+        plate: updated.plate !== undefined ? updated.plate : plate,
+        model: updated.model !== undefined ? updated.model : model,
+        driverName: updated.driver_name !== undefined ? updated.driver_name : driverName,
+        driverPhone: updated.driver_phone !== undefined ? updated.driver_phone : driverPhone,
+        isActive: updated.is_active !== undefined ? updated.is_active : isActive,
+        serverName: updated.server_name !== undefined ? updated.server_name : serverName,
+        gpsSimNo: updated.gps_sim_no !== undefined ? updated.gps_sim_no : gpsSimNo,
+        metadata: updated.metadata !== undefined ? updated.metadata : metadata,
+        groupNames: finalGroupNames
+      };
+
+      // Audit: vehicle updated
+      try {
+        await AuditService.log({
+          auditType: 'vehicle', entityType: 'Vehicle',
+          entityId: id, entityName: updated.name, action: 'UPDATED',
+          oldData,
+          newData,
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
     } catch (err) {
       next(err);
     }
@@ -260,6 +351,65 @@ const VehicleController = {
       res.status(200).json({
         success: true,
         message: 'Vehicle deleted successfully.'
+      });
+      // Audit: vehicle deleted
+      try {
+        await AuditService.log({
+          auditType: 'vehicle', entityType: 'Vehicle',
+          entityId: id, action: 'DELETED',
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Migrate Vehicle Device IMEI
+   */
+  async migrateVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { newImei } = req.body;
+
+      if (!newImei || !/^\d{15}$/.test(newImei)) {
+        return res.status(400).json({
+          success: false,
+          error: 'A valid 15-digit new IMEI number is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // Check if new IMEI is already in use
+      const existing = await VehicleModel.findByImei(newImei);
+      if (existing && existing.id !== id) {
+        return res.status(409).json({
+          success: false,
+          error: 'A vehicle with this new IMEI is already registered.',
+          code: 'IMEI_ALREADY_EXISTS'
+        });
+      }
+
+      const migrated = await VehicleModel.migrate(id, newImei);
+      res.status(200).json({
+        success: true,
+        data: migrated,
+        message: 'Vehicle device migrated successfully.'
       });
     } catch (err) {
       next(err);

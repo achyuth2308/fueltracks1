@@ -28,7 +28,13 @@ const GroupModel = {
     if (role === 'superadmin') {
       query = `SELECT g.*, o.name as org_name,
                       (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
-                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count
+                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
+                      (
+                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
+                        FROM vehicle_groups vg
+                        JOIN vehicles v ON vg.vehicle_id = v.id
+                        WHERE vg.group_id = g.id
+                      ) as vehicles
                FROM groups g
                JOIN organizations o ON g.org_id = o.id
                ORDER BY g.name ASC`;
@@ -37,7 +43,13 @@ const GroupModel = {
       // Dealer or Customer sees groups in their own org
       query = `SELECT g.*, o.name as org_name,
                       (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
-                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count
+                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
+                      (
+                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
+                        FROM vehicle_groups vg
+                        JOIN vehicles v ON vg.vehicle_id = v.id
+                        WHERE vg.group_id = g.id
+                      ) as vehicles
                FROM groups g
                JOIN organizations o ON g.org_id = o.id
                WHERE g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
@@ -147,6 +159,52 @@ const GroupModel = {
       [userId]
     );
     return result.rows;
+  },
+
+  /**
+   * Assign vehicles to group
+   */
+  async assignVehiclesToGroup(groupId, vehicleIds) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM vehicle_groups WHERE group_id = $1', [groupId]);
+      for (const vehicleId of vehicleIds) {
+        await client.query(
+          'INSERT INTO vehicle_groups (group_id, vehicle_id) VALUES ($1, $2)',
+          [groupId, vehicleId]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Get vehicle IDs assigned to a group
+   */
+  async getAssignedVehicleIds(groupId) {
+    const result = await db.query(
+      `SELECT vehicle_id FROM vehicle_groups WHERE group_id = $1`,
+      [groupId]
+    );
+    return result.rows.map(row => row.vehicle_id);
+  },
+
+  /**
+   * Get group names by array of IDs
+   */
+  async getNamesByIds(ids) {
+    if (!ids || ids.length === 0) return [];
+    const result = await db.query(
+      `SELECT name FROM groups WHERE id = ANY($1)`,
+      [ids]
+    );
+    return result.rows.map(row => row.name);
   }
 };
 

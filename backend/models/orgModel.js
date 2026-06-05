@@ -13,6 +13,8 @@ const OrgModel = {
       `SELECT o.*,
               (SELECT COUNT(*) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) as vehicle_count,
               (SELECT COUNT(*) FROM users WHERE org_id = o.id AND is_active = TRUE) as user_count,
+              (SELECT COUNT(*) FROM groups WHERE org_id = o.id) as groups_count,
+              (SELECT COUNT(*) FROM devices WHERE org_id = o.id) as devices_count,
               p.name as parent_name
        FROM organizations o
        LEFT JOIN organizations p ON o.parent_id = p.id
@@ -34,6 +36,8 @@ const OrgModel = {
       query = `SELECT o.*,
                       (SELECT COUNT(*) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) as vehicle_count,
                       (SELECT COUNT(*) FROM users WHERE org_id = o.id AND is_active = TRUE) as user_count,
+                      (SELECT COUNT(*) FROM groups WHERE org_id = o.id) as groups_count,
+                      (SELECT COUNT(*) FROM devices WHERE org_id = o.id) as devices_count,
                       p.name as parent_name
                FROM organizations o
                LEFT JOIN organizations p ON o.parent_id = p.id
@@ -43,6 +47,8 @@ const OrgModel = {
       query = `SELECT o.*,
                       (SELECT COUNT(*) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) as vehicle_count,
                       (SELECT COUNT(*) FROM users WHERE org_id = o.id AND is_active = TRUE) as user_count,
+                      (SELECT COUNT(*) FROM groups WHERE org_id = o.id) as groups_count,
+                      (SELECT COUNT(*) FROM devices WHERE org_id = o.id) as devices_count,
                       p.name as parent_name
                FROM organizations o
                LEFT JOIN organizations p ON o.parent_id = p.id
@@ -58,12 +64,12 @@ const OrgModel = {
   /**
    * Create organization
    */
-  async create({ name, type, parentId, address, phone }) {
+  async create({ name, type, parentId, address, phone, contactPerson, email }) {
     const result = await db.query(
-      `INSERT INTO organizations (name, type, parent_id, address, phone)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO organizations (name, type, parent_id, address, phone, contact_person, email)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, type, parentId, address, phone]
+      [name, type, parentId, address, phone, contactPerson, email]
     );
     return result.rows[0];
   },
@@ -71,7 +77,7 @@ const OrgModel = {
   /**
    * Update organization
    */
-  async update(orgId, { name, type, address, phone, isActive }) {
+  async update(orgId, { name, type, address, phone, isActive, contactPerson, email }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -80,6 +86,8 @@ const OrgModel = {
     if (type !== undefined) { fields.push(`type = $${paramIndex++}`); values.push(type); }
     if (address !== undefined) { fields.push(`address = $${paramIndex++}`); values.push(address); }
     if (phone !== undefined) { fields.push(`phone = $${paramIndex++}`); values.push(phone); }
+    if (contactPerson !== undefined) { fields.push(`contact_person = $${paramIndex++}`); values.push(contactPerson); }
+    if (email !== undefined) { fields.push(`email = $${paramIndex++}`); values.push(email); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
 
     if (fields.length === 0) return null;
@@ -98,7 +106,7 @@ const OrgModel = {
    */
   async delete(orgId) {
     const result = await db.query(
-      `UPDATE organizations SET is_active = FALSE WHERE id = $1 RETURNING id`,
+      `DELETE FROM organizations WHERE id = $1 RETURNING id`,
       [orgId]
     );
     return result.rows[0] || null;

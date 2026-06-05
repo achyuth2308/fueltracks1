@@ -19,6 +19,7 @@ const redisConfig = require('./config/redis');
 const authRoutes = require('./routes/authRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const auditRoutes = require('./routes/auditRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -50,6 +51,7 @@ app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP Log
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/audit', auditRoutes);
 
 // Health Check
 app.get('/health', async (req, res) => {

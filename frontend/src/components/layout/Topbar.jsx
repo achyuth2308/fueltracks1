@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Building, Radio, Wifi, WifiOff, Bell } from 'lucide-react';
+import { Menu, Building, Radio, Wifi, WifiOff, Bell, Clock as ClockIcon, Truck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
@@ -30,7 +30,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             offline: parseInt(res.data.offline_vehicles) || 0,
           });
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [vehicles]);
 
@@ -44,37 +44,44 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      background: 'linear-gradient(90deg, #0c1526 0%, #0a1020 100%)',
-      borderBottom: '1px solid rgba(255,255,255,0.05)',
+      background: '#ffffff',
+      borderBottom: '1px solid #e5e7eb',
       flexShrink: 0,
       zIndex: 30,
     }}>
-      {/* Left: hamburger + org */}
+      {/* Left: org / logo */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <button
-          onClick={onMenuClick}
-          style={{
-            width: '30px', height: '30px',
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.06)',
-            borderRadius: '7px',
+
+
+        {/* Logo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '24px' }}>
+          <div style={{
+            width: '32px', height: '32px',
+            background: 'linear-gradient(135deg, #FF6B00 0%, #E65C00 100%)',
+            borderRadius: '8px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: '#4a5568',
-            transition: 'all 0.15s',
-          }}
-          className="md:hidden"
-        >
-          <Menu size={15} />
-        </button>
+            boxShadow: '0 4px 10px rgba(255, 107, 0, 0.3)',
+          }}>
+            <Truck size={16} color="white" />
+          </div>
+          <div>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+              FuelTracks
+            </div>
+            <div style={{ fontSize: '9px', fontWeight: 600, color: '#FF6B00', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              Enterprise
+            </div>
+          </div>
+        </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
           <div style={{
             width: '5px', height: '5px', borderRadius: '50%',
-            background: '#2563eb',
-            boxShadow: '0 0 6px rgba(37,99,235,0.7)',
+            background: '#FF6B00',
+            boxShadow: '0 0 6px rgba(255,107,0,0.5)',
           }} />
           <span style={{
-            fontSize: '12px', fontWeight: 600, color: '#7c8db0',
+            fontSize: '12px', fontWeight: 600, color: '#111827',
             maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {user?.orgName || 'Platform Workspace'}
@@ -88,18 +95,18 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         {/* Fleet stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {[
-            { label: 'Total', value: stats.total, color: '#7c8db0' },
-            { label: 'Online', value: stats.online, color: '#10b981', dot: true },
-            { label: 'Offline', value: stats.offline, color: '#374151', dot: true },
+            { label: 'Total', value: stats.total, color: '#111827' },
+            { label: 'Online', value: stats.online, color: '#16a34a', dot: true },
+            { label: 'Offline', value: stats.offline, color: '#6b7280', dot: true },
           ].map(({ label, value, color, dot }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (
                 <div style={{
                   width: '6px', height: '6px', borderRadius: '50%', background: color,
-                  boxShadow: color === '#10b981' ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
+                  boxShadow: color === '#16a34a' ? '0 0 6px rgba(22,163,74,0.4)' : 'none',
                 }} />
               )}
-              <span style={{ fontSize: '11px', color: '#4a5568', fontWeight: 500 }}>{label}</span>
+              <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>{label}</span>
               <span style={{
                 fontSize: '12px', fontWeight: 700, color,
                 fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
@@ -111,37 +118,54 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)' }} />
 
         {/* Live clock */}
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em' }}>
-            {timeStr}
-          </div>
-          <div style={{ fontSize: '9px', color: '#2d3748', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '-1px' }}>
-            {dateStr}
+        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ClockIcon size={14} color="#6b7280" />
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
+              {timeStr}
+            </div>
+            <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>
+              {dateStr}
+            </div>
           </div>
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: 'rgba(255,255,255,0.06)' }} />
+        <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)' }} />
+
+        {/* Notifications */}
+        <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Bell size={18} color="#4b5563" />
+          <div style={{
+            position: 'absolute', top: '-2px', right: '-2px',
+            width: '14px', height: '14px', borderRadius: '50%',
+            background: '#ef4444', color: 'white',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '9px', fontWeight: 'bold', border: '2px solid white',
+          }}>
+            3
+          </div>
+        </div>
 
         {/* Socket status pill */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: '5px',
-          padding: '3px 8px',
+          padding: '4px 10px',
           borderRadius: '99px',
-          background: connected ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-          border: `1px solid ${connected ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
+          background: connected ? '#dcfce7' : '#fee2e2',
+          border: `1px solid ${connected ? '#bbf7d0' : '#fecaca'}`,
         }}>
           {connected
-            ? <Wifi size={11} color="#10b981" />
-            : <WifiOff size={11} color="#ef4444" />
+            ? <Wifi size={12} color="#16a34a" />
+            : <WifiOff size={12} color="#dc2626" />
           }
           <span style={{
-            fontSize: '9px', fontWeight: 700,
+            fontSize: '10px', fontWeight: 700,
             letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: connected ? '#10b981' : '#ef4444',
+            color: connected ? '#16a34a' : '#dc2626',
           }}>
             {connected ? 'Live' : 'Off'}
           </span>

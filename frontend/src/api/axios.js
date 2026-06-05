@@ -22,6 +22,19 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+export const adminApi = {
+  getOrgs: () => axiosInstance.get(`/api/admin/orgs?t=${Date.now()}`).then(res => res.data),
+  getUsers: () => axiosInstance.get(`/api/admin/users?t=${Date.now()}`).then(res => res.data),
+  getGroups: (params = {}) => {
+    return axiosInstance.get('/api/admin/groups', { params: { ...params, t: Date.now() } }).then(res => res.data)
+  },
+  getDevices: (params = {}) => {
+    return axiosInstance.get('/api/admin/devices', { params: { ...params, t: Date.now() } }).then(res => res.data)
+  },
+  deleteDevice: (id) => axiosInstance.delete(`/api/admin/devices/${id}`).then(res => res.data),
+  onboardDevices: (payload) => axiosInstance.post('/api/admin/onboard/devices', payload).then(res => res.data)
+};
+
 // Response interceptor: handle 401
 axiosInstance.interceptors.response.use(
   (response) => response,

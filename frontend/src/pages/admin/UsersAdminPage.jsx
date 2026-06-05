@@ -1,14 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
-  AlertTriangle,
-  UserCheck,
-  Search
-} from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, Users2, X } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,11 +12,13 @@ const UsersAdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Modal / Form States
   const [modalOpen, setModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
 
-  // Filters
+  // Details Panel State
+  const [viewingUser, setViewingUser] = useState(null);
+  const [openDropdownId, setOpenDropdownId] = useState(null);
+
   const [searchQuery, setSearchQuery] = useState('');
 
   const fetchUsers = async () => {
@@ -36,8 +29,7 @@ const UsersAdminPage = () => {
         setUsers(response.data);
       }
     } catch (err) {
-      console.error('Failed to fetch user list:', err);
-      setError('Access denied or failed to load user records.');
+      setError('Failed to load user records.');
     } finally {
       setLoading(false);
     }
@@ -46,12 +38,8 @@ const UsersAdminPage = () => {
   const fetchOrgs = async () => {
     try {
       const response = await adminApi.getOrgs();
-      if (response.success) {
-        setOrgs(response.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch orgs:', err);
-    }
+      if (response.success) setOrgs(response.data);
+    } catch (err) { }
   };
 
   useEffect(() => {
@@ -60,177 +48,321 @@ const UsersAdminPage = () => {
   }, []);
 
   const handleOpenAddModal = () => {
-    setSelectedUser(null);
+    setSelectedUserForEdit(null);
     setModalOpen(true);
   };
 
-  const handleOpenEditModal = (targetUser) => {
-    setSelectedUser(targetUser);
+  const handleOpenEditModal = (targetUser, e) => {
+    if (e) e.stopPropagation();
+    setSelectedUserForEdit(targetUser);
     setModalOpen(true);
   };
 
   const handleCreateOrUpdate = async (payload) => {
-    if (selectedUser) {
-      await adminApi.updateUser(selectedUser.id, payload);
+    if (selectedUserForEdit) {
+      await adminApi.updateUser(selectedUserForEdit.id, payload);
+      if (viewingUser && viewingUser.id === selectedUserForEdit.id) {
+        setViewingUser({ ...viewingUser, ...payload });
+      }
     } else {
       await adminApi.createUser(payload);
     }
     fetchUsers();
   };
 
-  const handleDelete = async (userId) => {
-    if (window.confirm('Are you sure you want to suspend this user? Session tokens will be invalidated immediately.')) {
+  const handleDelete = async (userId, e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         const response = await adminApi.deleteUser(userId);
         if (response.success) {
+          if (viewingUser?.id === userId) setViewingUser(null);
           fetchUsers();
         }
       } catch (err) {
-        console.error('Delete user failed:', err);
-        alert(err.response?.data?.error || 'Failed to deactivate account.');
+        alert('Failed to delete account.');
       }
     }
   };
 
-  // Filter users by search query
-  const filteredUsers = users.filter(u => 
-    u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredUsers = users.filter(u =>
+    u.role !== 'superadmin' &&
+    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-slate-950 p-6 space-y-6">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-800">
-        <div>
-          <h2 className="text-sm font-bold text-slate-100 flex items-center">
-            <Users className="w-5 h-5 text-blue-500 mr-2" />
-            <span>Accounts & Team Roster</span>
-          </h2>
-          <p className="text-[10px] text-slate-400 mt-0.5">Control staff user accounts, email logins, and group permissions.</p>
-        </div>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
+        <div>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Users Directory</h1>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage system access, roles, and group assignments.</p>
+        </div>
         <button
           onClick={handleOpenAddModal}
-          className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-500 text-xs font-bold text-white rounded-lg shadow-[0_0_12px_rgba(37,99,235,0.3)] hover:shadow-[0_0_16px_rgba(37,99,235,0.5)] transition-all cursor-pointer"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: '#5B21B6', color: '#FFFFFF',
+            padding: '10px 20px', borderRadius: '10px',
+            fontSize: '14px', fontWeight: 600, border: 'none',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(91,33,182,0.2)',
+            transition: 'all 0.2s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(91,33,182,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(91,33,182,0.2)'; }}
         >
-          <Plus className="w-4 h-4 mr-1.5" />
-          <span>Add Account</span>
+          <Plus size={18} />
+          <span>New User</span>
         </button>
       </div>
 
-      {/* Filter and Search Actions Bar */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search email, name..."
-            className="w-full pl-9 pr-4 py-2 text-xs bg-slate-900 border border-slate-800 focus:border-blue-500 focus:outline-none rounded-lg text-slate-200 transition-all font-semibold"
-          />
-        </div>
-      </div>
+      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
 
-      {/* Main Table */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-          <span className="text-xs text-slate-400 font-semibold mt-3">Fetching user accounts...</span>
-        </div>
-      ) : error ? (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-center">
-          <AlertTriangle className="w-6 h-6 text-red-500 mx-auto mb-2" />
-          <h5 className="font-bold text-slate-200 text-sm">Failed to Load Users</h5>
-          <p className="text-xs text-slate-400 mt-1">{error}</p>
-        </div>
-      ) : (
-        <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left text-slate-300">
-              <thead className="text-[10px] text-slate-400 uppercase tracking-wider bg-slate-950/60 border-b border-slate-800">
-                <tr>
-                  <th className="px-4 py-3">Full Name</th>
-                  <th className="px-4 py-3">Email Address</th>
-                  <th className="px-4 py-3">Assigned Role</th>
-                  <th className="px-4 py-3">Organization Workspace</th>
-                  <th className="px-4 py-3">Account Status</th>
-                  <th className="px-4 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan="6" className="px-4 py-8 text-center text-slate-500 italic">
-                      No accounts found. Create a new roster card.
-                    </td>
+        {/* Left Side: List */}
+        <div style={{
+          background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+          boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
+          flex: viewingUser ? '1' : '100%', transition: 'all 0.3s ease', overflow: 'hidden'
+        }}>
+          {/* Search Bar */}
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+              <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
+              <input
+                type="text"
+                placeholder="Search name or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%', padding: '10px 14px 10px 38px',
+                  borderRadius: '10px', border: '1px solid #CBD5E1',
+                  fontSize: '14px', outline: 'none', color: '#111827', boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
+              <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+              <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading users...</span>
+            </div>
+          ) : error ? (
+            <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
+              <AlertTriangle size={32} color="#EF4444" style={{ margin: '0 auto 12px' }} />
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#111827' }}>Failed to Load Records</div>
+              <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
+            </div>
+          ) : (
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                    {['Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
+                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
-                ) : (
-                  filteredUsers.map((targetUser) => (
-                    <tr key={targetUser.id} className="hover:bg-slate-800/40">
-                      <td className="px-4 py-3 font-bold text-slate-100 flex items-center">
-                        <UserCheck className="w-4 h-4 text-slate-500 mr-2" />
-                        <span>{targetUser.name || 'Unnamed'}</span>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
+                    </tr>
+                  ) : filteredUsers.map((u) => (
+                    <tr
+                      key={u.id}
+                      style={{
+                        borderBottom: '1px solid #F1F5F9',
+                        background: viewingUser?.id === u.id ? '#FFF4ED' : 'transparent',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#FFF7ED'; }}
+                      onMouseLeave={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = 'transparent'; }}
+                    >
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{u.name || 'Unnamed'}</div>
                       </td>
-                      <td className="px-4 py-3 font-mono text-slate-400">{targetUser.email}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
-                          targetUser.role === 'superadmin'
-                            ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                            : targetUser.role === 'dealer'
-                              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                              : 'bg-green-500/10 text-green-400 border border-green-500/20'
-                        }`}>
-                          {targetUser.role}
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: '13px', color: '#111827' }}>
+                          {u.phone || '—'}
+                        </div>
+                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
+                          {u.email || '—'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontWeight: 500 }}>
+                        {u.group_names ? (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {u.group_names.split(', ').map((gName, i) => (
+                              <span key={i} style={{ padding: '2px 8px', background: '#F1F5F9', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                                {gName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : '—'}
+                      </td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <span style={{
+                          padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize',
+                          background: '#F1F5F9', color: '#475569'
+                        }}>
+                          {u.role}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-slate-300 font-semibold">{targetUser.org_name}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider ${
-                          targetUser.is_active 
-                            ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
-                            : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}>
-                          {targetUser.is_active ? 'Active' : 'Suspended'}
+                      <td style={{ padding: '16px 20px' }}>
+                        <span style={{
+                          padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
+                          background: u.is_active ? '#D1FAE5' : '#FEE2E2',
+                          color: u.is_active ? '#059669' : '#DC2626'
+                        }}>
+                          {u.is_active ? 'Active' : 'Suspended'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end space-x-2">
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
                           <button
-                            onClick={() => handleOpenEditModal(targetUser)}
-                            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-all"
-                            title="Edit permissions"
+                            onClick={() => setViewingUser(u)}
+                            style={{
+                              background: '#F1F5F9', color: '#475569', border: 'none', padding: '6px 12px',
+                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                            }}
                           >
-                            <Edit className="w-4 h-4" />
+                            View
                           </button>
                           <button
-                            disabled={targetUser.id === user?.id}
-                            onClick={() => handleDelete(targetUser.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-all disabled:opacity-20"
-                            title="Suspend account"
+                            onClick={() => handleOpenEditModal(u)}
+                            style={{
+                              background: '#5B21B6', color: 'white', border: 'none', padding: '6px 12px',
+                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                              boxShadow: '0 2px 4px rgba(91,33,182,0.1)'
+                            }}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDelete(u.id)}
+                            style={{
+                              background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', padding: '6px 12px',
+                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer'
+                            }}
+                          >
+                            Delete
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Add / Edit User Modal */}
+        {/* Right Side: Details Panel */}
+        {viewingUser && (
+          <div style={{
+            width: '380px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
+            overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
+          }}>
+            {/* Details Header */}
+            <div style={{ padding: '24px', borderBottom: '1px solid #F1F5F9', position: 'relative' }}>
+              <button
+                onClick={() => setViewingUser(null)}
+                style={{ position: 'absolute', top: '24px', right: '24px', background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+              >
+                <X size={20} />
+              </button>
+
+              <div style={{
+                width: '64px', height: '64px', borderRadius: '16px', background: '#FFF4ED',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
+              }}>
+                <UserIcon size={32} color="#FF6B00" />
+              </div>
+              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingUser.name || 'Unnamed User'}</h2>
+              <div style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span>{viewingUser.email}</span>
+                {viewingUser.phone && <span>{viewingUser.phone}</span>}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#FFF7ED', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
+                  <Edit size={14} /> Edit User
+                </button>
+                {user?.id !== viewingUser.id && (
+                  <button onClick={(e) => handleDelete(viewingUser.id, e)} style={{ padding: '10px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Details Content */}
+            <div style={{ padding: '24px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+              <div>
+                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Access & Permissions</h3>
+                <div style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Organization</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.org_name || 'None'}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users2 size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Groups</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.group_names || '—'}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Truck size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Accessible Vehicles</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Account Status</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>Status</span>
+                  <span style={{ fontSize: '13px', color: viewingUser.is_active ? '#059669' : '#DC2626', fontWeight: 700 }}>{viewingUser.is_active ? 'Active' : 'Suspended'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
+                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>System Role</span>
+                  <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700, textTransform: 'capitalize' }}>{viewingUser.role}</span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+      </div>
+
       <AddUserModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         onSave={handleCreateOrUpdate}
-        editingUser={selectedUser}
+        editingUser={selectedUserForEdit}
         orgs={orgs}
       />
+      <style dangerouslySetInnerHTML={{
+        __html: `
+        @keyframes fadeInRight {
+          from { opacity: 0; transform: translateX(20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+      `}} />
     </div>
   );
 };
