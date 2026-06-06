@@ -26,6 +26,7 @@ import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
 import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
+import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
@@ -74,6 +75,7 @@ function App() {
               <Route path="admin/reports/activity" element={<VehicleActivityReportPage />} />
               <Route path="admin/reports/route" element={<RouteHistoryReportPage />} />
               <Route path="admin/reports/ignition" element={<IgnitionReportPage />} />
+              <Route path="admin/profile" element={<OrganizationProfilePage />} />
               <Route path="admin/audit-logs" element={<AuditLogsAdminPage />} />
               <Route path="admin/settings" element={<SettingsAdminPage />} />
             </Route>

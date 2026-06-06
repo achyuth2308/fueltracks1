@@ -35,6 +35,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer', 'customer'] },
       ],
     },
   ];

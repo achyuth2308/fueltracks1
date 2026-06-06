@@ -21,6 +21,8 @@ const vehicleRoutes = require('./routes/vehicleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const reportRoutes = require('./modules/reports/routes/reportRoutes');
+const profileRoutes = require('./modules/profile/routes/profileRoutes');
+const path = require('path');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -59,6 +61,10 @@ app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/profile', profileRoutes);
+
+// Mount Static File Serving for Uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health Check
 app.get('/health', async (req, res) => {
