@@ -21,6 +21,11 @@ import FuelAdminPage from './pages/admin/FuelAdminPage';
 import AlertsAdminPage from './pages/admin/AlertsAdminPage';
 import GeofencesAdminPage from './pages/admin/GeofencesAdminPage';
 import ReportsAdminPage from './pages/admin/ReportsAdminPage';
+import TripReportPage from './pages/reports/TripReportPage';
+import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
+import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
+import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
+import IgnitionReportPage from './pages/reports/IgnitionReportPage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
@@ -64,6 +69,11 @@ function App() {
               <Route path="admin/alerts" element={<AlertsAdminPage />} />
               <Route path="admin/geofences" element={<GeofencesAdminPage />} />
               <Route path="admin/reports" element={<ReportsAdminPage />} />
+              <Route path="admin/reports/trip" element={<TripReportPage />} />
+              <Route path="admin/reports/distance" element={<DailyDistanceReportPage />} />
+              <Route path="admin/reports/activity" element={<VehicleActivityReportPage />} />
+              <Route path="admin/reports/route" element={<RouteHistoryReportPage />} />
+              <Route path="admin/reports/ignition" element={<IgnitionReportPage />} />
               <Route path="admin/audit-logs" element={<AuditLogsAdminPage />} />
               <Route path="admin/settings" element={<SettingsAdminPage />} />
             </Route>

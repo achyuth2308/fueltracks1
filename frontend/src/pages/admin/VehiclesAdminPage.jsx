@@ -76,22 +76,7 @@ const VehiclesAdminPage = () => {
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Vehicle Assets</h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage fleet assets, telemetry mapping, and real-time tracking.</p>
         </div>
-        <button
-          onClick={() => navigate('/admin/vehicles/add')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#FF6B00', color: '#FFFFFF',
-            padding: '10px 20px', borderRadius: '10px',
-            fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,107,0,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,107,0,0.2)'; }}
-        >
-          <Plus size={18} />
-          <span>Register Vehicle</span>
-        </button>
+
       </div>
 
       <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>

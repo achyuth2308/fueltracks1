@@ -54,7 +54,7 @@ const OnBoardDevicePage = () => {
         id: Date.now() + i, 
         licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         deviceId: '',
-        deviceType: 'A10 (9996)',
+        deviceType: 'BSTPL',
         vehicleId: '',
         vehicleName: '',
         registrationNo: '',
@@ -395,8 +395,8 @@ const OnBoardDevicePage = () => {
                               onChange={(e) => updateDevice(idx, 'deviceType', e.target.value)}
                               style={{...inputStyle, padding: '8px 12px'}}
                             >
-                              <option value="A10 (9996)">A10 (9996)</option>
-                              <option value="B20 (GPS)">B20 (GPS)</option>
+                              <option value="BSTPL">BSTPL</option>
+                              <option value="AS140">AS140</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
