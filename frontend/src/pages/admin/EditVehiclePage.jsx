@@ -286,7 +286,7 @@ const EditVehiclePage = () => {
         {/* Section 1: Vehicle Information */}
         <SectionCard title="Vehicle Information" icon={Truck}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-            <InputField label="Vehicle ID" value={form.metadata.vehicleId || ''} onChange={e => updateMeta('vehicleId', e.target.value)} placeholder="e.g. TRK-001" focused={focusedField==='vId'} onFocus={() => setFocusedField('vId')} onBlur={() => setFocusedField(null)} />
+            <InputField label="Vehicle ID" value={form.metadata.vehicleId || ''} onChange={e => updateMeta('vehicleId', e.target.value)} disabled={isEditing} placeholder="e.g. TRK-001" focused={focusedField==='vId'} onFocus={() => setFocusedField('vId')} onBlur={() => setFocusedField(null)} />
             <InputField label="Vehicle Name" value={form.name} onChange={e => updateField('name', e.target.value)} placeholder="e.g. Truck Alpha" focused={focusedField==='name'} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} />
             <InputField label="Vehicle Registration Number" value={form.plate} onChange={e => updateField('plate', e.target.value)} placeholder="e.g. MH12AB1234" focused={focusedField==='plate'} onFocus={() => setFocusedField('plate')} onBlur={() => setFocusedField(null)} />
             <SelectField label="Vehicle Type" value={form.model} onChange={e => updateField('model', e.target.value)} options={['Truck', 'Bus', 'Car', 'Van', 'Scooty', 'Motorcycle', 'Tractor', 'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker']} focused={focusedField==='model'} onFocus={() => setFocusedField('model')} onBlur={() => setFocusedField(null)} />

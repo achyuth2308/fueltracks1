@@ -20,6 +20,9 @@ const authRoutes = require('./routes/authRoutes');
 const vehicleRoutes = require('./routes/vehicleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const auditRoutes = require('./routes/auditRoutes');
+const reportRoutes = require('./modules/reports/routes/reportRoutes');
+const profileRoutes = require('./modules/profile/routes/profileRoutes');
+const path = require('path');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -43,7 +46,12 @@ const io = socketIo(server, {
 
 // Middleware
 app.use(helmet()); // Secure HTTP headers
-app.use(cors({ origin: env.CORS_ORIGIN }));
+app.use(cors({
+  origin: function (origin, callback) {
+    callback(null, true);
+  },
+  credentials: true
+}));
 app.use(express.json()); // JSON parser
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP Logging
 
@@ -52,6 +60,11 @@ app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/profile', profileRoutes);
+
+// Mount Static File Serving for Uploads
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Health Check
 app.get('/health', async (req, res) => {
