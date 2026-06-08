@@ -56,4 +56,27 @@ function validateAlertPacket(parsed) {
   return { valid: true, reason: null };
 }
 
-module.exports = { validateNormalPacket, validateAlertPacket };
+/**
+ * Validate a parsed AIS140 Emergency ($EPB) packet
+ */
+function validateAis140EmergencyPacket(parsed) {
+  if (!parsed.imei || !/^\d{15}$/.test(parsed.imei)) {
+    return { valid: false, reason: `Invalid IMEI: ${parsed.imei}` };
+  }
+
+  if (parsed.lat === null || parsed.lng === null) {
+    return { valid: false, reason: 'Lat/Lng conversion failed' };
+  }
+
+  if (parsed.lat < -90 || parsed.lat > 90 || parsed.lng < -180 || parsed.lng > 180) {
+    return { valid: false, reason: 'Lat/Lng out of range' };
+  }
+
+  if (!parsed.alertText) {
+    return { valid: false, reason: 'Missing emergency alert text' };
+  }
+
+  return { valid: true, reason: null };
+}
+
+module.exports = { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket };

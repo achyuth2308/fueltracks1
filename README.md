@@ -1,30 +1,34 @@
 # FuelTracks - Fleet Tracking & Management System
 
-A multi-tenant, high-concurrency GPS tracking platform for B2B logistics and fleet management. It features a TCP daemon that ingests raw telemetry packets from BSTPL-17 GPS devices, parses GPS coordinates (converting DDM format to Decimal Degrees), buffers records in Redis, and asynchronously updates a PostgreSQL database and publishes real-time WebSocket events.
+A multi-tenant, high-concurrency GPS tracking platform for B2B logistics and fleet management. It features a multi-port TCP daemon that ingests raw telemetry packets from both BSTPL-17 and AIS140/tNavIC GPS devices, parses GPS coordinates (converting formats like DDM or decimal coordinates to standardized decimal degrees), buffers records in Redis, and asynchronously updates a PostgreSQL database and publishes real-time WebSocket events.
 
 ---
 
 ## 🏗️ System Architecture & Components
 
 FuelTracks consists of four primary components:
-1. **TCP Daemon (`tcp-server/`)**: A net socket listener (defaulting to Port 5000) that accepts ASCII streams from physical or simulated GPS devices. It parses raw data, validates IMEI identification, pushes to Redis Pub/Sub channels for decoupling, and writes debug logs into `raw_packets`.
+1. **TCP Daemon (`tcp-server/`)**: Runs isolated net socket listeners on separate ports side-by-side:
+   - **Port 5000** for **BSTPL-17** devices (terminated with `#`).
+   - **Port 5001** for **AIS140 / tNavIC** devices (terminated with `*`).
+   It parses raw data, validates IMEI identification, pushes to Redis Pub/Sub channels for decoupling, and writes debug logs into `raw_packets`.
 2. **REST API Server (`backend/`)**: An Express.js backend (Port 3001) that handles multi-tenant authentication, RBAC administration (Superadmins, Dealers, Customers), CRUD of vehicles, devices, organizations, groups, custom reporting logs, and audits.
 3. **WebSockets Publisher**: Managed via Socket.io inside the Express server, subscribing to Redis channels and piping live vehicle positions and telemetry details directly to active client rooms (`vehicle:<id>` and `org:<org_id>`).
 4. **Web Frontend (`frontend/`)**: A Vite-powered React single page application (SPA) with styled dashboards using Framer Motion, Leaflet maps, Recharts analytics, and Lucide icons.
 
 ```
-                  ┌────────────────────────────────────────┐
-                  │          BSTPL-17 GPS Device           │
-                  └───────────────────┬────────────────────┘
-                                      │
-                                      │ TCP (Port 5000)
-                                      ▼
-                  ┌────────────────────────────────────────┐
-                  │               TCP Daemon               │
-                  └───────────────────┬────────────────────┘
-                                      │
-                                      │ Redis Pub/Sub
-                                      ▼
+┌──────────────────────┐   ┌──────────────────────┐
+│ BSTPL-17 GPS Device  │   │  AIS140 GPS Device   │
+└──────────┬───────────┘   └──────────┬───────────┘
+           │                          │
+           │ TCP (Port 5000)          │ TCP (Port 5001)
+           └───────────┬──────────────┘
+                       ▼
+┌─────────────────────────────────────────────────┐
+│           TCP Daemon (Dual listeners)           │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       │ Redis Pub/Sub
+                       ▼
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              API Server                                │
 ├───────────────────────────────────┬────────────────────────────────────┤
