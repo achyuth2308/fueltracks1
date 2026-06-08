@@ -79,6 +79,7 @@ CREATE TABLE vehicles (
   licence_issued_date DATE,
   licence_expire_date DATE,
   is_active   BOOLEAN DEFAULT TRUE,
+  metadata    JSONB DEFAULT '{}'::jsonb,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
 );
@@ -179,6 +180,84 @@ CREATE TABLE raw_packets (
 );
 
 -- ============================================================
+-- DEVICES
+-- ============================================================
+CREATE TABLE devices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+  device_id VARCHAR(50) UNIQUE NOT NULL,
+  device_type VARCHAR(50),
+  licence_id VARCHAR(50),
+  vehicle_id VARCHAR(100),
+  assigned_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  assigned_group_id UUID REFERENCES groups(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- AUDIT LOGS
+-- ============================================================
+CREATE TABLE audit_logs (
+  id                  BIGSERIAL PRIMARY KEY,
+  audit_type          VARCHAR(30)  NOT NULL,    -- 'organization'|'user'|'group'|'vehicle'|'device'|'license'|'login'|'system'
+  entity_type         VARCHAR(50)  NOT NULL,    -- 'Organization'|'User'|'Group'|'Vehicle'|'Device'
+  entity_id           VARCHAR(100),             -- UUID or string ID of the entity
+  entity_name         VARCHAR(200),             -- Human-readable name at time of event
+  action              VARCHAR(100) NOT NULL,    -- 'CREATED'|'UPDATED'|'DELETED'|'LOGIN_SUCCESS'|'LOGIN_FAILED'|'LOGOUT'|'REGISTERED'|'ASSIGNED'|'REMOVED'
+  old_data            JSONB,                    -- State before change (null for creates)
+  new_data            JSONB,                    -- State after change (null for deletes)
+  performed_by_id     UUID,                     -- users.id of actor
+  performed_by_name   VARCHAR(100),             -- name at time of event
+  performed_by_email  VARCHAR(100),             -- email at time of event
+  performed_by_role   VARCHAR(30),              -- role at time of event
+  org_id              UUID,                     -- organization context
+  org_name            VARCHAR(100),
+  group_id            UUID,
+  group_name          VARCHAR(100),
+  vehicle_id          UUID,
+  vehicle_name        VARCHAR(100),
+  device_id           VARCHAR(50),
+  ip_address          VARCHAR(45),
+  user_agent          TEXT,
+  created_at          TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
+-- ORGANIZATION PROFILES
+-- ============================================================
+CREATE TABLE organization_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id UUID NOT NULL UNIQUE REFERENCES organizations(id) ON DELETE CASCADE,
+  contact_person VARCHAR(100),
+  email VARCHAR(100),
+  mobile VARCHAR(20),
+  alternate_mobile VARCHAR(20),
+  address TEXT,
+  city VARCHAR(100),
+  state VARCHAR(100),
+  country VARCHAR(100),
+  pincode VARCHAR(20),
+  gst_number VARCHAR(50),
+  website VARCHAR(255),
+  timezone VARCHAR(50) DEFAULT 'UTC',
+  logo_url VARCHAR(255),
+  favicon_url VARCHAR(255),
+  login_background_url VARCHAR(255),
+  map_provider VARCHAR(50) DEFAULT 'OpenStreetMap',
+  encrypted_api_key TEXT,
+  default_latitude DECIMAL(10,7),
+  default_longitude DECIMAL(10,7),
+  default_zoom SMALLINT DEFAULT 12,
+  sms_enabled BOOLEAN DEFAULT FALSE,
+  email_enabled BOOLEAN DEFAULT FALSE,
+  whatsapp_enabled BOOLEAN DEFAULT FALSE,
+  push_enabled BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ============================================================
 -- INDEXES (critical for query performance)
 -- ============================================================
 CREATE INDEX idx_gps_vehicle_time ON gps_points(vehicle_id, device_time DESC);
@@ -194,6 +273,14 @@ CREATE INDEX idx_vehicle_groups_group ON vehicle_groups(group_id);
 CREATE INDEX idx_user_groups_user ON user_groups(user_id);
 CREATE INDEX idx_user_groups_group ON user_groups(group_id);
 CREATE INDEX idx_raw_packets_imei ON raw_packets(imei);
+CREATE INDEX idx_devices_org ON devices(org_id);
+CREATE INDEX idx_devices_device_id ON devices(device_id);
+CREATE INDEX idx_audit_logs_audit_type ON audit_logs(audit_type);
+CREATE INDEX idx_audit_logs_entity_type ON audit_logs(entity_type);
+CREATE INDEX idx_audit_logs_org_id ON audit_logs(org_id);
+CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at DESC);
+CREATE INDEX idx_audit_logs_performed_by ON audit_logs(performed_by_id);
+CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 
 -- ============================================================
 -- UPDATED_AT TRIGGER (auto-update updated_at columns)
@@ -219,4 +306,10 @@ CREATE TRIGGER update_groups_updated_at BEFORE UPDATE ON groups
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_vehicle_latest_state_updated_at BEFORE UPDATE ON vehicle_latest_state
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_devices_updated_at BEFORE UPDATE ON devices
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_organization_profiles_updated_at BEFORE UPDATE ON organization_profiles
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

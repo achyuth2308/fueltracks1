@@ -10,6 +10,7 @@
     "dev:tcp": "nodemon tcp-server/server.js",
     "simulator": "node scripts/deviceSimulator.js",
     "db:init": "node scripts/dbInit.js",
+    "db:migrate": "node scripts/runMigrations.js",
     "start:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build"
   },
