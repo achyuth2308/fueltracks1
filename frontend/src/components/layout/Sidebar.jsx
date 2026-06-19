@@ -14,11 +14,12 @@ import {
   ChevronRight,
   Cpu,
   Navigation,
+  ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, restoreAdmin, hasAdminSession } = useAuth();
   const navigate = useNavigate();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -41,6 +42,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       ],
     },
   ];
+
+  const handleRestoreAdmin = async () => {
+    const res = await restoreAdmin();
+    if (res.success) {
+      navigate('/admin/users');
+    } else {
+      alert(res.error || 'Failed to restore admin session');
+    }
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -219,6 +229,38 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           borderTop: '1px solid #dfd0bf',
           flexShrink: 0,
         }}>
+          {hasAdminSession && (
+            <button
+              onClick={handleRestoreAdmin}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                width: '100%',
+                padding: collapsed ? '10px' : '10px 14px',
+                background: '#5B21B6',
+                border: 'none',
+                color: '#ffffff',
+                cursor: 'pointer',
+                justifyContent: collapsed ? 'center' : 'flex-start',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 600,
+                transition: 'all 0.2s',
+                marginBottom: '8px',
+                boxShadow: '0 4px 12px rgba(91,33,182,0.2)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#4C1D95';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#5B21B6';
+              }}
+            >
+              <ShieldAlert size={18} style={{ flexShrink: 0 }} />
+              {!collapsed && <span>Return to Admin</span>}
+            </button>
+          )}
           <button
             onClick={handleLogout}
             style={{

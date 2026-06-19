@@ -30,6 +30,7 @@ router.post('/users', authorize('superadmin', 'dealer'), AdminController.createU
 router.put('/users/:id', authorize('superadmin', 'dealer'), AdminController.updateUser);
 router.delete('/users/:id', authorize('superadmin', 'dealer'), AdminController.deleteUser);
 router.get('/users/:id/vehicles', authorize('superadmin', 'dealer'), AdminController.getUserVehicles);
+router.post('/users/:id/impersonate', authorize('superadmin', 'dealer'), AdminController.impersonateUser);
 
 // ============================================================
 // GROUPS (Sub-tenant tagging units)

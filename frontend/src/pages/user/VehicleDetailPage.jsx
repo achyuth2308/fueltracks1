@@ -144,14 +144,14 @@ const VehicleDetailPage = () => {
   }, [socket, id]);
 
   if (loading && !vehicle) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', background: '#F8FAFC' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', background: '#f5efe4' }}>
       <Loader2 size={40} color="#8ba0b5" className="animate-spin" />
       <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 600 }}>Loading vehicle telemetry...</span>
     </div>
   );
 
   if (error || !vehicle) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', padding: '24px', textAlign: 'center', background: '#F8FAFC' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', padding: '24px', textAlign: 'center', background: '#f5efe4' }}>
       <AlertOctagon size={48} color="#EF4444" />
       <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>Vehicle Not Found</h3>
       <p style={{ fontSize: '14px', color: '#64748B', maxWidth: '340px' }}>{error || 'Vehicle data does not exist or access is denied.'}</p>
@@ -165,7 +165,7 @@ const VehicleDetailPage = () => {
   const ignitionOn = !!vehicle.current_ignition;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', overflow: 'hidden', position: 'relative' }}>
 
       {loading && vehicle && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

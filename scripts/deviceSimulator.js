@@ -11,7 +11,7 @@ const TCP_PORT = 5000;
 
 // Seeded IMEIs in DB
 const SIMULATED_DEVICES = [
-  { imei: '865006049210215', lat: 17.207174, lng: 78.314323, speed: 45, fuel: 85.5 },
+  { imei: '865006049210220', lat: 17.207174, lng: 78.314323, speed: 45, fuel: 85.5 },
   { imei: '865006049210216', lat: 12.971598, lng: 77.594562, speed: 0, fuel: 92.0 },  // Idle/stopped
   { imei: '865006049210217', lat: 19.076090, lng: 72.877726, speed: 60, fuel: 50.2 },
 ];

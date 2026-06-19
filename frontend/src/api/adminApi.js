@@ -97,3 +97,8 @@ export const getAuditStats = async () => {
   const response = await axiosInstance.get(`/api/audit/stats?t=${Date.now()}`);
   return response.data;
 };
+
+export const impersonateUser = async (id) => {
+  const response = await axiosInstance.post(`/api/admin/users/${id}/impersonate`);
+  return response.data;
+};

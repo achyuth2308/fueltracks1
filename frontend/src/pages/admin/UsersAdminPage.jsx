@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, Users2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, Users2, X, Shuffle } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { useAuth } from '../../hooks/useAuth';
 
 const UsersAdminPage = () => {
-  const { user } = useAuth();
+  const { user, impersonate } = useAuth();
+  const navigate = useNavigate();
 
   const [users, setUsers] = useState([]);
   const [orgs, setOrgs] = useState([]);
@@ -23,6 +25,27 @@ const UsersAdminPage = () => {
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  const [switchingUserId, setSwitchingUserId] = useState(null);
+
+  const handleImpersonate = async (targetUser, e) => {
+    if (e) e.stopPropagation();
+    if (window.confirm(`Are you sure you want to switch login and view vehicles for ${targetUser.name || targetUser.email}?`)) {
+      setSwitchingUserId(targetUser.id);
+      try {
+        const res = await impersonate(targetUser.id);
+        if (res.success) {
+          navigate('/dashboard');
+        } else {
+          alert(res.error || 'Failed to switch session.');
+        }
+      } catch (err) {
+        alert('An error occurred during switching.');
+      } finally {
+        setSwitchingUserId(null);
+      }
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -109,7 +132,7 @@ const UsersAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -241,6 +264,24 @@ const UsersAdminPage = () => {
                       </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
+                          {user?.id !== u.id && (
+                            <button
+                              onClick={(e) => handleImpersonate(u, e)}
+                              disabled={switchingUserId !== null}
+                              style={{
+                                background: '#E0F2FE', color: '#0369A1', border: 'none', padding: '6px 12px',
+                                borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(3,105,161,0.1)'
+                              }}
+                            >
+                              {switchingUserId === u.id ? (
+                                <Loader2 size={12} className="animate-spin" />
+                              ) : (
+                                <Shuffle size={12} />
+                              )}
+                              <span>Switch</span>
+                            </button>
+                          )}
                           <button
                             onClick={() => handleViewUser(u)}
                             style={{
@@ -307,7 +348,27 @@ const UsersAdminPage = () => {
                 {viewingUser.phone && <span>{viewingUser.phone}</span>}
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              {user?.id !== viewingUser.id && (
+                <button
+                  onClick={(e) => handleImpersonate(viewingUser, e)}
+                  disabled={switchingUserId !== null}
+                  style={{
+                    width: '100%', marginBottom: '12px', padding: '10px', borderRadius: '8px',
+                    background: '#E0F2FE', border: 'none', color: '#0369A1',
+                    fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(3,105,161,0.1)'
+                  }}
+                >
+                  {switchingUserId === viewingUser.id ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Shuffle size={14} />
+                  )}
+                  <span>Switch Login (Impersonate)</span>
+                </button>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
                 <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f5efe4', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
                   <Edit size={14} /> Edit User
                 </button>

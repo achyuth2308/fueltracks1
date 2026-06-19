@@ -123,7 +123,7 @@ const HistoryPage = () => {
   const activePoint = points.length > 0 ? points[points.length - 1] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#F8FAFC', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#f5efe4', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
       
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
@@ -233,7 +233,7 @@ const HistoryPage = () => {
             <button
               onClick={handleQuerySubmit}
               disabled={loading}
-              style={{ width: '100%', background: '#10B981', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', background: '#8ba0b5', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               Plot Route
             </button>
@@ -293,7 +293,7 @@ const HistoryPage = () => {
 
         {/* Footer actions */}
         <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
+          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#8ba0b5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
             <Download size={16} /> Export CSV
           </button>
         </div>

@@ -84,9 +84,77 @@ const RouteMap = ({ points = [], vehicleName = 'Vehicle' }) => {
           />
         ))}
 
+        {/* Start Point Marker */}
+        {points.length > 0 && (() => {
+          const startPoint = points[0];
+          const pos = [parseFloat(startPoint.lat), parseFloat(startPoint.lng)];
+          return (
+            <CircleMarker
+              center={pos}
+              radius={8}
+              fillColor="#22c55e"
+              color="#ffffff"
+              weight={2.5}
+              fillOpacity={1}
+            >
+              <Popup className="premium-popup">
+                <div style={{ minWidth: '180px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
+                  <div style={{ fontWeight: 800, color: '#22c55e', fontSize: '13px', borderBottom: '1px solid #E2E8F0', paddingBottom: '4px', marginBottom: '6px' }}>Start Location</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: '#475569' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: 600 }}>Time</span>
+                      <span>{formatLocalTime(startPoint.device_time)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
+                      <span>{startPoint.odometer ? `${Math.round(startPoint.odometer)} km` : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          );
+        })()}
+
+        {/* End Point Marker */}
+        {points.length > 1 && (() => {
+          const endPoint = points[points.length - 1];
+          const pos = [parseFloat(endPoint.lat), parseFloat(endPoint.lng)];
+          return (
+            <CircleMarker
+              center={pos}
+              radius={8}
+              fillColor="#ef4444"
+              color="#ffffff"
+              weight={2.5}
+              fillOpacity={1}
+            >
+              <Popup className="premium-popup">
+                <div style={{ minWidth: '180px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
+                  <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '13px', borderBottom: '1px solid #E2E8F0', paddingBottom: '4px', marginBottom: '6px' }}>End / Latest Location</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: '#475569' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: 600 }}>Time</span>
+                      <span>{formatLocalTime(endPoint.device_time)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: 600 }}>Speed</span>
+                      <span>{formatSpeed(endPoint.speed)}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
+                      <span>{endPoint.odometer ? `${Math.round(endPoint.odometer)} km` : '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </Popup>
+            </CircleMarker>
+          );
+        })()}
+
         {/* Small Markers for individual GPS points */}
         {points
-          .filter((p, idx) => idx % Math.max(1, Math.floor(points.length / 50)) === 0) // Limit markers to max 50 points to prevent lag
+          .filter((p, idx) => idx > 0 && idx < points.length - 1 && idx % Math.max(1, Math.floor(points.length / 50)) === 0) // Limit markers to max 50 points to prevent lag
           .map((point, idx) => {
             const pos = [parseFloat(point.lat), parseFloat(point.lng)];
             const color = getSpeedColor(point.speed);
@@ -95,11 +163,12 @@ const RouteMap = ({ points = [], vehicleName = 'Vehicle' }) => {
               <CircleMarker
                 key={idx}
                 center={pos}
-                radius={5}
+                radius={3}
                 fillColor={color}
-                color="#0f172a"
-                weight={1.5}
-                fillOpacity={0.9}
+                color="#000000"
+                opacity={0}
+                weight={10}
+                fillOpacity={0.95}
               >
                 <Popup className="premium-popup">
                   <div style={{ minWidth: '220px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>

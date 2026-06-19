@@ -129,7 +129,7 @@ const OnBoardDevicePage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       {/* Header and Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
@@ -410,7 +410,7 @@ const OnBoardDevicePage = () => {
                           <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                             <button 
                               onClick={() => toggleRowExpansion(idx)}
-                              style={{ padding: '8px 16px', background: '#10B981', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}
+                              style={{ padding: '8px 16px', background: '#8ba0b5', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}
                             >
                               {expandedRows[idx] ? 'Hide Details' : 'Show Details'}
                             </button>

@@ -4,6 +4,8 @@
 // ============================================================
 
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const env = require('../config/env');
 const OrgModel = require('../models/orgModel');
 const UserModel = require('../models/userModel');
 const GroupModel = require('../models/groupModel');
@@ -810,6 +812,95 @@ const AdminController = {
     } catch (err) {
       console.error('Error fetching expired licenses:', err);
       res.status(500).json({ success: false, error: 'Failed to fetch billing data' });
+    }
+  },
+
+  async impersonateUser(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      // Ownership check: dealers can only impersonate users in their own org or child orgs
+      if (req.user.role !== 'superadmin') {
+        const user = await UserModel.findById(id);
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found.',
+            code: 'USER_NOT_FOUND'
+          });
+        }
+        // Check if user belongs to dealer's org or dealer's child orgs
+        const org = await OrgModel.findById(user.org_id);
+        const isAuthorized = user.org_id === req.user.orgId || (org && org.parent_id === req.user.orgId);
+        if (!isAuthorized) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to impersonate this user.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const user = await UserModel.findById(id);
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          error: 'User not found.',
+          code: 'USER_NOT_FOUND'
+        });
+      }
+
+      // Generate JWT for target user
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          role: user.role,
+          orgId: user.org_id,
+          orgType: user.org_type
+        },
+        env.JWT_SECRET,
+        { expiresIn: env.JWT_EXPIRES_IN }
+      );
+
+      // Audit: impersonate success
+      try {
+        await AuditService.log({
+          auditType: 'login',
+          entityType: 'User',
+          entityId: user.id,
+          entityName: user.name || user.email,
+          action: 'IMPERSONATE_SUCCESS',
+          newData: { email: user.email, role: user.role, impersonatedBy: req.user.userId },
+          performedById: req.user.userId,
+          performedByRole: req.user.role,
+          orgId: user.org_id,
+          orgName: user.org_name,
+          ipAddress: AuditService.getIp(req),
+          userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) {
+        console.error('[AUDIT]', auditErr.message);
+      }
+
+      res.status(200).json({
+        success: true,
+        data: {
+          accessToken: token,
+          user: {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            orgId: user.org_id,
+            orgName: user.org_name,
+            orgType: user.org_type,
+            name: user.name,
+            phone: user.phone
+          }
+        },
+        message: 'Impersonation successful'
+      });
+    } catch (err) {
+      next(err);
     }
   }
 };

@@ -120,7 +120,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                 </div>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => refetch()}
               style={{
                 background: '#f9fafb', border: '1px solid #e5e7eb', color: '#6b7280',
@@ -134,7 +134,7 @@ const TrackingPage = ({ setAppVehicles }) => {
               <RefreshCw size={14} />
             </button>
           </div>
-          
+
           {statusFilter && (
             <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
               <button onClick={handleClearFilters} style={{
@@ -179,8 +179,8 @@ const TrackingPage = ({ setAppVehicles }) => {
                     transition: 'all 0.2s ease',
                     position: 'relative'
                   }}
-                  onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; }}}
-                  onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#f3f4f6'; }}}
+                  onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; } }}
+                  onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#f3f4f6'; } }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>

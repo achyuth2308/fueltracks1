@@ -219,7 +219,7 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
             <button
               type="submit"
               disabled={loading}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#3B82F6', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? <Loader2 size={16} style={{ marginRight: '8px', animation: 'spin 1s linear infinite' }} /> : null}
               Submit

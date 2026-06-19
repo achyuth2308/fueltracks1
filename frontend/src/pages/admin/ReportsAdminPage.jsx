@@ -123,7 +123,7 @@ const ReportsAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '0', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
+    <div style={{ padding: '0', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       <div style={{ display: 'flex', borderBottom: '1px solid #dfd0bf', background: '#ffffff', padding: '0 32px' }}>
         <button style={tabStyle('dashboard')} onClick={() => setActiveTab('dashboard')}>Fleet Dashboard</button>
@@ -155,7 +155,7 @@ const ReportsAdminPage = () => {
             </div>
             
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button style={{ padding: '10px 20px', background: '#7ea0b6', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#6e859b'} onMouseLeave={e => e.currentTarget.style.background='#7ea0b6'}>
+              <button style={{ padding: '10px 20px', background: '#8ba0b5', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#7a8fa2'} onMouseLeave={e => e.currentTarget.style.background='#8ba0b5'}>
                 Last Transmission
               </button>
               <button style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '40px', height: '40px', border: '1px solid #e8dfd1', background: '#fff', borderRadius: '8px', cursor: 'pointer', color: '#10B981', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }} title="Export Excel">

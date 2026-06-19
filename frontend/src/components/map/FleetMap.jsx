@@ -1,39 +1,61 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 
-// Helper component to center/fly map to a selected coordinate
-const ChangeMapView = ({ lat, lng }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (lat && lng) {
-      map.setView([lat, lng], 14, {
-        animate: true,
-        duration: 1.5,
-      });
-    }
-  }, [lat, lng, map]);
-  return null;
-};
+import { getVehicleRoute } from '../../api/vehicleApi';
 
-// Helper component to auto-fit map bounds to all vehicles
-const FitBoundsToVehicles = ({ vehicles, selectedVehicle }) => {
+const VehicleRouteAndFit = ({ selectedVehicle }) => {
   const map = useMap();
-  useEffect(() => {
-    if (selectedVehicle) return; // let ChangeMapView handle it
+  const [routePoints, setRoutePoints] = useState([]);
 
-    const validVehicles = vehicles.filter(v => v.lat && v.lng);
-    if (validVehicles.length > 0) {
-      const bounds = L.latLngBounds(validVehicles.map(v => [parseFloat(v.lat), parseFloat(v.lng)]));
-      setTimeout(() => {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1 });
-      }, 100);
+  useEffect(() => {
+    // If no vehicle is selected, zoom out to full India map and clear route
+    if (!selectedVehicle) {
+      setRoutePoints([]);
+      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+      return;
     }
-  }, [vehicles, selectedVehicle, map]);
-  return null;
+
+    // If a vehicle is selected, fetch today's route
+    const fetchRoute = async () => {
+      try {
+        const today = new Date();
+        const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
+        const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+        const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
+        
+        if (res.success && res.data.length > 0) {
+          setRoutePoints(res.data);
+          // Fit map bounds to the route to show the "clear route"
+          const bounds = L.latLngBounds(res.data.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
+        } else {
+          // If no route exists for today, just center on the vehicle's current location
+          setRoutePoints([]);
+          if (selectedVehicle.lat && selectedVehicle.lng) {
+            map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 14, { animate: true });
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch route for selected vehicle:', err);
+      }
+    };
+
+    fetchRoute();
+  }, [selectedVehicle, map]);
+
+  if (routePoints.length < 2) return null;
+
+  const positions = routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+  return (
+    <>
+      <Polyline positions={positions} color="#0EA5E9" weight={4} opacity={0.7} />
+      <Polyline positions={positions} color="#38BDF8" weight={2} opacity={1} />
+    </>
+  );
 };
 
 // Custom SVG truck marker generator
@@ -94,6 +116,18 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
         click: () => onMarkerClick && onMarkerClick(vehicle),
       }}
     >
+      <Tooltip
+        direction="bottom"
+        offset={[0, 15]}
+        opacity={1}
+        permanent
+        className="premium-tooltip"
+      >
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' }}>
+          {vehicle.name} <span style={{ color: statusColor, marginLeft: '4px' }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
+        </div>
+      </Tooltip>
+
       <Popup className="premium-popup">
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* Header */}
@@ -222,26 +256,18 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         markerZoomAnimation={true}
       >
         <ResizeMap />
-        
+
         {/* Dynamic Tile Layer based on mapType */}
         <TileLayer
           attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
-          url={mapType === 'osm' 
+          url={mapType === 'osm'
             ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
           }
         />
 
-        {/* Auto-fit map to all vehicles */}
-        <FitBoundsToVehicles vehicles={vehicles} selectedVehicle={selectedVehicle} />
-
-        {/* Dynamic Map panning */}
-        {selectedVehicle?.lat && selectedVehicle?.lng && (
-          <ChangeMapView
-            lat={parseFloat(selectedVehicle.lat)}
-            lng={parseFloat(selectedVehicle.lng)}
-          />
-        )}
+        {/* Handle map zooming and vehicle route plotting */}
+        <VehicleRouteAndFit selectedVehicle={selectedVehicle} />
 
         {/* Vehicle Markers */}
         {vehicles

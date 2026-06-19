@@ -59,7 +59,7 @@ const GroupsAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -190,7 +190,7 @@ const GroupsAdminPage = () => {
                       </td>
                       <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#2563EB'} onMouseLeave={e => e.currentTarget.style.background = '#3B82F6'}>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#8ba0b5', border: 'none', color: '#FFFFFF', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#7a8fa2'} onMouseLeave={e => e.currentTarget.style.background = '#8ba0b5'}>
                             Edit
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#EF4444', border: 'none', color: '#FFFFFF', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#DC2626'} onMouseLeave={e => e.currentTarget.style.background = '#EF4444'}>

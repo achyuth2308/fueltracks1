@@ -108,7 +108,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
           <div style={{
             padding: '6px 12px', borderRadius: '20px',
-            background: '#4d6076', color: '#fff',
+            background: '#8ba0b5', color: '#fff',
             fontSize: '12px', fontWeight: 700, marginLeft: '4px'
           }}>
             Total {vehicles.length}
@@ -311,7 +311,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .tracking-scroll::-webkit-scrollbar { width: 4px; }
         .tracking-scroll::-webkit-scrollbar-track { background: transparent; }
         .tracking-scroll::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 4px; }

@@ -289,7 +289,7 @@ const AuditLogsAdminPage = () => {
   return (
     <div style={{
       padding: '32px',
-      background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 180px, #F8FAFC 180px, #F8FAFC 100%)',
+      background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 180px, #f5efe4 180px, #f5efe4 100%)',
       minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
     }}>
       {/* Slide-in animation */}

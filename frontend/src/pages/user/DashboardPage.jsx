@@ -168,7 +168,7 @@ const DashboardPage = ({ setAppVehicles }) => {
   }).sort((a, b) => new Date(a.licence_expire_date) - new Date(b.licence_expire_date));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 30%, #F8FAFC 30%, #F8FAFC 100%)', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 30%, #f5efe4 30%, #f5efe4 100%)', overflowY: 'auto' }}>
 
       {/* KPI Cards Row (Moved Basic Card Here) */}
       <div style={{ padding: '24px', display: 'flex', gap: '20px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'stretch' }}>

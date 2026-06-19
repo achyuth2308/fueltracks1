@@ -89,7 +89,7 @@ const MigrationPage = () => {
   const displayVehicleId = vehicle.metadata?.vehicleId || vehicle.name || vehicle.imei || '-';
 
   return (
-    <div style={{ background: '#F8FAFC', minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
+    <div style={{ background: '#f5efe4', minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
       
       {/* Header & Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '32px' }}>
@@ -166,9 +166,9 @@ const MigrationPage = () => {
           <button 
             onClick={handleMigrate}
             disabled={migrating || newImei.length !== 15}
-            style={{ padding: '10px 24px', borderRadius: '4px', background: '#3B82F6', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 500, cursor: (migrating || newImei.length !== 15) ? 'not-allowed' : 'pointer', opacity: (migrating || newImei.length !== 15) ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }}
-            onMouseEnter={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#2563EB'; }}
-            onMouseLeave={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#3B82F6'; }}
+            style={{ padding: '10px 24px', borderRadius: '4px', background: '#8ba0b5', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 500, cursor: (migrating || newImei.length !== 15) ? 'not-allowed' : 'pointer', opacity: (migrating || newImei.length !== 15) ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }}
+            onMouseEnter={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#7a8fa2'; }}
+            onMouseLeave={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#8ba0b5'; }}
           >
             {migrating && <Loader2 size={16} className="animate-spin" />}
             Migrate Vehicle
