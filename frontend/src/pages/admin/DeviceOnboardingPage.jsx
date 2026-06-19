@@ -227,12 +227,12 @@ const DeviceOnboardingPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Cpu size={24} color="#FF6B00" />
+          <Cpu size={24} color="#8ba0b5" />
           Device Onboarding
         </h1>
         <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
@@ -262,7 +262,7 @@ const DeviceOnboardingPage = () => {
           {/* STEP 0: Device Type & Quantity */}
           <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
             <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>0</span>
+              <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>0</span>
               Device Setup
             </h2>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -292,11 +292,11 @@ const DeviceOnboardingPage = () => {
           <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', gap: '24px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#111827' }}>
-                <input type="radio" name="flowType" value="existing" checked={flowType === 'existing'} onChange={() => setFlowType('existing')} style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} />
+                <input type="radio" name="flowType" value="existing" checked={flowType === 'existing'} onChange={() => setFlowType('existing')} style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} />
                 Existing User Flow
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#111827' }}>
-                <input type="radio" name="flowType" value="new" checked={flowType === 'new'} onChange={() => setFlowType('new')} style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} />
+                <input type="radio" name="flowType" value="new" checked={flowType === 'new'} onChange={() => setFlowType('new')} style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} />
                 New User Flow
               </label>
             </div>
@@ -307,7 +307,7 @@ const DeviceOnboardingPage = () => {
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>1</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>1</span>
                   Select Existing User
                 </h2>
                 <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#FFF', color: '#111827', boxSizing: 'border-box' }}>
@@ -317,7 +317,7 @@ const DeviceOnboardingPage = () => {
               </div>
 
               {selectedOrgId && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', background: '#FFF7ED', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px', background: '#f5efe4', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                   <Building2 size={16} color="#64748B" />
                   <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>Auto-loaded Organization:</span>
                   <span style={{ fontSize: '13px', fontWeight: 800, color: '#111827' }}>{allOrgs.find(o => o.id === selectedOrgId)?.name || 'Unknown'}</span>
@@ -326,7 +326,7 @@ const DeviceOnboardingPage = () => {
 
               <div>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>2</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>2</span>
                   Select Group
                 </h2>
                 <select value={selectedGroupId} onChange={e => setSelectedGroupId(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#FFF', color: '#111827', boxSizing: 'border-box' }}>
@@ -343,7 +343,7 @@ const DeviceOnboardingPage = () => {
 
               <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>1</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>1</span>
                   Create Organization
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
@@ -364,7 +364,7 @@ const DeviceOnboardingPage = () => {
 
               <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>2</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>2</span>
                   Create User
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -389,7 +389,7 @@ const DeviceOnboardingPage = () => {
 
               <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>3</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>3</span>
                   Create Group
                 </h2>
                 <div>
@@ -400,7 +400,7 @@ const DeviceOnboardingPage = () => {
 
               <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
                 <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>4</span>
+                  <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>4</span>
                   Create Vehicle
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
@@ -431,7 +431,7 @@ const DeviceOnboardingPage = () => {
           {deviceRows.length > 0 && (
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
               <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                <span style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
                   {flowType === 'new' ? '5' : '3'}
                 </span>
                 Generate Device Rows
@@ -440,7 +440,7 @@ const DeviceOnboardingPage = () => {
               <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px' }}>
                 <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                    <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                       {['No', 'License ID', 'Device ID / IMEI', 'Hardware Model', 'Vehicle Assignment'].map(h => (
                         <th key={h} style={{ padding: '14px 16px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           {h}
@@ -521,7 +521,7 @@ const DeviceOnboardingPage = () => {
             <button
               onClick={handleSave}
               disabled={loading || deviceRows.length === 0}
-              style={{ padding: '12px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#FF6B00', border: 'none', cursor: loading || deviceRows.length === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(255,107,0,0.2)' }}
+              style={{ padding: '12px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: loading || deviceRows.length === 0 ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
               Onboard Devices

@@ -6,12 +6,12 @@ import {
   Truck, Building2, Users2, User, Key, Fuel, Activity,
   Calendar, Cpu, WifiOff, Server, Navigation, Clock
 } from 'lucide-react';
-import * as vehicleApi from '../api/vehicleApi';
-import VehicleMap from '../components/map/VehicleMap';
-import { formatLocalTime, getRelativeTime } from '../utils/dateUtils';
-import { formatSpeed, formatOdometer, formatVoltage } from '../utils/formatUtils';
-import { useSocket } from '../hooks/useSocket';
-import { useVehicles } from '../hooks/useVehicles';
+import * as vehicleApi from '../../api/vehicleApi';
+import VehicleMap from '../../components/map/VehicleMap';
+import { formatLocalTime, getRelativeTime } from '../../utils/dateUtils';
+import { formatSpeed, formatOdometer, formatVoltage } from '../../utils/formatUtils';
+import { useSocket } from '../../hooks/useSocket';
+import { useVehicles } from '../../hooks/useVehicles';
 
 /* ── Reusable Status Dot ── */
 const StatusDot = ({ online, speed }) => {
@@ -145,7 +145,7 @@ const VehicleDetailPage = () => {
 
   if (loading && !vehicle) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', background: '#F8FAFC' }}>
-      <Loader2 size={40} color="#FF6B00" className="animate-spin" />
+      <Loader2 size={40} color="#8ba0b5" className="animate-spin" />
       <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 600 }}>Loading vehicle telemetry...</span>
     </div>
   );
@@ -155,7 +155,7 @@ const VehicleDetailPage = () => {
       <AlertOctagon size={48} color="#EF4444" />
       <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>Vehicle Not Found</h3>
       <p style={{ fontSize: '14px', color: '#64748B', maxWidth: '340px' }}>{error || 'Vehicle data does not exist or access is denied.'}</p>
-      <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer', marginTop: '12px' }}>
+      <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', background: '#8ba0b5', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer', marginTop: '12px' }}>
         Back to Dashboard
       </button>
     </div>
@@ -165,11 +165,11 @@ const VehicleDetailPage = () => {
   const ignitionOn = !!vehicle.current_ignition;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', overflow: 'hidden', position: 'relative' }}>
 
       {loading && vehicle && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+          <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
         </div>
       )}
 
@@ -199,8 +199,8 @@ const VehicleDetailPage = () => {
         {/* 1. Vehicle Summary Card */}
         <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: '300px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#FFF4ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Truck size={32} color="#FF6B00" />
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Truck size={32} color="#8ba0b5" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
@@ -263,7 +263,7 @@ const VehicleDetailPage = () => {
             {/* Diagnostics */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Cpu size={18} color="#FF6B00" />
+                <Cpu size={18} color="#8ba0b5" />
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Diagnostics</h3>
               </div>
               <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -285,7 +285,7 @@ const VehicleDetailPage = () => {
             {/* Today's Summary */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={18} color="#FF6B00" />
+                <Calendar size={18} color="#8ba0b5" />
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Today's Summary</h3>
               </div>
               <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -314,7 +314,7 @@ const VehicleDetailPage = () => {
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={18} color="#FF6B00" />
+                  <AlertTriangle size={18} color="#8ba0b5" />
                   <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Recent Alerts</h3>
                 </div>
                 {alerts.length > 0 && <span style={{ padding: '2px 8px', borderRadius: '99px', background: '#FEF2F2', color: '#EF4444', fontSize: '11px', fontWeight: 700 }}>{alerts.length}</span>}

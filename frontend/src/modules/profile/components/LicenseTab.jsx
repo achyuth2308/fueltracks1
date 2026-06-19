@@ -11,10 +11,10 @@ const LicenseTab = ({ license }) => {
     <div className="bg-white p-6 rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-6 border-b pb-4">
         <div className="flex items-center">
-          <Shield className="w-6 h-6 text-[#FF6B00] mr-2" />
+          <Shield className="w-6 h-6 text-[#8ba0b5] mr-2" />
           <h3 className="text-xl font-bold !text-black">License Information</h3>
         </div>
-        <span className="px-3 py-1 bg-[#fff0e6] text-[#FF6B00] text-sm font-semibold rounded-full border border-[#ffe0cc]">
+        <span className="px-3 py-1 bg-[#f5efe4] text-[#8ba0b5] text-sm font-semibold rounded-full border border-[#dfd0bf]">
           {license.type} Tier
         </span>
       </div>
@@ -27,7 +27,7 @@ const LicenseTab = ({ license }) => {
         </div>
         <div className="bg-white border border-black rounded-lg p-5 text-center">
           <p className="text-sm !text-black font-medium mb-1">Used</p>
-          <p className="text-3xl font-bold text-orange-600">{license.used}</p>
+          <p className="text-3xl font-bold text-[#7ea0b6]">{license.used}</p>
           <p className="text-xs !text-black mt-1">Active Vehicles</p>
         </div>
         <div className="bg-white border border-black rounded-lg p-5 text-center">
@@ -44,7 +44,7 @@ const LicenseTab = ({ license }) => {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
-            className={`h-2.5 rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-[#FF6B00]'}`} 
+            className={`h-2.5 rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-[#8ba0b5]'}`} 
             style={{ width: `${Math.min(usagePercentage, 100)}%` }}
           ></div>
         </div>
@@ -56,11 +56,11 @@ const LicenseTab = ({ license }) => {
         )}
       </div>
 
-      <div className="bg-orange-50 border border-orange-100 rounded-lg p-4 flex items-start">
-        <CheckCircle className="w-5 h-5 text-orange-600 mr-3 flex-shrink-0 mt-0.5" />
+      <div className="bg-[#f5efe4] border border-[#e8dfd1] rounded-lg p-4 flex items-start">
+        <CheckCircle className="w-5 h-5 text-[#7ea0b6] mr-3 flex-shrink-0 mt-0.5" />
         <div>
-          <h4 className="text-sm font-semibold text-orange-800">Subscription Active</h4>
-          <p className="text-xs text-orange-700 mt-1">Your FuelTracks enterprise license is fully active and automatically renewing. Modifications to your tier must be performed by your account manager.</p>
+          <h4 className="text-sm font-semibold text-[#5d7389]">Subscription Active</h4>
+          <p className="text-xs text-[#6e859b] mt-1">Your FuelTracks enterprise license is fully active and automatically renewing. Modifications to your tier must be performed by your account manager.</p>
         </div>
       </div>
     </div>

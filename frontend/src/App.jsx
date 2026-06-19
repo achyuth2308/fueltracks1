@@ -4,10 +4,11 @@ import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import VehicleDetailPage from './pages/VehicleDetailPage';
-import HistoryPage from './pages/HistoryPage';
-import ReportPage from './pages/ReportPage';
+import DashboardPage from './pages/user/DashboardPage';
+import VehicleDetailPage from './pages/user/VehicleDetailPage';
+import HistoryPage from './pages/user/HistoryPage';
+import ReportPage from './pages/user/ReportPage';
+import TrackingPage from './pages/user/TrackingPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
 import UsersAdminPage from './pages/admin/UsersAdminPage';
@@ -47,6 +48,7 @@ function App() {
             <Route path="/" element={<DashboardLayout vehicles={vehicles} />}>
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage setAppVehicles={setVehicles} />} />
+              <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />

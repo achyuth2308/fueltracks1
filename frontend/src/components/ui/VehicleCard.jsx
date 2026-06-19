@@ -5,7 +5,7 @@ import { formatSpeed } from '../../utils/formatUtils';
 import { getRelativeTime } from '../../utils/dateUtils';
 
 const FuelMini = ({ pct = 0 }) => {
-  const color = pct > 40 ? '#16a34a' : pct > 15 ? '#f97316' : '#ef4444';
+  const color = pct > 40 ? '#16a34a' : pct > 15 ? '#8ba0b5' : '#ef4444';
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <Fuel size={10} color={color} />
@@ -28,26 +28,26 @@ const VehicleCard = ({ vehicle, isActive, onClick, onDetailsClick }) => {
   const speed = vehicle.current_speed || 0;
   const fuel = vehicle.current_fuel || 0;
 
-  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280';
+  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280';
   const statusLabel = isOnline ? (isMoving ? 'Moving' : 'Idle') : 'Offline';
-  const statusBg = isOnline ? (isMoving ? '#dcfce7' : '#ffedd5') : '#f3f4f6';
-  const statusBorder = isOnline ? (isMoving ? '#bbf7d0' : '#fed7aa') : '#e5e7eb';
+  const statusBg = isOnline ? (isMoving ? '#dcfce7' : '#f5efe4') : '#f3f4f6';
+  const statusBorder = isOnline ? (isMoving ? '#bbf7d0' : '#dfd0bf') : '#e5e7eb';
 
   return (
     <div
       onClick={onClick}
       style={{
         background: isActive
-          ? 'linear-gradient(135deg, #fff7ed 0%, #ffffff 100%)'
+          ? 'linear-gradient(135deg, #f5efe4 0%, #ffffff 100%)'
           : '#ffffff',
-        border: `1px solid ${isActive ? '#fdba74' : '#e5e7eb'}`,
+        border: `1px solid ${isActive ? '#dfd0bf' : '#e5e7eb'}`,
         borderRadius: '8px',
         padding: '10px',
         cursor: 'pointer',
         transition: 'all 0.2s ease',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: isActive ? '0 0 0 1px rgba(234,88,12,0.1), 0 4px 12px rgba(234,88,12,0.1)' : '0 1px 2px rgba(0,0,0,0.05)',
+        boxShadow: isActive ? '0 0 0 1px rgba(139,160,181,0.1), 0 4px 12px rgba(139,160,181,0.1)' : '0 1px 2px rgba(0,0,0,0.05)',
       }}
       onMouseEnter={e => {
         setIsHovered(true);
@@ -68,7 +68,7 @@ const VehicleCard = ({ vehicle, isActive, onClick, onDetailsClick }) => {
       {isActive && (
         <div style={{
           position: 'absolute', left: 0, top: 0, bottom: 0,
-          width: '4px', background: 'linear-gradient(180deg, #ea580c 0%, #c2410c 100%)',
+          width: '4px', background: 'linear-gradient(180deg, #7ea0b6 0%, #6e859b 100%)',
           borderRadius: '4px 0 0 4px',
         }} />
       )}
@@ -173,12 +173,12 @@ const VehicleCard = ({ vehicle, isActive, onClick, onDetailsClick }) => {
             style={{
               display: 'flex', alignItems: 'center', gap: '2px',
               padding: '3px 6px', borderRadius: '4px',
-              background: '#fff7ed', border: '1px solid #fdba74',
-              color: '#ea580c', fontSize: '10px', fontWeight: 600,
+              background: '#f5efe4', border: '1px solid #dfd0bf',
+              color: '#7ea0b6', fontSize: '10px', fontWeight: 600,
               cursor: 'pointer', transition: 'all 0.15s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#ffedd5'; e.currentTarget.style.borderColor = '#f97316'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; e.currentTarget.style.borderColor = '#fdba74'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f5efe4'; e.currentTarget.style.borderColor = '#8ba0b5'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#f5efe4'; e.currentTarget.style.borderColor = '#dfd0bf'; }}
           >
             Details <ArrowRight size={10} />
           </button>

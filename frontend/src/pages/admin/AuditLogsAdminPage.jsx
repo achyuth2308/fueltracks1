@@ -141,7 +141,7 @@ const DetailDrawer = ({ log, onClose }) => {
         }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <ClipboardList size={20} color="#FF6B00" />
+              <ClipboardList size={20} color="#8ba0b5" />
               <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>Audit Detail</h2>
             </div>
             <div style={{ fontSize: '12px', color: '#6B7280' }}>Full event record</div>
@@ -289,7 +289,7 @@ const AuditLogsAdminPage = () => {
   return (
     <div style={{
       padding: '32px',
-      background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 180px, #F8FAFC 180px, #F8FAFC 100%)',
+      background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 180px, #F8FAFC 180px, #F8FAFC 100%)',
       minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
     }}>
       {/* Slide-in animation */}
@@ -299,7 +299,7 @@ const AuditLogsAdminPage = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ClipboardList size={24} color="#FF6B00" /> Audit Logs
+            <ClipboardList size={24} color="#8ba0b5" /> Audit Logs
           </h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
             Full trail of configuration and business changes across your organization.
@@ -309,7 +309,7 @@ const AuditLogsAdminPage = () => {
           <button onClick={fetchLogs} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
             <RefreshCw size={14} /> Refresh
           </button>
-          <button onClick={exportCSV} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#FF6B00', color: '#FFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(255,107,0,0.2)' }}>
+          <button onClick={exportCSV} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#8ba0b5', color: '#FFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}>
             <Download size={14} /> Export CSV
           </button>
         </div>
@@ -318,7 +318,7 @@ const AuditLogsAdminPage = () => {
       {/* ── Stat Cards ── */}
       {stats && (
         <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
-          <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#FF6B00" bg="#FFF4ED" />
+          <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#8ba0b5" bg="#f5efe4" />
           <StatCard label="Today's Events" value={Number(stats.today_events).toLocaleString()} icon={Calendar} color="#6366F1" bg="#EEF2FF" />
           <StatCard label="Failed Logins" value={Number(stats.failed_logins).toLocaleString()} icon={LogIn} color="#DC2626" bg="#FEE2E2" />
           <StatCard label="Org Changes" value={Number(stats.org_changes).toLocaleString()} icon={Building2} color="#10B981" bg="#D1FAE5" />
@@ -390,7 +390,7 @@ const AuditLogsAdminPage = () => {
           </div>
         ) : logs.length === 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', gap: '12px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <ClipboardList size={28} color="#D1D5DB" />
             </div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>No audit logs found</div>
@@ -413,7 +413,7 @@ const AuditLogsAdminPage = () => {
                   <tr
                     key={log.id}
                     style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#FFF7ED'}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f5efe4'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
                     <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
@@ -456,7 +456,7 @@ const AuditLogsAdminPage = () => {
                       <button
                         onClick={() => setSelectedLog(log)}
                         style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', background: '#F8FAFC', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#FFF4ED'; e.currentTarget.style.color = '#FF6B00'; e.currentTarget.style.borderColor = '#FF6B00'; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f5efe4'; e.currentTarget.style.color = '#8ba0b5'; e.currentTarget.style.borderColor = '#8ba0b5'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
                       >
                         <Eye size={12} /> View

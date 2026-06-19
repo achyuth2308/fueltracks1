@@ -48,7 +48,7 @@ const OnBoardDevicePage = () => {
     
     // Generate rows
     const newRows = [];
-    const prefix = licenceType === 'Basic' ? 'BC' : (licenceType === 'Starter' ? 'ST' : 'EN');
+    const prefix = licenceType === 'Starter' ? 'ST' : licenceType === 'Basic' ? 'BC' : licenceType === 'Advanced' ? 'AD' : 'EN';
     for (let i = 0; i < qty; i++) {
       newRows.push({
         id: Date.now() + i, 
@@ -129,12 +129,12 @@ const OnBoardDevicePage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       {/* Header and Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Cpu size={24} color="#FF6B00" />
+          <Cpu size={24} color="#8ba0b5" />
           Add Device
         </h1>
       </div>
@@ -167,6 +167,7 @@ const OnBoardDevicePage = () => {
                 >
                   <option value="Starter">Starter</option>
                   <option value="Basic">Basic</option>
+                  <option value="Advanced">Advanced</option>
                   <option value="Premium">Premium</option>
                 </select>
               </div>
@@ -187,7 +188,7 @@ const OnBoardDevicePage = () => {
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
                 <button 
                   onClick={handleStep1Submit}
-                  style={{ padding: '10px 32px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#FF6B00', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)' }}
+                  style={{ padding: '10px 32px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}
                 >
                   Next Step
                 </button>
@@ -199,25 +200,25 @@ const OnBoardDevicePage = () => {
         {step === 2 && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>2</div>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>2</div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Business Information</h2>
             </div>
 
             {/* Top Toggle */}
             <div style={{ display: 'flex', gap: '48px', marginBottom: '32px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#FF6B00' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#8ba0b5' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
                   checked={userType === 'new'} 
                   onChange={() => setUserType('new')}
                 />
                 New User
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#FF6B00' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#8ba0b5' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
                   checked={userType === 'existing'} 
                   onChange={() => setUserType('existing')}
                 />
@@ -306,25 +307,25 @@ const OnBoardDevicePage = () => {
             <hr style={{ borderTop: '1px solid #F1F5F9', borderBottom: 'none', margin: '0 0 32px 0' }} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFF4ED', color: '#FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>3</div>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>3</div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
             </div>
 
             {/* Middle Toggle */}
             <div style={{ display: 'flex', gap: '48px', marginBottom: '24px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#FF6B00' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#8ba0b5' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
                   checked={deviceEntryMode === 'upload'} 
                   onChange={() => setDeviceEntryMode('upload')}
                 />
                 Bulk Upload via Excel
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'details' ? '#FF6B00' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'details' ? '#8ba0b5' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#FF6B00', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
                   checked={deviceEntryMode === 'details'} 
                   onChange={() => setDeviceEntryMode('details')}
                 />
@@ -334,8 +335,8 @@ const OnBoardDevicePage = () => {
 
             {/* Upload Devices View */}
             {deviceEntryMode === 'upload' && (
-              <div style={{ padding: '32px', background: '#FFF7ED', borderRadius: '12px', border: '1px dashed #FFBE98', textAlign: 'center', marginBottom: '40px' }}>
-                <Upload size={32} color="#FF6B00" style={{ marginBottom: '16px' }} />
+              <div style={{ padding: '32px', background: '#f5efe4', borderRadius: '12px', border: '1px dashed #FFBE98', textAlign: 'center', marginBottom: '40px' }}>
+                <Upload size={32} color="#8ba0b5" style={{ marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Upload Device Excel File</h3>
                 <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>Download our template, fill it out, and upload it here.</p>
                 
@@ -351,7 +352,7 @@ const OnBoardDevicePage = () => {
                       Browse
                     </button>
                   </div>
-                  <button style={{ padding: '10px 24px', background: '#FF6B00', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)' }}>
+                  <button style={{ padding: '10px 24px', background: '#8ba0b5', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}>
                     Import Excel
                   </button>
                 </div>
@@ -363,7 +364,7 @@ const OnBoardDevicePage = () => {
               <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', marginBottom: '40px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#FF6B00', color: '#FFFFFF' }}>
+                    <tr style={{ background: '#8ba0b5', color: '#FFFFFF' }}>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Id</th>
@@ -531,7 +532,7 @@ const OnBoardDevicePage = () => {
               <button 
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#FF6B00', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(255,107,0,0.3)' }}
+                style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(139,160,181,0.3)' }}
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
                 Submit Devices

@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Cpu,
+  Navigation,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -26,16 +27,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       label: '',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
-        { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
+        { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
+        { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer'] },
+        { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
+        { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
+        { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
+        { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
+        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
       ],
     },
   ];
@@ -71,9 +73,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           width: collapsed ? '72px' : '260px',
           minWidth: collapsed ? '72px' : '260px',
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          background: '#FFFFFF',
-          borderRight: '1px solid #E2E8F0',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.02)',
+          background: '#f5efe4',
+          borderRight: '1px solid #dfd0bf',
+          boxShadow: '4px 0 24px rgba(139,160,181,0.05)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -86,26 +88,26 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         {/* User Profile Header */}
         <div style={{
           padding: '24px 16px 16px',
-          borderBottom: '1px solid #F1F5F9',
+          borderBottom: '1px solid #dfd0bf',
           display: 'flex', flexDirection: 'column', gap: '16px',
           alignItems: collapsed ? 'center' : 'flex-start',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-              background: '#FF6B00', color: 'white',
+              background: '#8ba0b5', color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '14px', fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
+              boxShadow: '0 4px 12px rgba(139,160,181,0.2)',
             }}>
               {initials}
             </div>
             {!collapsed && (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#4d6076', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'Administrator'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#64748B', textTransform: 'capitalize' }}>
+                <div style={{ fontSize: '11px', color: '#6e859b', textTransform: 'capitalize' }}>
                   {roleLabel}
                 </div>
               </div>
@@ -119,17 +121,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           style={{
             position: 'absolute', right: '-14px', top: '24px',
             width: '28px', height: '28px',
-            background: '#FFFFFF',
-            border: '1px solid #E2E8F0',
+            background: '#f5efe4',
+            border: '1px solid #dfd0bf',
             borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', color: '#64748B',
+            cursor: 'pointer', color: '#4d6076',
             zIndex: 60,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+            boxShadow: '0 2px 8px rgba(139,160,181,0.05)',
             transition: 'all 0.2s ease',
           }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#7C3AED'; e.currentTarget.style.borderColor = '#7C3AED'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+          onMouseEnter={e => { e.currentTarget.style.color = '#8ba0b5'; e.currentTarget.style.borderColor = '#8ba0b5'; }}
+          onMouseLeave={e => { e.currentTarget.style.color = '#4d6076'; e.currentTarget.style.borderColor = '#dfd0bf'; }}
           className="hidden md:flex"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
@@ -167,10 +169,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         borderRadius: '10px',
                         fontSize: '14px',
                         fontWeight: isActive ? 600 : 500,
-                        color: isActive ? '#FF6B00' : '#475569',
+                        color: isActive ? '#ffffff' : '#4d6076',
                         textDecoration: 'none',
                         justifyContent: collapsed ? 'center' : 'flex-start',
-                        background: isActive ? '#FFF4ED' : 'transparent',
+                        background: isActive ? '#8ba0b5' : 'transparent',
                         marginBottom: '4px',
                         transition: 'all 0.2s ease',
                         whiteSpace: 'nowrap',
@@ -178,14 +180,14 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         position: 'relative'
                       })}
                       onMouseEnter={e => {
-                        if (!e.currentTarget.style.background.includes('FFF4ED')) {
-                          e.currentTarget.style.color = '#7C3AED';
-                          e.currentTarget.style.background = '#F8FAFC';
+                        if (!e.currentTarget.style.background.includes('8ba0b5')) {
+                          e.currentTarget.style.color = '#354556';
+                          e.currentTarget.style.background = '#e8dfd1';
                         }
                       }}
                       onMouseLeave={e => {
-                        if (!e.currentTarget.style.background.includes('FFF4ED')) {
-                          e.currentTarget.style.color = '#475569';
+                        if (!e.currentTarget.style.background.includes('8ba0b5')) {
+                          e.currentTarget.style.color = '#4d6076';
                           e.currentTarget.style.background = 'transparent';
                         }
                       }}
@@ -195,7 +197,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                           {isActive && !collapsed && (
                             <div style={{
                               position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
-                              background: '#FF6B00', borderRadius: '0 4px 4px 0'
+                              background: '#ffffff', borderRadius: '0 4px 4px 0'
                             }} />
                           )}
                           <Icon size={18} style={{ flexShrink: 0 }} />
@@ -214,7 +216,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
 
         <div style={{
           padding: '16px 12px',
-          borderTop: '1px solid #F1F5F9',
+          borderTop: '1px solid #dfd0bf',
           flexShrink: 0,
         }}>
           <button
@@ -224,15 +226,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
               width: '100%', padding: collapsed ? '10px' : '10px 14px',
               background: 'transparent',
               border: 'none',
-              color: '#EF4444',
+              color: '#6e859b',
               cursor: 'pointer',
               justifyContent: collapsed ? 'center' : 'flex-start',
               borderRadius: '10px',
               fontSize: '14px', fontWeight: 600,
               transition: 'all 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#FEF2F2'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#e8dfd1'; e.currentTarget.style.color = '#354556'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#6e859b'; }}
           >
             <LogOut size={18} style={{ flexShrink: 0 }} />
             {!collapsed && <span>Logout</span>}

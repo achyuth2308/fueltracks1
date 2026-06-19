@@ -72,7 +72,7 @@ const MigrationPage = () => {
   if (loading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#F8FAFC' }}>
-        <Loader2 size={48} className="animate-spin" color="#FF6B00" />
+        <Loader2 size={48} className="animate-spin" color="#8ba0b5" />
       </div>
     );
   }

@@ -118,8 +118,8 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFF4ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={16} color="#FF6B00" />
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={16} color="#8ba0b5" />
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{editingGroup ? 'Edit Group' : 'Create New Group'}</h3>
           </div>

@@ -63,7 +63,7 @@ const BrandingTab = ({ profile, onUpload }) => {
         type="button"
         onClick={() => inputRef.current.click()}
         disabled={loading[type]}
-        className="flex items-center px-4 py-2 bg-white border border-black !text-black placeholder-black !text-black rounded-md hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#FF6B00] disabled:opacity-50 transition-colors"
+        className="flex items-center px-4 py-2 bg-white border border-black !text-black placeholder-black !text-black rounded-md hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8ba0b5] disabled:opacity-50 transition-colors"
       >
         {loading[type] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
         {currentUrl ? 'Change' : 'Upload'}

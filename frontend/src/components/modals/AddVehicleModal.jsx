@@ -4,7 +4,7 @@ import * as adminApi from '../../api/adminApi';
 
 const FieldLabel = ({ children, required }) => (
   <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#64748B', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '5px' }}>
-    {children} {required && <span style={{ color: '#FF6B00' }}>*</span>}
+    {children} {required && <span style={{ color: '#8ba0b5' }}>*</span>}
   </label>
 );
 
@@ -18,10 +18,10 @@ const Field = ({ label, required, children }) => (
 const inputStyle = (focused) => ({
   width: '100%', padding: '9px 11px',
   background: '#FFFFFF',
-  border: `1px solid ${focused ? '#FF6B00' : '#E2E8F0'}`,
+  border: `1px solid ${focused ? '#8ba0b5' : '#E2E8F0'}`,
   borderRadius: '7px', color: '#111827', fontSize: '12px',
   fontFamily: 'Inter, sans-serif', outline: 'none',
-  boxShadow: focused ? '0 0 0 3px rgba(255,107,0,0.1)' : 'none',
+  boxShadow: focused ? '0 0 0 3px rgba(139,160,181,0.1)' : 'none',
   transition: 'all 0.15s', boxSizing: 'border-box',
 });
 
@@ -83,8 +83,8 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#FFF4ED', border: '1px solid #FFE4D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Cpu size={16} color="#FF6B00" />
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f5efe4', border: '1px solid #FFE4D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Cpu size={16} color="#8ba0b5" />
             </div>
             <div>
               <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>
@@ -235,9 +235,9 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
                   return (
                     <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} style={{
                       padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                      background: selected ? '#FFF4ED' : '#FFFFFF',
-                      border: `1px solid ${selected ? '#FF6B00' : '#E2E8F0'}`,
-                      color: selected ? '#FF6B00' : '#64748B', transition: 'all 0.15s',
+                      background: selected ? '#f5efe4' : '#FFFFFF',
+                      border: `1px solid ${selected ? '#8ba0b5' : '#E2E8F0'}`,
+                      color: selected ? '#8ba0b5' : '#64748B', transition: 'all 0.15s',
                     }}>
                       {selected && '✓ '}{g.name}
                     </button>
@@ -253,7 +253,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
           <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '7px', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}>
             Cancel
           </button>
-          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#FB923C' : '#FF6B00', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(255,107,0,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if(!loading) e.currentTarget.style.background = '#EA580C' }} onMouseLeave={e => { if(!loading) e.currentTarget.style.background = '#FF6B00' }}>
+          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#FB923C' : '#8ba0b5', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(139,160,181,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if(!loading) e.currentTarget.style.background = '#7ea0b6' }} onMouseLeave={e => { if(!loading) e.currentTarget.style.background = '#8ba0b5' }}>
             {loading ? <><Loader2 size={13} style={{ animation: 'spin 0.75s linear infinite' }} /> Saving...</> : <>{vehicle ? 'Update Vehicle' : 'Register Vehicle'}</>}
           </button>
         </div>

@@ -22,7 +22,7 @@ const GroupModel = {
   /**
    * Get all groups (filtered by org for multi-tenancy)
    */
-  async findAll(orgId, role) {
+  async findAll(orgId, role, userId = null) {
     let query, params;
 
     if (role === 'superadmin') {
@@ -39,8 +39,25 @@ const GroupModel = {
                JOIN organizations o ON g.org_id = o.id
                ORDER BY g.name ASC`;
       params = [];
+    } else if (role === 'customer' && userId) {
+      // Customer sees ONLY groups they are explicitly mapped to
+      query = `SELECT g.*, o.name as org_name,
+                      (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
+                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
+                      (
+                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
+                        FROM vehicle_groups vg
+                        JOIN vehicles v ON vg.vehicle_id = v.id
+                        WHERE vg.group_id = g.id
+                      ) as vehicles
+               FROM groups g
+               JOIN organizations o ON g.org_id = o.id
+               JOIN user_groups ug ON g.id = ug.group_id
+               WHERE ug.user_id = $1
+               ORDER BY g.name ASC`;
+      params = [userId];
     } else {
-      // Dealer or Customer sees groups in their own org
+      // Dealer sees groups in their own org
       query = `SELECT g.*, o.name as org_name,
                       (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
                       (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,

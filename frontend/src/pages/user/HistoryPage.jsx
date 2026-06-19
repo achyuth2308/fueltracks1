@@ -1,23 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Loader2, Play, Pause, Square, Search, ChevronRight, ChevronLeft } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, Download, Loader2, Play, Pause, Square, FastForward, Info, ChevronRight, ChevronLeft } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import RouteMap from '../../components/map/RouteMap';
+import { formatLocalTime } from '../../utils/dateUtils';
+import { formatSpeed, formatOdometer } from '../../utils/formatUtils';
 
-const RouteHistoryReportPage = () => {
+const HistoryPage = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
 
-  const [vehicles, setVehicles] = useState([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [vehicle, setVehicle] = useState(null);
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(true);
 
   // Playback state (mock for UI)
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
 
-  // Date range defaults: Today
+  // Date range defaults: Today (start at 00:00:00 to end at 23:59:59)
   const getTodayRange = () => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
@@ -32,20 +35,24 @@ const RouteHistoryReportPage = () => {
   const [endDate, setEndDate] = useState(getTodayRange().end);
 
   useEffect(() => {
-    vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => {
-        if (res.success) {
-          setVehicles(res.data);
+    const fetchVehicle = async () => {
+      try {
+        const response = await vehicleApi.getVehicleById(id);
+        if (response.success) {
+          setVehicle(response.data);
         }
-      })
-      .catch(console.error);
-  }, []);
+      } catch (err) {
+        console.error('Failed to fetch vehicle:', err);
+      }
+    };
+    fetchVehicle();
+  }, [id]);
 
   const fetchRouteHistory = async () => {
-    if (!selectedVehicleId) return;
     setLoading(true);
+    setError(null);
     try {
-      const routeRes = await vehicleApi.getVehicleRoute(selectedVehicleId, {
+      const routeRes = await vehicleApi.getVehicleRoute(id, {
         startDate: new Date(startDate).toISOString(),
         endDate: new Date(endDate).toISOString()
       });
@@ -54,26 +61,18 @@ const RouteHistoryReportPage = () => {
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
+      setError('Failed to fetch history logs');
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto-fetch if vehicle changes
   useEffect(() => {
-    if (selectedVehicleId) {
-      fetchRouteHistory();
-    } else {
-      setPoints([]);
-    }
+    if (vehicle) fetchRouteHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicleId]);
+  }, [id, vehicle]);
 
   const handleQuerySubmit = () => {
-    if (!selectedVehicleId) {
-      alert('Please select a vehicle first.');
-      return;
-    }
     fetchRouteHistory();
   };
 
@@ -115,8 +114,7 @@ const RouteHistoryReportPage = () => {
     const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
     const link = document.createElement('a');
     link.setAttribute('href', encodeURI(csvContent));
-    const vName = vehicles.find(v => v.id === selectedVehicleId)?.name || 'Vehicle';
-    link.setAttribute('download', `${vName}_GPS_History.csv`);
+    link.setAttribute('download', `${vehicle?.name || 'Vehicle'}_GPS_History.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -135,8 +133,9 @@ const RouteHistoryReportPage = () => {
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#1F2937' }}>Loading route history...</span>
           </div>
         )}
-        <div style={{ flex: 1 }}>
-          <RouteMap points={points} vehicleName={vehicles.find(v => v.id === selectedVehicleId)?.name || 'Vehicle'} />
+        {/* Map Container */}
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <RouteMap points={points} vehicleName={vehicle?.name || 'Vehicle'} />
         </div>
 
         {/* Right Panel Toggle Button */}
@@ -155,8 +154,9 @@ const RouteHistoryReportPage = () => {
         </button>
 
         {/* Floating Gauges (Bottom Left) */}
-        {selectedVehicleId && (
+        {points.length > 0 && (
           <div style={{ position: 'absolute', bottom: '24px', left: '24px', zIndex: 999, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderRadius: '12px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', display: 'flex', gap: '32px', border: '1px solid #E2E8F0' }}>
+            {/* Speed Gauge */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Speed - {Math.round(activePoint?.speed || 0)} km/h</span>
               <div style={{ position: 'relative', width: '120px', height: '80px', overflow: 'hidden' }}>
@@ -170,24 +170,24 @@ const RouteHistoryReportPage = () => {
         )}
 
         {/* Floating Playback Controls (Bottom Right) */}
-        {selectedVehicleId && (
+        {points.length > 0 && (
           <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 999, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderRadius: '8px', padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
-                {isPlaying ? <Pause size={18} /> : <Play size={18} />}
-              </button>
-              <button style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
-                <Square size={18} />
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-              {['Slow', 'Normal', 'Fast'].map(spd => (
-                <label key={spd} style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-                  <input type="radio" checked={playbackSpeed === spd} onChange={() => setPlaybackSpeed(spd)} style={{ margin: 0 }} />
-                  {spd}
-                </label>
-              ))}
-            </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
+              {isPlaying ? <Pause size={18} /> : <Play size={18} />}
+            </button>
+            <button style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
+              <Square size={18} />
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            {['Slow', 'Normal', 'Fast'].map(spd => (
+              <label key={spd} style={{ fontSize: '12px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                <input type="radio" checked={playbackSpeed === spd} onChange={() => setPlaybackSpeed(spd)} style={{ margin: 0 }} />
+                {spd}
+              </label>
+            ))}
+          </div>
           </div>
         )}
       </div>
@@ -196,23 +196,14 @@ const RouteHistoryReportPage = () => {
       <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 12px rgba(0,0,0,0.02)', flexShrink: 0, overflow: 'hidden' }}>
         <div style={{ width: '400px', display: 'flex', flexDirection: 'column', height: '100%' }}>
         
-        {/* Header - Vehicle Selector */}
-        <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px', background: '#FAFAFA' }}>
-          <button onClick={() => navigate('/admin/reports')} style={{ padding: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <ArrowLeft size={18} />
+        {/* Header */}
+        <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
+            <ArrowLeft size={16} />
           </button>
           <div style={{ flex: 1 }}>
-            <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>Select Vehicle</label>
-            <select 
-              value={selectedVehicleId} 
-              onChange={(e) => setSelectedVehicleId(e.target.value)}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', outline: 'none', background: '#FFFFFF', fontSize: '14px', fontWeight: 600, color: '#0F172A', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.02)' }}
-            >
-              <option value="">-- Choose a vehicle --</option>
-              {vehicles.map(v => (
-                <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
-              ))}
-            </select>
+            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
+            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs found</div>
           </div>
         </div>
 
@@ -242,9 +233,9 @@ const RouteHistoryReportPage = () => {
             <button
               onClick={handleQuerySubmit}
               disabled={loading}
-              style={{ width: '100%', background: '#0EA5E9', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', background: '#10B981', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              <Search size={16} /> Plot Route
+              Plot Route
             </button>
           </div>
 
@@ -277,13 +268,7 @@ const RouteHistoryReportPage = () => {
               </tr>
             </thead>
             <tbody>
-              {!selectedVehicleId ? (
-                <tr>
-                  <td colSpan="5" style={{ padding: '60px', textAlign: 'center', color: '#9CA3AF', fontSize: '14px' }}>
-                    Please select a vehicle above to view its route history.
-                  </td>
-                </tr>
-              ) : points.length === 0 ? (
+              {points.length === 0 ? (
                 <tr>
                   <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
                 </tr>
@@ -324,4 +309,4 @@ const RouteHistoryReportPage = () => {
   );
 };
 
-export default RouteHistoryReportPage;
+export default HistoryPage;

@@ -61,7 +61,7 @@ export const exportToPDF = (columns, data, title, fileName) => {
     body: tableData,
     startY: 28,
     styles: { fontSize: 8 },
-    headStyles: { fillColor: [255, 107, 0] }
+    headStyles: { fillColor: [139, 160, 181] }
   });
 
   doc.save(`${fileName}_${new Date().toISOString().split('T')[0]}.pdf`);

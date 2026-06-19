@@ -59,7 +59,7 @@ const GroupsAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -71,14 +71,14 @@ const GroupsAdminPage = () => {
           onClick={() => { setEditingGroup(null); setIsAddModalOpen(true); }}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#FF6B00', color: '#FFFFFF',
+            background: '#8ba0b5', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(255,107,0,0.2)',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)',
             transition: 'all 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(255,107,0,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(255,107,0,0.2)'; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(139,160,181,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(139,160,181,0.2)'; }}
         >
           <Plus size={18} />
           <span>New Group</span>
@@ -121,7 +121,7 @@ const GroupsAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading groups...</span>
             </div>
           ) : error ? (
@@ -134,7 +134,7 @@ const GroupsAdminPage = () => {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                     {['ID', 'Group Name', 'Vehicle Id', 'Vehicle Name', 'Vehicle Count', 'Action'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
@@ -161,7 +161,7 @@ const GroupsAdminPage = () => {
                         background: 'transparent',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#FFF7ED'}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f5efe4'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>

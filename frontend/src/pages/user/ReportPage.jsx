@@ -23,9 +23,9 @@ import {
   ResponsiveContainer, 
   Legend 
 } from 'recharts';
-import * as vehicleApi from '../api/vehicleApi';
-import { formatLocalTime, formatLocalDate } from '../utils/dateUtils';
-import { formatSpeed, formatFuel } from '../utils/formatUtils';
+import * as vehicleApi from '../../api/vehicleApi';
+import { formatLocalTime, formatLocalDate } from '../../utils/dateUtils';
+import { formatSpeed, formatFuel } from '../../utils/formatUtils';
 
 const ReportPage = () => {
   const { id } = useParams();

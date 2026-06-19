@@ -14,15 +14,15 @@ const DashboardLayout = ({ vehicles = [] }) => {
         <div style={{ position: 'relative', width: '48px', height: '48px' }}>
           <div style={{
             position: 'absolute', inset: 0,
-            border: '2px solid rgba(249,115,22,0.12)',
-            borderTopColor: '#ea580c',
+            border: '2px solid rgba(139,160,181,0.12)',
+            borderTopColor: '#7ea0b6',
             borderRadius: '50%',
             animation: 'spin 0.75s linear infinite',
           }} />
           <div style={{
             position: 'absolute', inset: '8px',
-            border: '2px solid rgba(249,115,22,0.08)',
-            borderTopColor: 'rgba(249,115,22,0.4)',
+            border: '2px solid rgba(139,160,181,0.08)',
+            borderTopColor: 'rgba(139,160,181,0.4)',
             borderRadius: '50%',
             animation: 'spin 1.2s linear infinite reverse',
           }} />

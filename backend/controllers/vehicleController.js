@@ -34,7 +34,8 @@ const VehicleController = {
         page: parsedPage,
         limit: parsedLimit,
         search,
-        groupId
+        groupId,
+        userId: req.user.userId
       });
 
       res.status(200).json({

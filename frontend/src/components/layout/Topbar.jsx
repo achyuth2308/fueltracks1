@@ -44,8 +44,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      background: '#ffffff',
-      borderBottom: '1px solid #e5e7eb',
+      background: '#f5efe4',
+      borderBottom: '1px solid #dfd0bf',
       flexShrink: 0,
       zIndex: 30,
     }}>
@@ -57,18 +57,18 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '24px' }}>
           <div style={{
             width: '32px', height: '32px',
-            background: 'linear-gradient(135deg, #FF6B00 0%, #E65C00 100%)',
+            background: 'linear-gradient(135deg, #8ba0b5 0%, #7ea0b6 100%)',
             borderRadius: '8px',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 10px rgba(255, 107, 0, 0.3)',
+            boxShadow: '0 4px 10px rgba(139, 160, 181, 0.3)',
           }}>
             <Truck size={16} color="white" />
           </div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+            <div style={{ fontSize: '16px', fontWeight: 800, color: '#4d6076', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
               FuelTracks
             </div>
-            <div style={{ fontSize: '9px', fontWeight: 600, color: '#FF6B00', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '9px', fontWeight: 600, color: '#8ba0b5', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
               Enterprise
             </div>
           </div>
@@ -77,11 +77,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
           <div style={{
             width: '5px', height: '5px', borderRadius: '50%',
-            background: '#FF6B00',
-            boxShadow: '0 0 6px rgba(255,107,0,0.5)',
+            background: '#8ba0b5',
+            boxShadow: '0 0 6px rgba(139,160,181,0.5)',
           }} />
           <span style={{
-            fontSize: '12px', fontWeight: 600, color: '#111827',
+            fontSize: '12px', fontWeight: 600, color: '#4d6076',
             maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
             {user?.orgName || 'Platform Workspace'}
@@ -95,18 +95,18 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         {/* Fleet stats */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {[
-            { label: 'Total', value: stats.total, color: '#111827' },
-            { label: 'Online', value: stats.online, color: '#16a34a', dot: true },
-            { label: 'Offline', value: stats.offline, color: '#6b7280', dot: true },
+            { label: 'Total', value: stats.total, color: '#4d6076' },
+            { label: 'Online', value: stats.online, color: '#8ba0b5', dot: true },
+            { label: 'Offline', value: stats.offline, color: '#b8a693', dot: true },
           ].map(({ label, value, color, dot }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (
                 <div style={{
                   width: '6px', height: '6px', borderRadius: '50%', background: color,
-                  boxShadow: color === '#16a34a' ? '0 0 6px rgba(22,163,74,0.4)' : 'none',
+                  boxShadow: color === '#8ba0b5' ? '0 0 6px rgba(139,160,181,0.4)' : 'none',
                 }} />
               )}
-              <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>{label}</span>
+              <span style={{ fontSize: '11px', color: '#6e859b', fontWeight: 500 }}>{label}</span>
               <span style={{
                 fontSize: '12px', fontWeight: 700, color,
                 fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
@@ -118,23 +118,23 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)' }} />
+        <div style={{ width: '1px', height: '20px', background: '#dfd0bf' }} />
 
         {/* Live clock */}
         <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <ClockIcon size={14} color="#6b7280" />
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#4d6076', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
               {timeStr}
             </div>
-            <div style={{ fontSize: '9px', color: '#6b7280', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>
+            <div style={{ fontSize: '9px', color: '#6e859b', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>
               {dateStr}
             </div>
           </div>
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: 'rgba(0,0,0,0.1)' }} />
+        <div style={{ width: '1px', height: '20px', background: '#dfd0bf' }} />
 
         {/* Notifications */}
         <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -142,9 +142,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           <div style={{
             position: 'absolute', top: '-2px', right: '-2px',
             width: '14px', height: '14px', borderRadius: '50%',
-            background: '#ef4444', color: 'white',
+            background: '#8ba0b5', color: 'white',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '9px', fontWeight: 'bold', border: '2px solid white',
+            fontSize: '9px', fontWeight: 'bold', border: '2px solid #f5efe4',
           }}>
             3
           </div>
@@ -155,17 +155,17 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           display: 'flex', alignItems: 'center', gap: '5px',
           padding: '4px 10px',
           borderRadius: '99px',
-          background: connected ? '#dcfce7' : '#fee2e2',
-          border: `1px solid ${connected ? '#bbf7d0' : '#fecaca'}`,
+          background: connected ? '#8ba0b5' : '#dfd0bf',
+          border: `1px solid ${connected ? '#7ea0b6' : '#c3b29f'}`,
         }}>
           {connected
-            ? <Wifi size={12} color="#16a34a" />
-            : <WifiOff size={12} color="#dc2626" />
+            ? <Wifi size={12} color="#ffffff" />
+            : <WifiOff size={12} color="#4d6076" />
           }
           <span style={{
             fontSize: '10px', fontWeight: 700,
             letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: connected ? '#16a34a' : '#dc2626',
+            color: connected ? '#ffffff' : '#4d6076',
           }}>
             {connected ? 'Live' : 'Off'}
           </span>

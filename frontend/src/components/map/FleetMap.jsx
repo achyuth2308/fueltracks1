@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Truck, Navigation, Play, User, Phone } from 'lucide-react';
+import { Truck, User } from 'lucide-react';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 
@@ -28,7 +28,6 @@ const FitBoundsToVehicles = ({ vehicles, selectedVehicle }) => {
     const validVehicles = vehicles.filter(v => v.lat && v.lng);
     if (validVehicles.length > 0) {
       const bounds = L.latLngBounds(validVehicles.map(v => [parseFloat(v.lat), parseFloat(v.lng)]));
-      // Give it a small timeout to ensure map container has its final dimensions
       setTimeout(() => {
         map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1 });
       }, 100);
@@ -75,12 +74,11 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
 
   const isOnline = !!vehicle.is_online;
   const isMoving = isOnline && (vehicle.current_speed || 0) > 0;
-  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280';
+  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280';
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
-      // Small timeout to allow map to pan before opening popup, preventing glitches
       setTimeout(() => {
         markerRef.current?.openPopup();
       }, 200);
@@ -97,44 +95,56 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
       }}
     >
       <Popup className="premium-popup">
-        <div className="w-56 font-sans">
+        <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* Header */}
-          <div className="flex justify-between items-start border-b border-slate-200 pb-2 mb-2">
-            <div>
-              <h4 className="font-bold text-slate-800 text-sm">{vehicle.name}</h4>
-              <span className="text-[10px] text-slate-500 font-mono">{vehicle.plate}</span>
-            </div>
-            <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-500 pulse-green' : 'bg-slate-400'}`} />
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dfd0bf', paddingBottom: '6px', marginBottom: '8px' }}>
+            <span style={{ fontWeight: 800, color: '#4d6076', fontSize: '13px' }}>{vehicle.name}</span>
+            <span style={{
+              width: '8px',
+              height: '8px',
+              borderRadius: '50%',
+              background: isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280',
+              boxShadow: `0 0 6px ${isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280'}`
+            }} />
           </div>
 
           {/* Details Rows */}
-          <div className="space-y-1.5 text-xs text-slate-600">
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Status</span>
-              <span className={`font-semibold ${isOnline ? 'text-green-600' : 'text-slate-500'}`}>
-                {isOnline ? (isMoving ? 'Moving' : 'Stopped') : 'Offline'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', color: '#4d6076' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>Vehicle Name</span>
+              <span style={{ fontWeight: 700 }}>- {vehicle.name}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>Today Distance</span>
+              <span style={{ fontWeight: 700 }}>- {vehicle.today_distance || '0 km'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>Idle</span>
+              <span style={{ fontWeight: 700 }}>- {vehicle.idle_duration || '00:00:00'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>ACC Status</span>
+              <span style={{ fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#6b7280' }}>
+                - {vehicle.current_ignition ? 'ON' : 'OFF'}
               </span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Current Speed</span>
-              <span className="font-bold text-slate-800">{formatSpeed(vehicle.current_speed)}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>Loc Time</span>
+              <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Fuel Level</span>
-              <span className="font-bold text-slate-800">{vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? `${Number(vehicle.current_fuel).toFixed(1)}%` : '0%'}</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#6e859b', fontWeight: 600 }}>Comm Time</span>
+              <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500 font-medium">Ignition</span>
-              <span className={`font-semibold ${vehicle.current_ignition ? 'text-green-600' : 'text-slate-500'}`}>
-                {vehicle.current_ignition ? 'ON' : 'OFF'}
-              </span>
-            </div>
-            {vehicle.driver_name && (
-              <div className="border-t border-slate-200 pt-1.5 mt-1.5 flex items-center space-x-1.5 text-[11px]">
-                <User className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-slate-600 truncate">{vehicle.driver_name}</span>
-              </div>
-            )}
+          </div>
+
+          {/* Links Row */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #dfd0bf', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
+            <a href={`/admin/reports`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>Reports</a>
+            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>Track</a>
+            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>History</a>
+            <span style={{ color: '#b8a693', cursor: 'not-allowed' }}>MultiTrack</span>
+            <span style={{ color: '#b8a693', cursor: 'not-allowed' }}>Site</span>
           </div>
         </div>
       </Popup>
@@ -156,8 +166,10 @@ const ResizeMap = () => {
 };
 
 const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
-  // Default map center for India
-  const defaultCenter = [20.5937, 78.9629];
+  const [mapType, setMapType] = useState('osm'); // 'osm' or 'google'
+
+  // Default map center for Karmanghat, Hyderabad (FuelTracks Office)
+  const defaultCenter = [17.3411, 78.5317];
   const mapCenter = selectedVehicle?.lat && selectedVehicle?.lng
     ? [parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)]
     : vehicles.length > 0 && vehicles[0].lat && vehicles[0].lng
@@ -166,6 +178,40 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
 
   return (
     <div className="w-full h-full relative border border-slate-200 rounded-xl overflow-hidden shadow-sm" style={{ zIndex: 1 }}>
+      {/* Map type selector overlay */}
+      <div style={{
+        position: 'absolute',
+        top: '12px',
+        left: '12px',
+        zIndex: 1000,
+        background: '#ffffff',
+        border: '1px solid #dfd0bf',
+        borderRadius: '8px',
+        padding: '6px 10px',
+        boxShadow: '0 2px 10px rgba(139,160,181,0.15)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px'
+      }}>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#4d6076' }}>Map Type:</span>
+        <select
+          value={mapType}
+          onChange={(e) => setMapType(e.target.value)}
+          style={{
+            fontSize: '11px',
+            fontWeight: 700,
+            color: '#8ba0b5',
+            border: 'none',
+            outline: 'none',
+            background: 'transparent',
+            cursor: 'pointer'
+          }}
+        >
+          <option value="osm">OSM</option>
+          <option value="google">Google Maps</option>
+        </select>
+      </div>
+
       <MapContainer
         center={mapCenter}
         zoom={5}
@@ -176,9 +222,14 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         markerZoomAnimation={true}
       >
         <ResizeMap />
+        
+        {/* Dynamic Tile Layer based on mapType */}
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
+          url={mapType === 'osm' 
+            ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+          }
         />
 
         {/* Auto-fit map to all vehicles */}

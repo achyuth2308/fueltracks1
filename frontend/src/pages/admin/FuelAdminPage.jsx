@@ -3,7 +3,7 @@ import { Fuel, Plus, Info, Settings, AlertTriangle, FileText, CheckCircle2, Chev
 
 const FuelAdminPage = () => {
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -19,10 +19,10 @@ const FuelAdminPage = () => {
         <button
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#FF6B00', color: '#FFFFFF',
+            background: '#8ba0b5', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'not-allowed', boxShadow: '0 4px 12px rgba(255,107,0,0.2)', opacity: 0.7
+            cursor: 'not-allowed', boxShadow: '0 4px 12px rgba(139,160,181,0.2)', opacity: 0.7
           }}
           title="Module ready for integration"
         >
@@ -64,7 +64,7 @@ const FuelAdminPage = () => {
         alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center'
       }}>
         <div style={{
-          width: '80px', height: '80px', borderRadius: '24px', background: '#FFF7ED', border: '1px solid #E2E8F0',
+          width: '80px', height: '80px', borderRadius: '24px', background: '#f5efe4', border: '1px solid #E2E8F0',
           display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px'
         }}>
           <Fuel size={40} color="#94A3B8" />
@@ -77,7 +77,7 @@ const FuelAdminPage = () => {
 
         <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {['Real-time Volume', 'Refill Detection', 'Theft Alerts', 'Consumption Reports'].map(feature => (
-            <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#FFF7ED', padding: '8px 16px', borderRadius: '99px', border: '1px solid #E2E8F0' }}>
+            <div key={feature} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#f5efe4', padding: '8px 16px', borderRadius: '99px', border: '1px solid #E2E8F0' }}>
               <CheckCircle2 size={14} color="#10B981" />
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>{feature}</span>
             </div>

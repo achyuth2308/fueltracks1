@@ -49,6 +49,11 @@ export const deleteUser = async (id) => {
   return response.data;
 };
 
+export const getUserVehicles = async (id) => {
+  const response = await axiosInstance.get(`/api/admin/users/${id}/vehicles?t=${Date.now()}`);
+  return response.data;
+};
+
 // Groups
 export const getGroups = async () => {
   const response = await axiosInstance.get(`/api/admin/groups?t=${Date.now()}`);

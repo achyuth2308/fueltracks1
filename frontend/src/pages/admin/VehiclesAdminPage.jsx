@@ -68,7 +68,7 @@ const VehiclesAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -112,7 +112,7 @@ const VehiclesAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading fleet registry...</span>
             </div>
           ) : error ? (
@@ -125,7 +125,7 @@ const VehiclesAdminPage = () => {
             <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
               <table style={{ minWidth: '2400px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                     {['Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks', 'Action'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                         {h}
@@ -144,11 +144,11 @@ const VehiclesAdminPage = () => {
                       onClick={() => setViewingVehicle(v)}
                       style={{
                         borderBottom: '1px solid #F1F5F9', cursor: 'pointer',
-                        background: viewingVehicle?.id === v.id ? '#FFF4ED' : 'transparent',
+                        background: viewingVehicle?.id === v.id ? '#f5efe4' : 'transparent',
                         transition: 'background 0.2s',
                         whiteSpace: 'nowrap'
                       }}
-                      onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#FFF7ED'; }}
+                      onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#f5efe4'; }}
                       onMouseLeave={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.metadata?.vehicleId || '-'}</td>
@@ -176,7 +176,7 @@ const VehiclesAdminPage = () => {
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.sensorNo || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.metadata?.remarks || '-'}</td>
                       <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', color: '#FF6B00' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F1F5F9', color: '#8ba0b5' }}>
                           <Eye size={16} />
                         </div>
                       </td>
@@ -199,10 +199,10 @@ const VehiclesAdminPage = () => {
             <div style={{ padding: '24px', borderBottom: '1px solid #F1F5F9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{
-                  width: '64px', height: '64px', borderRadius: '16px', background: '#FFF4ED',
+                  width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
                 }}>
-                  <Truck size={32} color="#FF6B00" />
+                  <Truck size={32} color="#8ba0b5" />
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -223,10 +223,10 @@ const VehiclesAdminPage = () => {
               <p style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'monospace' }}>{viewingVehicle.plate || 'No Plate'}</p>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-                <button onClick={(e) => { e.stopPropagation(); navigate(`/vehicles/${viewingVehicle.id}`); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#FFF4ED', border: '1px solid #FFEDD5', color: '#FF6B00', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); navigate(`/vehicles/${viewingVehicle.id}`); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f5efe4', border: '1px solid #e8dfd1', color: '#8ba0b5', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
                   <Eye size={16} /> Live Monitor
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); navigate(`/admin/vehicles/edit/${viewingVehicle.id}`); }} style={{ padding: '10px', borderRadius: '8px', background: '#FFF7ED', border: '1px solid #E2E8F0', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                <button onClick={(e) => { e.stopPropagation(); navigate(`/admin/vehicles/edit/${viewingVehicle.id}`); }} style={{ padding: '10px', borderRadius: '8px', background: '#f5efe4', border: '1px solid #E2E8F0', color: '#111827', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
                   <Edit2 size={16} />
                 </button>
                 <button onClick={(e) => handleDelete(viewingVehicle.id, e)} style={{ padding: '10px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
@@ -240,7 +240,7 @@ const VehiclesAdminPage = () => {
 
               <div>
                 <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Operational Context</h3>
-                <div style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid #F1F5F9' }}>
+                <div style={{ background: '#f5efe4', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid #F1F5F9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
                     <div>
@@ -252,7 +252,7 @@ const VehiclesAdminPage = () => {
                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users2 size={16} color="#64748B" /></div>
                     <div>
                       <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Group</div>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingVehicle.group_name || '—'}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

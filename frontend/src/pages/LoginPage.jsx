@@ -4,13 +4,13 @@ import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye
 import { useAuth } from '../hooks/useAuth';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#f97316' },
-  { label: 'Dealer', email: 'dealer@abclogistics.com', color: '#f97316' },
-  { label: 'Customer', email: 'customer@abcfleet.com', color: '#f97316' },
+  { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#8ba0b5' },
+  { label: 'Dealer', email: 'dealer@abclogistics.com', color: '#8ba0b5' },
+  { label: 'Customer', email: 'customer@abcfleet.com', color: '#8ba0b5' },
 ];
 
 const LoginPage = () => {
-  const { login, isAuthenticated, error: authError } = useAuth();
+  const { login, isAuthenticated, user, error: authError } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,8 +19,14 @@ const LoginPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated && user) {
+      if (user.role === 'customer') {
+        navigate('/tracking', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [isAuthenticated, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,8 +34,9 @@ const LoginPage = () => {
     setLoading(true); setError(null);
     const result = await login(email, password);
     setLoading(false);
-    if (result.success) navigate('/dashboard', { replace: true });
-    else setError(result.error || 'Authentication failed. Check your credentials.');
+    if (!result.success) {
+      setError(result.error || 'Authentication failed. Check your credentials.');
+    }
   };
 
   const fillDemo = (acc) => {
@@ -39,7 +46,7 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="login-page min-h-screen flex items-start pt-[4vh] justify-center bg-gradient-to-br from-orange-50 via-white to-orange-100 font-sans px-6 pb-6 text-slate-800 relative overflow-hidden">
+    <div className="login-page min-h-screen flex items-start pt-[4vh] justify-center bg-gradient-to-br from-[#f5efe4] via-white to-[#e8dfd1] font-sans px-6 pb-6 text-slate-800 relative overflow-hidden">
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center z-10">
 
@@ -48,17 +55,17 @@ const LoginPage = () => {
           <div>
             {/* Logo + Title */}
             <div className="flex items-center gap-3 mb-5">
-              <div className="bg-gradient-to-br from-orange-500 to-orange-600 p-2.5 rounded-xl shadow-lg">
+              <div className="bg-gradient-to-br from-[#8ba0b5] to-[#7ea0b6] p-2.5 rounded-xl shadow-lg">
                 <Map className="text-white" size={26} />
               </div>
               <h1
                 className="text-3xl font-black tracking-wide leading-none"
                 style={{
-                  background: 'linear-gradient(90deg, #FF6B00 0%, #FF8C42 30%,  #FF8C42 100%)',
+                  background: 'linear-gradient(90deg, #8ba0b5 0%, #d3c2af 30%,  #d3c2af 100%)',
                   WebkitBackgroundClip: 'text',
                   backgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 4px 12px rgba(255,107,0,0.15))'
+                  filter: 'drop-shadow(0 4px 12px rgba(139,160,181,0.15))'
                 }}
               >FUELTRACKS</h1>
             </div>
@@ -68,13 +75,13 @@ const LoginPage = () => {
               <span
                 className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full"
                 style={{
-                  background: 'linear-gradient(90deg, rgba(255,107,0,0.12), rgba(124,77,255,0.12))',
+                  background: 'linear-gradient(90deg, rgba(139,160,181,0.12), rgba(124,77,255,0.12))',
                   border: '1px solid rgba(168,85,247,0.3)',
                   color: '#7C3AED',
                   backdropFilter: 'blur(8px)'
                 }}
               >
-                🟠 Live GPS &nbsp;•&nbsp; Telematics &nbsp;•&nbsp; Fleet Operations
+                🔵 Live GPS &nbsp;•&nbsp; Telematics &nbsp;•&nbsp; Fleet Operations
               </span>
             </div>
 
@@ -94,14 +101,14 @@ const LoginPage = () => {
 
           {/* Map Graphic Section */}
           <div className="relative w-full mt-4 bg-transparent opacity-80">
-            {/* World Map — warm orange tint */}
+            {/* World Map — cool dusty blue and biscuit tint */}
             <img
               src="/world.svg"
               alt="World Map"
               className="w-full h-auto block"
               style={{
                 opacity: 0.55,
-                filter: 'contrast(1.2) brightness(0.9) sepia(1) saturate(3) hue-rotate(10deg)'
+                filter: 'contrast(1.2) brightness(0.9) sepia(1) saturate(3) hue-rotate(180deg)'
               }}
             />
 
@@ -110,48 +117,48 @@ const LoginPage = () => {
 
               {/* Static route lines connecting nodes */}
               <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path d="M 23 32 Q 35 10 50 22" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                <path d="M 50 22 Q 58 15 65 40" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                <path d="M 65 40 Q 75 55 80 72" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                <path d="M 23 32 Q 35 10 50 22" fill="none" stroke="#8ba0b5" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                <path d="M 50 22 Q 58 15 65 40" fill="none" stroke="#8ba0b5" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
+                <path d="M 65 40 Q 75 55 80 72" fill="none" stroke="#8ba0b5" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
               </svg>
 
               {/* North America (USA) */}
               <div className="absolute" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                <div className="relative w-3 h-3 bg-[#8ba0b5] rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-[#b8a693] rounded-full animate-ping opacity-60"></div>
                 </div>
               </div>
-              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -170%)' }}>
+              <div className="absolute bg-[#8ba0b5] text-white p-1 rounded-full shadow-md" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -170%)' }}>
                 <Truck size={10} />
               </div>
 
               {/* Europe */}
               <div className="absolute" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                <div className="relative w-3 h-3 bg-[#8ba0b5] rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-[#b8a693] rounded-full animate-ping opacity-60"></div>
                 </div>
               </div>
-              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -170%)' }}>
+              <div className="absolute bg-[#8ba0b5] text-white p-1 rounded-full shadow-md" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -170%)' }}>
                 <Truck size={10} />
               </div>
 
               {/* India */}
               <div className="absolute" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                <div className="relative w-3 h-3 bg-[#8ba0b5] rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-[#b8a693] rounded-full animate-ping opacity-60"></div>
                 </div>
               </div>
-              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -170%)' }}>
+              <div className="absolute bg-[#8ba0b5] text-white p-1 rounded-full shadow-md" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -170%)' }}>
                 <Truck size={10} />
               </div>
 
               {/* Australia */}
               <div className="absolute" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-orange-500 rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-orange-400 rounded-full animate-ping opacity-60"></div>
+                <div className="relative w-3 h-3 bg-[#8ba0b5] rounded-full shadow-lg">
+                  <div className="absolute inset-0 bg-[#b8a693] rounded-full animate-ping opacity-60"></div>
                 </div>
               </div>
-              <div className="absolute bg-orange-500 text-white p-1 rounded-full shadow-md" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -170%)' }}>
+              <div className="absolute bg-[#8ba0b5] text-white p-1 rounded-full shadow-md" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -170%)' }}>
                 <Truck size={10} />
               </div>
             </div>
@@ -163,7 +170,7 @@ const LoginPage = () => {
 
         {/* Right Side - Login Form */}
         <div className="w-full max-w-md mx-auto mt-[5%] lg:ml-auto lg:mr-0">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_20px_50px_rgba(249,115,22,0.18)] border-2 border-orange-300">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_20px_50px_rgba(139,160,181,0.18)] border-2 border-[#d3c2af]">
 
             <div className="flex flex-col items-center mb-8 text-center">
 
@@ -191,7 +198,7 @@ const LoginPage = () => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your username or email"
-                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8ba0b5] focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
                   />
                 </div>
               </div>
@@ -208,7 +215,7 @@ const LoginPage = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
+                    className="w-full pl-10 pr-10 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#8ba0b5] focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
                   />
                   <button
                     type="button"
@@ -222,10 +229,10 @@ const LoginPage = () => {
 
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-orange-500 accent-orange-500" />
+                  <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-[#8ba0b5] focus:ring-[#8ba0b5] accent-[#8ba0b5]" />
                   <span className="text-sm font-medium text-slate-900">Remember Me</span>
                 </label>
-                <a href="#" className="text-sm font-semibold text-orange-500 hover:text-orange-600">Forgot Password?</a>
+                <a href="#" className="text-sm font-semibold text-[#8ba0b5] hover:text-[#7ea0b6]">Forgot Password?</a>
               </div>
 
               <button
@@ -233,16 +240,16 @@ const LoginPage = () => {
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 py-3.5 text-white rounded-xl font-bold text-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed hover:opacity-90"
                 style={{
-                  background: 'linear-gradient(90deg, #FF6B00 0%, #f97316 40%, #a855f7 80%, #7C3AED 100%)',
-                  boxShadow: '0 4px 14px rgba(249,115,22,0.35), 0 4px 14px rgba(124,77,255,0.2)'
+                  background: 'linear-gradient(90deg, #8ba0b5 0%, #8ba0b5 40%, #a855f7 80%, #7C3AED 100%)',
+                  boxShadow: '0 4px 14px rgba(139,160,181,0.35), 0 4px 14px rgba(124,77,255,0.2)'
                 }}
               >
                 {loading ? <Loader2 size={18} className="animate-spin" /> : <><ArrowRight size={18} /> LOGIN</>}
               </button>
             </form>
 
-            <div className="mt-8 bg-orange-50/60 border border-orange-100 rounded-xl p-4 flex items-center justify-center gap-3">
-              <div className="text-orange-500 bg-white p-2 rounded-lg shadow-sm border border-orange-100">
+            <div className="mt-8 bg-[#f5efe4]/60 border border-[#e8dfd1] rounded-xl p-4 flex items-center justify-center gap-3">
+              <div className="text-[#8ba0b5] bg-white p-2 rounded-lg shadow-sm border border-[#e8dfd1]">
                 <Users size={20} />
               </div>
               <p className="text-sm text-slate-700 font-medium">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, Users2, X } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
+import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -17,6 +18,8 @@ const UsersAdminPage = () => {
 
   // Details Panel State
   const [viewingUser, setViewingUser] = useState(null);
+  const [userVehicles, setUserVehicles] = useState([]);
+  const [vehiclesLoading, setVehiclesLoading] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +49,20 @@ const UsersAdminPage = () => {
     fetchUsers();
     fetchOrgs();
   }, []);
+
+  const handleViewUser = async (u) => {
+    setViewingUser(u);
+    setUserVehicles([]);
+    setVehiclesLoading(true);
+    try {
+      const res = await getUserVehicles(u.id);
+      if (res.success) setUserVehicles(res.data);
+    } catch (e) {
+      setUserVehicles([]);
+    } finally {
+      setVehiclesLoading(false);
+    }
+  };
 
   const handleOpenAddModal = () => {
     setSelectedUserForEdit(null);
@@ -92,7 +109,7 @@ const UsersAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #FFF7ED 0%, #FFF7ED 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #F8FAFC 50%, #F8FAFC 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -146,7 +163,7 @@ const UsersAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#FF6B00" className="animate-spin" />
+              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading users...</span>
             </div>
           ) : error ? (
@@ -159,7 +176,7 @@ const UsersAdminPage = () => {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#FFF7ED', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                     {['Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
@@ -177,10 +194,10 @@ const UsersAdminPage = () => {
                       key={u.id}
                       style={{
                         borderBottom: '1px solid #F1F5F9',
-                        background: viewingUser?.id === u.id ? '#FFF4ED' : 'transparent',
+                        background: viewingUser?.id === u.id ? '#f5efe4' : 'transparent',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#FFF7ED'; }}
+                      onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#f5efe4'; }}
                       onMouseLeave={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px' }}>
@@ -225,7 +242,7 @@ const UsersAdminPage = () => {
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
-                            onClick={() => setViewingUser(u)}
+                            onClick={() => handleViewUser(u)}
                             style={{
                               background: '#F1F5F9', color: '#475569', border: 'none', padding: '6px 12px',
                               borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
@@ -279,10 +296,10 @@ const UsersAdminPage = () => {
               </button>
 
               <div style={{
-                width: '64px', height: '64px', borderRadius: '16px', background: '#FFF4ED',
+                width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
               }}>
-                <UserIcon size={32} color="#FF6B00" />
+                <UserIcon size={32} color="#8ba0b5" />
               </div>
               <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingUser.name || 'Unnamed User'}</h2>
               <div style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -291,7 +308,7 @@ const UsersAdminPage = () => {
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
-                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#FFF7ED', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
+                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f5efe4', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
                   <Edit size={14} /> Edit User
                 </button>
                 {user?.id !== viewingUser.id && (
@@ -307,7 +324,7 @@ const UsersAdminPage = () => {
 
               <div>
                 <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Access & Permissions</h3>
-                <div style={{ background: '#FFF7ED', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
+                <div style={{ background: '#f5efe4', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
                     <div>
@@ -322,11 +339,27 @@ const UsersAdminPage = () => {
                       <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.group_names || '—'}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Truck size={16} color="#64748B" /></div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Accessible Vehicles</div>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0, marginTop: '2px' }}><Truck size={16} color="#64748B" /></div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '6px' }}>Accessible Vehicles</div>
+                      {vehiclesLoading ? (
+                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Loading...</div>
+                      ) : userVehicles.length === 0 ? (
+                        <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          {userVehicles.map(v => (
+                            <span key={v.id} style={{
+                              padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                              background: v.is_online ? '#D1FAE5' : '#F1F5F9',
+                              color: v.is_online ? '#059669' : '#475569'
+                            }}>
+                              {v.name}{v.plate ? ` (${v.plate})` : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

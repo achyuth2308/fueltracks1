@@ -47,7 +47,7 @@ const VehicleModel = {
    * Get all vehicles for an org (with latest state)
    * Filtered by org hierarchy: superadmin sees all, dealer sees their org + children
    */
-  async findAll(orgId, role, { page = 1, limit = 100, search, groupId } = {}) {
+  async findAll(orgId, role, { page = 1, limit = 100, search, groupId, userId } = {}) {
     const offset = (page - 1) * limit;
     let whereClause = '';
     const params = [];
@@ -56,6 +56,15 @@ const VehicleModel = {
     if (role === 'superadmin') {
       // See all vehicles
       whereClause = 'WHERE v.is_active = TRUE';
+    } else if (role === 'customer') {
+      // See only vehicles assigned to the groups this customer belongs to
+      params.push(userId);
+      whereClause = `WHERE v.is_active = TRUE AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${paramIndex++}
+      )`;
     } else {
       // See vehicles in own org + child orgs
       params.push(orgId);
@@ -100,14 +109,24 @@ const VehicleModel = {
               v.server_name, v.gps_sim_no, v.device_version, v.timezone,
               v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
               o.name as org_name,
+              STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.is_online,
-              vls.last_seen, vls.direction as current_direction
+              vls.last_seen, vls.direction as current_direction,
+              vls.odometer as current_odometer
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+       LEFT JOIN vehicle_groups vg ON v.id = vg.vehicle_id
+       LEFT JOIN groups g ON vg.group_id = g.id
        ${whereClause}
+       GROUP BY v.id, v.org_id, v.imei, v.name, v.plate, v.model,
+                v.driver_name, v.driver_phone, v.is_active, v.created_at,
+                v.server_name, v.gps_sim_no, v.device_version, v.timezone,
+                v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
+                o.name, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
+                vls.voltage, vls.is_online, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params

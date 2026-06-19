@@ -471,12 +471,31 @@ const AdminController = {
     }
   },
 
+  async getUserVehicles(req, res, next) {
+    try {
+      const { id } = req.params;
+      const result = await db.query(
+        `SELECT v.id, v.name, v.plate, v.imei, vls.is_online
+         FROM vehicles v
+         JOIN vehicle_groups vg ON v.id = vg.vehicle_id
+         JOIN user_groups ug ON vg.group_id = ug.group_id
+         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+         WHERE ug.user_id = $1 AND v.is_active = TRUE
+         ORDER BY v.name ASC`,
+        [id]
+      );
+      res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   // ============================================================
   // GROUPS
   // ============================================================
   async getAllGroups(req, res, next) {
     try {
-      const groups = await GroupModel.findAll(req.user.orgId, req.user.role);
+      const groups = await GroupModel.findAll(req.user.orgId, req.user.role, req.user.userId);
       res.status(200).json({
         success: true,
         data: groups
@@ -767,6 +786,7 @@ const AdminController = {
         if (row.licence_id) {
           if (row.licence_id.startsWith('ST')) licenceType = 'Starter';
           else if (row.licence_id.startsWith('BC')) licenceType = 'Basic';
+          else if (row.licence_id.startsWith('AD')) licenceType = 'Advanced';
           else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
         }
         

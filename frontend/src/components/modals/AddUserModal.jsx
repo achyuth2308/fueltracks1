@@ -150,7 +150,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
             <div>
@@ -159,7 +159,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" required value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -169,7 +169,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
             <div>
@@ -178,7 +178,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="email" value={altEmail} onChange={(e) => setAltEmail(e.target.value)} placeholder="Alternate Email"
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -188,7 +188,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 required value={orgId} onChange={(e) => setOrgId(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 {orgs.map(org => (
                   <option key={org.id} value={org.id}>{org.name}</option>
@@ -201,7 +201,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 required value={role} onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="customer">Customer</option>
                 <option value="dealer">Dealer</option>
@@ -214,7 +214,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" value={zoho} onChange={(e) => setZoho(e.target.value)} placeholder="Zoho"
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -224,7 +224,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 value={defaultMap} onChange={(e) => setDefaultMap(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="OSM">OSM</option>
                 <option value="Google">Google Maps</option>
@@ -236,7 +236,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 value={enableDebugs} onChange={(e) => setEnableDebugs(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="Disable">Disable</option>
                 <option value="Enable">Enable</option>
@@ -250,7 +250,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                 </label>
                 <input
                   type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-                  className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#FF6B00] focus:ring-1 focus:ring-[#FF6B00] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                  className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
                 />
               </div>
             )}
