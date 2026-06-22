@@ -22,6 +22,7 @@ CREATE TABLE organizations (
   contact_person VARCHAR(100),
   email       VARCHAR(100),
   is_active   BOOLEAN DEFAULT TRUE,
+  device_limits JSONB DEFAULT '{"Starter": 0, "Basic": 0, "Advanced": 0, "Premium": 0}'::jsonb,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
 );

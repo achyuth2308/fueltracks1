@@ -57,4 +57,10 @@ router.post('/onboard/devices', authorize('superadmin', 'dealer'), OnboardContro
 // ============================================================
 router.get('/billing/expired', authorize('superadmin', 'dealer'), AdminController.getExpiredBillingLicenses);
 
+// ============================================================
+// DEVICE QUOTA (tier-based limits per dealer org)
+// ============================================================
+router.get('/device-quota', authorize('superadmin', 'dealer'), AdminController.getDeviceQuota);
+router.patch('/orgs/:id/device-limits', authorize('superadmin'), AdminController.setDeviceLimits);
+
 module.exports = router;

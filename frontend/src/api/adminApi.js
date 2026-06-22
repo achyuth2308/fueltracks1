@@ -102,3 +102,15 @@ export const impersonateUser = async (id) => {
   const response = await axiosInstance.post(`/api/admin/users/${id}/impersonate`);
   return response.data;
 };
+
+// Device Quota
+export const getDeviceQuota = async (orgId = null) => {
+  const params = orgId ? `?orgId=${orgId}&t=${Date.now()}` : `?t=${Date.now()}`;
+  const response = await axiosInstance.get(`/api/admin/device-quota${params}`);
+  return response.data;
+};
+
+export const setDeviceLimits = async (orgId, deviceLimits) => {
+  const response = await axiosInstance.patch(`/api/admin/orgs/${orgId}/device-limits`, { deviceLimits });
+  return response.data;
+};

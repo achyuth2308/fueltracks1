@@ -902,6 +902,117 @@ const AdminController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  // ============================================================
+  // DEVICE QUOTA (for Dealer organisations)
+  // ============================================================
+
+  /**
+   * GET /api/admin/device-quota?orgId=<dealerOrgId>
+   * Returns the allowed limits + how many are already used per tier.
+   * Superadmin can query any org; dealer can only query their own.
+   */
+  async getDeviceQuota(req, res, next) {
+    try {
+      const targetOrgId = req.query.orgId || req.user.orgId;
+
+      // Dealers may only query their own org
+      if (req.user.role !== 'superadmin' && targetOrgId !== req.user.orgId) {
+        return res.status(403).json({ success: false, error: 'Access denied.', code: 'FORBIDDEN' });
+      }
+
+      const orgResult = await db.query(
+        `SELECT device_limits FROM organizations WHERE id = $1`,
+        [targetOrgId]
+      );
+      if (orgResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      const limits = orgResult.rows[0].device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+
+      // Count devices registered for this org by licence prefix
+      const usedResult = await db.query(
+        `SELECT
+           COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') AS "Starter",
+           COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') AS "Basic",
+           COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') AS "Advanced",
+           COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium"
+         FROM devices
+         WHERE org_id = $1`,
+        [targetOrgId]
+      );
+
+      const used = {
+        Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
+        Basic:    parseInt(usedResult.rows[0]?.Basic    || 0, 10),
+        Advanced: parseInt(usedResult.rows[0]?.Advanced || 0, 10),
+        Premium:  parseInt(usedResult.rows[0]?.Premium  || 0, 10),
+      };
+
+      const available = {
+        Starter:  Math.max(0, (limits.Starter  || 0) - used.Starter),
+        Basic:    Math.max(0, (limits.Basic    || 0) - used.Basic),
+        Advanced: Math.max(0, (limits.Advanced || 0) - used.Advanced),
+        Premium:  Math.max(0, (limits.Premium  || 0) - used.Premium),
+      };
+
+      res.status(200).json({ success: true, data: { limits, used, available } });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * PATCH /api/admin/org/:id/device-limits
+   * Superadmin updates the device_limits for a dealer org.
+   */
+  async setDeviceLimits(req, res, next) {
+    try {
+      if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ success: false, error: 'Only superadmin can set device limits.', code: 'FORBIDDEN' });
+      }
+
+      const { id } = req.params;
+      const { deviceLimits } = req.body;
+
+      if (!deviceLimits || typeof deviceLimits !== 'object') {
+        return res.status(400).json({ success: false, error: 'deviceLimits is required and must be an object.' });
+      }
+
+      const sanitized = {
+        Starter:  Math.max(0, parseInt(deviceLimits.Starter  || 0, 10)),
+        Basic:    Math.max(0, parseInt(deviceLimits.Basic    || 0, 10)),
+        Advanced: Math.max(0, parseInt(deviceLimits.Advanced || 0, 10)),
+        Premium:  Math.max(0, parseInt(deviceLimits.Premium  || 0, 10)),
+      };
+
+      const result = await db.query(
+        `UPDATE organizations SET device_limits = $1::jsonb, updated_at = NOW() WHERE id = $2 RETURNING id, name, device_limits`,
+        [JSON.stringify(sanitized), id]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      // Audit
+      try {
+        await AuditService.log({
+          auditType: 'organization', entityType: 'Organization',
+          entityId: id, entityName: result.rows[0].name, action: 'UPDATED',
+          newData: { deviceLimits: sanitized },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: id,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+
+      res.status(200).json({ success: true, data: result.rows[0], message: 'Device limits updated.' });
+    } catch (err) {
+      next(err);
+    }
   }
 };
 

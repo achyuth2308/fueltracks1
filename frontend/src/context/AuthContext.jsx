@@ -48,11 +48,18 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         return { success: true };
       } else {
-        setError(response.error || 'Login failed');
-        return { success: false, error: response.error };
+        let errMsg = response.error || 'Login failed';
+        if (typeof errMsg === 'object') {
+          errMsg = errMsg.message || JSON.stringify(errMsg);
+        }
+        setError(errMsg);
+        return { success: false, error: errMsg };
       }
     } catch (err) {
-      const errMsg = err.response?.data?.error || err.message || 'An error occurred during login';
+      let errMsg = err.response?.data?.error || err.message || 'An error occurred during login';
+      if (typeof errMsg === 'object') {
+        errMsg = errMsg.message || JSON.stringify(errMsg);
+      }
       setError(errMsg);
       return { success: false, error: errMsg };
     } finally {
@@ -90,11 +97,18 @@ export const AuthProvider = ({ children }) => {
         setUser(response.data.user);
         return { success: true };
       } else {
-        setError(response.error || 'Impersonation failed');
-        return { success: false, error: response.error };
+        let errMsg = response.error || 'Impersonation failed';
+        if (typeof errMsg === 'object') {
+          errMsg = errMsg.message || JSON.stringify(errMsg);
+        }
+        setError(errMsg);
+        return { success: false, error: errMsg };
       }
     } catch (err) {
-      const errMsg = err.response?.data?.error || err.message || 'An error occurred during impersonation';
+      let errMsg = err.response?.data?.error || err.message || 'An error occurred during impersonation';
+      if (typeof errMsg === 'object') {
+        errMsg = errMsg.message || JSON.stringify(errMsg);
+      }
       setError(errMsg);
       return { success: false, error: errMsg };
     } finally {
@@ -115,7 +129,10 @@ export const AuthProvider = ({ children }) => {
       await fetchCurrentUser();
       return { success: true };
     } catch (err) {
-      const errMsg = err.response?.data?.error || err.message || 'An error occurred during session restore';
+      let errMsg = err.response?.data?.error || err.message || 'An error occurred during session restore';
+      if (typeof errMsg === 'object') {
+        errMsg = errMsg.message || JSON.stringify(errMsg);
+      }
       setError(errMsg);
       return { success: false, error: errMsg };
     } finally {

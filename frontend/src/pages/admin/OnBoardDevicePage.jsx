@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield } from 'lucide-react';
 import { adminApi } from '../../api/axios';
+import { getDeviceQuota } from '../../api/adminApi';
+import { useAuth } from '../../hooks/useAuth';
 
 const OnBoardDevicePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isDealer = user?.role === 'dealer';
   
   // Step management
   const [step, setStep] = useState(1);
@@ -12,6 +16,10 @@ const OnBoardDevicePage = () => {
   // Pre-table state (Step 1)
   const [licenceType, setLicenceType] = useState('Starter');
   const [numDevices, setNumDevices] = useState('');
+
+  // Quota state (for dealers)
+  const [quota, setQuota] = useState(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
   
   // Step 2 state
   const [userType, setUserType] = useState('new'); // 'new' | 'existing'
@@ -38,12 +46,32 @@ const OnBoardDevicePage = () => {
     adminApi.getGroups?.().then(res => setGroups(res.data)).catch(console.error);
   }, []);
 
+  // Fetch quota for dealer users when licenceType changes
+  useEffect(() => {
+    if (!isDealer) return;
+    setQuotaLoading(true);
+    getDeviceQuota()
+      .then(res => { if (res.success) setQuota(res.data); })
+      .catch(console.error)
+      .finally(() => setQuotaLoading(false));
+  }, [licenceType, isDealer]);
+
   const handleStep1Submit = () => {
     const qty = parseInt(numDevices);
     if (!qty || qty < 1) {
       setError('Please enter a valid quantity.');
       return;
     }
+
+    // Quota check for dealers
+    if (isDealer && quota) {
+      const available = quota.available?.[licenceType] ?? 0;
+      if (qty > available) {
+        setError(`You only have ${available} available device slot(s) for the "${licenceType}" tier. Please contact your administrator to increase the limit.`);
+        return;
+      }
+    }
+
     setError('');
     
     // Generate rows
@@ -172,6 +200,35 @@ const OnBoardDevicePage = () => {
                 </select>
               </div>
 
+              {/* Quota Banner - only for dealers */}
+              {isDealer && (
+                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                    <Shield size={16} color="#8ba0b5" />
+                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>
+                      Device Allowance — {licenceType}
+                    </span>
+                    {quotaLoading && <Loader2 size={13} color="#94A3B8" className="animate-spin" />}
+                  </div>
+                  {quota ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {[
+                        { label: 'Total Allowed', value: quota.limits?.[licenceType] ?? 0, color: '#475569', bg: '#F1F5F9' },
+                        { label: 'Already Used', value: quota.used?.[licenceType] ?? 0, color: '#DC2626', bg: '#FEF2F2' },
+                        { label: 'Available', value: quota.available?.[licenceType] ?? 0, color: '#059669', bg: '#D1FAE5' },
+                      ].map(({ label, value, color, bg }) => (
+                        <div key={label} style={{ background: bg, borderRadius: '8px', padding: '10px 14px', textAlign: 'center' }}>
+                          <div style={{ fontSize: '22px', fontWeight: 800, color }}>{value}</div>
+                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', marginTop: '2px' }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '13px', color: '#94A3B8' }}>Loading quota information...</div>
+                  )}
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid #F1F5F9', paddingBottom: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <label style={{ fontSize: '14px', fontWeight: 600, color: '#475569', width: '40%' }}>Quantity :</label>
@@ -196,6 +253,7 @@ const OnBoardDevicePage = () => {
             </div>
           </div>
         )}
+
 
         {step === 2 && (
           <div>

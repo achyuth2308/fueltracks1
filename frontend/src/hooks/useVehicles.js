@@ -10,7 +10,7 @@ export const useVehicles = (initialParams = {}) => {
   const [error, setError] = useState(null);
   const [params, setParams] = useState(initialParams);
   const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, totalPages: 1 });
-  
+
   const { socket } = useSocket();
 
   const fetchVehicles = useCallback(async (currentParams = params) => {

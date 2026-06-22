@@ -43,16 +43,63 @@ const OnboardController = {
         targetGroupId = existingUser.groupId || null;
       }
 
+      // ── Validate device IDs first ───────────────────────────────
+      for (const device of devices) {
+        if (!device.deviceId) {
+          throw new Error('Device Id is required for all rows.');
+        }
+      }
+
+      // ── Quota enforcement (per tier, only for non-superadmin) ───
+      if (req.user.role !== 'superadmin') {
+        const tierPrefixMap = { Starter: 'ST', Basic: 'BC', Advanced: 'AD', Premium: 'EN' };
+        const tierCount = { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+        for (const device of devices) {
+          if (device.licenceId) {
+            for (const [tier, prefix] of Object.entries(tierPrefixMap)) {
+              if (device.licenceId.startsWith(prefix)) { tierCount[tier]++; break; }
+            }
+          }
+        }
+
+        const orgResult = await client.query(
+          `SELECT device_limits FROM organizations WHERE id = $1`, [targetOrgId]
+        );
+        const limits = orgResult.rows[0]?.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+
+        const usedResult = await client.query(
+          `SELECT
+             COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') AS "Starter",
+             COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') AS "Basic",
+             COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') AS "Advanced",
+             COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium"
+           FROM devices WHERE org_id = $1`, [targetOrgId]
+        );
+        const used = {
+          Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
+          Basic:    parseInt(usedResult.rows[0]?.Basic    || 0, 10),
+          Advanced: parseInt(usedResult.rows[0]?.Advanced || 0, 10),
+          Premium:  parseInt(usedResult.rows[0]?.Premium  || 0, 10),
+        };
+
+        for (const tier of Object.keys(tierCount)) {
+          if (tierCount[tier] === 0) continue;
+          const available = Math.max(0, (limits[tier] || 0) - used[tier]);
+          if (tierCount[tier] > available) {
+            throw new Error(
+              `Device limit exceeded for "${tier}" tier. Available: ${available}, Requested: ${tierCount[tier]}.`
+            );
+          }
+        }
+      }
+      // ── End quota enforcement ───────────────────────────────────
+
       for (const device of devices) {
         const {
           licenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
           gpsSimNo, odoDistance, serviceEngineer, salesman, ticketId, sensorNo
         } = device;
-
-        if (!deviceId) {
-          throw new Error('Device Id is required for all rows.');
-        }
 
         // Insert into devices table
         await client.query(

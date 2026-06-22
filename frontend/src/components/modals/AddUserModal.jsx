@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Search } from 'lucide-react';
+import { X, Loader2, Search, Cpu } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 
 const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }) => {
@@ -13,6 +13,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [availableGroups, setAvailableGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [deviceLimits, setDeviceLimits] = useState({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
 
   // Extra UI Fields (Frontend only for layout matching)
   const [altEmail, setAltEmail] = useState('');
@@ -33,6 +34,25 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setRole(editingUser.role || 'customer');
       setOrgId(editingUser.org_id || '');
       setSelectedGroups(editingUser.groups ? editingUser.groups.map(g => g.id) : []);
+      // Reset device limits to zero; they will be loaded below if dealer
+      setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+
+      // If editing a dealer, pre-load their CURRENT quota from the API
+      // so the admin sees all existing values and only changes what they want
+      if (editingUser.role === 'dealer' && editingUser.org_id) {
+        adminApi.getDeviceQuota(editingUser.org_id)
+          .then(res => {
+            if (res.success && res.data?.limits) {
+              setDeviceLimits({
+                Starter:  res.data.limits.Starter  ?? 0,
+                Basic:    res.data.limits.Basic    ?? 0,
+                Advanced: res.data.limits.Advanced ?? 0,
+                Premium:  res.data.limits.Premium  ?? 0,
+              });
+            }
+          })
+          .catch(err => console.warn('Could not load existing device limits:', err.message));
+      }
     } else {
       setName('');
       setEmail('');
@@ -41,6 +61,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setRole('customer');
       setOrgId(orgs.length > 0 ? orgs[0].id : '');
       setSelectedGroups([]);
+      setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
     }
   }, [editingUser, isOpen, orgs]);
 
@@ -87,6 +108,14 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
     try {
       await onSave(payload);
+      // If role is dealer, also update the device limits for the selected org
+      if (role === 'dealer' && orgId) {
+        try {
+          await adminApi.setDeviceLimits(orgId, deviceLimits);
+        } catch (limitErr) {
+          console.warn('Device limits update failed (non-critical):', limitErr.message);
+        }
+      }
       onClose();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save user details');
@@ -205,7 +234,6 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               >
                 <option value="customer">Customer</option>
                 <option value="dealer">Dealer</option>
-                <option value="superadmin">Super Admin</option>
               </select>
             </div>
             <div>
@@ -255,6 +283,33 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </div>
             )}
           </div>
+
+          {/* Device Limits — only shown when Dealer role is selected */}
+          {role === 'dealer' && (
+            <div className="pt-2">
+              <div className="flex items-center gap-2 mb-4">
+                <Cpu size={16} className="text-[#8ba0b5]" />
+                <label className="text-[14px] font-semibold text-[#3B82F6]">
+                  Device Allowances (by Tier) :
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 pl-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
+                {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
+                  <div key={tier}>
+                    <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
+                      {tier} <span className="text-slate-400 font-normal">(No. of Devices)</span>
+                    </label>
+                    <input
+                      type="number" min="0"
+                      value={deviceLimits[tier]}
+                      onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
+                      className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="pt-2">
             <label className="block text-[14px] font-semibold text-[#3B82F6] mb-4">

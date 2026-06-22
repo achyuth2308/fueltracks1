@@ -69,16 +69,16 @@ const LicenseCard = ({ title, total, used, available, color }) => (
     justifyContent: 'center',
     transition: 'all 0.2s ease',
   }}
-  onMouseEnter={e => {
-    e.currentTarget.style.transform = 'translateY(-2px)';
-    e.currentTarget.style.boxShadow = `0 8px 24px ${color}15`;
-    e.currentTarget.style.borderColor = `${color}30`;
-  }}
-  onMouseLeave={e => {
-    e.currentTarget.style.transform = 'none';
-    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
-    e.currentTarget.style.borderColor = '#F1F5F9';
-  }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = `0 8px 24px ${color}15`;
+      e.currentTarget.style.borderColor = `${color}30`;
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
+      e.currentTarget.style.borderColor = '#F1F5F9';
+    }}
   >
     <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{title}</div>
     <div style={{ fontSize: '32px', color: color, fontWeight: 800, marginTop: '6px', marginBottom: '12px', lineHeight: 1 }}>{total}</div>
@@ -133,7 +133,7 @@ const DashboardPage = ({ setAppVehicles }) => {
   const countLicenses = (type) => {
     const typePrefixes = { 'Starter': 'ST', 'Basic': 'BC', 'Advanced': 'AD', 'Premium': 'EN' };
     const prefix = typePrefixes[type];
-    
+
     let typeVehicles = vehicles.filter(v => {
       if (v.metadata?.licenceType === type) return true;
       if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
@@ -164,7 +164,7 @@ const DashboardPage = ({ setAppVehicles }) => {
   const expiringVehicles = vehicles.filter(v => {
     if (!v.licence_expire_date) return false;
     const expireDate = new Date(v.licence_expire_date);
-    return expireDate <= thirtyDaysFromNow; 
+    return expireDate <= thirtyDaysFromNow;
   }).sort((a, b) => new Date(a.licence_expire_date) - new Date(b.licence_expire_date));
 
   return (
@@ -175,33 +175,33 @@ const DashboardPage = ({ setAppVehicles }) => {
         <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
         <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
         <StatCard label="Vehicles" value={totalVehicles} color="#EC4899" icon={Truck} onClick={() => navigate('/admin/vehicles')} />
-        
-        <LicenseCard 
-          title="Starter" 
-          total={starterStats.total} 
-          used={starterStats.used} 
-          available={starterStats.available} 
+
+        <LicenseCard
+          title="Starter"
+          total={starterStats.total}
+          used={starterStats.used}
+          available={starterStats.available}
           color="#10B981"
         />
-        <LicenseCard 
-          title="Basic" 
-          total={basicStats.total} 
-          used={basicStats.used} 
-          available={basicStats.available} 
+        <LicenseCard
+          title="Basic"
+          total={basicStats.total}
+          used={basicStats.used}
+          available={basicStats.available}
           color="#3B82F6"
         />
-        <LicenseCard 
-          title="Advanced" 
-          total={advancedStats.total} 
-          used={advancedStats.used} 
-          available={advancedStats.available} 
+        <LicenseCard
+          title="Advanced"
+          total={advancedStats.total}
+          used={advancedStats.used}
+          available={advancedStats.available}
           color="#F59E0B"
         />
-        <LicenseCard 
-          title="Premium" 
-          total={premiumStats.total} 
-          used={premiumStats.used} 
-          available={premiumStats.available} 
+        <LicenseCard
+          title="Premium"
+          total={premiumStats.total}
+          used={premiumStats.used}
+          available={premiumStats.available}
           color="#8B5CF6"
         />
       </div>

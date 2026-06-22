@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   ClipboardList, Search, Filter, RefreshCw, Eye, X,
   Building2, Users, Cpu, Truck, Shield, Key, LogIn, Settings,
-  ChevronLeft, ChevronRight, Calendar, Download
+  ChevronLeft, ChevronRight, Calendar, Download, Archive
 } from 'lucide-react';
 import { getAuditLogs, getAuditStats } from '../../api/adminApi';
 
@@ -208,6 +209,9 @@ const DetailDrawer = ({ log, onClose }) => {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const AuditLogsAdminPage = () => {
+  const [searchParams] = useSearchParams();
+  const isArchived = searchParams.get('archived') === 'true';
+
   const [logs, setLogs] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -224,6 +228,22 @@ const AuditLogsAdminPage = () => {
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, totalPages: 1, limit: 50 });
 
+  // Local date helpers
+  const { todayStr, yesterdayStr } = useMemo(() => {
+    const getLocalYMD = (d) => {
+      const offset = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offset).toISOString().split('T')[0];
+    };
+    const now = new Date();
+    const today = getLocalYMD(now);
+    
+    const yest = new Date(now);
+    yest.setDate(yest.getDate() - 1);
+    const yesterday = getLocalYMD(yest);
+    
+    return { todayStr: today, yesterdayStr: yesterday };
+  }, []);
+
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
@@ -231,8 +251,14 @@ const AuditLogsAdminPage = () => {
       if (auditType !== 'all') params.auditType = auditType;
       if (action !== 'all') params.action = action;
       if (search) params.search = search;
-      if (startDate) params.startDate = startDate;
-      if (endDate) params.endDate = endDate;
+      
+      if (isArchived) {
+        if (startDate) params.startDate = startDate;
+        params.endDate = endDate || yesterdayStr;
+      } else {
+        params.startDate = todayStr;
+        params.endDate = todayStr;
+      }
 
       const res = await getAuditLogs(params);
       if (res.success) {
@@ -244,7 +270,7 @@ const AuditLogsAdminPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, auditType, action, search, startDate, endDate]);
+  }, [page, auditType, action, search, startDate, endDate, isArchived, todayStr, yesterdayStr]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -259,6 +285,16 @@ const AuditLogsAdminPage = () => {
 
   // Reset to page 1 on filter change
   useEffect(() => { setPage(1); }, [auditType, action, search, startDate, endDate]);
+
+  // Clear filters when switching between Audit and Archived Audit
+  useEffect(() => {
+    setPage(1);
+    setAuditType('all');
+    setAction('all');
+    setSearch('');
+    setStartDate('');
+    setEndDate('');
+  }, [isArchived]);
 
   const exportCSV = () => {
     if (!logs.length) return;
@@ -299,10 +335,13 @@ const AuditLogsAdminPage = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ClipboardList size={24} color="#8ba0b5" /> Audit Logs
+            {isArchived ? <Archive size={24} color="#8ba0b5" /> : <ClipboardList size={24} color="#8ba0b5" />} 
+            {isArchived ? "Archived Audit Logs" : "Today's Audit Logs"}
           </h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
-            Full trail of configuration and business changes across your organization.
+            {isArchived 
+              ? "Historical trail of configuration and business changes." 
+              : "Today's trail of configuration and business changes."}
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -350,10 +389,14 @@ const AuditLogsAdminPage = () => {
           ))}
         </select>
 
-        {/* Date range */}
-        <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
-        <span style={{ fontSize: '13px', color: '#94A3B8' }}>to</span>
-        <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+        {/* Date range - only show for archived */}
+        {isArchived && (
+          <>
+            <input type="date" max={yesterdayStr} value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+            <span style={{ fontSize: '13px', color: '#94A3B8' }}>to</span>
+            <input type="date" max={yesterdayStr} value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+          </>
+        )}
 
         {/* Search */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 14px' }}>
