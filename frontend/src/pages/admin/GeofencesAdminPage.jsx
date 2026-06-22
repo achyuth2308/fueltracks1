@@ -157,9 +157,6 @@ const GeofencesAdminPage = () => {
   };
 
   return (
- 
-    <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       {/* Header */}
@@ -184,15 +181,6 @@ const GeofencesAdminPage = () => {
           <span>New {activeTab === 'geofences' ? 'Geofence' : 'Route'}</span>
         </button>
       </div>
- 
-      <div style={{
-        background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.02)', flex: 1, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', padding: '60px 20px', textAlign: 'center'
-      }}>
-        <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#EEF5F8', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
-          <MapPin size={40} color="#94A3B8" />
-
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #dfd0bf', paddingBottom: '8px' }}>
