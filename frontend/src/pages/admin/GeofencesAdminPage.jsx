@@ -157,13 +157,13 @@ const GeofencesAdminPage = () => {
   };
 
   return (
-<<<<<<< Updated upstream
+ 
     <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-=======
+
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       {/* Header */}
->>>>>>> Stashed changes
+ 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Geofence & Route Settings</h1>
@@ -184,7 +184,7 @@ const GeofencesAdminPage = () => {
           <span>New {activeTab === 'geofences' ? 'Geofence' : 'Route'}</span>
         </button>
       </div>
-<<<<<<< Updated upstream
+ 
       <div style={{
         background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
         boxShadow: '0 4px 6px rgba(0,0,0,0.02)', flex: 1, display: 'flex', flexDirection: 'column',
@@ -192,7 +192,7 @@ const GeofencesAdminPage = () => {
       }}>
         <div style={{ width: '80px', height: '80px', borderRadius: '24px', background: '#EEF5F8', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px' }}>
           <MapPin size={40} color="#94A3B8" />
-=======
+
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #dfd0bf', paddingBottom: '8px' }}>
@@ -408,7 +408,7 @@ const GeofencesAdminPage = () => {
               </div>
             </form>
           </div>
->>>>>>> Stashed changes
+
         </div>
       )}
     </div>
