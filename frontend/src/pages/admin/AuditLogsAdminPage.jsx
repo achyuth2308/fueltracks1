@@ -253,11 +253,22 @@ const AuditLogsAdminPage = () => {
       if (search) params.search = search;
       
       if (isArchived) {
-        if (startDate) params.startDate = startDate;
-        params.endDate = endDate || yesterdayStr;
+        if (startDate) {
+          const sd = new Date(startDate);
+          sd.setHours(0, 0, 0, 0);
+          params.startDate = sd.toISOString();
+        }
+        const ed = new Date(endDate || yesterdayStr);
+        ed.setHours(23, 59, 59, 999);
+        params.endDate = ed.toISOString();
       } else {
-        params.startDate = todayStr;
-        params.endDate = todayStr;
+        const sd = new Date();
+        sd.setHours(0, 0, 0, 0);
+        params.startDate = sd.toISOString();
+
+        const ed = new Date();
+        ed.setHours(23, 59, 59, 999);
+        params.endDate = ed.toISOString();
       }
 
       const res = await getAuditLogs(params);

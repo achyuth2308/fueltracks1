@@ -55,8 +55,10 @@ const AuditController = {
       }
 
       if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
+        let end = new Date(endDate);
+        if (endDate.length === 10) {
+          end = new Date(endDate + 'T23:59:59.999Z');
+        }
         conditions.push(`created_at <= $${paramIndex++}`);
         params.push(end);
       }
