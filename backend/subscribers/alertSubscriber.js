@@ -7,6 +7,8 @@
 const { createSubscriber } = require('../config/redis');
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
+const profileRepository = require('../modules/profile/repositories/profileRepository');
+const NotificationService = require('../services/notificationService');
 
 let subscriber = null;
 
@@ -50,6 +52,20 @@ async function start(io) {
         lng,
         deviceTime
       });
+
+      // Dispatch external notification (Email/WhatsApp) based on org preferences
+      try {
+        const profile = await profileRepository.getProfile(orgId);
+        if (profile) {
+          await NotificationService.dispatchAlert(profile, alertType, alertText, {
+            name: vehicle.name,
+            plate: vehicle.plate,
+            imei: vehicle.imei
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[SUBSCRIBER] Error sending alert notifications:', notifyErr.message);
+      }
 
       // 3. Emit real-time alert over Socket.io
       const payload = {

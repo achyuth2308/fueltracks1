@@ -11,6 +11,10 @@ router.get('/distance', (req, res, next) => reportController.getDailyDistanceRep
 router.get('/activity', (req, res, next) => reportController.getVehicleActivityReport(req, res, next));
 router.get('/route-history', (req, res, next) => reportController.getRouteHistoryReport(req, res, next));
 router.get('/ignition', (req, res, next) => reportController.getIgnitionReport(req, res, next));
+router.get('/overspeeding', (req, res, next) => reportController.getOverspeedingReport(req, res, next));
+router.get('/stoppages', (req, res, next) => reportController.getStoppagesReport(req, res, next));
+router.get('/consolidated', (req, res, next) => reportController.getConsolidatedReport(req, res, next));
+router.get('/individual', (req, res, next) => reportController.getIndividualReport(req, res, next));
 router.get('/dashboard', (req, res, next) => reportController.getDashboardStats(req, res, next));
 
 module.exports = router;

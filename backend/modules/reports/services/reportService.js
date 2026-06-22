@@ -156,6 +156,76 @@ class ReportService {
     return allEvents.sort((a, b) => new Date(b.device_time) - new Date(a.device_time));
   }
 
+  async getOverspeedingReport(filters, startDate, endDate, speedLimit = 60) {
+    const vehicleIds = await this.resolveVehicles(filters);
+    const vehicleDetails = await this.getVehicleDetails(vehicleIds);
+
+    let allEvents = [];
+    for (const vId of vehicleIds) {
+      const events = await reportRepository.getOverspeeding(vId, startDate, endDate, speedLimit);
+      const vInfo = vehicleDetails[vId] || {};
+      events.forEach(e => {
+        allEvents.push({
+          ...e,
+          vehicle_id: vId,
+          vehicle_name: vInfo.name,
+          plate: vInfo.plate,
+          org_name: vInfo.org_name
+        });
+      });
+    }
+    return allEvents.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+  }
+
+  async getStoppagesReport(filters, startDate, endDate) {
+    const vehicleIds = await this.resolveVehicles(filters);
+    const vehicleDetails = await this.getVehicleDetails(vehicleIds);
+
+    let allStoppages = [];
+    for (const vId of vehicleIds) {
+      const stoppages = await reportRepository.getStoppages(vId, startDate, endDate);
+      const vInfo = vehicleDetails[vId] || {};
+      stoppages.forEach(s => {
+        allStoppages.push({
+          ...s,
+          vehicle_id: vId,
+          vehicle_name: vInfo.name,
+          plate: vInfo.plate,
+          org_name: vInfo.org_name
+        });
+      });
+    }
+    return allStoppages.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
+  }
+
+  async getConsolidatedReport(orgId, startDate, endDate) {
+    const data = await reportRepository.getConsolidatedActivity(orgId, startDate, endDate);
+    return data;
+  }
+
+  async getIndividualReport(vehicleId, startDate, endDate) {
+    const vehicleDetails = await this.getVehicleDetails([vehicleId]);
+    const vInfo = vehicleDetails[vehicleId] || {};
+    
+    const activity = await reportRepository.getActivity(vehicleId, startDate, endDate);
+    const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
+    const stoppages = await reportRepository.getStoppages(vehicleId, startDate, endDate);
+    const overspeeding = await reportRepository.getOverspeeding(vehicleId, startDate, endDate, 60);
+
+    return {
+      vehicle: vInfo,
+      activity: activity || { running_seconds: 0, idle_seconds: 0, stopped_seconds: 0, distance_travelled: 0 },
+      trips,
+      stoppages,
+      overspeeding,
+      summary: {
+        trip_count: trips.length,
+        stoppage_count: stoppages.length,
+        overspeeding_count: overspeeding.length
+      }
+    };
+  }
+
   async getDashboardStats(orgId) {
     // Dashboard stats:
     // Today's boundaries

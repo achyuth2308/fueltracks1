@@ -28,6 +28,10 @@ import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
 import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
+import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
+import StoppageReportPage from './pages/reports/StoppageReportPage';
+import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
+import IndividualReportPage from './pages/reports/IndividualReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
@@ -82,6 +86,10 @@ function App() {
               <Route path="admin/reports/activity" element={<VehicleActivityReportPage />} />
               <Route path="admin/reports/route" element={<RouteHistoryReportPage />} />
               <Route path="admin/reports/ignition" element={<IgnitionReportPage />} />
+              <Route path="admin/reports/overspeeding" element={<OverspeedingReportPage />} />
+              <Route path="admin/reports/stoppage" element={<StoppageReportPage />} />
+              <Route path="admin/reports/consolidated" element={<ConsolidatedReportPage />} />
+              <Route path="admin/reports/individual" element={<IndividualReportPage />} />
               <Route path="admin/profile" element={<OrganizationProfilePage />} />
               <Route path="admin/audit-logs" element={<AuditLogsAdminPage />} />
               <Route path="admin/settings" element={<SettingsAdminPage />} />

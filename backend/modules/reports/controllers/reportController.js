@@ -81,6 +81,54 @@ class ReportController {
     }
   }
 
+  async getOverspeedingReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      const speedLimit = req.query.speedLimit ? parseInt(req.query.speedLimit) : 60;
+      const data = await reportService.getOverspeedingReport(filters, start, end, speedLimit);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getStoppagesReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      const data = await reportService.getStoppagesReport(filters, start, end);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getConsolidatedReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      // For consolidated report, orgId must be tied to user or selected by superadmin
+      const orgId = req.user?.role === 'superadmin' ? req.query.orgId : req.user?.orgId;
+      if (!orgId) throw new Error('orgId is required for Consolidated Report');
+      const data = await reportService.getConsolidatedReport(orgId, start, end);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getIndividualReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const { vehicleId } = req.query;
+      if (!vehicleId) throw new Error('vehicleId is required for Individual Report');
+      const data = await reportService.getIndividualReport(vehicleId, start, end);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   async getDashboardStats(req, res, next) {
     try {
       const orgId = req.user?.role === 'superadmin' ? req.query.orgId : req.user?.org_id;

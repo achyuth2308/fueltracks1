@@ -5,6 +5,7 @@
 const express = require('express');
 const AdminController = require('../controllers/adminController');
 const OnboardController = require('../controllers/OnboardController');
+const GeofenceRouteController = require('../controllers/geofenceRouteController');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
 
@@ -69,5 +70,25 @@ router.patch('/orgs/:id/device-limits', authorize('superadmin'), AdminController
 router.get('/renewal-settings', authorize('superadmin', 'dealer'), AdminController.getRenewalSettings);
 router.put('/renewal-settings', authorize('superadmin'), AdminController.updateRenewalSettings);
 router.get('/renewal-transactions', authorize('superadmin', 'dealer'), AdminController.getRenewalTransactions);
+
+// ============================================================
+// GEOFENCES
+// ============================================================
+router.get('/geofences', GeofenceRouteController.getGeofences);
+router.post('/geofences', GeofenceRouteController.createGeofence);
+router.put('/geofences/:id', GeofenceRouteController.updateGeofence);
+router.delete('/geofences/:id', GeofenceRouteController.deleteGeofence);
+router.post('/geofences/:id/assign', GeofenceRouteController.assignGeofence);
+router.get('/geofences/:id/vehicles', GeofenceRouteController.getGeofenceVehicles);
+
+// ============================================================
+// ROUTES
+// ============================================================
+router.get('/routes', GeofenceRouteController.getRoutes);
+router.post('/routes', GeofenceRouteController.createRoute);
+router.put('/routes/:id', GeofenceRouteController.updateRoute);
+router.delete('/routes/:id', GeofenceRouteController.deleteRoute);
+router.post('/routes/:id/assign', GeofenceRouteController.assignRoute);
+router.get('/routes/:id/vehicles', GeofenceRouteController.getRouteVehicles);
 
 module.exports = router;

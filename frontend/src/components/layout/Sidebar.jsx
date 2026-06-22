@@ -40,6 +40,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
+        { name: 'Geofences & Routes', path: '/admin/geofences', icon: ShieldAlert, roles: ['customer'] },
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
