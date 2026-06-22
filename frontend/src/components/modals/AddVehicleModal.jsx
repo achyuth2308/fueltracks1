@@ -4,7 +4,7 @@ import * as adminApi from '../../api/adminApi';
 
 const FieldLabel = ({ children, required }) => (
   <label style={{ display: 'block', fontSize: '10px', fontWeight: 700, color: '#64748B', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '5px' }}>
-    {children} {required && <span style={{ color: '#8ba0b5' }}>*</span>}
+    {children} {required && <span style={{ color: '#f97316' }}>*</span>}
   </label>
 );
 
@@ -18,10 +18,10 @@ const Field = ({ label, required, children }) => (
 const inputStyle = (focused) => ({
   width: '100%', padding: '9px 11px',
   background: '#FFFFFF',
-  border: `1px solid ${focused ? '#8ba0b5' : '#E2E8F0'}`,
+  border: `1px solid ${focused ? '#f97316' : '#E2E8F0'}`,
   borderRadius: '7px', color: '#111827', fontSize: '12px',
   fontFamily: 'Inter, sans-serif', outline: 'none',
-  boxShadow: focused ? '0 0 0 3px rgba(139,160,181,0.1)' : 'none',
+  boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
   transition: 'all 0.15s', boxSizing: 'border-box',
 });
 
@@ -83,8 +83,8 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 20px', borderBottom: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#f5efe4', border: '1px solid #FFE4D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Cpu size={16} color="#8ba0b5" />
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: '#EEF5F8', border: '1px solid #FFE4D6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Cpu size={16} color="#f97316" />
             </div>
             <div>
               <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>
@@ -95,7 +95,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
               </p>
             </div>
           </div>
-          <button onClick={onClose} style={{ width: '28px', height: '28px', borderRadius: '7px', border: 'none', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', transition: 'all 0.15s' }}
+          <button onClick={onClose} style={{ width: '28px', height: '28px', borderRadius: '7px', border: 'none', background: '#EEF5F8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748B', transition: 'all 0.15s' }}
             onMouseEnter={e => { e.currentTarget.style.color = '#111827'; e.currentTarget.style.background = '#F1F5F9'; }}
             onMouseLeave={e => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.background = '#F8FAFC'; }}>
             <X size={14} />
@@ -235,9 +235,9 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
                   return (
                     <button key={g.id} type="button" onClick={() => toggleGroup(g.id)} style={{
                       padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-                      background: selected ? '#f5efe4' : '#FFFFFF',
-                      border: `1px solid ${selected ? '#8ba0b5' : '#E2E8F0'}`,
-                      color: selected ? '#8ba0b5' : '#64748B', transition: 'all 0.15s',
+                      background: selected ? '#f0f9ff' : '#FFFFFF',
+                      border: `1px solid ${selected ? '#f97316' : '#E2E8F0'}`,
+                      color: selected ? '#f97316' : '#64748B', transition: 'all 0.15s',
                     }}>
                       {selected && '✓ '}{g.name}
                     </button>
@@ -253,7 +253,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
           <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '7px', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}>
             Cancel
           </button>
-          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#7a8fa2' : '#8ba0b5', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(139,160,181,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if(!loading) e.currentTarget.style.background = '#7ea0b6' }} onMouseLeave={e => { if(!loading) e.currentTarget.style.background = '#8ba0b5' }}>
+          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#ea580c' : '#f97316', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if(!loading) e.currentTarget.style.background = '#7ea0b6' }} onMouseLeave={e => { if(!loading) e.currentTarget.style.background = '#f97316' }}>
             {loading ? <><Loader2 size={13} style={{ animation: 'spin 0.75s linear infinite' }} /> Saving...</> : <>{vehicle ? 'Update Vehicle' : 'Register Vehicle'}</>}
           </button>
         </div>

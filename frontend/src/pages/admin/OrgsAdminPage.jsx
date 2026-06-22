@@ -129,7 +129,7 @@ const OrgsAdminPage = () => {
   ];
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -141,14 +141,14 @@ const OrgsAdminPage = () => {
           onClick={() => handleOpenModal()}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#8ba0b5', color: '#FFFFFF',
+            background: '#f97316', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
             transition: 'all 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(139,160,181,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(139,160,181,0.2)'; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.2)'; }}
         >
           <Plus size={18} />
           <span>New Organization</span>
@@ -162,7 +162,7 @@ const OrgsAdminPage = () => {
       }}>
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
-            <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
+            <Loader2 size={32} color="#f97316" className="animate-spin" />
             <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading organizations...</span>
           </div>
         ) : error ? (
@@ -175,7 +175,7 @@ const OrgsAdminPage = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ w: '100%', minWidth: '1000px', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   {['Organization', 'Contact', 'Users', 'Groups', 'Vehicles', 'Devices', 'Status', 'Actions'].map(h => (
                     <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                       {h}
@@ -191,7 +191,7 @@ const OrgsAdminPage = () => {
                     </td>
                   </tr>
                 ) : orgs.filter(org => org.type !== 'super').map((org) => (
-                  <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#f5efe4'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{org.name}</div>
                       <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px', textTransform: 'capitalize' }}>{org.type}</div>
@@ -216,7 +216,7 @@ const OrgsAdminPage = () => {
                     </td>
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleOpenModal(org)} style={{ padding: '6px', background: '#F1F5F9', border: 'none', borderRadius: '6px', color: '#64748B', cursor: 'pointer' }}><Edit size={16} /></button>
+                        <button onClick={() => handleOpenModal(org)} style={{ padding: '6px', background: '#F8FAFC', border: 'none', borderRadius: '6px', color: '#64748B', cursor: 'pointer' }}><Edit size={16} /></button>
                         {org.type !== 'super' && (
                           <button onClick={() => handleDelete(org)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
@@ -254,7 +254,7 @@ const OrgsAdminPage = () => {
             {/* Modal Body with Sidebar Tabs */}
             <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
               {/* Sidebar Tabs */}
-              <div style={{ width: '220px', borderRight: '1px solid #E2E8F0', background: '#f5efe4', padding: '16px' }}>
+              <div style={{ width: '220px', borderRight: '1px solid #E2E8F0', background: '#EEF5F8', padding: '16px' }}>
                 {tabs.map(tab => (
                   <button
                     key={tab.id}
@@ -262,8 +262,8 @@ const OrgsAdminPage = () => {
                     style={{
                       width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
                       padding: '12px 14px', borderRadius: '10px',
-                      background: activeTab === tab.id ? '#f5efe4' : 'transparent',
-                      color: activeTab === tab.id ? '#8ba0b5' : '#64748B',
+                      background: activeTab === tab.id ? '#f0f9ff' : 'transparent',
+                      color: activeTab === tab.id ? '#f97316' : '#64748B',
                       border: 'none', cursor: 'pointer', textAlign: 'left',
                       fontSize: '13px', fontWeight: activeTab === tab.id ? 700 : 500,
                       marginBottom: '4px', transition: 'all 0.2s'
@@ -332,7 +332,7 @@ const OrgsAdminPage = () => {
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Alert Policies</h3>
                     {['Parking Alert', 'Idle Alert', 'Overspeed Alert', 'SOS Alert', 'Harsh Braking Alert', 'Power Disconnect Alert', 'Ignition ON Alert', 'Ignition OFF Alert', 'Route Deviation Alert', 'Tamper Alert', 'Low Battery Alert'].map(item => (
                       <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" defaultChecked style={{ width: '16px', height: '16px', accentColor: '#8ba0b5' }} />
+                        <input type="checkbox" defaultChecked style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
                       </label>
                     ))}
@@ -344,7 +344,7 @@ const OrgsAdminPage = () => {
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Notification Channels</h3>
                     {['SMS Notifications', 'Email Notifications', 'WhatsApp Notifications', 'Telegram Notifications'].map(item => (
                       <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#8ba0b5' }} />
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
                       </label>
                     ))}
@@ -374,7 +374,7 @@ const OrgsAdminPage = () => {
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Geofence Configuration</h3>
                     {['Geofence Enabled', 'Entry Alert', 'Exit Alert', 'Geofence Immobilizer'].map(item => (
                       <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#8ba0b5' }} />
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
                       </label>
                     ))}
@@ -384,7 +384,7 @@ const OrgsAdminPage = () => {
                 {activeTab === 'fuel' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Fuel Monitoring Status</h3>
-                    <div style={{ background: '#f5efe4', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
+                    <div style={{ background: '#EEF5F8', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                         <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Fuel Sensors Connected:</span>
                         <span style={{ fontSize: '13px', color: '#111827', fontWeight: 800 }}>—</span>
@@ -396,12 +396,12 @@ const OrgsAdminPage = () => {
                     </div>
                     {['Fuel Monitoring Enabled', 'Fuel Fill Alert', 'Fuel Theft Alert', 'Low Fuel Alert', 'Fuel Reports Enabled', 'Fuel Sensor Enabled'].map(item => (
                       <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" disabled style={{ width: '16px', height: '16px', accentColor: '#8ba0b5', opacity: 0.5 }} />
+                        <input type="checkbox" disabled style={{ width: '16px', height: '16px', accentColor: '#f97316', opacity: 0.5 }} />
                         <span style={{ fontSize: '14px', color: '#94A3B8', fontWeight: 500 }}>{item} (Disabled)</span>
                       </label>
                     ))}
                     <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748B', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <Radio size={14} color="#8ba0b5" />
+                      <Radio size={14} color="#f97316" />
                       Module ready for hardware integration.
                     </div>
                   </div>
@@ -412,7 +412,7 @@ const OrgsAdminPage = () => {
                     <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Advanced Settings</h3>
                     {['RFID Enabled', 'Temperature Sensor Enabled', 'Camera Enabled', 'Debug Mode'].map(item => (
                       <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#8ba0b5' }} />
+                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
                         <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
                       </label>
                     ))}
@@ -424,7 +424,7 @@ const OrgsAdminPage = () => {
             {/* Modal Footer */}
             <div style={{ padding: '20px 24px', borderTop: '1px solid #E2E8F0', background: '#FAFAF9', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
               <button onClick={() => setModalOpen(false)} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#64748B', background: 'transparent', border: '1px solid #CBD5E1', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleSubmit} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}>Save Configuration</button>
+              <button onClick={handleSubmit} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>Save Configuration</button>
             </div>
           </div>
         </div>

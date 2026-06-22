@@ -10,19 +10,19 @@ const DashboardLayout = ({ vehicles = [] }) => {
 
   if (loading) {
     return (
-      <div className="loading-screen" style={{ background: '#f8fafc' }}>
+      <div className="loading-screen" style={{ background: '#EEF5F8' }}>
         <div style={{ position: 'relative', width: '48px', height: '48px' }}>
           <div style={{
             position: 'absolute', inset: 0,
-            border: '2px solid rgba(139,160,181,0.12)',
+            border: '2px solid rgba(249,115,22,0.12)',
             borderTopColor: '#7ea0b6',
             borderRadius: '50%',
             animation: 'spin 0.75s linear infinite',
           }} />
           <div style={{
             position: 'absolute', inset: '8px',
-            border: '2px solid rgba(139,160,181,0.08)',
-            borderTopColor: 'rgba(139,160,181,0.4)',
+            border: '2px solid rgba(249,115,22,0.08)',
+            borderTopColor: 'rgba(249,115,22,0.4)',
             borderRadius: '50%',
             animation: 'spin 1.2s linear infinite reverse',
           }} />
@@ -48,7 +48,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
-      background: '#f8fafc',
+      background: '#EEF5F8',
       overflow: 'hidden',
     }}>
       <Topbar
@@ -62,7 +62,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
           toggleMobileSidebar={setMobileSidebarOpen}
         />
         
-        <main style={{ flex: 1, overflowY: 'auto', background: '#f8fafc', position: 'relative' }}>
+        <main style={{ flex: 1, overflowY: 'auto', background: '#EEF5F8', position: 'relative' }}>
           <Outlet />
         </main>
       </div>

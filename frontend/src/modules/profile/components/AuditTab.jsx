@@ -26,7 +26,7 @@ const AuditTab = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-48 bg-white rounded-lg shadow-sm">
-        <Loader2 className="w-8 h-8 text-[#8ba0b5] animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#f97316] animate-spin" />
       </div>
     );
   }
@@ -65,7 +65,7 @@ const AuditTab = () => {
                     {new Date(log.created_at).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#e8dfd1] text-[#5d7389]">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#e0f2fe] text-[#5d7389]">
                       {log.action}
                     </span>
                   </td>

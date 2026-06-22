@@ -132,7 +132,7 @@ const UsersAdminPage = () => {
   );
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -144,14 +144,14 @@ const UsersAdminPage = () => {
           onClick={handleOpenAddModal}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#5B21B6', color: '#FFFFFF',
+            background: '#f97316', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(91,33,182,0.2)',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)',
             transition: 'all 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(91,33,182,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(91,33,182,0.2)'; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.4)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.25)'; }}
         >
           <Plus size={18} />
           <span>New User</span>
@@ -186,7 +186,7 @@ const UsersAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
+              <Loader2 size={32} color="#f97316" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading users...</span>
             </div>
           ) : error ? (
@@ -199,7 +199,7 @@ const UsersAdminPage = () => {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {['Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
@@ -217,10 +217,10 @@ const UsersAdminPage = () => {
                       key={u.id}
                       style={{
                         borderBottom: '1px solid #F1F5F9',
-                        background: viewingUser?.id === u.id ? '#f5efe4' : 'transparent',
+                        background: viewingUser?.id === u.id ? '#f0f9ff' : 'transparent',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#f5efe4'; }}
+                      onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#F8FAFC'; }}
                       onMouseLeave={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px' }}>
@@ -238,7 +238,7 @@ const UsersAdminPage = () => {
                         {u.group_names ? (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {u.group_names.split(', ').map((gName, i) => (
-                              <span key={i} style={{ padding: '2px 8px', background: '#F1F5F9', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                              <span key={i} style={{ padding: '2px 8px', background: '#F8FAFC', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: '#475569' }}>
                                 {gName}
                               </span>
                             ))}
@@ -248,7 +248,7 @@ const UsersAdminPage = () => {
                       <td style={{ padding: '16px 20px' }}>
                         <span style={{
                           padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize',
-                          background: '#F1F5F9', color: '#475569'
+                          background: '#F8FAFC', color: '#475569'
                         }}>
                           {u.role}
                         </span>
@@ -285,7 +285,7 @@ const UsersAdminPage = () => {
                           <button
                             onClick={() => handleViewUser(u)}
                             style={{
-                              background: '#F1F5F9', color: '#475569', border: 'none', padding: '6px 12px',
+                              background: '#F8FAFC', color: '#475569', border: 'none', padding: '6px 12px',
                               borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
                             }}
                           >
@@ -293,11 +293,9 @@ const UsersAdminPage = () => {
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(u)}
-                            style={{
-                              background: '#5B21B6', color: 'white', border: 'none', padding: '6px 12px',
-                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
-                              boxShadow: '0 2px 4px rgba(91,33,182,0.1)'
-                            }}
+                            style={{ padding: '6px 12px', borderRadius: '6px', background: '#F1F5F9', border: 'none', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#E2E8F0'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#F1F5F9'}
                           >
                             Edit
                           </button>
@@ -337,10 +335,10 @@ const UsersAdminPage = () => {
               </button>
 
               <div style={{
-                width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4',
+                width: '64px', height: '64px', borderRadius: '16px', background: '#EEF5F8',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
               }}>
-                <UserIcon size={32} color="#8ba0b5" />
+                <UserIcon size={32} color="#f97316" />
               </div>
               <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingUser.name || 'Unnamed User'}</h2>
               <div style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -369,7 +367,7 @@ const UsersAdminPage = () => {
               )}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#f5efe4', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
+                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
                   <Edit size={14} /> Edit User
                 </button>
                 {user?.id !== viewingUser.id && (
@@ -385,7 +383,7 @@ const UsersAdminPage = () => {
 
               <div>
                 <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Access & Permissions</h3>
-                <div style={{ background: '#f5efe4', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
+                <div style={{ background: '#EEF5F8', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
                     <div>

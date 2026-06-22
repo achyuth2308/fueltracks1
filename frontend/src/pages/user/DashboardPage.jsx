@@ -13,12 +13,12 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
     style={{
       background: '#FFFFFF',
       borderRadius: '16px',
-      padding: '20px',
+      padding: '16px',
       display: 'flex',
       alignItems: 'center',
       gap: '16px',
       flex: 1,
-      minWidth: '180px',
+      minWidth: '160px',
       border: '1px solid #F1F5F9',
       boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
       cursor: 'pointer',
@@ -36,33 +36,33 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
     }}
   >
     <div style={{
-      width: '48px', height: '48px',
+      width: '40px', height: '40px',
       borderRadius: '12px',
       background: `${color}10`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0
     }}>
-      <Icon size={24} color={color} />
+      <Icon size={20} color={color} />
     </div>
     <div>
-      <div style={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+      <div style={{ fontSize: '24px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>
         {value}
       </div>
-      <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600, marginTop: '4px' }}>
+      <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600, marginTop: '2px' }}>
         {label}
       </div>
     </div>
   </div>
 );
 
-const LicenseCard = ({ title, total, used, available, color }) => (
+const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
   <div style={{
     background: '#FFFFFF',
     borderRadius: '16px',
-    padding: '20px 24px',
+    padding: '16px 20px',
     border: '1px solid #F1F5F9',
     boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
-    width: '240px',
+    width: '220px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
@@ -84,12 +84,12 @@ const LicenseCard = ({ title, total, used, available, color }) => (
     <div style={{ fontSize: '32px', color: color, fontWeight: 800, marginTop: '6px', marginBottom: '12px', lineHeight: 1 }}>{total}</div>
     <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>Used</span>
+        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>{labelUsed}</span>
         <span style={{ fontSize: '15px', color: color, fontWeight: 700 }}>{used}</span>
       </div>
-      <div style={{ width: '1px', background: '#F1F5F9' }}></div>
+      <div style={{ width: '1px', background: '#F8FAFC' }}></div>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>Available</span>
+        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>{labelAvailable}</span>
         <span style={{ fontSize: '15px', color: color, fontWeight: 700 }}>{available}</span>
       </div>
     </div>
@@ -103,7 +103,9 @@ const DashboardPage = ({ setAppVehicles }) => {
   const { user } = useAuth();
   const { vehicles, groups, loading, error } = useVehicles();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [quota, setQuota] = useState(null);
   const [apiStats, setApiStats] = useState(null);
+  const isDealer = user?.role === 'dealer';
 
   // Customer role gets the map-based fleet dashboard
   if (user?.role === 'customer') {
@@ -122,40 +124,61 @@ const DashboardPage = ({ setAppVehicles }) => {
       .catch(err => console.error("Failed to fetch dashboard stats", err));
   }, [vehicles]);
 
+  useEffect(() => {
+    if (isDealer) {
+      import('../../api/adminApi').then(api => {
+        api.getDeviceQuota().then(res => {
+          if (res.success) setQuota(res.data);
+        }).catch(err => console.error("Failed to fetch quota", err));
+      });
+    }
+  }, [isDealer]);
+
   const onlineCount = vehicles.filter(v => v.is_online).length;
-
-
 
   const totalUsers = apiStats?.users ?? '-';
   const totalGroups = groups.length || '-';
   const totalVehicles = apiStats?.total_vehicles ?? vehicles.length;
 
-  const countLicenses = (type) => {
-    const typePrefixes = { 'Starter': 'ST', 'Basic': 'BC', 'Advanced': 'AD', 'Premium': 'EN' };
-    const prefix = typePrefixes[type];
+  const getTierStats = (type) => {
+    if (isDealer && quota) {
+      return {
+        total: quota.limits?.[type] || 0,
+        used: quota.used?.[type] || 0,
+        available: quota.available?.[type] || 0,
+        labelUsed: 'Used',
+        labelAvailable: 'Available'
+      };
+    } else {
+      // Superadmin or fallback
+      const typePrefixes = { 'Starter': 'ST', 'Basic': 'BC', 'Advanced': 'AD', 'Premium': 'EN' };
+      const prefix = typePrefixes[type];
 
-    let typeVehicles = vehicles.filter(v => {
-      if (v.metadata?.licenceType === type) return true;
-      if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
-      return false;
-    });
+      let typeVehicles = vehicles.filter(v => {
+        if (v.metadata?.licenceType === type) return true;
+        if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
+        return false;
+      });
 
-    if (typeVehicles.length === 0 && type === 'Basic') {
-      typeVehicles = vehicles;
+      if (typeVehicles.length === 0 && type === 'Basic') {
+        typeVehicles = vehicles;
+      }
+
+      const online = typeVehicles.filter(v => v.is_online).length;
+      return {
+        total: typeVehicles.length,
+        used: online,
+        available: typeVehicles.length - online,
+        labelUsed: 'Online',
+        labelAvailable: 'Offline'
+      };
     }
-
-    const online = typeVehicles.filter(v => v.is_online).length;
-    return {
-      total: typeVehicles.length,
-      used: online,
-      available: typeVehicles.length - online
-    };
   };
 
-  const starterStats = countLicenses('Starter');
-  const basicStats = countLicenses('Basic');
-  const advancedStats = countLicenses('Advanced');
-  const premiumStats = countLicenses('Premium');
+  const starterStats = getTierStats('Starter');
+  const basicStats = getTierStats('Basic');
+  const advancedStats = getTierStats('Advanced');
+  const premiumStats = getTierStats('Premium');
 
   // Compute expiring licenses within 30 days
   const thirtyDaysFromNow = new Date();
@@ -168,7 +191,7 @@ const DashboardPage = ({ setAppVehicles }) => {
   }).sort((a, b) => new Date(a.licence_expire_date) - new Date(b.licence_expire_date));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 30%, #f5efe4 30%, #f5efe4 100%)', overflowY: 'auto' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f0f9ff 0%, #f0f9ff 30%, #f0f9ff 30%, #f0f9ff 100%)', overflowY: 'auto' }}>
 
       {/* KPI Cards Row (Moved Basic Card Here) */}
       <div style={{ padding: '24px', display: 'flex', gap: '20px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -181,6 +204,8 @@ const DashboardPage = ({ setAppVehicles }) => {
           total={starterStats.total}
           used={starterStats.used}
           available={starterStats.available}
+          labelUsed={starterStats.labelUsed}
+          labelAvailable={starterStats.labelAvailable}
           color="#10B981"
         />
         <LicenseCard
@@ -188,6 +213,8 @@ const DashboardPage = ({ setAppVehicles }) => {
           total={basicStats.total}
           used={basicStats.used}
           available={basicStats.available}
+          labelUsed={basicStats.labelUsed}
+          labelAvailable={basicStats.labelAvailable}
           color="#3B82F6"
         />
         <LicenseCard
@@ -195,6 +222,8 @@ const DashboardPage = ({ setAppVehicles }) => {
           total={advancedStats.total}
           used={advancedStats.used}
           available={advancedStats.available}
+          labelUsed={advancedStats.labelUsed}
+          labelAvailable={advancedStats.labelAvailable}
           color="#F59E0B"
         />
         <LicenseCard
@@ -202,6 +231,8 @@ const DashboardPage = ({ setAppVehicles }) => {
           total={premiumStats.total}
           used={premiumStats.used}
           available={premiumStats.available}
+          labelUsed={premiumStats.labelUsed}
+          labelAvailable={premiumStats.labelAvailable}
           color="#8B5CF6"
         />
       </div>
@@ -262,7 +293,7 @@ const DashboardPage = ({ setAppVehicles }) => {
               </table>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px', gap: '12px', opacity: 0.6 }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '32px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '32px', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <AlertTriangle size={32} color="#94A3B8" />
                 </div>
                 <p style={{ fontSize: '15px', color: '#64748B', fontWeight: 500 }}>No licenses expiring within 30 days</p>

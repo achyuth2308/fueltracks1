@@ -42,13 +42,13 @@ const BillingAdminPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileText size={28} color="#8ba0b5" />
+            <FileText size={28} color="#f97316" />
             Billing & Subscriptions
           </h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Track expired licenses and vehicle renewals.</p>
@@ -85,7 +85,7 @@ const BillingAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
+              <Loader2 size={32} color="#f97316" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading expired licenses...</span>
             </div>
           ) : error ? (
@@ -98,7 +98,7 @@ const BillingAdminPage = () => {
             <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                 <thead>
-                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {[
                       'Licence ID', 'Vehicle ID', 'Vehicle Name', 'Licence Type', 
                       'Device IMEI', 'Organization', 'Dealer Name', 'Device Model', 
@@ -125,7 +125,7 @@ const BillingAdminPage = () => {
                     <tr
                       key={l.vehicleId + index}
                       style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f5efe4'}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <td style={{ padding: '16px 20px', fontSize: '13px', fontFamily: 'monospace', color: '#64748B' }}>{l.licenceId}</td>

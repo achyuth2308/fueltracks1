@@ -118,8 +118,8 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #F1F5F9' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Users size={16} color="#8ba0b5" />
+            <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={16} color="#f97316" />
             </div>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{editingGroup ? 'Edit Group' : 'Create New Group'}</h3>
           </div>
@@ -212,14 +212,14 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#64748B', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer' }}
+              style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#64748B', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer' }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
             >
               {loading ? <Loader2 size={16} style={{ marginRight: '8px', animation: 'spin 1s linear infinite' }} /> : null}
               Submit

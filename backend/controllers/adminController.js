@@ -1013,6 +1013,58 @@ const AdminController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  // ============================================================
+  // RENEWALS CONFIG & TRANSACTIONS
+  // ============================================================
+  async getRenewalSettings(req, res, next) {
+    try {
+      const result = await db.query('SELECT amount FROM renewal_settings LIMIT 1');
+      res.status(200).json({ success: true, data: result.rows[0] });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateRenewalSettings(req, res, next) {
+    try {
+      if (req.user.role !== 'superadmin') {
+        return res.status(403).json({ success: false, error: 'Only superadmin can configure renewals.' });
+      }
+      const { amount } = req.body;
+      if (!amount || amount < 0) {
+        return res.status(400).json({ success: false, error: 'Valid amount is required.' });
+      }
+      
+      await db.query('UPDATE renewal_settings SET amount = $1, updated_at = NOW()', [amount]);
+      res.status(200).json({ success: true, message: 'Renewal amount updated successfully' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getRenewalTransactions(req, res, next) {
+    try {
+      let query = `
+        SELECT rt.*, u.name as user_name, u.email as user_email, v.name as vehicle_name
+        FROM renewal_transactions rt
+        JOIN users u ON rt.user_id = u.id
+        JOIN vehicles v ON rt.vehicle_id = v.id
+      `;
+      let params = [];
+
+      if (req.user.role !== 'superadmin') {
+        query += ` WHERE u.org_id = $1 OR u.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
+        params.push(req.user.orgId);
+      }
+
+      query += ` ORDER BY rt.created_at DESC`;
+      const result = await db.query(query, params);
+      res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
   }
 };
 

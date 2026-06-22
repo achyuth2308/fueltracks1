@@ -45,7 +45,7 @@ const NotificationsTab = ({ profile, onSave }) => {
       <div className="flex-shrink-0 ml-4 mt-1">
         <label className="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" name={name} checked={checked} onChange={handleChange} className="sr-only peer" />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#8ba0b5] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black !text-black placeholder-black after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8ba0b5]"></div>
+          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#f97316] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-black !text-black placeholder-black after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
         </label>
       </div>
     </div>
@@ -96,7 +96,7 @@ const NotificationsTab = ({ profile, onSave }) => {
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center px-4 py-2 bg-[#8ba0b5] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8ba0b5] disabled:opacity-50"
+          className="flex items-center px-4 py-2 bg-[#f97316] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Save Changes

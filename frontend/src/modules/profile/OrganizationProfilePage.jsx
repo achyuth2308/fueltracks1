@@ -16,7 +16,7 @@ const OrganizationProfilePage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-[#8ba0b5] animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#f97316] animate-spin" />
       </div>
     );
   }
@@ -80,7 +80,7 @@ const OrganizationProfilePage = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
                     isActive 
-                      ? 'bg-[#8ba0b5] text-white' 
+                      ? 'bg-[#f97316] text-white' 
                       : '!text-black hover:bg-gray-100'
                   }`}
                 >

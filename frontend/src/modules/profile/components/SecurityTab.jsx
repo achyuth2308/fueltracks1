@@ -72,7 +72,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.currentPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#8ba0b5] focus:border-[#8ba0b5]" 
+                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316]" 
               />
             </div>
             <div>
@@ -83,7 +83,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.newPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#8ba0b5] focus:border-[#8ba0b5]" 
+                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316]" 
               />
             </div>
             <div>
@@ -94,7 +94,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.confirmPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#8ba0b5] focus:border-[#8ba0b5]" 
+                className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316]" 
               />
             </div>
           </div>
@@ -103,7 +103,7 @@ const SecurityTab = ({ onChangePassword }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center px-4 py-2 bg-[#8ba0b5] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#8ba0b5] disabled:opacity-50"
+              className="flex items-center px-4 py-2 bg-[#f97316] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Update Password

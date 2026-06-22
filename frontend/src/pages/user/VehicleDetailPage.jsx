@@ -13,6 +13,21 @@ import { formatSpeed, formatOdometer, formatVoltage } from '../../utils/formatUt
 import { useSocket } from '../../hooks/useSocket';
 import { useVehicles } from '../../hooks/useVehicles';
 
+const getExpiryWarning = (expireDateStr) => {
+  if (!expireDateStr) return null;
+  const exp = new Date(expireDateStr);
+  const now = new Date();
+  const diffTime = exp.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return { type: 'expired', text: `Licence expired on ${exp.toLocaleDateString('en-GB')}. Please renew in organization billing.` };
+  } else if (diffDays <= 4) {
+    return { type: 'expiring', text: `Licence expiring on ${exp.toLocaleDateString('en-GB')}. Please renew in organization billing.` };
+  }
+  return null;
+};
+
 /* ── Reusable Status Dot ── */
 const StatusDot = ({ online, speed }) => {
   const isOnline = !!online;
@@ -144,18 +159,18 @@ const VehicleDetailPage = () => {
   }, [socket, id]);
 
   if (loading && !vehicle) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', background: '#f5efe4' }}>
-      <Loader2 size={40} color="#8ba0b5" className="animate-spin" />
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', background: '#EEF5F8' }}>
+      <Loader2 size={40} color="#f97316" className="animate-spin" />
       <span style={{ fontSize: '14px', color: '#64748B', fontWeight: 600 }}>Loading vehicle telemetry...</span>
     </div>
   );
 
   if (error || !vehicle) return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', padding: '24px', textAlign: 'center', background: '#f5efe4' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 'calc(100vh - 56px)', gap: '16px', padding: '24px', textAlign: 'center', background: '#EEF5F8' }}>
       <AlertOctagon size={48} color="#EF4444" />
       <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>Vehicle Not Found</h3>
       <p style={{ fontSize: '14px', color: '#64748B', maxWidth: '340px' }}>{error || 'Vehicle data does not exist or access is denied.'}</p>
-      <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', background: '#8ba0b5', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer', marginTop: '12px' }}>
+      <button onClick={() => navigate('/dashboard')} style={{ padding: '10px 20px', background: '#f97316', color: '#fff', borderRadius: '8px', border: 'none', fontWeight: 600, cursor: 'pointer', marginTop: '12px' }}>
         Back to Dashboard
       </button>
     </div>
@@ -165,11 +180,11 @@ const VehicleDetailPage = () => {
   const ignitionOn = !!vehicle.current_ignition;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', position: 'relative' }}>
 
       {loading && vehicle && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
+          <Loader2 size={32} color="#f97316" className="animate-spin" />
         </div>
       )}
 
@@ -178,17 +193,17 @@ const VehicleDetailPage = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button
             onClick={() => navigate('/admin/vehicles')}
-            style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F1F5F9', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
+            style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F8FAFC', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
           >
             <ArrowLeft size={18} />
           </button>
           <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F1F5F9', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
+          <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
             <History size={16} /> Route History
           </Link>
-          <Link to={`/vehicles/${id}/report`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F1F5F9', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
+          <Link to={`/vehicles/${id}/report`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
             <BarChart4 size={16} /> Analytics
           </Link>
         </div>
@@ -196,11 +211,38 @@ const VehicleDetailPage = () => {
 
       <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
+        {/* Expiry Warning */}
+        {(() => {
+          const warning = vehicle && getExpiryWarning(vehicle.licence_expire_date);
+          if (!warning) return null;
+          const isExpired = warning.type === 'expired';
+          return (
+            <div style={{
+              background: isExpired ? '#FEF2F2' : '#FFFBEB',
+              border: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
+              padding: '16px 20px',
+              display: 'flex', alignItems: 'center', gap: '12px',
+              borderRadius: '12px',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+            }}>
+              <AlertTriangle size={24} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
+              <div>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: isExpired ? '#991B1B' : '#B45309' }}>
+                  {isExpired ? 'License Expired' : 'License Expiring Soon'}
+                </div>
+                <div style={{ fontSize: '14px', color: isExpired ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
+                  {warning.text}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* 1. Vehicle Summary Card */}
         <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: '300px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#f5efe4', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Truck size={32} color="#8ba0b5" />
+            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#EEF5F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Truck size={32} color="#f97316" />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
@@ -224,11 +266,15 @@ const VehicleDetailPage = () => {
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Users2 size={14} /> Group</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>—</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                {vehicle.groups && vehicle.groups.length > 0 ? vehicle.groups.map(g => g.name).join(', ') : '—'}
+              </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><User size={14} /> Driver</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>—</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                {vehicle.driver_name || '—'}
+              </div>
             </div>
             <div>
               <div style={{ fontSize: '12px', color: 'z#73849bff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><MapPin size={14} /> Location</div>
@@ -263,7 +309,7 @@ const VehicleDetailPage = () => {
             {/* Diagnostics */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Cpu size={18} color="#8ba0b5" />
+                <Cpu size={18} color="#f97316" />
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Diagnostics</h3>
               </div>
               <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -285,7 +331,7 @@ const VehicleDetailPage = () => {
             {/* Today's Summary */}
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={18} color="#8ba0b5" />
+                <Calendar size={18} color="#f97316" />
                 <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Today's Summary</h3>
               </div>
               <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -314,7 +360,7 @@ const VehicleDetailPage = () => {
             <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={18} color="#8ba0b5" />
+                  <AlertTriangle size={18} color="#f97316" />
                   <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Recent Alerts</h3>
                 </div>
                 {alerts.length > 0 && <span style={{ padding: '2px 8px', borderRadius: '99px', background: '#FEF2F2', color: '#EF4444', fontSize: '11px', fontWeight: 700 }}>{alerts.length}</span>}

@@ -114,3 +114,19 @@ export const setDeviceLimits = async (orgId, deviceLimits) => {
   const response = await axiosInstance.patch(`/api/admin/orgs/${orgId}/device-limits`, { deviceLimits });
   return response.data;
 };
+
+// Renewals
+export const getRenewalSettings = async () => {
+  const response = await axiosInstance.get(`/api/admin/renewal-settings?t=${Date.now()}`);
+  return response.data;
+};
+
+export const updateRenewalSettings = async (amount) => {
+  const response = await axiosInstance.put(`/api/admin/renewal-settings`, { amount });
+  return response.data;
+};
+
+export const getRenewalTransactions = async () => {
+  const response = await axiosInstance.get(`/api/admin/renewal-transactions?t=${Date.now()}`);
+  return response.data;
+};

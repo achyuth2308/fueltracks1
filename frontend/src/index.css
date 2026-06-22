@@ -7,9 +7,9 @@
 
 /* ---------- CSS Custom Properties ---------- */
 :root {
-  --primary: #2563eb;
-  --primary-glow: rgba(37, 99, 235, 0.35);
-  --primary-soft: rgba(37, 99, 235, 0.1);
+  --primary: #64748b;
+  --primary-glow: rgba(249,115,22,0.35);
+  --primary-soft: rgba(249,115,22,0.1);
   --bg-base: #0a0f1e;
   --bg-surface: #0f1729;
   --bg-card: #131d30;
@@ -275,22 +275,22 @@ p {
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
   color: white;
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
-  border: 1px solid rgba(37, 99, 235, 0.5);
+  border: 1px solid rgba(249,115,22,0.5);
   border-radius: var(--radius-btn);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(249,115,22,0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   letter-spacing: 0.01em;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45);
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  box-shadow: 0 6px 20px rgba(249,115,22,0.45);
   transform: translateY(-1px);
 }
 
@@ -400,9 +400,9 @@ select.input-field {
 }
 
 .badge-offline {
-  background: rgba(100, 116, 139, 0.12);
+  background: rgba(249,115,22,0.12);
   color: #64748b;
-  border: 1px solid rgba(100, 116, 139, 0.25);
+  border: 1px solid rgba(249,115,22,0.25);
 }
 
 .badge-warning {
@@ -449,8 +449,8 @@ select.input-field {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-muted);
-  background: rgba(0, 0, 0, 0.2);
+  color: #475569;
+  background: #F8FAFC;
   border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
@@ -460,6 +460,7 @@ select.input-field {
   padding: 11px 14px;
   font-size: 12px;
   color: var(--text-secondary);
+  background: #FFFFFF;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
   vertical-align: middle;
 }

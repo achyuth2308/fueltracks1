@@ -5,6 +5,7 @@ import { impersonateUser } from '../api/adminApi';
 export const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
+  console.log('AuthProvider rendered with children');
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

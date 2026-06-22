@@ -167,7 +167,7 @@ const HistoryPage = () => {
   const activePoint = points.length > 0 ? points[currentPointIndex] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#f5efe4', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
       
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
@@ -276,7 +276,7 @@ const HistoryPage = () => {
                 <button 
                   onClick={handleStop}
                   style={{
-                    background: '#F1F5F9',
+                    background: '#F8FAFC',
                     border: '1px solid #CBD5E1',
                     padding: '8px 12px',
                     borderRadius: '6px',
@@ -296,7 +296,7 @@ const HistoryPage = () => {
               </div>
 
               {/* Speeds selector */}
-              <div style={{ display: 'flex', gap: '6px', background: '#F1F5F9', padding: '3px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', gap: '6px', background: '#F8FAFC', padding: '3px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
                 {['Slow', 'Normal', 'Fast'].map(spd => (
                   <button
                     key={spd}
@@ -330,7 +330,7 @@ const HistoryPage = () => {
         
         {/* Header */}
         <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
+          <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
             <ArrowLeft size={16} />
           </button>
           <div style={{ flex: 1 }}>
@@ -340,7 +340,7 @@ const HistoryPage = () => {
         </div>
 
         {/* Filters Section */}
-        <div style={{ padding: '20px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{ padding: '20px', background: '#EEF5F8', borderBottom: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', gap: '12px' }}>
               <div style={{ flex: 1 }}>
@@ -365,7 +365,7 @@ const HistoryPage = () => {
             <button
               onClick={handleQuerySubmit}
               disabled={loading}
-              style={{ width: '100%', background: '#8ba0b5', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', background: '#f97316', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               Plot Route
             </button>
@@ -391,7 +391,7 @@ const HistoryPage = () => {
         {/* Data Table */}
         <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#F1F5F9', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
               <tr>
                 <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1' }}>Time</th>
                 <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Speed</th>
@@ -434,8 +434,8 @@ const HistoryPage = () => {
         </div>
 
         {/* Footer actions */}
-        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#8ba0b5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
+        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
+          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
             <Download size={16} /> Export CSV
           </button>
         </div>

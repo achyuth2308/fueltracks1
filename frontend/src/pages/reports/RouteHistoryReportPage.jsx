@@ -125,7 +125,7 @@ const RouteHistoryReportPage = () => {
   const activePoint = points.length > 0 ? points[points.length - 1] : null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#f5efe4', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
       
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
@@ -173,10 +173,10 @@ const RouteHistoryReportPage = () => {
         {selectedVehicleId && (
           <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 999, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderRadius: '8px', padding: '12px 16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
+              <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
                 {isPlaying ? <Pause size={18} /> : <Play size={18} />}
               </button>
-              <button style={{ background: '#F1F5F9', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
+              <button style={{ background: '#F8FAFC', border: '1px solid #CBD5E1', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#1F2937' }}>
                 <Square size={18} />
               </button>
             </div>
@@ -217,7 +217,7 @@ const RouteHistoryReportPage = () => {
         </div>
 
         {/* Filters Section */}
-        <div style={{ padding: '20px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{ padding: '20px', background: '#EEF5F8', borderBottom: '1px solid #E2E8F0' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
             <div style={{ display: 'flex', gap: '12px' }}>
               <div style={{ flex: 1 }}>
@@ -242,7 +242,7 @@ const RouteHistoryReportPage = () => {
             <button
               onClick={handleQuerySubmit}
               disabled={loading}
-              style={{ width: '100%', background: '#8ba0b5', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              style={{ width: '100%', background: '#f97316', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
               <Search size={16} /> Plot Route
             </button>
@@ -268,7 +268,7 @@ const RouteHistoryReportPage = () => {
         {/* Data Table */}
         <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#F1F5F9', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+            <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
               <tr>
                 <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1' }}>Time</th>
                 <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Speed</th>
@@ -307,8 +307,8 @@ const RouteHistoryReportPage = () => {
         </div>
 
         {/* Footer actions */}
-        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#8ba0b5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
+        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
+          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
             <Download size={16} /> Export CSV
           </button>
         </div>

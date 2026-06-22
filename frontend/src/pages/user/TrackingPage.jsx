@@ -1,11 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight } from 'lucide-react';
+import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import FleetMap from '../../components/map/FleetMap';
 import { formatSpeed, formatFuel, formatVoltage, formatOdometer } from '../../utils/formatUtils';
 import { getRelativeTime } from '../../utils/dateUtils';
+
+const getExpiryWarning = (expireDateStr) => {
+  if (!expireDateStr) return null;
+  const exp = new Date(expireDateStr);
+  const now = new Date();
+  const diffTime = exp.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return { type: 'expired', text: `Licence expired on ${exp.toLocaleDateString('en-GB')}. Please renew.` };
+  } else if (diffDays <= 4) {
+    return { type: 'expiring', text: `Licence expiring on ${exp.toLocaleDateString('en-GB')}. Please renew.` };
+  }
+  return null;
+};
 
 const TrackingPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
@@ -73,7 +88,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     if (!isOnline) return { text: 'Offline', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
     if (speed > 0) return { text: 'Running', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
     if (ignition) return { text: 'Idle', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
-    return { text: 'Parked', color: '#8ba0b5', bg: 'rgba(139,160,181,0.1)' };
+    return { text: 'Parked', color: '#f97316', bg: 'rgba(249,115,22,0.1)' };
   };
 
   return (
@@ -104,7 +119,7 @@ const TrackingPage = ({ setAppVehicles }) => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{
                   width: '32px', height: '32px', borderRadius: '50%',
-                  background: '#8ba0b5', color: '#fff',
+                  background: '#f97316', color: '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '12px', fontWeight: 700
                 }}>
@@ -153,7 +168,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px', opacity: 0.5 }}>
-              <RefreshCw size={20} color="#8ba0b5" className="animate-spin" />
+              <RefreshCw size={20} color="#f97316" className="animate-spin" />
               <span style={{ fontSize: '12px', color: '#6b7280' }}>Loading...</span>
             </div>
           ) : filteredVehicles.length === 0 ? (
@@ -170,6 +185,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                 <div
                   key={v.id}
                   onClick={() => handleSelectVehicle(v)}
+                  title={getExpiryWarning(v.licence_expire_date) ? getExpiryWarning(v.licence_expire_date).text : undefined}
                   style={{
                     background: isSelected ? 'linear-gradient(135deg, #4d6076, #6e859b)' : '#ffffff',
                     border: `1px solid ${isSelected ? 'transparent' : '#f3f4f6'}`,
@@ -222,7 +238,7 @@ const TrackingPage = ({ setAppVehicles }) => {
           {[
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },
             { type: 'idle', label: 'Idle', count: metrics.idle, color: '#f59e0b' },
-            { type: 'parked', label: 'Parked', count: metrics.parked, color: '#8ba0b5' },
+            { type: 'parked', label: 'Parked', count: metrics.parked, color: '#f97316' },
             { type: 'offline', label: 'Offline', count: metrics.offline, color: '#6b7280' },
           ].map(pill => {
             const isActive = statusFilter === pill.type;
@@ -270,12 +286,33 @@ const TrackingPage = ({ setAppVehicles }) => {
             display: 'flex', flexDirection: 'column',
             overflowY: 'auto'
           }}>
+            {/* Expiry Warning */}
+            {(() => {
+              const warning = getExpiryWarning(currentSelectedVehicle.licence_expire_date);
+              if (!warning) return null;
+              const isExpired = warning.type === 'expired';
+              return (
+                <div style={{
+                  background: isExpired ? '#FEF2F2' : '#FFFBEB',
+                  borderBottom: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
+                  padding: '10px 14px',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                  borderRadius: '16px 16px 0 0'
+                }}>
+                  <AlertTriangle size={16} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: isExpired ? '#B91C1C' : '#D97706', lineHeight: 1.3 }}>
+                    {warning.text}
+                  </span>
+                </div>
+              );
+            })()}
+
             {/* Card Header */}
             <div style={{
               padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)',
               display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
               background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-              borderRadius: '16px 16px 0 0', color: '#fff'
+              borderRadius: getExpiryWarning(currentSelectedVehicle.licence_expire_date) ? '0' : '16px 16px 0 0', color: '#fff'
             }}>
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 700 }}>{currentSelectedVehicle.name}</div>
@@ -433,7 +470,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             display: 'flex', alignItems: 'center', gap: '8px',
             border: '1px solid rgba(255,255,255,0.6)'
           }}>
-            <MapPin size={16} color="#8ba0b5" />
+            <MapPin size={16} color="#f97316" />
             <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
               Select a vehicle to view live telemetry
             </span>

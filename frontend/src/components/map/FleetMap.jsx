@@ -7,6 +7,21 @@ import { formatLocalTime } from '../../utils/dateUtils';
 
 import { getVehicleRoute } from '../../api/vehicleApi';
 
+const getExpiryWarning = (expireDateStr) => {
+  if (!expireDateStr) return null;
+  const exp = new Date(expireDateStr);
+  const now = new Date();
+  const diffTime = exp.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return { type: 'expired', text: `Licence Expired` };
+  } else if (diffDays <= 4) {
+    return { type: 'expiring', text: `Licence Expiring in ${diffDays}d` };
+  }
+  return null;
+};
+
 const VehicleRouteAndFit = ({ selectedVehicle }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
@@ -96,8 +111,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
 
   const isOnline = !!vehicle.is_online;
   const isMoving = isOnline && (vehicle.current_speed || 0) > 0;
-  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280';
+  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280';
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
+  const warning = getExpiryWarning(vehicle.licence_expire_date);
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
@@ -112,6 +128,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
       position={position}
       icon={createTruckIcon(statusColor)}
       ref={markerRef}
+      title={warning ? `${vehicle.name} - ${warning.text}` : vehicle.name}
       eventHandlers={{
         click: () => onMarkerClick && onMarkerClick(vehicle),
       }}
@@ -123,24 +140,38 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
         permanent
         className="premium-tooltip"
       >
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap' }}>
-          {vehicle.name} <span style={{ color: statusColor, marginLeft: '4px' }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
+        <div style={{ fontSize: '11px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          {vehicle.name} <span style={{ color: statusColor }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
         </div>
       </Tooltip>
 
       <Popup className="premium-popup">
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #dfd0bf', paddingBottom: '6px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #bae6fd', paddingBottom: '6px', marginBottom: '8px' }}>
             <span style={{ fontWeight: 800, color: '#4d6076', fontSize: '13px' }}>{vehicle.name}</span>
             <span style={{
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280',
-              boxShadow: `0 0 6px ${isOnline ? (isMoving ? '#16a34a' : '#8ba0b5') : '#6b7280'}`
+              background: isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280',
+              boxShadow: `0 0 6px ${isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280'}`
             }} />
           </div>
+
+          {/* Expiry Warning in Popup */}
+          {warning && (
+            <div style={{ 
+              marginBottom: '8px', padding: '6px 8px', borderRadius: '6px',
+              background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB',
+              border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`,
+              color: warning.type === 'expired' ? '#EF4444' : '#F59E0B',
+              fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
+            }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              {warning.text}
+            </div>
+          )}
 
           {/* Details Rows */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', color: '#4d6076' }}>
@@ -173,12 +204,12 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
           </div>
 
           {/* Links Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #dfd0bf', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
-            <a href={`/admin/reports`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>Reports</a>
-            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>Track</a>
-            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#8ba0b5', textDecoration: 'none' }}>History</a>
-            <span style={{ color: '#b8a693', cursor: 'not-allowed' }}>MultiTrack</span>
-            <span style={{ color: '#b8a693', cursor: 'not-allowed' }}>Site</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #bae6fd', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
+            <a href={`/admin/reports`} style={{ color: '#f97316', textDecoration: 'none' }}>Reports</a>
+            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#f97316', textDecoration: 'none' }}>Track</a>
+            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#f97316', textDecoration: 'none' }}>History</a>
+            <span style={{ color: '#0ea5e9', cursor: 'not-allowed' }}>MultiTrack</span>
+            <span style={{ color: '#0ea5e9', cursor: 'not-allowed' }}>Site</span>
           </div>
         </div>
       </Popup>
@@ -219,10 +250,10 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         left: '12px',
         zIndex: 1000,
         background: '#ffffff',
-        border: '1px solid #dfd0bf',
+        border: '1px solid #bae6fd',
         borderRadius: '8px',
         padding: '6px 10px',
-        boxShadow: '0 2px 10px rgba(139,160,181,0.15)',
+        boxShadow: '0 2px 10px rgba(249,115,22,0.15)',
         display: 'flex',
         alignItems: 'center',
         gap: '6px'
@@ -234,7 +265,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
           style={{
             fontSize: '11px',
             fontWeight: 700,
-            color: '#8ba0b5',
+            color: '#f97316',
             border: 'none',
             outline: 'none',
             background: 'transparent',

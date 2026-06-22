@@ -11,10 +11,10 @@ const LicenseTab = ({ license }) => {
     <div className="bg-white p-6 rounded-lg shadow-sm">
       <div className="flex items-center justify-between mb-6 border-b pb-4">
         <div className="flex items-center">
-          <Shield className="w-6 h-6 text-[#8ba0b5] mr-2" />
+          <Shield className="w-6 h-6 text-[#f97316] mr-2" />
           <h3 className="text-xl font-bold !text-black">License Information</h3>
         </div>
-        <span className="px-3 py-1 bg-[#f5efe4] text-[#8ba0b5] text-sm font-semibold rounded-full border border-[#dfd0bf]">
+        <span className="px-3 py-1 bg-[#f0f9ff] text-[#f97316] text-sm font-semibold rounded-full border border-[#bae6fd]">
           {license.type} Tier
         </span>
       </div>
@@ -44,7 +44,7 @@ const LicenseTab = ({ license }) => {
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 
-            className={`h-2.5 rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-[#8ba0b5]'}`} 
+            className={`h-2.5 rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-[#f97316]'}`} 
             style={{ width: `${Math.min(usagePercentage, 100)}%` }}
           ></div>
         </div>
@@ -56,7 +56,7 @@ const LicenseTab = ({ license }) => {
         )}
       </div>
 
-      <div className="bg-[#f5efe4] border border-[#e8dfd1] rounded-lg p-4 flex items-start">
+      <div className="bg-[#f0f9ff] border border-[#e0f2fe] rounded-lg p-4 flex items-start">
         <CheckCircle className="w-5 h-5 text-[#7ea0b6] mr-3 flex-shrink-0 mt-0.5" />
         <div>
           <h4 className="text-sm font-semibold text-[#5d7389]">Subscription Active</h4>

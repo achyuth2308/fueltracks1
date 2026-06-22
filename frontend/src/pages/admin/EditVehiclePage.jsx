@@ -29,8 +29,8 @@ const InputField = ({ label, type = "text", value, onChange, disabled, placehold
       style={{
         ...inputBaseStyle,
         background: disabled ? '#F1F5F9' : (focused ? '#FFFFFF' : '#F8FAFC'),
-        border: focused ? '1px solid #8ba0b5' : '1px solid #E2E8F0',
-        boxShadow: focused ? '0 0 0 3px rgba(139,160,181,0.1)' : 'none',
+        border: focused ? '1px solid #f97316' : '1px solid #E2E8F0',
+        boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
         opacity: disabled ? 0.7 : 1,
         cursor: disabled ? 'not-allowed' : 'text'
       }}
@@ -49,8 +49,8 @@ const SelectField = ({ label, value, onChange, options, focused, onFocus, onBlur
       style={{
         ...inputBaseStyle,
         background: focused ? '#FFFFFF' : '#F8FAFC',
-        border: focused ? '1px solid #8ba0b5' : '1px solid #E2E8F0',
-        boxShadow: focused ? '0 0 0 3px rgba(139,160,181,0.1)' : 'none',
+        border: focused ? '1px solid #f97316' : '1px solid #E2E8F0',
+        boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
         cursor: 'pointer'
       }}
     >
@@ -74,7 +74,7 @@ const SectionCard = ({ title, icon: Icon, children }) => (
       padding: '20px 24px', borderBottom: '1px solid #F1F5F9',
       display: 'flex', alignItems: 'center', gap: '12px', background: '#FAFAFA'
     }}>
-      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon size={18} />
       </div>
       <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
@@ -207,15 +207,15 @@ const EditVehiclePage = () => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#F8FAFC' }}>
-        <Loader2 size={48} className="animate-spin" color="#8ba0b5" style={{ marginBottom: '16px' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#EEF5F8' }}>
+        <Loader2 size={48} className="animate-spin" color="#f97316" style={{ marginBottom: '16px' }} />
         <h2 style={{ fontSize: '18px', color: '#475569', fontWeight: 600 }}>Loading Vehicle Data...</h2>
       </div>
     );
   }
 
   return (
-    <div style={{ background: '#f5efe4', minHeight: '100%', paddingBottom: '64px', boxSizing: 'border-box' }}>
+    <div style={{ background: '#EEF5F8', minHeight: '100%', paddingBottom: '64px', boxSizing: 'border-box' }}>
 
       {/* Sticky Header with Glassmorphism */}
       <div style={{
@@ -252,14 +252,14 @@ const EditVehiclePage = () => {
               onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
             >
-              <RefreshCcw size={18} color="#8ba0b5" /> Migrate Device
+              <RefreshCcw size={18} color="#f97316" /> Migrate Device
             </button>
           )}
           <button
             onClick={handleSave} disabled={submitting}
-            style={{ padding: '12px 32px', borderRadius: '12px', background: '#8ba0b5', border: 'none', color: '#FFFFFF', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 15px -3px rgba(139,160,181,0.3)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
-            onMouseEnter={e => { if (!submitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 20px -3px rgba(139,160,181,0.4)'; } }}
-            onMouseLeave={e => { if (!submitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(139,160,181,0.3)'; } }}
+            style={{ padding: '12px 32px', borderRadius: '12px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 15px -3px rgba(249,115,22,0.3)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
+            onMouseEnter={e => { if (!submitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 20px -3px rgba(249,115,22,0.4)'; } }}
+            onMouseLeave={e => { if (!submitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(249,115,22,0.3)'; } }}
           >
             {submitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
             {isEditing ? 'Save Changes' : 'Register Vehicle'}
@@ -295,7 +295,7 @@ const EditVehiclePage = () => {
 
             <div style={{ position: 'relative' }}>
               <InputField label="Device ID / IMEI No" value={form.imei} onChange={e => updateField('imei', e.target.value)} disabled={isEditing} placeholder="15-digit IMEI" />
-              {isEditing && <span style={{ position: 'absolute', top: '0', right: '0', fontSize: '11px', color: '#8ba0b5', fontWeight: 700, background: '#f5efe4', padding: '2px 8px', borderRadius: '4px' }}>Use Migrate</span>}
+              {isEditing && <span style={{ position: 'absolute', top: '0', right: '0', fontSize: '11px', color: '#f97316', fontWeight: 700, background: '#EEF5F8', padding: '2px 8px', borderRadius: '4px' }}>Use Migrate</span>}
             </div>
 
             <InputField label="GPS Sim Number" value={form.gpsSimNo} onChange={e => updateField('gpsSimNo', e.target.value)} placeholder="0123456789" focused={focusedField === 'gps'} onFocus={() => setFocusedField('gps')} onBlur={() => setFocusedField(null)} />
@@ -321,7 +321,7 @@ const EditVehiclePage = () => {
 
         {/* Section 4: Configuration Details */}
         <SectionCard title="Configuration Details" icon={Settings}>
-          <div style={{ background: '#F8FAFC', padding: '20px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', gap: '32px', marginBottom: '32px' }}>
+          <div style={{ background: '#EEF5F8', padding: '20px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', gap: '32px', marginBottom: '32px' }}>
             {['deviceOdo', 'assetTrack', 'safetyPark', 'rigMode', 'acToggle', 'externalDevice'].map(flag => (
               <div key={flag} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <label style={{ fontSize: '14px', fontWeight: 600, color: '#475569', textTransform: 'capitalize' }}>
@@ -370,9 +370,9 @@ const EditVehiclePage = () => {
           <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '24px', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={handleSave} disabled={submitting}
-              style={{ padding: '16px 40px', borderRadius: '12px', background: '#8ba0b5', border: 'none', color: '#FFFFFF', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 20px -5px rgba(139,160,181,0.4)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
-              onMouseEnter={e => { if (!submitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(139,160,181,0.5)'; } }}
-              onMouseLeave={e => { if (!submitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(139,160,181,0.4)'; } }}
+              style={{ padding: '16px 40px', borderRadius: '12px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 20px -5px rgba(249,115,22,0.4)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
+              onMouseEnter={e => { if (!submitting) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 25px -5px rgba(249,115,22,0.5)'; } }}
+              onMouseLeave={e => { if (!submitting) { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 10px 20px -5px rgba(249,115,22,0.4)'; } }}
             >
               {submitting ? <Loader2 size={24} className="animate-spin" /> : <Save size={24} />}
               {isEditing ? 'Save Vehicle Details' : 'Submit New Vehicle Registration'}

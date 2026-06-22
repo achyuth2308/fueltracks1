@@ -22,6 +22,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const auditRoutes = require('./routes/auditRoutes');
 const reportRoutes = require('./modules/reports/routes/reportRoutes');
 const profileRoutes = require('./modules/profile/routes/profileRoutes');
+const billingRoutes = require('./routes/billingRoutes');
 const path = require('path');
 
 // Import middleware
@@ -62,6 +63,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/billing', billingRoutes);
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
@@ -31,6 +32,8 @@ import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
+import AdminRenewalsPage from './pages/admin/AdminRenewalsPage';
+import CustomerRenewalsPage from './pages/user/CustomerRenewalsPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -65,6 +68,8 @@ function App() {
               <Route path="admin/vehicles/migration/:id" element={<MigrationPage />} />
               <Route path="admin/devices" element={<DevicesAdminPage />} />
               <Route path="admin/billing" element={<BillingAdminPage />} />
+              <Route path="admin/renewal-config" element={<AdminRenewalsPage />} />
+              <Route path="renewals" element={<CustomerRenewalsPage />} />
               <Route path="onBoardDevice" element={<OnBoardDevicePage />} />
 
               {/* System and Integrations */}

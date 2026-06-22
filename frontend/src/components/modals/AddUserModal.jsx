@@ -150,7 +150,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       <div className="relative w-full max-w-5xl bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
 
         {/* Header */}
-        <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 bg-slate-50/50">
+        <div className="flex justify-between items-center px-8 py-5 border-b border-slate-100 bg-[#EEF5F8]/50">
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-bold text-slate-800">
               {editingUser ? 'Edit User' : 'Create User'}
@@ -179,7 +179,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
             <div>
@@ -188,7 +188,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" required value={phone} onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -198,7 +198,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
             <div>
@@ -207,7 +207,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="email" value={altEmail} onChange={(e) => setAltEmail(e.target.value)} placeholder="Alternate Email"
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -217,7 +217,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 required value={orgId} onChange={(e) => setOrgId(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 {orgs.map(org => (
                   <option key={org.id} value={org.id}>{org.name}</option>
@@ -230,7 +230,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 required value={role} onChange={(e) => setRole(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="customer">Customer</option>
                 <option value="dealer">Dealer</option>
@@ -242,7 +242,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="text" value={zoho} onChange={(e) => setZoho(e.target.value)} placeholder="Zoho"
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>
 
@@ -252,7 +252,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 value={defaultMap} onChange={(e) => setDefaultMap(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="OSM">OSM</option>
                 <option value="Google">Google Maps</option>
@@ -264,7 +264,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <select
                 value={enableDebugs} onChange={(e) => setEnableDebugs(e.target.value)}
-                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               >
                 <option value="Disable">Disable</option>
                 <option value="Enable">Enable</option>
@@ -278,7 +278,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                 </label>
                 <input
                   type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
-                  className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                  className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
                 />
               </div>
             )}
@@ -288,12 +288,12 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
           {role === 'dealer' && (
             <div className="pt-2">
               <div className="flex items-center gap-2 mb-4">
-                <Cpu size={16} className="text-[#8ba0b5]" />
+                <Cpu size={16} className="text-[#f97316]" />
                 <label className="text-[14px] font-semibold text-[#3B82F6]">
                   Device Allowances (by Tier) :
                 </label>
               </div>
-              <div className="grid grid-cols-2 gap-x-8 gap-y-4 pl-2 p-4 bg-slate-50 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 gap-x-8 gap-y-4 pl-2 p-4 bg-[#EEF5F8] rounded-lg border border-slate-200">
                 {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
                   <div key={tier}>
                     <label className="block text-[12px] font-semibold text-slate-600 mb-1.5">
@@ -303,7 +303,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                       type="number" min="0"
                       value={deviceLimits[tier]}
                       onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#8ba0b5] focus:ring-1 focus:ring-[#8ba0b5] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+                      className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
                     />
                   </div>
                 ))}

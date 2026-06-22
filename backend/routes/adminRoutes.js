@@ -63,4 +63,11 @@ router.get('/billing/expired', authorize('superadmin', 'dealer'), AdminControlle
 router.get('/device-quota', authorize('superadmin', 'dealer'), AdminController.getDeviceQuota);
 router.patch('/orgs/:id/device-limits', authorize('superadmin'), AdminController.setDeviceLimits);
 
+// ============================================================
+// RENEWALS CONFIG
+// ============================================================
+router.get('/renewal-settings', authorize('superadmin', 'dealer'), AdminController.getRenewalSettings);
+router.put('/renewal-settings', authorize('superadmin'), AdminController.updateRenewalSettings);
+router.get('/renewal-transactions', authorize('superadmin', 'dealer'), AdminController.getRenewalTransactions);
+
 module.exports = router;

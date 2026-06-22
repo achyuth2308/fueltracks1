@@ -157,12 +157,12 @@ const OnBoardDevicePage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       
       {/* Header and Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Cpu size={24} color="#8ba0b5" />
+          <Cpu size={24} color="#f97316" />
           Add Device
         </h1>
       </div>
@@ -202,9 +202,9 @@ const OnBoardDevicePage = () => {
 
               {/* Quota Banner - only for dealers */}
               {isDealer && (
-                <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px' }}>
+                <div style={{ background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <Shield size={16} color="#8ba0b5" />
+                    <Shield size={16} color="#f97316" />
                     <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>
                       Device Allowance — {licenceType}
                     </span>
@@ -245,7 +245,7 @@ const OnBoardDevicePage = () => {
               <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
                 <button 
                   onClick={handleStep1Submit}
-                  style={{ padding: '10px 32px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}
+                  style={{ padding: '10px 32px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' }}
                 >
                   Next Step
                 </button>
@@ -258,25 +258,25 @@ const OnBoardDevicePage = () => {
         {step === 2 && (
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>2</div>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>2</div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Business Information</h2>
             </div>
 
             {/* Top Toggle */}
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#8ba0b5' : '#475569' }}>
+            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px', padding: '16px', background: '#EEF5F8', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }} 
                   checked={userType === 'new'} 
                   onChange={() => setUserType('new')}
                 />
                 New User
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#8ba0b5' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }} 
                   checked={userType === 'existing'} 
                   onChange={() => setUserType('existing')}
                 />
@@ -365,25 +365,25 @@ const OnBoardDevicePage = () => {
             <hr style={{ borderTop: '1px solid #F1F5F9', borderBottom: 'none', margin: '0 0 32px 0' }} />
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f5efe4', color: '#8ba0b5', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>3</div>
+              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>3</div>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
             </div>
 
             {/* Middle Toggle */}
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '24px', padding: '16px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#8ba0b5' : '#475569' }}>
+            <div style={{ display: 'flex', gap: '48px', marginBottom: '24px', padding: '16px', background: '#EEF5F8', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }} 
                   checked={deviceEntryMode === 'upload'} 
                   onChange={() => setDeviceEntryMode('upload')}
                 />
                 Bulk Upload via Excel
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'details' ? '#8ba0b5' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'details' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
-                  style={{ accentColor: '#8ba0b5', width: '16px', height: '16px' }} 
+                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }} 
                   checked={deviceEntryMode === 'details'} 
                   onChange={() => setDeviceEntryMode('details')}
                 />
@@ -393,8 +393,8 @@ const OnBoardDevicePage = () => {
 
             {/* Upload Devices View */}
             {deviceEntryMode === 'upload' && (
-              <div style={{ padding: '32px', background: '#f5efe4', borderRadius: '12px', border: '1px dashed #FFBE98', textAlign: 'center', marginBottom: '40px' }}>
-                <Upload size={32} color="#8ba0b5" style={{ marginBottom: '16px' }} />
+              <div style={{ padding: '32px', background: '#EEF5F8', borderRadius: '12px', border: '1px dashed #FFBE98', textAlign: 'center', marginBottom: '40px' }}>
+                <Upload size={32} color="#f97316" style={{ marginBottom: '16px' }} />
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Upload Device Excel File</h3>
                 <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>Download our template, fill it out, and upload it here.</p>
                 
@@ -406,11 +406,11 @@ const OnBoardDevicePage = () => {
                     <div style={{ padding: '10px 16px', border: '1px solid #CBD5E1', borderRight: 'none', borderRadius: '8px 0 0 8px', fontSize: '13px', color: '#94A3B8', width: '200px', background: '#FFF', textAlign: 'left' }}>
                       Choose a File
                     </div>
-                    <button style={{ padding: '10px 20px', background: '#F1F5F9', color: '#475569', fontSize: '13px', fontWeight: 600, border: '1px solid #CBD5E1', borderRadius: '0 8px 8px 0', cursor: 'pointer' }}>
+                    <button style={{ padding: '10px 20px', background: '#F8FAFC', color: '#475569', fontSize: '13px', fontWeight: 600, border: '1px solid #CBD5E1', borderRadius: '0 8px 8px 0', cursor: 'pointer' }}>
                       Browse
                     </button>
                   </div>
-                  <button style={{ padding: '10px 24px', background: '#8ba0b5', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}>
+                  <button style={{ padding: '10px 24px', background: '#f97316', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
                     Import Excel
                   </button>
                 </div>
@@ -422,7 +422,7 @@ const OnBoardDevicePage = () => {
               <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', marginBottom: '40px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#8ba0b5', color: '#FFFFFF' }}>
+                    <tr style={{ background: '#F8FAFC', color: '#475569' }}>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Id</th>
@@ -437,7 +437,7 @@ const OnBoardDevicePage = () => {
                         <tr style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
                           <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 600, color: '#475569', textAlign: 'center', borderRight: '1px solid #F1F5F9' }}>{idx + 1}</td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
-                            <div style={{ padding: '8px 12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                            <div style={{ padding: '8px 12px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
                               {device.licenceId}
                             </div>
                           </td>
@@ -468,7 +468,7 @@ const OnBoardDevicePage = () => {
                           <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                             <button 
                               onClick={() => toggleRowExpansion(idx)}
-                              style={{ padding: '8px 16px', background: '#8ba0b5', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}
+                              style={{ padding: '8px 16px', background: '#f97316', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}
                             >
                               {expandedRows[idx] ? 'Hide Details' : 'Show Details'}
                             </button>
@@ -590,7 +590,7 @@ const OnBoardDevicePage = () => {
               <button 
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(139,160,181,0.3)' }}
+                style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(249,115,22,0.3)' }}
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
                 Submit Devices

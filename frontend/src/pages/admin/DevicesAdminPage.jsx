@@ -57,7 +57,7 @@ const DevicesAdminPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
@@ -69,14 +69,14 @@ const DevicesAdminPage = () => {
           onClick={() => window.location.href = '/onBoardDevice'}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#8ba0b5', color: '#FFFFFF',
+            background: '#f97316', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)',
+            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
             transition: 'all 0.2s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(139,160,181,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(139,160,181,0.2)'; }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.2)'; }}
         >
           <Plus size={18} />
           <span>Add Device</span>
@@ -115,7 +115,7 @@ const DevicesAdminPage = () => {
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
+              <Loader2 size={32} color="#f97316" className="animate-spin" />
               <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading inventory...</span>
             </div>
           ) : error ? (
@@ -128,7 +128,7 @@ const DevicesAdminPage = () => {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm', ''].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
@@ -155,7 +155,7 @@ const DevicesAdminPage = () => {
                         background: 'transparent',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#f5efe4'; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px' }}>
