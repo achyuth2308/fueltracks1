@@ -456,6 +456,7 @@ const OnBoardDevicePage = () => {
                             >
                               <option value="BSTPL">BSTPL</option>
                               <option value="AS140">AS140</option>
+                              <option value="CONCOX">CONCOX</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
