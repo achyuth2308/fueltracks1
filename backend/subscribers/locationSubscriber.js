@@ -74,10 +74,29 @@ async function start(io) {
     console.log('[SUBSCRIBER] Location subscriber connected to Redis');
   });
 
-  // Subscribe to 'tracking' channel
+  // Subscribe to 'tracking' and 'raw_logs'
   await subscriber.subscribe('tracking');
+  await subscriber.subscribe('raw_logs');
 
   subscriber.on('message', async (channel, message) => {
+    if (channel === 'raw_logs') {
+      try {
+        const data = JSON.parse(message);
+        await GpsModel.saveRawPacketWithMetadata({
+          imei: data.imei,
+          raw: message,
+          packetType: data.packetType,
+          deviceTime: data.deviceTime,
+          odometer: data.odometer,
+          rawHex: data.rawHex,
+          parsedJson: data.parsedJson
+        });
+      } catch (err) {
+        console.error('[SUBSCRIBER] Error processing raw log:', err.message);
+      }
+      return;
+    }
+
     if (channel !== 'tracking') return;
 
     try {
