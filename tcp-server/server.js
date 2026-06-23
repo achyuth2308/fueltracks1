@@ -172,6 +172,13 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       return;
     }
 
+    parsed.rawString = raw;
+    parsed.packetType = parsed.packetType || header;
+
+    if (parsed.imei) {
+      await publisher.publishRawMessage(parsed).catch(err => console.error(err));
+    }
+
     // Process based on packet type
     if (parsed.packetType === '$10' || parsed.packetType === '$NRM') {
       const validation = validateNormalPacket(parsed);

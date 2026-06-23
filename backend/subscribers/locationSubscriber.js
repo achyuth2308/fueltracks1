@@ -256,7 +256,7 @@ async function start(io) {
         io.to(`org:${orgId}`).emit('fleet:update', payload);
       }
 
-      await GpsModel.saveRawPacket(imei, message, true, null);
+      // Raw packets are now handled by the 'raw_logs' channel, preventing duplicates
 
     } catch (err) {
       console.error('[SUBSCRIBER] Error processing location packet:', err.message);

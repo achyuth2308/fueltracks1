@@ -550,6 +550,52 @@ const VehicleController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  /**
+   * Get raw device messages (Sensor Data)
+   * GET /api/vehicles/:id/messages
+   */
+  async getVehicleMessages(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { page, limit } = req.query;
+
+      // Access Check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // We need the IMEI of the vehicle
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle || !vehicle.imei) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle or IMEI not found.',
+          code: 'NOT_FOUND'
+        });
+      }
+
+      const result = await GpsModel.getRawMessages(vehicle.imei, {
+        page: parseInt(page) || 1,
+        limit: parseInt(limit) || 100
+      });
+
+      res.status(200).json({
+        success: true,
+        data: result.messages,
+        pagination: result.pagination
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 };
 

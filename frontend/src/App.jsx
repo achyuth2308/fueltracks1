@@ -9,6 +9,7 @@ import DashboardPage from './pages/user/DashboardPage';
 import VehicleDetailPage from './pages/user/VehicleDetailPage';
 import HistoryPage from './pages/user/HistoryPage';
 import ReportPage from './pages/user/ReportPage';
+import SensorLogsPage from './pages/user/SensorLogsPage';
 import TrackingPage from './pages/user/TrackingPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
@@ -61,6 +62,7 @@ function App() {
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />
               <Route path="vehicles/:id/history" element={<HistoryPage />} />
               <Route path="vehicles/:id/report" element={<ReportPage />} />
+              <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
 
               {/* Admin roster management grids */}
               <Route path="admin/organizations" element={<OrgsAdminPage />} />

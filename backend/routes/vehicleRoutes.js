@@ -25,5 +25,6 @@ router.get('/:id/history', VehicleController.getVehicleHistory);
 router.get('/:id/route', VehicleController.getVehicleRoute);
 router.get('/:id/report', VehicleController.getVehicleReport);
 router.get('/:id/alerts', VehicleController.getVehicleAlerts);
+router.get('/:id/messages', VehicleController.getVehicleMessages);
 
 module.exports = router;

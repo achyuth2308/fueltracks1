@@ -47,7 +47,8 @@ async function publishLocation(parsed) {
   if (!publisher) throw new Error('Redis publisher not initialized');
 
   const { imei, lat, lng, speed, fuel, ignition, voltage, direction,
-          odometer, satellites, gsmSignal, battery, deviceTime, isLive } = parsed;
+          odometer, satellites, gsmSignal, battery, deviceTime, isLive,
+          rawPacket, packetType } = parsed;
 
   const payload = JSON.stringify({
     imei,
@@ -64,6 +65,8 @@ async function publishLocation(parsed) {
     battery,
     deviceTime,
     isLive,
+    rawHex: rawPacket,
+    packetType,
     serverTime: new Date().toISOString(),
   });
 
@@ -103,6 +106,8 @@ async function publishAlert(parsed) {
     lat: parsed.lat,
     lng: parsed.lng,
     deviceTime: parsed.deviceTime,
+    rawHex: parsed.rawPacket,
+    packetType: parsed.packetType,
     serverTime: new Date().toISOString(),
   });
 
@@ -110,6 +115,26 @@ async function publishAlert(parsed) {
     await publisher.publish('alerts', payload);
   } catch (err) {
     console.error(`[REDIS] Alert publish error for ${parsed.imei}:`, err.message);
+  }
+}
+
+/**
+ * Publish raw message to a dedicated raw_logs channel
+ */
+async function publishRawMessage(parsed) {
+  if (!publisher) return;
+  const payload = JSON.stringify({
+    imei: parsed.imei,
+    packetType: parsed.packetType,
+    rawHex: parsed.rawPacket || parsed.rawString || null,
+    deviceTime: parsed.deviceTime || null,
+    odometer: parsed.odometer || null,
+    parsedJson: parsed,
+  });
+  try {
+    await publisher.publish('raw_logs', payload);
+  } catch (err) {
+    console.error(`[REDIS] Raw log publish error:`, err.message);
   }
 }
 
@@ -123,4 +148,4 @@ async function close() {
   }
 }
 
-module.exports = { init, publishLocation, publishAlert, close };
+module.exports = { init, publishLocation, publishAlert, publishRawMessage, close };

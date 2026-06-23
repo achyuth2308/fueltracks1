@@ -240,6 +240,49 @@ const GpsModel = {
   },
 
   /**
+   * Save raw packet with extended metadata for Sensor Data logs
+   */
+  async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson }) {
+    await db.query(
+      `INSERT INTO raw_packets 
+       (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [imei, raw, true, packetType, deviceTime, odometer, rawHex, parsedJson]
+    );
+  },
+
+  /**
+   * Get raw messages for Sensor Data page
+   */
+  async getRawMessages(imei, { page = 1, limit = 100 }) {
+    const offset = (page - 1) * limit;
+
+    const countResult = await db.query(
+      `SELECT COUNT(*) FROM raw_packets WHERE imei = $1`,
+      [imei]
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    const result = await db.query(
+      `SELECT * FROM raw_packets
+       WHERE imei = $1
+       ORDER BY received_at DESC
+       LIMIT $2 OFFSET $3`,
+      [imei, limit, offset]
+    );
+
+    return {
+      messages: result.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  },
+
+  /**
    * Get dashboard stats for an org
    */
   async getDashboardStats(orgId, role) {

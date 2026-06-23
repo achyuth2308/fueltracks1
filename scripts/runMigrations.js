@@ -39,7 +39,8 @@ async function runMigrations() {
       { name: 'Devices Migration', file: 'devices_migration.sql' },
       { name: 'Audit Logs Migration', file: 'audit_migration.sql' },
       { name: 'Organization Profiles Migration', file: 'profile_migration.sql' },
-      { name: 'Geofences and Routes Migration', file: 'geofence_route_migration.sql' }
+      { name: 'Geofences and Routes Migration', file: 'geofence_route_migration.sql' },
+      { name: 'Raw Packets Enhancement Migration', file: 'raw_packets_enhancement_migration.sql' }
     ];
 
     for (const migration of migrations) {

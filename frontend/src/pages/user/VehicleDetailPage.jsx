@@ -206,6 +206,9 @@ const VehicleDetailPage = () => {
           <Link to={`/vehicles/${id}/report`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
             <BarChart4 size={16} /> Analytics
           </Link>
+          <Link to={`/vehicles/${id}/messages`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
+            <Server size={16} /> Sensor Logs
+          </Link>
         </div>
       </div>
 
