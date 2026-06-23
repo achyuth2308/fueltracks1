@@ -467,8 +467,8 @@ section('TEST 9: 0x78/0x79 extended-length packet handling');
   const infoContent = Buffer.from([0x00, 0x04, 0xD2]);  // sub-type 0x00, voltage raw=1234
   const serialNum   = 0x0007;
 
-  // For 0x79 0x79: packet length is 2 bytes, value = protocol(1) + info(n) + serial(2) + crc(2)
-  const pktLen = 1 + infoContent.length + 2 + 2; // = 8 for this info
+  // For 0x79 0x79: packet length is 2 bytes, value = protocol(1) + info(n)
+  const pktLen = 1 + infoContent.length; // = 4 for this info
 
   // CRC over [lenHi, lenLo, protocol, ...info, serialHi, serialLo]
   const crcInput = Buffer.concat([

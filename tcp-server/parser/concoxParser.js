@@ -690,22 +690,27 @@ function parseConcoxBuffer(buffer, imei) {
     // ---- Read packet length ----
     let lengthFieldSize;
     let packetLength;
+    let frameSize;
+
     if (!isExtended) {
       // 1-byte length
       if (pos + 3 > buffer.length) break; // need at least start(2) + length(1)
       lengthFieldSize = 1;
       packetLength    = buffer[pos + 2];
+      
+      // For 0x78 0x78: packetLength includes protocol(1) + info(variable) + serial(2) + crc(2)
+      // Total frame size: start(2) + lengthField(1) + packetLength + stop(2)
+      frameSize       = 2 + lengthFieldSize + packetLength + 2;
     } else {
       // 2-byte length (big-endian)
       if (pos + 4 > buffer.length) break; // need at least start(2) + length(2)
       lengthFieldSize = 2;
       packetLength    = buffer.readUInt16BE(pos + 2);
+      
+      // For 0x79 0x79: packetLength includes ONLY protocol(1) + info(variable)
+      // Total frame size: start(2) + lengthField(2) + packetLength + serial(2) + crc(2) + stop(2)
+      frameSize       = 2 + lengthFieldSize + packetLength + 2 + 2 + 2;
     }
-
-    // Total frame size:
-    //   start(2) + lengthField(1 or 2) + packetLength(includes protocol+info+serial+crc) + stop(2)
-    // packetLength already includes: protocol(1) + info(variable) + serial(2) + crc(2)
-    const frameSize = 2 + lengthFieldSize + packetLength + 2;
 
     if (pos + frameSize > buffer.length) {
       // Incomplete frame — wait for more data
