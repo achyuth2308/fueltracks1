@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Server, Loader2, AlertOctagon } from 'lucide-react';
-import api from '../../api/axiosConfig';
+import api from '../../api/axios';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { formatOdometer } from '../../utils/formatUtils';
 
