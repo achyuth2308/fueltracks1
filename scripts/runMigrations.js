@@ -38,7 +38,8 @@ async function runMigrations() {
     const migrations = [
       { name: 'Devices Migration', file: 'devices_migration.sql' },
       { name: 'Audit Logs Migration', file: 'audit_migration.sql' },
-      { name: 'Organization Profiles Migration', file: 'profile_migration.sql' }
+      { name: 'Organization Profiles Migration', file: 'profile_migration.sql' },
+      { name: 'Geofences and Routes Migration', file: 'geofence_route_migration.sql' }
     ];
 
     for (const migration of migrations) {

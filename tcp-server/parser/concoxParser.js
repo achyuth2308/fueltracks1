@@ -325,7 +325,7 @@ function parseLocation(info, serialNumber, imei) {
   let odometer = null;
   if (info.length >= 33) {
     const rawMileage = info.readUInt32BE(29);
-    odometer = parseFloat((rawMileage / 1000).toFixed(3));  // convert to km
+    odometer = Math.round(rawMileage / 1000);  // convert to km as integer
   }
 
   return {
@@ -406,13 +406,13 @@ function parseAlarm(info, serialNumber, imei, isMultiFence) {
     // 0x27: Fence No (1 byte), Mileage (1 byte)
     fenceNo = info.length > pos ? info[pos] : null; pos += 1;
     if (info.length > pos) {
-      odometer = info[pos] / 1.0;  // 1-byte mileage in 0x27 (value in km, no scaling noted)
+      odometer = Math.round(info[pos] / 1.0);  // 1-byte mileage in 0x27 (value in km, no scaling noted)
     }
   } else {
     // 0x26: Mileage (4 bytes)
     if (info.length >= pos + 4) {
       const rawMileage = info.readUInt32BE(pos);
-      odometer = parseFloat((rawMileage / 1000).toFixed(3));
+      odometer = Math.round(rawMileage / 1000);
     }
   }
 
