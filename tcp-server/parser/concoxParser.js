@@ -187,6 +187,7 @@ function parseGpsBlock(buf, offset) {
     speed,
     heading,
     gpsValid,
+    rawCourse: (courseHigh << 8) | courseLow,
     consumed: 12,   // bytes consumed: 1 (info) + 4 (lat) + 4 (lng) + 1 (speed) + 2 (course)
   };
 }
@@ -337,6 +338,7 @@ function parseLocation(info, serialNumber, imei) {
     direction:      gps.heading,
     satellites:     gps.satellites,
     gpsValid:       gps.gpsValid ? 'A' : 'V',
+    rawCourse:      gps.rawCourse,
     ignition:       acc === 0x01,
     isLive:         !isBuffered,
     odometer,
@@ -681,8 +683,34 @@ function parseConcoxBuffer(buffer, imei) {
     } else if (b0 === 0x79 && b1 === 0x79) {
       isExtended = true;
     } else {
-      // Not a valid start byte — skip one byte and keep scanning
-      console.warn(`[CONCOX] Unexpected byte 0x${b0.toString(16)} at offset ${pos}, scanning forward`);
+      // Not a valid binary start byte.
+      // Check if it's an ASCII message (common in clones for geofence/events)
+      if (b0 >= 0x20 && b0 <= 0x7E) {
+        // Scan forward for CRLF
+        let crlfPos = -1;
+        for (let i = pos; i < buffer.length - 1; i++) {
+          if (buffer[i] === 0x0D && buffer[i+1] === 0x0A) {
+            crlfPos = i;
+            break;
+          }
+        }
+        if (crlfPos !== -1) {
+          const asciiStr = buffer.toString('ascii', pos, crlfPos);
+          console.log(`[CONCOX] Interleaved ASCII Message: ${asciiStr}`);
+          packets.push({
+            packetType: 'CONCOX_ASCII_MESSAGE',
+            rawString: asciiStr
+          });
+          pos = crlfPos + 2;
+          continue;
+        }
+      }
+
+      // Not a valid start byte and not a complete ASCII string — skip one byte and keep scanning
+      // Only warn if we haven't warned too much or if it's not a common newline
+      if (b0 !== 0x0A && b0 !== 0x0D) {
+        console.warn(`[CONCOX] Unexpected byte 0x${b0.toString(16)} at offset ${pos}, scanning forward`);
+      }
       pos++;
       continue;
     }
