@@ -9,7 +9,14 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const net = require('net');
+const http = require('http');
 const { parsePacket } = require('./parser');
+
+const protocolStats = {
+  'BSTPL-17': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'AIS140': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'CONCOX': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+};
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
 
@@ -53,13 +60,30 @@ const concoxServer = createConcoxServer(CONCOX_PORT);
  */
 function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
   const server = net.createServer((socket) => {
+    if (protocolStats[protocolName]) {
+      protocolStats[protocolName].totalConnectionAttempts++;
+      protocolStats[protocolName].connections++;
+    }
     const clientId = `${socket.remoteAddress}:${socket.remotePort}`;
     console.log(`[TCP - ${protocolName}] Device connected: ${clientId}`);
 
     // Buffer for handling partial packets (TCP streaming)
     let buffer = '';
+    let isFirstData = true;
 
     socket.on('data', (data) => {
+      if (isFirstData) {
+        isFirstData = false;
+        if (data.length >= 2 && ((data[0] === 0x78 && data[1] === 0x78) || (data[0] === 0x79 && data[1] === 0x79))) {
+          const hexBytes = data.slice(0, 64).toString('hex');
+          const utf8Bytes = data.slice(0, 64).toString('utf8').replace(/\n/g, '\\n').replace(/\r/g, '\\r');
+          console.warn(`[TCP - ${protocolName}] Received Concox-framed bytes on the ${protocolName} port — device is likely misconfigured to the wrong port/IP.`);
+          console.warn(`[TCP - ${protocolName}] Diagnostic hex: ${hexBytes}`);
+          console.warn(`[TCP - ${protocolName}] Diagnostic str: ${utf8Bytes}`);
+          socket.destroy();
+          return;
+        }
+      }
       buffer += data.toString('ascii');
 
       // Process complete packets delimited by the protocol specific delimiter
@@ -89,6 +113,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
     });
 
     socket.on('close', () => {
+      if (protocolStats[protocolName]) protocolStats[protocolName].connections--;
       console.log(`[TCP - ${protocolName}] Device disconnected: ${clientId}`);
       // Remove from connected devices
       for (const [imei, info] of connectedDevices.entries()) {
@@ -166,6 +191,11 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
 
       // Publish to Redis
       await publisher.publishLocation(parsed);
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
       totalPacketsParsed++;
 
       if (totalPacketsParsed % 100 === 0) {
@@ -182,6 +212,11 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
 
       // Publish alert to Redis
       await publisher.publishAlert(parsed);
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
       totalPacketsParsed++;
       console.log(`[TCP - ${protocolName}] Alert from ${parsed.imei}: ${parsed.alertType} - ${parsed.alertText}`);
 
@@ -204,15 +239,30 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       // Publish both location and alert to Redis
       await publisher.publishLocation(parsed);
       await publisher.publishAlert(parsed);
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
       totalPacketsParsed++;
       console.log(`[TCP - ${protocolName}] Emergency/SOS from ${parsed.imei}: ${parsed.alertText}`);
 
     } else if (parsed.packetType === '$LGN') {
       console.log(`[TCP - ${protocolName}] Login received from device ${parsed.imei} (${parsed.vehicleRegNo || 'No Reg'})`);
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
       totalPacketsParsed++;
 
     } else if (parsed.packetType === '$HLM') {
       console.log(`[TCP - ${protocolName}] Health status received from device ${parsed.imei}. Battery: ${parsed.batteryPercent}%`);
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
       totalPacketsParsed++;
     }
 
@@ -228,6 +278,7 @@ const shutdown = async () => {
   bstplServer.close();
   ais140Server.close();
   concoxServer.close();
+  if (typeof healthServer !== 'undefined') healthServer.close();
   await publisher.close();
   process.exit(0);
 };
@@ -248,6 +299,8 @@ const shutdown = async () => {
  */
 function createConcoxServer(port) {
   const server = net.createServer((socket) => {
+    protocolStats['CONCOX'].totalConnectionAttempts++;
+    protocolStats['CONCOX'].connections++;
     const clientId = `${socket.remoteAddress}:${socket.remotePort}`;
     console.log(`[TCP - CONCOX] Device connected: ${clientId}`);
 
@@ -288,6 +341,7 @@ function createConcoxServer(port) {
     });
 
     socket.on('close', () => {
+      protocolStats['CONCOX'].connections--;
       console.log(`[TCP - CONCOX] Device disconnected: ${clientId} (IMEI: ${sessionImei || 'unknown'})`);
       if (sessionImei) connectedDevices.delete(sessionImei);
     });
@@ -317,7 +371,12 @@ function createConcoxServer(port) {
             // MUST ACK within 5 seconds or device reboots
             const ack = buildLoginAck(packet.serialNumber);
             sock.write(ack);
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
             break;
           }
 
@@ -326,7 +385,12 @@ function createConcoxServer(port) {
             const ack = buildHeartbeatAck(packet.serialNumber);
             sock.write(ack);
             console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
             break;
           }
 
@@ -374,7 +438,12 @@ function createConcoxServer(port) {
               deviceTime: packet.deviceTime,
               isLive:    packet.isLive,
             });
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
 
             if (totalPacketsParsed % 100 === 0) {
               console.log(`[TCP] Stats: received=${totalPacketsReceived}, parsed=${totalPacketsParsed}, invalid=${totalPacketsInvalid}, devices=${connectedDevices.size}`);
@@ -427,7 +496,12 @@ function createConcoxServer(port) {
                 isLive:    packet.isLive,
               });
             }
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
             break;
           }
 
@@ -444,13 +518,23 @@ function createConcoxServer(port) {
             if (packet.sensorData) {
               console.log(`[TCP - CONCOX] Fuel sensor from ${sessionImei || 'unknown'}:`, packet.sensorData);
             }
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
             break;
           }
 
           case 'CONCOX_TIME_CHECK':
             // 0x8A: device asks for current time — no response (per spec, GPS calibrates time)
-            totalPacketsParsed++;
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      } else if (protocolStats['CONCOX']) {
+        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
             break;
 
           default:
@@ -485,4 +569,31 @@ setInterval(() => {
   }
 }, 60000);
 
-module.exports = { bstplServer, ais140Server, concoxServer };
+// ============================================================
+// HEALTH ENDPOINT SERVER
+// ============================================================
+const HEALTH_PORT = process.env.TCP_HEALTH_PORT || 5050;
+const healthServer = http.createServer((req, res) => {
+  if (req.url === '/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'OK',
+      bstplConnections: protocolStats['BSTPL-17'].connections,
+      ais140Connections: protocolStats['AIS140'].connections,
+      concoxConnections: protocolStats['CONCOX'].connections,
+      stats: protocolStats
+    }));
+  } else {
+    res.writeHead(404);
+    res.end();
+  }
+});
+
+healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
+  console.log(`============================================================`);
+  console.log(`  [TCP - HEALTH] Health server started`);
+  console.log(`  Listening on port: ${HEALTH_PORT}`);
+  console.log(`============================================================`);
+});
+
+module.exports = { bstplServer, ais140Server, concoxServer, healthServer };
