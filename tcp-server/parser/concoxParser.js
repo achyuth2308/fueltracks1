@@ -328,6 +328,12 @@ function parseLocation(info, serialNumber, imei) {
     odometer = Math.round(rawMileage / 1000);  // convert to km as integer
   }
 
+  // Heuristic for clones (e.g. 0x8066) that never set the GPS Valid bit but send real coordinates
+  let finalGpsValid = gps.gpsValid ? 'A' : 'V';
+  if (finalGpsValid === 'V' && gps.lat !== 0 && gps.lng !== 0) {
+    finalGpsValid = 'A';
+  }
+
   return {
     packetType:     'CONCOX_LOCATION',
     imei:           imei || null,
@@ -337,7 +343,7 @@ function parseLocation(info, serialNumber, imei) {
     speed:          gps.speed,
     direction:      gps.heading,
     satellites:     gps.satellites,
-    gpsValid:       gps.gpsValid ? 'A' : 'V',
+    gpsValid:       finalGpsValid,
     rawCourse:      gps.rawCourse,
     ignition:       acc === 0x01,
     isLive:         !isBuffered,
@@ -423,6 +429,12 @@ function parseAlarm(info, serialNumber, imei, isMultiFence) {
     ? GSM_SIGNAL_MAP[gsmLevel]
     : 50;
 
+  // Heuristic for clones that never set the GPS Valid bit
+  let finalGpsValid = gps.gpsValid ? 'A' : 'V';
+  if (finalGpsValid === 'V' && gps.lat !== 0 && gps.lng !== 0) {
+    finalGpsValid = 'A';
+  }
+
   return {
     packetType:    isMultiFence ? 'CONCOX_ALARM_MULTI' : 'CONCOX_ALARM',
     imei:          imei || null,
@@ -432,7 +444,7 @@ function parseAlarm(info, serialNumber, imei, isMultiFence) {
     speed:         gps.speed,
     direction:     gps.heading,
     satellites:    gps.satellites,
-    gpsValid:      gps.gpsValid ? 'A' : 'V',
+    gpsValid:      finalGpsValid,
     ignition:      termInfo.acc,
     isLive:        true,       // alarm packets are always live/real-time
     odometer,

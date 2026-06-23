@@ -407,17 +407,9 @@ function createConcoxServer(port) {
             }
 
             if (packet.gpsValid !== 'A') {
-              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: GPS not fixed (Status: ${packet.gpsValid}).`);
-              
-              // Force-accept if coordinates are not strictly 0,0 to satisfy frontend
-              if (!packet.lat || !packet.lng || (packet.lat === 0 && packet.lng === 0) || Math.abs(packet.lat) > 90 || Math.abs(packet.lng) > 180) {
-                console.warn(`[TCP - CONCOX] Coordinates are 0,0 or invalid. Dropping packet.`);
-                totalPacketsInvalid++;
-                break;
-              } else {
-                console.warn(`[TCP - CONCOX] Coordinates look valid (${packet.lat}, ${packet.lng}). Force-accepting to keep frontend online.`);
-                packet.gpsValid = 'A'; // Override to pass backend validation
-              }
+              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: GPS not fixed (Status: ${packet.gpsValid}). Dropping.`);
+              totalPacketsInvalid++;
+              break;
             }
             if (packet.lat === null || packet.lng === null ||
                 Math.abs(packet.lat) > 90 || Math.abs(packet.lng) > 180) {
