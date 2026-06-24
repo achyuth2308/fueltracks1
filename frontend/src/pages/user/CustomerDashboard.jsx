@@ -362,7 +362,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                   View Details <ChevronRight size={13} />
                 </button>
                 <button
-                  onClick={() => navigate('/tracking')}
+                  onClick={() => navigate('/tracking', { state: { selectedVehicleId: currentSelected.id } })}
                   style={{
                     width: '100%', padding: '7px', borderRadius: '8px',
                     border: '1px solid #e5e7eb', background: '#fff',

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -24,10 +24,22 @@ const getExpiryWarning = (expireDateStr) => {
 
 const TrackingPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { vehicles, groups, loading, error, refetch } = useVehicles();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
+
+  useEffect(() => {
+    if (!hasSelectedInitial && location.state?.selectedVehicleId && vehicles?.length > 0) {
+      const v = vehicles.find(v => String(v.id) === String(location.state.selectedVehicleId));
+      if (v) {
+        setSelectedVehicle(v);
+        setHasSelectedInitial(true);
+      }
+    }
+  }, [location.state, vehicles, hasSelectedInitial]);
 
   useEffect(() => {
     if (vehicles && setAppVehicles) {

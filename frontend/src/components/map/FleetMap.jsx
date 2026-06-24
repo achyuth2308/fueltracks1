@@ -43,14 +43,20 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
         const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
         
         if (res.success && res.data.length > 0) {
-          setRoutePoints(res.data);
-          // Fit map bounds to the route to show the "clear route"
-          const bounds = L.latLngBounds(res.data.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
+          const validPoints = res.data.filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0));
+          setRoutePoints(validPoints);
+          
+          if (validPoints.length > 0) {
+            // Fit map bounds to the route to show the "clear route"
+            const bounds = L.latLngBounds(validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
+            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
+          } else if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
+            map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 14, { animate: true });
+          }
         } else {
           // If no route exists for today, just center on the vehicle's current location
           setRoutePoints([]);
-          if (selectedVehicle.lat && selectedVehicle.lng) {
+          if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
             map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 14, { animate: true });
           }
         }
@@ -302,7 +308,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
 
         {/* Vehicle Markers */}
         {vehicles
-          .filter(v => v.lat && v.lng)
+          .filter(v => v.lat && v.lng && (parseFloat(v.lat) !== 0 || parseFloat(v.lng) !== 0))
           .map((vehicle) => (
             <VehicleMarker
               key={vehicle.id}
