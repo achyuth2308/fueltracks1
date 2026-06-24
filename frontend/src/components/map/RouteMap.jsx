@@ -51,10 +51,48 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
     ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
     : defaultCenter;
 
+  // Haversine distance in km
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const splitIntoSegments = (positions, maxDistKm = 50) => {
+    const segs = [];
+    let cur = [];
+    for (let i = 0; i < positions.length; i++) {
+      const p = positions[i];
+      if (cur.length > 0) {
+        const prev = cur[cur.length - 1];
+        if (getDistance(prev[0], prev[1], p[0], p[1]) > maxDistKm) {
+          segs.push(cur);
+          cur = [p];
+          continue;
+        }
+      }
+      cur.push(p);
+    }
+    if (cur.length > 0) segs.push(cur);
+    return segs;
+  };
+
   // Calculate continuous route positions list
   const routePositions = points
     .filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0)
     .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+
+  const routeSegments = splitIntoSegments(routePositions);
+
+  // Sliced positions up to current playback index
+  const currentIndex = points.findIndex(
+    p => activePoint && p.device_time === activePoint.device_time
+  );
+
+  const pastPositions = routePositions.slice(0, (currentIndex === -1 ? 0 : currentIndex) + 1);
+  const pastSegments = splitIntoSegments(pastPositions);
 
   // Create custom rotated navigation arrow/car icon
   const createVehicleIcon = (direction = 0) => {
@@ -139,9 +177,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
 
 
         {/* Dotted / Dashed Route Path */}
-        {routePositions.length > 1 && (
+        {routeSegments.map((seg, idx) => seg.length > 1 && (
           <Polyline
-            positions={routePositions}
+            key={`route-${idx}`}
+            positions={seg}
             color="#475569"
             weight={2.5}
             dashArray="6, 8"
@@ -149,7 +188,20 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
             lineCap="round"
             lineJoin="round"
           />
-        )}
+        ))}
+
+        {/* Solid Traveled Path (up to playback point) */}
+        {pastSegments.map((seg, idx) => seg.length > 1 && (
+          <Polyline
+            key={`past-${idx}`}
+            positions={seg}
+            color="#0EA5E9"
+            weight={4}
+            opacity={0.8}
+            lineCap="round"
+            lineJoin="round"
+          />
+        ))}
 
         {/* Start Point Marker */}
         {points.length > 0 && (() => {

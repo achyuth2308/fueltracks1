@@ -71,11 +71,45 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
 
   if (routePoints.length < 2) return null;
 
+  // Haversine distance in km
+  const getDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  const splitIntoSegments = (positions, maxDistKm = 50) => {
+    const segs = [];
+    let cur = [];
+    for (let i = 0; i < positions.length; i++) {
+      const p = positions[i];
+      if (cur.length > 0) {
+        const prev = cur[cur.length - 1];
+        if (getDistance(prev[0], prev[1], p[0], p[1]) > maxDistKm) {
+          segs.push(cur);
+          cur = [p];
+          continue;
+        }
+      }
+      cur.push(p);
+    }
+    if (cur.length > 0) segs.push(cur);
+    return segs;
+  };
+
   const positions = routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+  const segments = splitIntoSegments(positions);
+
   return (
     <>
-      <Polyline positions={positions} color="#0EA5E9" weight={4} opacity={0.7} />
-      <Polyline positions={positions} color="#38BDF8" weight={2} opacity={1} />
+      {segments.map((seg, idx) => seg.length > 1 && (
+        <React.Fragment key={idx}>
+          <Polyline positions={seg} color="#0EA5E9" weight={4} opacity={0.7} />
+          <Polyline positions={seg} color="#38BDF8" weight={2} opacity={1} />
+        </React.Fragment>
+      ))}
     </>
   );
 };
