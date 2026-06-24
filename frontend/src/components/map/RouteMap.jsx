@@ -47,8 +47,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
 
   // Default map center for Karmanghat, Hyderabad
   const defaultCenter = [17.3411, 78.5317];
-  const center = points.length > 0 
-    ? [parseFloat(points[0].lat), parseFloat(points[0].lng)] 
+  const center = points.length > 0
+    ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
     : defaultCenter;
 
   // Calculate continuous route positions list

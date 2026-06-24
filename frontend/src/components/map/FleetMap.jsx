@@ -13,7 +13,7 @@ const getExpiryWarning = (expireDateStr) => {
   const now = new Date();
   const diffTime = exp.getTime() - now.getTime();
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
+
   if (diffDays < 0) {
     return { type: 'expired', text: `Licence Expired` };
   } else if (diffDays <= 4) {
@@ -39,7 +39,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
         const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
         const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
         const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
-        
+
         if (res.success && res.data.length > 0) {
           const validPoints = res.data.filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0));
           setRoutePoints(validPoints);
@@ -167,14 +167,14 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
 
           {/* Expiry Warning in Popup */}
           {warning && (
-            <div style={{ 
+            <div style={{
               marginBottom: '8px', padding: '6px 8px', borderRadius: '6px',
               background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB',
               border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`,
               color: warning.type === 'expired' ? '#EF4444' : '#F59E0B',
               fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
             }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
               {warning.text}
             </div>
           )}
