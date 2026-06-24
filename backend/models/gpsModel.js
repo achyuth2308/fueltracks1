@@ -52,11 +52,11 @@ const GpsModel = {
     let dateFilter = '';
 
     if (startDate) {
-      params.push(startDate);
+      params.push(startDate.length === 10 ? `${startDate} 00:00:00` : startDate);
       dateFilter += ` AND device_time >= $${params.length}`;
     }
     if (endDate) {
-      params.push(endDate);
+      params.push(endDate.length === 10 ? `${endDate} 23:59:59` : endDate);
       dateFilter += ` AND device_time <= $${params.length}`;
     }
 
@@ -100,11 +100,11 @@ const GpsModel = {
     let dateFilter = '';
 
     if (startDate) {
-      params.push(startDate);
+      params.push(startDate.length === 10 ? `${startDate} 00:00:00` : startDate);
       dateFilter += ` AND device_time >= $${params.length}`;
     }
     if (endDate) {
-      params.push(endDate);
+      params.push(endDate.length === 10 ? `${endDate} 23:59:59` : endDate);
       dateFilter += ` AND device_time <= $${params.length}`;
     }
 
@@ -127,11 +127,11 @@ const GpsModel = {
     let dateFilter = '';
 
     if (startDate) {
-      params.push(startDate);
+      params.push(startDate.length === 10 ? `${startDate} 00:00:00` : startDate);
       dateFilter += ` AND device_time >= $${params.length}`;
     }
     if (endDate) {
-      params.push(endDate);
+      params.push(endDate.length === 10 ? `${endDate} 23:59:59` : endDate);
       dateFilter += ` AND device_time <= $${params.length}`;
     }
 

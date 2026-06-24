@@ -118,10 +118,15 @@ const VehicleDetailPage = () => {
     const fetch = async () => {
       setLoading(true);
       try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const endToday = new Date();
+        endToday.setHours(23, 59, 59, 999);
+
         const [vRes, aRes, rRes] = await Promise.allSettled([
           vehicleApi.getVehicleById(id),
           vehicleApi.getVehicleAlerts(id, { limit: 8 }),
-          vehicleApi.getVehicleReport(id),
+          vehicleApi.getVehicleReport(id, { startDate: today.toISOString(), endDate: endToday.toISOString() }),
         ]);
         if (vRes.status === 'fulfilled' && vRes.value.success) setVehicle(vRes.value.data);
         if (aRes.status === 'fulfilled' && aRes.value.success) setAlerts(aRes.value.data);
@@ -147,6 +152,15 @@ const VehicleDetailPage = () => {
         current_voltage: data.voltage ?? prev.current_voltage,
         is_online: true,
         last_seen: data.deviceTime || new Date().toISOString()
+      });
+      setReportSummary(prev => {
+        if (!prev) return prev;
+        const currentMax = Number(prev.max_speed || 0);
+        const newSpeed = Number(data.speed || 0);
+        if (newSpeed > currentMax) {
+          return { ...prev, max_speed: newSpeed };
+        }
+        return prev;
       });
     };
     const handleAlert = (data) => {
