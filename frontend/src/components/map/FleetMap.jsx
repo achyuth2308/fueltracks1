@@ -22,9 +22,9 @@ const getExpiryWarning = (expireDateStr) => {
   return null;
 };
 
-const VehicleRouteAndFit = ({ selectedVehicles }) => {
+const VehicleRouteAndFit = ({ selectedVehicle }) => {
   const map = useMap();
-  const [routesData, setRoutesData] = useState([]);
+  const [routePoints, setRoutePoints] = useState([]);
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -54,110 +54,64 @@ const VehicleRouteAndFit = ({ selectedVehicles }) => {
     return segs;
   };
 
-  // 1. Fetch route history only when selectedVehicles IDs change
-  const selectedVehicleIds = (selectedVehicles || []).map(v => v.id).join(',');
-  
+  // 1. Fetch route history only when the selected vehicle ID changes
   useEffect(() => {
-    if (!selectedVehicles || selectedVehicles.length === 0) {
-      setRoutesData([]);
-      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+    if (!selectedVehicle?.id) {
+      setRoutePoints([]);
       return;
     }
 
-    const fetchRoutes = async () => {
+    const fetchRoute = async () => {
+      setRoutePoints([]);
       try {
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
         const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-        
-        const colors = ['#0EA5E9', '#F59E0B', '#10B981', '#8B5CF6', '#EC4899', '#F43F5E'];
-        const newRoutes = [];
-        let allPoints = [];
+        const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
 
-        for (let i = 0; i < selectedVehicles.length; i++) {
-          const vehicle = selectedVehicles[i];
-          const res = await getVehicleRoute(vehicle.id, { startDate: start, endDate: end });
-          if (res.success && res.data.length > 0) {
-            const validPoints = res.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
-            
-            newRoutes.push({
-              vehicleId: vehicle.id,
-              points: validPoints,
-              color: colors[i % colors.length]
-            });
-            allPoints = [...allPoints, ...validPoints];
-          }
-        }
-
-        setRoutesData(newRoutes);
-
-        if (allPoints.length > 0) {
-          const bounds = L.latLngBounds(allPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
-          selectedVehicles.forEach(v => {
-            if (v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0) {
-              bounds.extend([parseFloat(v.lat), parseFloat(v.lng)]);
-            }
-          });
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
+        if (res.success && res.data.length > 0) {
+          const validPoints = res.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+          setRoutePoints(validPoints);
         } else {
-          // If no route exists, center on the vehicles' current locations
-          const bounds = L.latLngBounds(
-            selectedVehicles
-              .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0)
-              .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
-          );
-          if (bounds.isValid()) {
-            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
-          }
+          setRoutePoints([]);
         }
       } catch (err) {
-        console.error('Failed to fetch routes for selected vehicles:', err);
+        console.error('Failed to fetch route:', err);
       }
     };
 
-    fetchRoutes();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicleIds]); // Only re-fetch if the list of selected vehicles changes
+    fetchRoute();
+  }, [selectedVehicle?.id]);
 
   // 2. Handle map centering and zooming when vehicle location changes
-  const selectedVehiclePositions = (selectedVehicles || []).map(v => `${v.lat},${v.lng}`).join('|');
-  
   useEffect(() => {
-    if (!selectedVehicles || selectedVehicles.length === 0) return;
-    
-    // If only one vehicle is selected, follow it
-    if (selectedVehicles.length === 1) {
-      const v = selectedVehicles[0];
-      if (v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0) {
-        map.setView([parseFloat(v.lat), parseFloat(v.lng)], 16, { animate: true });
-      }
-    } else {
-      // If multiple vehicles are selected, fit bounds to show all of them if their positions change
-      const bounds = L.latLngBounds(
-        selectedVehicles
-          .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0)
-          .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
-      );
-      if (bounds.isValid()) {
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
-      }
+    if (!selectedVehicle) {
+      // Zoom out when no vehicle is selected
+      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+      return;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehiclePositions, map]);
 
-  if (routesData.length === 0) return null;
+    // Focus exactly on the moving vehicle
+    if (selectedVehicle.lat != null && selectedVehicle.lng != null && !isNaN(parseFloat(selectedVehicle.lat)) && !isNaN(parseFloat(selectedVehicle.lng)) && parseFloat(selectedVehicle.lat) !== 0 && parseFloat(selectedVehicle.lng) !== 0) {
+      map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 16, { animate: true });
+    }
+  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, selectedVehicle]);
 
-  return routesData.map((route) => {
-    const positions = route.points.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
-    const segments = splitIntoSegments(positions);
-    
-    return segments.map((seg, idx) => seg.length > 1 && (
-      <React.Fragment key={`${route.vehicleId}-${idx}`}>
-        <Polyline positions={seg} color={route.color} weight={4} opacity={0.7} />
-        <Polyline positions={seg} color={route.color} weight={2} opacity={1} />
-      </React.Fragment>
-    ));
-  });
+  if (routePoints.length === 0) return null;
+
+  const positions = routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+  const segments = splitIntoSegments(positions);
+
+  return (
+    <>
+      {segments.map((seg, idx) => seg.length > 1 && (
+        <React.Fragment key={idx}>
+          <Polyline positions={seg} color="#0EA5E9" weight={4} opacity={0.7} />
+          <Polyline positions={seg} color="#38BDF8" weight={2} opacity={1} />
+        </React.Fragment>
+      ))}
+    </>
+  );
 };
 
 // Custom SVG truck marker generator
@@ -321,13 +275,13 @@ const ResizeMap = () => {
   return null;
 };
 
-const FleetMap = ({ vehicles = [], selectedVehicles = [], onMarkerClick, onMultiTrackClick }) => {
+const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
   const [mapType, setMapType] = useState('osm'); // 'osm' or 'google'
 
   // Default map center for Karmanghat, Hyderabad (FuelTracks Office)
   const defaultCenter = [17.3411, 78.5317];
-  const mapCenter = selectedVehicles.length > 0 && selectedVehicles[0].lat && selectedVehicles[0].lng
-    ? [parseFloat(selectedVehicles[0].lat), parseFloat(selectedVehicles[0].lng)]
+  const mapCenter = selectedVehicle && selectedVehicle.lat && selectedVehicle.lng
+    ? [parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)]
     : vehicles.length > 0 && vehicles[0].lat && vehicles[0].lng
       ? [parseFloat(vehicles[0].lat), parseFloat(vehicles[0].lng)]
       : defaultCenter;
@@ -389,7 +343,7 @@ const FleetMap = ({ vehicles = [], selectedVehicles = [], onMarkerClick, onMulti
         />
 
         {/* Handle map zooming and vehicle route plotting */}
-        <VehicleRouteAndFit selectedVehicles={selectedVehicles} />
+        <VehicleRouteAndFit selectedVehicle={selectedVehicle} />
 
         {/* Vehicle Markers */}
         {vehicles
@@ -398,9 +352,9 @@ const FleetMap = ({ vehicles = [], selectedVehicles = [], onMarkerClick, onMulti
             <VehicleMarker
               key={vehicle.id}
               vehicle={vehicle}
-              isSelected={selectedVehicles.some(v => v.id === vehicle.id)}
+              isSelected={selectedVehicle?.id === vehicle.id}
               onMarkerClick={onMarkerClick}
-              onMultiTrackClick={onMultiTrackClick}
+              onMultiTrackClick={null}
             />
           ))}
       </MapContainer>
