@@ -10,7 +10,7 @@ const FitBoundsToRoute = ({ points }) => {
 
   useEffect(() => {
     if (points && points.length > 0) {
-      const validPoints = points.filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0));
+      const validPoints = points.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
         map.fitBounds(bounds, { padding: [50, 50] });
@@ -53,7 +53,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
 
   // Calculate continuous route positions list
   const routePositions = points
-    .filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0))
+    .filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0)
     .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
 
   // Create custom rotated navigation arrow/car icon

@@ -60,7 +60,7 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        const validPoints = routeRes.data.filter(p => p.lat && p.lng && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+        const validPoints = routeRes.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
         setPoints(validPoints);
       }
     } catch (err) {

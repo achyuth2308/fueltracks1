@@ -34,6 +34,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     }
 
     const fetchRoute = async () => {
+      setRoutePoints([]);
       try {
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
@@ -41,7 +42,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
         const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
 
         if (res.success && res.data.length > 0) {
-          const validPoints = res.data.filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0));
+          const validPoints = res.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
           setRoutePoints(validPoints);
         } else {
           setRoutePoints([]);
@@ -63,7 +64,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     }
 
     // Focus exactly on the moving vehicle instead of zooming out to fit the route
-    if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
+    if (selectedVehicle.lat != null && selectedVehicle.lng != null && !isNaN(parseFloat(selectedVehicle.lat)) && !isNaN(parseFloat(selectedVehicle.lng)) && parseFloat(selectedVehicle.lat) !== 0 && parseFloat(selectedVehicle.lng) !== 0) {
       map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 16, { animate: true });
     }
   }, [selectedVehicle?.lat, selectedVehicle?.lng, map, selectedVehicle]);
@@ -308,7 +309,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
 
         {/* Vehicle Markers */}
         {vehicles
-          .filter(v => v.lat && v.lng && (parseFloat(v.lat) !== 0 || parseFloat(v.lng) !== 0))
+          .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0)
           .map((vehicle) => (
             <VehicleMarker
               key={vehicle.id}
