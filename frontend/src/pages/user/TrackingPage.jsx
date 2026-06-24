@@ -27,7 +27,6 @@ const TrackingPage = ({ setAppVehicles }) => {
   const location = useLocation();
   const { user } = useAuth();
   const { vehicles, groups, loading, error, refetch } = useVehicles();
-  const location = useLocation();
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
@@ -36,7 +35,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     if (!hasSelectedInitial && location.state?.selectedVehicleId && vehicles?.length > 0) {
       const v = vehicles.find(v => String(v.id) === String(location.state.selectedVehicleId));
       if (v) {
-        setSelectedVehicle(v);
+        setSelectedVehicles([v]);
         setHasSelectedInitial(true);
       }
     }
