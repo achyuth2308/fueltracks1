@@ -252,17 +252,27 @@ function parseLogin(info, serialNumber) {
  *   GSM Signal Strength: 1 byte enum
  *   Language/Extended Port Status: 2 bytes
  */
-function parseHeartbeat(info, serialNumber, imei) {
-  if (info.length < 5) {
-    throw new Error(`Concox Heartbeat: info too short (${info.length} bytes, expected 5)`);
+function parseHeartbeat(info, serialNumber, imei, rawPacketType = 0x13) {
+  let termInfo, gsmLevel, langStatus, battLevel = null;
+
+  if (rawPacketType === 0x23) {
+    if (info.length < 4) {
+      throw new Error(`Concox Heartbeat: info too short (${info.length} bytes, expected 4)`);
+    }
+    termInfo    = parseTerminalInfo(info[0]);
+    gsmLevel    = info[1];
+    langStatus  = info.readUInt16BE(2);
+  } else {
+    if (info.length < 5) {
+      throw new Error(`Concox Heartbeat: info too short (${info.length} bytes, expected 5)`);
+    }
+    termInfo    = parseTerminalInfo(info[0]);
+    battLevel   = info[1];
+    gsmLevel    = info[2];
+    langStatus  = info.readUInt16BE(3);
   }
 
-  const termInfo    = parseTerminalInfo(info[0]);
-  const battLevel   = info[1];
-  const gsmLevel    = info[2];
-  const langStatus  = info.readUInt16BE(3);
-
-  const battPercent = BATTERY_LEVEL_MAP[battLevel] !== undefined
+  const battPercent = (battLevel !== null && BATTERY_LEVEL_MAP[battLevel] !== undefined)
     ? BATTERY_LEVEL_MAP[battLevel]
     : 50;
   const gsmStrength = GSM_SIGNAL_MAP[gsmLevel] !== undefined
@@ -278,7 +288,7 @@ function parseHeartbeat(info, serialNumber, imei) {
     gsmStrength,
     langStatus,
     serialNumber,
-    rawPacketType: 0x13,
+    rawPacketType,
   };
 }
 
@@ -301,7 +311,7 @@ function parseHeartbeat(info, serialNumber, imei) {
  *   [28]   GPS Real-Time Re-upload: 1 byte (0x00=live, 0x01=buffered)
  *   [29]   Mileage: 4 bytes (absent on some "06 series" devices)
  */
-function parseLocation(info, serialNumber, imei) {
+function parseLocation(info, serialNumber, imei, rawPacketType = 0x22) {
   if (info.length < 29) {
     throw new Error(`Concox Location: info too short (${info.length} bytes, expected 29+)`);
   }
@@ -353,7 +363,7 @@ function parseLocation(info, serialNumber, imei) {
     battery:        50,         // unknown from location packet; heartbeat provides this
     gsmSignal:      0,
     serialNumber,
-    rawPacketType:  0x22,
+    rawPacketType,
     // Cell tower metadata (not persisted to DB columns)
     metadata: { mcc, mnc, lac, cellId, dataUploadMode, reUploadFlag },
     // TODO: Implement PBSW (server-requests-history) mode if needed in future.
@@ -375,7 +385,7 @@ function parseLocation(info, serialNumber, imei) {
  * @param {string|null} imei
  * @param {boolean} isMultiFence - true for 0x27, false for 0x26
  */
-function parseAlarm(info, serialNumber, imei, isMultiFence) {
+function parseAlarm(info, serialNumber, imei, isMultiFence, rawPacketType) {
   if (info.length < 26) {
     throw new Error(`Concox Alarm: info too short (${info.length} bytes, expected 26+)`);
   }
@@ -457,7 +467,7 @@ function parseAlarm(info, serialNumber, imei, isMultiFence) {
     alarmCode,
     fenceNo,
     serialNumber,
-    rawPacketType: isMultiFence ? 0x27 : 0x26,
+    rawPacketType: rawPacketType || (isMultiFence ? 0x27 : 0x26),
     metadata: { mcc, mnc, lac, cellId, lbsLength, termInfo, langByte },
   };
 }
@@ -608,10 +618,10 @@ function buildLoginAck(serialNumber) {
  * @param {number} serialNumber - 16-bit serial from the heartbeat request
  * @returns {Buffer}
  */
-function buildHeartbeatAck(serialNumber) {
+function buildHeartbeatAck(serialNumber, protocolNumber = 0x13) {
   const crcInput = Buffer.from([
     0x05,
-    0x13,
+    protocolNumber,
     (serialNumber >> 8) & 0xFF,
     serialNumber & 0xFF,
   ]);
@@ -620,7 +630,7 @@ function buildHeartbeatAck(serialNumber) {
   return Buffer.from([
     0x78, 0x78,
     0x05,
-    0x13,
+    protocolNumber,
     (serialNumber >> 8) & 0xFF,
     serialNumber & 0xFF,
     (crc >> 8) & 0xFF,
@@ -814,16 +824,19 @@ function parseConcoxBuffer(buffer, imei) {
           parsed = parseLogin(info, serialNumber);
           break;
         case 0x13:
-          parsed = parseHeartbeat(info, serialNumber, imei);
+        case 0x23:
+          parsed = parseHeartbeat(info, serialNumber, imei, protocolNumber);
           break;
+        case 0x12:
         case 0x22:
-          parsed = parseLocation(info, serialNumber, imei);
+          parsed = parseLocation(info, serialNumber, imei, protocolNumber);
           break;
+        case 0x16:
         case 0x26:
-          parsed = parseAlarm(info, serialNumber, imei, false);
+          parsed = parseAlarm(info, serialNumber, imei, false, protocolNumber);
           break;
         case 0x27:
-          parsed = parseAlarm(info, serialNumber, imei, true);
+          parsed = parseAlarm(info, serialNumber, imei, true, protocolNumber);
           break;
         case 0x94:
           parsed = parseInfoTransmission(info, serialNumber, imei);
@@ -834,6 +847,14 @@ function parseConcoxBuffer(buffer, imei) {
           // Skipping response — TODO: implement 0x8A ACK if a firmware variant requires it.
           console.log(`[CONCOX] Time Check (0x8A) from ${imei || 'unknown'} — no response sent (per spec)`);
           parsed = { packetType: 'CONCOX_TIME_CHECK', imei: imei || null, serialNumber, rawPacketType: 0x8A };
+          break;
+        case 0x21:
+          console.log(`[CONCOX] Command Response (0x21) from ${imei || 'unknown'}`);
+          parsed = { packetType: 'CONCOX_COMMAND_RESPONSE', imei: imei || null, serialNumber, rawPacketType: 0x21 };
+          break;
+        case 0x80:
+          console.log(`[CONCOX] Online Command (0x80) from ${imei || 'unknown'}`);
+          parsed = { packetType: 'CONCOX_ONLINE_COMMAND', imei: imei || null, serialNumber, rawPacketType: 0x80 };
           break;
         default:
           console.warn(`[CONCOX] Unknown protocol number 0x${protocolNumber.toString(16).toUpperCase()} — skipping`);

@@ -389,7 +389,7 @@ function createConcoxServer(port) {
 
           case 'CONCOX_HEARTBEAT': {
             // MUST ACK — device reboots after 3x missed heartbeats
-            const ack = buildHeartbeatAck(packet.serialNumber);
+            const ack = buildHeartbeatAck(packet.serialNumber, packet.rawPacketType);
             sock.write(ack);
             console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
@@ -548,6 +548,18 @@ function createConcoxServer(port) {
         protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
       }
       totalPacketsParsed++;
+            break;
+
+          case 'CONCOX_COMMAND_RESPONSE':
+          case 'CONCOX_ONLINE_COMMAND':
+          case 'CONCOX_ASCII_MESSAGE':
+            // Ignored/logged at the parser level
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
             break;
 
           default:
