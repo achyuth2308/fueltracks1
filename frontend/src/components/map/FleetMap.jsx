@@ -26,15 +26,13 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
 
+  // 1. Fetch route history only when the selected vehicle ID changes
   useEffect(() => {
-    // If no vehicle is selected, zoom out to full India map and clear route
-    if (!selectedVehicle) {
+    if (!selectedVehicle?.id) {
       setRoutePoints([]);
-      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
       return;
     }
 
-    // If a vehicle is selected, fetch today's route
     const fetchRoute = async () => {
       try {
         const today = new Date();
@@ -45,20 +43,8 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
         if (res.success && res.data.length > 0) {
           const validPoints = res.data.filter(p => p.lat && p.lng && (parseFloat(p.lat) !== 0 || parseFloat(p.lng) !== 0));
           setRoutePoints(validPoints);
-          
-          if (validPoints.length > 0) {
-            // Fit map bounds to the route to show the "clear route"
-            const bounds = L.latLngBounds(validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
-            map.fitBounds(bounds, { padding: [50, 50], maxZoom: 14, animate: true });
-          } else if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
-            map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 14, { animate: true });
-          }
         } else {
-          // If no route exists for today, just center on the vehicle's current location
           setRoutePoints([]);
-          if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
-            map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 14, { animate: true });
-          }
         }
       } catch (err) {
         console.error('Failed to fetch route for selected vehicle:', err);
@@ -66,7 +52,21 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     };
 
     fetchRoute();
-  }, [selectedVehicle, map]);
+  }, [selectedVehicle?.id]);
+
+  // 2. Handle map centering and zooming when vehicle location changes
+  useEffect(() => {
+    if (!selectedVehicle) {
+      // Zoom out when no vehicle is selected
+      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+      return;
+    }
+
+    // Focus exactly on the moving vehicle instead of zooming out to fit the route
+    if (selectedVehicle.lat && selectedVehicle.lng && (parseFloat(selectedVehicle.lat) !== 0 || parseFloat(selectedVehicle.lng) !== 0)) {
+      map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 16, { animate: true });
+    }
+  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, selectedVehicle]);
 
   if (routePoints.length < 2) return null;
 
