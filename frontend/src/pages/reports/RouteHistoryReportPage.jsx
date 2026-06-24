@@ -50,7 +50,8 @@ const RouteHistoryReportPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        setPoints(routeRes.data);
+        const validPoints = routeRes.data.filter(p => p.lat && p.lng && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+        setPoints(validPoints);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
