@@ -305,8 +305,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <FleetMap
             vehicles={filtered}
-            selectedVehicle={currentSelected}
+            selectedVehicles={currentSelected ? [currentSelected] : []}
             onMarkerClick={(v) => setSelectedVehicle(prev => prev?.id === v.id ? null : v)}
+            onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
           />
 
           {/* ── Vehicle Detail Float Card ── */}

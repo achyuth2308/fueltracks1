@@ -27,7 +27,8 @@ const TrackingPage = ({ setAppVehicles }) => {
   const location = useLocation();
   const { user } = useAuth();
   const { vehicles, groups, loading, error, refetch } = useVehicles();
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const location = useLocation();
+  const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
 
@@ -42,15 +43,30 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [location.state, vehicles, hasSelectedInitial]);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const multiId = searchParams.get('multitrack');
+    if (multiId && vehicles.length > 0) {
+      const v = vehicles.find(v => v.id === multiId);
+      if (v) {
+        setSelectedVehicles(prev => {
+          if (!prev.some(sv => sv.id === v.id)) return [...prev, v];
+          return prev;
+        });
+        // Remove param from URL without reloading
+        navigate('/tracking', { replace: true });
+      }
+    }
+  }, [location.search, vehicles, navigate]);
+
+  useEffect(() => {
     if (vehicles && setAppVehicles) {
       setAppVehicles(vehicles);
     }
   }, [vehicles, setAppVehicles]);
 
-  const currentSelectedVehicle = useMemo(() => {
-    if (!selectedVehicle) return null;
-    return vehicles.find(v => v.id === selectedVehicle.id) || selectedVehicle;
-  }, [vehicles, selectedVehicle]);
+  const currentSelectedVehicles = useMemo(() => {
+    return selectedVehicles.map(sv => vehicles.find(v => v.id === sv.id) || sv);
+  }, [vehicles, selectedVehicles]);
 
   const metrics = useMemo(() => {
     let running = 0, idle = 0, parked = 0, offline = 0;
@@ -82,7 +98,21 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [vehicles, statusFilter]);
 
   const handleSelectVehicle = (vehicle) => {
-    setSelectedVehicle(prev => prev?.id === vehicle.id ? null : vehicle);
+    setSelectedVehicles(prev => {
+      const isSelected = prev.some(v => v.id === vehicle.id);
+      if (isSelected) {
+        return prev.filter(v => v.id !== vehicle.id);
+      } else {
+        return [vehicle]; // Default single click replaces selection
+      }
+    });
+  };
+
+  const handleMultiTrackClick = (vehicle) => {
+    setSelectedVehicles(prev => {
+      if (prev.some(v => v.id === vehicle.id)) return prev;
+      return [...prev, vehicle];
+    });
   };
 
   const handleStatusFilterToggle = (filterType) => {
@@ -190,7 +220,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             </div>
           ) : (
             filteredVehicles.map(v => {
-              const isSelected = currentSelectedVehicle?.id === v.id;
+              const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
               const status = getVehicleStatus(v);
 
               return (
@@ -238,8 +268,9 @@ const TrackingPage = ({ setAppVehicles }) => {
       <div style={{ flex: 1, height: '100%', position: 'relative', background: '#e5e7eb' }}>
         <FleetMap
           vehicles={filteredVehicles}
-          selectedVehicle={currentSelectedVehicle}
+          selectedVehicles={currentSelectedVehicles}
           onMarkerClick={handleSelectVehicle}
+          onMultiTrackClick={handleMultiTrackClick}
         />
 
         {/* ── Floating Status Pills (top-right of map) ── */}
@@ -287,193 +318,204 @@ const TrackingPage = ({ setAppVehicles }) => {
         </div>
 
         {/* ── Floating Vehicle Detail Card (right side of map) ── */}
-        {currentSelectedVehicle && (
+        {currentSelectedVehicles.length > 0 && (
           <div style={{
             position: 'absolute', top: '52px', right: '12px', bottom: '12px',
-            width: '260px', zIndex: 999,
-            background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(255,255,255,0.6)',
-            borderRadius: '16px', padding: '0',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-            display: 'flex', flexDirection: 'column',
-            overflowY: 'auto'
+            width: '260px', zIndex: 999, display: 'flex', flexDirection: 'column', gap: '12px',
+            overflowY: 'auto', paddingBottom: '12px'
           }}>
-            {/* Expiry Warning */}
-            {(() => {
-              const warning = getExpiryWarning(currentSelectedVehicle.licence_expire_date);
-              if (!warning) return null;
-              const isExpired = warning.type === 'expired';
-              return (
+            {currentSelectedVehicles.map(currentSelectedVehicle => (
+              <div key={currentSelectedVehicle.id} style={{
+                background: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.6)',
+                borderRadius: '16px', padding: '0',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                display: 'flex', flexDirection: 'column',
+                flexShrink: 0
+              }}>
+                {/* Expiry Warning */}
+                {(() => {
+                  const warning = getExpiryWarning(currentSelectedVehicle.licence_expire_date);
+                  if (!warning) return null;
+                  const isExpired = warning.type === 'expired';
+                  return (
+                    <div style={{
+                      background: isExpired ? '#FEF2F2' : '#FFFBEB',
+                      borderBottom: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
+                      padding: '10px 14px',
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      borderRadius: '16px 16px 0 0'
+                    }}>
+                      <AlertTriangle size={16} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: isExpired ? '#B91C1C' : '#D97706', lineHeight: 1.3 }}>
+                        {warning.text}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* Card Header */}
                 <div style={{
-                  background: isExpired ? '#FEF2F2' : '#FFFBEB',
-                  borderBottom: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
-                  padding: '10px 14px',
-                  display: 'flex', alignItems: 'center', gap: '8px',
-                  borderRadius: '16px 16px 0 0'
+                  padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
+                  background: 'linear-gradient(135deg, #4d6076, #6e859b)',
+                  borderRadius: getExpiryWarning(currentSelectedVehicle.licence_expire_date) ? '0' : '16px 16px 0 0', color: '#fff'
                 }}>
-                  <AlertTriangle size={16} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: isExpired ? '#B91C1C' : '#D97706', lineHeight: 1.3 }}>
-                    {warning.text}
-                  </span>
-                </div>
-              );
-            })()}
-
-            {/* Card Header */}
-            <div style={{
-              padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
-              background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-              borderRadius: getExpiryWarning(currentSelectedVehicle.licence_expire_date) ? '0' : '16px 16px 0 0', color: '#fff'
-            }}>
-              <div>
-                <div style={{ fontSize: '14px', fontWeight: 700 }}>{currentSelectedVehicle.name}</div>
-                <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
-                  {currentSelectedVehicle.plate || 'No plate'} • {currentSelectedVehicle.is_online ? 'Online' : 'Offline'}
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedVehicle(null)}
-                style={{
-                  background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
-                  cursor: 'pointer', padding: '4px', borderRadius: '6px',
-                  display: 'flex', alignItems: 'center'
-                }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Speedometer mini gauge */}
-            <div style={{
-              padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center',
-              gap: '24px', borderBottom: '1px solid rgba(0,0,0,0.06)'
-            }}>
-              {/* Speed gauge */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                  <svg width="80" height="80" viewBox="0 0 100 100">
-                    <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#e5e7eb" strokeWidth="8" strokeLinecap="round" />
-                    <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#4d6076" strokeWidth="8" strokeLinecap="round"
-                      strokeDasharray="165"
-                      strokeDashoffset={165 - (Math.min(currentSelectedVehicle.current_speed || 0, 180) / 180) * 165}
-                      style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                    />
-                    <text x="50" y="52" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1f2937">
-                      {Math.round(currentSelectedVehicle.current_speed || 0)}
-                    </text>
-                    <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">KM/H</text>
-                  </svg>
-                </div>
-              </div>
-
-              {/* Fuel gauge */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-                  <svg width="80" height="80" viewBox="0 0 100 100">
-                    <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#e5e7eb" strokeWidth="8" strokeLinecap="round" />
-                    <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round"
-                      strokeDasharray="165"
-                      strokeDashoffset={165 - (parseFloat(currentSelectedVehicle.current_fuel ?? 0) / 100) * 165}
-                      style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                    />
-                    <text x="50" y="52" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1f2937">
-                      {Math.round(currentSelectedVehicle.current_fuel ?? 0)}
-                    </text>
-                    <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">FUEL %</text>
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            {/* Telemetry details */}
-            <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
-              {[
-                { label: 'Speed', value: formatSpeed(currentSelectedVehicle.current_speed), icon: Activity, color: '#4d6076' },
-                { label: 'Odometer', value: formatOdometer(currentSelectedVehicle.current_odometer), icon: Compass, color: '#4d6076' },
-                { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10b981' : '#6b7280' },
-                { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#f59e0b' },
-                { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage), icon: Cpu, color: '#8b5cf6' },
-                { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#6b7280' },
-              ].map(item => (
-                <div key={item.label} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '6px 8px', borderRadius: '8px', background: '#f9fafb'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#6b7280' }}>
-                    <item.icon size={12} color={item.color} />
-                    <span>{item.label}</span>
+                  <div>
+                    <div style={{ fontSize: '14px', fontWeight: 700 }}>{currentSelectedVehicle.name}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
+                      {currentSelectedVehicle.plate || 'No plate'} • {currentSelectedVehicle.is_online ? 'Online' : 'Offline'}
+                    </div>
                   </div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1f2937' }}>{item.value}</span>
+                  <button
+                    onClick={() => setSelectedVehicles(prev => prev.filter(v => v.id !== currentSelectedVehicle.id))}
+                    style={{
+                      background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+                      cursor: 'pointer', padding: '4px', borderRadius: '6px',
+                      display: 'flex', alignItems: 'center'
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
                 </div>
-              ))}
 
-              {/* Driver */}
-              {currentSelectedVehicle.driver_name && (
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '6px 8px', borderRadius: '8px', background: '#f9fafb',
-                  fontSize: '11px', color: '#6b7280'
-                }}>
-                  <User size={12} color="#4d6076" />
-                  <span>{currentSelectedVehicle.driver_name}</span>
-                  {currentSelectedVehicle.driver_phone && (
-                    <>
-                      <span style={{ color: '#d1d5db' }}>•</span>
-                      <Phone size={10} color="#9ca3af" />
-                      <span style={{ fontSize: '10px' }}>{currentSelectedVehicle.driver_phone}</span>
-                    </>
+                {currentSelectedVehicles.length === 1 && (
+                  <div style={{
+                    padding: '16px', display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    gap: '24px', borderBottom: '1px solid rgba(0,0,0,0.06)'
+                  }}>
+                    {/* Speed gauge */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                        <svg width="80" height="80" viewBox="0 0 100 100">
+                          <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#e5e7eb" strokeWidth="8" strokeLinecap="round" />
+                          <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#4d6076" strokeWidth="8" strokeLinecap="round"
+                            strokeDasharray="165"
+                            strokeDashoffset={165 - (Math.min(currentSelectedVehicle.current_speed || 0, 180) / 180) * 165}
+                            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                          />
+                          <text x="50" y="52" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1f2937">
+                            {Math.round(currentSelectedVehicle.current_speed || 0)}
+                          </text>
+                          <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">KM/H</text>
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Fuel gauge */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                      <div style={{ position: 'relative', width: '80px', height: '80px' }}>
+                        <svg width="80" height="80" viewBox="0 0 100 100">
+                          <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#e5e7eb" strokeWidth="8" strokeLinecap="round" />
+                          <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round"
+                            strokeDasharray="165"
+                            strokeDashoffset={165 - (parseFloat(currentSelectedVehicle.current_fuel ?? 0) / 100) * 165}
+                            style={{ transition: 'stroke-dashoffset 0.8s ease' }}
+                          />
+                          <text x="50" y="52" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1f2937">
+                            {Math.round(currentSelectedVehicle.current_fuel ?? 0)}
+                          </text>
+                          <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">FUEL %</text>
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Telemetry details */}
+                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '6px', flex: 1 }}>
+                  {[
+                    { label: 'Speed', value: formatSpeed(currentSelectedVehicle.current_speed), icon: Activity, color: '#4d6076' },
+                    ...(currentSelectedVehicles.length === 1 ? [
+                      { label: 'Odometer', value: formatOdometer(currentSelectedVehicle.current_odometer), icon: Compass, color: '#4d6076' },
+                      { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10b981' : '#6b7280' },
+                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#f59e0b' },
+                      { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage), icon: Cpu, color: '#8b5cf6' }
+                    ] : []),
+                    { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#6b7280' },
+                  ].map(item => (
+                    <div key={item.label} style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                      padding: '6px 8px', borderRadius: '8px', background: '#f9fafb'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: '#6b7280' }}>
+                        <item.icon size={12} color={item.color} />
+                        <span>{item.label}</span>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#1f2937' }}>{item.value}</span>
+                    </div>
+                  ))}
+
+                  {/* Driver */}
+                  {currentSelectedVehicle.driver_name && currentSelectedVehicles.length === 1 && (
+                    <div style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '6px 8px', borderRadius: '8px', background: '#f9fafb',
+                      fontSize: '11px', color: '#6b7280'
+                    }}>
+                      <User size={12} color="#4d6076" />
+                      <span>{currentSelectedVehicle.driver_name}</span>
+                      {currentSelectedVehicle.driver_phone && (
+                        <>
+                          <span style={{ color: '#d1d5db' }}>•</span>
+                          <Phone size={10} color="#9ca3af" />
+                          <span style={{ fontSize: '10px' }}>{currentSelectedVehicle.driver_phone}</span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {/* Action Buttons */}
-            <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <button
-                onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}`)}
-                style={{
-                  padding: '9px', borderRadius: '10px', border: 'none',
-                  background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-                  color: '#fff', fontWeight: 600, fontSize: '12px', cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
-              >
-                Device Details <ChevronRight size={14} />
-              </button>
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <button
-                  onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}/history`)}
-                  style={{
-                    flex: 1, padding: '7px', borderRadius: '8px',
-                    border: '1px solid #e5e7eb', background: '#fff',
-                    color: '#374151', fontWeight: 600, fontSize: '11px', cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >History</button>
-                <button
-                  onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}/report`)}
-                  style={{
-                    flex: 1, padding: '7px', borderRadius: '8px',
-                    border: '1px solid #e5e7eb', background: '#fff',
-                    color: '#374151', fontWeight: 600, fontSize: '11px', cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
-                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                >Reports</button>
+                {/* Action Buttons */}
+                {currentSelectedVehicles.length === 1 && (
+                  <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <button
+                      onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}`)}
+                      style={{
+                        padding: '9px', borderRadius: '10px', border: 'none',
+                        background: 'linear-gradient(135deg, #4d6076, #6e859b)',
+                        color: '#fff', fontWeight: 600, fontSize: '12px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                      onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                    >
+                      Device Details <ChevronRight size={14} />
+                    </button>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}/history`)}
+                        style={{
+                          flex: 1, padding: '7px', borderRadius: '8px',
+                          border: '1px solid #e5e7eb', background: '#fff',
+                          color: '#374151', fontWeight: 600, fontSize: '11px', cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                      >History</button>
+                      <button
+                        onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}/report`)}
+                        style={{
+                          flex: 1, padding: '7px', borderRadius: '8px',
+                          border: '1px solid #e5e7eb', background: '#fff',
+                          color: '#374151', fontWeight: 600, fontSize: '11px', cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f9fafb'}
+                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                      >Reports</button>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            ))}
           </div>
         )}
 
         {/* ── Floating "No Vehicle" hint (bottom-center, only when nothing selected) ── */}
-        {!currentSelectedVehicle && (
+        {currentSelectedVehicles.length === 0 && (
           <div style={{
             position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
             zIndex: 999, background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(8px)',
