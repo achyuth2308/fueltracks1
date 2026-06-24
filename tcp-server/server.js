@@ -367,6 +367,15 @@ function createConcoxServer(port) {
     // Closure over sessionImei so inner async callbacks can update it
     async function processConcoxPacket(packet, sock, cId) {
       try {
+        // Publish raw message to raw_logs channel for Sensor Logs UI
+        const currentImei = packet.imei || sessionImei;
+        if (currentImei) {
+          await publisher.publishRawMessage({
+            ...packet,
+            imei: currentImei
+          }).catch(err => console.error(err));
+        }
+
         switch (packet.packetType) {
 
           case 'CONCOX_LOGIN': {
