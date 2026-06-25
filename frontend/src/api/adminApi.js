@@ -2,7 +2,7 @@ import axiosInstance from './axios';
 
 // Organizations
 export const getOrgs = async () => {
-  const response = await axiosInstance.get(`/api/admin/orgs?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/orgs`);
   return response.data;
 };
 
@@ -30,7 +30,7 @@ export const deleteOrg = async (id) => {
 
 // Users
 export const getUsers = async () => {
-  const response = await axiosInstance.get(`/api/admin/users?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/users`);
   return response.data;
 };
 
@@ -50,13 +50,13 @@ export const deleteUser = async (id) => {
 };
 
 export const getUserVehicles = async (id) => {
-  const response = await axiosInstance.get(`/api/admin/users/${id}/vehicles?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/users/${id}/vehicles`);
   return response.data;
 };
 
 // Groups
 export const getGroups = async () => {
-  const response = await axiosInstance.get(`/api/admin/groups?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/groups`);
   return response.data;
 };
 
@@ -77,13 +77,13 @@ export const deleteGroup = async (id) => {
 
 // Stats
 export const getDashboardStats = async () => {
-  const response = await axiosInstance.get(`/api/admin/dashboard/stats?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/dashboard/stats`);
   return response.data;
 };
 
 // Audit Logs
 export const getAuditLogs = async (params = {}) => {
-  const query = new URLSearchParams({ ...params, t: Date.now() }).toString();
+  const query = new URLSearchParams({ ...params }).toString();
   const response = await axiosInstance.get(`/api/audit?${query}`);
   return response.data;
 };
@@ -94,7 +94,7 @@ export const getAuditLogById = async (id) => {
 };
 
 export const getAuditStats = async () => {
-  const response = await axiosInstance.get(`/api/audit/stats?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/audit/stats`);
   return response.data;
 };
 
@@ -105,7 +105,7 @@ export const impersonateUser = async (id) => {
 
 // Device Quota
 export const getDeviceQuota = async (orgId = null) => {
-  const params = orgId ? `?orgId=${orgId}&t=${Date.now()}` : `?t=${Date.now()}`;
+  const params = orgId ? `?orgId=${orgId}` : ``;
   const response = await axiosInstance.get(`/api/admin/device-quota${params}`);
   return response.data;
 };
@@ -117,7 +117,7 @@ export const setDeviceLimits = async (orgId, deviceLimits) => {
 
 // Renewals
 export const getRenewalSettings = async () => {
-  const response = await axiosInstance.get(`/api/admin/renewal-settings?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/renewal-settings`);
   return response.data;
 };
 
@@ -127,6 +127,6 @@ export const updateRenewalSettings = async (amount) => {
 };
 
 export const getRenewalTransactions = async () => {
-  const response = await axiosInstance.get(`/api/admin/renewal-transactions?t=${Date.now()}`);
+  const response = await axiosInstance.get(`/api/admin/renewal-transactions`);
   return response.data;
 };
