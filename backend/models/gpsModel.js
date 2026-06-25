@@ -286,30 +286,41 @@ const GpsModel = {
    * Get dashboard stats for an org
    */
   async getDashboardStats(orgId, role) {
-    let orgFilterV = '';
-    let orgFilterO = '';
-    let orgFilterU = '';
-    const params = [];
+    let params = [];
+    let orgWhere = '';
 
     if (role !== 'superadmin') {
       params.push(orgId);
-      orgFilterV = `WHERE v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
-      orgFilterO = `WHERE id = $1 OR parent_id = $1`;
-      orgFilterU = `WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`;
+      orgWhere = `$1`;
     }
 
-    const result = await db.query(
-      `SELECT
-        (SELECT COUNT(*) FROM vehicles v ${orgFilterV ? orgFilterV + ' AND' : 'WHERE'} v.is_active = TRUE) as total_vehicles,
-        (SELECT SUM(CASE WHEN vls.is_online = TRUE THEN 1 ELSE 0 END) 
-         FROM vehicles v 
-         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id 
-         ${orgFilterV ? orgFilterV + ' AND' : 'WHERE'} v.is_active = TRUE) as online_vehicles,
-        (SELECT COUNT(*) FROM organizations ${orgFilterO}) as organizations_count,
-        (SELECT COUNT(*) FROM users ${orgFilterU}) as users_count
-      `,
-      params
-    );
+    let result;
+    if (role === 'superadmin') {
+      result = await db.query(`
+        SELECT
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.is_online = TRUE THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT o.id) AS organizations_count,
+          COUNT(DISTINCT u.id) AS users_count
+        FROM organizations o
+        LEFT JOIN vehicles v ON v.org_id = o.id
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        LEFT JOIN users u ON u.org_id = o.id
+      `);
+    } else {
+      result = await db.query(`
+        SELECT
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.is_online = TRUE THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT o.id) AS organizations_count,
+          COUNT(DISTINCT u.id) AS users_count
+        FROM organizations o
+        LEFT JOIN vehicles v ON v.org_id = o.id
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        LEFT JOIN users u ON u.org_id = o.id
+        WHERE o.id = $1 OR o.parent_id = $1
+      `, params);
+    }
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
     const availableInventory = 150; // Simulated unused inventory

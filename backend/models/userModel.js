@@ -39,31 +39,29 @@ const UserModel = {
    * Get all users (filtered by org for dealers)
    */
   async findAll(orgId, role) {
-    let query, params;
+    let whereClause = '';
+    const params = [];
 
-    if (role === 'superadmin') {
-      // Super admin sees all users
-      query = `SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
-                      u.is_active, u.last_login, u.created_at,
-                      o.name as org_name,
-                      (SELECT string_agg(g.name, ', ') FROM user_groups ug JOIN groups g ON ug.group_id = g.id WHERE ug.user_id = u.id) as group_names
-               FROM users u
-               JOIN organizations o ON u.org_id = o.id
-               ORDER BY u.created_at DESC`;
-      params = [];
-    } else {
-      // Dealer sees users in their org and child orgs
-      query = `SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
-                      u.is_active, u.last_login, u.created_at,
-                      o.name as org_name,
-                      (SELECT string_agg(g.name, ', ') FROM user_groups ug JOIN groups g ON ug.group_id = g.id WHERE ug.user_id = u.id) as group_names
-               FROM users u
-               JOIN organizations o ON u.org_id = o.id
-               WHERE u.org_id = $1
-                  OR u.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
-               ORDER BY u.created_at DESC`;
-      params = [orgId];
+    if (role !== 'superadmin') {
+      whereClause = `WHERE (u.org_id = $1 OR u.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
+      params.push(orgId);
     }
+
+    // Use LEFT JOIN + string_agg instead of a correlated subquery per user row
+    const query = `
+      SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
+             u.is_active, u.last_login, u.created_at,
+             o.name as org_name,
+             string_agg(g.name, ', ' ORDER BY g.name) as group_names
+      FROM users u
+      JOIN organizations o ON u.org_id = o.id
+      LEFT JOIN user_groups ug ON u.id = ug.user_id
+      LEFT JOIN groups g ON ug.group_id = g.id
+      ${whereClause}
+      GROUP BY u.id, u.org_id, u.email, u.role, u.name, u.phone,
+               u.is_active, u.last_login, u.created_at, o.name
+      ORDER BY u.created_at DESC
+    `;
 
     const result = await db.query(query, params);
     return result.rows;
