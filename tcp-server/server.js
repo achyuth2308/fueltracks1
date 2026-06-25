@@ -401,6 +401,13 @@ function createConcoxServer(port) {
             const ack = buildHeartbeatAck(packet.serialNumber, packet.rawPacketType);
             sock.write(ack);
             console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
+
+            if (sessionImei) {
+              const dev = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+              dev.battPercent = packet.battPercent;
+              connectedDevices.set(sessionImei, dev);
+            }
+
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
         protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       } else if (protocolStats['CONCOX']) {
@@ -434,12 +441,17 @@ function createConcoxServer(port) {
               break;
             }
 
-            connectedDevices.set(sessionImei, {
-              clientId: cId,
-              lastPacket: new Date(),
-              lat: packet.lat,
-              lng: packet.lng,
-            });
+            const device = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+            device.lat = packet.lat;
+            device.lng = packet.lng;
+            connectedDevices.set(sessionImei, device);
+
+            let estimatedVoltage = 0;
+            let currentBattery = 50;
+            if (device.battPercent !== undefined) {
+              currentBattery = device.battPercent;
+              estimatedVoltage = parseFloat((3.6 + (currentBattery / 100) * 0.6).toFixed(2));
+            }
 
             // Publish to Redis tracking channel (same as BSTPL/AIS140)
             // Per spec §3.2: location packet ACK is not mandatory — skipping.
@@ -451,12 +463,12 @@ function createConcoxServer(port) {
               speed:     packet.speed,
               fuel:      packet.fuel,
               ignition:  packet.ignition,
-              voltage:   packet.voltage,
+              voltage:   packet.voltage || estimatedVoltage,
               direction: packet.direction,
               odometer:  packet.odometer || 0,
               satellites: packet.satellites,
               gsmSignal: packet.gsmSignal,
-              battery:   packet.battery,
+              battery:   currentBattery,
               deviceTime: packet.deviceTime,
               isLive:    packet.isLive,
             });
@@ -481,6 +493,10 @@ function createConcoxServer(port) {
               break;
             }
 
+            const dev = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+            dev.battPercent = packet.battery;
+            connectedDevices.set(sessionImei, dev);
+
             // Send ACK — some firmware variants expect it even though spec says optional
             const ack = buildAlarmAck(packet.rawPacketType, packet.serialNumber);
             sock.write(ack);
@@ -501,6 +517,12 @@ function createConcoxServer(port) {
             if (packet.gpsValid === 'A' &&
                 packet.lat !== null && packet.lng !== null &&
                 Math.abs(packet.lat) <= 90 && Math.abs(packet.lng) <= 180) {
+              
+              let estimatedVoltage = 0;
+              if (packet.battery !== undefined) {
+                estimatedVoltage = parseFloat((3.6 + (packet.battery / 100) * 0.6).toFixed(2));
+              }
+
               await publisher.publishLocation({
                 imei:      sessionImei,
                 lat:       packet.lat,
@@ -508,7 +530,7 @@ function createConcoxServer(port) {
                 speed:     packet.speed,
                 fuel:      packet.fuel,
                 ignition:  packet.ignition,
-                voltage:   packet.voltage,
+                voltage:   packet.voltage || estimatedVoltage,
                 direction: packet.direction,
                 odometer:  packet.odometer || 0,
                 satellites: packet.satellites,
