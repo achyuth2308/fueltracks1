@@ -120,6 +120,13 @@ function parseAis140NormalPacket(raw) {
   const deviceTime = parseAis140Time(dateStr, timeStr);
   const isLive = parts[5].trim() === 'L';
 
+  let parsedVoltage = parseFloat(voltage) || 0;
+  let parsedBatteryVoltage = parseFloat(batteryVoltageStr) || 0;
+
+  if (parsedVoltage === 0 && parsedBatteryVoltage > 0) {
+    parsedVoltage = parsedBatteryVoltage;
+  }
+
   return {
     packetType: '$NRM',
     imei,
@@ -131,14 +138,14 @@ function parseAis140NormalPacket(raw) {
     direction: parseFloat(direction) || 0,
     satellites: parseInt(satellites) || 0,
     gsmSignal: parseInt(parts[28]) || 0,
-    battery: parseFloat(batteryVoltageStr) * 20 || 100, // Estimate percentage if voltage is given
+    battery: parsedBatteryVoltage * 20 || 100, // Estimate percentage if voltage is given
     ignition: ignition === '1',
     din2: false,
     din3: false,
     engineHours: 0,
     ain: parseFloat(parts[parts.length - 6]) || 0,
     fuel: 0,
-    voltage: parseFloat(voltage) || 0,
+    voltage: parsedVoltage,
     isLive,
     deviceTime,
     rawPacket: raw
