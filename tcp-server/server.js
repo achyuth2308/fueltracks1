@@ -435,12 +435,10 @@ function createConcoxServer(port) {
               break;
             }
 
-            connectedDevices.set(sessionImei, {
-              clientId: cId,
-              lastPacket: new Date(),
-              lat: packet.lat,
-              lng: packet.lng,
-            });
+            const device = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+            device.lat = packet.lat;
+            device.lng = packet.lng;
+            connectedDevices.set(sessionImei, device);
 
             // Publish to Redis tracking channel (same as BSTPL/AIS140)
             // Per spec §3.2: location packet ACK is not mandatory — skipping.
@@ -452,7 +450,7 @@ function createConcoxServer(port) {
               speed:     packet.speed,
               fuel:      packet.fuel,
               ignition:  packet.ignition,
-              voltage:   packet.voltage,
+              voltage:   packet.voltage || device.voltage || 0,
               direction: packet.direction,
               odometer:  packet.odometer || 0,
               satellites: packet.satellites,
@@ -509,7 +507,7 @@ function createConcoxServer(port) {
                 speed:     packet.speed,
                 fuel:      packet.fuel,
                 ignition:  packet.ignition,
-                voltage:   packet.voltage,
+                voltage:   packet.voltage || dev.voltage || 0,
                 direction: packet.direction,
                 odometer:  packet.odometer || 0,
                 satellites: packet.satellites,
@@ -534,6 +532,11 @@ function createConcoxServer(port) {
             // Future: use to enrich vehicle:state cache with voltage/fuel.
             if (packet.voltage !== null) {
               console.log(`[TCP - CONCOX] External voltage from ${sessionImei || 'unknown'}: ${packet.voltage}V`);
+              if (sessionImei) {
+                const dev = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+                dev.voltage = packet.voltage;
+                connectedDevices.set(sessionImei, dev);
+              }
             }
             if (packet.iccid) {
               console.log(`[TCP - CONCOX] ICCID from ${sessionImei || 'unknown'}: ${packet.iccid}`);
