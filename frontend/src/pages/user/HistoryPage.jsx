@@ -67,12 +67,7 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        const validPoints = routeRes.data.filter(p => 
-          p.lat != null && p.lng != null && 
-          !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && 
-          Math.abs(parseFloat(p.lat)) > 0.001 && Math.abs(parseFloat(p.lng)) > 0.001
-        );
-        setPoints(validPoints);
+        setPoints(routeRes.data);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);

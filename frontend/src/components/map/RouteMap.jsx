@@ -10,7 +10,7 @@ const FitBoundsToRoute = ({ points }) => {
 
   useEffect(() => {
     if (points && points.length > 0) {
-      const validPoints = points.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+      const validPoints = points.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && Math.abs(parseFloat(p.lat)) > 1.0 && Math.abs(parseFloat(p.lng)) > 1.0);
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
         map.fitBounds(bounds, { padding: [50, 50] });
@@ -26,10 +26,11 @@ const RecenterMap = ({ activePoint, follow }) => {
   const map = useMap();
   useEffect(() => {
     if (follow && activePoint && activePoint.lat && activePoint.lng) {
-      map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], {
-        animate: true,
-        duration: 0.5
-      });
+      const lat = parseFloat(activePoint.lat);
+      const lng = parseFloat(activePoint.lng);
+      if (Math.abs(lat) > 1.0 && Math.abs(lng) > 1.0) {
+        map.panTo([lat, lng], { animate: true, duration: 0.5 });
+      }
     }
   }, [activePoint, follow, map]);
   return null;
@@ -81,7 +82,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
 
   // Calculate continuous route positions list
   const routePositions = points
-    .filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0)
+    .filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && Math.abs(parseFloat(p.lat)) > 1.0 && Math.abs(parseFloat(p.lng)) > 1.0)
     .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
 
   const routeSegments = splitIntoSegments(routePositions);
@@ -272,7 +273,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
         })()}
 
         {/* Active Animated Playback Marker */}
-        {activePoint && activePoint.lat && activePoint.lng && (
+        {activePoint && activePoint.lat && activePoint.lng && Math.abs(parseFloat(activePoint.lat)) > 1.0 && Math.abs(parseFloat(activePoint.lng)) > 1.0 && (
           <Marker
             position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
             icon={createVehicleIcon(activePoint.direction || 0)}
