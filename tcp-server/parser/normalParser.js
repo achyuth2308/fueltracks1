@@ -58,12 +58,6 @@ function parseNormalPacket(raw) {
   let parsedBattery = parseFloat(battery) || 0;
   let parsedVoltage = parseFloat(voltage) || 0;
 
-  // If the device has no external power connected (voltage is 0),
-  // fallback to the internal battery voltage so the UI shows the device's actual power state
-  if (parsedVoltage === 0 && parsedBattery > 0) {
-    parsedVoltage = parsedBattery;
-  }
-
   return {
     packetType: '$10',
     imei,

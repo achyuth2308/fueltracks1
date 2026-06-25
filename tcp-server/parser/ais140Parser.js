@@ -114,18 +114,11 @@ function parseAis140NormalPacket(raw) {
   // Format end structure: ...,DigitalInputStatus,DigitalOutputStatus,AnalogInput1,AnalogInput2,FrameNo,Odometer,DebugInfo,Checksum
   const odometerStr = parts[parts.length - 3] || '0';
   const batteryVoltageStr = parts[25] || '0';
-  
+
   const lat = convertCoords(rawLat, latDir);
   const lng = convertCoords(rawLng, lngDir);
   const deviceTime = parseAis140Time(dateStr, timeStr);
   const isLive = parts[5].trim() === 'L';
-
-  let parsedVoltage = parseFloat(voltage) || 0;
-  let parsedBatteryVoltage = parseFloat(batteryVoltageStr) || 0;
-
-  if (parsedVoltage === 0 && parsedBatteryVoltage > 0) {
-    parsedVoltage = parsedBatteryVoltage;
-  }
 
   return {
     packetType: '$NRM',
@@ -138,14 +131,14 @@ function parseAis140NormalPacket(raw) {
     direction: parseFloat(direction) || 0,
     satellites: parseInt(satellites) || 0,
     gsmSignal: parseInt(parts[28]) || 0,
-    battery: parsedBatteryVoltage * 20 || 100, // Estimate percentage if voltage is given
+    battery: parseFloat(batteryVoltageStr) * 20 || 100,
     ignition: ignition === '1',
     din2: false,
     din3: false,
     engineHours: 0,
     ain: parseFloat(parts[parts.length - 6]) || 0,
     fuel: 0,
-    voltage: parsedVoltage,
+    voltage: parseFloat(voltage) || 0,
     isLive,
     deviceTime,
     rawPacket: raw
