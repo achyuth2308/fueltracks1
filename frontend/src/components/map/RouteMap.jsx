@@ -5,31 +5,26 @@ import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff } from 'lucide-react';
 
-const FitBoundsToRoute = ({ points, vehicleLastKnownPosition }) => {
+const FitBoundsToRoute = ({ points }) => {
   const map = useMap();
 
   useEffect(() => {
     if (points && points.length > 0) {
-      // Fit to actual route points when they exist
-      const validPoints = points.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && Math.abs(parseFloat(p.lat)) > 5.0 && Math.abs(parseFloat(p.lng)) > 5.0);
+      const validPoints = points.filter(p =>
+        p.lat != null && p.lng != null &&
+        !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) &&
+        Math.abs(parseFloat(p.lat)) > 5.0 && Math.abs(parseFloat(p.lng)) > 5.0
+      );
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
-        map.fitBounds(bounds, { padding: [50, 50] });
-        return;
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
       }
     }
-    // No route points - center on vehicle's last known position
-    if (vehicleLastKnownPosition) {
-      const lat = parseFloat(vehicleLastKnownPosition.lat);
-      const lng = parseFloat(vehicleLastKnownPosition.lng);
-      if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
-        map.setView([lat, lng], 16, { animate: true });
-      }
-    }
-  }, [points, vehicleLastKnownPosition, map]);
+  }, [points, map]);
 
   return null;
 };
+
 
 // Recenter Map dynamically if follow mode is active
 const RecenterMap = ({ activePoint, follow }) => {
@@ -56,28 +51,10 @@ const getSpeedColor = (speed) => {
 const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const [follow, setFollow] = useState(true);
 
-  // Determine initial map center:
-  // 1. Use vehicle's last known valid position (from vehicle_latest_state)
-  // 2. Fall back to first valid route point
-  // 3. Fall back to Hyderabad
+  // Always start at India (Hyderabad). FitBoundsToRoute will zoom to actual points.
   const defaultCenter = [17.3411, 78.5317];
-  
-  const getInitialCenter = () => {
-    // If vehicle has a known last position, use that
-    if (vehicleLastKnownPosition) {
-      const lat = parseFloat(vehicleLastKnownPosition.lat);
-      const lng = parseFloat(vehicleLastKnownPosition.lng);
-      if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
-        return [lat, lng];
-      }
-    }
-    // If route points loaded, use first valid point
-    const firstValid = points.find(p => p.lat != null && p.lng != null && Math.abs(parseFloat(p.lat)) > 5.0);
-    if (firstValid) return [parseFloat(firstValid.lat), parseFloat(firstValid.lng)];
-    return defaultCenter;
-  };
-  
-  const center = getInitialCenter();
+  const center = defaultCenter;
+
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -152,16 +129,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {points.length === 0 ? (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 10,
-          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-          background: 'rgba(241, 245, 249, 0.7)', backdropFilter: 'blur(4px)'
-        }}>
-          <p style={{ color: '#64748b', fontSize: '14px', fontWeight: 600 }}>No route data for the selected range.</p>
-        </div>
-      ) : (
-        /* Floating follow mode toggle */
+      {/* Following Vehicle toggle - only show when route is plotted */}
+      {points.length > 0 && (
         <button
           onClick={() => setFollow(!follow)}
           style={{
@@ -200,7 +169,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <FitBoundsToRoute points={points} vehicleLastKnownPosition={vehicleLastKnownPosition} />
+        <FitBoundsToRoute points={points} />
         {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} />}
 
 

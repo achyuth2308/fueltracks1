@@ -99,9 +99,10 @@ const HistoryPage = () => {
   };
 
   useEffect(() => {
-    // Do NOT auto-fetch route on load.
-    // Map will center on the vehicle's last known position.
-    // User must click "Plot Route" to load history.
+    // Auto-fetch today's route when vehicle is loaded
+    // so the map immediately zooms to where the vehicle actually is
+    if (vehicle) fetchRouteHistory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, vehicle]);
 
   // Playback Timer logic
