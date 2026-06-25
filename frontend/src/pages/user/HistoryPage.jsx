@@ -21,6 +21,28 @@ const HistoryPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
 
+  // Pagination state for table to prevent rendering thousands of rows
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 100;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [points]);
+
+  useEffect(() => {
+    if (points.length > 0 && currentPointIndex >= 0) {
+      const neededPage = Math.floor(currentPointIndex / rowsPerPage) + 1;
+      if (currentPage !== neededPage) {
+        setCurrentPage(neededPage);
+      }
+    }
+  }, [currentPointIndex, points.length, rowsPerPage, currentPage]);
+
+  const indexOfLastRow = currentPage * rowsPerPage;
+  const indexOfFirstRow = indexOfLastRow - rowsPerPage;
+  const currentRows = points.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(points.length / rowsPerPage) || 1;
+
   // Date range defaults: Today
   const getTodayRange = () => {
     const today = new Date();
@@ -466,32 +488,56 @@ const HistoryPage = () => {
                     <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
                   </tr>
                 ) : (
-                  points.map((p, idx) => (
-                    <tr
-                      key={idx}
-                      id={`row-${idx}`}
-                      onClick={() => setCurrentPointIndex(idx)}
-                      style={{
-                        background: idx === currentPointIndex ? '#e0f2fe' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'),
-                        borderBottom: '1px solid #F1F5F9',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s'
-                      }}
-                    >
-                      <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
-                        {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                        <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
-                      </td>
-                      <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
-                      <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>
-                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                        <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700, fontSize: '11px' }}>{p.ignition ? 'ON' : 'OFF'}</span>
-                      </td>
-                    </tr>
-                  ))
+                  currentRows.map((p, index) => {
+                    const idx = indexOfFirstRow + index;
+                    return (
+                      <tr
+                        key={idx}
+                        id={`row-${idx}`}
+                        onClick={() => setCurrentPointIndex(idx)}
+                        style={{
+                          background: idx === currentPointIndex ? '#e0f2fe' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'),
+                          borderBottom: '1px solid #F1F5F9',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s'
+                        }}
+                      >
+                        <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
+                          {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                          <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
+                        <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700, fontSize: '11px' }}>{p.ignition ? 'ON' : 'OFF'}</span>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', borderTop: '1px solid #CBD5E1', borderBottom: '1px solid #CBD5E1', position: 'sticky', bottom: 0, zIndex: 10 }}>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                  disabled={currentPage === 1}
+                  style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#475569', borderRadius: '4px', border: '1px solid #CBD5E1', background: currentPage === 1 ? '#F1F5F9' : '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+                >
+                  Previous
+                </button>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Page {currentPage} of {totalPages}</span>
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                  disabled={currentPage === totalPages}
+                  style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#475569', borderRadius: '4px', border: '1px solid #CBD5E1', background: currentPage === totalPages ? '#F1F5F9' : '#fff', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Footer actions */}

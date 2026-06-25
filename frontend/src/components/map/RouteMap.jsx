@@ -102,7 +102,27 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
   const pastSegments = splitIntoSegments(pastPositions);
 
   // Create custom rotated navigation arrow/car icon
-  const createVehicleIcon = (direction = 0) => {
+  const createVehicleIcon = (direction = 0, speed = 0) => {
+    if (speed < 1) {
+      // Vehicle is stopped - show a simple dot like the history points
+      return L.divIcon({
+        html: `
+          <div style="
+            width: 16px;
+            height: 16px;
+            background: #1e293b;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+          "></div>
+        `,
+        className: 'custom-vehicle-stop-marker',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      });
+    }
+
+    // Vehicle is moving - show directional arrow
     return L.divIcon({
       html: `
         <div style="
@@ -274,7 +294,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
           <Marker
             position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-            icon={createVehicleIcon(activePoint.direction || 0)}
+            icon={createVehicleIcon(activePoint.direction || 0, activePoint.speed || 0)}
             zIndexOffset={1000}
           >
             <Popup className="premium-popup">
