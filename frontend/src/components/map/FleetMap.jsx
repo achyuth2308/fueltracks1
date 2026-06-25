@@ -5,6 +5,7 @@ import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
+import LocationDisplay from '../ui/LocationDisplay';
 
 import { getVehicleRoute } from '../../api/vehicleApi';
 
@@ -263,6 +264,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
               <span style={{ color: '#6e859b', fontWeight: 600 }}>Comm Time</span>
               <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
             </div>
+            <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />
           </div>
 
           {/* Links Row */}

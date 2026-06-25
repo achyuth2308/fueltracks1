@@ -3,7 +3,8 @@ import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap 
 import L from 'leaflet';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, MapPin } from 'lucide-react';
+import LocationDisplay from '../ui/LocationDisplay';
 
 // Validate coordinate is within India's geographic bounding box
 const isValidCoord = (lat, lng) => {
@@ -247,6 +248,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                       <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
                       <span>{startPoint.odometer ? `${Math.round(startPoint.odometer)} km` : '-'}</span>
                     </div>
+                    <LocationDisplay lat={startPoint.lat} lng={startPoint.lng} />
                   </div>
                 </div>
               </Popup>
@@ -283,6 +285,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                       <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
                       <span>{endPoint.odometer ? `${Math.round(endPoint.odometer)} km` : '-'}</span>
                     </div>
+                    <LocationDisplay lat={endPoint.lat} lng={endPoint.lng} />
                   </div>
                 </div>
               </Popup>
@@ -317,6 +320,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                     <span style={{ color: '#64748B', fontWeight: 600 }}>Ignition</span>
                     <span style={{ fontWeight: 700, color: activePoint.ignition ? '#10B981' : '#64748B' }}>{activePoint.ignition ? 'ON' : 'OFF'}</span>
                   </div>
+                  <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
                 </div>
               </div>
             </Popup>
@@ -373,6 +377,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                         <span style={{ color: '#64748B', fontWeight: 600 }}>Loc Time</span>
                         <span style={{ fontWeight: 700 }}>{formatLocalTime(point.device_time)}</span>
                       </div>
+                      <LocationDisplay lat={point.lat} lng={point.lng} />
                     </div>
                   </div>
                 </Popup>
