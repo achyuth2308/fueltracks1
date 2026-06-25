@@ -55,6 +55,15 @@ function parseNormalPacket(raw) {
   // Parse device time: DDMMYY + HHMMSS → ISO timestamp
   const deviceTime = parseDeviceTime(dateStr, timeStr);
 
+  let parsedBattery = parseFloat(battery) || 0;
+  let parsedVoltage = parseFloat(voltage) || 0;
+
+  // If the device has no external power connected (voltage is 0),
+  // fallback to the internal battery voltage so the UI shows the device's actual power state
+  if (parsedVoltage === 0 && parsedBattery > 0) {
+    parsedVoltage = parsedBattery;
+  }
+
   return {
     packetType: '$10',
     imei,
@@ -66,14 +75,14 @@ function parseNormalPacket(raw) {
     direction: parseInt(direction) || 0,
     satellites: parseInt(satellites) || 0,
     gsmSignal: parseInt(gsmSignal) || 0,
-    battery: parseInt(battery) || 0,
+    battery: parsedBattery,
     ignition: ignition === '1',
     din2: din2 === '1',
     din3: din3 === '1',
     engineHours: parseFloat(engineHours) || 0,
     ain: parseFloat(ain) || 0,
     fuel: parseFloat(fuel) || 0,
-    voltage: parseFloat(voltage) || 0,
+    voltage: parsedVoltage,
     isLive: lOrH === 'L',            // L = live, H = buffered history
     deviceTime,
     rawPacket: raw,
