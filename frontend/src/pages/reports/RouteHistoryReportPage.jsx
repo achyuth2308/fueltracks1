@@ -63,7 +63,7 @@ const RouteHistoryReportPage = () => {
           const lat = parseFloat(p.lat);
           const lng = parseFloat(p.lng);
           
-          if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 1.0 && Math.abs(lng) > 1.0) {
+          if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
             lastValidLat = p.lat;
             lastValidLng = p.lng;
             return p;
