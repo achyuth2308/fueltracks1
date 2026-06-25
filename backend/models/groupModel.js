@@ -23,60 +23,83 @@ const GroupModel = {
    * Get all groups (filtered by org for multi-tenancy)
    */
   async findAll(orgId, role, userId = null) {
-    let query, params;
+    let whereClause = '';
+    const params = [];
 
     if (role === 'superadmin') {
-      query = `SELECT g.*, o.name as org_name,
-                      (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
-                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
-                      (
-                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
-                        FROM vehicle_groups vg
-                        JOIN vehicles v ON vg.vehicle_id = v.id
-                        WHERE vg.group_id = g.id
-                      ) as vehicles
-               FROM groups g
-               JOIN organizations o ON g.org_id = o.id
-               ORDER BY g.name ASC`;
-      params = [];
+      whereClause = '';
     } else if (role === 'customer' && userId) {
-      // Customer sees ONLY groups they are explicitly mapped to
-      query = `SELECT g.*, o.name as org_name,
-                      (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
-                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
-                      (
-                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
-                        FROM vehicle_groups vg
-                        JOIN vehicles v ON vg.vehicle_id = v.id
-                        WHERE vg.group_id = g.id
-                      ) as vehicles
-               FROM groups g
-               JOIN organizations o ON g.org_id = o.id
-               JOIN user_groups ug ON g.id = ug.group_id
-               WHERE ug.user_id = $1
-               ORDER BY g.name ASC`;
-      params = [userId];
+      whereClause = `WHERE ug_filter.user_id = $1`;
+      params.push(userId);
     } else {
-      // Dealer sees groups in their own org
-      query = `SELECT g.*, o.name as org_name,
-                      (SELECT COUNT(*) FROM vehicle_groups WHERE group_id = g.id) as vehicle_count,
-                      (SELECT COUNT(*) FROM user_groups WHERE group_id = g.id) as user_count,
-                      (
-                        SELECT json_agg(json_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId'))
-                        FROM vehicle_groups vg
-                        JOIN vehicles v ON vg.vehicle_id = v.id
-                        WHERE vg.group_id = g.id
-                      ) as vehicles
-               FROM groups g
-               JOIN organizations o ON g.org_id = o.id
-               WHERE g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
-               ORDER BY g.name ASC`;
-      params = [orgId];
+      whereClause = `WHERE (g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
+      params.push(orgId);
+    }
+
+    // Single efficient query using LEFT JOINs + GROUP BY instead of 3 correlated subqueries per row
+    let query;
+    if (role === 'customer' && userId) {
+      query = `
+        SELECT
+          g.*,
+          o.name AS org_name,
+          COUNT(DISTINCT vg.vehicle_id) AS vehicle_count,
+          COUNT(DISTINCT ug.user_id) AS user_count,
+          CASE WHEN COUNT(vg.vehicle_id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+          END AS vehicles
+        FROM groups g
+        JOIN organizations o ON g.org_id = o.id
+        JOIN user_groups ug_filter ON g.id = ug_filter.group_id AND ug_filter.user_id = $1
+        LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
+        LEFT JOIN vehicles v ON vg.vehicle_id = v.id
+        LEFT JOIN user_groups ug ON g.id = ug.group_id
+        GROUP BY g.id, o.name
+        ORDER BY g.name ASC
+      `;
+    } else if (role === 'superadmin') {
+      query = `
+        SELECT
+          g.*,
+          o.name AS org_name,
+          COUNT(DISTINCT vg.vehicle_id) AS vehicle_count,
+          COUNT(DISTINCT ug.user_id) AS user_count,
+          CASE WHEN COUNT(vg.vehicle_id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+          END AS vehicles
+        FROM groups g
+        JOIN organizations o ON g.org_id = o.id
+        LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
+        LEFT JOIN vehicles v ON vg.vehicle_id = v.id
+        LEFT JOIN user_groups ug ON g.id = ug.group_id
+        GROUP BY g.id, o.name
+        ORDER BY g.name ASC
+      `;
+    } else {
+      query = `
+        SELECT
+          g.*,
+          o.name AS org_name,
+          COUNT(DISTINCT vg.vehicle_id) AS vehicle_count,
+          COUNT(DISTINCT ug.user_id) AS user_count,
+          CASE WHEN COUNT(vg.vehicle_id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+          END AS vehicles
+        FROM groups g
+        JOIN organizations o ON g.org_id = o.id
+        LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
+        LEFT JOIN vehicles v ON vg.vehicle_id = v.id
+        LEFT JOIN user_groups ug ON g.id = ug.group_id
+        WHERE (g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))
+        GROUP BY g.id, o.name
+        ORDER BY g.name ASC
+      `;
     }
 
     const result = await db.query(query, params);
     return result.rows;
   },
+
 
   /**
    * Create group
