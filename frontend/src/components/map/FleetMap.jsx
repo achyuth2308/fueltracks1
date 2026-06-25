@@ -244,12 +244,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#6e859b', fontWeight: 600 }}>Today Distance</span>
-              <span style={{ fontWeight: 700 }}>- {vehicle.today_distance || '0 km'}</span>
+              <span style={{ fontWeight: 700 }}>- {vehicle.today_distance ? `${vehicle.today_distance} km` : '0 km'}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>Idle</span>
-              <span style={{ fontWeight: 700 }}>- {vehicle.idle_duration || '00:00:00'}</span>
-            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#6e859b', fontWeight: 600 }}>ACC Status</span>
               <span style={{ fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#6b7280' }}>
@@ -272,12 +269,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
             <a href={`/admin/reports`} style={{ color: '#f97316', textDecoration: 'none' }}>Reports</a>
             <a href={`/vehicles/${vehicle.id}`} style={{ color: '#f97316', textDecoration: 'none' }}>Track</a>
             <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#f97316', textDecoration: 'none' }}>History</a>
-            {onMultiTrackClick ? (
-              <span style={{ color: '#0ea5e9', cursor: 'pointer' }} onClick={() => { markerRef.current?.closePopup(); onMultiTrackClick(vehicle); }}>MultiTrack</span>
-            ) : (
-              <span style={{ color: '#0ea5e9', cursor: 'not-allowed' }}>MultiTrack</span>
-            )}
-            <span style={{ color: '#0ea5e9', cursor: 'not-allowed' }}>Site</span>
+
           </div>
         </div>
       </Popup>
