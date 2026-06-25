@@ -868,6 +868,10 @@ const AdminController = {
         { expiresIn: env.JWT_EXPIRES_IN }
       );
 
+      // Fetch impersonator to log their name
+      const impersonator = await UserModel.findById(req.user.userId);
+      const impersonatorName = impersonator ? (impersonator.name || impersonator.email) : req.user.userId;
+
       // Audit: impersonate success
       try {
         await AuditService.log({
@@ -876,7 +880,7 @@ const AdminController = {
           entityId: user.id,
           entityName: user.name || user.email,
           action: 'IMPERSONATE_SUCCESS',
-          newData: { email: user.email, role: user.role, impersonatedBy: req.user.userId },
+          newData: { email: user.email, role: user.role, impersonatedBy: impersonatorName },
           performedById: req.user.userId,
           performedByRole: req.user.role,
           orgId: user.org_id,
