@@ -34,7 +34,7 @@ const VehicleModel = {
               vls.direction as current_direction,
               vls.satellites as current_satellites,
               vls.gsm_signal as current_gsm_signal,
-              (SELECT MAX(odometer) - MIN(odometer) FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= CURRENT_DATE) as today_distance
+              (SELECT COALESCE(MAX(odometer) - MIN(NULLIF(odometer, 0)), 0) FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= CURRENT_DATE) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
@@ -116,7 +116,7 @@ const VehicleModel = {
               vls.voltage as current_voltage, vls.is_online,
               vls.last_seen, vls.direction as current_direction,
               vls.odometer as current_odometer,
-              (SELECT MAX(odometer) - MIN(odometer) FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= CURRENT_DATE) as today_distance
+              (SELECT COALESCE(MAX(odometer) - MIN(NULLIF(odometer, 0)), 0) FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= CURRENT_DATE) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
