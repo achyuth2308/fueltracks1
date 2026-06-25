@@ -9,6 +9,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import { formatVoltage, formatFuel } from '../../utils/formatUtils';
+import AddressText from '../../components/ui/AddressText';
 
 const formatDateTime = (isoString) => {
   if (!isoString) return '-';
@@ -282,12 +283,16 @@ const ReportsAdminPage = () => {
                           </TD>
                           <TD align="right" style={{ fontFamily: 'monospace', fontSize: '13px' }}>{formatFuel(v.current_fuel)}</TD>
                           <TD align="right" style={{ fontFamily: 'monospace', fontSize: '13px' }}>0 °C</TD>
-                          <TD style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {(v.latitude && v.longitude) ? `${Number(v.latitude).toFixed(4)}, ${Number(v.longitude).toFixed(4)}` : 'Location unavailable'}
+                          <TD style={{ maxWidth: '220px', overflow: 'hidden' }}>
+                            {(v.lat && v.lng) ? (
+                              <AddressText lat={v.lat} lng={v.lng} />
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>Location unavailable</span>
+                            )}
                           </TD>
                           <TD align="center">
-                            {(v.latitude && v.longitude) ? (
-                              <a href={`https://maps.google.com/?q=${v.latitude},${v.longitude}`} target="_blank" rel="noopener noreferrer" style={{ color: '#7ea0b6', textDecoration: 'none', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
+                            {(v.lat && v.lng) ? (
+                              <a href={`https://maps.google.com/?q=${v.lat},${v.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: '#7ea0b6', textDecoration: 'none', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
                                 View
                               </a>
                             ) : <span style={{ color: '#cbd5e1', fontSize: '11px' }}>-</span>}
