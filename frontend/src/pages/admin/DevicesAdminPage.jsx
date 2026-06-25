@@ -22,8 +22,8 @@ const DevicesAdminPage = () => {
           vehicle_name: d.vehicle_id || 'Unassigned',
           org_name: d.org_name || '—',
           group_name: 'Unassigned',
-          is_online: false, // Could be derived if needed
-          last_update: null, // Could be derived if needed
+          is_online: d.is_online || false,
+          last_update: d.last_seen || null,
           vehicle_id: d.vehicle_id,
         }));
         setDevices(mappedDevices);

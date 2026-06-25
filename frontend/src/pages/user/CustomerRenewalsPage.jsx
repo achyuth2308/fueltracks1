@@ -12,7 +12,7 @@ const CustomerRenewalsPage = () => {
     if (!expireDateStr) return { type: 'unknown', text: 'Unknown', color: '#64748B', bg: '#F1F5F9' };
     const exp = new Date(expireDateStr);
     const diffDays = Math.ceil((exp - new Date()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays < 0) return { type: 'expired', text: 'Expired', color: '#DC2626', bg: '#FEF2F2' };
     if (diffDays <= 30) return { type: 'expiring', text: `Expiring in ${diffDays} days`, color: '#D97706', bg: '#FFFBEB' };
     return { type: 'active', text: 'Active', color: '#059669', bg: '#D1FAE5' };
@@ -64,7 +64,7 @@ const CustomerRenewalsPage = () => {
                 {vehicles.map(v => {
                   const status = getStatus(v.licence_expire_date);
                   const needsRenewal = status.type === 'expired' || status.type === 'expiring';
-                  
+
                   return (
                     <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '16px 20px', fontSize: '14px', color: '#111827', fontWeight: 700 }}>
@@ -103,12 +103,12 @@ const CustomerRenewalsPage = () => {
         )}
       </div>
 
-      <DummyRazorpayModal 
-        isOpen={showRazorpay} 
+      <DummyRazorpayModal
+        isOpen={showRazorpay}
         onClose={() => {
           setShowRazorpay(false);
           setSelectedVehicle(null);
-        }} 
+        }}
         vehicle={selectedVehicle}
         onSuccess={() => {
           setShowRazorpay(false);
@@ -117,8 +117,9 @@ const CustomerRenewalsPage = () => {
           window.location.reload();
         }}
       />
-      
-      <style dangerouslySetInnerHTML={{__html: `
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />

@@ -128,7 +128,7 @@ const UsersAdminPage = () => {
   const filteredUsers = users.filter(u =>
     u.role !== 'superadmin' &&
     (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-     u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+      u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   return (

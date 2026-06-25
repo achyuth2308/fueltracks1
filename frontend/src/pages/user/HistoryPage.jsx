@@ -169,7 +169,7 @@ const HistoryPage = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
-      
+
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
         {loading && (
@@ -184,7 +184,7 @@ const HistoryPage = () => {
         </div>
 
         {/* Right Panel Toggle Button */}
-        <button 
+        <button
           onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
           style={{
             position: 'absolute', top: '24px', right: '16px', zIndex: 1000,
@@ -222,18 +222,18 @@ const HistoryPage = () => {
             boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0',
             display: 'flex', flexDirection: 'column', gap: '10px'
           }}>
-            
+
             {/* Timeline Progress Bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
               <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, minWidth: '55px' }}>
                 {new Date(points[currentPointIndex]?.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </span>
-              
-              <input 
-                type="range" 
-                min={0} 
-                max={points.length - 1} 
-                value={currentPointIndex} 
+
+              <input
+                type="range"
+                min={0}
+                max={points.length - 1}
+                value={currentPointIndex}
                 onChange={(e) => setCurrentPointIndex(parseInt(e.target.value))}
                 style={{
                   flex: 1,
@@ -244,7 +244,7 @@ const HistoryPage = () => {
                   accentColor: '#0ea5e9'
                 }}
               />
-              
+
               <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>
                 {Math.round((currentPointIndex / (points.length - 1)) * 100)}%
               </span>
@@ -253,8 +253,8 @@ const HistoryPage = () => {
             {/* Playback Buttons & Speeds */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button 
-                  onClick={() => setIsPlaying(!isPlaying)} 
+                <button
+                  onClick={() => setIsPlaying(!isPlaying)}
                   style={{
                     background: isPlaying ? '#0ea5e9' : '#F1F5F9',
                     border: '1px solid #CBD5E1',
@@ -274,7 +274,7 @@ const HistoryPage = () => {
                   {isPlaying ? <Pause size={15} /> : <Play size={15} />}
                   {isPlaying ? 'Pause' : 'Play'}
                 </button>
-                <button 
+                <button
                   onClick={handleStop}
                   style={{
                     background: '#F8FAFC',
@@ -328,123 +328,124 @@ const HistoryPage = () => {
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 12px rgba(0,0,0,0.02)', flexShrink: 0, overflow: 'hidden' }}>
         <div style={{ width: '400px', display: 'flex', flexDirection: 'column', height: '100%' }}>
-        
-        {/* Header */}
-        <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
-            <ArrowLeft size={16} />
-          </button>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
-            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs found</div>
-          </div>
-        </div>
 
-        {/* Filters Section */}
-        <div style={{ padding: '20px', background: '#EEF5F8', borderBottom: '1px solid #E2E8F0' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Start Time</label>
-                <input
-                  type="datetime-local"
-                  value={startDate}
-                  onChange={e => setStartDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>End Time</label>
-                <input
-                  type="datetime-local"
-                  value={endDate}
-                  onChange={e => setEndDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
+          {/* Header */}
+          <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
+              <ArrowLeft size={16} />
+            </button>
+            <div style={{ flex: 1 }}>
+              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
+              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs found</div>
             </div>
-            <button
-              onClick={handleQuerySubmit}
-              disabled={loading}
-              style={{ width: '100%', background: '#f97316', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-            >
-              Plot Route
+          </div>
+
+          {/* Filters Section */}
+          <div style={{ padding: '20px', background: '#EEF5F8', borderBottom: '1px solid #E2E8F0' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Start Time</label>
+                  <input
+                    type="datetime-local"
+                    value={startDate}
+                    onChange={e => setStartDate(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>End Time</label>
+                  <input
+                    type="datetime-local"
+                    value={endDate}
+                    onChange={e => setEndDate(e.target.value)}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+              <button
+                onClick={handleQuerySubmit}
+                disabled={loading}
+                style={{ width: '100%', background: '#f97316', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+              >
+                Plot Route
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['6 Hours', '12 Hours', 'Today', 'Yesterday'].map((label, i) => {
+                const types = ['6h', '12h', 'today', 'yesterday'];
+                const colors = ['#10B981', '#0EA5E9', '#F59E0B', '#EF4444'];
+                return (
+                  <button
+                    key={label}
+                    onClick={() => setQuickRange(types[i])}
+                    style={{ flex: 1, padding: '6px 0', background: colors[i], color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Data Table */}
+          <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+                <tr>
+                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1' }}>Time</th>
+                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Speed</th>
+                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Odo</th>
+                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'center' }}>Ign</th>
+                </tr>
+              </thead>
+              <tbody>
+                {points.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
+                  </tr>
+                ) : (
+                  points.map((p, idx) => (
+                    <tr
+                      key={idx}
+                      id={`row-${idx}`}
+                      onClick={() => setCurrentPointIndex(idx)}
+                      style={{
+                        background: idx === currentPointIndex ? '#e0f2fe' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'),
+                        borderBottom: '1px solid #F1F5F9',
+                        cursor: 'pointer',
+                        transition: 'background-color 0.2s'
+                      }}
+                    >
+                      <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
+                        {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                      </td>
+                      <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
+                      <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                        <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700, fontSize: '11px' }}>{p.ignition ? 'ON' : 'OFF'}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer actions */}
+          <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
+            <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
+              <Download size={16} /> Export CSV
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {['6 Hours', '12 Hours', 'Today', 'Yesterday'].map((label, i) => {
-              const types = ['6h', '12h', 'today', 'yesterday'];
-              const colors = ['#10B981', '#0EA5E9', '#F59E0B', '#EF4444'];
-              return (
-                <button
-                  key={label}
-                  onClick={() => setQuickRange(types[i])}
-                  style={{ flex: 1, padding: '6px 0', background: colors[i], color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
         </div>
-
-        {/* Data Table */}
-        <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-            <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
-              <tr>
-                <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1' }}>Time</th>
-                <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Speed</th>
-                <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Odo</th>
-                <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'center' }}>Ign</th>
-              </tr>
-            </thead>
-            <tbody>
-              {points.length === 0 ? (
-                <tr>
-                  <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
-                </tr>
-              ) : (
-                points.map((p, idx) => (
-                  <tr 
-                    key={idx} 
-                    id={`row-${idx}`}
-                    onClick={() => setCurrentPointIndex(idx)}
-                    style={{ 
-                      background: idx === currentPointIndex ? '#e0f2fe' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'),
-                      borderBottom: '1px solid #F1F5F9',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s'
-                    }}
-                  >
-                    <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
-                      {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
-                    </td>
-                    <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
-                    <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                      <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700, fontSize: '11px' }}>{p.ignition ? 'ON' : 'OFF'}</span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer actions */}
-        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
-          <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
-            <Download size={16} /> Export CSV
-          </button>
-        </div>
-
-      </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />

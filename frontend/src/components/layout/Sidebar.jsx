@@ -173,7 +173,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                   const Icon = item.icon;
                   const [itemPathBase, itemSearch] = item.path.split('?');
                   let customIsActive = false;
-                  
+
                   if (itemSearch) {
                     customIsActive = location.pathname === itemPathBase && location.search.includes(itemSearch);
                   } else if (item.path === '/admin/audit-logs') {

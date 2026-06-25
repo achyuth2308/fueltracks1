@@ -9,7 +9,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { connected, socket } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
   const [time, setTime] = useState(new Date());
-  
+
   const [alerts, setAlerts] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [latestToast, setLatestToast] = useState(null);
@@ -18,7 +18,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     if (!socket) return;
     const handleNewAlert = (data) => {
       setAlerts((prev) => [data, ...prev].slice(0, 15)); // Keep 15 latest
-      
+
       // Play Beep Sound
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -32,7 +32,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         oscillator.start();
         setTimeout(() => oscillator.stop(), 200); // 200ms beep
       } catch (e) { console.warn('Audio play blocked'); }
-      
+
       // Show Visual Toast
       setLatestToast(data);
       setTimeout(() => setLatestToast(null), 5000); // Hide after 5 seconds
@@ -185,26 +185,26 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             <div style={{
               position: 'absolute', top: '30px', right: '0', width: '300px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, border: '1px solid #e5e7eb', overflow: 'hidden'
             }} onClick={(e) => e.stopPropagation()}>
-               <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
-                 <span>Recent Alerts</span>
-                 {alerts.length > 0 && (
-                   <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { e.stopPropagation(); setAlerts([]); }}>Clear</span>
-                 )}
-               </div>
-               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                 {alerts.length === 0 ? (
-                   <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#9CA3B8' }}>No new alerts in this session</div>
-                 ) : alerts.map((a, i) => (
-                   <div key={i} style={{ padding: '12px 16px', borderBottom: i < alerts.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: '12px', display: 'flex', gap: '12px' }}>
-                     <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', flexShrink: 0, marginTop: '4px' }} />
-                     <div>
-                       <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{a.vehicleName} <span style={{ color: '#6B7280', fontWeight: 500 }}>({a.plate})</span></div>
-                       <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: '6px' }}>{a.alertText}</div>
-                       <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime).toLocaleTimeString()}</div>
-                     </div>
-                   </div>
-                 ))}
-               </div>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
+                <span>Recent Alerts</span>
+                {alerts.length > 0 && (
+                  <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { e.stopPropagation(); setAlerts([]); }}>Clear</span>
+                )}
+              </div>
+              <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                {alerts.length === 0 ? (
+                  <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#9CA3B8' }}>No new alerts in this session</div>
+                ) : alerts.map((a, i) => (
+                  <div key={i} style={{ padding: '12px 16px', borderBottom: i < alerts.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: '12px', display: 'flex', gap: '12px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', flexShrink: 0, marginTop: '4px' }} />
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{a.vehicleName} <span style={{ color: '#6B7280', fontWeight: 500 }}>({a.plate})</span></div>
+                      <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: '6px' }}>{a.alertText}</div>
+                      <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime).toLocaleTimeString()}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -251,8 +251,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           </div>
         </div>
       )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-20px); }
           to { opacity: 1; transform: translateY(0); }

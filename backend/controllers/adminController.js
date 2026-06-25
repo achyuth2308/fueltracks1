@@ -690,9 +690,15 @@ const AdminController = {
   async getDevices(req, res) {
     try {
       let query = `
-        SELECT d.*, o.name as org_name
+        SELECT 
+          d.*, 
+          o.name as org_name,
+          vls.is_online,
+          vls.last_seen
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id
+        LEFT JOIN vehicles v ON d.device_id = v.imei
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `;
       let params = [];
 

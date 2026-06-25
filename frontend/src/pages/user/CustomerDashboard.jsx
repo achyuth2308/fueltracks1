@@ -128,7 +128,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               </div>
               <div style={{ fontWeight: 600, fontSize: '14px', color: warning.type === 'expired' ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
                 {warning.text} for vehicle <span style={{ fontWeight: 800 }}>{currentSelected.name}</span>.
-                <button 
+                <button
                   onClick={() => navigate('/renewals')}
                   style={{ marginLeft: '12px', padding: '6px 12px', background: warning.type === 'expired' ? '#EF4444' : '#F59E0B', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
                 >

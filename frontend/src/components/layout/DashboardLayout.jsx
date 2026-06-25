@@ -61,7 +61,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
           isOpen={mobileSidebarOpen}
           toggleMobileSidebar={setMobileSidebarOpen}
         />
-        
+
         <main style={{ flex: 1, overflowY: 'auto', background: '#EEF5F8', position: 'relative' }}>
           <Outlet />
         </main>
