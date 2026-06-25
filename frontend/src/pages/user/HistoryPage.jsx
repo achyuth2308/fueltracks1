@@ -21,14 +21,21 @@ const HistoryPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
 
-  // Date range defaults: Today (start at 00:00:00 to end at 23:59:59)
+  // Date range defaults: Today
   const getTodayRange = () => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+    
+    // Format to local ISO string YYYY-MM-DDThh:mm
+    const toLocalISO = (d) => {
+      const offsetMs = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
     return {
-      start: start.toISOString().slice(0, 16),
-      end: end.toISOString().slice(0, 16)
+      start: toLocalISO(start),
+      end: toLocalISO(end)
     };
   };
 
@@ -60,7 +67,11 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        const validPoints = routeRes.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+        const validPoints = routeRes.data.filter(p => 
+          p.lat != null && p.lng != null && 
+          !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && 
+          Math.abs(parseFloat(p.lat)) > 0.001 && Math.abs(parseFloat(p.lng)) > 0.001
+        );
         setPoints(validPoints);
       }
     } catch (err) {
@@ -119,6 +130,12 @@ const HistoryPage = () => {
   const setQuickRange = (rangeType) => {
     const now = new Date();
     let start, end;
+    
+    const toLocalISO = (d) => {
+      const offsetMs = d.getTimezoneOffset() * 60000;
+      return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
+    };
+
     if (rangeType === '6h') {
       start = new Date(now.getTime() - 6 * 60 * 60 * 1000);
       end = now;
@@ -126,16 +143,16 @@ const HistoryPage = () => {
       start = new Date(now.getTime() - 12 * 60 * 60 * 1000);
       end = now;
     } else if (rangeType === 'today') {
-      const tr = getTodayRange();
-      start = new Date(tr.start);
-      end = new Date(tr.end);
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     } else if (rangeType === 'yesterday') {
       const yest = new Date(now.getTime() - 24 * 60 * 60 * 1000);
       start = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 0, 0, 0);
       end = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59);
     }
-    setStartDate(start.toISOString().slice(0, 16));
-    setEndDate(end.toISOString().slice(0, 16));
+    
+    setStartDate(toLocalISO(start));
+    setEndDate(toLocalISO(end));
   };
 
   const handleExportCSV = () => {
@@ -350,7 +367,7 @@ const HistoryPage = () => {
                     type="datetime-local"
                     value={startDate}
                     onChange={e => setStartDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
                 <div style={{ flex: 1 }}>
@@ -359,7 +376,7 @@ const HistoryPage = () => {
                     type="datetime-local"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', outline: 'none', boxSizing: 'border-box' }}
+                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
               </div>
