@@ -67,7 +67,28 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        setPoints(routeRes.data);
+        let lastValidLat = null;
+        let lastValidLng = null;
+        
+        const processedPoints = routeRes.data.map(p => {
+          const lat = parseFloat(p.lat);
+          const lng = parseFloat(p.lng);
+          
+          if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 1.0 && Math.abs(lng) > 1.0) {
+            lastValidLat = p.lat;
+            lastValidLng = p.lng;
+            return p;
+          } else {
+            // Invalid coordinate: use last known good location
+            return {
+              ...p,
+              lat: lastValidLat,
+              lng: lastValidLng
+            };
+          }
+        });
+        
+        setPoints(processedPoints);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
