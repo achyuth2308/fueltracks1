@@ -67,27 +67,43 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
+        // Validate coordinate is within India's geographic bounds
+        // Lat: 6.5 (southernmost tip) to 37.5 (northernmost Kashmir)
+        // Lng: 68.0 (westernmost Gujarat) to 98.0 (easternmost Arunachal)
+        const isValidCoord = (lat, lng) =>
+          !isNaN(lat) && !isNaN(lng) &&
+          lat > 6.5 && lat < 37.5 &&
+          lng > 68.0 && lng < 98.0;
+
         let lastValidLat = null;
         let lastValidLng = null;
-        
+
+        // First pass: find the first valid coordinate to use as starting fallback
+        for (const p of routeRes.data) {
+          const lat = parseFloat(p.lat);
+          const lng = parseFloat(p.lng);
+          if (isValidCoord(lat, lng)) {
+            lastValidLat = p.lat;
+            lastValidLng = p.lng;
+            break;
+          }
+        }
+
+        // Second pass: map each point, substituting invalid coords with last known valid
         const processedPoints = routeRes.data.map(p => {
           const lat = parseFloat(p.lat);
           const lng = parseFloat(p.lng);
-          
-          if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+
+          if (isValidCoord(lat, lng)) {
             lastValidLat = p.lat;
             lastValidLng = p.lng;
             return p;
           } else {
-            // Invalid coordinate: use last known good location
-            return {
-              ...p,
-              lat: lastValidLat,
-              lng: lastValidLng
-            };
+            // Invalid coordinate: substitute last known good location
+            return { ...p, lat: lastValidLat, lng: lastValidLng };
           }
         });
-        
+
         setPoints(processedPoints);
       }
     } catch (err) {

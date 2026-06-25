@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
@@ -70,7 +71,11 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
         const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
 
         if (res.success && res.data.length > 0) {
-          const validPoints = res.data.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && parseFloat(p.lat) !== 0 && parseFloat(p.lng) !== 0);
+          const validPoints = res.data.filter(p => {
+            const la = parseFloat(p.lat);
+            const lo = parseFloat(p.lng);
+            return !isNaN(la) && !isNaN(lo) && la > 6.5 && la < 37.5 && lo > 68.0 && lo < 98.0;
+          });
           setRoutePoints(validPoints);
         } else {
           setRoutePoints([]);
@@ -88,7 +93,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     if (!selectedVehicle?.id) return;
     const lat = parseFloat(selectedVehicle.lat);
     const lng = parseFloat(selectedVehicle.lng);
-    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+    if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
       map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,7 +112,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     if (!selectedVehicle?.id) return;
     const lat = parseFloat(selectedVehicle.lat);
     const lng = parseFloat(selectedVehicle.lng);
-    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+    if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
       map.panTo([lat, lng], { animate: true, duration: 0.8 });
     }
   }, [selectedVehicle?.lat, selectedVehicle?.lng, map]);

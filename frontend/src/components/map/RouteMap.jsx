@@ -5,16 +5,21 @@ import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff } from 'lucide-react';
 
+// Validate coordinate is within India's geographic bounding box
+const isValidCoord = (lat, lng) => {
+  const la = parseFloat(lat);
+  const lo = parseFloat(lng);
+  return !isNaN(la) && !isNaN(lo) &&
+    la > 6.5 && la < 37.5 &&
+    lo > 68.0 && lo < 98.0;
+};
+
 const FitBoundsToRoute = ({ points }) => {
   const map = useMap();
 
   useEffect(() => {
     if (points && points.length > 0) {
-      const validPoints = points.filter(p =>
-        p.lat != null && p.lng != null &&
-        !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) &&
-        Math.abs(parseFloat(p.lat)) > 5.0 && Math.abs(parseFloat(p.lng)) > 5.0
-      );
+      const validPoints = points.filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng));
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
         map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
@@ -25,16 +30,13 @@ const FitBoundsToRoute = ({ points }) => {
   return null;
 };
 
-
 // Recenter Map dynamically if follow mode is active
 const RecenterMap = ({ activePoint, follow }) => {
   const map = useMap();
   useEffect(() => {
     if (follow && activePoint && activePoint.lat && activePoint.lng) {
-      const lat = parseFloat(activePoint.lat);
-      const lng = parseFloat(activePoint.lng);
-      if (Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
-        map.panTo([lat, lng], { animate: true, duration: 0.5 });
+      if (isValidCoord(activePoint.lat, activePoint.lng)) {
+        map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: 0.5 });
       }
     }
   }, [activePoint, follow, map]);
@@ -84,9 +86,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
     return segs;
   };
 
-  // Calculate continuous route positions list
+  // Calculate continuous route positions list (only valid India coordinates)
   const routePositions = points
-    .filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && Math.abs(parseFloat(p.lat)) > 5.0 && Math.abs(parseFloat(p.lng)) > 5.0)
+    .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
     .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
 
   const routeSegments = splitIntoSegments(routePositions);
@@ -269,7 +271,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         })()}
 
         {/* Active Animated Playback Marker */}
-        {activePoint && activePoint.lat && activePoint.lng && Math.abs(parseFloat(activePoint.lat)) > 5.0 && Math.abs(parseFloat(activePoint.lng)) > 5.0 && (
+        {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
           <Marker
             position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
             icon={createVehicleIcon(activePoint.direction || 0)}
