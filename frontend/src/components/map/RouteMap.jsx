@@ -5,18 +5,28 @@ import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff } from 'lucide-react';
 
-const FitBoundsToRoute = ({ points }) => {
+const FitBoundsToRoute = ({ points, vehicleLastKnownPosition }) => {
   const map = useMap();
 
   useEffect(() => {
     if (points && points.length > 0) {
+      // Fit to actual route points when they exist
       const validPoints = points.filter(p => p.lat != null && p.lng != null && !isNaN(parseFloat(p.lat)) && !isNaN(parseFloat(p.lng)) && Math.abs(parseFloat(p.lat)) > 5.0 && Math.abs(parseFloat(p.lng)) > 5.0);
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
         map.fitBounds(bounds, { padding: [50, 50] });
+        return;
       }
     }
-  }, [points, map]);
+    // No route points - center on vehicle's last known position
+    if (vehicleLastKnownPosition) {
+      const lat = parseFloat(vehicleLastKnownPosition.lat);
+      const lng = parseFloat(vehicleLastKnownPosition.lng);
+      if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+        map.setView([lat, lng], 16, { animate: true });
+      }
+    }
+  }, [points, vehicleLastKnownPosition, map]);
 
   return null;
 };
@@ -43,14 +53,31 @@ const getSpeedColor = (speed) => {
   return '#22c55e'; // green-500
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const [follow, setFollow] = useState(true);
 
-  // Default map center for Karmanghat, Hyderabad
+  // Determine initial map center:
+  // 1. Use vehicle's last known valid position (from vehicle_latest_state)
+  // 2. Fall back to first valid route point
+  // 3. Fall back to Hyderabad
   const defaultCenter = [17.3411, 78.5317];
-  const center = points.length > 0
-    ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
-    : defaultCenter;
+  
+  const getInitialCenter = () => {
+    // If vehicle has a known last position, use that
+    if (vehicleLastKnownPosition) {
+      const lat = parseFloat(vehicleLastKnownPosition.lat);
+      const lng = parseFloat(vehicleLastKnownPosition.lng);
+      if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+        return [lat, lng];
+      }
+    }
+    // If route points loaded, use first valid point
+    const firstValid = points.find(p => p.lat != null && p.lng != null && Math.abs(parseFloat(p.lat)) > 5.0);
+    if (firstValid) return [parseFloat(firstValid.lat), parseFloat(firstValid.lng)];
+    return defaultCenter;
+  };
+  
+  const center = getInitialCenter();
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -173,7 +200,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle' }) 
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {points.length > 0 && <FitBoundsToRoute points={points} />}
+        <FitBoundsToRoute points={points} vehicleLastKnownPosition={vehicleLastKnownPosition} />
         {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} />}
 
 

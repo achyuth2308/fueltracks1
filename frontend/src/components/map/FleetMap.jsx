@@ -83,21 +83,37 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     fetchRoute();
   }, [selectedVehicle?.id]);
 
-  // 2. Handle map centering and zooming when vehicle location changes
+  // Zoom in when a new vehicle is selected
+  useEffect(() => {
+    if (!selectedVehicle?.id) return;
+    const lat = parseFloat(selectedVehicle.lat);
+    const lng = parseFloat(selectedVehicle.lng);
+    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+      map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicle?.id]);
+
+
+  // 2. Zoom out when no vehicle selected
   useEffect(() => {
     if (!selectedVehicle) {
-      // Zoom out when no vehicle is selected
       map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
-      return;
     }
+  }, [selectedVehicle, map]);
 
-    // Focus exactly on the moving vehicle
-    if (selectedVehicle.lat != null && selectedVehicle.lng != null && !isNaN(parseFloat(selectedVehicle.lat)) && !isNaN(parseFloat(selectedVehicle.lng)) && parseFloat(selectedVehicle.lat) !== 0 && parseFloat(selectedVehicle.lng) !== 0) {
-      map.setView([parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)], 16, { animate: true });
+  // 3. Smoothly pan to follow vehicle as it moves in real time
+  useEffect(() => {
+    if (!selectedVehicle?.id) return;
+    const lat = parseFloat(selectedVehicle.lat);
+    const lng = parseFloat(selectedVehicle.lng);
+    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) > 5.0 && Math.abs(lng) > 5.0) {
+      map.panTo([lat, lng], { animate: true, duration: 0.8 });
     }
-  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, selectedVehicle]);
+  }, [selectedVehicle?.lat, selectedVehicle?.lng, map]);
 
   if (routePoints.length === 0) return null;
+
 
   const positions = routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
   const segments = splitIntoSegments(positions);

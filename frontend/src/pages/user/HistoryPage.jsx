@@ -99,8 +99,9 @@ const HistoryPage = () => {
   };
 
   useEffect(() => {
-    if (vehicle) fetchRouteHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Do NOT auto-fetch route on load.
+    // Map will center on the vehicle's last known position.
+    // User must click "Plot Route" to load history.
   }, [id, vehicle]);
 
   // Playback Timer logic
@@ -213,7 +214,16 @@ const HistoryPage = () => {
         )}
         {/* Map Container */}
         <div style={{ position: 'absolute', inset: 0 }}>
-          <RouteMap points={points} activePoint={activePoint} vehicleName={vehicle?.name || 'Vehicle'} />
+          <RouteMap
+            points={points}
+            activePoint={activePoint}
+            vehicleName={vehicle?.name || 'Vehicle'}
+            vehicleLastKnownPosition={
+              vehicle && vehicle.lat != null && vehicle.lng != null
+                ? { lat: vehicle.lat, lng: vehicle.lng }
+                : null
+            }
+          />
         </div>
 
         {/* Right Panel Toggle Button */}
