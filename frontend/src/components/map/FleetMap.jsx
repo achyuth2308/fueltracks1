@@ -97,7 +97,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
       map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle?.id]);
 
 
@@ -139,7 +139,7 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
 const getVehicleType = (vehicle) => {
   const model = (vehicle.model || '').toLowerCase();
   const name = (vehicle.name || '').toLowerCase();
-  
+
   if (model.includes('car') || name.includes('car')) return 'car';
   if (model.includes('bike') || name.includes('bike') || model.includes('motorcycle')) return 'bike';
   if (model.includes('bus') || name.includes('bus')) return 'bus';
@@ -149,11 +149,7 @@ const getVehicleType = (vehicle) => {
 
 const getTopDownSvg = (type) => {
   if (type === 'car') {
-    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="5" y="2" width="14" height="20" rx="4" fill="currentColor" fill-opacity="0.2"/>
-              <rect x="6" y="6" width="12" height="4" fill="currentColor"/>
-              <rect x="6" y="15" width="12" height="3" fill="currentColor"/>
-            </svg>`;
+    return `<img src="/long-car.png" style="width:24px;height:24px;object-fit:contain;" />`;
   } else if (type === 'bike') {
     return `<img src="/racing-motorbike.png" style="width:24px;height:24px;object-fit:contain;" />`;
   } else if (type === 'bus') {
@@ -168,12 +164,9 @@ const getTopDownSvg = (type) => {
               <rect x="5" y="7" width="14" height="5" fill="currentColor"/>
             </svg>`;
   }
-  
+
   // Default Lorry / Truck
-  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <rect x="5" y="2" width="14" height="6" rx="1" fill="currentColor"/>
-            <rect x="4" y="9" width="16" height="13" fill="currentColor" fill-opacity="0.2"/>
-          </svg>`;
+  return `<img src="/big-cargo-truck.png" style="width:24px;height:24px;object-fit:contain;" />`;
 };
 
 // Custom SVG marker generator
@@ -397,8 +390,8 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
           url={mapType === 'osm'
             ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             : mapType === 'satellite'
-            ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-            : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
           }
         />
 
@@ -409,28 +402,28 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         {vehicles
           .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)))
           .map((vehicle) => {
-             let finalLat = parseFloat(vehicle.lat);
-             let finalLng = parseFloat(vehicle.lng);
-             
-             // HARD FAILSAFE: Absolutely NEVER allow a coordinate outside India.
-             // India bounding box: Lat 8 to 38, Lng 68 to 98
-             if (finalLat < 8 || finalLat > 38 || finalLng < 68 || finalLng > 98) {
-               // Add tiny offset so markers don't permanently hide each other
-               finalLat = 17.3411 + (Math.random() * 0.01 - 0.005);
-               finalLng = 78.5317 + (Math.random() * 0.01 - 0.005);
-             }
+            let finalLat = parseFloat(vehicle.lat);
+            let finalLng = parseFloat(vehicle.lng);
 
-             const safeVehicle = { ...vehicle, lat: finalLat, lng: finalLng };
+            // HARD FAILSAFE: Absolutely NEVER allow a coordinate outside India.
+            // India bounding box: Lat 8 to 38, Lng 68 to 98
+            if (finalLat < 8 || finalLat > 38 || finalLng < 68 || finalLng > 98) {
+              // Add tiny offset so markers don't permanently hide each other
+              finalLat = 17.3411 + (Math.random() * 0.01 - 0.005);
+              finalLng = 78.5317 + (Math.random() * 0.01 - 0.005);
+            }
 
-             return (
-               <VehicleMarker
-                 key={safeVehicle.id}
-                 vehicle={safeVehicle}
-                 isSelected={selectedVehicle?.id === safeVehicle.id}
-                 onMarkerClick={onMarkerClick}
-                 onMultiTrackClick={null}
-               />
-             );
+            const safeVehicle = { ...vehicle, lat: finalLat, lng: finalLng };
+
+            return (
+              <VehicleMarker
+                key={safeVehicle.id}
+                vehicle={safeVehicle}
+                isSelected={selectedVehicle?.id === safeVehicle.id}
+                onMarkerClick={onMarkerClick}
+                onMultiTrackClick={null}
+              />
+            );
           })}
       </MapContainer>
     </div>
