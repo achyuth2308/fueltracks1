@@ -2,7 +2,6 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { useSocket } from '../../hooks/useSocket';
-import { Truck } from 'lucide-react';
 
 const FitBoundsToTrail = ({ coords }) => {
   const map = useMap();
@@ -33,9 +32,33 @@ const ResizeMap = () => {
   return null;
 };
 
-// SVG truck icon generator
-const createLiveTruckIcon = (ignition) => {
-  const color = ignition ? '#22c55e' : '#ef4444'; // green if ignition is ON, else red
+const getVehicleType = (vehicle) => {
+  if (!vehicle) return 'lorry';
+  const model = (vehicle.model || '').toLowerCase();
+  const name = (vehicle.name || '').toLowerCase();
+  
+  if (model.includes('car') || name.includes('car')) return 'car';
+  if (model.includes('bike') || name.includes('bike') || model.includes('motorcycle') || model.includes('twowheeler')) return 'bike';
+  if (model.includes('bus') || name.includes('bus')) return 'bus';
+  if (model.includes('van') || name.includes('van')) return 'van';
+  return 'lorry';
+};
+
+const getTopDownSvg = (type) => {
+  if (type === 'car') {
+    return `<img src="/long-car.png" style="width:28px;height:28px;object-fit:contain;" />`;
+  } else if (type === 'bike') {
+    return `<img src="/racing-motorbike.png" style="width:28px;height:28px;object-fit:contain;" />`;
+  }
+  // Default Lorry / Truck / Bus / Van
+  return `<img src="/big-cargo-truck.png" style="width:28px;height:28px;object-fit:contain;" />`;
+};
+
+// Custom vehicle marker generator
+const createVehicleIcon = (vehicle, statusColor, direction) => {
+  const type = getVehicleType(vehicle);
+  const svg = getTopDownSvg(type);
+
   const svgHtml = `
     <div style="
       display: flex;
@@ -43,18 +66,13 @@ const createLiveTruckIcon = (ignition) => {
       justify-content: center;
       width: 44px;
       height: 44px;
-      background-color: #0f172a;
-      border: 3px solid ${color};
+      background-color: #ffffff;
+      border: 3px solid ${statusColor};
       border-radius: 50%;
-      box-shadow: 0 0 15px ${color}, inset 0 0 6px ${color};
-      color: ${color};
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2), inset 0 0 6px ${statusColor};
+      color: ${statusColor};
     ">
-      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="animate-pulse">
-        <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
-        <path d="M19 18h2a1 1 0 0 0 1-1v-5.14a1 1 0 0 0-.293-.707l-3.86-3.86A1 1 0 0 0 17.14 7H14"/>
-        <circle cx="7.5" cy="18.5" r="2.5"/>
-        <circle cx="16.5" cy="18.5" r="2.5"/>
-      </svg>
+      ${svg}
     </div>
   `;
 
@@ -66,10 +84,13 @@ const createLiveTruckIcon = (ignition) => {
   });
 };
 
-const VehicleMap = ({ vehicleId, initialLat, initialLng, initialIgnition }) => {
+const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
   const { socket, joinVehicleRoom, leaveVehicleRoom } = useSocket();
   const [coords, setCoords] = useState([]);
   const [ignition, setIgnition] = useState(initialIgnition);
+  const [speed, setSpeed] = useState(initialSpeed || 0);
+  const [direction, setDirection] = useState(vehicle?.current_direction || 0);
+  const isOnline = vehicle?.is_online !== false;
 
   // Track coordinates history (max 10 points for the tail)
   useEffect(() => {
@@ -97,6 +118,10 @@ const VehicleMap = ({ vehicleId, initialLat, initialLng, initialIgnition }) => {
             return nextList;
           });
           setIgnition(!!data.ignition);
+          setSpeed(data.speed || 0);
+          if (data.direction !== undefined) {
+             setDirection(data.direction);
+          }
         }
       };
 
@@ -111,6 +136,10 @@ const VehicleMap = ({ vehicleId, initialLat, initialLng, initialIgnition }) => {
 
   const defaultCenter = [20.5937, 78.9629];
   const center = coords.length > 0 ? coords[coords.length - 1] : defaultCenter;
+  
+  // Calculate status color matching dashboard logic
+  const isMoving = speed > 0;
+  const statusColor = isOnline ? (isMoving ? '#10b981' : (ignition ? '#f59e0b' : '#ef4444')) : '#64748b';
 
   return (
     <div className="w-full h-full border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
@@ -143,7 +172,7 @@ const VehicleMap = ({ vehicleId, initialLat, initialLng, initialIgnition }) => {
         {coords.length > 0 && (
           <Marker
             position={coords[coords.length - 1]}
-            icon={createLiveTruckIcon(ignition)}
+            icon={createVehicleIcon(vehicle, statusColor, direction)}
           />
         )}
       </MapContainer>

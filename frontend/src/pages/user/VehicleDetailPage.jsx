@@ -317,7 +317,7 @@ const VehicleDetailPage = () => {
 
           {/* Large Map */}
           <div style={{ flex: 1, minHeight: '400px', background: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', position: 'relative' }}>
-            <VehicleMap vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={vehicle.current_ignition} />
+            <VehicleMap vehicle={vehicle} vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={vehicle.current_ignition} initialSpeed={vehicle.current_speed} />
           </div>
 
           {/* 4. Bottom Information Cards */}

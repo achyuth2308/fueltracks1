@@ -187,8 +187,6 @@ const createVehicleIcon = (vehicle, statusColor) => {
       border-radius: 50%;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
       color: ${statusColor};
-      transform: rotate(${direction}deg);
-      transition: transform 0.5s linear;
     ">
       ${svg}
     </div>
