@@ -14,7 +14,7 @@ async function fix() {
       UPDATE vehicle_latest_state 
       SET lat = 17.3411 + (random() * 0.02 - 0.01), 
           lng = 78.5317 + (random() * 0.02 - 0.01) 
-      WHERE lat < 8 OR lat > 38 OR lng < 68 OR lng > 98 OR lat IS NULL OR lng IS NULL);
+      WHERE lat < 8 OR lat > 38 OR lng < 68 OR lng > 98 OR lat IS NULL OR lng IS NULL
     `);
     console.log('Fixed DB points: ' + fixRes.rowCount);
   } catch (e) {
