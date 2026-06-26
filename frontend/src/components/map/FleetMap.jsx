@@ -155,10 +155,7 @@ const getTopDownSvg = (type) => {
               <rect x="6" y="15" width="12" height="3" fill="currentColor"/>
             </svg>`;
   } else if (type === 'bike') {
-    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="9" y="3" width="6" height="18" rx="3" fill="currentColor"/>
-              <circle cx="12" cy="7" r="2" fill="currentColor"/>
-            </svg>`;
+    return `<img src="/racing-motorbike.png" style="width:24px;height:24px;object-fit:contain;" />`;
   } else if (type === 'bus') {
     return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <rect x="4" y="1" width="16" height="22" rx="2" fill="currentColor" fill-opacity="0.2"/>
