@@ -185,7 +185,7 @@ const createVehicleIcon = (vehicle, statusColor) => {
   const svg = getTopDownSvg(type);
   const direction = vehicle.current_direction || vehicle.direction || 0;
 
-  const svgHtml = \`
+  const svgHtml = `
     <div style="
       display: flex;
       align-items: center;
@@ -193,16 +193,16 @@ const createVehicleIcon = (vehicle, statusColor) => {
       width: 38px;
       height: 38px;
       background-color: #ffffff;
-      border: 2px solid \${statusColor};
+      border: 2px solid ${statusColor};
       border-radius: 50%;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      color: \${statusColor};
-      transform: rotate(\${direction}deg);
+      color: ${statusColor};
+      transform: rotate(${direction}deg);
       transition: transform 0.5s linear;
     ">
-      \${svg}
+      ${svg}
     </div>
-  \`;
+  `;
 
   return L.divIcon({
     html: svgHtml,
