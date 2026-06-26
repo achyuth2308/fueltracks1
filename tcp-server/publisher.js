@@ -46,9 +46,25 @@ function init() {
 async function publishLocation(parsed) {
   if (!publisher) throw new Error('Redis publisher not initialized');
 
-  const { imei, lat, lng, speed, fuel, ignition, voltage, direction,
+  let { imei, lat, lng, speed, fuel, ignition, voltage, direction,
           odometer, satellites, gsmSignal, battery, deviceTime, isLive,
           rawPacket, packetType } = parsed;
+
+  // Fallback to last known valid location if coordinates are 0,0 or invalid
+  if (!lat || !lng || (lat === 0 && lng === 0) || (lat === "0" && lng === "0") || (lat === "0.0" && lng === "0.0")) {
+    try {
+      const prevStateRaw = await publisher.get(`vehicle:state:${imei}`);
+      if (prevStateRaw) {
+        const prevState = JSON.parse(prevStateRaw);
+        if (prevState && prevState.lat && prevState.lng) {
+          lat = prevState.lat;
+          lng = prevState.lng;
+        }
+      }
+    } catch(e) {
+      // Ignore parse error
+    }
+  }
 
   const payload = JSON.stringify({
     imei,
