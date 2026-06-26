@@ -97,8 +97,9 @@ const HistoryPage = () => {
           lat > 6.5 && lat < 37.5 &&
           lng > 68.0 && lng < 98.0;
 
-        let lastValidLat = null;
-        let lastValidLng = null;
+        // Default fallback to Hyderabad office if literally 0 valid coordinates exist in history
+        let lastValidLat = 17.3411;
+        let lastValidLng = 78.5317;
 
         // First pass: find the first valid coordinate to use as starting fallback
         for (const p of routeRes.data) {
