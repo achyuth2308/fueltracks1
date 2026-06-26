@@ -57,7 +57,7 @@ async function publishLocation(parsed) {
       const prevStateRaw = await publisher.get(`vehicle:state:${imei}`);
       if (prevStateRaw) {
         const prevState = JSON.parse(prevStateRaw);
-        if (prevState && prevState.lat && prevState.lng && parseFloat(prevState.lat) !== 0 && parseFloat(prevState.lng) !== 0) {
+        if (prevState && prevState.lat && prevState.lng && Math.abs(parseFloat(prevState.lat)) > 5 && Math.abs(parseFloat(prevState.lng)) > 10) {
           lat = prevState.lat;
           lng = prevState.lng;
           restored = true;
