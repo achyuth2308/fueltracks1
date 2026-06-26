@@ -368,9 +368,9 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
              let finalLat = parseFloat(vehicle.lat);
              let finalLng = parseFloat(vehicle.lng);
              
-             // HARD FAILSAFE: Absolutely NEVER allow a coordinate near the ocean (equator / Null Island).
-             // If a device sends latitude exactly 0 or near 0, force it to the default office location.
-             if (Math.abs(finalLat) < 5 && Math.abs(finalLng) < 100) {
+             // HARD FAILSAFE: Absolutely NEVER allow a coordinate outside India.
+             // India bounding box: Lat 8 to 38, Lng 68 to 98
+             if (finalLat < 8 || finalLat > 38 || finalLng < 68 || finalLng > 98) {
                // Add tiny offset so markers don't permanently hide each other
                finalLat = 17.3411 + (Math.random() * 0.01 - 0.005);
                finalLng = 78.5317 + (Math.random() * 0.01 - 0.005);
