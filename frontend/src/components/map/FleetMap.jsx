@@ -136,9 +136,56 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
   );
 };
 
-// Custom SVG truck marker generator
-const createTruckIcon = (statusColor) => {
-  const svgHtml = `
+const getVehicleType = (vehicle) => {
+  const model = (vehicle.model || '').toLowerCase();
+  const name = (vehicle.name || '').toLowerCase();
+  
+  if (model.includes('car') || name.includes('car')) return 'car';
+  if (model.includes('bike') || name.includes('bike') || model.includes('motorcycle')) return 'bike';
+  if (model.includes('bus') || name.includes('bus')) return 'bus';
+  if (model.includes('van') || name.includes('van')) return 'van';
+  return 'lorry';
+};
+
+const getTopDownSvg = (type) => {
+  if (type === 'car') {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="5" y="2" width="14" height="20" rx="4" fill="currentColor" fill-opacity="0.2"/>
+              <rect x="6" y="6" width="12" height="4" fill="currentColor"/>
+              <rect x="6" y="15" width="12" height="3" fill="currentColor"/>
+            </svg>`;
+  } else if (type === 'bike') {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="3" width="6" height="18" rx="3" fill="currentColor"/>
+              <circle cx="12" cy="7" r="2" fill="currentColor"/>
+            </svg>`;
+  } else if (type === 'bus') {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="1" width="16" height="22" rx="2" fill="currentColor" fill-opacity="0.2"/>
+              <rect x="5" y="3" width="14" height="4" fill="currentColor"/>
+              <rect x="5" y="19" width="14" height="2" fill="currentColor"/>
+            </svg>`;
+  } else if (type === 'van') {
+    return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="4" y="2" width="16" height="20" rx="3" fill="currentColor" fill-opacity="0.2"/>
+              <rect x="5" y="7" width="14" height="5" fill="currentColor"/>
+            </svg>`;
+  }
+  
+  // Default Lorry / Truck
+  return `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="5" y="2" width="14" height="6" rx="1" fill="currentColor"/>
+            <rect x="4" y="9" width="16" height="13" fill="currentColor" fill-opacity="0.2"/>
+          </svg>`;
+};
+
+// Custom SVG marker generator
+const createVehicleIcon = (vehicle, statusColor) => {
+  const type = getVehicleType(vehicle);
+  const svg = getTopDownSvg(type);
+  const direction = vehicle.current_direction || vehicle.direction || 0;
+
+  const svgHtml = \`
     <div style="
       display: flex;
       align-items: center;
@@ -146,23 +193,20 @@ const createTruckIcon = (statusColor) => {
       width: 38px;
       height: 38px;
       background-color: #ffffff;
-      border: 2px solid ${statusColor};
+      border: 2px solid \${statusColor};
       border-radius: 50%;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      color: ${statusColor};
+      color: \${statusColor};
+      transform: rotate(\${direction}deg);
+      transition: transform 0.5s linear;
     ">
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-truck">
-        <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/>
-        <path d="M19 18h2a1 1 0 0 0 1-1v-5.14a1 1 0 0 0-.293-.707l-3.86-3.86A1 1 0 0 0 17.14 7H14"/>
-        <circle cx="7.5" cy="18.5" r="2.5"/>
-        <circle cx="16.5" cy="18.5" r="2.5"/>
-      </svg>
+      \${svg}
     </div>
-  `;
+  \`;
 
   return L.divIcon({
     html: svgHtml,
-    className: 'custom-leaflet-truck-icon',
+    className: 'custom-leaflet-animated-icon',
     iconSize: [38, 38],
     iconAnchor: [19, 19],
     popupAnchor: [0, -19],
@@ -190,7 +234,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
   return (
     <Marker
       position={position}
-      icon={createTruckIcon(statusColor)}
+      icon={createVehicleIcon(vehicle, statusColor)}
       ref={markerRef}
       title={warning ? `${vehicle.name} - ${warning.text}` : vehicle.name}
       eventHandlers={{
@@ -335,6 +379,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         >
           <option value="osm">OSM</option>
           <option value="google">Google Maps</option>
+          <option value="satellite">Satellite View</option>
         </select>
       </div>
 
@@ -354,6 +399,8 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
           attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
           url={mapType === 'osm'
             ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            : mapType === 'satellite'
+            ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
             : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
           }
         />
