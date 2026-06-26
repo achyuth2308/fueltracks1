@@ -3,8 +3,8 @@ const db = require('./config/db');
 async function fixLocations() {
   try {
     console.log('Starting DB fix...');
-    const res = await db.query(`SELECT vehicle_id FROM vehicle_latest_state WHERE lat = 0 AND lng = 0`);
-    console.log('Vehicles currently at 0,0:', res.rows.length);
+    const res = await db.query(`SELECT vehicle_id FROM vehicle_latest_state WHERE (lat = 0 OR lat IS NULL) AND (lng = 0 OR lng IS NULL)`);
+    console.log('Vehicles currently at 0,0 or null:', res.rows.length);
     
     for (const row of res.rows) {
       const vid = row.vehicle_id;
@@ -12,7 +12,7 @@ async function fixLocations() {
       const valid = await db.query(`
         SELECT lat, lng
         FROM gps_points 
-        WHERE vehicle_id = $1 AND lat != 0 AND lng != 0
+        WHERE vehicle_id = $1 AND lat != 0 AND lat IS NOT NULL AND lng != 0 AND lng IS NOT NULL
         ORDER BY device_time DESC LIMIT 1
       `, [vid]);
       
@@ -30,7 +30,7 @@ async function fixLocations() {
     }
 
     // Delete all 0,0 points from gps history to keep data clean
-    const delRes = await db.query(`DELETE FROM gps_points WHERE lat = 0 AND lng = 0`);
+    const delRes = await db.query(`DELETE FROM gps_points WHERE (lat = 0 OR lat IS NULL) AND (lng = 0 OR lng IS NULL)`);
     console.log(`[CLEANUP] Deleted ${delRes.rowCount} invalid 0,0 points from historical data.`);
 
   } catch (err) {
