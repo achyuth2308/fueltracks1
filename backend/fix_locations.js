@@ -25,7 +25,15 @@ async function fixLocations() {
         `, [lat, lng, vid]);
         console.log(`[OK] Restored vehicle ${vid} to last valid coordinates: ${lat}, ${lng}`);
       } else {
-        console.log(`[WARN] No valid historical coordinates found for vehicle ${vid}`);
+        // Fallback to default FuelTracks office location in Hyderabad
+        const defaultLat = 17.3411;
+        const defaultLng = 78.5317;
+        await db.query(`
+          UPDATE vehicle_latest_state 
+          SET lat = $1, lng = $2 
+          WHERE vehicle_id = $3
+        `, [defaultLat, defaultLng, vid]);
+        console.log(`[FIXED] Vehicle ${vid} had no history. Set to default office location.`);
       }
     }
 
