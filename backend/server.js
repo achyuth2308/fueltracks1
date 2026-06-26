@@ -122,6 +122,30 @@ async function bootstrap() {
       console.log('============================================================');
     });
 
+    // 4. Start Background Offline Checker
+    setInterval(async () => {
+      try {
+        const result = await db.query(`
+          UPDATE vehicle_latest_state 
+          SET is_online = FALSE 
+          WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '5 minutes'
+          RETURNING vehicle_id;
+        `);
+        if (result.rowCount > 0) {
+          console.log(`[CRON] Marked ${result.rowCount} vehicles as OFFLINE due to inactivity.`);
+          // Notify connected clients that these vehicles went offline
+          result.rows.forEach(row => {
+            io.emit('fleet:update', {
+              vehicleId: row.vehicle_id,
+              is_online: false
+            });
+          });
+        }
+      } catch (err) {
+        console.error('[CRON] Offline checker error:', err.message);
+      }
+    }, 60000); // Run every 60 seconds
+
   } catch (err) {
     console.error('[BOOT] Bootstrap failed:', err);
     process.exit(1);

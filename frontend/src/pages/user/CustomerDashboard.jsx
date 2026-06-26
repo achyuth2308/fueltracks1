@@ -81,7 +81,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return vehicles.filter(v => getStatus(v) === statusFilter);
   }, [vehicles, statusFilter]);
 
-  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#f97316', offline: '#6b7280' };
+  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#f97316', offline: '#ef4444' };
   const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline' };
 
   const currentSelected = useMemo(() => {

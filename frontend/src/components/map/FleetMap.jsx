@@ -174,7 +174,8 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
 
   const isOnline = !!vehicle.is_online;
   const isMoving = isOnline && (vehicle.current_speed || 0) > 0;
-  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280';
+  // User requested RED for offline (#ef4444)
+  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#ef4444';
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning = getExpiryWarning(vehicle.licence_expire_date);
 
@@ -217,8 +218,8 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280',
-              boxShadow: `0 0 6px ${isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#6b7280'}`
+              background: statusColor,
+              boxShadow: `0 0 6px ${statusColor}`
             }} />
           </div>
 
@@ -249,7 +250,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
 
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: '#6e859b', fontWeight: 600 }}>ACC Status</span>
-              <span style={{ fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#6b7280' }}>
+              <span style={{ fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444' }}>
                 - {vehicle.current_ignition ? 'ON' : 'OFF'}
               </span>
             </div>
@@ -362,16 +363,31 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
 
         {/* Vehicle Markers */}
         {vehicles
-          .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)) && parseFloat(v.lat) !== 0 && parseFloat(v.lng) !== 0)
-          .map((vehicle) => (
-            <VehicleMarker
-              key={vehicle.id}
-              vehicle={vehicle}
-              isSelected={selectedVehicle?.id === vehicle.id}
-              onMarkerClick={onMarkerClick}
-              onMultiTrackClick={null}
-            />
-          ))}
+          .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)))
+          .map((vehicle) => {
+             let finalLat = parseFloat(vehicle.lat);
+             let finalLng = parseFloat(vehicle.lng);
+             
+             // HARD FAILSAFE: Absolutely NEVER allow a coordinate near the ocean (equator / Null Island).
+             // If a device sends latitude exactly 0 or near 0, force it to the default office location.
+             if (Math.abs(finalLat) < 5 && Math.abs(finalLng) < 100) {
+               // Add tiny offset so markers don't permanently hide each other
+               finalLat = 17.3411 + (Math.random() * 0.01 - 0.005);
+               finalLng = 78.5317 + (Math.random() * 0.01 - 0.005);
+             }
+
+             const safeVehicle = { ...vehicle, lat: finalLat, lng: finalLng };
+
+             return (
+               <VehicleMarker
+                 key={safeVehicle.id}
+                 vehicle={safeVehicle}
+                 isSelected={selectedVehicle?.id === safeVehicle.id}
+                 onMarkerClick={onMarkerClick}
+                 onMultiTrackClick={null}
+               />
+             );
+          })}
       </MapContainer>
     </div>
   );
