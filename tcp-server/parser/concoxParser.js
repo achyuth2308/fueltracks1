@@ -175,6 +175,12 @@ function parseGpsBlock(buf, offset) {
   let lng = rawLng / 1800000;
 
   if (!isNorth) lat = -lat;
+
+  // FIX: Cheap clones zero out hemisphere bits when GPS is lost, putting vehicles in the Indian Ocean.
+  // If coordinates are in the Indian Ocean directly south of India, flip latitude back to North.
+  if (lat < 0 && lat > -40 && lng > 65 && lng < 95) {
+    lat = Math.abs(lat);
+  }
   if (isWest)   lng = -lng;
 
   lat = parseFloat(lat.toFixed(7));

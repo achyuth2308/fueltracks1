@@ -42,6 +42,10 @@ function convertCoords(raw, direction) {
   if (direction === 'S' || direction === 'W') {
     val = -val;
   }
+  // FIX: Prevent negative latitudes in the Indian Ocean directly south of India
+  if (direction === 'S' && val < 0 && val > -40) {
+    val = Math.abs(val);
+  }
   return parseFloat(val.toFixed(7));
 }
 
