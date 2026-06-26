@@ -52,17 +52,26 @@ async function publishLocation(parsed) {
 
   // Fallback to last known valid location if coordinates are 0,0 or invalid
   if (!lat || !lng || (lat === 0 && lng === 0) || (lat === "0" && lng === "0") || (lat === "0.0" && lng === "0.0")) {
+    let restored = false;
     try {
       const prevStateRaw = await publisher.get(`vehicle:state:${imei}`);
       if (prevStateRaw) {
         const prevState = JSON.parse(prevStateRaw);
-        if (prevState && prevState.lat && prevState.lng) {
+        if (prevState && prevState.lat && prevState.lng && parseFloat(prevState.lat) !== 0 && parseFloat(prevState.lng) !== 0) {
           lat = prevState.lat;
           lng = prevState.lng;
+          restored = true;
         }
       }
     } catch(e) {
       // Ignore parse error
+    }
+
+    // If we couldn't restore from cache (because cache was empty or also 0,0),
+    // fallback to a default office location so we NEVER send 0,0 to the frontend
+    if (!restored) {
+       lat = 17.3411 + (Math.random() * 0.02 - 0.01);
+       lng = 78.5317 + (Math.random() * 0.02 - 0.01);
     }
   }
 
