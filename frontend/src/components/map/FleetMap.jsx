@@ -137,11 +137,22 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
 };
 
 const getVehicleType = (vehicle) => {
-  const model = (vehicle.model || '').toLowerCase();
+  const model = (vehicle.model || '').toLowerCase().trim();
   const name = (vehicle.name || '').toLowerCase();
 
-  if (model.includes('car') || name.includes('car')) return 'car';
-  if (model.includes('bike') || name.includes('bike') || model.includes('motorcycle')) return 'bike';
+  // ── Priority 1: Exact model field match (stored directly from onboarding dropdown) ──
+  if (model === 'scooty' || model === 'scooter' || model === 'moped') return 'bike';
+  if (model === 'motorcycle' || model === 'bike') return 'bike';
+  if (model === 'car') return 'car';
+  if (model === 'bus' || model === 'ambulance') return 'bus';
+  if (model === 'van' || model === 'pickup') return 'van';
+  if (model === 'truck' || model === 'lorry' || model === 'tanker' ||
+      model === 'tractor' || model === 'jcb' || model === 'crane' || model === 'borewell') return 'lorry';
+
+  // ── Priority 2: Keyword search (fallback for older/manual entries) ──
+  if (model.includes('scooty') || model.includes('scooter') || model.includes('moped')) return 'bike';
+  if (model.includes('bike') || model.includes('motorcycle') || name.includes('bike')) return 'bike';
+  if (model.includes('car')) return 'car'; // only on model field — avoid false match from vehicle names
   if (model.includes('bus') || name.includes('bus')) return 'bus';
   if (model.includes('van') || name.includes('van')) return 'van';
   return 'lorry';
@@ -323,13 +334,22 @@ const ResizeMap = () => {
   return null;
 };
 
-const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
+const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = null, onMarkerClick }) => {
+  // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
+  // selectedVehicles (array) takes priority; fall back to singular selectedVehicle
+  const effectiveSelected = selectedVehicles != null
+    ? (Array.isArray(selectedVehicles) ? selectedVehicles[0] || null : selectedVehicles)
+    : selectedVehicle;
+
+  const allSelected = selectedVehicles != null
+    ? (Array.isArray(selectedVehicles) ? selectedVehicles : [selectedVehicles])
+    : (selectedVehicle ? [selectedVehicle] : []);
   const [mapType, setMapType] = useState('osm'); // 'osm' or 'google'
 
   // Default map center for Karmanghat, Hyderabad (FuelTracks Office)
   const defaultCenter = [17.3411, 78.5317];
-  const mapCenter = selectedVehicle && selectedVehicle.lat && selectedVehicle.lng
-    ? [parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)]
+  const mapCenter = effectiveSelected && effectiveSelected.lat && effectiveSelected.lng
+    ? [parseFloat(effectiveSelected.lat), parseFloat(effectiveSelected.lng)]
     : vehicles.length > 0 && vehicles[0].lat && vehicles[0].lng
       ? [parseFloat(vehicles[0].lat), parseFloat(vehicles[0].lng)]
       : defaultCenter;
@@ -394,7 +414,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
         />
 
         {/* Handle map zooming and vehicle route plotting */}
-        <VehicleRouteAndFit selectedVehicle={selectedVehicle} />
+        <VehicleRouteAndFit selectedVehicle={effectiveSelected} />
 
         {/* Vehicle Markers */}
         {vehicles
@@ -417,7 +437,7 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, onMarkerClick }) => {
               <VehicleMarker
                 key={safeVehicle.id}
                 vehicle={safeVehicle}
-                isSelected={selectedVehicle?.id === safeVehicle.id}
+                isSelected={allSelected.some(sv => sv.id === safeVehicle.id)}
                 onMarkerClick={onMarkerClick}
                 onMultiTrackClick={null}
               />

@@ -66,7 +66,7 @@ export const useVehicles = (initialParams = {}) => {
               current_ignition: data.ignition,
               current_fuel: data.fuel !== undefined ? data.fuel : vehicle.current_fuel,
               current_voltage: data.voltage !== undefined ? data.voltage : vehicle.current_voltage,
-              is_online: data.is_online !== undefined ? data.is_online : true,
+              is_online: data.is_online !== undefined ? data.is_online : (data.isOnline !== undefined ? data.isOnline : true),
               last_seen: data.deviceTime || new Date().toISOString(),
             };
           }
