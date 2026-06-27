@@ -14,6 +14,3 @@ CREATE INDEX IF NOT EXISTS idx_raw_packets_imei_time
 -- 3. Delete old raw packets older than 7 days to keep the table lean
 DELETE FROM raw_packets
 WHERE received_at < NOW() - INTERVAL '7 days';
-
--- 4. VACUUM to reclaim space and update the planner's statistics
-VACUUM ANALYZE raw_packets;
