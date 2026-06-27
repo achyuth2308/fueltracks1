@@ -278,14 +278,14 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       icon={createPinIcon(vehicle, noGps, clusterRank)}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
-      eventHandlers={{ click: () => onMarkerClick && onMarkerClick(vehicle) }}
+      eventHandlers={{ 
+        mouseover: (e) => e.target.openPopup(),
+        click: () => onMarkerClick && onMarkerClick(vehicle) 
+      }}
     >
-      <Tooltip
-        direction="top"
-        offset={[0, -(clusterRank * 20 + 36)]} // Adjust for teardrop height
-        interactive={true}
+      <Popup
         className="premium-popup"
-        opacity={1}
+        closeButton={false}
       >
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* No GPS notice */}
@@ -325,7 +325,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             <span onClick={() => navigate(`/vehicles/${vehicle.id}/history`)} style={{ color: '#f97316', cursor: 'pointer' }}>History</span>
           </div>
         </div>
-      </Tooltip>
+      </Popup>
     </Marker>
   );
 };
@@ -526,12 +526,19 @@ const FleetMap = ({
 
       <style dangerouslySetInnerHTML={{
         __html: `
-          .premium-popup {
+          .premium-popup .leaflet-popup-content-wrapper {
             border: 2px solid #2E4867 !important;
             border-radius: 6px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            padding: 0 !important;
           }
-          /* Optionally hide the little triangle pointer of the tooltip if it conflicts, but usually it looks fine */
+          .premium-popup .leaflet-popup-content {
+            margin: 8px 12px !important;
+          }
+          /* Optionally hide the tip */
+          .premium-popup .leaflet-popup-tip-container {
+            display: none !important;
+          }
         `
       }} />
     </div>
