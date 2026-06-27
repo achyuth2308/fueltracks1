@@ -253,7 +253,7 @@ const createPinIcon = (vehicle, noGps = false) => {
   });
 };
 
-const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
+const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
   const markerRef = useRef(null);
 
   const status  = getVehicleStatus(vehicle);
@@ -273,6 +273,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
       position={position}
       icon={createPinIcon(vehicle, noGps)}
       ref={markerRef}
+      zIndexOffset={zIndexOffset}
       eventHandlers={{ click: () => onMarkerClick && onMarkerClick(vehicle) }}
     >
       {/* Permanent label below pin */}
@@ -454,29 +455,67 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
         {/* Handle map zooming and vehicle route plotting */}
         <VehicleRouteAndFit selectedVehicle={effectiveSelected} />
 
-        {/* Vehicle Markers — render ALL vehicles, including those without GPS history */}
-        {vehicles
-          .map((vehicle, idx) => {
+        {/* Vehicle Markers — render ALL vehicles, spread overlapping pins into a visible arc */}
+        {(() => {
+          // ── Step 1: resolve / validate every vehicle's coordinates ──────────
+          const resolved = vehicles.map((vehicle, idx) => {
             let finalLat = parseFloat(vehicle.lat);
             let finalLng = parseFloat(vehicle.lng);
-            let hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
+            const hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
               && finalLat !== 0 && finalLng !== 0
-              && finalLat > 6 && finalLat < 38
+              && finalLat > 6  && finalLat < 38
               && finalLng > 68 && finalLng < 98;
 
             if (!hasValidCoords) {
-              // Place vehicles without GPS at distinct spots near the default city center
-              // Use index-based offset so multiple no-GPS vehicles don't stack
               finalLat = 17.3411 + (idx * 0.003);
               finalLng = 78.5317 + (idx * 0.003);
             }
+            return { vehicle, finalLat, finalLng, hasValidCoords, origIdx: idx };
+          });
 
+          // ── Step 2: cluster-spread — spread pins that overlap within ~150 m ─
+          // 0.0015° ≈ 167 m at Indian latitudes
+          const CLUSTER_THRESHOLD = 0.0015;
+          // Spread radius 0.0007° ≈ ~78 m — keeps pins near true location
+          const SPREAD_RADIUS = 0.0007;
+          const visited = new Set();
+
+          resolved.forEach((item, i) => {
+            if (visited.has(i)) return;
+            const cluster = [i];
+            resolved.forEach((other, j) => {
+              if (j === i || visited.has(j)) return;
+              if (
+                Math.abs(item.finalLat - other.finalLat) < CLUSTER_THRESHOLD &&
+                Math.abs(item.finalLng - other.finalLng) < CLUSTER_THRESHOLD
+              ) cluster.push(j);
+            });
+
+            if (cluster.length > 1) {
+              // Spread in a circle: first item stays at centre, rest fan out
+              cluster.forEach((ci, rank) => {
+                visited.add(ci);
+                if (rank === 0) return; // keep first pin at true location
+                const angle = (2 * Math.PI * (rank - 1)) / (cluster.length - 1);
+                resolved[ci].finalLat = item.finalLat + SPREAD_RADIUS * Math.cos(angle);
+                resolved[ci].finalLng = item.finalLng + SPREAD_RADIUS * Math.sin(angle);
+                resolved[ci]._clusterRank = rank; // rank > 0 means displaced
+              });
+            } else {
+              visited.add(i);
+            }
+          });
+
+          // ── Step 3: render ────────────────────────────────────────────────────
+          return resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords, _clusterRank }) => {
             const safeVehicle = {
               ...vehicle,
               lat: finalLat,
               lng: finalLng,
-              _noGps: !hasValidCoords, // flag used by VehicleMarker for visual indicator
+              _noGps: !hasValidCoords,
             };
+            // Displaced pins get a higher z-index so they always appear above
+            const zOffset = (_clusterRank || 0) * 200;
 
             return (
               <VehicleMarker
@@ -484,10 +523,11 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
                 vehicle={safeVehicle}
                 isSelected={allSelected.some(sv => sv.id === safeVehicle.id)}
                 onMarkerClick={onMarkerClick}
-                onMultiTrackClick={null}
+                zIndexOffset={zOffset}
               />
             );
-          })}
+          });
+        })()}
       </MapContainer>
     </div>
   );
