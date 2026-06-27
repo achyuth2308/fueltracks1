@@ -523,6 +523,17 @@ const FleetMap = ({
           onMarkerClick={onMarkerClick}
         />
       </MapContainer>
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          .premium-popup {
+            border: 2px solid #2E4867 !important;
+            border-radius: 6px !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+          }
+          /* Optionally hide the little triangle pointer of the tooltip if it conflicts, but usually it looks fine */
+        `
+      }} />
     </div>
   );
 };
