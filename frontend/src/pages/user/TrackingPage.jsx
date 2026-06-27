@@ -270,7 +270,7 @@ const TrackingPage = ({ setAppVehicles }) => {
           selectedVehicles={currentSelectedVehicles}
           onMarkerClick={handleSelectVehicle}
           onMultiTrackClick={handleMultiTrackClick}
-          showRoute={true}
+          showRoute={false}
           followSelected={true}
         />
 
