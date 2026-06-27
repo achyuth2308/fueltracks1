@@ -366,6 +366,86 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   );
 };
 
+// ── Dynamic Vehicle Markers Layer ──────────────────────────────────────
+const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  useEffect(() => {
+    const onZoom = () => setZoom(map.getZoom());
+    map.on('zoomend', onZoom);
+    return () => { map.off('zoomend', onZoom); };
+  }, [map]);
+
+  // ── Step 1: resolve / validate every vehicle's coordinates ──────────
+  const resolved = vehicles.map((vehicle, idx) => {
+    let finalLat = parseFloat(vehicle.lat);
+    let finalLng = parseFloat(vehicle.lng);
+    const hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
+      && finalLat !== 0 && finalLng !== 0
+      && finalLat > 6  && finalLat < 38
+      && finalLng > 68 && finalLng < 98;
+
+    if (!hasValidCoords) {
+      finalLat = 17.3411 + (idx * 0.003);
+      finalLng = 78.5317 + (idx * 0.003);
+    }
+    return { vehicle, finalLat, finalLng, hasValidCoords, origIdx: idx, _clusterRank: 0 };
+  });
+
+  // ── Step 2: Screen-space visual height spread ──────────────────────
+  const PIXEL_THRESHOLD = 30; // 30px visual overlap grouping
+  const visited = new Set();
+
+  resolved.forEach((item, i) => {
+    if (visited.has(i)) return;
+    const itemPoint = map.latLngToLayerPoint([item.finalLat, item.finalLng]);
+    const cluster = [i];
+
+    resolved.forEach((other, j) => {
+      if (j === i || visited.has(j)) return;
+      const otherPoint = map.latLngToLayerPoint([other.finalLat, other.finalLng]);
+      const dx = itemPoint.x - otherPoint.x;
+      const dy = itemPoint.y - otherPoint.y;
+      if (dx * dx + dy * dy < PIXEL_THRESHOLD * PIXEL_THRESHOLD) {
+        cluster.push(j);
+      }
+    });
+
+    if (cluster.length > 1) {
+      cluster.forEach((ci, rank) => {
+        visited.add(ci);
+        resolved[ci]._clusterRank = rank; // rank > 0 makes the pin taller
+      });
+    } else {
+      visited.add(i);
+    }
+  });
+
+  // ── Step 3: Render Markers ──────────────────────────────────────────
+  return resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords, _clusterRank }) => {
+    const safeVehicle = {
+      ...vehicle,
+      lat: finalLat,
+      lng: finalLng,
+      _noGps: !hasValidCoords,
+      _clusterRank: _clusterRank
+    };
+    // Displaced pins get a higher z-index so they always appear above
+    const zOffset = (_clusterRank || 0) * 200;
+
+    return (
+      <VehicleMarker
+        key={safeVehicle.id}
+        vehicle={safeVehicle}
+        isSelected={allSelected.some(sv => sv.id === safeVehicle.id)}
+        onMarkerClick={onMarkerClick}
+        zIndexOffset={zOffset}
+      />
+    );
+  });
+};
+
 // Auto-resize map when container dimensions change
 const ResizeMap = () => {
   const map = useMap();
@@ -461,74 +541,12 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
         {/* Handle map zooming and vehicle route plotting */}
         <VehicleRouteAndFit selectedVehicle={effectiveSelected} />
 
-        {/* Vehicle Markers — render ALL vehicles, spread overlapping pins into a visible arc */}
-        {(() => {
-          // ── Step 1: resolve / validate every vehicle's coordinates ──────────
-          const resolved = vehicles.map((vehicle, idx) => {
-            let finalLat = parseFloat(vehicle.lat);
-            let finalLng = parseFloat(vehicle.lng);
-            const hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
-              && finalLat !== 0 && finalLng !== 0
-              && finalLat > 6  && finalLat < 38
-              && finalLng > 68 && finalLng < 98;
-
-            if (!hasValidCoords) {
-              finalLat = 17.3411 + (idx * 0.003);
-              finalLng = 78.5317 + (idx * 0.003);
-            }
-            return { vehicle, finalLat, finalLng, hasValidCoords, origIdx: idx };
-          });
-
-          // ── Step 2: visual height spread for overlapping pins ─
-          // If vehicles are extremely close, we render them at the same lat/lng
-          // but visually shift the marker upwards via _clusterRank so it peaks out
-          const CLUSTER_THRESHOLD = 0.0005; // very strict threshold ~55m
-          const visited = new Set();
-
-          resolved.forEach((item, i) => {
-            if (visited.has(i)) return;
-            const cluster = [i];
-            resolved.forEach((other, j) => {
-              if (j === i || visited.has(j)) return;
-              if (
-                Math.abs(item.finalLat - other.finalLat) < CLUSTER_THRESHOLD &&
-                Math.abs(item.finalLng - other.finalLng) < CLUSTER_THRESHOLD
-              ) cluster.push(j);
-            });
-
-            if (cluster.length > 1) {
-              // Same lat/lng, but assign rank to make the pin taller
-              cluster.forEach((ci, rank) => {
-                visited.add(ci);
-                resolved[ci]._clusterRank = rank; // rank > 0 makes the pin taller
-              });
-            } else {
-              visited.add(i);
-            }
-          });
-
-          // ── Step 3: render ────────────────────────────────────────────────────
-          return resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords, _clusterRank }) => {
-            const safeVehicle = {
-              ...vehicle,
-              lat: finalLat,
-              lng: finalLng,
-              _noGps: !hasValidCoords,
-            };
-            // Displaced pins get a higher z-index so they always appear above
-            const zOffset = (_clusterRank || 0) * 200;
-
-            return (
-              <VehicleMarker
-                key={safeVehicle.id}
-                vehicle={safeVehicle}
-                isSelected={allSelected.some(sv => sv.id === safeVehicle.id)}
-                onMarkerClick={onMarkerClick}
-                zIndexOffset={zOffset}
-              />
-            );
-          });
-        })()}
+        {/* Vehicle Markers — Dynamic screen-space clustering */}
+        <VehicleMarkersLayer
+          vehicles={vehicles}
+          allSelected={allSelected}
+          onMarkerClick={onMarkerClick}
+        />
       </MapContainer>
     </div>
   );
