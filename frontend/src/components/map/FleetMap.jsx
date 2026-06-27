@@ -303,51 +303,37 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
           )}
 
           {/* Stats list */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {vehicle.name}</span>
-            </div>
+          {/* Stats list */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '12px', rowGap: '6px', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicle.name}</span>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {Math.round(vehicle.today_distance || 0)} kms</span>
-            </div>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{Math.round(vehicle.today_distance || 0)} kms</span>
 
             {getNoDataDuration(vehicle.last_seen) && status === 'offline' && (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-                  <span style={{ fontSize: '11px', color: '#6b7280' }}>No Data</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>- {getNoDataDuration(vehicle.last_seen)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-                  <span style={{ fontSize: '11px', color: '#6b7280' }}>Reason</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>- Device Offline</span>
-                </div>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>No Data</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', textAlign: 'right' }}>{getNoDataDuration(vehicle.last_seen)}</span>
+
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>Reason</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', textAlign: 'right' }}>Device Offline</span>
               </>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>ACC Status</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444' }}>- {vehicle.current_ignition ? 'ON' : 'OFF'}</span>
-            </div>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>ACC Status</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444', textAlign: 'right' }}>{vehicle.current_ignition ? 'ON' : 'OFF'}</span>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Battery</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).color }}>
-                - {getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).status})
-              </span>
-            </div>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Battery</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).color, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              {getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).status})
+            </span>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {formatLocalTime(vehicle.last_seen)}</span>
-            </div>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-              <span style={{ fontSize: '11px', color: '#6b7280' }}>Comm Time</span>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {formatLocalTime(vehicle.last_seen)}</span>
-            </div>
+            <span style={{ fontSize: '11px', color: '#6b7280' }}>Comm Time</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
           </div>
 
           {/* Links */}
