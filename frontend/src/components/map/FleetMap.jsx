@@ -202,7 +202,7 @@ const STATUS_CONFIG = {
 //   • white border ring
 //   • directional arrow for moving vehicles
 //   • pulse ring animation for running vehicles
-const createPinIcon = (vehicle, noGps = false) => {
+const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
   const status  = getVehicleStatus(vehicle);
   const cfg     = STATUS_CONFIG[status];
   const color   = cfg.color;
@@ -226,30 +226,35 @@ const createPinIcon = (vehicle, noGps = false) => {
     </circle>` : '';
 
   const dashStyle = noGps ? 'stroke-dasharray:3,2;' : '';
+  const stemHeight = clusterRank * 24;
+  const totalHeight = 44 + stemHeight;
 
   const svgHtml = `
-    <div style="position:relative;width:36px;height:44px;">
-      ${pulseRing ? `<svg style="position:absolute;top:-5px;left:-5px;width:46px;height:46px;overflow:visible;">${pulseRing}</svg>` : ''}
-      <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
-        <!-- Teardrop pin shape -->
-        <path d="M18 2 C9.163 2 2 9.163 2 18 C2 29.5 18 42 18 42 C18 42 34 29.5 34 18 C34 9.163 26.837 2 18 2 Z"
-          fill="${color}" stroke="white" stroke-width="2" style="${dashStyle}"/>
-        <!-- Inner white circle -->
-        <circle cx="18" cy="17" r="11" fill="white" fill-opacity="${noGps ? '0.4' : '0.2'}"/>
-        <!-- Vehicle glyph (16x16 centered at 18,17) -->
-        <g transform="translate(10,9)">
-          <svg width="16" height="16" viewBox="0 0 16 16">${glyph}</svg>
-        </g>
-        ${status === 'running' && speed > 0 ? `<text x="18" y="39" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white" dy="-1">${speed}</text>` : ''}
-      </svg>
+    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+      <div style="position:relative;width:36px;height:44px;">
+        ${pulseRing ? `<svg style="position:absolute;top:-5px;left:-5px;width:46px;height:46px;overflow:visible;z-index:0;">${pulseRing}</svg>` : ''}
+        <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));position:relative;z-index:1;">
+          <!-- Teardrop pin shape -->
+          <path d="M18 2 C9.163 2 2 9.163 2 18 C2 29.5 18 42 18 42 C18 42 34 29.5 34 18 C34 9.163 26.837 2 18 2 Z"
+            fill="${color}" stroke="white" stroke-width="2" style="${dashStyle}"/>
+          <!-- Inner white circle -->
+          <circle cx="18" cy="17" r="11" fill="white" fill-opacity="${noGps ? '0.4' : '0.2'}"/>
+          <!-- Vehicle glyph (16x16 centered at 18,17) -->
+          <g transform="translate(10,9)">
+            <svg width="16" height="16" viewBox="0 0 16 16">${glyph}</svg>
+          </g>
+          ${status === 'running' && speed > 0 ? `<text x="18" y="39" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white" dy="-1">${speed}</text>` : ''}
+        </svg>
+      </div>
+      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
     </div>`;
 
   return L.divIcon({
     html: svgHtml,
     className: '',
-    iconSize:   [36, 44],
-    iconAnchor: [18, 42],     // tip of the pin
-    popupAnchor:[0, -44],
+    iconSize:   [36, totalHeight],
+    iconAnchor: [18, totalHeight - 2],     // tip of the pin/stem
+    popupAnchor:[0, -totalHeight],
   });
 };
 
@@ -261,6 +266,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const noGps   = !!vehicle._noGps;
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning  = getExpiryWarning(vehicle.licence_expire_date);
+  const clusterRank = vehicle._clusterRank || 0;
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
@@ -271,7 +277,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   return (
     <Marker
       position={position}
-      icon={createPinIcon(vehicle, noGps)}
+      icon={createPinIcon(vehicle, noGps, clusterRank)}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
       eventHandlers={{ click: () => onMarkerClick && onMarkerClick(vehicle) }}
@@ -473,11 +479,10 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
             return { vehicle, finalLat, finalLng, hasValidCoords, origIdx: idx };
           });
 
-          // ── Step 2: cluster-spread — spread pins that overlap within ~150 m ─
-          // 0.0015° ≈ 167 m at Indian latitudes
-          const CLUSTER_THRESHOLD = 0.0015;
-          // Spread radius 0.0007° ≈ ~78 m — keeps pins near true location
-          const SPREAD_RADIUS = 0.0007;
+          // ── Step 2: visual height spread for overlapping pins ─
+          // If vehicles are extremely close, we render them at the same lat/lng
+          // but visually shift the marker upwards via _clusterRank so it peaks out
+          const CLUSTER_THRESHOLD = 0.0005; // very strict threshold ~55m
           const visited = new Set();
 
           resolved.forEach((item, i) => {
@@ -492,14 +497,10 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
             });
 
             if (cluster.length > 1) {
-              // Spread in a circle: first item stays at centre, rest fan out
+              // Same lat/lng, but assign rank to make the pin taller
               cluster.forEach((ci, rank) => {
                 visited.add(ci);
-                if (rank === 0) return; // keep first pin at true location
-                const angle = (2 * Math.PI * (rank - 1)) / (cluster.length - 1);
-                resolved[ci].finalLat = item.finalLat + SPREAD_RADIUS * Math.cos(angle);
-                resolved[ci].finalLng = item.finalLng + SPREAD_RADIUS * Math.sin(angle);
-                resolved[ci]._clusterRank = rank; // rank > 0 means displaced
+                resolved[ci]._clusterRank = rank; // rank > 0 makes the pin taller
               });
             } else {
               visited.add(i);
