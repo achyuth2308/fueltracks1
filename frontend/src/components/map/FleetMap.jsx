@@ -319,7 +319,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
           </div>
 
           {/* Links */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '10px', paddingBottom: '4px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
             <span onClick={() => navigate('/admin/reports')} style={{ color: '#f97316', cursor: 'pointer' }}>Reports</span>
             <span onClick={() => navigate(`/vehicles/${vehicle.id}`)} style={{ color: '#f97316', cursor: 'pointer' }}>Track</span>
             <span onClick={() => navigate(`/vehicles/${vehicle.id}/history`)} style={{ color: '#f97316', cursor: 'pointer' }}>History</span>
