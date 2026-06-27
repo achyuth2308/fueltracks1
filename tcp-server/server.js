@@ -500,6 +500,7 @@ function createConcoxServer(port) {
             if (packet.gpsValid === 'A' &&
                 packet.lat !== null && packet.lng !== null &&
                 Math.abs(packet.lat) <= 90 && Math.abs(packet.lng) <= 180) {
+              const alarmDevice = connectedDevices.get(sessionImei) || {};
               await publisher.publishLocation({
                 imei:      sessionImei,
                 lat:       packet.lat,
@@ -507,7 +508,7 @@ function createConcoxServer(port) {
                 speed:     packet.speed,
                 fuel:      packet.fuel,
                 ignition:  packet.ignition,
-                voltage:   packet.voltage || dev.voltage || 0,
+                voltage:   packet.voltage || alarmDevice.voltage || 0,
                 direction: packet.direction,
                 odometer:  packet.odometer || 0,
                 satellites: packet.satellites,

@@ -240,14 +240,27 @@ const GpsModel = {
   },
 
   /**
-   * Save raw packet with extended metadata for Sensor Data logs
+   * Save raw packet with extended metadata for Sensor Data logs.
+   * Strips null bytes (0x00) from string fields to prevent PostgreSQL UTF-8 errors.
    */
   async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson }) {
+    // PostgreSQL TEXT columns reject null bytes — strip them from every string field
+    const sanitizeStr = (v) => (typeof v === 'string' ? v.replace(/\0/g, '') : v);
+
     await db.query(
       `INSERT INTO raw_packets 
        (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [imei, raw, true, packetType, deviceTime, odometer, rawHex, parsedJson]
+      [
+        sanitizeStr(imei),
+        sanitizeStr(raw),
+        true,
+        sanitizeStr(packetType),
+        deviceTime,
+        odometer,
+        sanitizeStr(rawHex),
+        sanitizeStr(parsedJson)
+      ]
     );
   },
 

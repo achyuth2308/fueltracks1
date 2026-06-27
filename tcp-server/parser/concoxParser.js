@@ -777,7 +777,16 @@ function parseConcoxBuffer(buffer, imei) {
     const stopPos = pos + frameSize - 2;
     if (buffer[stopPos] !== 0x0D || buffer[stopPos + 1] !== 0x0A) {
       console.warn(`[CONCOX] Bad stop bytes at offset ${stopPos}: 0x${buffer[stopPos].toString(16)} 0x${buffer[stopPos + 1].toString(16)}, skipping frame`);
-      pos++; // skip and re-scan
+      // Resync: jump past current start bytes and scan for the next valid start marker
+      let nextStart = pos + 2;
+      while (nextStart < buffer.length - 1) {
+        if ((buffer[nextStart] === 0x78 && buffer[nextStart + 1] === 0x78) ||
+            (buffer[nextStart] === 0x79 && buffer[nextStart + 1] === 0x79)) {
+          break;
+        }
+        nextStart++;
+      }
+      pos = nextStart;
       continue;
     }
 
@@ -798,7 +807,16 @@ function parseConcoxBuffer(buffer, imei) {
 
     if (computedCrc !== packetCrc) {
       console.warn(`[CONCOX] CRC mismatch: computed=0x${computedCrc.toString(16).toUpperCase()} packet=0x${packetCrc.toString(16).toUpperCase()} — discarding frame`);
-      pos++; // skip bad frame
+      // Resync: jump to next valid start marker
+      let nextStart = pos + 2;
+      while (nextStart < buffer.length - 1) {
+        if ((buffer[nextStart] === 0x78 && buffer[nextStart + 1] === 0x78) ||
+            (buffer[nextStart] === 0x79 && buffer[nextStart + 1] === 0x79)) {
+          break;
+        }
+        nextStart++;
+      }
+      pos = nextStart;
       continue;
     }
 

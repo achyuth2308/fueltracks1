@@ -221,6 +221,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
   const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#ef4444';
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning = getExpiryWarning(vehicle.licence_expire_date);
+  const noGps = !!vehicle._noGps;
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
@@ -230,10 +231,38 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
     }
   }, [isSelected]);
 
+  // Build icon — dashed border for no-GPS vehicles
+  const type = getVehicleType(vehicle);
+  const svg = getTopDownSvg(type);
+  const iconHtml = `
+    <div style="
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      background-color: #ffffff;
+      border: 2px ${noGps ? 'dashed' : 'solid'} ${statusColor};
+      border-radius: 50%;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      color: ${statusColor};
+      opacity: ${noGps ? '0.75' : '1'};
+    ">
+      ${svg}
+    </div>
+  `;
+  const icon = L.divIcon({
+    html: iconHtml,
+    className: 'custom-leaflet-animated-icon',
+    iconSize: [38, 38],
+    iconAnchor: [19, 19],
+    popupAnchor: [0, -19],
+  });
+
   return (
     <Marker
       position={position}
-      icon={createVehicleIcon(vehicle, statusColor)}
+      icon={icon}
       ref={markerRef}
       title={warning ? `${vehicle.name} - ${warning.text}` : vehicle.name}
       eventHandlers={{
@@ -248,7 +277,11 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
         className="premium-tooltip"
       >
         <div style={{ fontSize: '11px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {vehicle.name} <span style={{ color: statusColor }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
+          {vehicle.name}
+          {noGps
+            ? <span style={{ color: '#9ca3af', fontWeight: 500 }}>(No GPS)</span>
+            : <span style={{ color: statusColor }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
+          }
         </div>
       </Tooltip>
 
@@ -265,6 +298,18 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
               boxShadow: `0 0 6px ${statusColor}`
             }} />
           </div>
+
+          {/* No GPS notice */}
+          {noGps && (
+            <div style={{
+              marginBottom: '8px', padding: '6px 8px', borderRadius: '6px',
+              background: '#F3F4F6', border: '1px solid #D1D5DB',
+              color: '#6B7280', fontSize: '11px', fontWeight: 600,
+              display: 'flex', alignItems: 'center', gap: '6px'
+            }}>
+              📍 No GPS location yet — marker shown at placeholder
+            </div>
+          )}
 
           {/* Expiry Warning in Popup */}
           {warning && (
@@ -305,7 +350,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
               <span style={{ color: '#6e859b', fontWeight: 600 }}>Comm Time</span>
               <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
             </div>
-            <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />
+            {!noGps && <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />}
           </div>
 
           {/* Links Row */}
@@ -416,22 +461,29 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
         {/* Handle map zooming and vehicle route plotting */}
         <VehicleRouteAndFit selectedVehicle={effectiveSelected} />
 
-        {/* Vehicle Markers */}
+        {/* Vehicle Markers — render ALL vehicles, including those without GPS history */}
         {vehicles
-          .filter(v => v.lat != null && v.lng != null && !isNaN(parseFloat(v.lat)) && !isNaN(parseFloat(v.lng)))
-          .map((vehicle) => {
+          .map((vehicle, idx) => {
             let finalLat = parseFloat(vehicle.lat);
             let finalLng = parseFloat(vehicle.lng);
+            let hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
+              && finalLat !== 0 && finalLng !== 0
+              && finalLat > 6 && finalLat < 38
+              && finalLng > 68 && finalLng < 98;
 
-            // HARD FAILSAFE: Absolutely NEVER allow a coordinate outside India.
-            // India bounding box: Lat 8 to 38, Lng 68 to 98
-            if (finalLat < 8 || finalLat > 38 || finalLng < 68 || finalLng > 98) {
-              // Add tiny offset so markers don't permanently hide each other
-              finalLat = 17.3411 + (Math.random() * 0.01 - 0.005);
-              finalLng = 78.5317 + (Math.random() * 0.01 - 0.005);
+            if (!hasValidCoords) {
+              // Place vehicles without GPS at distinct spots near the default city center
+              // Use index-based offset so multiple no-GPS vehicles don't stack
+              finalLat = 17.3411 + (idx * 0.003);
+              finalLng = 78.5317 + (idx * 0.003);
             }
 
-            const safeVehicle = { ...vehicle, lat: finalLat, lng: finalLng };
+            const safeVehicle = {
+              ...vehicle,
+              lat: finalLat,
+              lng: finalLng,
+              _noGps: !hasValidCoords, // flag used by VehicleMarker for visual indicator
+            };
 
             return (
               <VehicleMarker
