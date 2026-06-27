@@ -63,6 +63,7 @@ const HistoryPage = () => {
 
   const [startDate, setStartDate] = useState(getTodayRange().start);
   const [endDate, setEndDate] = useState(getTodayRange().end);
+  const [dataInterval, setDataInterval] = useState('0'); // 0 = All Points
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -127,7 +128,32 @@ const HistoryPage = () => {
           }
         });
 
-        setPoints(processedPoints);
+        // Filter by interval if not '0'
+        let finalPoints = processedPoints;
+        const intervalMs = parseInt(dataInterval) * 60 * 1000;
+        
+        if (intervalMs > 0 && processedPoints.length > 0) {
+          // Ensure points are sorted chronologically
+          const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+          finalPoints = [sorted[0]];
+          let lastTime = new Date(sorted[0].device_time).getTime();
+          
+          for (let i = 1; i < sorted.length; i++) {
+            const currentPoint = sorted[i];
+            const currentTime = new Date(currentPoint.device_time).getTime();
+            if (currentTime - lastTime >= intervalMs) {
+              finalPoints.push(currentPoint);
+              lastTime = currentTime;
+            }
+          }
+          // Make sure we always include the very last point to show exactly where it ended
+          const lastPoint = sorted[sorted.length - 1];
+          if (finalPoints[finalPoints.length - 1].device_time !== lastPoint.device_time) {
+            finalPoints.push(lastPoint);
+          }
+        }
+
+        setPoints(finalPoints);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
@@ -445,6 +471,22 @@ const HistoryPage = () => {
                     style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
                   />
                 </div>
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Data Interval</label>
+                <select
+                  value={dataInterval}
+                  onChange={e => setDataInterval(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                >
+                  <option value="0">All Points (Raw)</option>
+                  <option value="1">1 Minute</option>
+                  <option value="5">5 Minutes</option>
+                  <option value="10">10 Minutes</option>
+                  <option value="15">15 Minutes</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60">1 Hour</option>
+                </select>
               </div>
               <button
                 onClick={handleQuerySubmit}
