@@ -20,19 +20,22 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
       flex: 1,
       minWidth: '160px',
       border: '1px solid #F1F5F9',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+      borderTop: '10px solid #2E4867',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
       cursor: 'pointer',
       transition: 'all 0.2s ease',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 24px ${color}15`;
+      e.currentTarget.style.boxShadow = `0 12px 24px ${color}15`;
       e.currentTarget.style.borderColor = `${color}30`;
+      e.currentTarget.style.borderTopColor = color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
+      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.04)';
       e.currentTarget.style.borderColor = '#F1F5F9';
+      e.currentTarget.style.borderTopColor = '#2E4867';
     }}
   >
     <div style={{
@@ -61,7 +64,8 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used',
     borderRadius: '16px',
     padding: '16px 20px',
     border: '1px solid #F1F5F9',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.02)',
+    borderTop: '10px solid #2E4867',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
     width: '220px',
     display: 'flex',
     flexDirection: 'column',
@@ -71,13 +75,15 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used',
   }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 24px ${color}15`;
+      e.currentTarget.style.boxShadow = `0 12px 24px ${color}15`;
       e.currentTarget.style.borderColor = `${color}30`;
+      e.currentTarget.style.borderTopColor = color;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.02)';
+      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.04)';
       e.currentTarget.style.borderColor = '#F1F5F9';
+      e.currentTarget.style.borderTopColor = '#2E4867';
     }}
   >
     <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{title}</div>
