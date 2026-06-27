@@ -288,18 +288,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
         opacity={1}
       >
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
-          {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${cfg.color}`, paddingBottom: '6px', marginBottom: '8px' }}>
-            <div>
-              <div style={{ fontWeight: 800, color: '#111827', fontSize: '13px' }}>{vehicle.name}</div>
-              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>{vehicle.plate || 'No plate'}</div>
-            </div>
-            <span style={{
-              padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700,
-              background: `${cfg.color}20`, color: cfg.color, border: `1px solid ${cfg.color}40`
-            }}>{cfg.label}</span>
-          </div>
-
           {/* No GPS notice */}
           {noGps && (
             <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -314,21 +302,21 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             </div>
           )}
 
-          {/* Stats grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginBottom: '8px' }}>
+          {/* Stats list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
             {[
+              { label: 'Vehicle Name', value: vehicle.name },
+              { label: 'Today Distance', value: `${Math.round(vehicle.today_distance || 0)} km` },
               { label: 'Speed',    value: `${Math.round(vehicle.current_speed || 0)} km/h` },
-              { label: 'Ignition', value: vehicle.current_ignition ? '🟢 ON' : '🔴 OFF' },
-              { label: 'Last Seen', value: formatLocalTime(vehicle.last_seen), full: true },
+              { label: 'ACC Status', value: vehicle.current_ignition ? 'ON' : 'OFF' },
+              { label: 'Loc Time', value: formatLocalTime(vehicle.last_seen) },
             ].map(item => (
-              <div key={item.label} style={{ gridColumn: item.full ? '1/-1' : undefined, display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: '6px', background: '#f9fafb' }}>
-                <span style={{ fontSize: '10px', color: '#6b7280' }}>{item.label}</span>
-                <span style={{ fontSize: '10px', fontWeight: 700, color: '#111827' }}>{item.value}</span>
+              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+                <span style={{ fontSize: '11px', color: '#6b7280' }}>{item.label}</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {item.value}</span>
               </div>
             ))}
           </div>
-
-          {!noGps && <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />}
 
           {/* Links */}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
