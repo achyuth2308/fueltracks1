@@ -142,7 +142,7 @@ function parseAis140NormalPacket(raw) {
     engineHours: 0,
     ain: parseFloat(parts[parts.length - 6]) || 0,
     fuel: 0,
-    voltage: parseFloat(voltage) || 0,
+    voltage: parseFloat(voltage) || parseFloat(parts[parts.length - 6]) || 0,
     isLive,
     deviceTime,
     rawPacket: raw

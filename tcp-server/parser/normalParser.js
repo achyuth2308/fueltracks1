@@ -56,7 +56,8 @@ function parseNormalPacket(raw) {
   const deviceTime = parseDeviceTime(dateStr, timeStr);
 
   let parsedBattery = parseFloat(battery) || 0;
-  let parsedVoltage = parseFloat(voltage) || 0;
+  let parsedAin = parseFloat(ain) || 0;
+  let parsedVoltage = parseFloat(voltage) || parsedAin || 0;
 
   return {
     packetType: '$10',
