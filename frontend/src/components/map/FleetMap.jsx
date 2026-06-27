@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -260,6 +261,7 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
 
 const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
   const markerRef = useRef(null);
+  const navigate = useNavigate();
 
   const status  = getVehicleStatus(vehicle);
   const cfg     = STATUS_CONFIG[status];
@@ -267,6 +269,12 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning  = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
+
+  useEffect(() => {
+    if (isSelected && markerRef.current) {
+      setTimeout(() => { markerRef.current?.openPopup(); }, 200);
+    }
+  }, [isSelected]);
 
   return (
     <Marker
@@ -303,6 +311,59 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
           }
         </div>
       </Tooltip>
+
+      <Popup className="premium-popup">
+        <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${cfg.color}`, paddingBottom: '6px', marginBottom: '8px' }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#111827', fontSize: '13px' }}>{vehicle.name}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>{vehicle.plate || 'No plate'}</div>
+            </div>
+            <span style={{
+              padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700,
+              background: `${cfg.color}20`, color: cfg.color, border: `1px solid ${cfg.color}40`
+            }}>{cfg.label}</span>
+          </div>
+
+          {/* No GPS notice */}
+          {noGps && (
+            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              📍 No GPS location yet — placeholder position
+            </div>
+          )}
+
+          {/* Expiry Warning */}
+          {warning && (
+            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`, color: warning.type === 'expired' ? '#EF4444' : '#F59E0B', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ⚠️ {warning.text}
+            </div>
+          )}
+
+          {/* Stats grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginBottom: '8px' }}>
+            {[
+              { label: 'Speed',    value: `${Math.round(vehicle.current_speed || 0)} km/h` },
+              { label: 'Ignition', value: vehicle.current_ignition ? '🟢 ON' : '🔴 OFF' },
+              { label: 'Last Seen', value: formatLocalTime(vehicle.last_seen), full: true },
+            ].map(item => (
+              <div key={item.label} style={{ gridColumn: item.full ? '1/-1' : undefined, display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: '6px', background: '#f9fafb' }}>
+                <span style={{ fontSize: '10px', color: '#6b7280' }}>{item.label}</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: '#111827' }}>{item.value}</span>
+              </div>
+            ))}
+          </div>
+
+          {!noGps && <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />}
+
+          {/* Links */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
+            <span onClick={() => navigate('/admin/reports')} style={{ color: '#f97316', cursor: 'pointer' }}>Reports</span>
+            <span onClick={() => navigate(`/vehicles/${vehicle.id}`)} style={{ color: '#f97316', cursor: 'pointer' }}>Track</span>
+            <span onClick={() => navigate(`/vehicles/${vehicle.id}/history`)} style={{ color: '#f97316', cursor: 'pointer' }}>History</span>
+          </div>
+        </div>
+      </Popup>
     </Marker>
   );
 };
