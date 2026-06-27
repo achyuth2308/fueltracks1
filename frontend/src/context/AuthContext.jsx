@@ -39,11 +39,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchCurrentUser]);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await authApi.login(email, password);
+      const response = await authApi.login(identifier, password);
       if (response.success && response.data.accessToken) {
         localStorage.setItem('token', response.data.accessToken);
         setUser(response.data.user);

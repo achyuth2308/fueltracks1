@@ -34,6 +34,13 @@ async function runMigrations() {
     `);
     console.log('[DB-MIGRATE] ✓ vehicles.metadata column verified/added.');
 
+    console.log('[DB-MIGRATE] Ensuring users.username column exists...');
+    await client.query(`
+      ALTER TABLE users 
+      ADD COLUMN IF NOT EXISTS username VARCHAR(255) UNIQUE;
+    `);
+    console.log('[DB-MIGRATE] ✓ users.username column verified/added.');
+
     // List of migration files to execute in order
     const migrations = [
       { name: 'Devices Migration', file: 'devices_migration.sql' },

@@ -252,12 +252,12 @@ const AdminController = {
 
   async createUser(req, res, next) {
     try {
-      const { orgId, email, password, role, name, phone, groupIds } = req.body;
+      const { email, username, password, role, name, phone, orgId, groupIds } = req.body;
 
       if (!email || !password || !role) {
         return res.status(400).json({
           success: false,
-          error: 'Email, password and role are required.',
+          error: 'Email, password, and role are required.',
           code: 'VALIDATION_ERROR'
         });
       }
@@ -290,6 +290,7 @@ const AdminController = {
       const newUser = await UserModel.create({
         orgId: targetOrgId,
         email: email.toLowerCase().trim(),
+        username: username ? username.toLowerCase().trim() : null,
         password: hashedPassword,
         role,
         name,
@@ -336,7 +337,7 @@ const AdminController = {
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
-      const { email, role, name, phone, isActive, orgId, groupIds } = req.body;
+      const { email, username, role, name, phone, isActive, orgId, groupIds } = req.body;
 
       // Ownership check for dealers editing other users
       if (req.user.role !== 'superadmin') {
@@ -379,7 +380,15 @@ const AdminController = {
         groupNames: oldGroupNames
       };
 
-      const updated = await UserModel.update(id, { email, role, name, phone, isActive, orgId });
+      const updated = await UserModel.update(id, {
+        email: email ? email.toLowerCase().trim() : undefined,
+        username: username !== undefined ? (username ? username.toLowerCase().trim() : null) : undefined,
+        role,
+        name,
+        phone,
+        isActive,
+        orgId: (req.user.role === 'superadmin') ? orgId : undefined
+      });
 
       // Update user group assignments
       if (groupIds && Array.isArray(groupIds)) {

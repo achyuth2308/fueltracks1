@@ -6,15 +6,15 @@ const db = require('../config/db');
 
 const UserModel = {
   /**
-   * Find user by email (for login)
+   * Find user by email or username (for login)
    */
-  async findByEmail(email) {
+  async findByIdentifier(identifier) {
     const result = await db.query(
       `SELECT u.*, o.name as org_name, o.type as org_type
        FROM users u
        JOIN organizations o ON u.org_id = o.id
-       WHERE u.email = $1 AND u.is_active = TRUE`,
-      [email]
+       WHERE (u.email = $1 OR u.username = $1) AND u.is_active = TRUE`,
+      [identifier]
     );
     return result.rows[0] || null;
   },
@@ -24,7 +24,7 @@ const UserModel = {
    */
   async findById(userId) {
     const result = await db.query(
-      `SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
+      `SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
               u.is_active, u.last_login, u.created_at,
               o.name as org_name, o.type as org_type
        FROM users u
@@ -49,7 +49,7 @@ const UserModel = {
 
     // Use LEFT JOIN + string_agg instead of a correlated subquery per user row
     const query = `
-      SELECT u.id, u.org_id, u.email, u.role, u.name, u.phone,
+      SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
              u.is_active, u.last_login, u.created_at,
              o.name as org_name,
              string_agg(g.name, ', ' ORDER BY g.name) as group_names
@@ -58,7 +58,7 @@ const UserModel = {
       LEFT JOIN user_groups ug ON u.id = ug.user_id
       LEFT JOIN groups g ON ug.group_id = g.id
       ${whereClause}
-      GROUP BY u.id, u.org_id, u.email, u.role, u.name, u.phone,
+      GROUP BY u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
                u.is_active, u.last_login, u.created_at, o.name
       ORDER BY u.created_at DESC
     `;
@@ -70,12 +70,12 @@ const UserModel = {
   /**
    * Create a new user
    */
-  async create({ orgId, email, password, role, name, phone }) {
+  async create({ orgId, email, username, password, role, name, phone }) {
     const result = await db.query(
-      `INSERT INTO users (org_id, email, password, role, name, phone)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, org_id, email, role, name, phone, is_active, created_at`,
-      [orgId, email, password, role, name, phone]
+      `INSERT INTO users (org_id, email, username, password, role, name, phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, org_id, email, username, role, name, phone, is_active, created_at`,
+      [orgId, email, username || null, password, role, name, phone]
     );
     return result.rows[0];
   },
@@ -83,12 +83,13 @@ const UserModel = {
   /**
    * Update user
    */
-  async update(userId, { email, role, name, phone, isActive, orgId }) {
+  async update(userId, { email, username, role, name, phone, isActive, orgId }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
 
     if (email !== undefined) { fields.push(`email = $${paramIndex++}`); values.push(email); }
+    if (username !== undefined) { fields.push(`username = $${paramIndex++}`); values.push(username || null); }
     if (role !== undefined) { fields.push(`role = $${paramIndex++}`); values.push(role); }
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
     if (phone !== undefined) { fields.push(`phone = $${paramIndex++}`); values.push(phone); }

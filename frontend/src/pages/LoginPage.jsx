@@ -11,7 +11,7 @@ const DEMO_ACCOUNTS = [
 
 const LoginPage = () => {
   const { login, isAuthenticated, user, error: authError } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -30,9 +30,9 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) { setError('Please fill in both fields.'); return; }
+    if (!identifier || !password) { setError('Please fill in both fields.'); return; }
     setLoading(true); setError(null);
-    const result = await login(email, password);
+    const result = await login(identifier, password);
     setLoading(false);
     if (!result.success) {
       setError(result.error || 'Authentication failed. Check your credentials.');
@@ -193,10 +193,10 @@ const LoginPage = () => {
                     <User size={18} />
                   </div>
                   <input
-                    type="email"
+                    type="text"
                     required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     placeholder="Enter your username or email"
                     className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#f97316] focus:border-transparent transition-all placeholder:text-slate-800 text-slate-900"
                   />

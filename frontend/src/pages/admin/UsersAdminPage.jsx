@@ -200,7 +200,7 @@ const UsersAdminPage = () => {
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
+                    {['Name', 'Username', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
                       </th>
@@ -225,6 +225,11 @@ const UsersAdminPage = () => {
                     >
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{u.name || 'Unnamed'}</div>
+                      </td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <div style={{ fontSize: '13px', color: '#111827' }}>
+                          {u.username || '—'}
+                        </div>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ fontSize: '13px', color: '#111827' }}>

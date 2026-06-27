@@ -4,6 +4,7 @@ import * as adminApi from '../../api/adminApi';
 
 const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }) => {
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,6 +29,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   useEffect(() => {
     if (editingUser) {
       setName(editingUser.name || '');
+      setUsername(editingUser.username || '');
       setEmail(editingUser.email || '');
       setPhone(editingUser.phone || '');
       setPassword(''); // Password cannot be restored
@@ -55,6 +57,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       }
     } else {
       setName('');
+      setUsername('');
       setEmail('');
       setPhone('');
       setPassword('');
@@ -95,6 +98,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
     const payload = {
       name,
+      username,
       email,
       phone,
       role,
@@ -198,6 +202,15 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </label>
               <input
                 type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-[13px] font-semibold text-slate-700 mb-1.5">
+                Username (Optional)
+              </label>
+              <input
+                type="text" value={username} onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-2.5 text-[14px] bg-white border border-slate-300 focus:border-[#f97316] focus:ring-1 focus:ring-[#f97316] outline-none rounded-lg text-slate-800 transition-all shadow-sm"
               />
             </div>

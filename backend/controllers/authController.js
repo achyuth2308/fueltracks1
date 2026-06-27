@@ -15,22 +15,22 @@ const AuthController = {
    */
   async login(req, res, next) {
     try {
-      const { email, password } = req.body;
+      const { identifier, password } = req.body;
 
-      if (!email || !password) {
+      if (!identifier || !password) {
         return res.status(400).json({
           success: false,
-          error: 'Email and password are required.',
+          error: 'Email/Username and password are required.',
           code: 'VALIDATION_ERROR'
         });
       }
 
       // Find user
-      const user = await UserModel.findByEmail(email.toLowerCase().trim());
+      const user = await UserModel.findByIdentifier(identifier.toLowerCase().trim());
       if (!user) {
         return res.status(401).json({
           success: false,
-          error: 'Invalid email or password.',
+          error: 'Invalid email/username or password.',
           code: 'INVALID_CREDENTIALS'
         });
       }
@@ -59,7 +59,7 @@ const AuthController = {
         } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
         return res.status(401).json({
           success: false,
-          error: 'Invalid email or password.',
+          error: 'Invalid email/username or password.',
           code: 'INVALID_CREDENTIALS'
         });
       }
