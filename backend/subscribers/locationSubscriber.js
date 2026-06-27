@@ -115,6 +115,21 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
+      // 1b. Compute final Engine ON (Ignition) state based on Admin Preferences
+      const engineOnPref = vehicle.metadata?.engineOn || 'Ignition';
+      const batteryThresh = parseFloat(vehicle.metadata?.batteryVoltage) || 13.2; // default 13.2 if not set
+      let finalIgnition = ignition;
+
+      if (engineOnPref === 'Voltage+Ignition') {
+        finalIgnition = ignition === true && voltage >= batteryThresh;
+      } else if (engineOnPref === 'Voltage') {
+        finalIgnition = voltage >= batteryThresh;
+      } else if (engineOnPref === 'Digital Input 1') {
+        finalIgnition = data.din1 === true; // Assuming parsers extract din1, fallback to raw ignition if missing
+      } else {
+        finalIgnition = ignition === true;
+      }
+
       // 2. Fetch the vehicle's last cached state from Redis BEFORE we process new packet
       const prevStateRaw = await redis.get(`vehicle:state:${imei}`);
       let prevState = null;
@@ -122,15 +137,22 @@ async function start(io) {
         try { prevState = JSON.parse(prevStateRaw); } catch(e) {}
       }
 
+      const updatedPayload = { ...data, ignition: finalIgnition };
+      await redis.set(
+        `vehicle:state:${imei}`,
+        JSON.stringify(updatedPayload),
+        'EX', 300
+      );
+
       // 3. Save packet to GPS history
       await GpsModel.savePoint({
-        vehicleId, lat, lng, speed, direction, odometer, fuel, ignition,
+        vehicleId, lat, lng, speed, direction, odometer, fuel, ignition: finalIgnition,
         satellites, gsmSignal, battery, voltage, isLive, deviceTime
       });
 
       // 4. Update denormalized latest state table
       await GpsModel.updateLatestState({
-        vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
+        vehicleId, lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
         odometer, satellites, gsmSignal
       });
 
@@ -139,7 +161,7 @@ async function start(io) {
         const alertsToTrigger = [];
 
         // Check A: Vehicle Started (Ignition transitioned from OFF/undefined to ON)
-        if (ignition === true && (!prevState || prevState.ignition === false)) {
+        if (finalIgnition === true && (!prevState || prevState.ignition === false)) {
           alertsToTrigger.push({
             type: 'ignition_on',
             text: 'Ignition ON Alert: Vehicle started.'
@@ -147,7 +169,7 @@ async function start(io) {
         }
 
         // Check B: Trip Started (Transition from stopped/parked to moving)
-        if (ignition === true && speed > 0 && (!prevState || prevState.speed === 0 || prevState.ignition === false)) {
+        if (finalIgnition === true && speed > 0 && (!prevState || prevState.speed === 0 || prevState.ignition === false)) {
           alertsToTrigger.push({
             type: 'trip_started',
             text: 'Trip Started Alert: Vehicle has begun moving.'
@@ -155,7 +177,7 @@ async function start(io) {
         }
 
         // Check C: Vehicle Stoppage (Ignition transitioned from ON to OFF)
-        if (ignition === false && prevState && prevState.ignition === true) {
+        if (finalIgnition === false && prevState && prevState.ignition === true) {
           alertsToTrigger.push({
             type: 'stoppage',
             text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.'
@@ -163,7 +185,7 @@ async function start(io) {
         }
 
         // Check D: Too Much Idle (Ignition ON, Speed 0)
-        if (ignition === true && speed === 0) {
+        if (finalIgnition === true && speed === 0) {
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
           

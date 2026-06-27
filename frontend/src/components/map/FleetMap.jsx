@@ -4,8 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
-import { formatSpeed } from '../../utils/formatUtils';
-import { formatLocalTime } from '../../utils/dateUtils';
+import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
+import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 
 import { getVehicleRoute } from '../../api/vehicleApi';
@@ -304,18 +304,50 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
           {/* Stats list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
-            {[
-              { label: 'Vehicle Name', value: vehicle.name },
-              { label: 'Today Distance', value: `${Math.round(vehicle.today_distance || 0)} km` },
-              { label: 'Speed',    value: `${Math.round(vehicle.current_speed || 0)} km/h` },
-              { label: 'ACC Status', value: vehicle.current_ignition ? 'ON' : 'OFF' },
-              { label: 'Loc Time', value: formatLocalTime(vehicle.last_seen) },
-            ].map(item => (
-              <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>{item.label}</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {item.value}</span>
-              </div>
-            ))}
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {vehicle.name}</span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {Math.round(vehicle.today_distance || 0)} kms</span>
+            </div>
+
+            {getNoDataDuration(vehicle.last_seen) && status === 'offline' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280' }}>No Data</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>- {getNoDataDuration(vehicle.last_seen)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+                  <span style={{ fontSize: '11px', color: '#6b7280' }}>Reason</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444' }}>- Device Offline</span>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>ACC Status</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444' }}>- {vehicle.current_ignition ? 'ON' : 'OFF'}</span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Battery</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).color }}>
+                - {getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).status})
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {formatLocalTime(vehicle.last_seen)}</span>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 4px' }}>
+              <span style={{ fontSize: '11px', color: '#6b7280' }}>Comm Time</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>- {formatLocalTime(vehicle.last_seen)}</span>
+            </div>
           </div>
 
           {/* Links */}
