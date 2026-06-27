@@ -270,6 +270,8 @@ const TrackingPage = ({ setAppVehicles }) => {
           selectedVehicles={currentSelectedVehicles}
           onMarkerClick={handleSelectVehicle}
           onMultiTrackClick={handleMultiTrackClick}
+          showRoute={true}
+          followSelected={true}
         />
 
         {/* ── Floating Status Pills (top-right of map) ── */}

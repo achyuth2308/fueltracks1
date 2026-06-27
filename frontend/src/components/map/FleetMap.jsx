@@ -25,7 +25,8 @@ const getExpiryWarning = (expireDateStr) => {
   return null;
 };
 
-const VehicleRouteAndFit = ({ selectedVehicle }) => {
+// ── Live Route Plotting & Following for Selected Vehicle ─────────────
+const VehicleRouteAndFit = ({ selectedVehicle, showRoute = false, followSelected = false }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
 
@@ -57,9 +58,9 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
     return segs;
   };
 
-  // 1. Fetch route history only when the selected vehicle ID changes
+  // 1. Fetch today's route line
   useEffect(() => {
-    if (!selectedVehicle?.id) {
+    if (!showRoute || !selectedVehicle?.id) {
       setRoutePoints([]);
       return;
     }
@@ -104,14 +105,15 @@ const VehicleRouteAndFit = ({ selectedVehicle }) => {
 
   // 2. Zoom out when no vehicle selected
   useEffect(() => {
+    if (!followSelected) return;
     if (!selectedVehicle) {
       map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
     }
-  }, [selectedVehicle, map]);
+  }, [selectedVehicle, map, followSelected]);
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
-    if (!selectedVehicle?.id) return;
+    if (!followSelected || !selectedVehicle?.id) return;
     const lat = parseFloat(selectedVehicle.lat);
     const lng = parseFloat(selectedVehicle.lng);
     if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
@@ -461,7 +463,14 @@ const ResizeMap = () => {
   return null;
 };
 
-const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = null, onMarkerClick }) => {
+const FleetMap = ({ 
+  vehicles = [], 
+  selectedVehicle = null, 
+  selectedVehicles = null, 
+  onMarkerClick,
+  showRoute = false,
+  followSelected = false
+}) => {
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
   // selectedVehicles (array) takes priority; fall back to singular selectedVehicle
   const effectiveSelected = selectedVehicles != null
@@ -541,7 +550,11 @@ const FleetMap = ({ vehicles = [], selectedVehicle = null, selectedVehicles = nu
         />
 
         {/* Handle map zooming and vehicle route plotting */}
-        <VehicleRouteAndFit selectedVehicle={effectiveSelected} />
+        <VehicleRouteAndFit 
+          selectedVehicle={effectiveSelected} 
+          showRoute={showRoute}
+          followSelected={followSelected}
+        />
 
         {/* Vehicle Markers — Dynamic screen-space clustering */}
         <VehicleMarkersLayer
