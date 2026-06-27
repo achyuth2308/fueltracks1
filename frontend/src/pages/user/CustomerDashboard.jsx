@@ -306,93 +306,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <FleetMap
             vehicles={filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
-            onMarkerClick={(v) => setSelectedVehicle(prev => prev?.id === v.id ? null : v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
           />
 
-          {/* ── Vehicle Detail Float Card ── */}
-          {currentSelected && (
-            <div style={{
-              position: 'absolute', top: '12px', right: '12px',
-              width: '240px', background: 'rgba(255,255,255,0.94)',
-              backdropFilter: 'blur(12px)', borderRadius: '14px',
-              border: '1px solid rgba(255,255,255,0.6)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-              zIndex: 999, overflow: 'hidden'
-            }}>
-              {/* Card header */}
-              <div style={{
-                padding: '12px 14px',
-                background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-                color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'
-              }}>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 700 }}>{currentSelected.name}</div>
-                  <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
-                    {currentSelected.plate || 'No plate'} · {currentSelected.is_online ? 'Online' : 'Offline'}
-                  </div>
-                </div>
-                <button onClick={() => setSelectedVehicle(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', cursor: 'pointer', padding: '3px', borderRadius: '5px', display: 'flex' }}>
-                  <X size={13} />
-                </button>
-              </div>
-
-              {/* Stats */}
-              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {[
-                  { label: 'Speed', value: formatSpeed(currentSelected.current_speed) },
-                  { label: 'Ignition', value: currentSelected.current_ignition ? '🟢 ON' : '🔴 OFF' },
-                  { label: 'Last Update', value: getRelativeTime(currentSelected.last_seen) },
-                ].map(item => (
-                  <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 8px', borderRadius: '7px', background: '#f9fafb' }}>
-                    <span style={{ fontSize: '11px', color: '#6b7280' }}>{item.label}</span>
-                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827' }}>{item.value}</span>
-                  </div>
-                ))}
-
-                {/* Action buttons */}
-                <button
-                  onClick={() => navigate(`/vehicles/${currentSelected.id}`)}
-                  style={{
-                    marginTop: '4px', width: '100%', padding: '8px', borderRadius: '8px',
-                    border: 'none', background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-                    color: '#fff', fontWeight: 600, fontSize: '12px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
-                  }}
-                >
-                  View Details <ChevronRight size={13} />
-                </button>
-                <button
-                  onClick={() => navigate('/tracking', { state: { selectedVehicleId: currentSelected.id } })}
-                  style={{
-                    width: '100%', padding: '7px', borderRadius: '8px',
-                    border: '1px solid #e5e7eb', background: '#fff',
-                    color: '#374151', fontWeight: 600, fontSize: '12px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px'
-                  }}
-                >
-                  <Navigation size={12} /> Live Track
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* No vehicle selected hint */}
-          {!currentSelected && !loading && vehicles.length > 0 && (
-            <div style={{
-              position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)',
-              zIndex: 999, background: 'rgba(255,255,255,0.88)', backdropFilter: 'blur(8px)',
-              borderRadius: '10px', padding: '8px 16px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-              display: 'flex', alignItems: 'center', gap: '8px',
-              border: '1px solid rgba(255,255,255,0.6)'
-            }}>
-              <MapPin size={14} color="#f97316" />
-              <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-                Click a vehicle to see details
-              </span>
-            </div>
-          )}
         </div>
       </div>
 

@@ -272,12 +272,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const warning  = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
 
-  useEffect(() => {
-    if (isSelected && markerRef.current) {
-      setTimeout(() => { markerRef.current?.openPopup(); }, 200);
-    }
-  }, [isSelected]);
-
   return (
     <Marker
       position={position}
@@ -286,35 +280,13 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       zIndexOffset={zIndexOffset}
       eventHandlers={{ click: () => onMarkerClick && onMarkerClick(vehicle) }}
     >
-      {/* Permanent label below pin */}
       <Tooltip
-        direction="bottom"
-        offset={[0, 4]}
+        direction="top"
+        offset={[0, -(clusterRank * 20 + 36)]} // Adjust for teardrop height
+        interactive={true}
+        className="premium-popup"
         opacity={1}
-        permanent
-        className="premium-tooltip"
       >
-        <div style={{
-          fontSize: '10px', fontWeight: 700, color: '#111827',
-          whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.92)',
-          padding: '2px 6px', borderRadius: '4px',
-          border: `1px solid ${cfg.color}`,
-          boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
-          display: 'flex', alignItems: 'center', gap: '4px'
-        }}>
-          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
-          {vehicle.name}
-          {noGps
-            ? <span style={{ color: '#9ca3af', fontWeight: 500, fontSize: '9px' }}>(No GPS)</span>
-            : (status === 'running'
-                ? <span style={{ color: cfg.color, fontSize: '9px' }}>{Math.round(vehicle.current_speed || 0)} km/h</span>
-                : <span style={{ color: cfg.color, fontSize: '9px' }}>{cfg.label}</span>
-              )
-          }
-        </div>
-      </Tooltip>
-
-      <Popup className="premium-popup">
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${cfg.color}`, paddingBottom: '6px', marginBottom: '8px' }}>
@@ -365,7 +337,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             <span onClick={() => navigate(`/vehicles/${vehicle.id}/history`)} style={{ color: '#f97316', cursor: 'pointer' }}>History</span>
           </div>
         </div>
-      </Popup>
+      </Tooltip>
     </Marker>
   );
 };
