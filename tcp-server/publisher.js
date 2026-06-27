@@ -144,11 +144,14 @@ async function publishAlert(parsed) {
 }
 
 /**
- * Publish raw message to a dedicated raw_logs channel
+ * Publish raw message to a dedicated raw_logs channel.
+ * Strips null bytes (\u0000) from the serialized payload before publishing —
+ * PostgreSQL TEXT columns (and the Redis string round-trip) reject 0x00 bytes.
  */
 async function publishRawMessage(parsed) {
   if (!publisher) return;
-  const payload = JSON.stringify({
+  // Serialize first, then strip any null bytes that came from binary packet fields
+  const rawPayload = JSON.stringify({
     imei: parsed.imei,
     packetType: parsed.packetType,
     rawHex: parsed.rawPacket || parsed.rawString || null,
@@ -156,6 +159,8 @@ async function publishRawMessage(parsed) {
     odometer: parsed.odometer || null,
     parsedJson: parsed,
   });
+  // Remove all null byte characters (0x00) which PostgreSQL UTF-8 rejects
+  const payload = rawPayload.replace(/\0/g, '');
   try {
     await publisher.publish('raw_logs', payload);
   } catch (err) {
