@@ -180,107 +180,125 @@ const getTopDownSvg = (type) => {
   return `<img src="/big-cargo-truck.png" style="width:24px;height:24px;object-fit:contain;" />`;
 };
 
-// Custom SVG marker generator
-const createVehicleIcon = (vehicle, statusColor) => {
-  const type = getVehicleType(vehicle);
-  const svg = getTopDownSvg(type);
-  const direction = vehicle.current_direction || vehicle.direction || 0;
+// ── Status helpers ──────────────────────────────────────────────
+const getVehicleStatus = (vehicle) => {
+  if (!vehicle.is_online) return 'offline';
+  if ((vehicle.current_speed || 0) > 0) return 'running';
+  if (vehicle.current_ignition) return 'idle';
+  return 'parked';
+};
+
+const STATUS_CONFIG = {
+  running: { color: '#16a34a', label: 'Running',  pulse: true  },
+  idle:    { color: '#f59e0b', label: 'Idle',     pulse: false },
+  parked:  { color: '#f97316', label: 'Parked',   pulse: false },
+  offline: { color: '#ef4444', label: 'Offline',  pulse: false },
+};
+
+// ── Pin icon builder ─────────────────────────────────────────────
+// Creates a teardrop/pin shaped SVG marker with:
+//   • solid status color fill
+//   • small vehicle-type glyph inside
+//   • white border ring
+//   • directional arrow for moving vehicles
+//   • pulse ring animation for running vehicles
+const createPinIcon = (vehicle, noGps = false) => {
+  const status  = getVehicleStatus(vehicle);
+  const cfg     = STATUS_CONFIG[status];
+  const color   = cfg.color;
+  const type    = getVehicleType(vehicle);
+  const speed   = Math.round(vehicle.current_speed || 0);
+
+  // Small glyph inside pin (16×16 viewport)
+  const glyphMap = {
+    bike:  `<path d="M3 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M13 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M8 5l2 4H5L8 5zM8 9h8" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    car:   `<rect x="2" y="6" width="12" height="7" rx="2" fill="white" fill-opacity="0.9"/><rect x="4" y="4" width="8" height="4" rx="1" fill="white" fill-opacity="0.7"/><circle cx="4.5" cy="13.5" r="1.5" fill="white"/><circle cx="11.5" cy="13.5" r="1.5" fill="white"/>`,
+    bus:   `<rect x="2" y="3" width="12" height="11" rx="1.5" fill="white" fill-opacity="0.9"/><rect x="3" y="4" width="5" height="4" rx="0.5" fill="${color}"/><rect x="9" y="4" width="4" height="4" rx="0.5" fill="${color}"/>`,
+    van:   `<rect x="1" y="5" width="14" height="9" rx="2" fill="white" fill-opacity="0.9"/><rect x="9" y="3" width="5" height="4" rx="1" fill="white" fill-opacity="0.7"/>`,
+    lorry: `<rect x="1" y="6" width="10" height="8" rx="1" fill="white" fill-opacity="0.9"/><rect x="11" y="8" width="5" height="6" rx="1" fill="white" fill-opacity="0.7"/><circle cx="3.5" cy="14.5" r="1.5" fill="white"/><circle cx="9.5" cy="14.5" r="1.5" fill="white"/>`,
+  };
+  const glyph = glyphMap[type] || glyphMap.lorry;
+
+  const pulseRing = cfg.pulse && !noGps ? `
+    <circle cx="18" cy="15" r="16" fill="none" stroke="${color}" stroke-width="2" opacity="0.4">
+      <animate attributeName="r" from="16" to="26" dur="1.5s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" from="0.5" to="0" dur="1.5s" repeatCount="indefinite"/>
+    </circle>` : '';
+
+  const dashStyle = noGps ? 'stroke-dasharray:3,2;' : '';
 
   const svgHtml = `
-    <div style="
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      background-color: #ffffff;
-      border: 2px solid ${statusColor};
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      color: ${statusColor};
-    ">
-      ${svg}
-    </div>
-  `;
+    <div style="position:relative;width:36px;height:44px;">
+      ${pulseRing ? `<svg style="position:absolute;top:-5px;left:-5px;width:46px;height:46px;overflow:visible;">${pulseRing}</svg>` : ''}
+      <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+        <!-- Teardrop pin shape -->
+        <path d="M18 2 C9.163 2 2 9.163 2 18 C2 29.5 18 42 18 42 C18 42 34 29.5 34 18 C34 9.163 26.837 2 18 2 Z"
+          fill="${color}" stroke="white" stroke-width="2" style="${dashStyle}"/>
+        <!-- Inner white circle -->
+        <circle cx="18" cy="17" r="11" fill="white" fill-opacity="${noGps ? '0.4' : '0.2'}"/>
+        <!-- Vehicle glyph (16x16 centered at 18,17) -->
+        <g transform="translate(10,9)">
+          <svg width="16" height="16" viewBox="0 0 16 16">${glyph}</svg>
+        </g>
+        ${status === 'running' && speed > 0 ? `<text x="18" y="39" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white" dy="-1">${speed}</text>` : ''}
+      </svg>
+    </div>`;
 
   return L.divIcon({
     html: svgHtml,
-    className: 'custom-leaflet-animated-icon',
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
-    popupAnchor: [0, -19],
+    className: '',
+    iconSize:   [36, 44],
+    iconAnchor: [18, 42],     // tip of the pin
+    popupAnchor:[0, -44],
   });
 };
 
-const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }) => {
+const VehicleMarker = ({ vehicle, isSelected, onMarkerClick }) => {
   const markerRef = useRef(null);
 
-  const isOnline = !!vehicle.is_online;
-  const isMoving = isOnline && (vehicle.current_speed || 0) > 0;
-  // User requested RED for offline (#ef4444)
-  const statusColor = isOnline ? (isMoving ? '#16a34a' : '#f97316') : '#ef4444';
+  const status  = getVehicleStatus(vehicle);
+  const cfg     = STATUS_CONFIG[status];
+  const noGps   = !!vehicle._noGps;
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
-  const warning = getExpiryWarning(vehicle.licence_expire_date);
-  const noGps = !!vehicle._noGps;
+  const warning  = getExpiryWarning(vehicle.licence_expire_date);
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
-      setTimeout(() => {
-        markerRef.current?.openPopup();
-      }, 200);
+      setTimeout(() => { markerRef.current?.openPopup(); }, 200);
     }
   }, [isSelected]);
-
-  // Build icon — dashed border for no-GPS vehicles
-  const type = getVehicleType(vehicle);
-  const svg = getTopDownSvg(type);
-  const iconHtml = `
-    <div style="
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      background-color: #ffffff;
-      border: 2px ${noGps ? 'dashed' : 'solid'} ${statusColor};
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      color: ${statusColor};
-      opacity: ${noGps ? '0.75' : '1'};
-    ">
-      ${svg}
-    </div>
-  `;
-  const icon = L.divIcon({
-    html: iconHtml,
-    className: 'custom-leaflet-animated-icon',
-    iconSize: [38, 38],
-    iconAnchor: [19, 19],
-    popupAnchor: [0, -19],
-  });
 
   return (
     <Marker
       position={position}
-      icon={icon}
+      icon={createPinIcon(vehicle, noGps)}
       ref={markerRef}
-      title={warning ? `${vehicle.name} - ${warning.text}` : vehicle.name}
-      eventHandlers={{
-        click: () => onMarkerClick && onMarkerClick(vehicle),
-      }}
+      eventHandlers={{ click: () => onMarkerClick && onMarkerClick(vehicle) }}
     >
+      {/* Permanent label below pin */}
       <Tooltip
         direction="bottom"
-        offset={[0, 15]}
+        offset={[0, 4]}
         opacity={1}
         permanent
         className="premium-tooltip"
       >
-        <div style={{ fontSize: '11px', fontWeight: 700, color: '#111827', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{
+          fontSize: '10px', fontWeight: 700, color: '#111827',
+          whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.92)',
+          padding: '2px 6px', borderRadius: '4px',
+          border: `1px solid ${cfg.color}`,
+          boxShadow: '0 1px 4px rgba(0,0,0,0.12)',
+          display: 'flex', alignItems: 'center', gap: '4px'
+        }}>
+          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: cfg.color, flexShrink: 0 }} />
           {vehicle.name}
           {noGps
-            ? <span style={{ color: '#9ca3af', fontWeight: 500 }}>(No GPS)</span>
-            : <span style={{ color: statusColor }}>({Math.round(vehicle.current_speed || 0)} km/h)</span>
+            ? <span style={{ color: '#9ca3af', fontWeight: 500, fontSize: '9px' }}>(No GPS)</span>
+            : (status === 'running'
+                ? <span style={{ color: cfg.color, fontSize: '9px' }}>{Math.round(vehicle.current_speed || 0)} km/h</span>
+                : <span style={{ color: cfg.color, fontSize: '9px' }}>{cfg.label}</span>
+              )
           }
         </div>
       </Tooltip>
@@ -288,77 +306,52 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, onMultiTrackClick }
       <Popup className="premium-popup">
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #bae6fd', paddingBottom: '6px', marginBottom: '8px' }}>
-            <span style={{ fontWeight: 800, color: '#4d6076', fontSize: '13px' }}>{vehicle.name}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `2px solid ${cfg.color}`, paddingBottom: '6px', marginBottom: '8px' }}>
+            <div>
+              <div style={{ fontWeight: 800, color: '#111827', fontSize: '13px' }}>{vehicle.name}</div>
+              <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '1px' }}>{vehicle.plate || 'No plate'}</div>
+            </div>
             <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: statusColor,
-              boxShadow: `0 0 6px ${statusColor}`
-            }} />
+              padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 700,
+              background: `${cfg.color}20`, color: cfg.color, border: `1px solid ${cfg.color}40`
+            }}>{cfg.label}</span>
           </div>
 
           {/* No GPS notice */}
           {noGps && (
-            <div style={{
-              marginBottom: '8px', padding: '6px 8px', borderRadius: '6px',
-              background: '#F3F4F6', border: '1px solid #D1D5DB',
-              color: '#6B7280', fontSize: '11px', fontWeight: 600,
-              display: 'flex', alignItems: 'center', gap: '6px'
-            }}>
-              📍 No GPS location yet — marker shown at placeholder
+            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              📍 No GPS location yet — placeholder position
             </div>
           )}
 
-          {/* Expiry Warning in Popup */}
+          {/* Expiry Warning */}
           {warning && (
-            <div style={{
-              marginBottom: '8px', padding: '6px 8px', borderRadius: '6px',
-              background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB',
-              border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`,
-              color: warning.type === 'expired' ? '#EF4444' : '#F59E0B',
-              fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px'
-            }}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-              {warning.text}
+            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`, color: warning.type === 'expired' ? '#EF4444' : '#F59E0B', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              ⚠️ {warning.text}
             </div>
           )}
 
-          {/* Details Rows */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', color: '#4d6076' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>Vehicle Name</span>
-              <span style={{ fontWeight: 700 }}>- {vehicle.name}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>Today Distance</span>
-              <span style={{ fontWeight: 700 }}>- {vehicle.today_distance ? `${vehicle.today_distance} km` : '0 km'}</span>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>ACC Status</span>
-              <span style={{ fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444' }}>
-                - {vehicle.current_ignition ? 'ON' : 'OFF'}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>Loc Time</span>
-              <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6e859b', fontWeight: 600 }}>Comm Time</span>
-              <span style={{ fontWeight: 700 }}>- {formatLocalTime(vehicle.last_seen)}</span>
-            </div>
-            {!noGps && <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />}
+          {/* Stats grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5px', marginBottom: '8px' }}>
+            {[
+              { label: 'Speed',    value: `${Math.round(vehicle.current_speed || 0)} km/h` },
+              { label: 'Ignition', value: vehicle.current_ignition ? '🟢 ON' : '🔴 OFF' },
+              { label: 'Last Seen', value: formatLocalTime(vehicle.last_seen), full: true },
+            ].map(item => (
+              <div key={item.label} style={{ gridColumn: item.full ? '1/-1' : undefined, display: 'flex', justifyContent: 'space-between', padding: '4px 8px', borderRadius: '6px', background: '#f9fafb' }}>
+                <span style={{ fontSize: '10px', color: '#6b7280' }}>{item.label}</span>
+                <span style={{ fontSize: '10px', fontWeight: 700, color: '#111827' }}>{item.value}</span>
+              </div>
+            ))}
           </div>
 
-          {/* Links Row */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #bae6fd', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
+          {!noGps && <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />}
+
+          {/* Links */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '8px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
             <a href={`/admin/reports`} style={{ color: '#f97316', textDecoration: 'none' }}>Reports</a>
             <a href={`/vehicles/${vehicle.id}`} style={{ color: '#f97316', textDecoration: 'none' }}>Track</a>
             <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#f97316', textDecoration: 'none' }}>History</a>
-
           </div>
         </div>
       </Popup>
