@@ -33,7 +33,7 @@ class ReportService {
     // Get basic details to attach to report rows
     const placeholders = vehicleIds.map((_, i) => `$${i + 1}`).join(',');
     const query = `
-      SELECT v.id, v.name, v.plate, o.name as org_name
+      SELECT v.id, v.name, v.plate, o.name as org_name, v.metadata->>'odometerReading' as baseline
       FROM vehicles v
       LEFT JOIN organizations o ON v.org_id = o.id
       WHERE v.id IN (${placeholders})
@@ -74,10 +74,15 @@ class ReportService {
     for (const vId of vehicleIds) {
       const data = await reportRepository.getDailyDistance(vId, startDate, endDate);
       const vInfo = vehicleDetails[vId] || {};
+      const baseline = parseFloat(vInfo.baseline) || 0;
       
       // We can also fetch trip count for that day
       // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
       data.forEach(d => {
+        if (baseline > 0) {
+          d.start_odometer = (d.start_odometer || 0) + baseline;
+          d.end_odometer = (d.end_odometer || 0) + baseline;
+        }
         allData.push({
           ...d,
           vehicle_id: vId,
@@ -121,6 +126,11 @@ class ReportService {
     
     const points = await reportRepository.getRouteHistory(vehicleId, startDate, endDate);
     const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
+    
+    const baseline = parseFloat(vInfo.baseline) || 0;
+    if (baseline > 0 && points) {
+      points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+    }
     
     const distance = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) : 0;
     

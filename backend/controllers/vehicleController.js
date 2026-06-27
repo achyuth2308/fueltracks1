@@ -444,6 +444,13 @@ const VehicleController = {
         limit: parseInt(limit) || 100
       });
 
+      // Apply Odometer Baseline Offset
+      const vehicle = await VehicleModel.findById(id);
+      const baseline = parseFloat(vehicle?.metadata?.odometerReading) || 0;
+      if (baseline > 0 && result.points) {
+        result.points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+      }
+
       res.status(200).json({
         success: true,
         data: result.points,
@@ -475,6 +482,13 @@ const VehicleController = {
       }
 
       const points = await GpsModel.getRoute(id, { startDate, endDate });
+
+      // Apply Odometer Baseline Offset
+      const vehicle = await VehicleModel.findById(id);
+      const baseline = parseFloat(vehicle?.metadata?.odometerReading) || 0;
+      if (baseline > 0 && points) {
+        points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+      }
 
       res.status(200).json({
         success: true,
