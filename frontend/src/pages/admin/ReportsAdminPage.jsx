@@ -24,9 +24,9 @@ const formatDateTime = (isoString) => {
 const ReportLinkCard = ({ title, desc, path, icon: Icon, color, bg, navigate }) => (
   <div
     onClick={() => navigate(path)}
-    style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #bae6fd', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '16px' }}
-    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='0 12px 20px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor=color; }}
-    onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 6px rgba(0,0,0,0.02)'; e.currentTarget.style.borderColor='#bae6fd'; }}
+    style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #bae6fd', borderTop: '10px solid #2E4867', boxShadow: '0 4px 12px rgba(0,0,0,0.04)', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', gap: '16px' }}
+    onMouseEnter={e => { e.currentTarget.style.transform='translateY(-4px)'; e.currentTarget.style.boxShadow='0 12px 24px rgba(0,0,0,0.08)'; e.currentTarget.style.borderColor=color; e.currentTarget.style.borderTopColor=color; }}
+    onMouseLeave={e => { e.currentTarget.style.transform='none'; e.currentTarget.style.boxShadow='0 4px 12px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor='#bae6fd'; e.currentTarget.style.borderTopColor='#2E4867'; }}
   >
     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
       <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: bg, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -44,7 +44,8 @@ const MetricCard = ({ label, value, color, icon: Icon, bg }) => (
     padding: '12px 16px',
     borderRadius: '12px',
     border: '1px solid #e0f2fe',
-    boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+    borderTop: '10px solid #2E4867',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
