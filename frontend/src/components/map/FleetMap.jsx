@@ -233,8 +233,8 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
   const totalHeight = 44 + stemHeight;
 
   const svgHtml = `
-    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
-      <div style="position:relative;width:36px;height:44px;pointer-events:auto;cursor:pointer;">
+    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+      <div class="pin-interactive" style="position:relative;width:36px;height:44px;">
         ${pulseRing ? `<svg style="position:absolute;top:-5px;left:-5px;width:46px;height:46px;overflow:visible;z-index:0;">${pulseRing}</svg>` : ''}
         <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));position:relative;z-index:1;">
           <!-- Teardrop pin shape -->
@@ -249,12 +249,12 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
           ${status === 'running' && speed > 0 ? `<text x="18" y="39" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white" dy="-1">${speed}</text>` : ''}
         </svg>
       </div>
-      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);pointer-events:auto;"></div>` : ''}
+      ${clusterRank > 0 ? `<div class="pin-interactive" style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
     </div>`;
 
   return L.divIcon({
     html: svgHtml,
-    className: '',
+    className: 'custom-marker-icon',
     iconSize:   [36, totalHeight],
     iconAnchor: [18, totalHeight - 2],     // tip of the pin/stem
     popupAnchor:[0, -totalHeight],
@@ -539,6 +539,17 @@ const FleetMap = ({
           /* Optionally hide the tip */
           .premium-popup .leaflet-popup-tip-container {
             display: none !important;
+          }
+          
+          /* Prevent Leaflet's rectangular bounding box from blocking hover events for overlapping markers */
+          .custom-marker-icon {
+            pointer-events: none !important;
+            background: transparent !important;
+            border: none !important;
+          }
+          .custom-marker-icon .pin-interactive {
+            pointer-events: auto !important;
+            cursor: pointer;
           }
         `
       }} />
