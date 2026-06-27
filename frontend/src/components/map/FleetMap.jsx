@@ -233,8 +233,8 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
   const totalHeight = 44 + stemHeight;
 
   const svgHtml = `
-    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
-      <div style="position:relative;width:36px;height:44px;">
+    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;pointer-events:none;">
+      <div style="position:relative;width:36px;height:44px;pointer-events:auto;cursor:pointer;">
         ${pulseRing ? `<svg style="position:absolute;top:-5px;left:-5px;width:46px;height:46px;overflow:visible;z-index:0;">${pulseRing}</svg>` : ''}
         <svg width="36" height="44" viewBox="0 0 36 44" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));position:relative;z-index:1;">
           <!-- Teardrop pin shape -->
@@ -249,7 +249,7 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
           ${status === 'running' && speed > 0 ? `<text x="18" y="39" text-anchor="middle" font-size="6" font-family="sans-serif" font-weight="bold" fill="white" dy="-1">${speed}</text>` : ''}
         </svg>
       </div>
-      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
+      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);pointer-events:auto;"></div>` : ''}
     </div>`;
 
   return L.divIcon({
@@ -527,13 +527,14 @@ const FleetMap = ({
       <style dangerouslySetInnerHTML={{
         __html: `
           .premium-popup .leaflet-popup-content-wrapper {
-            border: 2px solid #2E4867 !important;
-            border-radius: 6px !important;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+            border: none !important;
+            border-top: 10px solid #2E4867 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
             padding: 0 !important;
           }
           .premium-popup .leaflet-popup-content {
-            margin: 8px 12px !important;
+            margin: 14px 18px !important;
           }
           /* Optionally hide the tip */
           .premium-popup .leaflet-popup-tip-container {
