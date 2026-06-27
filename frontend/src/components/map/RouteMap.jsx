@@ -329,7 +329,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
 
         {/* Small Markers for individual GPS points */}
         {points
-          .filter((p, idx) => idx > 0 && idx < points.length - 1 && idx % Math.max(1, Math.floor(points.length / 50)) === 0)
+          .filter((p, idx) => idx > 0 && idx < points.length - 1)
           .map((point, idx) => {
             const pos = [parseFloat(point.lat), parseFloat(point.lng)];
             const color = getSpeedColor(point.speed);
