@@ -3,7 +3,7 @@ export const formatSpeed = (speed) => {
 };
 
 export const formatFuel = (fuel) => {
-  return `${fuel !== undefined && fuel !== null ? Number(fuel).toFixed(1) : '0.0'}%`;
+  return `${fuel !== undefined && fuel !== null ? Number(fuel).toFixed(1) : '0.0'} L`;
 };
 
 export const formatOdometer = (odo) => {

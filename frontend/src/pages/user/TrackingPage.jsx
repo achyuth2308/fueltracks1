@@ -410,13 +410,13 @@ const TrackingPage = ({ setAppVehicles }) => {
                           <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#e5e7eb" strokeWidth="8" strokeLinecap="round" />
                           <path d="M 20 80 A 35 35 0 1 1 80 80" fill="none" stroke="#f59e0b" strokeWidth="8" strokeLinecap="round"
                             strokeDasharray="165"
-                            strokeDashoffset={165 - (parseFloat(currentSelectedVehicle.current_fuel ?? 0) / 100) * 165}
+                            strokeDashoffset={165 - Math.min((parseFloat(currentSelectedVehicle.current_fuel ?? 0) / 100), 1) * 165}
                             style={{ transition: 'stroke-dashoffset 0.8s ease' }}
                           />
                           <text x="50" y="52" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1f2937">
                             {Math.round(currentSelectedVehicle.current_fuel ?? 0)}
                           </text>
-                          <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">FUEL %</text>
+                          <text x="50" y="68" textAnchor="middle" fontSize="8" fontWeight="700" fill="#9ca3af">LITERS</text>
                         </svg>
                       </div>
                     </div>
