@@ -62,6 +62,9 @@ async function publishLocation(parsed) {
           lng = prevState.lng;
           restored = true;
         }
+        if (!voltage && prevState && prevState.voltage) {
+          voltage = prevState.voltage;
+        }
       }
     } catch(e) {
       // Ignore parse error

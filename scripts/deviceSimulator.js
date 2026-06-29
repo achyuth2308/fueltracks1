@@ -377,6 +377,26 @@ function buildConcoxFrame(protocolNum, infoBytes, serialNum) {
   ]);
 }
 
+/** Build a CRC'd 0x79 0x79 extended frame */
+function buildConcoxExtendedFrame(protocolNum, infoBytes, serialNum) {
+  const info    = Buffer.isBuffer(infoBytes) ? infoBytes : Buffer.from(infoBytes);
+  const pktLen  = 1 + info.length + 2 + 2;  // protocol + info + serial + crc
+
+  const crcSlice = Buffer.concat([
+    Buffer.from([(pktLen >> 8) & 0xFF, pktLen & 0xFF, protocolNum]),
+    info,
+    Buffer.from([(serialNum >> 8) & 0xFF, serialNum & 0xFF]),
+  ]);
+  const crc = crcItu(crcSlice);
+
+  return Buffer.concat([
+    Buffer.from([0x79, 0x79, (pktLen >> 8) & 0xFF, pktLen & 0xFF, protocolNum]),
+    info,
+    Buffer.from([(serialNum >> 8) & 0xFF, serialNum & 0xFF,
+                 (crc >> 8) & 0xFF, crc & 0xFF, 0x0D, 0x0A]),
+  ]);
+}
+
 /** Build Login packet (0x01) */
 function makeConcoxLogin(device) {
   const imeiBytes = packImei(device.imei);
@@ -394,6 +414,16 @@ function makeConcoxHeartbeat(device) {
   const gsmLvl   = 0x03;  // 75%
   const info     = Buffer.from([termInfo, battLvl, gsmLvl, 0x00, 0x00]);
   return buildConcoxFrame(0x13, info, nextSerial(device));
+}
+
+/** Build Info packet (0x94) for External Voltage */
+function makeConcoxInfo(device) {
+  // Voltage sub-type is 0x00, length 2 bytes. Let's send 12.86V
+  // 12.86V * 100 = 1286 = 0x0506
+  const subType = 0x00;
+  const rawVolts = Math.round((12.5 + Math.random() * 0.5) * 100);
+  const voltageBytes = Buffer.from([subType, (rawVolts >> 8) & 0xFF, rawVolts & 0xFF]);
+  return buildConcoxExtendedFrame(0x94, voltageBytes, nextSerial(device));
 }
 
 /** Build Location packet (0x22) */
@@ -560,6 +590,11 @@ function startConcoxSimulator() {
         const locFrame = makeConcoxLocation(device);
         client.write(locFrame);
         log('CONCOX', `${C.ok}→ LOCATION (0x22)${C.reset} lat=${device.lat.toFixed(6)} lng=${device.lng.toFixed(6)} speed=${device.speed} ign=${device.ignition} isLive=true`);
+
+        // Send Info packet immediately after Location
+        const infoFrame = makeConcoxInfo(device);
+        client.write(infoFrame);
+        log('CONCOX', `${C.ok}→ INFO (0x94)${C.reset} external voltage`);
 
         // Send overspeed alarm when speed > 80
         if (device.speed > 80 && device.imei === '865006049210220') {
