@@ -18,7 +18,13 @@ export const useVehicles = (initialParams = {}) => {
     try {
       const response = await vehicleApi.getVehicles(currentParams);
       if (response.success) {
-        setVehicles(response.data);
+        const sanitizedData = (response.data || []).map(v => {
+          if (!v.is_online) {
+            return { ...v, current_ignition: false, current_speed: 0 };
+          }
+          return v;
+        });
+        setVehicles(sanitizedData);
         if (response.pagination) {
           setPagination(response.pagination);
         }
@@ -58,17 +64,18 @@ export const useVehicles = (initialParams = {}) => {
       setVehicles((prevVehicles) =>
         prevVehicles.map((vehicle) => {
           if (vehicle.id === data.vehicleId) {
-            return {
-              ...vehicle,
-              lat: data.lat,
-              lng: data.lng,
-              current_speed: data.speed,
-              current_ignition: data.ignition,
-              current_fuel: data.fuel !== undefined ? data.fuel : vehicle.current_fuel,
-              current_voltage: data.voltage !== undefined ? data.voltage : vehicle.current_voltage,
-              is_online: data.is_online !== undefined ? data.is_online : (data.isOnline !== undefined ? data.isOnline : true),
-              last_seen: data.deviceTime || new Date().toISOString(),
-            };
+              const isOnlineStatus = data.is_online !== undefined ? data.is_online : (data.isOnline !== undefined ? data.isOnline : true);
+              return {
+                ...vehicle,
+                lat: data.lat,
+                lng: data.lng,
+                current_speed: isOnlineStatus ? (data.speed || 0) : 0,
+                current_ignition: isOnlineStatus ? !!data.ignition : false,
+                current_fuel: data.fuel !== undefined ? data.fuel : vehicle.current_fuel,
+                current_voltage: data.voltage !== undefined ? data.voltage : vehicle.current_voltage,
+                is_online: isOnlineStatus,
+                last_seen: data.deviceTime || new Date().toISOString(),
+              };
           }
           return vehicle;
         })
