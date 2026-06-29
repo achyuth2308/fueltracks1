@@ -90,7 +90,7 @@ const AdminRenewalsPage = () => {
                 type="number"
                 value={settings.amount}
                 onChange={e => setSettings({ ...settings, amount: e.target.value })}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none' }}
+                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000' }}
               />
             </div>
             <button
