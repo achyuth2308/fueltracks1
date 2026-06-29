@@ -435,22 +435,22 @@ const HistoryPage = () => {
       </div>
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
-      <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 12px rgba(0,0,0,0.02)', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 12px rgba(0,0,0,0.04)', flexShrink: 0, overflow: 'hidden' }}>
         <div style={{ width: '400px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Header */}
-          <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center' }}>
-              <ArrowLeft size={16} />
+          <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px', background: '#FFFFFF' }}>
+            <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#F1F5F9'} onMouseLeave={e => e.currentTarget.style.background='#F8FAFC'}>
+              <ArrowLeft size={18} />
             </button>
             <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs found</div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
+              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs</div>
             </div>
           </div>
 
           {/* Filters Section */}
-          <div style={{ padding: '20px', background: '#EEF5F8', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{ padding: '20px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
               <div style={{ display: 'flex', gap: '12px' }}>
                 <div style={{ flex: 1 }}>
@@ -491,7 +491,7 @@ const HistoryPage = () => {
               <button
                 onClick={handleQuerySubmit}
                 disabled={loading}
-                style={{ width: '100%', background: '#f97316', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                style={{ width: '100%', background: 'linear-gradient(135deg, #4d6076, #6e859b)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', transition: 'all 0.2s' }}
               >
                 Plot Route
               </button>
@@ -500,12 +500,13 @@ const HistoryPage = () => {
             <div style={{ display: 'flex', gap: '8px' }}>
               {['6 Hours', '12 Hours', 'Today', 'Yesterday'].map((label, i) => {
                 const types = ['6h', '12h', 'today', 'yesterday'];
-                const colors = ['#10B981', '#0EA5E9', '#F59E0B', '#EF4444'];
                 return (
                   <button
                     key={label}
                     onClick={() => setQuickRange(types[i])}
-                    style={{ flex: 1, padding: '6px 0', background: colors[i], color: '#fff', border: 'none', borderRadius: '4px', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                    style={{ flex: 1, padding: '8px 0', background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#0F172A'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569'; }}
                   >
                     {label}
                   </button>
@@ -584,9 +585,9 @@ const HistoryPage = () => {
           </div>
 
           {/* Footer actions */}
-          <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
-            <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
-              <Download size={16} /> Export CSV
+          <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#FFFFFF' }}>
+            <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: 'linear-gradient(135deg, #4d6076, #6e859b)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1, boxShadow: '0 4px 6px rgba(0,0,0,0.05)', transition: 'all 0.2s' }}>
+              <Download size={18} /> Export CSV Report
             </button>
           </div>
 
