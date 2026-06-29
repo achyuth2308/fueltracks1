@@ -161,20 +161,62 @@ const DetailDrawer = ({ log, onClose }) => {
           </div>
 
           {/* Info grid */}
-          {[
-            ['Entity', log.entity_name || log.entity_id || '—'],
-            ['Entity Type', log.entity_type],
-            ['Date & Time', formatDate(log.created_at)],
-            ['Performed By', `${log.performed_by_name || '—'} (${log.performed_by_role || '—'})`],
-            ['Email', log.performed_by_email || '—'],
-            ['Organization', log.org_name || log.org_id || '—'],
-            ['IP Address', log.ip_address || '—'],
-          ].map(([k, v]) => (
-            <div key={k} style={{ borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '4px' }}>{k}</div>
-              <div style={{ fontSize: '14px', color: '#111827', fontWeight: 500 }}>{v}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+            {/* Event Context Card */}
+            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', gridColumn: '1 / -1' }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Event Context
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Date & Time</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{formatDate(log.created_at)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>IP Address</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.ip_address || '—'}</div>
+                </div>
+              </div>
             </div>
-          ))}
+
+            {/* Actor Card */}
+            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0 }}>
+                Performed By
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>User</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.performed_by_name || '—'} ({log.performed_by_role || '—'})</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Email</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, wordBreak: 'break-all' }}>{log.performed_by_email || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Organization</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.org_name || log.org_id || '—'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Entity Card */}
+            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0 }}>
+                Target Entity
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Entity Type</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, textTransform: 'capitalize' }}>{log.entity_type || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Entity Identity</div>
+                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.entity_name || log.entity_id || '—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Old Data */}
           {log.old_data && (
