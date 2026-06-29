@@ -13,7 +13,10 @@ const BillingController = {
         FROM renewal_plans p
         LEFT JOIN organizations o ON p.org_id = o.id
         WHERE p.is_active = true 
-        AND (p.org_id IS NULL OR p.org_id = $1)
+        AND (
+          p.org_id = $1 OR 
+          p.org_id = (SELECT parent_id FROM organizations WHERE id = $1)
+        )
         ORDER BY p.duration_months ASC, p.price ASC
       `;
       const result = await db.query(query, [req.user.orgId]);

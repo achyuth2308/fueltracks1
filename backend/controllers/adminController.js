@@ -1047,7 +1047,7 @@ const AdminController = {
       `;
       let params = [];
       if (req.user.role !== 'superadmin') {
-        query += ` AND (p.org_id IS NULL OR p.org_id = $1 OR p.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
+        query += ` AND (p.org_id = $1 OR p.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
         params.push(req.user.orgId);
       }
       query += ` ORDER BY p.duration_months ASC, p.price ASC`;
