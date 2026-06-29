@@ -3,6 +3,23 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import RouteMap from '../../components/map/RouteMap';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
+
+const AddressCell = ({ lat, lng }) => {
+  const [address, setAddress] = useState('Fetching...');
+  useEffect(() => {
+    let mounted = true;
+    if (lat && lng) {
+      getAddressFromCoordinates(lat, lng).then(addr => {
+        if (mounted) setAddress(addr);
+      });
+    } else {
+      setAddress('N/A');
+    }
+    return () => { mounted = false; };
+  }, [lat, lng]);
+  return <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#000000', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={address}>{address}</td>;
+};
 
 const HistoryPage = () => {
   const { id } = useParams();
@@ -432,7 +449,7 @@ const HistoryPage = () => {
                         </td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{Math.round(p.speed || 0)}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>No</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#000000' }}>Address not resolved</td>
+                        <AddressCell lat={p.lat} lng={p.lng} />
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>N/A</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
                           <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={12} /> Link</a>
