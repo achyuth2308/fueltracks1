@@ -763,9 +763,9 @@ function parseConcoxBuffer(buffer, imei) {
       lengthFieldSize = 2;
       packetLength    = buffer.readUInt16BE(pos + 2);
       
-      // For 0x79 0x79: packetLength includes ONLY protocol(1) + info(variable)
-      // Total frame size: start(2) + lengthField(2) + packetLength + serial(2) + crc(2) + stop(2)
-      frameSize       = 2 + lengthFieldSize + packetLength + 2 + 2 + 2;
+      // For 0x79 0x79: packetLength includes protocol(1) + info(variable) + serial(2) + crc(2)
+      // Total frame size: start(2) + lengthField(2) + packetLength + stop(2)
+      frameSize       = 2 + lengthFieldSize + packetLength + 2;
     }
 
     if (pos + frameSize > buffer.length) {
