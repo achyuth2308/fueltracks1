@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Loader2, Play, Pause, Square, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import RouteMap from '../../components/map/RouteMap';
-import { formatLocalTime } from '../../utils/dateUtils';
-import { formatSpeed, formatOdometer } from '../../utils/formatUtils';
 
 const HistoryPage = () => {
   const { id } = useParams();
@@ -21,40 +19,55 @@ const HistoryPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
 
-  // Pagination state for table to prevent rendering thousands of rows
+  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 100;
 
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [points]);
+  // Tabs state
+  const [activeTab, setActiveTab] = useState('All');
+  const tabs = ['All', 'Movement', 'OverSpeed', 'Parked', 'Idle', 'Ignition', 'Stoppage'];
+
+  // Calculate filtered points for the table based on active tab
+  const getFilteredPoints = () => {
+    if (activeTab === 'All') return points;
+    if (activeTab === 'Movement') return points.filter(p => p.speed > 5);
+    if (activeTab === 'OverSpeed') return points.filter(p => p.speed > 60); // Mock overspeed
+    if (activeTab === 'Parked') return points.filter(p => p.speed <= 5 && !p.ignition);
+    if (activeTab === 'Idle') return points.filter(p => p.speed <= 5 && p.ignition);
+    if (activeTab === 'Ignition') return points.filter(p => p.ignition);
+    if (activeTab === 'Stoppage') return points.filter(p => p.speed <= 2);
+    return points;
+  };
+  
+  const filteredPoints = getFilteredPoints();
 
   useEffect(() => {
-    if (points.length > 0 && currentPointIndex >= 0) {
+    setCurrentPage(1);
+  }, [filteredPoints.length, activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'All' && points.length > 0 && currentPointIndex >= 0) {
       const neededPage = Math.floor(currentPointIndex / rowsPerPage) + 1;
       if (currentPage !== neededPage) {
         setCurrentPage(neededPage);
       }
     }
-  }, [currentPointIndex, points.length, rowsPerPage, currentPage]);
+  }, [currentPointIndex, points.length, rowsPerPage, currentPage, activeTab]);
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = points.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(points.length / rowsPerPage) || 1;
+  const currentRows = filteredPoints.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(filteredPoints.length / rowsPerPage) || 1;
 
   // Date range defaults: Today
   const getTodayRange = () => {
     const today = new Date();
     const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
     const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    
-    // Format to local ISO string YYYY-MM-DDThh:mm
     const toLocalISO = (d) => {
       const offsetMs = d.getTimezoneOffset() * 60000;
       return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
     };
-
     return {
       start: toLocalISO(start),
       end: toLocalISO(end)
@@ -63,7 +76,6 @@ const HistoryPage = () => {
 
   const [startDate, setStartDate] = useState(getTodayRange().start);
   const [endDate, setEndDate] = useState(getTodayRange().end);
-  const [dataInterval, setDataInterval] = useState('0'); // 0 = All Points
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -90,70 +102,19 @@ const HistoryPage = () => {
         endDate: new Date(endDate).toISOString()
       });
       if (routeRes.success) {
-        // Validate coordinate is within India's geographic bounds
-        // Lat: 6.5 (southernmost tip) to 37.5 (northernmost Kashmir)
-        // Lng: 68.0 (westernmost Gujarat) to 98.0 (easternmost Arunachal)
-        const isValidCoord = (lat, lng) =>
-          !isNaN(lat) && !isNaN(lng) &&
-          lat > 6.5 && lat < 37.5 &&
-          lng > 68.0 && lng < 98.0;
-
-        // Default fallback to Hyderabad office if literally 0 valid coordinates exist in history
-        let lastValidLat = 17.3411;
-        let lastValidLng = 78.5317;
-
-        // First pass: find the first valid coordinate to use as starting fallback
-        for (const p of routeRes.data) {
-          const lat = parseFloat(p.lat);
-          const lng = parseFloat(p.lng);
-          if (isValidCoord(lat, lng)) {
-            lastValidLat = p.lat;
-            lastValidLng = p.lng;
-            break;
-          }
-        }
-
-        // Second pass: map each point, substituting invalid coords with last known valid
         const processedPoints = routeRes.data.map(p => {
           const lat = parseFloat(p.lat);
           const lng = parseFloat(p.lng);
-
-          if (isValidCoord(lat, lng)) {
-            lastValidLat = p.lat;
-            lastValidLng = p.lng;
+          if (!isNaN(lat) && !isNaN(lng)) {
             return p;
           } else {
-            // Invalid coordinate: substitute last known good location
-            return { ...p, lat: lastValidLat, lng: lastValidLng };
+            return { ...p, lat: 17.3411, lng: 78.5317 }; // Fallback
           }
         });
 
-        // Filter by interval if not '0'
-        let finalPoints = processedPoints;
-        const intervalMs = parseInt(dataInterval) * 60 * 1000;
-        
-        if (intervalMs > 0 && processedPoints.length > 0) {
-          // Ensure points are sorted chronologically
-          const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
-          finalPoints = [sorted[0]];
-          let lastTime = new Date(sorted[0].device_time).getTime();
-          
-          for (let i = 1; i < sorted.length; i++) {
-            const currentPoint = sorted[i];
-            const currentTime = new Date(currentPoint.device_time).getTime();
-            if (currentTime - lastTime >= intervalMs) {
-              finalPoints.push(currentPoint);
-              lastTime = currentTime;
-            }
-          }
-          // Make sure we always include the very last point to show exactly where it ended
-          const lastPoint = sorted[sorted.length - 1];
-          if (finalPoints[finalPoints.length - 1].device_time !== lastPoint.device_time) {
-            finalPoints.push(lastPoint);
-          }
-        }
-
-        setPoints(finalPoints);
+        // Ensure chronological
+        const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+        setPoints(sorted);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
@@ -164,8 +125,6 @@ const HistoryPage = () => {
   };
 
   useEffect(() => {
-    // Auto-fetch today's route when vehicle is loaded
-    // so the map immediately zooms to where the vehicle actually is
     if (vehicle) fetchRouteHistory();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, vehicle]);
@@ -196,24 +155,9 @@ const HistoryPage = () => {
     };
   }, [isPlaying, points, playbackSpeed]);
 
-  // Scroll active table row into view
-  useEffect(() => {
-    if (points.length > 0) {
-      const activeRow = document.getElementById(`row-${currentPointIndex}`);
-      if (activeRow) {
-        activeRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      }
-    }
-  }, [currentPointIndex, points.length]);
-
-  const handleQuerySubmit = () => {
-    fetchRouteHistory();
-  };
-
   const setQuickRange = (rangeType) => {
     const now = new Date();
     let start, end;
-    
     const toLocalISO = (d) => {
       const offsetMs = d.getTimezoneOffset() * 60000;
       return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
@@ -239,14 +183,18 @@ const HistoryPage = () => {
   };
 
   const handleExportCSV = () => {
-    if (points.length === 0) return;
-    const headers = ['Timestamp', 'Latitude', 'Longitude', 'Speed (km/h)', 'Odometer', 'Ignition'];
+    if (filteredPoints.length === 0) return;
+    const headers = ['Date & Time', 'Speed (kmph)', 'Address', 'Direction', 'C-Dist (KMS)', 'Odo (KMS)', 'Fuel (Ltrs)', 'Ignition Status'];
     const csvRows = [headers.join(',')];
-    points.forEach((p) => {
+    filteredPoints.forEach((p) => {
       const row = [
-        new Date(p.device_time).toLocaleString(),
-        p.lat, p.lng, p.speed || 0,
+        new Date(p.device_time).toLocaleString().replace(',', ''),
+        p.speed || 0,
+        'Address not resolved',
+        'N/A',
+        '0',
         p.odometer || 0,
+        p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00',
         p.ignition ? 'ON' : 'OFF'
       ];
       csvRows.push(row.join(','));
@@ -267,8 +215,43 @@ const HistoryPage = () => {
 
   const activePoint = points.length > 0 ? points[currentPointIndex] : null;
 
+  // Calculate total distance (mock for now, assume max odo - min odo)
+  const totalDist = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) || 0 : 0;
+
+  // --- Draw Semi-Circle Gauges ---
+  const renderSemiCircle = (value, max, label, unit, colorRanges) => {
+    const percentage = Math.min(Math.max(value / max, 0), 1);
+    const angle = percentage * 180;
+    
+    // Determine color based on ranges (e.g. [{max: 33, color: 'green'}, {max: 66, color: 'yellow'}, {max: 100, color: 'red'}])
+    let strokeColor = '#22c55e'; // default green
+    for (let range of colorRanges) {
+      if (percentage * 100 <= range.max) {
+        strokeColor = range.color;
+        break;
+      }
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '140px' }}>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>{label} - {Math.round(value)} {unit}</div>
+        <div style={{ position: 'relative', width: '120px', height: '60px', overflow: 'hidden' }}>
+          {/* Background Track */}
+          <svg width="120" height="120" viewBox="0 0 100 100" style={{ transform: 'rotate(180deg)' }}>
+            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2E8F0" strokeWidth="16" strokeLinecap="butt" />
+          </svg>
+          {/* Value Track */}
+          <svg width="120" height="120" viewBox="0 0 100 100" style={{ transform: 'rotate(180deg)', position: 'absolute', top: 0, left: 0 }}>
+            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke={strokeColor} strokeWidth="16" strokeLinecap="butt" strokeDasharray="125.6" strokeDashoffset={125.6 - (percentage * 125.6)} style={{ transition: 'stroke-dashoffset 0.4s ease' }} />
+          </svg>
+          {/* Needle (optional, omitting for clean look, just using the bar) */}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#F3F4F6', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
 
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
@@ -278,6 +261,7 @@ const HistoryPage = () => {
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#1F2937' }}>Loading route history...</span>
           </div>
         )}
+        
         {/* Map Container */}
         <div style={{ position: 'absolute', inset: 0 }}>
           <RouteMap
@@ -292,7 +276,7 @@ const HistoryPage = () => {
           />
         </div>
 
-        {/* Right Panel Toggle Button */}
+        {/* Right Panel Toggle Button (On Map) */}
         <button
           onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
           style={{
@@ -307,229 +291,126 @@ const HistoryPage = () => {
           {isRightPanelOpen ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </button>
 
-        {/* Floating Gauges (Bottom Left) */}
+        {/* Floating Gauges (Legacy UI Style: Unified white box at bottom left) */}
         {points.length > 0 && activePoint && (
-          <div style={{ position: 'absolute', bottom: '24px', left: '24px', zIndex: 999, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)', borderRadius: '12px', padding: '16px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)', display: 'flex', gap: '32px', border: '1px solid #E2E8F0' }}>
-            {/* Speed Gauge */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>Speed - {Math.round(activePoint.speed || 0)} km/h</span>
-              <div style={{ position: 'relative', width: '120px', height: '80px', overflow: 'hidden' }}>
-                <svg width="120" height="120" viewBox="0 0 100 100">
-                  <path d="M 10 90 A 40 40 0 0 1 90 90" fill="none" stroke="#E2E8F0" strokeWidth="12" strokeLinecap="round" />
-                  <path d="M 10 90 A 40 40 0 0 1 90 90" fill="none" stroke={activePoint.speed > 65 ? '#ef4444' : activePoint.speed > 30 ? '#f59e0b' : '#22c55e'} strokeWidth="12" strokeLinecap="round" strokeDasharray="126" strokeDashoffset={126 - (Math.min(activePoint.speed || 0, 180) / 180) * 126} style={{ transition: 'stroke-dashoffset 0.4s ease' }} />
-                </svg>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Floating Playback Controls & Timeline (Bottom Right & Center Overlay) */}
-        {points.length > 0 && (
-          <div style={{
-            position: 'absolute', bottom: '24px', right: '24px', left: points.length > 0 ? '190px' : '24px', zIndex: 999,
-            background: 'rgba(255,255,255,0.96)', backdropFilter: 'blur(8px)', borderRadius: '12px', padding: '14px 20px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #E2E8F0',
-            display: 'flex', flexDirection: 'column', gap: '10px'
-          }}>
-
-            {/* Timeline Progress Bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '100%' }}>
-              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, minWidth: '55px' }}>
-                {new Date(points[currentPointIndex]?.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-
-              <input
-                type="range"
-                min={0}
-                max={points.length - 1}
-                value={currentPointIndex}
-                onChange={(e) => setCurrentPointIndex(parseInt(e.target.value))}
-                style={{
-                  flex: 1,
-                  height: '6px',
-                  borderRadius: '3px',
-                  outline: 'none',
-                  cursor: 'pointer',
-                  accentColor: '#0ea5e9'
-                }}
-              />
-
-              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, minWidth: '40px', textAlign: 'right' }}>
-                {Math.round((currentPointIndex / (points.length - 1)) * 100)}%
-              </span>
-            </div>
-
-            {/* Playback Buttons & Speeds */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => setIsPlaying(!isPlaying)}
-                  style={{
-                    background: isPlaying ? '#0ea5e9' : '#F1F5F9',
-                    border: '1px solid #CBD5E1',
-                    padding: '8px 14px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    color: isPlaying ? '#ffffff' : '#1F2937',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {isPlaying ? <Pause size={15} /> : <Play size={15} />}
-                  {isPlaying ? 'Pause' : 'Play'}
-                </button>
-                <button
-                  onClick={handleStop}
-                  style={{
-                    background: '#F8FAFC',
-                    border: '1px solid #CBD5E1',
-                    padding: '8px 12px',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    color: '#1F2937',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    fontWeight: 700,
-                    fontSize: '12px',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  <Square size={14} /> Stop
-                </button>
-              </div>
-
-              {/* Speeds selector */}
-              <div style={{ display: 'flex', gap: '6px', background: '#F8FAFC', padding: '3px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                {['Slow', 'Normal', 'Fast'].map(spd => (
-                  <button
-                    key={spd}
-                    onClick={() => setPlaybackSpeed(spd)}
-                    style={{
-                      border: 'none',
-                      background: playbackSpeed === spd ? '#ffffff' : 'transparent',
-                      color: playbackSpeed === spd ? '#0ea5e9' : '#64748b',
-                      padding: '5px 12px',
-                      borderRadius: '6px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      boxShadow: playbackSpeed === spd ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                      transition: 'all 0.15s'
-                    }}
-                  >
-                    {spd}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+          <div style={{ position: 'absolute', bottom: '24px', left: '24px', zIndex: 999, background: '#FFFFFF', borderRadius: '8px', padding: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', gap: '32px', border: '1px solid #D1D5DB' }}>
+            {/* Speed Gauge: 0-200 km/h, Green (0-60), Yellow (60-80), Red (80+) */}
+            {renderSemiCircle(activePoint.speed || 0, 200, 'Speed', 'Km/h', [
+              { max: 30, color: '#22c55e' },
+              { max: 40, color: '#eab308' },
+              { max: 100, color: '#ef4444' }
+            ])}
+            {/* Fuel Gauge: Assuming max tank size 400 Ltrs for display, Green */}
+            {renderSemiCircle(activePoint.fuel || 97, 400, 'Tank Size 364 Ltr', '', [
+              { max: 100, color: '#84cc16' }
+            ])}
           </div>
         )}
       </div>
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
-      <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: isRightPanelOpen ? '1px solid #E2E8F0' : 'none', display: 'flex', flexDirection: 'column', boxShadow: isRightPanelOpen ? '-2px 0 12px rgba(0,0,0,0.04)' : 'none', flexShrink: 0, overflow: 'hidden' }}>
-        <div style={{ width: '400px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ 
+        width: isRightPanelOpen ? '600px' : '0px', 
+        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+        background: '#FFFFFF', 
+        borderLeft: isRightPanelOpen ? '1px solid #E2E8F0' : 'none', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        boxShadow: isRightPanelOpen ? '-2px 0 12px rgba(0,0,0,0.04)' : 'none', 
+        flexShrink: 0, 
+        overflow: 'hidden' 
+      }}>
+        <div style={{ width: '600px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
-          {/* Header */}
-          <div style={{ padding: '24px 20px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px', background: '#FFFFFF' }}>
-            <button onClick={() => navigate(`/vehicles/${id}`)} style={{ padding: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', transition: 'all 0.2s' }} onMouseEnter={e => e.currentTarget.style.background='#F1F5F9'} onMouseLeave={e => e.currentTarget.style.background='#F8FAFC'}>
-              <ArrowLeft size={18} />
-            </button>
-            <div style={{ flex: 1 }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>{vehicle?.name || 'Vehicle History'}</h2>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>{vehicle?.plate} • {points.length} logs</div>
+          {/* Top Header Row */}
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB' }}>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Vehicle Group</span>
+                <select style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '140px' }}>
+                  <option>Select Group</option>
+                </select>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Vehicle Name</span>
+                <select style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '160px' }}>
+                  <option>{vehicle?.name || vehicle?.plate || 'Select Vehicle'}</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ textAlign: 'right', fontSize: '12px' }}>
+              <div style={{ fontWeight: 600, color: '#4B5563' }}>Total Dist</div>
+              <div style={{ fontWeight: 800, color: '#111827' }}>{Math.max(0, totalDist).toFixed(2)} Kms</div>
             </div>
           </div>
 
-          {/* Filters Section */}
-          <div style={{ padding: '20px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Start Time</label>
-                  <input
-                    type="datetime-local"
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>End Time</label>
-                  <input
-                    type="datetime-local"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Data Interval</label>
-                <select
-                  value={dataInterval}
-                  onChange={e => setDataInterval(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-                >
-                  <option value="0">All Points (Raw)</option>
-                  <option value="1">1 Minute</option>
-                  <option value="5">5 Minutes</option>
-                  <option value="10">10 Minutes</option>
-                  <option value="15">15 Minutes</option>
-                  <option value="30">30 Minutes</option>
-                  <option value="60">1 Hour</option>
-                </select>
-              </div>
-              <button
-                onClick={handleQuerySubmit}
-                disabled={loading}
-                style={{ width: '100%', background: 'linear-gradient(135deg, #4d6076, #6e859b)', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', transition: 'all 0.2s' }}
-              >
-                Plot Route
+          {/* Date & Range Controls */}
+          <div style={{ padding: '16px', borderBottom: '1px solid #E5E7EB', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px' }} />
+              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px' }} />
+              <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                Plot
+              </button>
+              <button style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#0369a1' }}>
+                <Info size={16} />
               </button>
             </div>
-
+            
+            {/* Quick Range Buttons (Legacy Neon Colors) */}
             <div style={{ display: 'flex', gap: '8px' }}>
-              {['6 Hours', '12 Hours', 'Today', 'Yesterday'].map((label, i) => {
-                const types = ['6h', '12h', 'today', 'yesterday'];
-                return (
-                  <button
-                    key={label}
-                    onClick={() => setQuickRange(types[i])}
-                    style={{ flex: 1, padding: '8px 0', background: '#F1F5F9', color: '#475569', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s' }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#E2E8F0'; e.currentTarget.style.color = '#0F172A'; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#475569'; }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              <button onClick={() => setQuickRange('6h')} style={{ flex: 1, padding: '8px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>6 Hours</button>
+              <button onClick={() => setQuickRange('12h')} style={{ flex: 1, padding: '8px 0', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>12 Hours</button>
+              <button onClick={() => setQuickRange('today')} style={{ flex: 1, padding: '8px 0', background: '#f97316', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Today</button>
+              <button onClick={() => setQuickRange('yesterday')} style={{ flex: 1, padding: '8px 0', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Yesterday</button>
             </div>
+          </div>
+
+          {/* Table Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #D1D5DB', background: '#F9FAFB' }}>
+            {tabs.map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '10px 14px',
+                  background: activeTab === tab ? '#FFFFFF' : 'transparent',
+                  border: 'none',
+                  borderBottom: activeTab === tab ? '2px solid #3B82F6' : '2px solid transparent',
+                  borderRight: '1px solid #E5E7EB',
+                  fontSize: '12px',
+                  fontWeight: activeTab === tab ? 700 : 600,
+                  color: activeTab === tab ? '#111827' : '#6B7280',
+                  cursor: 'pointer',
+                  flex: 1
+                }}
+              >
+                {tab}
+              </button>
+            ))}
           </div>
 
           {/* Data Table */}
-          <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-              <thead style={{ position: 'sticky', top: 0, background: '#F8FAFC', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+          <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '11px' }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
                 <tr>
-                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1' }}>Time</th>
-                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Speed</th>
-                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'right' }}>Odo</th>
-                  <th style={{ padding: '10px 12px', color: '#475569', fontWeight: 700, borderBottom: '1px solid #CBD5E1', textAlign: 'center' }}>Ign</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Date & Time</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '120px' }}>Address</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Odo (KMS)</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Fuel (ltrs)</th>
+                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB' }}>Ignition Status</th>
                 </tr>
               </thead>
               <tbody>
-                {points.length === 0 ? (
+                {filteredPoints.length === 0 ? (
                   <tr>
-                    <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
+                    <td colSpan="10" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
                   </tr>
                 ) : (
                   currentRows.map((p, index) => {
@@ -540,20 +421,27 @@ const HistoryPage = () => {
                         id={`row-${idx}`}
                         onClick={() => setCurrentPointIndex(idx)}
                         style={{
-                          background: idx === currentPointIndex ? '#e0f2fe' : (idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'),
-                          borderBottom: '1px solid #F1F5F9',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s'
+                          background: idx === currentPointIndex ? '#E0F2FE' : (idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB'),
+                          borderBottom: '1px solid #E5E7EB',
+                          cursor: 'pointer'
                         }}
                       >
-                        <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
-                          {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                          <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
+                          <div style={{ color: '#111827', fontWeight: 600 }}>{new Date(p.device_time).toLocaleTimeString('en-GB')}</div>
+                          <div style={{ color: '#6B7280', fontSize: '10px' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
                         </td>
-                        <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
-                        <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>
-                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                          <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700, fontSize: '11px' }}>{p.ignition ? 'ON' : 'OFF'}</span>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{Math.round(p.speed || 0)}</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>No</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#4B5563' }}>Address not resolved</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>N/A</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
+                          <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={12} /> Link</a>
+                        </td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>0</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{p.odometer ? Math.round(p.odometer) : '-'}</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
+                        <td style={{ padding: '8px' }}>
+                          <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700 }}>{p.ignition ? 'ON' : 'OFF'}</span>
                         </td>
                       </tr>
                     );
@@ -561,33 +449,39 @@ const HistoryPage = () => {
                 )}
               </tbody>
             </table>
-            
-            {/* Pagination Controls */}
-            {totalPages > 1 && (
-              <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC', borderTop: '1px solid #CBD5E1', borderBottom: '1px solid #CBD5E1', position: 'sticky', bottom: 0, zIndex: 10 }}>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
-                  disabled={currentPage === 1}
-                  style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#475569', borderRadius: '4px', border: '1px solid #CBD5E1', background: currentPage === 1 ? '#F1F5F9' : '#fff', cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
-                >
-                  Previous
+          </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB', borderTop: '1px solid #D1D5DB' }}>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px' }}>Prev</button>
+              <span style={{ fontSize: '11px', color: '#4B5563' }}>Page {currentPage} of {totalPages}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px' }}>Next</button>
+            </div>
+          )}
+
+          {/* Footer actions (Playback & Routes) */}
+          <div style={{ padding: '12px 16px', borderTop: '1px solid #D1D5DB', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                  {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                 </button>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Page {currentPage} of {totalPages}</span>
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
-                  disabled={currentPage === totalPages}
-                  style={{ padding: '6px 12px', fontSize: '12px', fontWeight: 600, color: '#475569', borderRadius: '4px', border: '1px solid #CBD5E1', background: currentPage === totalPages ? '#F1F5F9' : '#fff', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
-                >
-                  Next
+                <button onClick={handleStop} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                  <Square size={16} />
                 </button>
               </div>
-            )}
-          </div>
-
-          {/* Footer actions */}
-          <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#FFFFFF' }}>
-            <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px', background: 'linear-gradient(135deg, #4d6076, #6e859b)', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1, boxShadow: '0 4px 6px rgba(0,0,0,0.05)', transition: 'all 0.2s' }}>
-              <Download size={18} /> Export CSV Report
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {['Slow', 'Normal', 'Fast'].map(spd => (
+                  <label key={spd} style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                    <input type="radio" checked={playbackSpeed === spd} onChange={() => setPlaybackSpeed(spd)} style={{ margin: 0 }} />
+                    {spd}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <button onClick={handleExportCSV} style={{ padding: '8px 24px', background: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Routes <Download size={14}/>
             </button>
           </div>
 
