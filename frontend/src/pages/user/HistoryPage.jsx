@@ -338,10 +338,7 @@ const HistoryPage = () => {
               { max: 40, color: '#eab308' },
               { max: 100, color: '#ef4444' }
             ])}
-            {/* Fuel Gauge: Assuming max tank size 400 Ltrs for display, Green */}
-            {renderSemiCircle(activePoint.fuel || 97, 400, 'Tank Size 364 Ltr', '', [
-              { max: 100, color: '#84cc16' }
-            ])}
+
           </div>
         )}
       </div>
