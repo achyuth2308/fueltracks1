@@ -325,8 +325,8 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             <span style={{ fontSize: '11px', fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444', textAlign: 'right' }}>{vehicle.current_ignition ? 'ON' : 'OFF'}</span>
 
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Battery</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).color, textAlign: 'right', whiteSpace: 'nowrap' }}>
-              {getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition).status})
+            <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).color, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              {getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).status})
             </span>
 
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>

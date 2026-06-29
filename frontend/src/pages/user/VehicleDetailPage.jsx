@@ -192,7 +192,7 @@ const VehicleDetailPage = () => {
 
   const speed = vehicle.current_speed || 0;
   const ignitionOn = !!vehicle.current_ignition;
-  const batteryStatus = getBatteryStatus(vehicle.current_voltage, vehicle.current_ignition);
+  const batteryStatus = getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', position: 'relative' }}>
