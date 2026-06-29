@@ -122,7 +122,12 @@ export const getRenewalPlans = async () => {
 };
 
 export const createRenewalPlan = async (data) => {
-  const response = await axiosInstance.post(`/api/admin/renewal-plans`, data);
+  const response = await axiosInstance.post('/api/admin/renewal-plans', data);
+  return response.data;
+};
+
+export const updateRenewalPlan = async (id, data) => {
+  const response = await axiosInstance.put(`/api/admin/renewal-plans/${id}`, data);
   return response.data;
 };
 

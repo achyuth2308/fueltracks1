@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText, Edit2, Save, X } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -12,6 +12,7 @@ const AdminRenewalsPage = () => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [editingPlan, setEditingPlan] = useState(null);
   
   const [newPlan, setNewPlan] = useState({ name: '', duration_months: '', price: '', org_id: '' });
 
@@ -26,7 +27,14 @@ const AdminRenewalsPage = () => {
       
       if (plansRes.success) setPlans(plansRes.data || []);
       if (transRes.success) setTransactions(transRes.data || []);
-      if (orgsRes.success) setOrgs(orgsRes.data || []);
+      if (orgsRes.success) {
+        const fetchedOrgs = orgsRes.data || [];
+        setOrgs(fetchedOrgs);
+        // If not superadmin, default to their own org instead of global
+        if (user?.role !== 'superadmin' && fetchedOrgs.length > 0 && !newPlan.org_id) {
+          setNewPlan(prev => ({ ...prev, org_id: fetchedOrgs[0].id }));
+        }
+      }
     } catch (err) {
       setError('An error occurred while fetching data.');
     } finally {
@@ -58,7 +66,7 @@ const AdminRenewalsPage = () => {
       const res = await adminApi.createRenewalPlan(data);
       if (res.success) {
         setMessage('Renewal plan created successfully.');
-        setNewPlan({ name: '', duration_months: '', price: '', org_id: '' });
+        setNewPlan({ name: '', duration_months: '', price: '', org_id: user?.role === 'superadmin' ? '' : (orgs[0]?.id || '') });
         fetchData();
       } else {
         setError(res.error || 'Failed to create plan.');
@@ -67,6 +75,37 @@ const AdminRenewalsPage = () => {
       setError(err.response?.data?.error || 'Failed to create plan.');
     } finally {
       setCreating(false);
+      setTimeout(() => setMessage(null), 3000);
+    }
+  };
+
+  const handleUpdatePlan = async () => {
+    if (!editingPlan.name || !editingPlan.duration_months || !editingPlan.price) {
+      setError('Name, Duration, and Price are required.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+    
+    setError(null);
+    setMessage(null);
+    try {
+      const data = {
+        name: editingPlan.name,
+        duration_months: parseInt(editingPlan.duration_months),
+        price: parseFloat(editingPlan.price),
+        org_id: editingPlan.org_id || null
+      };
+      const res = await adminApi.updateRenewalPlan(editingPlan.id, data);
+      if (res.success) {
+        setMessage('Renewal plan updated successfully.');
+        setEditingPlan(null);
+        fetchData();
+      } else {
+        setError(res.error || 'Failed to update plan.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update plan.');
+    } finally {
       setTimeout(() => setMessage(null), 3000);
     }
   };
@@ -133,7 +172,7 @@ const AdminRenewalsPage = () => {
             <div style={{ flex: 1, minWidth: '200px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Org (Optional)</label>
               <select value={newPlan.org_id} onChange={e => setNewPlan({...newPlan, org_id: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
-                <option value="">Global (All Users)</option>
+                {user?.role === 'superadmin' && <option value="">Global (All Users)</option>}
                 {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
@@ -157,19 +196,54 @@ const AdminRenewalsPage = () => {
               <tbody>
                 {plans.map(p => (
                   <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{p.name}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
-                    <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
-                      {p.org_id ? <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.org_name}</> : 'Global'}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      {(!p.org_id && user?.role !== 'superadmin') ? null : (
-                        <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
-                          <Trash2 size={16} />
-                        </button>
-                      )}
-                    </td>
+                    {editingPlan?.id === p.id ? (
+                      <>
+                        <td style={{ padding: '12px 16px' }}>
+                          <input type="text" value={editingPlan.name} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <input type="number" value={editingPlan.duration_months} onChange={e => setEditingPlan({...editingPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                        </td>
+                        <td style={{ padding: '12px 16px' }}>
+                          <select value={editingPlan.org_id || ''} onChange={e => setEditingPlan({...editingPlan, org_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                            <option value="">Global (All Users)</option>
+                            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                          <button onClick={handleUpdatePlan} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#10B981', padding: '4px' }}>
+                            <Save size={16} />
+                          </button>
+                          <button onClick={() => setEditingPlan(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}>
+                            <X size={16} />
+                          </button>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{p.name}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
+                        <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                          {p.org_id ? <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.org_name}</> : 'Global'}
+                        </td>
+                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                          {(!p.org_id && user?.role !== 'superadmin') ? null : (
+                            <>
+                              <button onClick={() => setEditingPlan(p)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '4px', marginRight: '8px' }}>
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
                 {plans.length === 0 && !loading && (

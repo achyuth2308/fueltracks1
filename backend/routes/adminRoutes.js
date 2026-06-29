@@ -69,6 +69,7 @@ router.patch('/orgs/:id/device-limits', authorize('superadmin'), AdminController
 // ============================================================
 router.get('/renewal-plans', authorize('superadmin', 'dealer'), AdminController.getRenewalPlans);
 router.post('/renewal-plans', authorize('superadmin', 'dealer'), AdminController.createRenewalPlan);
+router.put('/renewal-plans/:id', authorize('superadmin', 'dealer'), AdminController.updateRenewalPlan);
 router.delete('/renewal-plans/:id', authorize('superadmin', 'dealer'), AdminController.deleteRenewalPlan);
 router.get('/renewal-transactions', authorize('superadmin', 'dealer'), AdminController.getRenewalTransactions);
 

@@ -1114,6 +1114,48 @@ const AdminController = {
     }
   },
 
+  async updateRenewalPlan(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, duration_months, price, org_id } = req.body;
+
+      if (!name || !duration_months || !price) {
+        return res.status(400).json({ success: false, error: 'Name, duration, and price are required.' });
+      }
+
+      // Check permissions
+      const planRes = await db.query('SELECT org_id FROM renewal_plans WHERE id = $1', [id]);
+      if (planRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Plan not found.' });
+      }
+      const plan = planRes.rows[0];
+
+      if (req.user.role !== 'superadmin') {
+        if (!plan.org_id) return res.status(403).json({ success: false, error: 'Cannot edit global plans.' });
+        if (plan.org_id !== req.user.orgId) {
+          const check = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [plan.org_id, req.user.orgId]);
+          if (check.rows.length === 0) return res.status(403).json({ success: false, error: 'Cannot edit this plan.' });
+        }
+        if (org_id !== plan.org_id) {
+          // If trying to change the org_id
+          if (!org_id) return res.status(403).json({ success: false, error: 'Only superadmins can make plans global.' });
+          if (org_id !== req.user.orgId) {
+            const checkNewOrg = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [org_id, req.user.orgId]);
+            if (checkNewOrg.rows.length === 0) return res.status(403).json({ success: false, error: 'Cannot assign plan to this organization.' });
+          }
+        }
+      }
+
+      const result = await db.query(
+        'UPDATE renewal_plans SET name = $1, duration_months = $2, price = $3, org_id = $4 WHERE id = $5 RETURNING *',
+        [name, duration_months, price, org_id || null, id]
+      );
+      res.status(200).json({ success: true, data: result.rows[0], message: 'Plan updated successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async getRenewalTransactions(req, res, next) {
     try {
       let query = `
