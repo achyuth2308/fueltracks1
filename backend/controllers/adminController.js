@@ -1040,9 +1040,11 @@ const AdminController = {
   async getRenewalPlans(req, res, next) {
     try {
       let query = `
-        SELECT p.*, o.name as org_name 
+        SELECT p.*, o.name as org_name, u.name as user_name, g.name as group_name
         FROM renewal_plans p
         LEFT JOIN organizations o ON p.org_id = o.id
+        LEFT JOIN users u ON p.user_id = u.id
+        LEFT JOIN groups g ON p.group_id = g.id
         WHERE p.is_active = true
       `;
       let params = [];
@@ -1061,7 +1063,7 @@ const AdminController = {
 
   async createRenewalPlan(req, res, next) {
     try {
-      const { name, duration_months, price, org_id } = req.body;
+      const { name, duration_months, price, org_id, user_id, group_id } = req.body;
       if (!name || !duration_months || !price) {
         return res.status(400).json({ success: false, error: 'Name, duration, and price are required.' });
       }
@@ -1079,8 +1081,8 @@ const AdminController = {
       }
 
       const result = await db.query(
-        'INSERT INTO renewal_plans (name, duration_months, price, org_id) VALUES ($1, $2, $3, $4) RETURNING *',
-        [name, duration_months, price, org_id || null]
+        'INSERT INTO renewal_plans (name, duration_months, price, org_id, user_id, group_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [name, duration_months, price, org_id || null, user_id || null, group_id || null]
       );
       res.status(201).json({ success: true, data: result.rows[0], message: 'Renewal plan created successfully.' });
     } catch (err) {
@@ -1117,7 +1119,7 @@ const AdminController = {
   async updateRenewalPlan(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, duration_months, price, org_id } = req.body;
+      const { name, duration_months, price, org_id, user_id, group_id } = req.body;
 
       if (!name || !duration_months || !price) {
         return res.status(400).json({ success: false, error: 'Name, duration, and price are required.' });
@@ -1147,8 +1149,8 @@ const AdminController = {
       }
 
       const result = await db.query(
-        'UPDATE renewal_plans SET name = $1, duration_months = $2, price = $3, org_id = $4 WHERE id = $5 RETURNING *',
-        [name, duration_months, price, org_id || null, id]
+        'UPDATE renewal_plans SET name = $1, duration_months = $2, price = $3, org_id = $4, user_id = $5, group_id = $6 WHERE id = $7 RETURNING *',
+        [name, duration_months, price, org_id || null, user_id || null, group_id || null, id]
       );
       res.status(200).json({ success: true, data: result.rows[0], message: 'Plan updated successfully.' });
     } catch (err) {

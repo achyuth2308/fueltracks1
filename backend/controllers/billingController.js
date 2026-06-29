@@ -26,6 +26,55 @@ const BillingController = {
     }
   },
 
+  async getVehiclePrice(req, res, next) {
+    try {
+      const { vehicleId } = req.params;
+      if (!vehicleId) return res.status(400).json({ success: false, error: 'Vehicle ID required.' });
+
+      // First verify the vehicle belongs to the user's org
+      const vRes = await db.query('SELECT org_id FROM vehicles WHERE id = $1 AND org_id = $2', [vehicleId, req.user.orgId]);
+      if (vRes.rows.length === 0) return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+
+      // Find all groups the vehicle is assigned to
+      const groupRes = await db.query('SELECT group_id FROM vehicle_groups WHERE vehicle_id = $1', [vehicleId]);
+      const groupIds = groupRes.rows.map(r => r.group_id);
+
+      // Now query renewal_plans targeting:
+      // 1. Group (highest priority)
+      // 2. User (medium priority)
+      // 3. Org (lowest priority)
+      // Only active plans that match org_id (for org level), or user_id (for user level), or group_id (for group level).
+      // Since a user is renewing, the user level should match req.user.userId.
+
+      let query = `
+        SELECT * FROM renewal_plans 
+        WHERE is_active = true 
+        AND (
+          (group_id = ANY($1::uuid[])) OR 
+          (user_id = $2) OR 
+          (org_id = $3 AND user_id IS NULL AND group_id IS NULL)
+        )
+      `;
+      const plansRes = await db.query(query, [groupIds.length ? groupIds : [null], req.user.userId, req.user.orgId]);
+      
+      const plans = plansRes.rows;
+      if (plans.length === 0) {
+        return res.status(404).json({ success: false, error: 'No renewal plans configured for this vehicle.' });
+      }
+
+      // Priority sort: group > user > org
+      const groupPlan = plans.find(p => p.group_id);
+      const userPlan = plans.find(p => p.user_id);
+      const orgPlan = plans.find(p => p.org_id && !p.user_id && !p.group_id);
+
+      const applicablePlan = groupPlan || userPlan || orgPlan;
+
+      res.status(200).json({ success: true, data: applicablePlan });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async verifyRenewal(req, res, next) {
     const client = await db.getClient();
     try {

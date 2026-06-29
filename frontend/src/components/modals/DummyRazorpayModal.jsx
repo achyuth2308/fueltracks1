@@ -10,16 +10,21 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && vehicle) {
       setLoading(true);
-      billingApi.getRenewalPlans()
+      billingApi.getVehiclePrice(vehicle.id)
         .then(res => {
           if (res.success && res.data) {
-            setPlans(res.data);
-            if (res.data.length > 0) {
-              setSelectedPlanId(res.data[0].id);
-            }
+            setPlans([res.data]);
+            setSelectedPlanId(res.data.id);
+          } else {
+            setPlans([]);
+            setSelectedPlanId(null);
           }
+        })
+        .catch(() => {
+          setPlans([]);
+          setSelectedPlanId(null);
         })
         .finally(() => setLoading(false));
     } else {
@@ -98,41 +103,33 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
             {/* Body */}
             <div style={{ padding: '24px' }}>
               
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#111827', fontWeight: 700 }}>Select a Renewal Plan</h4>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#111827', fontWeight: 700 }}>Applicable Renewal Plan</h4>
               
               {loading ? (
                 <div style={{ padding: '20px', textAlign: 'center' }}><Loader2 size={20} className="animate-spin" color="#f97316" style={{margin:'0 auto'}} /></div>
-              ) : plans.length === 0 ? (
+              ) : !selectedPlan ? (
                 <div style={{ padding: '20px', textAlign: 'center', color: '#DC2626', fontSize: '14px', background: '#FEF2F2', borderRadius: '8px' }}>
-                  No active renewal plans available.
+                  No renewal plan configured for this vehicle. Please contact support.
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                  {plans.map(p => (
-                    <div 
-                      key={p.id}
-                      onClick={() => setSelectedPlanId(p.id)}
-                      style={{
-                        padding: '12px 16px',
-                        border: selectedPlanId === p.id ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        background: selectedPlanId === p.id ? '#EFF6FF' : '#FFFFFF',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{p.name}</div>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>{p.duration_months} Months</div>
-                      </div>
-                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
-                        ₹{parseFloat(p.price).toFixed(2)}
-                      </div>
+                  <div style={{
+                    padding: '16px',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    background: '#F8FAFC',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{selectedPlan.name}</div>
+                      <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>Extends license by {selectedPlan.duration_months} Months</div>
                     </div>
-                  ))}
+                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
+                      ₹{parseFloat(selectedPlan.price).toFixed(2)}
+                    </div>
+                  </div>
                 </div>
               )}
 

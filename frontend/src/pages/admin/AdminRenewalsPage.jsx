@@ -7,6 +7,8 @@ const AdminRenewalsPage = () => {
   const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [orgs, setOrgs] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -14,15 +16,17 @@ const AdminRenewalsPage = () => {
   const [message, setMessage] = useState(null);
   const [editingPlan, setEditingPlan] = useState(null);
   
-  const [newPlan, setNewPlan] = useState({ name: '', duration_months: '', price: '', org_id: '' });
+  const [newPlan, setNewPlan] = useState({ name: '', duration_months: '', price: '', org_id: '', target_type: 'org', user_id: '', group_id: '' });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [plansRes, transRes, orgsRes] = await Promise.all([
+      const [plansRes, transRes, orgsRes, usersRes, groupsRes] = await Promise.all([
         adminApi.getRenewalPlans(),
         adminApi.getRenewalTransactions(),
-        adminApi.getOrgs()
+        adminApi.getOrgs(),
+        adminApi.getUsers(),
+        adminApi.getGroups()
       ]);
       
       if (plansRes.success) setPlans(plansRes.data || []);
@@ -30,11 +34,12 @@ const AdminRenewalsPage = () => {
       if (orgsRes.success) {
         const fetchedOrgs = orgsRes.data || [];
         setOrgs(fetchedOrgs);
-        // If not superadmin, default to their own org instead of global
         if (user?.role !== 'superadmin' && fetchedOrgs.length > 0 && !newPlan.org_id) {
           setNewPlan(prev => ({ ...prev, org_id: fetchedOrgs[0].id }));
         }
       }
+      if (usersRes.success) setUsers(usersRes.data || []);
+      if (groupsRes.success) setGroups(groupsRes.data || []);
     } catch (err) {
       setError('An error occurred while fetching data.');
     } finally {
@@ -61,12 +66,14 @@ const AdminRenewalsPage = () => {
         name: newPlan.name,
         duration_months: parseInt(newPlan.duration_months),
         price: parseFloat(newPlan.price),
-        org_id: newPlan.org_id || null
+        org_id: newPlan.org_id || null,
+        user_id: newPlan.target_type === 'user' ? newPlan.user_id : null,
+        group_id: newPlan.target_type === 'group' ? newPlan.group_id : null,
       };
       const res = await adminApi.createRenewalPlan(data);
       if (res.success) {
         setMessage('Renewal plan created successfully.');
-        setNewPlan({ name: '', duration_months: '', price: '', org_id: user?.role === 'superadmin' ? '' : (orgs[0]?.id || '') });
+        setNewPlan({ name: '', duration_months: '', price: '', org_id: user?.role === 'superadmin' ? '' : (orgs[0]?.id || ''), target_type: 'org', user_id: '', group_id: '' });
         fetchData();
       } else {
         setError(res.error || 'Failed to create plan.');
@@ -89,13 +96,15 @@ const AdminRenewalsPage = () => {
     setError(null);
     setMessage(null);
     try {
-      const data = {
+      const updateData = {
         name: editingPlan.name,
         duration_months: parseInt(editingPlan.duration_months),
         price: parseFloat(editingPlan.price),
-        org_id: editingPlan.org_id || null
+        org_id: editingPlan.org_id || null,
+        user_id: editingPlan.target_type === 'user' ? editingPlan.user_id : null,
+        group_id: editingPlan.target_type === 'group' ? editingPlan.group_id : null,
       };
-      const res = await adminApi.updateRenewalPlan(editingPlan.id, data);
+      const res = await adminApi.updateRenewalPlan(editingPlan.id, updateData);
       if (res.success) {
         setMessage('Renewal plan updated successfully.');
         setEditingPlan(null);
@@ -169,16 +178,44 @@ const AdminRenewalsPage = () => {
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Price (₹)</label>
               <input type="number" placeholder="300" value={newPlan.price} onChange={e => setNewPlan({...newPlan, price: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
             </div>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Level</label>
+              <select value={newPlan.target_type} onChange={e => setNewPlan({...newPlan, target_type: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
+                <option value="org">Organization</option>
+                <option value="user">Specific User</option>
+                <option value="group">Specific Group</option>
+              </select>
+            </div>
             <div style={{ flex: 1, minWidth: '200px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Org (Optional)</label>
-              <select value={newPlan.org_id} onChange={e => setNewPlan({...newPlan, org_id: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Org (Required)</label>
+              <select value={newPlan.org_id} onChange={e => setNewPlan({...newPlan, org_id: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
                 {user?.role === 'superadmin' && <option value="">Global (All Users)</option>}
                 {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             </div>
-            <button onClick={handleCreatePlan} disabled={creating} style={{ padding: '10px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
-              {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Create
-            </button>
+            {newPlan.target_type === 'user' && (
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target User</label>
+                <select value={newPlan.user_id} onChange={e => setNewPlan({...newPlan, user_id: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
+                  <option value="">Select User...</option>
+                  {users.filter(u => u.org_id === newPlan.org_id).map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                </select>
+              </div>
+            )}
+            {newPlan.target_type === 'group' && (
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Group</label>
+                <select value={newPlan.group_id} onChange={e => setNewPlan({...newPlan, group_id: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
+                  <option value="">Select Group...</option>
+                  {groups.filter(g => g.org_id === newPlan.org_id).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+            )}
+            <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: '2px' }}>
+              <button onClick={handleCreatePlan} disabled={creating} style={{ padding: '10px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
+                {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Create
+              </button>
+            </div>
           </div>
 
           {/* Active Plans List */}
@@ -189,7 +226,7 @@ const AdminRenewalsPage = () => {
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Plan Name</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Duration</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Price</th>
-                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Target Org</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Target</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
@@ -207,11 +244,28 @@ const AdminRenewalsPage = () => {
                         <td style={{ padding: '12px 16px' }}>
                           <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
                         </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <select value={editingPlan.org_id || ''} onChange={e => setEditingPlan({...editingPlan, org_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                        <td style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <select value={editingPlan.target_type || (editingPlan.group_id ? 'group' : editingPlan.user_id ? 'user' : 'org')} onChange={e => setEditingPlan({...editingPlan, target_type: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                            <option value="org">Org</option>
+                            <option value="user">User</option>
+                            <option value="group">Group</option>
+                          </select>
+                          <select value={editingPlan.org_id || ''} onChange={e => setEditingPlan({...editingPlan, org_id: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
                             <option value="">Global (All Users)</option>
                             {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                           </select>
+                          {(editingPlan.target_type === 'user' || editingPlan.user_id) && (
+                            <select value={editingPlan.user_id || ''} onChange={e => setEditingPlan({...editingPlan, user_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                              <option value="">Select User...</option>
+                              {users.filter(u => u.org_id === editingPlan.org_id).map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                            </select>
+                          )}
+                          {(editingPlan.target_type === 'group' || editingPlan.group_id) && (
+                            <select value={editingPlan.group_id || ''} onChange={e => setEditingPlan({...editingPlan, group_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                              <option value="">Select Group...</option>
+                              {groups.filter(g => g.org_id === editingPlan.org_id).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                            </select>
+                          )}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right' }}>
                           <button onClick={handleUpdatePlan} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#10B981', padding: '4px' }}>
@@ -228,7 +282,13 @@ const AdminRenewalsPage = () => {
                         <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
                         <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
                         <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
-                          {p.org_id ? <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.org_name}</> : 'Global'}
+                          {p.group_id ? (
+                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Group: {p.group_name}</>
+                          ) : p.user_id ? (
+                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> User: {p.user_name}</>
+                          ) : p.org_id ? (
+                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Org: {p.org_name}</>
+                          ) : 'Global'}
                         </td>
                         <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
                           {(!p.org_id && user?.role !== 'superadmin') ? null : (
