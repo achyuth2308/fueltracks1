@@ -44,6 +44,19 @@ const RecenterMap = ({ activePoint, follow }) => {
   return null;
 };
 
+// Fix Leaflet resize bug when flex container changes size
+const MapResizer = () => {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+};
+
 // Map speed to a gradient color
 const getSpeedColor = (speed) => {
   if (speed > 65) return '#ef4444'; // red-500
@@ -194,6 +207,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
 
         <FitBoundsToRoute points={points} />
         {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} />}
+        <MapResizer />
 
 
         {/* Dotted / Dashed Route Path */}
