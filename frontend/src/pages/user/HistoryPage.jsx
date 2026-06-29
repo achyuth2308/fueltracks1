@@ -289,7 +289,7 @@ const HistoryPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'row', height: 'calc(100vh - 56px)', background: '#F3F4F6', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'row', position: 'absolute', inset: 0, background: '#F3F4F6', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
 
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
@@ -348,7 +348,7 @@ const HistoryPage = () => {
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
-        width: isRightPanelOpen ? '600px' : '0px', 
+        width: isRightPanelOpen ? '50vw' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
         background: '#FFFFFF', 
         borderLeft: isRightPanelOpen ? '1px solid #E2E8F0' : 'none', 
@@ -358,7 +358,7 @@ const HistoryPage = () => {
         flexShrink: 0, 
         overflow: 'hidden' 
       }}>
-        <div style={{ width: '600px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ width: '50vw', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Top Header Row */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB' }}>
@@ -376,17 +376,17 @@ const HistoryPage = () => {
                 </select>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-              <div style={{ fontWeight: 600, color: '#000000' }}>Total Dist</div>
-              <div style={{ fontWeight: 800, color: '#111827' }}>{Math.max(0, totalDist).toFixed(2)} Kms</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 'auto' }}>
+              <div style={{ fontWeight: 600, color: '#000000', fontSize: '11px' }}>Total Dist</div>
+              <div style={{ fontWeight: 800, color: '#111827', fontSize: '12px' }}>{Math.max(0, totalDist).toFixed(2)} Kms</div>
             </div>
           </div>
 
           {/* Date & Range Controls */}
           <div style={{ padding: '16px', borderBottom: '1px solid #E5E7EB', background: '#FFFFFF' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
-              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px' }} />
-              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px' }} />
+              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
+              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
               <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 Plot
               </button>
