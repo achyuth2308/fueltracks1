@@ -31,7 +31,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
-        { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin'] },
+        { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
         { name: 'Renewal Config', path: '/admin/renewal-config', icon: RefreshCw, roles: ['superadmin', 'dealer'] },
