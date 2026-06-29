@@ -365,22 +365,22 @@ const HistoryPage = () => {
           {/* Top Header Row */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(229,231,235,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent' }}>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
-                <select style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', width: '140px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
+                <select style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '11px', width: '130px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
                   <option>Select Group</option>
                 </select>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Name</span>
-                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', width: '160px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#000000' }}>Vehicle Name</span>
+                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '11px', width: '160px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
                   <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>
                 </select>
               </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 'auto' }}>
-              <div style={{ fontWeight: 600, color: '#000000', fontSize: '11px' }}>Total Dist</div>
-              <div style={{ fontWeight: 800, color: '#111827', fontSize: '12px' }}>{Math.max(0, totalDist).toFixed(2)} Kms</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: 600, color: '#000000', fontSize: '12px' }}>Total Dist:</span>
+              <span style={{ fontWeight: 800, color: '#111827', fontSize: '13px' }}>{Math.max(0, totalDist).toFixed(2)} Kms</span>
             </div>
           </div>
 
