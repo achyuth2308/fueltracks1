@@ -190,7 +190,7 @@ const OrgsAdminPage = () => {
                       <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>No organizations available</div>
                     </td>
                   </tr>
-                ) : orgs.filter(org => org.type !== 'super' && (user?.role === 'superadmin' || org.id !== user?.orgId)).map((org) => (
+                ) : orgs.filter(org => org.type !== 'super').map((org) => (
                   <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{org.name}</div>
@@ -217,7 +217,7 @@ const OrgsAdminPage = () => {
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => handleOpenModal(org)} style={{ padding: '6px', background: '#F8FAFC', border: 'none', borderRadius: '6px', color: '#64748B', cursor: 'pointer' }}><Edit size={16} /></button>
-                        {org.type !== 'super' && (
+                        {org.type !== 'super' && org.id !== user?.orgId && (
                           <button onClick={() => handleDelete(org)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
                       </div>
