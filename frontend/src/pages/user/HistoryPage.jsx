@@ -454,9 +454,9 @@ const HistoryPage = () => {
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB', borderTop: '1px solid #D1D5DB' }}>
-              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px' }}>Prev</button>
-              <span style={{ fontSize: '11px', color: '#4B5563' }}>Page {currentPage} of {totalPages}</span>
-              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px' }}>Next</button>
+              <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px', color: '#000000' }}>Prev</button>
+              <span style={{ fontSize: '11px', color: '#000000', fontWeight: 600 }}>Page {currentPage} of {totalPages}</span>
+              <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px', color: '#000000' }}>Next</button>
             </div>
           )}
 
@@ -464,23 +464,23 @@ const HistoryPage = () => {
           <div style={{ padding: '12px 16px', borderTop: '1px solid #D1D5DB', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', color: '#000000' }}>
                   {isPlaying ? <Pause size={16} /> : <Play size={16} />}
                 </button>
-                <button onClick={handleStop} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}>
+                <button onClick={handleStop} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', color: '#000000' }}>
                   <Square size={16} />
                 </button>
               </div>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 {['Slow', 'Normal', 'Fast'].map(spd => (
-                  <label key={spd} style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <label key={spd} style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', color: '#000000', fontWeight: 600 }}>
                     <input type="radio" checked={playbackSpeed === spd} onChange={() => setPlaybackSpeed(spd)} style={{ margin: 0 }} />
                     {spd}
                   </label>
                 ))}
               </div>
             </div>
-            <button onClick={handleExportCSV} style={{ padding: '8px 24px', background: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '13px', fontWeight: 600, color: '#374151', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button onClick={handleExportCSV} style={{ padding: '8px 24px', background: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '13px', fontWeight: 700, color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
               Routes <Download size={14}/>
             </button>
           </div>
