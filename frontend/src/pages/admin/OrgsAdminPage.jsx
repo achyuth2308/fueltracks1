@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 const OrgsAdminPage = () => {
   const { user } = useAuth();
 
-  if (user?.role !== 'superadmin') {
+  if (user?.role !== 'superadmin' && user?.role !== 'dealer') {
     return <Navigate to="/dashboard" replace />;
   }
 
