@@ -259,7 +259,7 @@ const RouteHistoryReportPage = () => {
                   type="datetime-local"
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box', color: '#000000' }}
                 />
               </div>
               <div style={{ flex: 1 }}>
@@ -268,7 +268,7 @@ const RouteHistoryReportPage = () => {
                   type="datetime-local"
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                  style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box', color: '#000000' }}
                 />
               </div>
             </div>
