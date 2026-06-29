@@ -10,7 +10,7 @@ const router = express.Router();
 
 router.use(authenticate);
 
-router.get('/renewal-settings', BillingController.getRenewalSettings);
+router.get('/renewal-plans', BillingController.getRenewalPlans);
 router.post('/renewal/verify', BillingController.verifyRenewal);
 
 module.exports = router;

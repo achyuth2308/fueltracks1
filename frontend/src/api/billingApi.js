@@ -1,7 +1,7 @@
 import axiosInstance from './axios';
 
-export const getRenewalSettings = async () => {
-  const response = await axiosInstance.get(`/api/billing/renewal-settings?t=${Date.now()}`);
+export const getRenewalPlans = async () => {
+  const response = await axiosInstance.get(`/api/billing/renewal-plans?t=${Date.now()}`);
   return response.data;
 };
 

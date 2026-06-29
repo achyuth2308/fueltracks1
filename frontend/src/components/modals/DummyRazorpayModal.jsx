@@ -3,7 +3,8 @@ import { X, CreditCard, ShieldCheck, Loader2, CheckCircle } from 'lucide-react';
 import * as billingApi from '../../api/billingApi';
 
 const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
-  const [amount, setAmount] = useState(2000);
+  const [plans, setPlans] = useState([]);
+  const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [paying, setPaying] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -11,17 +12,28 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
   useEffect(() => {
     if (isOpen) {
       setLoading(true);
-      billingApi.getRenewalSettings()
+      billingApi.getRenewalPlans()
         .then(res => {
-          if (res.success && res.data) setAmount(res.data.amount);
+          if (res.success && res.data) {
+            setPlans(res.data);
+            if (res.data.length > 0) {
+              setSelectedPlanId(res.data[0].id);
+            }
+          }
         })
         .finally(() => setLoading(false));
+    } else {
+      // Reset state on close
+      setSuccess(false);
+      setPaying(false);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handlePay = async () => {
+    if (!selectedPlanId) return alert('Please select a plan.');
+    
     setPaying(true);
     // Simulate Razorpay window delay
     setTimeout(async () => {
@@ -29,7 +41,8 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
         const fakePaymentId = 'pay_' + Math.random().toString(36).substring(2, 15);
         const res = await billingApi.verifyRenewal({
           vehicleId: vehicle.id,
-          paymentId: fakePaymentId
+          paymentId: fakePaymentId,
+          planId: selectedPlanId
         });
         
         if (res.success) {
@@ -41,15 +54,17 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
           }, 2000);
         }
       } catch (err) {
-        alert('Payment failed simulation!');
+        alert(err.response?.data?.error || 'Payment failed simulation!');
         setPaying(false);
       }
     }, 1500);
   };
 
+  const selectedPlan = plans.find(p => p.id === selectedPlanId);
+
   return (
     <div className="modal-overlay" style={{ background: 'rgba(0,0,0,0.6)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}>
-      <div className="modal-box" style={{ width: '380px', background: '#FFFFFF', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
+      <div className="modal-box" style={{ width: '420px', background: '#FFFFFF', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', overflow: 'hidden' }}>
         
         {success ? (
           <div style={{ padding: '48px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
@@ -57,7 +72,7 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
               <CheckCircle size={32} color="#059669" />
             </div>
             <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#111827' }}>Payment Successful!</h2>
-            <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#6B7280' }}>Your license for {vehicle?.name} has been extended by 1 year.</p>
+            <p style={{ margin: '8px 0 0', fontSize: '14px', color: '#6B7280' }}>Your license for {vehicle?.name} has been extended by {selectedPlan?.duration_months} months.</p>
           </div>
         ) : (
           <>
@@ -83,45 +98,74 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
             {/* Body */}
             <div style={{ padding: '24px' }}>
               
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#111827', fontWeight: 700 }}>Select a Renewal Plan</h4>
+              
+              {loading ? (
+                <div style={{ padding: '20px', textAlign: 'center' }}><Loader2 size={20} className="animate-spin" color="#f97316" style={{margin:'0 auto'}} /></div>
+              ) : plans.length === 0 ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#DC2626', fontSize: '14px', background: '#FEF2F2', borderRadius: '8px' }}>
+                  No active renewal plans available.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
+                  {plans.map(p => (
+                    <div 
+                      key={p.id}
+                      onClick={() => setSelectedPlanId(p.id)}
+                      style={{
+                        padding: '12px 16px',
+                        border: selectedPlanId === p.id ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        background: selectedPlanId === p.id ? '#EFF6FF' : '#FFFFFF',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{p.name}</div>
+                        <div style={{ fontSize: '12px', color: '#64748B' }}>{p.duration_months} Months</div>
+                      </div>
+                      <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                        ₹{parseFloat(p.price).toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px dashed #E2E8F0' }}>
                 <span style={{ fontSize: '14px', color: '#475569', fontWeight: 600 }}>Amount to Pay</span>
                 <span style={{ fontSize: '24px', color: '#111827', fontWeight: 800 }}>
-                  {loading ? <Loader2 size={20} className="animate-spin" color="#f97316" /> : `₹${parseFloat(amount).toFixed(2)}`}
+                  ₹{selectedPlan ? parseFloat(selectedPlan.price).toFixed(2) : '0.00'}
                 </span>
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <button 
                   onClick={handlePay}
-                  disabled={loading || paying}
+                  disabled={loading || paying || !selectedPlanId}
                   style={{ 
                     width: '100%', padding: '14px', background: '#2563EB', color: '#fff', 
                     border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700, 
-                    cursor: (loading || paying) ? 'not-allowed' : 'pointer',
+                    cursor: (loading || paying || !selectedPlanId) ? 'not-allowed' : 'pointer',
                     display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+                    opacity: (loading || paying || !selectedPlanId) ? 0.7 : 1
                   }}
                 >
-                  {paying ? (
-                    <><Loader2 size={18} className="animate-spin" /> Processing Payment...</>
-                  ) : (
-                    <><CreditCard size={18} /> Pay ₹{parseFloat(amount).toFixed(2)}</>
-                  )}
+                  {paying ? <Loader2 size={18} className="animate-spin" /> : <CreditCard size={18} />}
+                  {paying ? 'Processing...' : `Pay ₹${selectedPlan ? parseFloat(selectedPlan.price).toFixed(2) : '0.00'}`}
                 </button>
-                <div style={{ textAlign: 'center', fontSize: '11px', color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
-                  <ShieldCheck size={12} /> Secured by Razorpay Dummy
+                <div style={{ fontSize: '11px', textAlign: 'center', color: '#94A3B8', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={12} /> 100% Secure Payment (Dummy)
                 </div>
               </div>
-
             </div>
           </>
         )}
       </div>
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-spin { animation: spin 1s linear infinite; }
-        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-      `}} />
     </div>
   );
 };

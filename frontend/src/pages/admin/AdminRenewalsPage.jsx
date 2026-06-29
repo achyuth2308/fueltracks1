@@ -1,31 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, AlertTriangle, CreditCard, Save, RefreshCw } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 
 const AdminRenewalsPage = () => {
-  const [settings, setSettings] = useState({ amount: '' });
+  const [plans, setPlans] = useState([]);
+  const [orgs, setOrgs] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  
+  const [newPlan, setNewPlan] = useState({ name: '', duration_months: '', price: '', org_id: '' });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [settingsRes, transRes] = await Promise.all([
-        adminApi.getRenewalSettings(),
-        adminApi.getRenewalTransactions()
+      const [plansRes, transRes, orgsRes] = await Promise.all([
+        adminApi.getRenewalPlans(),
+        adminApi.getRenewalTransactions(),
+        adminApi.getOrgs()
       ]);
       
-      if (settingsRes.success) {
-        setSettings(settingsRes.data || { amount: 2000 });
-      }
-      if (transRes.success) {
-        setTransactions(transRes.data || []);
-      }
+      if (plansRes.success) setPlans(plansRes.data || []);
+      if (transRes.success) setTransactions(transRes.data || []);
+      if (orgsRes.success) setOrgs(orgsRes.data || []);
     } catch (err) {
-      setError('An error occurred while fetching renewal data.');
+      setError('An error occurred while fetching data.');
     } finally {
       setLoading(false);
     }
@@ -35,23 +36,53 @@ const AdminRenewalsPage = () => {
     fetchData();
   }, []);
 
-  const handleSaveSettings = async () => {
-    setSaving(true);
+  const handleCreatePlan = async () => {
+    if (!newPlan.name || !newPlan.duration_months || !newPlan.price) {
+      setError('Name, Duration, and Price are required.');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
+    setCreating(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await adminApi.updateRenewalSettings(settings.amount);
+      const data = {
+        name: newPlan.name,
+        duration_months: parseInt(newPlan.duration_months),
+        price: parseFloat(newPlan.price),
+        org_id: newPlan.org_id || null
+      };
+      const res = await adminApi.createRenewalPlan(data);
       if (res.success) {
-        setMessage('Renewal settings updated successfully.');
+        setMessage('Renewal plan created successfully.');
+        setNewPlan({ name: '', duration_months: '', price: '', org_id: '' });
+        fetchData();
       } else {
-        setError(res.error || 'Failed to update settings.');
+        setError(res.error || 'Failed to create plan.');
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update settings.');
+      setError(err.response?.data?.error || 'Failed to create plan.');
     } finally {
-      setSaving(false);
+      setCreating(false);
       setTimeout(() => setMessage(null), 3000);
     }
+  };
+
+  const handleDeletePlan = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this plan?')) return;
+    try {
+      const res = await adminApi.deleteRenewalPlan(id);
+      if (res.success) {
+        setMessage('Plan deleted.');
+        fetchData();
+      } else {
+        setError(res.error || 'Failed to delete plan.');
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete plan.');
+    }
+    setTimeout(() => setMessage(null), 3000);
   };
 
   const formatDate = (dateStr) => {
@@ -68,59 +99,101 @@ const AdminRenewalsPage = () => {
             <RefreshCw size={28} color="#f97316" />
             Renewal License Management
           </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Configure renewal prices and view transaction history.</p>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Configure renewal pricing plans and view transaction history.</p>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0, flexDirection: 'column' }}>
+      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0, flexDirection: 'column', overflowY: 'auto' }}>
         
-        {/* Settings Card */}
+        {/* Plans Management Card */}
         <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', flexShrink: 0 }}>
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CreditCard size={18} color="#f97316" /> Renewal Price Configuration
+            <Tag size={18} color="#f97316" /> Renewal Price Plans
           </h2>
           
           {error && <div style={{ marginBottom: '16px', padding: '10px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{error}</div>}
           {message && <div style={{ marginBottom: '16px', padding: '10px', background: '#F0FDF4', color: '#16A34A', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{message}</div>}
 
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px' }}>
-            <div style={{ flex: 1, maxWidth: '300px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Annual Renewal Amount (₹)</label>
-              <input
-                type="number"
-                value={settings.amount}
-                onChange={e => setSettings({ ...settings, amount: e.target.value })}
-                style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000' }}
-              />
+          {/* Create Plan Form */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+            <div style={{ flex: 1, minWidth: '150px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Plan Name</label>
+              <input type="text" placeholder="e.g. 1 Month Basic" value={newPlan.name} onChange={e => setNewPlan({...newPlan, name: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
             </div>
-            <button
-              onClick={handleSaveSettings}
-              disabled={saving}
-              style={{ padding: '10px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-            >
-              {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Amount
+            <div style={{ width: '120px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Months</label>
+              <input type="number" placeholder="1" value={newPlan.duration_months} onChange={e => setNewPlan({...newPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ width: '120px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Price (₹)</label>
+              <input type="number" placeholder="300" value={newPlan.price} onChange={e => setNewPlan({...newPlan, price: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: '200px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Target Org (Optional)</label>
+              <select value={newPlan.org_id} onChange={e => setNewPlan({...newPlan, org_id: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }}>
+                <option value="">Global (All Users)</option>
+                {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
+            </div>
+            <button onClick={handleCreatePlan} disabled={creating} style={{ padding: '10px 20px', background: '#111827', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', height: '42px' }}>
+              {creating ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />} Create
             </button>
+          </div>
+
+          {/* Active Plans List */}
+          <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Plan Name</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Duration</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Price</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Target Org</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map(p => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{p.name}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
+                    <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
+                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                      {p.org_id ? <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.org_name}</> : 'Global'}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                      <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
+                        <Trash2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {plans.length === 0 && !loading && (
+                  <tr>
+                    <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>No active plans found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 
         {/* Transactions Table */}
-        <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>Transaction History</h2>
+        <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', background: '#FAFAFA' }}>
+            <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><FileText size={18} color="#f97316" /> Transaction History</h2>
           </div>
-
           {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#f97316" className="animate-spin" />
-            </div>
+             <div style={{ padding: '40px', textAlign: 'center' }}><Loader2 size={24} className="animate-spin" color="#f97316" style={{margin:'0 auto'}}/></div>
           ) : (
-            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
+            <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Date</th>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>User</th>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Vehicle</th>
+                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Plan</th>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Amount</th>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Payment ID</th>
                     <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Status</th>
@@ -134,6 +207,7 @@ const AdminRenewalsPage = () => {
                         {t.user_name} <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>{t.user_email}</div>
                       </td>
                       <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{t.vehicle_name}</td>
+                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#475569' }}>{t.plan_name || 'Legacy Plan'}</td>
                       <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>₹{parseFloat(t.amount).toFixed(2)}</td>
                       <td style={{ padding: '12px 20px', fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>{t.payment_id}</td>
                       <td style={{ padding: '12px 20px' }}>
@@ -145,7 +219,7 @@ const AdminRenewalsPage = () => {
                   ))}
                   {transactions.length === 0 && (
                     <tr>
-                      <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
                         No transactions found.
                       </td>
                     </tr>

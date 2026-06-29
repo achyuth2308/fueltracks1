@@ -1037,27 +1037,78 @@ const AdminController = {
   // ============================================================
   // RENEWALS CONFIG & TRANSACTIONS
   // ============================================================
-  async getRenewalSettings(req, res, next) {
+  async getRenewalPlans(req, res, next) {
     try {
-      const result = await db.query('SELECT amount FROM renewal_settings LIMIT 1');
-      res.status(200).json({ success: true, data: result.rows[0] });
+      let query = `
+        SELECT p.*, o.name as org_name 
+        FROM renewal_plans p
+        LEFT JOIN organizations o ON p.org_id = o.id
+        WHERE p.is_active = true
+      `;
+      let params = [];
+      if (req.user.role !== 'superadmin') {
+        query += ` AND (p.org_id IS NULL OR p.org_id = $1 OR p.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`;
+        params.push(req.user.orgId);
+      }
+      query += ` ORDER BY p.duration_months ASC, p.price ASC`;
+      
+      const result = await db.query(query, params);
+      res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
       next(err);
     }
   },
 
-  async updateRenewalSettings(req, res, next) {
+  async createRenewalPlan(req, res, next) {
     try {
-      if (req.user.role !== 'superadmin') {
-        return res.status(403).json({ success: false, error: 'Only superadmin can configure renewals.' });
+      const { name, duration_months, price, org_id } = req.body;
+      if (!name || !duration_months || !price) {
+        return res.status(400).json({ success: false, error: 'Name, duration, and price are required.' });
       }
-      const { amount } = req.body;
-      if (!amount || amount < 0) {
-        return res.status(400).json({ success: false, error: 'Valid amount is required.' });
+
+      if (req.user.role !== 'superadmin' && !org_id) {
+        return res.status(403).json({ success: false, error: 'Only superadmins can create global plans.' });
       }
+
+      // If dealer, ensure they can only assign to their org or a sub-org
+      if (req.user.role !== 'superadmin' && org_id !== req.user.orgId) {
+        const check = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [org_id, req.user.orgId]);
+        if (check.rows.length === 0) {
+          return res.status(403).json({ success: false, error: 'Cannot create plan for this organization.' });
+        }
+      }
+
+      const result = await db.query(
+        'INSERT INTO renewal_plans (name, duration_months, price, org_id) VALUES ($1, $2, $3, $4) RETURNING *',
+        [name, duration_months, price, org_id || null]
+      );
+      res.status(201).json({ success: true, data: result.rows[0], message: 'Renewal plan created successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteRenewalPlan(req, res, next) {
+    try {
+      const { id } = req.params;
       
-      await db.query('UPDATE renewal_settings SET amount = $1, updated_at = NOW()', [amount]);
-      res.status(200).json({ success: true, message: 'Renewal amount updated successfully' });
+      // Check permissions
+      const planRes = await db.query('SELECT org_id FROM renewal_plans WHERE id = $1', [id]);
+      if (planRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Plan not found.' });
+      }
+      const plan = planRes.rows[0];
+
+      if (req.user.role !== 'superadmin') {
+        if (!plan.org_id) return res.status(403).json({ success: false, error: 'Cannot delete global plans.' });
+        if (plan.org_id !== req.user.orgId) {
+          const check = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [plan.org_id, req.user.orgId]);
+          if (check.rows.length === 0) return res.status(403).json({ success: false, error: 'Cannot delete this plan.' });
+        }
+      }
+
+      await db.query('UPDATE renewal_plans SET is_active = false WHERE id = $1', [id]);
+      res.status(200).json({ success: true, message: 'Plan deleted successfully.' });
     } catch (err) {
       next(err);
     }
@@ -1066,10 +1117,11 @@ const AdminController = {
   async getRenewalTransactions(req, res, next) {
     try {
       let query = `
-        SELECT rt.*, u.name as user_name, u.email as user_email, v.name as vehicle_name
+        SELECT rt.*, u.name as user_name, u.email as user_email, v.name as vehicle_name, p.name as plan_name
         FROM renewal_transactions rt
         JOIN users u ON rt.user_id = u.id
         JOIN vehicles v ON rt.vehicle_id = v.id
+        LEFT JOIN renewal_plans p ON rt.plan_id = p.id
       `;
       let params = [];
 
