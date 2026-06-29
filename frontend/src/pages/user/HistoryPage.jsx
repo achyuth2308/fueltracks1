@@ -292,7 +292,7 @@ const HistoryPage = () => {
     <div style={{ display: 'flex', flexDirection: 'row', position: 'absolute', inset: 0, background: '#F3F4F6', overflow: 'hidden', fontFamily: "'Inter', sans-serif" }}>
 
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
-      <div style={{ flex: 1, position: 'relative', background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ position: 'absolute', inset: 0, background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
         {loading && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <Loader2 size={32} color="#0EA5E9" className="animate-spin" style={{ marginBottom: '16px' }} />
@@ -348,10 +348,12 @@ const HistoryPage = () => {
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
+        position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 1000,
         width: isRightPanelOpen ? '50vw' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
-        background: '#FFFFFF', 
-        borderLeft: isRightPanelOpen ? '1px solid #E2E8F0' : 'none', 
+        background: 'rgba(255, 255, 255, 0.7)',
+        backdropFilter: 'blur(8px)',
+        borderLeft: isRightPanelOpen ? '1px solid rgba(226,232,240,0.5)' : 'none', 
         display: 'flex', 
         flexDirection: 'column', 
         boxShadow: isRightPanelOpen ? '-2px 0 12px rgba(0,0,0,0.04)' : 'none', 
@@ -361,7 +363,7 @@ const HistoryPage = () => {
         <div style={{ width: '50vw', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Top Header Row */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(229,231,235,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent' }}>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
@@ -383,7 +385,7 @@ const HistoryPage = () => {
           </div>
 
           {/* Date & Range Controls */}
-          <div style={{ padding: '16px', borderBottom: '1px solid #E5E7EB', background: '#FFFFFF' }}>
+          <div style={{ padding: '16px', borderBottom: '1px solid rgba(229,231,235,0.5)', background: 'transparent' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
               <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
               <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
@@ -405,7 +407,7 @@ const HistoryPage = () => {
           </div>
 
           {/* Table Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #D1D5DB', background: '#F9FAFB' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid rgba(209,213,219,0.5)', background: 'transparent' }}>
             {tabs.map(tab => (
               <button
                 key={tab}
@@ -429,9 +431,9 @@ const HistoryPage = () => {
           </div>
 
           {/* Data Table */}
-          <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF' }}>
+          <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: 'transparent' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '11px' }}>
-              <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+              <thead style={{ position: 'sticky', top: 0, background: 'rgba(249, 250, 251, 0.8)', backdropFilter: 'blur(4px)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
                 <tr>
                   <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Date & Time</th>
                   <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
@@ -459,8 +461,8 @@ const HistoryPage = () => {
                         id={`row-${idx}`}
                         onClick={() => setCurrentPointIndex(idx)}
                         style={{
-                          background: idx === currentPointIndex ? '#E0F2FE' : (idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB'),
-                          borderBottom: '1px solid #E5E7EB',
+                          background: idx === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
+                          borderBottom: '1px solid rgba(229,231,235,0.5)',
                           cursor: 'pointer'
                         }}
                       >
@@ -491,7 +493,7 @@ const HistoryPage = () => {
           
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F9FAFB', borderTop: '1px solid #D1D5DB' }}>
+            <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', borderTop: '1px solid rgba(209,213,219,0.5)' }}>
               <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px', color: '#000000' }}>Prev</button>
               <span style={{ fontSize: '11px', color: '#000000', fontWeight: 600 }}>Page {currentPage} of {totalPages}</span>
               <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '4px 12px', fontSize: '11px', border: '1px solid #D1D5DB', background: '#fff', cursor: 'pointer', borderRadius: '4px', color: '#000000' }}>Next</button>
@@ -499,7 +501,7 @@ const HistoryPage = () => {
           )}
 
           {/* Footer actions (Playback & Routes) */}
-          <div style={{ padding: '12px 16px', borderTop: '1px solid #D1D5DB', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '12px 16px', borderTop: '1px solid rgba(209,213,219,0.5)', background: 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button onClick={() => setIsPlaying(!isPlaying)} style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', color: '#000000' }}>
