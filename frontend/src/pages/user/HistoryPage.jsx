@@ -395,16 +395,16 @@ const HistoryPage = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '11px' }}>
               <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
                 <tr>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Date & Time</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '120px' }}>Address</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Odo (KMS)</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Fuel (ltrs)</th>
-                  <th style={{ padding: '8px', color: '#374151', fontWeight: 700, borderBottom: '1px solid #D1D5DB' }}>Ignition Status</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Date & Time</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '120px' }}>Address</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Odo (KMS)</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Fuel (ltrs)</th>
+                  <th style={{ padding: '8px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB' }}>Ignition Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -426,20 +426,20 @@ const HistoryPage = () => {
                           cursor: 'pointer'
                         }}
                       >
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
-                          <div style={{ color: '#111827', fontWeight: 600 }}>{new Date(p.device_time).toLocaleTimeString('en-GB')}</div>
-                          <div style={{ color: '#6B7280', fontSize: '10px' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>
+                          <div style={{ fontWeight: 600 }}>{new Date(p.device_time).toLocaleTimeString('en-GB')}</div>
+                          <div style={{ fontSize: '10px' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
                         </td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{Math.round(p.speed || 0)}</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>No</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#4B5563' }}>Address not resolved</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>N/A</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{Math.round(p.speed || 0)}</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>No</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#000000' }}>Address not resolved</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>N/A</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
                           <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={12} /> Link</a>
                         </td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>0</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{p.odometer ? Math.round(p.odometer) : '-'}</td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>0</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.odometer ? Math.round(p.odometer) : '-'}</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
                         <td style={{ padding: '8px' }}>
                           <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700 }}>{p.ignition ? 'ON' : 'OFF'}</span>
                         </td>

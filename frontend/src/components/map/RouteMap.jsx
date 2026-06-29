@@ -15,6 +15,24 @@ const isValidCoord = (lat, lng) => {
     lo > 68.0 && lo < 98.0;
 };
 
+// Calculate heading for directional arrows
+const getHeading = (p1, p2) => {
+  if (!p1 || !p2) return 0;
+  const rad = Math.PI / 180;
+  const lat1 = parseFloat(p1.lat) * rad, lat2 = parseFloat(p2.lat) * rad;
+  const dLng = (parseFloat(p2.lng) - parseFloat(p1.lng)) * rad;
+  const y = Math.sin(dLng) * Math.cos(lat2);
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+};
+
+const createArrowIcon = (heading) => L.divIcon({
+  html: `<div style="transform: rotate(${heading}deg); width: 0; height: 0; border-left: 4px solid transparent; border-right: 4px solid transparent; border-bottom: 9px solid #000000;"></div>`,
+  className: '',
+  iconSize: [8, 9],
+  iconAnchor: [4, 4]
+});
+
 const FitBoundsToRoute = ({ points }) => {
   const map = useMap();
 
@@ -210,32 +228,34 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         <MapResizer />
 
 
-        {/* Dotted / Dashed Route Path */}
+        {/* Solid Black Route Path */}
         {routeSegments.map((seg, idx) => seg.length > 1 && (
           <Polyline
             key={`route-${idx}`}
             positions={seg}
-            color="#475569"
-            weight={2.5}
-            dashArray="6, 8"
-            opacity={0.7}
-            lineCap="round"
-            lineJoin="round"
-          />
-        ))}
-
-        {/* Solid Traveled Path (up to playback point) */}
-        {pastSegments.map((seg, idx) => seg.length > 1 && (
-          <Polyline
-            key={`past-${idx}`}
-            positions={seg}
-            color="#0EA5E9"
-            weight={4}
+            color="#000000"
+            weight={2}
             opacity={0.8}
             lineCap="round"
             lineJoin="round"
           />
         ))}
+
+        {/* Directional Arrows on Points */}
+        {points.map((p, idx) => {
+          if (idx === points.length - 1) return null;
+          const nextP = points[idx + 1];
+          if (!p.lat || !p.lng || !nextP.lat || !nextP.lng) return null;
+          const heading = getHeading(p, nextP);
+          return (
+            <Marker 
+              key={`arrow-${idx}`} 
+              position={[parseFloat(p.lat), parseFloat(p.lng)]} 
+              icon={createArrowIcon(heading)} 
+              interactive={false} 
+            />
+          );
+        })}
 
         {/* Start Point Marker */}
         {points.length > 0 && (() => {
