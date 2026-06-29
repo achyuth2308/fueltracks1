@@ -340,7 +340,7 @@ const RouteHistoryReportPage = () => {
         </div>
 
         {/* Footer actions */}
-        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8' }}>
+        <div style={{ padding: '16px', borderTop: '1px solid #E2E8F0', background: '#EEF5F8', color: '#000000' }}>
           <button onClick={handleExportCSV} disabled={points.length === 0} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', background: '#f97316', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 600, fontSize: '13px', cursor: 'pointer', opacity: points.length === 0 ? 0.5 : 1 }}>
             <Download size={16} /> Export CSV
           </button>
