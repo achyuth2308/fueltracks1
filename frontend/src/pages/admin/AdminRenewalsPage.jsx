@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
+import { useAuth } from '../../hooks/useAuth';
 
 const AdminRenewalsPage = () => {
+  const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -162,9 +164,11 @@ const AdminRenewalsPage = () => {
                       {p.org_id ? <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.org_name}</> : 'Global'}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                      <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
-                        <Trash2 size={16} />
-                      </button>
+                      {(!p.org_id && user?.role !== 'superadmin') ? null : (
+                        <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
+                          <Trash2 size={16} />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
