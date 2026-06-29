@@ -435,7 +435,7 @@ const HistoryPage = () => {
       </div>
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
-      <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', boxShadow: '-2px 0 12px rgba(0,0,0,0.04)', flexShrink: 0, overflow: 'hidden' }}>
+      <div style={{ width: isRightPanelOpen ? '400px' : '0px', transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', background: '#FFFFFF', borderLeft: isRightPanelOpen ? '1px solid #E2E8F0' : 'none', display: 'flex', flexDirection: 'column', boxShadow: isRightPanelOpen ? '-2px 0 12px rgba(0,0,0,0.04)' : 'none', flexShrink: 0, overflow: 'hidden' }}>
         <div style={{ width: '400px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Header */}
