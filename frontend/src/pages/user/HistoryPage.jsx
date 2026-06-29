@@ -348,32 +348,32 @@ const HistoryPage = () => {
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
-        position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 1000,
-        width: isRightPanelOpen ? '50vw' : '0px', 
+        position: 'absolute', right: '16px', top: '16px', bottom: '16px', zIndex: 1000,
+        width: isRightPanelOpen ? '540px' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
-        background: 'rgba(255, 255, 255, 0.7)',
-        backdropFilter: 'blur(8px)',
-        borderLeft: isRightPanelOpen ? '1px solid rgba(226,232,240,0.5)' : 'none', 
+        background: 'rgba(255, 255, 255, 0.35)',
+        backdropFilter: 'blur(12px)',
+        borderRadius: '12px',
+        border: isRightPanelOpen ? '1px solid rgba(255,255,255,0.5)' : 'none', 
         display: 'flex', 
         flexDirection: 'column', 
-        boxShadow: isRightPanelOpen ? '-2px 0 12px rgba(0,0,0,0.04)' : 'none', 
-        flexShrink: 0, 
+        boxShadow: isRightPanelOpen ? '0 8px 32px rgba(0,0,0,0.1)' : 'none', 
         overflow: 'hidden' 
       }}>
-        <div style={{ width: '50vw', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ width: '540px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Top Header Row */}
           <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(229,231,235,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent' }}>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
-                <select style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '140px' }}>
+                <select style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', width: '140px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
                   <option>Select Group</option>
                 </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Name</span>
-                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '160px' }}>
+                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', width: '160px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
                   <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>
                 </select>
               </div>
@@ -387,8 +387,8 @@ const HistoryPage = () => {
           {/* Date & Range Controls */}
           <div style={{ padding: '16px', borderBottom: '1px solid rgba(229,231,235,0.5)', background: 'transparent' }}>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
-              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
-              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', color: '#000000' }} />
+              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', color: '#000000', background: 'rgba(255,255,255,0.6)' }} />
+              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', color: '#000000', background: 'rgba(255,255,255,0.6)' }} />
               <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 Plot
               </button>
