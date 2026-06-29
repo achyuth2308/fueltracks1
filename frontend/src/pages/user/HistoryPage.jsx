@@ -21,6 +21,18 @@ const AddressCell = ({ lat, lng }) => {
   return <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', fontSize: '10px', color: '#000000', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={address}>{address}</td>;
 };
 
+// Calculate distance between two coordinates in kilometers using Haversine formula
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; 
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+};
+
 const HistoryPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -131,7 +143,16 @@ const HistoryPage = () => {
 
         // Ensure chronological
         const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
-        setPoints(sorted);
+        
+        let cumulativeDist = 0;
+        const withDist = sorted.map((p, idx, arr) => {
+          if (idx > 0) {
+            cumulativeDist += calculateDistance(parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng), parseFloat(p.lat), parseFloat(p.lng));
+          }
+          return { ...p, cDist: cumulativeDist };
+        });
+
+        setPoints(withDist);
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
@@ -310,7 +331,7 @@ const HistoryPage = () => {
 
         {/* Floating Gauges (Legacy UI Style: Unified white box at bottom left) */}
         {points.length > 0 && activePoint && (
-          <div style={{ position: 'absolute', bottom: '24px', left: '24px', zIndex: 999, background: '#FFFFFF', borderRadius: '8px', padding: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', gap: '32px', border: '1px solid #D1D5DB' }}>
+          <div style={{ position: 'absolute', bottom: '24px', left: '24px', zIndex: 999, background: 'rgba(255, 255, 255, 0.85)', borderRadius: '8px', padding: '16px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', display: 'flex', gap: '32px', border: '1px solid #D1D5DB' }}>
             {/* Speed Gauge: 0-200 km/h, Green (0-60), Yellow (60-80), Red (80+) */}
             {renderSemiCircle(activePoint.speed || 0, 200, 'Speed', 'Km/h', [
               { max: 30, color: '#22c55e' },
@@ -343,20 +364,20 @@ const HistoryPage = () => {
           <div style={{ padding: '12px 16px', borderBottom: '1px solid #E5E7EB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F9FAFB' }}>
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Vehicle Group</span>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
                 <select style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '140px' }}>
                   <option>Select Group</option>
                 </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', fontWeight: 600, color: '#4B5563' }}>Vehicle Name</span>
-                <select style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '160px' }}>
-                  <option>{vehicle?.name || vehicle?.plate || 'Select Vehicle'}</option>
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#000000' }}>Vehicle Name</span>
+                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '12px', width: '160px' }}>
+                  <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>
                 </select>
               </div>
             </div>
-            <div style={{ textAlign: 'right', fontSize: '12px' }}>
-              <div style={{ fontWeight: 600, color: '#4B5563' }}>Total Dist</div>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+              <div style={{ fontWeight: 600, color: '#000000' }}>Total Dist</div>
               <div style={{ fontWeight: 800, color: '#111827' }}>{Math.max(0, totalDist).toFixed(2)} Kms</div>
             </div>
           </div>
@@ -454,7 +475,7 @@ const HistoryPage = () => {
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB' }}>
                           <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={12} /> Link</a>
                         </td>
-                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>0</td>
+                        <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.cDist !== undefined ? p.cDist.toFixed(2) : '0.00'}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.odometer ? Math.round(p.odometer) : '-'}</td>
                         <td style={{ padding: '8px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
                         <td style={{ padding: '8px' }}>

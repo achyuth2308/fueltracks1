@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuth } from '../../hooks/useAuth';
@@ -7,6 +7,8 @@ import { useAuth } from '../../hooks/useAuth';
 const DashboardLayout = ({ vehicles = [] }) => {
   const { isAuthenticated, loading } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const location = useLocation();
+  const isHistoryPage = location.pathname.endsWith('/history');
 
   if (loading) {
     return (
@@ -57,10 +59,12 @@ const DashboardLayout = ({ vehicles = [] }) => {
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Sidebar
-          isOpen={mobileSidebarOpen}
-          toggleMobileSidebar={setMobileSidebarOpen}
-        />
+        {!isHistoryPage && (
+          <Sidebar
+            isOpen={mobileSidebarOpen}
+            toggleMobileSidebar={setMobileSidebarOpen}
+          />
+        )}
 
         <main style={{ flex: 1, overflowY: 'auto', background: '#EEF5F8', position: 'relative' }}>
           <Outlet />
