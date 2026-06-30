@@ -242,10 +242,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
           }
 
-          // We use a small black SVG arrow pointer, rotated to the heading
-          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-            <svg width="10" height="10" viewBox="0 0 24 24">
-              <path d="M24 12l-24 12 6-12-6-12z" fill="#000000"/>
+          // We use a small black SVG arrow pointer that points UP (North) at 0 degrees, rotated to the heading
+          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;">
+            <svg width="12" height="12" viewBox="0 0 24 24">
+              <path d="M12 0L24 24L12 18L0 24Z" fill="#000000"/>
             </svg>
           </div>`;
 
@@ -253,7 +253,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             <Marker 
               key={`arrow-${idx}`} 
               position={[parseFloat(p.lat), parseFloat(p.lng)]} 
-              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
+              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [14, 14], iconAnchor: [7, 7] })}
               interactive={false} 
             />
           );
