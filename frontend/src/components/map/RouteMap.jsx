@@ -398,63 +398,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           return <ActiveHoverMarker />;
         })()}
 
-        {/* Small Markers for individual GPS points */}
-        {points
-          .filter((p, idx) => idx > 0 && idx < points.length - 1)
-          .map((point, idx) => {
-            const pos = [parseFloat(point.lat), parseFloat(point.lng)];
-            const color = getSpeedColor(point.speed);
 
-            return (
-              <CircleMarker
-                key={idx}
-                center={pos}
-                radius={4}
-                fillColor="#1e293b"
-                color="#0f172a"
-                opacity={0.8}
-                weight={1.5}
-                fillOpacity={0.9}
-              >
-                <Popup className="premium-popup">
-                  <div style={{ minWidth: '220px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '6px', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 800, color: '#374151', fontSize: '13px' }}>Point Details</span>
-                      <span style={{
-                        width: '8px', height: '8px', borderRadius: '50%', background: color, boxShadow: `0 0 6px ${color}`
-                      }} />
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', color: '#475569' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Vehicle Name</span>
-                        <span style={{ fontWeight: 700 }}>{vehicleName}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Speed</span>
-                        <span style={{ fontWeight: 700, color: color }}>{formatSpeed(point.speed)}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>ACC Status</span>
-                        <span style={{ fontWeight: 700, color: point.ignition ? '#10B981' : '#64748B' }}>
-                          {point.ignition ? 'ON' : 'OFF'}
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
-                        <span style={{ fontWeight: 700 }}>{point.odometer ? `${Math.round(point.odometer)} km` : '-'}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: '#64748B', fontWeight: 600 }}>Loc Time</span>
-                        <span style={{ fontWeight: 700 }}>{formatLocalTime(point.device_time)}</span>
-                      </div>
-                      <LocationDisplay lat={point.lat} lng={point.lng} />
-                    </div>
-                  </div>
-                </Popup>
-              </CircleMarker>
-            );
-          })}
       </MapContainer>
     </div>
   );
