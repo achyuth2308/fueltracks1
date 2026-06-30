@@ -279,7 +279,6 @@ const HistoryPage = () => {
   // --- Draw Semi-Circle Gauges ---
   const renderSemiCircle = (value, max, label, unit, colorRanges) => {
     const percentage = Math.min(Math.max(value / max, 0), 1);
-    const angle = percentage * 180;
     
     // Determine color based on ranges (e.g. [{max: 33, color: 'green'}, {max: 66, color: 'yellow'}, {max: 100, color: 'red'}])
     let strokeColor = '#22c55e'; // default green
@@ -290,19 +289,42 @@ const HistoryPage = () => {
       }
     }
 
+    // Calculate stroke dash based on half-circle (Math.PI * radius)
+    const radius = 40;
+    const circumference = Math.PI * radius;
+    const strokeDashoffset = circumference - (percentage * circumference);
+
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '140px' }}>
-        <div style={{ fontSize: '13px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>{label} - {Math.round(value)} {unit}</div>
-        <div style={{ position: 'relative', width: '120px', height: '60px', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '160px', padding: '8px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#475569', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+        
+        <div style={{ position: 'relative', width: '120px', height: '65px' }}>
           {/* Background Track */}
-          <svg width="120" height="120" viewBox="0 0 100 100" style={{ transform: 'rotate(180deg)' }}>
-            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2E8F0" strokeWidth="16" strokeLinecap="butt" />
+          <svg width="120" height="60" viewBox="0 0 100 50" style={{ position: 'absolute', top: 0, left: 0 }}>
+            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2E8F0" strokeWidth="10" strokeLinecap="round" />
           </svg>
+          
           {/* Value Track */}
-          <svg width="120" height="120" viewBox="0 0 100 100" style={{ transform: 'rotate(180deg)', position: 'absolute', top: 0, left: 0 }}>
-            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke={strokeColor} strokeWidth="16" strokeLinecap="butt" strokeDasharray="125.6" strokeDashoffset={125.6 - (percentage * 125.6)} style={{ transition: 'stroke-dashoffset 0.4s ease' }} />
+          <svg width="120" height="60" viewBox="0 0 100 50" style={{ position: 'absolute', top: 0, left: 0 }}>
+            <path 
+              d="M 10 50 A 40 40 0 0 1 90 50" 
+              fill="none" 
+              stroke={strokeColor} 
+              strokeWidth="10" 
+              strokeLinecap="round" 
+              strokeDasharray={circumference} 
+              strokeDashoffset={strokeDashoffset} 
+              style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.6s ease' }} 
+            />
           </svg>
-          {/* Needle (optional, omitting for clean look, just using the bar) */}
+          
+          {/* Text in the center of the arch */}
+          <div style={{ position: 'absolute', bottom: '-4px', left: 0, right: 0, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+              <span style={{ fontSize: '28px', fontWeight: 800, color: '#0F172A', lineHeight: '1' }}>{Math.round(value)}</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>{unit}</span>
+            </div>
+          </div>
         </div>
       </div>
     );
