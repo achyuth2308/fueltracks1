@@ -18,7 +18,7 @@ const AddressCell = ({ lat, lng }) => {
     }
     return () => { mounted = false; };
   }, [lat, lng]);
-  return <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', fontSize: '9px', color: '#000000', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={address}>{address}</td>;
+  return <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', fontSize: '9px', color: '#000000', maxWidth: '140px', whiteSpace: 'normal', wordWrap: 'break-word' }}>{address}</td>;
 };
 
 // Calculate distance between two coordinates in kilometers using Haversine formula
@@ -450,8 +450,7 @@ const HistoryPage = () => {
                 <tr>
                   <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '50px' }}>Date & Time</th>
                   <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
-                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
-                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '90px' }}>Address</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '120px' }}>Address</th>
                   <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
                   <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
                   <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
@@ -463,7 +462,7 @@ const HistoryPage = () => {
               <tbody>
                 {filteredPoints.length === 0 ? (
                   <tr>
-                    <td colSpan="10" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
+                    <td colSpan="9" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
                   </tr>
                 ) : (
                   currentRows.map((p, index) => {
@@ -481,12 +480,11 @@ const HistoryPage = () => {
                           cursor: 'pointer'
                         }}
                       >
-                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>
+                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000', whiteSpace: 'normal', wordWrap: 'break-word', width: '50px' }}>
                           <div style={{ fontWeight: 600 }}>{new Date(p.device_time).toLocaleTimeString('en-GB')}</div>
                           <div style={{ fontSize: '9px' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
                         </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{Math.round(p.speed || 0)}</td>
-                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>No</td>
                         <AddressCell lat={p.lat} lng={p.lng} />
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{direction}</td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB' }}>
