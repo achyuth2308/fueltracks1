@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff, MapPin } from 'lucide-react';
 import LocationDisplay from '../ui/LocationDisplay';
+
+const { BaseLayer } = LayersControl;
 
 // Validate coordinate is within India's geographic bounding box
 const isValidCoord = (lat, lng) => {
@@ -207,17 +209,33 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         className="w-full h-full"
         zoomControl={false}
       >
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <LayersControl position="topright">
+          <BaseLayer checked name="Modern Light">
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          </BaseLayer>
+          <BaseLayer name="Dark Mode (Premium)">
+            <TileLayer
+              attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            />
+          </BaseLayer>
+          <BaseLayer name="Satellite">
+            <TileLayer
+              attribution='&copy; Esri'
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            />
+          </BaseLayer>
+        </LayersControl>
 
         <FitBoundsToRoute points={points} />
         {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} />}
         <MapResizer />
 
 
-        {/* Premium Modern Route Path */}
+        {/* Premium Modern Route Path (Base Line) */}
         {routeSegments.map((seg, idx) => seg.length > 1 && (
           <React.Fragment key={`route-group-${idx}`}>
             {/* Soft shadow effect underneath the line */}
@@ -234,11 +252,24 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
               positions={seg}
               color="#3B82F6"
               weight={4}
-              opacity={0.9}
+              opacity={0.8}
               lineCap="round"
               lineJoin="round"
             />
           </React.Fragment>
+        ))}
+
+        {/* Driven Path Trail Effect (Vibrant Green over the path already traveled) */}
+        {pastSegments.map((seg, idx) => seg.length > 1 && (
+          <Polyline
+            key={`past-group-${idx}`}
+            positions={seg}
+            color="#10B981"
+            weight={4}
+            opacity={1}
+            lineCap="round"
+            lineJoin="round"
+          />
         ))}
 
         {/* Premium Directional Markers (Distance-based dynamic spacing) */}
