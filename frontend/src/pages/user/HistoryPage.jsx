@@ -343,14 +343,16 @@ const HistoryPage = () => {
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
-        position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 1000,
+        position: 'absolute', right: 0, top: 0, zIndex: 1000,
+        height: '60%',
         width: isRightPanelOpen ? '450px' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
         background: '#FFFFFF',
         borderLeft: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
+        borderBottom: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
         display: 'flex', 
         flexDirection: 'column', 
-        boxShadow: isRightPanelOpen ? '-2px 0 10px rgba(0,0,0,0.1)' : 'none', 
+        boxShadow: isRightPanelOpen ? '-2px 2px 10px rgba(0,0,0,0.1)' : 'none', 
         overflow: 'hidden' 
       }}>
         <div style={{ width: '450px', display: 'flex', flexDirection: 'column', height: '100%' }}>
