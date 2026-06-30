@@ -210,25 +210,34 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         <MapResizer />
 
 
-        {/* Solid Black Route Path */}
+        {/* Route Path (Yellow with black border like legacy UI) */}
         {routeSegments.map((seg, idx) => seg.length > 1 && (
-          <Polyline
-            key={`route-${idx}`}
-            positions={seg}
-            color="#000000"
-            weight={2}
-            opacity={0.8}
-            lineCap="round"
-            lineJoin="round"
-          />
+          <React.Fragment key={`route-group-${idx}`}>
+            <Polyline
+              positions={seg}
+              color="#000000"
+              weight={5}
+              opacity={0.8}
+              lineCap="round"
+              lineJoin="round"
+            />
+            <Polyline
+              positions={seg}
+              color="#EAB308"
+              weight={3}
+              opacity={1}
+              lineCap="round"
+              lineJoin="round"
+            />
+          </React.Fragment>
         ))}
 
-        {/* Directional Arrows (sampled to avoid clutter) */}
+        {/* Directional Arrows (sampled to avoid clutter, exactly like legacy V-arrows) */}
         {points.map((p, idx) => {
           if (!p.lat || !p.lng) return null;
           
-          // Draw an arrow every ~30 points (or based on total points) to avoid clustering
-          const step = Math.max(1, Math.floor(points.length / 30));
+          // Draw an arrow every ~25 points to keep it perfectly spaced and clean
+          const step = Math.max(1, Math.floor(points.length / 25));
           if (idx % step !== 0 || idx === 0 || idx === points.length - 1) return null;
 
           let heading = p.course || 0;
@@ -242,10 +251,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
           }
 
-          // We use a small black SVG arrow pointer that points UP (North) at 0 degrees, rotated to the heading
+          // Crisp V-shaped arrow pointing UP (North) at 0 degrees, just like legacy UI
           const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;">
-            <svg width="12" height="12" viewBox="0 0 24 24">
-              <path d="M12 0L24 24L12 18L0 24Z" fill="#000000"/>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 18L12 6L20 18"/>
             </svg>
           </div>`;
 
