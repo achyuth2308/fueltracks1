@@ -210,29 +210,31 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         <MapResizer />
 
 
-        {/* Route Path (Professional Yellow with thin black border) */}
+        {/* Premium Modern Route Path */}
         {routeSegments.map((seg, idx) => seg.length > 1 && (
           <React.Fragment key={`route-group-${idx}`}>
+            {/* Soft shadow effect underneath the line */}
             <Polyline
               positions={seg}
-              color="#000000"
-              weight={4}
-              opacity={0.6}
+              color="#0f172a"
+              weight={6}
+              opacity={0.15}
               lineCap="round"
               lineJoin="round"
             />
+            {/* Crisp modern blue primary line */}
             <Polyline
               positions={seg}
-              color="#FBBF24"
-              weight={2.5}
-              opacity={1}
+              color="#3B82F6"
+              weight={4}
+              opacity={0.9}
               lineCap="round"
               lineJoin="round"
             />
           </React.Fragment>
         ))}
 
-        {/* Directional Arrows (Every 2 mins, interactive with popup card) */}
+        {/* Premium Directional Markers (Every 2 mins, interactive with popup card) */}
         {(() => {
           const arrowMarkers = [];
           let lastArrowTime = null;
@@ -256,10 +258,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                 heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
               }
 
-              // Crisp, thin, elegant V-shaped arrow pointing UP (North) at 0 degrees
-              const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 16L12 6L20 16"/>
+              // Premium, elegant modern directional pin (Blue circle with white arrow)
+              const arrowHtml = `<div style="background: #3B82F6; border: 2px solid #FFFFFF; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" style="transform: rotate(${heading}deg);">
+                  <path d="M5 15l7-7 7 7"/>
                 </svg>
               </div>`;
 
@@ -267,41 +269,37 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                 <Marker 
                   key={`arrow-${idx}`} 
                   position={[parseFloat(p.lat), parseFloat(p.lng)]} 
-                  icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
+                  icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [16, 16], iconAnchor: [8, 8] })}
                   interactive={true} 
                 >
-                  <Popup className="premium-popup legacy-hover-card">
-                    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11px', padding: '6px', minWidth: '180px', background: '#FFFFFF' }}>
-                      <table style={{ width: '100%', borderCollapse: 'collapse', color: '#000000', marginBottom: '8px' }}>
+                  <Popup className="premium-popup modern-hover-card">
+                    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
+                      <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Route Point Details</div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
                         <tbody>
                           <tr>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>LocTime</td>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{formatLocalTime(p.device_time)}</td>
+                            <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
+                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(p.device_time)}</td>
                           </tr>
                           <tr>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>Speed<br/>(Kmph)</td>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{Math.round(p.speed || 0)} kmph</td>
+                            <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
+                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(p.speed || 0)} km/h</td>
                           </tr>
                           <tr>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>DistCov</td>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{p.cDist !== undefined && p.cDist !== null ? Math.round(p.cDist) : '0'} kms</td>
+                            <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
+                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.cDist !== undefined && p.cDist !== null ? Math.round(p.cDist) : '0'} km</td>
                           </tr>
                           <tr>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>Fuel (Ltrs)</td>
-                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00'} ltrs</td>
+                            <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
+                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00'} L</td>
                           </tr>
                           <tr>
-                            <td style={{ color: '#374151', paddingBottom: '0px' }}>Odo (kms)</td>
-                            <td style={{ color: '#374151', paddingBottom: '0px' }}>&nbsp;-&nbsp;</td>
-                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '0px' }}>{p.odometer ? Math.round(p.odometer) : '-'} kms</td>
+                            <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
+                            <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.odometer ? Math.round(p.odometer) : '-'} km</td>
                           </tr>
                         </tbody>
                       </table>
-                      <div style={{ textAlign: 'center', color: '#374151', fontSize: '10px' }}>
+                      <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
                         <LocationDisplay lat={p.lat} lng={p.lng} />
                       </div>
                     </div>
@@ -401,38 +399,34 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
                 zIndexOffset={1000}
                 ref={markerRef}
               >
-                <Popup className="premium-popup legacy-hover-card" autoPan={false}>
-                  <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11px', padding: '6px', minWidth: '180px', background: '#FFFFFF' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#000000', marginBottom: '8px' }}>
+                <Popup className="premium-popup modern-hover-card" autoPan={false}>
+                  <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
+                    <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
                       <tbody>
                         <tr>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>LocTime</td>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{formatLocalTime(activePoint.device_time)}</td>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(activePoint.device_time)}</td>
                         </tr>
                         <tr>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>Speed<br/>(Kmph)</td>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{Math.round(activePoint.speed || 0)} kmph</td>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(activePoint.speed || 0)} km/h</td>
                         </tr>
                         <tr>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>DistCov</td>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} kms</td>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
                         </tr>
                         <tr>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>Fuel (Ltrs)</td>
-                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
-                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} ltrs</td>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
                         </tr>
                         <tr>
-                          <td style={{ color: '#374151', paddingBottom: '0px' }}>Odo (kms)</td>
-                          <td style={{ color: '#374151', paddingBottom: '0px' }}>&nbsp;-&nbsp;</td>
-                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '0px' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} kms</td>
+                          <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
+                          <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} km</td>
                         </tr>
                       </tbody>
                     </table>
-                    <div style={{ textAlign: 'center', color: '#374151', fontSize: '10px' }}>
+                    <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
                       <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
                     </div>
                   </div>
