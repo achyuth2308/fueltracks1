@@ -77,11 +77,9 @@ const HistoryPage = () => {
   useEffect(() => {
     if (activeTab === 'All' && points.length > 0 && currentPointIndex >= 0) {
       const neededPage = Math.floor(currentPointIndex / rowsPerPage) + 1;
-      if (currentPage !== neededPage) {
-        setCurrentPage(neededPage);
-      }
+      setCurrentPage(prev => prev !== neededPage ? neededPage : prev);
     }
-  }, [currentPointIndex, points.length, rowsPerPage, currentPage, activeTab]);
+  }, [currentPointIndex, points.length, rowsPerPage, activeTab]);
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
