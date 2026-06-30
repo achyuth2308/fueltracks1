@@ -232,41 +232,86 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           </React.Fragment>
         ))}
 
-        {/* Directional Arrows (Clean and professional) */}
-        {points.map((p, idx) => {
-          if (!p.lat || !p.lng) return null;
+        {/* Directional Arrows (Every 2 mins, interactive with popup card) */}
+        {(() => {
+          const arrowMarkers = [];
+          let lastArrowTime = null;
           
-          // Draw an arrow every ~35 points for a clean look
-          const step = Math.max(1, Math.floor(points.length / 35));
-          if (idx % step !== 0 || idx === 0 || idx === points.length - 1) return null;
+          points.forEach((p, idx) => {
+            if (!p.lat || !p.lng || idx === 0 || idx === points.length - 1) return;
+            
+            const ptTime = new Date(p.device_time).getTime();
+            // 2 minutes = 120000 ms
+            if (!lastArrowTime || ptTime - lastArrowTime >= 120000) {
+              lastArrowTime = ptTime;
 
-          let heading = p.course || 0;
-          if (!p.course && idx > 0) {
-            const prev = points[idx - 1];
-            const lat1 = prev.lat * Math.PI / 180;
-            const lat2 = p.lat * Math.PI / 180;
-            const dLon = (p.lng - prev.lng) * Math.PI / 180;
-            const y = Math.sin(dLon) * Math.cos(lat2);
-            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-            heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-          }
+              let heading = p.course || 0;
+              if (!p.course && idx > 0) {
+                const prev = points[idx - 1];
+                const lat1 = prev.lat * Math.PI / 180;
+                const lat2 = p.lat * Math.PI / 180;
+                const dLon = (p.lng - prev.lng) * Math.PI / 180;
+                const y = Math.sin(dLon) * Math.cos(lat2);
+                const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+                heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+              }
 
-          // Crisp, thin, elegant V-shaped arrow pointing UP (North) at 0 degrees
-          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
-            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 16L12 6L20 16"/>
-            </svg>
-          </div>`;
+              // Crisp, thin, elegant V-shaped arrow pointing UP (North) at 0 degrees
+              const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 16L12 6L20 16"/>
+                </svg>
+              </div>`;
 
-          return (
-            <Marker 
-              key={`arrow-${idx}`} 
-              position={[parseFloat(p.lat), parseFloat(p.lng)]} 
-              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
-              interactive={false} 
-            />
-          );
-        })}
+              arrowMarkers.push(
+                <Marker 
+                  key={`arrow-${idx}`} 
+                  position={[parseFloat(p.lat), parseFloat(p.lng)]} 
+                  icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
+                  interactive={true} 
+                >
+                  <Popup className="premium-popup legacy-hover-card">
+                    <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11px', padding: '6px', minWidth: '180px', background: '#FFFFFF' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', color: '#000000', marginBottom: '8px' }}>
+                        <tbody>
+                          <tr>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>LocTime</td>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{formatLocalTime(p.device_time)}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>Speed<br/>(Kmph)</td>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{Math.round(p.speed || 0)} kmph</td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>DistCov</td>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{p.cDist !== undefined && p.cDist !== null ? Math.round(p.cDist) : '0'} kms</td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>Fuel (Ltrs)</td>
+                            <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00'} ltrs</td>
+                          </tr>
+                          <tr>
+                            <td style={{ color: '#374151', paddingBottom: '0px' }}>Odo (kms)</td>
+                            <td style={{ color: '#374151', paddingBottom: '0px' }}>&nbsp;-&nbsp;</td>
+                            <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '0px' }}>{p.odometer ? Math.round(p.odometer) : '-'} kms</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      <div style={{ textAlign: 'center', color: '#374151', fontSize: '10px' }}>
+                        <LocationDisplay lat={p.lat} lng={p.lng} />
+                      </div>
+                    </div>
+                  </Popup>
+                </Marker>
+              );
+            }
+          });
+          return arrowMarkers;
+        })()}
 
         {/* Start Point Marker */}
         {points.length > 0 && (() => {
