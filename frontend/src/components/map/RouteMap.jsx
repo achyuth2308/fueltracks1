@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { formatSpeed } from '../../utils/formatUtils';
@@ -339,38 +339,64 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         })()}
 
         {/* Active Animated Playback Marker */}
-        {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
-          <Marker
-            position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-            icon={createVehicleIcon(activePoint.direction || 0, activePoint.speed || 0)}
-            zIndexOffset={1000}
-          >
-            <Popup className="premium-popup">
-              <div style={{ minWidth: '200px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
-                <div style={{ fontWeight: 800, color: '#0ea5e9', fontSize: '13px', borderBottom: '1px solid #E2E8F0', paddingBottom: '4px', marginBottom: '6px' }}>Current Position</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', color: '#475569' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B', fontWeight: 600 }}>Time</span>
-                    <span>{formatLocalTime(activePoint.device_time)}</span>
+        {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (() => {
+          const ActiveHoverMarker = () => {
+            const markerRef = useRef(null);
+            useEffect(() => {
+              if (markerRef.current) {
+                // Auto-open popup on render/update to keep it "hovering" permanently
+                markerRef.current.openPopup();
+              }
+            });
+
+            return (
+              <Marker
+                position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
+                icon={createVehicleIcon(activePoint.direction || 0, activePoint.speed || 0)}
+                zIndexOffset={1000}
+                ref={markerRef}
+              >
+                <Popup className="premium-popup legacy-hover-card" autoPan={false}>
+                  <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11px', padding: '6px', minWidth: '180px', background: '#FFFFFF' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', color: '#000000', marginBottom: '8px' }}>
+                      <tbody>
+                        <tr>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>LocTime</td>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{formatLocalTime(activePoint.device_time)}</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>Speed<br/>(Kmph)</td>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{Math.round(activePoint.speed || 0)} kmph</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>DistCov</td>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} kms</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>Fuel (Ltrs)</td>
+                          <td style={{ color: '#374151', paddingBottom: '4px' }}>&nbsp;-&nbsp;</td>
+                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '4px' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} ltrs</td>
+                        </tr>
+                        <tr>
+                          <td style={{ color: '#374151', paddingBottom: '0px' }}>Odo (kms)</td>
+                          <td style={{ color: '#374151', paddingBottom: '0px' }}>&nbsp;-&nbsp;</td>
+                          <td style={{ fontWeight: 700, color: '#16a34a', paddingBottom: '0px' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} kms</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                    <div style={{ textAlign: 'center', color: '#374151', fontSize: '10px' }}>
+                      <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B', fontWeight: 600 }}>Speed</span>
-                    <span style={{ fontWeight: 700, color: getSpeedColor(activePoint.speed) }}>{formatSpeed(activePoint.speed)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B', fontWeight: 600 }}>Odometer</span>
-                    <span>{activePoint.odometer ? `${Math.round(activePoint.odometer)} km` : '-'}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748B', fontWeight: 600 }}>Ignition</span>
-                    <span style={{ fontWeight: 700, color: activePoint.ignition ? '#10B981' : '#64748B' }}>{activePoint.ignition ? 'ON' : 'OFF'}</span>
-                  </div>
-                  <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
-                </div>
-              </div>
-            </Popup>
-          </Marker>
-        )}
+                </Popup>
+              </Marker>
+            );
+          };
+          return <ActiveHoverMarker />;
+        })()}
 
         {/* Small Markers for individual GPS points */}
         {points

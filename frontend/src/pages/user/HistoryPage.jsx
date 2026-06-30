@@ -68,7 +68,7 @@ const HistoryPage = () => {
   // Playback state
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
+  const [playbackSpeed, setPlaybackSpeed] = useState('Slow');
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
