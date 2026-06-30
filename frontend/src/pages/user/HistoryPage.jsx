@@ -33,6 +33,28 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c;
 };
 
+// Calculate Cardinal Direction from course or coordinates
+const getDirectionStr = (course, prevLat, prevLng, currLat, currLng) => {
+  if (course !== undefined && course !== null) {
+    const val = Math.floor((course / 22.5) + 0.5);
+    const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    return arr[(val % 16)];
+  }
+  if (prevLat && prevLng && currLat && currLng) {
+    const lat1 = prevLat * Math.PI / 180;
+    const lat2 = currLat * Math.PI / 180;
+    const dLon = (currLng - prevLng) * Math.PI / 180;
+    const y = Math.sin(dLon) * Math.cos(lat2);
+    const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+    let brng = Math.atan2(y, x) * 180 / Math.PI;
+    if (brng < 0) brng += 360;
+    const val = Math.floor((brng / 22.5) + 0.5);
+    const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+    return arr[(val % 16)];
+  }
+  return 'N/A';
+};
+
 const HistoryPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -446,6 +468,8 @@ const HistoryPage = () => {
                 ) : (
                   currentRows.map((p, index) => {
                     const idx = indexOfFirstRow + index;
+                    const prev = idx > 0 ? filteredPoints[idx - 1] : null;
+                    const direction = getDirectionStr(p.course, prev?.lat, prev?.lng, p.lat, p.lng);
                     return (
                       <tr
                         key={idx}
@@ -464,7 +488,7 @@ const HistoryPage = () => {
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{Math.round(p.speed || 0)}</td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>No</td>
                         <AddressCell lat={p.lat} lng={p.lng} />
-                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>N/A</td>
+                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{direction}</td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB' }}>
                           <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={10} /> Link</a>
                         </td>
