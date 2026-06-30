@@ -26,39 +26,22 @@ export const getAddressFromCoordinates = async (lat, lng) => {
     }
     lastRequestTime = Date.now();
 
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=16`,
-      {
-        headers: {
-          'Accept-Language': 'en-US,en;q=0.9',
-          // Nominatim requires a user-agent to avoid blocks
-          'User-Agent': 'FuelTracks-Enterprise/1.0'
-        }
-      }
-    );
+    // Use BigDataCloud free reverse geocoding (no auth, more lenient rate limits)
+    const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`);
 
     if (!response.ok) throw new Error('Geocoding failed');
     
     const data = await response.json();
     
-    // Construct a nice, human-readable address string
     let address = 'Unknown Location';
-    if (data && data.address) {
-      const { road, suburb, neighbourhood, city, town, village, state } = data.address;
-      
-      // Pick the most relevant local area identifier
-      const localArea = neighbourhood || suburb || village || town || city;
-      
-      const parts = [road, localArea, state].filter(Boolean);
-      address = parts.join(', ') || data.display_name;
-      
-      // Fallback if address is empty
-      if (!address || address.trim() === '') {
-        address = data.display_name.split(',').slice(0, 3).join(', ');
-      }
-    } else if (data && data.display_name) {
-      address = data.display_name.split(',').slice(0, 3).join(', ');
+    if (data && data.locality) {
+      const parts = [data.locality, data.city, data.principalSubdivision, data.countryName].filter(Boolean);
+      // Remove duplicates
+      address = [...new Set(parts)].join(', ');
+    } else if (data && data.city) {
+      address = `${data.city}, ${data.principalSubdivision}, ${data.countryName}`;
     }
+
     
     // Cache the successful result
     addressCache.set(cacheKey, address);
