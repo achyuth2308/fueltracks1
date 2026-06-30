@@ -210,21 +210,21 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         <MapResizer />
 
 
-        {/* Route Path (Yellow with black border like legacy UI) */}
+        {/* Route Path (Professional Yellow with thin black border) */}
         {routeSegments.map((seg, idx) => seg.length > 1 && (
           <React.Fragment key={`route-group-${idx}`}>
             <Polyline
               positions={seg}
               color="#000000"
-              weight={5}
-              opacity={0.8}
+              weight={4}
+              opacity={0.6}
               lineCap="round"
               lineJoin="round"
             />
             <Polyline
               positions={seg}
-              color="#EAB308"
-              weight={3}
+              color="#FBBF24"
+              weight={2.5}
               opacity={1}
               lineCap="round"
               lineJoin="round"
@@ -232,12 +232,12 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           </React.Fragment>
         ))}
 
-        {/* Directional Arrows (sampled to avoid clutter, exactly like legacy V-arrows) */}
+        {/* Directional Arrows (Clean and professional) */}
         {points.map((p, idx) => {
           if (!p.lat || !p.lng) return null;
           
-          // Draw an arrow every ~25 points to keep it perfectly spaced and clean
-          const step = Math.max(1, Math.floor(points.length / 25));
+          // Draw an arrow every ~35 points for a clean look
+          const step = Math.max(1, Math.floor(points.length / 35));
           if (idx % step !== 0 || idx === 0 || idx === points.length - 1) return null;
 
           let heading = p.course || 0;
@@ -251,10 +251,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
           }
 
-          // Crisp V-shaped arrow pointing UP (North) at 0 degrees, just like legacy UI
-          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 14px; height: 14px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 18L12 6L20 18"/>
+          // Crisp, thin, elegant V-shaped arrow pointing UP (North) at 0 degrees
+          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#1F2937" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 16L12 6L20 16"/>
             </svg>
           </div>`;
 
@@ -262,7 +262,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             <Marker 
               key={`arrow-${idx}`} 
               position={[parseFloat(p.lat), parseFloat(p.lng)]} 
-              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [14, 14], iconAnchor: [7, 7] })}
+              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
               interactive={false} 
             />
           );
