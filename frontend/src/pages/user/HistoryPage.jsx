@@ -367,7 +367,7 @@ const HistoryPage = () => {
       <div style={{ 
         position: 'absolute', right: 0, top: 0, zIndex: 1000,
         height: '80%',
-        width: isRightPanelOpen ? '450px' : '0px', 
+        width: isRightPanelOpen ? '470px' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
         background: '#FFFFFF',
         borderLeft: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
@@ -377,7 +377,7 @@ const HistoryPage = () => {
         boxShadow: isRightPanelOpen ? '-2px 2px 10px rgba(0,0,0,0.1)' : 'none', 
         overflow: 'hidden' 
       }}>
-        <div style={{ width: '450px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ width: '470px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Top Header Row */}
           <div style={{ padding: '8px 12px', borderBottom: '1px solid #D1D5DB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#E5E7EB' }}>
