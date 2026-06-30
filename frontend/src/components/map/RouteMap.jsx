@@ -234,18 +234,27 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           </React.Fragment>
         ))}
 
-        {/* Premium Directional Markers (Every 2 mins, interactive with popup card) */}
+        {/* Premium Directional Markers (Distance-based dynamic spacing) */}
         {(() => {
+          if (points.length < 2) return null;
           const arrowMarkers = [];
-          let lastArrowTime = null;
+          
+          // Get total distance to calculate optimal spacing
+          const totalDistance = points[points.length - 1].cDist || 0;
+          // Target around 12-15 markers across the whole trip so it's never cluttered. 
+          // Enforce a minimum physical spacing of 1km so they never pile up when parked.
+          const distanceInterval = Math.max(totalDistance / 15, 1.0);
+
+          let lastMarkerDist = null;
           
           points.forEach((p, idx) => {
             if (!p.lat || !p.lng || idx === 0 || idx === points.length - 1) return;
             
-            const ptTime = new Date(p.device_time).getTime();
-            // 2 minutes = 120000 ms
-            if (!lastArrowTime || ptTime - lastArrowTime >= 120000) {
-              lastArrowTime = ptTime;
+            const currentDist = p.cDist || 0;
+            
+            // Only draw a marker if the vehicle has physically moved the required distance
+            if (lastMarkerDist === null || currentDist - lastMarkerDist >= distanceInterval) {
+              lastMarkerDist = currentDist;
 
               let heading = p.course || 0;
               if (!p.course && idx > 0) {
