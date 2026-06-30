@@ -344,7 +344,7 @@ const HistoryPage = () => {
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
         position: 'absolute', right: 0, top: 0, zIndex: 1000,
-        height: '60%',
+        height: '80%',
         width: isRightPanelOpen ? '450px' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
         background: '#FFFFFF',
