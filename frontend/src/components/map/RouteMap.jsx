@@ -223,18 +223,37 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           />
         ))}
 
-        {/* Small Data Points */}
+        {/* Directional Arrows (sampled to avoid clutter) */}
         {points.map((p, idx) => {
           if (!p.lat || !p.lng) return null;
+          
+          // Draw an arrow every ~30 points (or based on total points) to avoid clustering
+          const step = Math.max(1, Math.floor(points.length / 30));
+          if (idx % step !== 0 || idx === 0 || idx === points.length - 1) return null;
+
+          let heading = p.course || 0;
+          if (!p.course && idx > 0) {
+            const prev = points[idx - 1];
+            const lat1 = prev.lat * Math.PI / 180;
+            const lat2 = p.lat * Math.PI / 180;
+            const dLon = (p.lng - prev.lng) * Math.PI / 180;
+            const y = Math.sin(dLon) * Math.cos(lat2);
+            const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+            heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+          }
+
+          // We use a small black SVG arrow pointer, rotated to the heading
+          const arrowHtml = `<div style="transform: rotate(${heading}deg); transform-origin: center; display: flex; align-items: center; justify-content: center; width: 12px; height: 12px;">
+            <svg width="10" height="10" viewBox="0 0 24 24">
+              <path d="M24 12l-24 12 6-12-6-12z" fill="#000000"/>
+            </svg>
+          </div>`;
+
           return (
-            <CircleMarker 
-              key={`pt-${idx}`} 
-              center={[parseFloat(p.lat), parseFloat(p.lng)]} 
-              radius={2}
-              fillColor="#000000"
-              color="#000000"
-              weight={1}
-              fillOpacity={1}
+            <Marker 
+              key={`arrow-${idx}`} 
+              position={[parseFloat(p.lat), parseFloat(p.lng)]} 
+              icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] })}
               interactive={false} 
             />
           );
