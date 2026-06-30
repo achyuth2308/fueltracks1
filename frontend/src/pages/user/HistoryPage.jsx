@@ -343,77 +343,71 @@ const HistoryPage = () => {
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
       <div style={{ 
-        position: 'absolute', right: '16px', top: '16px', bottom: '16px', zIndex: 1000,
-        width: isRightPanelOpen ? '420px' : '0px', 
+        position: 'absolute', right: 0, top: 0, bottom: 0, zIndex: 1000,
+        width: isRightPanelOpen ? '450px' : '0px', 
         transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
-        background: 'rgba(255, 255, 255, 0.35)',
-        backdropFilter: 'blur(12px)',
-        borderRadius: '12px',
-        border: isRightPanelOpen ? '1px solid rgba(255,255,255,0.5)' : 'none', 
+        background: '#FFFFFF',
+        borderLeft: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
         display: 'flex', 
         flexDirection: 'column', 
-        boxShadow: isRightPanelOpen ? '0 8px 32px rgba(0,0,0,0.1)' : 'none', 
+        boxShadow: isRightPanelOpen ? '-2px 0 10px rgba(0,0,0,0.1)' : 'none', 
         overflow: 'hidden' 
       }}>
-        <div style={{ width: '420px', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div style={{ width: '450px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
           {/* Top Header Row */}
-          <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(229,231,235,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'transparent' }}>
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#000000' }}>Vehicle Group</span>
-                <select style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '11px', width: '130px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid #D1D5DB', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#E5E7EB' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Group</span>
+                <select style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '120px', color: '#000000', background: '#FFFFFF' }}>
                   <option>Select Group</option>
                 </select>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#000000' }}>Vehicle Name</span>
-                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '6px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '11px', width: '160px', color: '#000000', background: 'rgba(255,255,255,0.6)' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Name</span>
+                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '140px', color: '#000000', background: '#FFFFFF' }}>
                   <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>
                 </select>
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
-              <span style={{ fontWeight: 600, color: '#000000', fontSize: '12px' }}>Total Dist:</span>
-              <span style={{ fontWeight: 800, color: '#111827', fontSize: '13px' }}>{Math.max(0, totalDist).toFixed(2)} Kms</span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+              <span style={{ fontWeight: 600, color: '#374151', fontSize: '10px' }}>Total Dist</span>
+              <span style={{ fontWeight: 700, color: '#111827', fontSize: '11px' }}>{Math.max(0, totalDist).toFixed(2)} Kms</span>
             </div>
           </div>
 
           {/* Date & Range Controls */}
-          <div style={{ padding: '16px', borderBottom: '1px solid rgba(229,231,235,0.5)', background: 'transparent' }}>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
-              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', color: '#000000', background: 'rgba(255,255,255,0.6)' }} />
-              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '8px', border: '1px solid rgba(255,255,255,0.5)', borderRadius: '4px', fontSize: '12px', color: '#000000', background: 'rgba(255,255,255,0.6)' }} />
-              <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '4px', fontWeight: 700, fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                Plot
-              </button>
-              <button style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '8px', borderRadius: '4px', cursor: 'pointer', color: '#0369a1' }}>
-                <Info size={16} />
-              </button>
+          <div style={{ padding: '8px 12px', borderBottom: '1px solid #D1D5DB', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '8px' }}>
+              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
+              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
+              <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '2px', fontWeight: 600, fontSize: '10px', cursor: 'pointer' }}>Plot</button>
+              <button style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '4px', borderRadius: '2px', cursor: 'pointer', color: '#0369a1', display: 'flex' }}><Info size={12} /></button>
             </div>
             
             {/* Quick Range Buttons (Legacy Neon Colors) */}
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setQuickRange('6h')} style={{ flex: 1, padding: '8px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>6 Hours</button>
-              <button onClick={() => setQuickRange('12h')} style={{ flex: 1, padding: '8px 0', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>12 Hours</button>
-              <button onClick={() => setQuickRange('today')} style={{ flex: 1, padding: '8px 0', background: '#f97316', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Today</button>
-              <button onClick={() => setQuickRange('yesterday')} style={{ flex: 1, padding: '8px 0', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>Yesterday</button>
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <button onClick={() => setQuickRange('6h')} style={{ flex: 1, padding: '4px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '2px', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}>6 Hours</button>
+              <button onClick={() => setQuickRange('12h')} style={{ flex: 1, padding: '4px 0', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: '2px', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}>12 Hours</button>
+              <button onClick={() => setQuickRange('today')} style={{ flex: 1, padding: '4px 0', background: '#f97316', color: '#fff', border: 'none', borderRadius: '2px', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}>Today</button>
+              <button onClick={() => setQuickRange('yesterday')} style={{ flex: 1, padding: '4px 0', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '2px', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}>Yesterday</button>
             </div>
           </div>
 
           {/* Table Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid rgba(209,213,219,0.5)', background: 'transparent' }}>
+          <div style={{ display: 'flex', borderBottom: '1px solid #D1D5DB', background: '#FFFFFF' }}>
             {tabs.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
-                  padding: '10px 14px',
+                  padding: '6px 4px',
                   background: activeTab === tab ? '#FFFFFF' : 'transparent',
                   border: 'none',
                   borderBottom: activeTab === tab ? '2px solid #3B82F6' : '2px solid transparent',
                   borderRight: '1px solid #E5E7EB',
-                  fontSize: '12px',
+                  fontSize: '9px',
                   fontWeight: activeTab === tab ? 700 : 600,
                   color: activeTab === tab ? '#111827' : '#6B7280',
                   cursor: 'pointer',
@@ -426,20 +420,20 @@ const HistoryPage = () => {
           </div>
 
           {/* Data Table */}
-          <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: 'transparent' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '10px' }}>
-              <thead style={{ position: 'sticky', top: 0, background: 'rgba(249, 250, 251, 0.8)', backdropFilter: 'blur(4px)', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+          <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '9px' }}>
+              <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
                 <tr>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Date & Time</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '100px' }}>Address</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Odo (KMS)</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Fuel (ltrs)</th>
-                  <th style={{ padding: '6px', color: '#000000', fontWeight: 700, borderBottom: '1px solid #D1D5DB' }}>Ignition Status</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '50px' }}>Date & Time</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Max (kmph)</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Out</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '90px' }}>Address</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Direction</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>G-Map</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>C-Dist (KMS)</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Odo (KMS)</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB' }}>Fuel (ltrs)</th>
+                  <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB' }}>Ignition Status</th>
                 </tr>
               </thead>
               <tbody>
