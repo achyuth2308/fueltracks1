@@ -84,7 +84,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
 
-        {/* Hamburger Menu (Mobile Only) */}
+        {/* Hamburger Menu */}
         <button
           onClick={onMenuClick}
           style={{
@@ -97,7 +97,6 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             justifyContent: 'center',
             padding: '4px',
           }}
-          className="md:hidden"
         >
           <Menu size={24} />
         </button>

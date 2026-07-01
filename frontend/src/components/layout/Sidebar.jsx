@@ -85,9 +85,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           overflow: 'hidden'
         }}
         className={`transition-all duration-300 ease-in-out ${
-          isOpen ? 'ml-0' : '-ml-[240px] md:ml-0'
-        } ${
-          collapsed ? 'md:w-[72px]' : 'md:w-[240px]'
+          isOpen ? 'ml-0' : '-ml-[240px]'
         } w-[240px]`}
       >
         {/* User Profile Header */}
@@ -121,26 +119,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           </div>
         </div>
 
-        {/* Expand Button (collapsed state) */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          style={{
-            position: 'absolute', right: '-14px', top: '24px',
-            width: '28px', height: '28px',
-            background: '#2E4867',
-            border: '1px solid #475569',
-            borderRadius: '50%',
-            cursor: 'pointer', color: '#f1f5f9',
-            zIndex: 60,
-            boxShadow: '0 2px 8px rgba(249,115,22,0.05)',
-            transition: 'all 0.2s ease',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#5eead4'; }}
-          onMouseLeave={e => { e.currentTarget.style.color = '#f1f5f9'; e.currentTarget.style.borderColor = '#475569'; }}
-          className="hidden md:flex items-center justify-center"
-        >
-          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-        </button>
+        {/* Expand Button (collapsed state) Removed */}
 
         {/* Navigation */}
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 12px' }}>
