@@ -380,6 +380,12 @@ select.input-field {
   cursor: pointer;
 }
 
+/* Force options to always have dark text to prevent pale inheritance issues */
+option {
+  color: #111827 !important;
+  background-color: #ffffff !important;
+}
+
 /* ---------- Badge / Pill ---------- */
 .badge {
   display: inline-flex;
