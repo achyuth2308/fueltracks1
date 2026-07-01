@@ -228,7 +228,7 @@ class ReportRepository {
           SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END) as running_seconds,
           SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END) as idle_seconds,
           SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) as stopped_seconds,
-          MAX(t.odometer) - MIN(t.odometer) as distance_travelled
+          COALESCE(MAX(NULLIF(t.odometer, 0)) - MIN(NULLIF(t.odometer, 0)), 0) as distance_travelled
       FROM time_diffs t
       JOIN vehicles v ON t.vehicle_id = v.id
       GROUP BY t.vehicle_id, v.name, v.plate
