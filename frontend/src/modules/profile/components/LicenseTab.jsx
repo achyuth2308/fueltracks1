@@ -20,17 +20,17 @@ const LicenseTab = ({ license }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white border border-black rounded-lg p-5 text-center">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm !text-black font-medium mb-1">Total Allocated</p>
           <p className="text-3xl font-bold !text-black">{license.total}</p>
           <p className="text-xs !text-black mt-1">Vehicles / Devices</p>
         </div>
-        <div className="bg-white border border-black rounded-lg p-5 text-center">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm !text-black font-medium mb-1">Used</p>
           <p className="text-3xl font-bold text-[#7ea0b6]">{license.used}</p>
           <p className="text-xs !text-black mt-1">Active Vehicles</p>
         </div>
-        <div className="bg-white border border-black rounded-lg p-5 text-center">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm !text-black font-medium mb-1">Available</p>
           <p className={`text-3xl font-bold ${license.available > 0 ? 'text-green-600' : 'text-red-600'}`}>{license.available}</p>
           <p className="text-xs !text-black mt-1">Remaining Slots</p>

@@ -38,7 +38,7 @@ const BrandingTab = ({ profile, onUpload }) => {
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
   const renderUploadBox = (title, type, currentUrl, inputRef) => (
-    <div className="border border-black rounded-lg p-6 bg-white flex flex-col items-center justify-center text-center">
+    <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 bg-[#F8FAFC] flex flex-col hover:bg-slate-100 transition-colors cursor-pointer items-center justify-center text-center">
       <h4 className="text-md font-medium !text-black mb-4">{title}</h4>
       
       {currentUrl ? (
@@ -63,7 +63,7 @@ const BrandingTab = ({ profile, onUpload }) => {
         type="button"
         onClick={() => inputRef.current.click()}
         disabled={loading[type]}
-        className="flex items-center px-4 py-2 bg-white border border-black !text-black placeholder-black !text-black rounded-md hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50 transition-colors"
+        className="flex items-center px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-medium shadow-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50 transition-colors"
       >
         {loading[type] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
         {currentUrl ? 'Change' : 'Upload'}
