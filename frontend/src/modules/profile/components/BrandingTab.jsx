@@ -39,14 +39,14 @@ const BrandingTab = ({ profile, onUpload }) => {
 
   const renderUploadBox = (title, type, currentUrl, inputRef) => (
     <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 bg-[#F8FAFC] flex flex-col hover:bg-slate-100 transition-colors cursor-pointer items-center justify-center text-center">
-      <h4 className="text-md font-medium  mb-4">{title}</h4>
+      <h4 className="text-md font-medium mb-4" style={{ color: '#111827', margin: '0 0 16px 0' }}>{title}</h4>
       
       {currentUrl ? (
         <div className="mb-4 w-32 h-32 relative rounded-md overflow-hidden bg-white shadow-sm flex items-center justify-center">
           <img src={`${API_URL}${currentUrl}`} alt={title} className="max-w-full max-h-full object-contain" />
         </div>
       ) : (
-        <div className="mb-4 w-32 h-32 rounded-md bg-gray-200 flex items-center justify-center ">
+        <div className="mb-4 w-32 h-32 rounded-md bg-gray-200 flex items-center justify-center" style={{ color: '#6B7280' }}>
           <ImageIcon className="w-10 h-10" />
         </div>
       )}
@@ -63,12 +63,13 @@ const BrandingTab = ({ profile, onUpload }) => {
         type="button"
         onClick={() => inputRef.current.click()}
         disabled={loading[type]}
-        className="flex items-center px-4 py-2 bg-white border border-slate-300  rounded-xl font-medium shadow-sm hover:bg-white focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50 transition-colors"
+        className="flex items-center px-4 py-2 bg-white border border-slate-300 rounded-xl font-medium shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50 transition-colors"
+        style={{ color: '#374151' }}
       >
         {loading[type] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
         {currentUrl ? 'Change' : 'Upload'}
       </button>
-      <p className="text-xs  mt-2">PNG, JPG, SVG up to 5MB</p>
+      <p className="text-xs mt-3" style={{ color: '#6B7280', margin: '12px 0 0 0' }}>PNG, JPG, SVG up to 5MB</p>
     </div>
   );
 
