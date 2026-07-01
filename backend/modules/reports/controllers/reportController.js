@@ -8,9 +8,15 @@ class ReportController {
     if (!startDate || !endDate) {
       throw new Error('startDate and endDate are required');
     }
+    
+    // The frontend sends UTC shifted dates (e.g., 18:30 for midnight IST).
+    // We want to query the exact local time string in the DB, because device_time is stored as local time.
+    const startStr = new Date(startDate).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).replace('T', ' ');
+    const endStr = new Date(endDate).toLocaleString('sv-SE', { timeZone: 'Asia/Kolkata' }).replace('T', ' ');
+    
     return {
-      start: new Date(startDate),
-      end: new Date(endDate)
+      start: startStr,
+      end: endStr
     };
   }
 

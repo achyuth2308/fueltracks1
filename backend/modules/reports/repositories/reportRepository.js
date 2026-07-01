@@ -38,7 +38,7 @@ class ReportRepository {
           (ARRAY_AGG(lng ORDER BY device_time DESC))[1] as end_lng,
           MAX(speed) as max_speed,
           AVG(speed) as avg_speed,
-          MAX(odometer) - MIN(odometer) as distance,
+          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance,
           EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds
       FROM islands
       WHERE is_moving = true
@@ -56,14 +56,14 @@ class ReportRepository {
   async getDailyDistance(vehicleId, startDate, endDate) {
     const query = `
       SELECT 
-          DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as date,
+          DATE(device_time) as date,
           COALESCE(MIN(NULLIF(odometer, 0)), 0) as start_odometer,
           COALESCE(MAX(NULLIF(odometer, 0)), 0) as end_odometer,
           COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled,
           COUNT(*) as point_count
       FROM gps_points
       WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
-      GROUP BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+      GROUP BY DATE(device_time)
       ORDER BY date;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
@@ -89,7 +89,7 @@ class ReportRepository {
           SUM(CASE WHEN speed > 0 THEN duration_seconds ELSE 0 END) as running_seconds,
           SUM(CASE WHEN speed = 0 AND ignition = true THEN duration_seconds ELSE 0 END) as idle_seconds,
           SUM(CASE WHEN speed = 0 AND (ignition = false OR ignition IS NULL) THEN duration_seconds ELSE 0 END) as stopped_seconds,
-          MAX(odometer) - MIN(odometer) as distance_travelled
+          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled
       FROM time_diffs;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
