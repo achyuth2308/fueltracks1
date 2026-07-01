@@ -12,7 +12,7 @@ const LicenseTab = ({ license }) => {
       <div className="flex items-center justify-between mb-6 border-b pb-4">
         <div className="flex items-center">
           <Shield className="w-6 h-6 text-[#f97316] mr-2" />
-          <h3 className="text-xl font-bold text-slate-800">License Information</h3>
+          <h3 className="text-xl font-bold text-[#112d4e]">License Information</h3>
         </div>
         <span className="px-3 py-1 bg-[#f0f9ff] text-[#f97316] text-sm font-semibold rounded-full border border-[#bae6fd]">
           {license.type} Tier
@@ -21,26 +21,26 @@ const LicenseTab = ({ license }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
-          <p className="text-sm text-slate-800 font-medium mb-1">Total Allocated</p>
-          <p className="text-3xl font-bold text-slate-800">{license.total}</p>
-          <p className="text-xs text-slate-800 mt-1">Vehicles / Devices</p>
+          <p className="text-sm text-[#112d4e] font-medium mb-1">Total Allocated</p>
+          <p className="text-3xl font-bold text-[#112d4e]">{license.total}</p>
+          <p className="text-xs text-[#112d4e] mt-1">Vehicles / Devices</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
-          <p className="text-sm text-slate-800 font-medium mb-1">Used</p>
+          <p className="text-sm text-[#112d4e] font-medium mb-1">Used</p>
           <p className="text-3xl font-bold text-[#7ea0b6]">{license.used}</p>
-          <p className="text-xs text-slate-800 mt-1">Active Vehicles</p>
+          <p className="text-xs text-[#112d4e] mt-1">Active Vehicles</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
-          <p className="text-sm text-slate-800 font-medium mb-1">Available</p>
+          <p className="text-sm text-[#112d4e] font-medium mb-1">Available</p>
           <p className={`text-3xl font-bold ${license.available > 0 ? 'text-green-600' : 'text-red-600'}`}>{license.available}</p>
-          <p className="text-xs text-slate-800 mt-1">Remaining Slots</p>
+          <p className="text-xs text-[#112d4e] mt-1">Remaining Slots</p>
         </div>
       </div>
 
       <div className="mb-6">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-medium text-slate-800">Capacity Usage</span>
-          <span className="text-sm font-bold text-slate-800">{usagePercentage}%</span>
+          <span className="text-sm font-medium text-[#112d4e]">Capacity Usage</span>
+          <span className="text-sm font-bold text-[#112d4e]">{usagePercentage}%</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2.5">
           <div 

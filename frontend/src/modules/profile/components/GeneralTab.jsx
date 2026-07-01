@@ -49,63 +49,63 @@ const GeneralTab = ({ profile, onSave }) => {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
-      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-6">Organization Details</h3>
+      <h3 className="text-xl font-extrabold text-[#0a2540] tracking-tight mb-6">Organization Details</h3>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md text-sm">{success}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Contact Person</label>
-          <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Contact Person</label>
+          <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Email <span className="text-red-500">*</span></label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Email <span className="text-red-500">*</span></label>
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Mobile <span className="text-red-500">*</span></label>
-          <input type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Mobile <span className="text-red-500">*</span></label>
+          <input type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Alternate Mobile</label>
-          <input type="tel" name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Alternate Mobile</label>
+          <input type="tel" name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Address</label>
-          <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all"></textarea>
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Address</label>
+          <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all"></textarea>
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">City</label>
-          <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">City</label>
+          <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">State</label>
-          <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">State</label>
+          <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Country</label>
-          <input type="text" name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Country</label>
+          <input type="text" name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Pincode</label>
-          <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Pincode</label>
+          <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">GST Number (Optional)</label>
-          <input type="text" name="gst_number" value={formData.gst_number} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">GST Number (Optional)</label>
+          <input type="text" name="gst_number" value={formData.gst_number} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Website URL</label>
-          <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Website URL</label>
+          <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" />
         </div>
         <div>
-          <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Timezone</label>
-          <select name="timezone" value={formData.timezone} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all">
-            <option className="text-slate-800 !bg-white hover:!bg-[#f97316]" value="UTC">UTC</option>
-            <option className="text-slate-800 !bg-white hover:!bg-[#f97316]" value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-            <option className="text-slate-800 !bg-white hover:!bg-[#f97316]" value="America/New_York">America/New_York (EST)</option>
-            <option className="text-slate-800 !bg-white hover:!bg-[#f97316]" value="Europe/London">Europe/London (GMT)</option>
+          <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Timezone</label>
+          <select name="timezone" value={formData.timezone} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all">
+            <option className="text-[#112d4e] !bg-white hover:!bg-[#f97316]" value="UTC">UTC</option>
+            <option className="text-[#112d4e] !bg-white hover:!bg-[#f97316]" value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option className="text-[#112d4e] !bg-white hover:!bg-[#f97316]" value="America/New_York">America/New_York (EST)</option>
+            <option className="text-[#112d4e] !bg-white hover:!bg-[#f97316]" value="Europe/London">Europe/London (GMT)</option>
           </select>
         </div>
       </div>

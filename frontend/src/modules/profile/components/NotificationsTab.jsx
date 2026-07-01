@@ -35,12 +35,12 @@ const NotificationsTab = ({ profile, onSave }) => {
 
   const ToggleSwitch = ({ name, label, description, icon: Icon, checked }) => (
     <div className="flex items-start p-4 border border-slate-200 rounded-xl bg-white shadow-sm mb-4">
-      <div className="flex-shrink-0 mt-1 mr-4 text-slate-800">
+      <div className="flex-shrink-0 mt-1 mr-4 text-[#112d4e]">
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-grow">
-        <h4 className="text-sm font-medium text-slate-800">{label}</h4>
-        <p className="text-xs text-slate-800 mt-1">{description}</p>
+        <h4 className="text-sm font-medium text-[#112d4e]">{label}</h4>
+        <p className="text-xs text-[#112d4e] mt-1">{description}</p>
       </div>
       <div className="flex-shrink-0 ml-4 mt-1">
         <label className="relative inline-flex items-center cursor-pointer">
@@ -54,8 +54,8 @@ const NotificationsTab = ({ profile, onSave }) => {
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
       <div className="flex items-center mb-6">
-        <Bell className="w-5 h-5 text-slate-800 mr-2" />
-        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Notification Settings</h3>
+        <Bell className="w-5 h-5 text-[#112d4e] mr-2" />
+        <h3 className="text-xl font-extrabold text-[#0a2540] tracking-tight">Notification Settings</h3>
       </div>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
