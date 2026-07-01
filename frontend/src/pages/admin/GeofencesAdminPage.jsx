@@ -161,7 +161,7 @@ const GeofencesAdminPage = () => {
       
       {/* Header */}
  
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Geofence & Route Settings</h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Define virtual boundaries and paths to trigger route-deviation and boundary alerts.</p>

@@ -135,10 +135,7 @@ const UsersAdminPage = () => {
     <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
-      <div 
-        className="flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0"
-        style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', flexShrink: 0 }}
-      >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Users Directory</h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage system access, roles, and group assignments.</p>

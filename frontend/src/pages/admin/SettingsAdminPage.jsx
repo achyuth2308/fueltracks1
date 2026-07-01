@@ -4,7 +4,7 @@ import { Settings, CheckCircle2 } from 'lucide-react';
 const SettingsAdminPage = () => {
   return (
     <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Platform Settings</h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Global configurations and system parameters.</p>
