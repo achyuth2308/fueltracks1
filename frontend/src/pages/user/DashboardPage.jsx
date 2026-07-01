@@ -33,10 +33,6 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
     <div className="w-[32px] h-[32px] md:w-[40px] md:h-[40px] rounded-[10px] md:rounded-[12px] shrink-0 flex items-center justify-center" style={{
       background: `${color}10`,
     }}>
-      background: `${color}10`,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      flexShrink: 0
-    }}>
       <Icon className="w-[16px] md:w-[20px] h-[16px] md:h-[20px]" color={color} />
     </div>
     <div>
