@@ -35,9 +35,17 @@ const GpsModel = {
          odometer, satellites, gsm_signal, is_online, last_seen)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE,NOW())
        ON CONFLICT (vehicle_id) DO UPDATE SET
-        lat=$2, lng=$3, speed=$4, direction=$5, fuel=$6, ignition=$7,
-        voltage=$8, odometer=$9, satellites=$10, gsm_signal=$11,
-        is_online=TRUE, last_seen=NOW()`,
+        lat = COALESCE($2, vehicle_latest_state.lat), 
+        lng = COALESCE($3, vehicle_latest_state.lng), 
+        speed = COALESCE($4, vehicle_latest_state.speed),
+        direction = COALESCE($5, vehicle_latest_state.direction), 
+        fuel = COALESCE($6, vehicle_latest_state.fuel), 
+        ignition = COALESCE($7, vehicle_latest_state.ignition),
+        voltage = COALESCE($8, vehicle_latest_state.voltage), 
+        odometer = COALESCE($9, vehicle_latest_state.odometer), 
+        satellites = COALESCE($10, vehicle_latest_state.satellites), 
+        gsm_signal = COALESCE($11, vehicle_latest_state.gsm_signal),
+        is_online = TRUE, last_seen = NOW()`,
       [vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
        odometer, satellites, gsmSignal]
     );

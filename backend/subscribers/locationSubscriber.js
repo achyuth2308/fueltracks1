@@ -144,20 +144,22 @@ async function start(io) {
         'EX', 300
       );
 
-      // 3. Save packet to GPS history
-      await GpsModel.savePoint({
-        vehicleId, lat, lng, speed, direction, odometer, fuel, ignition: finalIgnition,
-        satellites, gsmSignal, battery, voltage, isLive, deviceTime
-      });
+      // 3. Save packet to GPS history (skip for heartbeats to save space)
+      if (!data.isHeartbeat) {
+        await GpsModel.savePoint({
+          vehicleId, lat, lng, speed, direction, odometer, fuel, ignition: finalIgnition,
+          satellites, gsmSignal, battery, voltage, isLive, deviceTime
+        });
+      }
 
-      // 4. Update denormalized latest state table
+      // 4. Update denormalized latest state table (always update so last_seen bumps)
       await GpsModel.updateLatestState({
         vehicleId, lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
         odometer, satellites, gsmSignal
       });
 
       // 5. Perform Alert Checks
-      if (isLive) {
+      if (isLive && !data.isHeartbeat) {
         const alertsToTrigger = [];
 
         // Check A: Vehicle Started (Ignition transitioned from OFF/undefined to ON)

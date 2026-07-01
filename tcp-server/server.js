@@ -265,6 +265,17 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
 
     } else if (parsed.packetType === '$HLM') {
       console.log(`[TCP - ${protocolName}] Health status received from device ${parsed.imei}. Battery: ${parsed.batteryPercent}%`);
+      if (parsed.imei) {
+        await publisher.publishHeartbeat(
+          parsed.imei, 
+          parsed.batteryPercent, 
+          undefined, 
+          undefined, 
+          parsed.deviceTime,
+          parsed.rawString,
+          parsed.packetType
+        );
+      }
       if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
         protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       } else if (protocolStats['CONCOX']) {
@@ -401,6 +412,18 @@ function createConcoxServer(port) {
             const ack = buildHeartbeatAck(packet.serialNumber, packet.rawPacketType);
             sock.write(ack);
             console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
+
+            if (sessionImei) {
+              await publisher.publishHeartbeat(
+                sessionImei, 
+                packet.battPercent, 
+                packet.gsmStrength, 
+                packet.ignition,
+                packet.deviceTime,
+                packet.rawPacket,
+                packet.packetType
+              );
+            }
 
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
         protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();

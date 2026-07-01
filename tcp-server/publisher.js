@@ -122,6 +122,52 @@ async function publishLocation(parsed) {
 }
 
 /**
+ * Publish a heartbeat or health packet to Redis
+ * Updates last_seen without creating a new GPS history point
+ */
+async function publishHeartbeat(imei, battery, gsmSignal, ignition, deviceTime, rawPacket, packetType) {
+  if (!publisher) throw new Error('Redis publisher not initialized');
+
+  try {
+    const prevStateRaw = await publisher.get(`vehicle:state:${imei}`);
+    const prevState = prevStateRaw ? JSON.parse(prevStateRaw) : {};
+    
+    const payload = JSON.stringify({
+      ...prevState,
+      imei: imei,
+      battery: battery !== undefined ? battery : prevState.battery,
+      gsmSignal: gsmSignal !== undefined ? gsmSignal : prevState.gsmSignal,
+      ignition: ignition !== undefined ? ignition : prevState.ignition,
+      deviceTime: deviceTime || prevState.deviceTime,
+      rawHex: rawPacket || prevState.rawHex,
+      packetType: packetType || prevState.packetType,
+      serverTime: new Date().toISOString(),
+      isHeartbeat: true, // Special flag for subscriber
+      isLive: true
+    });
+
+    // 1. Publish to tracking channel (Subscriber will handle isHeartbeat logic)
+    await publisher.publish('tracking', payload);
+
+    // 2. Cache latest state
+    await publisher.set(
+      `vehicle:state:${imei}`,
+      payload,
+      'EX', 300
+    );
+
+    // 3. Set online indicator with 90-second TTL
+    await publisher.set(
+      `vehicle:online:${imei}`,
+      '1',
+      'EX', 90
+    );
+  } catch (err) {
+    console.error(`[REDIS] Heartbeat publish error for ${imei}:`, err.message);
+  }
+}
+
+/**
  * Publish a parsed alert packet ($11) to Redis
  */
 async function publishAlert(parsed) {
@@ -181,4 +227,4 @@ async function close() {
   }
 }
 
-module.exports = { init, publishLocation, publishAlert, publishRawMessage, close };
+module.exports = { init, publishLocation, publishHeartbeat, publishAlert, publishRawMessage, close };
