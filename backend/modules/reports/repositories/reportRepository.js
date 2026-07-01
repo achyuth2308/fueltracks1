@@ -56,14 +56,14 @@ class ReportRepository {
   async getDailyDistance(vehicleId, startDate, endDate) {
     const query = `
       SELECT 
-          DATE(device_time) as date,
+          DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as date,
           COALESCE(MIN(NULLIF(odometer, 0)), 0) as start_odometer,
           COALESCE(MAX(NULLIF(odometer, 0)), 0) as end_odometer,
           COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled,
           COUNT(*) as point_count
       FROM gps_points
       WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
-      GROUP BY DATE(device_time)
+      GROUP BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
       ORDER BY date;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
