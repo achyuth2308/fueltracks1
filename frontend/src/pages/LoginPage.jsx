@@ -55,7 +55,7 @@ const LoginPage = () => {
           <div className="flex flex-col justify-center h-full pt-10">
             {/* Logo */}
             <div className="flex flex-col items-start gap-4 mb-12">
-              <div className="font-extrabold tracking-tight" style={{ color: '#000080', fontSize: '36px' }}>Welcome to</div>
+              <div className="font-extrabold tracking-tight" style={{ color: '#000080', fontSize: '36px' }}>Welcome to.....</div>
               <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ width: '380px', height: 'auto', objectFit: 'contain' }} />
             </div>
 
@@ -73,7 +73,6 @@ const LoginPage = () => {
                 🔵 Live GPS &nbsp;•&nbsp; Telematics &nbsp;•&nbsp; Fleet Operations
               </span>
             </div>
-
             <h2
               className="text-2xl font-bold mb-6 leading-snug"
               style={{ color: '#1F2937', letterSpacing: '0.01em' }}
