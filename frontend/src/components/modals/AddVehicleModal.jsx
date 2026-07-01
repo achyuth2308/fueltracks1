@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CustomDatePicker from '../ui/CustomDatePicker';
 import { X, Loader2, Cpu, AlertCircle, CheckCircle } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 
@@ -203,11 +204,11 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <Field label="Licence Issued Date">
-              <input type="date" value={form.licenceIssuedDate} onChange={e => update('licenceIssuedDate', e.target.value)}
+              <CustomDatePicker value={form.licenceIssuedDate} onChange={e => update('licenceIssuedDate', e.target.value)}
                 style={inputStyle(focused === 'licenceIssuedDate')} onFocus={() => setFocused('licenceIssuedDate')} onBlur={() => setFocused(null)} />
             </Field>
             <Field label="Licence Expire Date">
-              <input type="date" value={form.licenceExpireDate} onChange={e => update('licenceExpireDate', e.target.value)}
+              <CustomDatePicker value={form.licenceExpireDate} onChange={e => update('licenceExpireDate', e.target.value)}
                 style={inputStyle(focused === 'licenceExpireDate')} onFocus={() => setFocused('licenceExpireDate')} onBlur={() => setFocused(null)} />
             </Field>
             <Field label="Licence Number">

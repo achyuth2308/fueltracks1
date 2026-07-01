@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useSearchParams } from 'react-router-dom';
 import {
@@ -433,9 +434,9 @@ const AuditLogsAdminPage = () => {
         {/* Date range - only show for archived */}
         {isArchived && (
           <>
-            <input type="date" max={yesterdayStr} value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
+            <CustomDatePicker max={yesterdayStr} value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
             <span style={{ fontSize: '13px', color: '#94A3B8' }}>to</span>
-            <input type="date" max={yesterdayStr} value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
+            <CustomDatePicker max={yesterdayStr} value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
           </>
         )}
 
