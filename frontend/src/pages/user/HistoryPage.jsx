@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download } from 'lucide-react';
@@ -427,8 +428,8 @@ const HistoryPage = () => {
           {/* Date & Range Controls */}
           <div style={{ padding: '8px 12px', borderBottom: '1px solid #D1D5DB', background: '#FFFFFF' }}>
             <div style={{ display: 'flex', gap: '4px', alignItems: 'center', marginBottom: '8px' }}>
-              <input type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
-              <input type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
+              <CustomDatePicker showTime value={startDate} onChange={e => setStartDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
+              <CustomDatePicker showTime value={endDate} onChange={e => setEndDate(e.target.value)} style={{ flex: 1, padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', color: '#000000', background: '#FFFFFF' }} />
               <button onClick={fetchRouteHistory} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '2px', fontWeight: 600, fontSize: '10px', cursor: 'pointer' }}>Plot</button>
               <button style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '4px', borderRadius: '2px', cursor: 'pointer', color: '#0369a1', display: 'flex' }}><Info size={12} /></button>
             </div>

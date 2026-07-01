@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, Play, Pause, Square, Search, ChevronRight, ChevronLeft } from 'lucide-react';
@@ -256,8 +257,7 @@ const RouteHistoryReportPage = () => {
             <div style={{ display: 'flex', gap: '12px' }}>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>Start Time</label>
-                <input
-                  type="datetime-local"
+                <CustomDatePicker showTime
                   value={startDate}
                   onChange={e => setStartDate(e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box', color: '#000000' }}
@@ -265,8 +265,7 @@ const RouteHistoryReportPage = () => {
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>End Time</label>
-                <input
-                  type="datetime-local"
+                <CustomDatePicker showTime
                   value={endDate}
                   onChange={e => setEndDate(e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#111827', outline: 'none', boxSizing: 'border-box', color: '#000000' }}
