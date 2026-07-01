@@ -40,6 +40,8 @@ CREATE TABLE users (
   phone       VARCHAR(20),
   is_active   BOOLEAN DEFAULT TRUE,
   last_login  TIMESTAMP,
+  reset_token VARCHAR(255),
+  reset_token_expires TIMESTAMP,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
 );

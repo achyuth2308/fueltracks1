@@ -137,6 +137,37 @@ const UserModel = {
     );
     return result.rows[0] || null;
   },
+
+  /**
+   * Update reset token for forgot password
+   */
+  async updateResetToken(userId, token, expiresAt) {
+    await db.query(
+      `UPDATE users SET reset_token = $1, reset_token_expires = $2 WHERE id = $3`,
+      [token, expiresAt, userId]
+    );
+  },
+
+  /**
+   * Find user by valid reset token
+   */
+  async findByResetToken(token) {
+    const result = await db.query(
+      `SELECT * FROM users WHERE reset_token = $1 AND reset_token_expires > NOW()`,
+      [token]
+    );
+    return result.rows[0] || null;
+  },
+
+  /**
+   * Clear reset token after successful reset
+   */
+  async clearResetToken(userId) {
+    await db.query(
+      `UPDATE users SET reset_token = NULL, reset_token_expires = NULL WHERE id = $1`,
+      [userId]
+    );
+  }
 };
 
 module.exports = UserModel;

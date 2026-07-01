@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye, ShieldCheck, Map, Activity, BarChart2, Server } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 
@@ -152,7 +152,7 @@ const LoginPage = () => {
                   <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-[#f97316] focus:ring-[#f97316] accent-[#f97316]" />
                   <span className="text-sm font-medium text-slate-900">Remember Me</span>
                 </label>
-                <a href="#" className="text-sm font-semibold text-[#f97316] hover:text-[#7ea0b6]">Forgot Password?</a>
+                <Link to="/forgot-password" className="text-sm font-semibold text-[#f97316] hover:text-[#7ea0b6]">Forgot Password?</Link>
               </div>
 
               <button

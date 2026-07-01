@@ -30,6 +30,11 @@ const env = {
   JWT_SECRET: process.env.JWT_SECRET || 'fueltracks-dev-secret-change-in-production',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
 
+  // Brevo Email Service
+  BREVO_API_KEY: process.env.BREVO_API_KEY || '',
+  BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL || '',
+  FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
+
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
 };
