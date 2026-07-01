@@ -165,7 +165,7 @@ const AdminRenewalsPage = () => {
           {message && <div style={{ marginBottom: '16px', padding: '10px', background: '#F0FDF4', color: '#16A34A', borderRadius: '8px', fontSize: '13px', fontWeight: 600 }}>{message}</div>}
 
           {/* Create Plan Form */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', marginBottom: '24px', flexWrap: 'wrap', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div style={{ flex: 1, minWidth: '150px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Plan Name</label>
               <input type="text" placeholder="e.g. 1 Month Basic" value={newPlan.name} onChange={e => setNewPlan({...newPlan, name: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
@@ -219,8 +219,8 @@ const AdminRenewalsPage = () => {
           </div>
 
           {/* Active Plans List */}
-          <div style={{ border: '1px solid #E2E8F0', borderRadius: '12px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
               <thead>
                 <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Plan Name</th>
