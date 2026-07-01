@@ -55,8 +55,8 @@ const LoginPage = () => {
           <div>
             {/* Logo */}
             <div className="flex flex-col items-start gap-2 mb-5">
-              <div className="text-xl font-medium text-slate-500 mb-2">Welcome to</div>
-              <img src="/logo_transparent.png" alt="FuelTracks" style={{ height: '50px', width: 'auto', objectFit: 'contain' }} />
+              <div className="text-3xl font-bold mb-2" style={{ color: '#000080' }}>Welcome to</div>
+              <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ height: '50px', width: 'auto', objectFit: 'contain' }} />
             </div>
 
             {/* Premium Badge */}
