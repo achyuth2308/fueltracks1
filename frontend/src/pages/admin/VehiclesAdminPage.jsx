@@ -156,16 +156,16 @@ const VehiclesAdminPage = () => {
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.plate || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.imei || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.server_name || '-'}</td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.last_seen ? new Date(v.last_seen).toLocaleString() : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.last_seen ? formatLocalTime(v.last_seen) : '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{v.gps_sim_no || '-'}</td>
                       <td style={{ padding: '16px 20px' }}><StatusDot online={v.is_online} /></td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.model || 'nill'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.device_version || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.timezone || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.apn || '-'}</td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_issued_date ? new Date(v.licence_issued_date).toLocaleDateString('en-GB') : '-'}</td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.created_at ? new Date(v.created_at).toLocaleDateString('en-GB') : '-'}</td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_expire_date ? new Date(v.licence_expire_date).toLocaleDateString('en-GB') : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_issued_date ? formatLocalDate(v.licence_issued_date) : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.created_at ? formatLocalDate(v.created_at) : '-'}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.licence_expire_date ? formatLocalDate(v.licence_expire_date) : '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.madeIn || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.mfgDate || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.chassisNo || '-'}</td>

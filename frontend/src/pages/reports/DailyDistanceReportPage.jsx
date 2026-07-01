@@ -57,7 +57,7 @@ const DailyDistanceReportPage = () => {
       'Vehicle Name': row.vehicle_name || '-',
       'Plate': row.plate || '-',
       'Org': row.org_name || '-',
-      'Date': new Date(row.date).toLocaleDateString(),
+      'Date': formatLocalDate(row.date),
       'Start Odometer': row.start_odometer || 0,
       'End Odometer': row.end_odometer || 0,
       'Distance Travelled (km)': row.distance_travelled || 0,
@@ -142,7 +142,7 @@ const DailyDistanceReportPage = () => {
                   <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{new Date(row.date).toLocaleDateString()}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{formatLocalDate(row.date)}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.start_odometer || 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.end_odometer || 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#10B981', fontWeight: 700 }}>{row.distance_travelled || 0} km</td>

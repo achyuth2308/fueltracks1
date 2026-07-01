@@ -126,7 +126,7 @@ const IndividualReportPage = () => {
                    <tbody>
                      {data.stoppages.map((s, i) => (
                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                         <td style={{ padding: '8px 0' }}>{new Date(s.start_time).toLocaleString()}</td>
+                         <td style={{ padding: '8px 0' }}>{formatLocalTime(s.start_time)}</td>
                          <td style={{ color: '#EF4444', fontWeight: 600 }}>{Math.floor(s.duration_seconds/60)} mins</td>
                        </tr>
                      ))}
@@ -149,7 +149,7 @@ const IndividualReportPage = () => {
                    <tbody>
                      {data.overspeeding.map((s, i) => (
                        <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                         <td style={{ padding: '8px 0' }}>{new Date(s.start_time).toLocaleString()}</td>
+                         <td style={{ padding: '8px 0' }}>{formatLocalTime(s.start_time)}</td>
                          <td style={{ color: '#EF4444', fontWeight: 600 }}>{s.max_speed}</td>
                        </tr>
                      ))}

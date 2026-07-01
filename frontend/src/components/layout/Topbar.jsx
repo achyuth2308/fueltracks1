@@ -66,7 +66,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   }, [vehicles]);
 
   const timeStr = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-  const dateStr = time.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+  const dateStr = formatLocalDate(time);
 
   return (
     <header style={{

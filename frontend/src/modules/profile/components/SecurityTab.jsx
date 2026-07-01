@@ -121,7 +121,7 @@ const SecurityTab = ({ onChangePassword }) => {
               <Clock className="w-4 h-4 mr-3 mt-0.5" style={{ color: '#000000' }} />
               <div>
                 <p className="text-xs font-medium" style={{ color: '#000000' }}>Account Created</p>
-                <p className="text-sm font-semibold" style={{ color: '#000000' }}>{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
+                <p className="text-sm font-semibold" style={{ color: '#000000' }}>{user?.createdAt ? formatLocalTime(user.createdAt) : 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-start">

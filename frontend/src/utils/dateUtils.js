@@ -2,7 +2,14 @@ export const formatLocalTime = (isoString) => {
   if (!isoString) return 'N/A';
   try {
     const date = new Date(isoString);
-    return date.toLocaleString();
+    if (isNaN(date.getTime())) return 'N/A';
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    const h = String(date.getHours()).padStart(2, '0');
+    const min = String(date.getMinutes()).padStart(2, '0');
+    const s = String(date.getSeconds()).padStart(2, '0');
+    return `${d}-${m}-${y} ${h}:${min}:${s}`;
   } catch (err) {
     return 'N/A';
   }
@@ -12,7 +19,11 @@ export const formatLocalDate = (isoString) => {
   if (!isoString) return 'N/A';
   try {
     const date = new Date(isoString);
-    return date.toLocaleDateString();
+    if (isNaN(date.getTime())) return 'N/A';
+    const d = String(date.getDate()).padStart(2, '0');
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const y = date.getFullYear();
+    return `${d}-${m}-${y}`;
   } catch (err) {
     return 'N/A';
   }

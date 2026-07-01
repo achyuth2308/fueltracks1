@@ -38,7 +38,7 @@ const BillingAdminPage = () => {
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB'); // dd/mm/yyyy
+    return formatLocalDate(d); // dd/mm/yyyy
   };
 
   return (

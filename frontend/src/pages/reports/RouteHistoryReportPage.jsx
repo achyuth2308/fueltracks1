@@ -138,7 +138,7 @@ const RouteHistoryReportPage = () => {
     const csvRows = [headers.join(',')];
     points.forEach((p) => {
       const row = [
-        new Date(p.device_time).toLocaleString(),
+        formatLocalTime(p.device_time),
         p.lat, p.lng, p.speed || 0,
         p.odometer || 0,
         p.ignition ? 'ON' : 'OFF'
@@ -325,7 +325,7 @@ const RouteHistoryReportPage = () => {
                   <tr key={idx} style={{ background: idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
                     <td style={{ padding: '8px 12px', color: '#1E293B', whiteSpace: 'nowrap' }}>
                       {new Date(p.device_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                      <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                      <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{formatLocalDate(p.device_time)}</div>
                     </td>
                     <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right', fontWeight: 600 }}>{Math.round(p.speed || 0)}</td>
                     <td style={{ padding: '8px 12px', color: '#374151', textAlign: 'right' }}>{Math.round(p.odometer || 0)}</td>

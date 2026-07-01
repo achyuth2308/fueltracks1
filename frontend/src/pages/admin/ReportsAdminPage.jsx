@@ -9,16 +9,11 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import { formatVoltage, formatFuel } from '../../utils/formatUtils';
+import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import AddressText from '../../components/ui/AddressText';
 
 const formatDateTime = (isoString) => {
-  if (!isoString) return '-';
-  try {
-    const d = new Date(isoString);
-    const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    const date = `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-    return `${time}\n${date}`;
-  } catch { return '-'; }
+  return formatLocalTime(isoString);
 };
 
 const ReportLinkCard = ({ title, desc, path, icon: Icon, color, bg, navigate }) => (
@@ -96,7 +91,7 @@ const ReportsAdminPage = () => {
     return vehicles.filter(v => v.name?.toLowerCase().includes(q) || v.plate?.toLowerCase().includes(q));
   }, [vehicles, searchQuery]);
 
-  const today = new Date().toLocaleDateString('en-GB').replace(/\//g, '-');
+  const today = formatLocalDate(new Date());
 
   const tabStyle = (tab) => ({
     padding: '14px 24px',

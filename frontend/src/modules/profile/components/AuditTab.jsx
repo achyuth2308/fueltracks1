@@ -62,7 +62,7 @@ const AuditTab = () => {
               {logs.map((log) => (
                 <tr key={log.id} className="hover:bg-white">
                   <td className="px-6 py-4 whitespace-nowrap text-sm ">
-                    {new Date(log.created_at).toLocaleString()}
+                    {formatLocalTime(log.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#e0f2fe] text-[#5d7389]">

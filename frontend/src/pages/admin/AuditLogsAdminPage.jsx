@@ -61,10 +61,7 @@ const ActionBadge = ({ action }) => {
 const formatDate = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
-  return d.toLocaleString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', hour12: true,
-  });
+  return formatLocalTime(d);
 };
 
 const StatCard = ({ label, value, icon: Icon, color, bg }) => (
@@ -504,7 +501,7 @@ const AuditLogsAdminPage = () => {
                   >
                     <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
                       <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>
-                        {new Date(log.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {formatLocalDate(log.created_at)}
                       </div>
                       <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
                         {new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}

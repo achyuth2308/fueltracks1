@@ -15,9 +15,9 @@ const getExpiryWarning = (expireDateStr) => {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   if (diffDays < 0) {
-    return { type: 'expired', text: `Licence expired on ${exp.toLocaleDateString('en-GB')}. Please renew.` };
+    return { type: 'expired', text: `Licence expired on ${formatLocalDate(exp)}. Please renew.` };
   } else if (diffDays <= 4) {
-    return { type: 'expiring', text: `Licence expiring on ${exp.toLocaleDateString('en-GB')}. Please renew.` };
+    return { type: 'expiring', text: `Licence expiring on ${formatLocalDate(exp)}. Please renew.` };
   }
   return null;
 };

@@ -58,8 +58,8 @@ const TripReportPage = () => {
       'Vehicle Name': row.vehicle_name || '-',
       'Plate': row.plate || '-',
       'Org': row.org_name || '-',
-      'Start Time': new Date(row.start_time).toLocaleString(),
-      'End Time': new Date(row.end_time).toLocaleString(),
+      'Start Time': formatLocalTime(row.start_time),
+      'End Time': formatLocalTime(row.end_time),
       'Duration (mins)': row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0,
       'Distance': row.distance || 0,
       'Max Speed': row.max_speed || 0,
@@ -144,8 +144,8 @@ const TripReportPage = () => {
                   <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{new Date(row.start_time).toLocaleString()}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{new Date(row.end_time).toLocaleString()}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.distance || 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.max_speed || 0}</td>

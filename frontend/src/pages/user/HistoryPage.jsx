@@ -246,7 +246,7 @@ const HistoryPage = () => {
     const csvRows = [headers.join(',')];
     filteredPoints.forEach((p) => {
       const row = [
-        new Date(p.device_time).toLocaleString().replace(',', ''),
+        formatLocalTime(p.device_time).replace(',', ''),
         p.speed || 0,
         'Address not resolved',
         'N/A',
@@ -504,7 +504,7 @@ const HistoryPage = () => {
                       >
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000', whiteSpace: 'normal', wordWrap: 'break-word', width: '50px' }}>
                           <div style={{ fontWeight: 600 }}>{new Date(p.device_time).toLocaleTimeString('en-GB')}</div>
-                          <div style={{ fontSize: '9px' }}>{new Date(p.device_time).toLocaleDateString('en-GB')}</div>
+                          <div style={{ fontSize: '9px' }}>{formatLocalDate(p.device_time)}</div>
                         </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{Math.round(p.speed || 0)}</td>
                         <AddressCell lat={p.lat} lng={p.lng} />

@@ -261,7 +261,7 @@ const DashboardPage = ({ setAppVehicles }) => {
                       <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#111827', fontWeight: 500 }}>{v.name}</td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{v.plate || '-'}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{exp.toLocaleDateString('en-GB')}</td>
+                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(exp)}</td>
                         <td style={{ padding: '16px 20px' }}>
                           <span style={{
                             padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,

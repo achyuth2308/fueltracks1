@@ -58,7 +58,7 @@ const IgnitionReportPage = () => {
       'Plate': row.plate || '-',
       'Org': row.org_name || '-',
       'Event': row.event_type,
-      'Date & Time': new Date(row.device_time).toLocaleString(),
+      'Date & Time': formatLocalTime(row.device_time),
       'Latitude': row.lat ? Number(row.lat).toFixed(5) : '-',
       'Longitude': row.lng ? Number(row.lng).toFixed(5) : '-'
     }));
@@ -142,7 +142,7 @@ const IgnitionReportPage = () => {
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 700, color: row.event_type === 'ON' ? '#10B981' : '#DC2626' }}>{row.event_type}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827' }}>{new Date(row.device_time).toLocaleString()}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827' }}>{formatLocalTime(row.device_time)}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lat ? Number(row.lat).toFixed(5) : '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lng ? Number(row.lng).toFixed(5) : '-'}</td>
                 </tr>

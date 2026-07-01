@@ -45,7 +45,7 @@ export const exportToPDF = (columns, data, title, fileName) => {
   doc.setFontSize(16);
   doc.text(title, 14, 15);
   doc.setFontSize(10);
-  doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 22);
+  doc.text(`Generated on: ${formatLocalTime(new Date())}`, 14, 22);
 
   // Map data to match columns layout
   const tableData = data.map(row => {
