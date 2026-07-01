@@ -80,8 +80,8 @@ class ReportService {
       // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
       data.forEach(d => {
         if (baseline > 0) {
-          d.start_odometer = (d.start_odometer || 0) + baseline;
-          d.end_odometer = (d.end_odometer || 0) + baseline;
+          d.start_odometer = Math.round(((d.start_odometer || 0) + baseline) * 100) / 100;
+          d.end_odometer = Math.round(((d.end_odometer || 0) + baseline) * 100) / 100;
         }
         allData.push({
           ...d,

@@ -362,11 +362,11 @@ const HistoryPage = () => {
         <button
           onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
           style={{
-            position: 'absolute', top: '24px', right: '16px', zIndex: 1000,
+            position: 'absolute', top: '24px', right: isRightPanelOpen ? '586px' : '16px', zIndex: 1001,
             width: '32px', height: '32px', borderRadius: '50%',
             background: '#fff', border: '1px solid #CBD5E1', boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-            color: '#475569', transition: 'all 0.3s ease'
+            color: '#475569', transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }}
           title={isRightPanelOpen ? "Close panel" : "Open panel"}
         >
