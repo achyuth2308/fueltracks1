@@ -56,8 +56,8 @@ const SecurityTab = ({ onChangePassword }) => {
       <div className="lg:col-span-2">
         <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
           <div className="flex items-center mb-6 border-b pb-4">
-            <ShieldCheck className="w-5 h-5 text-[#112d4e] mr-2" />
-            <h3 className="text-xl font-extrabold text-[#0a2540] tracking-tight">Change Password</h3>
+            <ShieldCheck className="w-5 h-5 mr-2" style={{ color: "#111827" }} />
+            <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>Change Password</h2>
           </div>
           
           {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
@@ -65,36 +65,36 @@ const SecurityTab = ({ onChangePassword }) => {
 
           <div className="space-y-4 max-w-md">
             <div>
-              <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Current Password</label>
+              <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Current Password</label>
               <input 
                 type="password" 
                 name="currentPassword" 
                 value={formData.currentPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
               />
             </div>
             <div>
-              <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">New Password</label>
+              <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>New Password</label>
               <input 
                 type="password" 
                 name="newPassword" 
                 value={formData.newPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
               />
             </div>
             <div>
-              <label className="block text-[13px] font-bold text-[#1a365d] uppercase tracking-wide mb-1">Confirm New Password</label>
+              <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Confirm New Password</label>
               <input 
                 type="password" 
                 name="confirmPassword" 
                 value={formData.confirmPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-[#0a2540] focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
               />
             </div>
           </div>
@@ -114,21 +114,21 @@ const SecurityTab = ({ onChangePassword }) => {
 
       <div className="lg:col-span-1">
         <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
-          <h3 className="text-sm font-semibold text-[#112d4e] mb-4 border-b pb-2">Session Information</h3>
+          <h3 className="text-sm font-semibold  mb-4 border-b pb-2">Session Information</h3>
           
           <div className="space-y-4">
             <div className="flex items-start">
-              <Clock className="w-4 h-4 text-[#112d4e] mr-3 mt-0.5" />
+              <Clock className="w-4 h-4  mr-3 mt-0.5" />
               <div>
-                <p className="text-xs text-[#112d4e] font-medium">Account Created</p>
-                <p className="text-sm text-[#112d4e]">{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
+                <p className="text-xs  font-medium">Account Created</p>
+                <p className="text-sm ">{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-start">
-              <Monitor className="w-4 h-4 text-[#112d4e] mr-3 mt-0.5" />
+              <Monitor className="w-4 h-4  mr-3 mt-0.5" />
               <div>
-                <p className="text-xs text-[#112d4e] font-medium">Current Session Role</p>
-                <p className="text-sm text-[#112d4e] capitalize">{user?.role || 'Unknown'}</p>
+                <p className="text-xs  font-medium">Current Session Role</p>
+                <p className="text-sm  capitalize">{user?.role || 'Unknown'}</p>
               </div>
             </div>
             <div className="p-3 bg-yellow-50 rounded-md mt-4 border border-yellow-100">

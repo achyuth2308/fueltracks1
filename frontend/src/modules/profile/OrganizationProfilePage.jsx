@@ -63,8 +63,8 @@ const OrganizationProfilePage = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-extrabold text-[#0a2540] tracking-tight">Organization Profile</h1>
-        <p className="text-sm text-[#3f5b7e] font-medium mt-2">Manage your organization's identity, branding, and system preferences.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Organization Profile</h1>
+        <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Manage your organization's identity, branding, and system preferences.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
