@@ -84,6 +84,24 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
 
+        {/* Hamburger Menu (Mobile Only) */}
+        <button
+          onClick={onMenuClick}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#f1f5f9',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '4px',
+          }}
+          className="md:hidden"
+        >
+          <Menu size={24} />
+        </button>
+
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '24px' }}>
           <div style={{
@@ -111,7 +129,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             background: '#f97316',
             boxShadow: '0 0 6px rgba(249,115,22,0.5)',
           }} />
-          <span style={{
+          <span 
+            className="hidden sm:block"
+            style={{
             fontSize: '12px', fontWeight: 600, color: '#f1f5f9',
             maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
@@ -124,7 +144,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
 
         {/* Fleet stats */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div className="hidden md:flex" style={{ alignItems: 'center', gap: '12px' }}>
           {[
             { label: 'Total', value: stats.total, color: '#f1f5f9' },
             { label: 'Online', value: stats.online, color: '#f97316', dot: true },
@@ -149,10 +169,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: '#ea580c' }} />
+        <div className="hidden md:block" style={{ width: '1px', height: '20px', background: '#ea580c' }} />
 
         {/* Live clock */}
-        <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="hidden sm:flex" style={{ textAlign: 'right', alignItems: 'center', gap: '8px' }}>
           <ClockIcon size={14} color="#93c5fd" />
           <div>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#f1f5f9', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
@@ -165,7 +185,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Divider */}
-        <div style={{ width: '1px', height: '20px', background: '#ea580c' }} />
+        <div className="hidden sm:block" style={{ width: '1px', height: '20px', background: '#ea580c' }} />
 
         {/* Notifications */}
         <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowDropdown(!showDropdown)}>

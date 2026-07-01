@@ -94,11 +94,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          position: 'relative',
           flexShrink: 0,
           zIndex: 50,
         }}
-        className={`${isOpen ? '' : '-translate-x-full'} md:translate-x-0 fixed md:static transition-transform`}
+        className={`${isOpen ? '' : '-translate-x-full'} md:translate-x-0 fixed md:relative transition-transform`}
       >
         {/* User Profile Header */}
         <div style={{

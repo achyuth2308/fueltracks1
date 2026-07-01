@@ -135,7 +135,10 @@ const UsersAdminPage = () => {
     <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
+      <div 
+        className="flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-0"
+        style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', flexShrink: 0 }}
+      >
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Users Directory</h1>
           <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage system access, roles, and group assignments.</p>
@@ -196,8 +199,8 @@ const UsersAdminPage = () => {
               <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
             </div>
           ) : (
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <div className="overflow-x-auto" style={{ overflowY: 'auto', flex: 1 }}>
+              <table style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {['Name', 'Username', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
@@ -325,11 +328,15 @@ const UsersAdminPage = () => {
 
         {/* Right Side: Details Panel */}
         {viewingUser && (
-          <div style={{
-            width: '380px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
-            overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
-          }}>
+          <div 
+            className="fixed inset-0 z-50 md:static md:z-auto md:w-[380px] w-full"
+            style={{
+              background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
+              overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
+            }}
+          >
+            {/* Mobile backdrop/close area could go here if it wasn't full screen, but it's full width */}
             {/* Details Header */}
             <div style={{ padding: '24px', borderBottom: '1px solid #F1F5F9', position: 'relative' }}>
               <button
