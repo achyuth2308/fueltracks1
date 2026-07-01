@@ -53,21 +53,10 @@ const LoginPage = () => {
         {/* Left Side */}
         <div className="hidden lg:flex flex-col space-y-8">
           <div>
-            {/* Logo + Title */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className="bg-gradient-to-br from-[#f97316] to-[#7ea0b6] p-2.5 rounded-xl shadow-lg">
-                <Map className="text-white" size={26} />
-              </div>
-              <h1
-                className="text-3xl font-black tracking-wide leading-none"
-                style={{
-                  background: 'linear-gradient(90deg, #f97316 0%, #7dd3fc 30%,  #7dd3fc 100%)',
-                  WebkitBackgroundClip: 'text',
-                  backgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 4px 12px rgba(249,115,22,0.15))'
-                }}
-              >FUELTRACKS</h1>
+            {/* Logo */}
+            <div className="flex flex-col items-start gap-2 mb-5">
+              <div className="text-xl font-medium text-slate-500 mb-2">Welcome to</div>
+              <img src="/logo_transparent.png" alt="FuelTracks" style={{ height: '50px', width: 'auto', objectFit: 'contain' }} />
             </div>
 
             {/* Premium Badge */}
