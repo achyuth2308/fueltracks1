@@ -72,7 +72,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.currentPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} 
               />
             </div>
             <div>
@@ -83,7 +83,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.newPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} 
               />
             </div>
             <div>
@@ -94,7 +94,7 @@ const SecurityTab = ({ onChangePassword }) => {
                 value={formData.confirmPassword} 
                 onChange={handleChange} 
                 required 
-                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
+                className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} 
               />
             </div>
           </div>
