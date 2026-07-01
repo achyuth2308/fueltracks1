@@ -124,11 +124,16 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
         
       if (validCoords.length > 0) {
         const bounds = L.latLngBounds(validCoords);
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
+        setTimeout(() => {
+          map.invalidateSize();
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
+        }, 300);
         hasFitInitially.current = true;
       } else {
         // Fallback only if we have vehicles but none have valid coords
-        map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+        setTimeout(() => {
+          map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+        }, 300);
         hasFitInitially.current = true;
       }
     }
@@ -530,7 +535,7 @@ const FleetMap = ({
 
       <MapContainer
         center={mapCenter}
-        zoom={5}
+        zoom={10}
         className="w-full h-full"
         zoomControl={false}
         zoomAnimation={true}
