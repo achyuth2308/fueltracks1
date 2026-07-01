@@ -54,8 +54,8 @@ const LoginPage = () => {
         <div className="hidden lg:flex flex-col space-y-8">
           <div className="flex flex-col justify-center h-full pt-10">
             {/* Logo */}
-            <div className="flex flex-col items-start gap-6 mb-12">
-              <div className="text-5xl font-extrabold tracking-tight" style={{ color: '#000080' }}>Welcome to</div>
+            <div className="flex flex-col items-start gap-4 mb-12">
+              <div className="font-extrabold tracking-tight" style={{ color: '#000080', fontSize: '36px' }}>Welcome to</div>
               <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ width: '380px', height: 'auto', objectFit: 'contain' }} />
             </div>
 
