@@ -114,21 +114,21 @@ const SecurityTab = ({ onChangePassword }) => {
 
       <div className="lg:col-span-1">
         <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
-          <h3 className="text-sm font-semibold  mb-4 border-b pb-2">Session Information</h3>
+          <h3 className="text-sm font-semibold mb-4 border-b pb-2" style={{ color: '#111827' }}>Session Information</h3>
           
           <div className="space-y-4">
             <div className="flex items-start">
-              <Clock className="w-4 h-4  mr-3 mt-0.5" />
+              <Clock className="w-4 h-4 mr-3 mt-0.5" style={{ color: '#6B7280' }} />
               <div>
-                <p className="text-xs  font-medium">Account Created</p>
-                <p className="text-sm ">{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
+                <p className="text-xs font-medium" style={{ color: '#6B7280' }}>Account Created</p>
+                <p className="text-sm font-semibold" style={{ color: '#111827' }}>{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-start">
-              <Monitor className="w-4 h-4  mr-3 mt-0.5" />
+              <Monitor className="w-4 h-4 mr-3 mt-0.5" style={{ color: '#6B7280' }} />
               <div>
-                <p className="text-xs  font-medium">Current Session Role</p>
-                <p className="text-sm  capitalize">{user?.role || 'Unknown'}</p>
+                <p className="text-xs font-medium" style={{ color: '#6B7280' }}>Current Session Role</p>
+                <p className="text-sm font-semibold capitalize" style={{ color: '#111827' }}>{user?.role || 'Unknown'}</p>
               </div>
             </div>
             <div className="p-3 bg-yellow-50 rounded-md mt-4 border border-yellow-100">
