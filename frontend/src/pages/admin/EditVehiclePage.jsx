@@ -79,7 +79,7 @@ const SectionCard = ({ title, icon: Icon, children }) => (
       </div>
       <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
     </div>
-    <div style={{ padding: '32px' }}>
+    <div className="p-4 sm:p-8">
       {children}
     </div>
   </div>
@@ -218,14 +218,8 @@ const EditVehiclePage = () => {
     <div style={{ background: '#EEF5F8', minHeight: '100%', paddingBottom: '64px', boxSizing: 'border-box' }}>
 
       {/* Sticky Header with Glassmorphism */}
-      <div style={{
-        position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
-        padding: '24px 40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+      <div className="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200/80 p-4 sm:px-10 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+        <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto">
           <button
             onClick={() => navigate('/admin/vehicles')}
             style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
@@ -234,17 +228,17 @@ const EditVehiclePage = () => {
           >
             <ArrowLeft size={20} />
           </button>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748B', fontWeight: 600, marginBottom: '4px' }}>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 font-semibold mb-1">
               Vehicles <ChevronRight size={14} /> {isEditing ? 'Edit Vehicle' : 'Register Vehicle'}
             </div>
-            <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 m-0 tracking-tight truncate">
               {isEditing ? form.name || 'Edit Vehicle' : 'Register New Vehicle'}
             </h1>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px' }}>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
           {isEditing && (
             <button
               onClick={() => navigate(`/admin/vehicles/migration/${id}`)}
@@ -267,7 +261,7 @@ const EditVehiclePage = () => {
         </div>
       </div>
 
-      <div style={{ padding: '40px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="p-4 sm:p-10 max-w-[1400px] mx-auto">
 
         {/* Status Alerts */}
         {error && (
