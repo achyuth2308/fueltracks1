@@ -186,10 +186,10 @@ const OnBoardDevicePage = () => {
         {step === 1 && (
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F1F5F9', paddingBottom: '16px' }}>
-                <label style={{ fontSize: '14px', fontWeight: 600, color: '#475569', width: '40%' }}>Licence Type :</label>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4">
+                <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
                 <select 
-                  style={{ width: '60%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#FFF', color: '#111827' }}
+                  className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none bg-white text-gray-900"
                   value={licenceType}
                   onChange={e => setLicenceType(e.target.value)}
                 >
@@ -229,13 +229,13 @@ const OnBoardDevicePage = () => {
                 </div>
               )}
 
-              <div style={{ display: 'flex', flexDirection: 'column', borderBottom: '1px solid #F1F5F9', paddingBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <label style={{ fontSize: '14px', fontWeight: 600, color: '#475569', width: '40%' }}>Quantity :</label>
+              <div className="flex flex-col border-b border-slate-100 pb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+                  <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Quantity :</label>
                   <input 
                     type="number" min="1"
                     placeholder="Enter Quantity"
-                    style={{ width: '60%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#111827' }}
+                    className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none text-gray-900"
                     value={numDevices}
                     onChange={e => setNumDevices(e.target.value)}
                   />
@@ -263,7 +263,7 @@ const OnBoardDevicePage = () => {
             </div>
 
             {/* Top Toggle */}
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '32px', padding: '16px', background: '#EEF5F8', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
@@ -286,7 +286,7 @@ const OnBoardDevicePage = () => {
 
             {/* User Details Form */}
             {userType === 'new' ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '48px' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>User Name</label>
                   <input 
@@ -325,7 +325,7 @@ const OnBoardDevicePage = () => {
                 </div>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px', marginBottom: '48px' }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select User</label>
                   <select 
@@ -370,7 +370,7 @@ const OnBoardDevicePage = () => {
             </div>
 
             {/* Middle Toggle */}
-            <div style={{ display: 'flex', gap: '48px', marginBottom: '24px', padding: '16px', background: '#EEF5F8', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+            <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#f97316' : '#475569' }}>
                 <input 
                   type="radio" 
@@ -398,7 +398,7 @@ const OnBoardDevicePage = () => {
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Upload Device Excel File</h3>
                 <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>Download our template, fill it out, and upload it here.</p>
                 
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px' }}>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
                   <button style={{ padding: '10px 20px', background: '#FFFFFF', color: '#111827', fontSize: '13px', fontWeight: 600, border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     Download Template
                   </button>
@@ -479,7 +479,7 @@ const OnBoardDevicePage = () => {
                           <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #E2E8F0' }}>
                             <td style={{ borderRight: '1px solid #F1F5F9' }}></td>
                             <td colSpan="5" style={{ padding: '24px' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px', padding: '8px 0' }}>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 py-2">
                                 <div>
                                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Name</label>
                                   <input 
