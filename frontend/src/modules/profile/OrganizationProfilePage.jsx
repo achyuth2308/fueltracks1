@@ -63,13 +63,13 @@ const OrganizationProfilePage = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold !text-black">Organization Profile</h1>
-        <p className="text-sm !text-black mt-1">Manage your organization's identity, branding, and system preferences.</p>
+        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Organization Profile</h1>
+        <p className="text-sm text-slate-500 font-medium mt-2">Manage your organization's identity, branding, and system preferences.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* Sidebar Navigation */}
-        <div className="w-full md:w-64 flex-shrink-0">
+        <div className="w-full md:w-72 flex-shrink-0">
           <nav className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -78,13 +78,13 @@ const OrganizationProfilePage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-colors ${
+                  className={`w-full flex items-center px-4 py-3.5 mb-2 text-[14px] font-bold rounded-xl transition-all ${
                     isActive 
                       ? 'bg-[#f97316] text-white' 
                       : '!text-black hover:bg-gray-100'
                   }`}
                 >
-                  <Icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5 ${isActive ? 'text-white' : '!text-black'}`} />
+                  <Icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5 ${isActive ? 'text-orange-500' : 'text-slate-400'}`} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               );

@@ -35,12 +35,12 @@ const NotificationsTab = ({ profile, onSave }) => {
 
   const ToggleSwitch = ({ name, label, description, icon: Icon, checked }) => (
     <div className="flex items-start p-4 border border-slate-200 rounded-xl bg-white shadow-sm mb-4">
-      <div className="flex-shrink-0 mt-1 mr-4 !text-black">
+      <div className="flex-shrink-0 mt-1 mr-4 text-slate-800">
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-grow">
-        <h4 className="text-sm font-medium !text-black">{label}</h4>
-        <p className="text-xs !text-black mt-1">{description}</p>
+        <h4 className="text-sm font-medium text-slate-800">{label}</h4>
+        <p className="text-xs text-slate-800 mt-1">{description}</p>
       </div>
       <div className="flex-shrink-0 ml-4 mt-1">
         <label className="relative inline-flex items-center cursor-pointer">
@@ -52,10 +52,10 @@ const NotificationsTab = ({ profile, onSave }) => {
   );
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm">
+    <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
       <div className="flex items-center mb-6">
-        <Bell className="w-5 h-5 !text-black mr-2" />
-        <h3 className="text-lg font-semibold !text-black">Notification Settings</h3>
+        <Bell className="w-5 h-5 text-slate-800 mr-2" />
+        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Notification Settings</h3>
       </div>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
@@ -96,7 +96,7 @@ const NotificationsTab = ({ profile, onSave }) => {
         <button
           type="submit"
           disabled={loading}
-          className="flex items-center px-4 py-2 bg-[#f97316] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
+          className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 shadow-[0_4px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
         >
           {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Save Changes

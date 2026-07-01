@@ -54,10 +54,10 @@ const SecurityTab = ({ onChangePassword }) => {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       
       <div className="lg:col-span-2">
-        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-sm">
+        <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
           <div className="flex items-center mb-6 border-b pb-4">
-            <ShieldCheck className="w-5 h-5 !text-black mr-2" />
-            <h3 className="text-lg font-semibold !text-black">Change Password</h3>
+            <ShieldCheck className="w-5 h-5 text-slate-800 mr-2" />
+            <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Change Password</h3>
           </div>
           
           {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
@@ -65,7 +65,7 @@ const SecurityTab = ({ onChangePassword }) => {
 
           <div className="space-y-4 max-w-md">
             <div>
-              <label className="block text-sm font-medium !text-black mb-1">Current Password</label>
+              <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Current Password</label>
               <input 
                 type="password" 
                 name="currentPassword" 
@@ -76,7 +76,7 @@ const SecurityTab = ({ onChangePassword }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium !text-black mb-1">New Password</label>
+              <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">New Password</label>
               <input 
                 type="password" 
                 name="newPassword" 
@@ -87,7 +87,7 @@ const SecurityTab = ({ onChangePassword }) => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium !text-black mb-1">Confirm New Password</label>
+              <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wide mb-1">Confirm New Password</label>
               <input 
                 type="password" 
                 name="confirmPassword" 
@@ -103,7 +103,7 @@ const SecurityTab = ({ onChangePassword }) => {
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center px-4 py-2 bg-[#f97316] text-white rounded-md hover:bg-[#7ea0b6] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
+              className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-xl font-bold hover:bg-orange-600 shadow-[0_4px_12px_rgba(249,115,22,0.3)] transition-all hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f97316] disabled:opacity-50"
             >
               {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Update Password
@@ -113,22 +113,22 @@ const SecurityTab = ({ onChangePassword }) => {
       </div>
 
       <div className="lg:col-span-1">
-        <div className="bg-white p-6 rounded-lg shadow-sm">
-          <h3 className="text-sm font-semibold !text-black mb-4 border-b pb-2">Session Information</h3>
+        <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
+          <h3 className="text-sm font-semibold text-slate-800 mb-4 border-b pb-2">Session Information</h3>
           
           <div className="space-y-4">
             <div className="flex items-start">
-              <Clock className="w-4 h-4 !text-black mr-3 mt-0.5" />
+              <Clock className="w-4 h-4 text-slate-800 mr-3 mt-0.5" />
               <div>
-                <p className="text-xs !text-black font-medium">Account Created</p>
-                <p className="text-sm !text-black">{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
+                <p className="text-xs text-slate-800 font-medium">Account Created</p>
+                <p className="text-sm text-slate-800">{user?.createdAt ? new Date(user.createdAt).toLocaleString() : 'N/A'}</p>
               </div>
             </div>
             <div className="flex items-start">
-              <Monitor className="w-4 h-4 !text-black mr-3 mt-0.5" />
+              <Monitor className="w-4 h-4 text-slate-800 mr-3 mt-0.5" />
               <div>
-                <p className="text-xs !text-black font-medium">Current Session Role</p>
-                <p className="text-sm !text-black capitalize">{user?.role || 'Unknown'}</p>
+                <p className="text-xs text-slate-800 font-medium">Current Session Role</p>
+                <p className="text-sm text-slate-800 capitalize">{user?.role || 'Unknown'}</p>
               </div>
             </div>
             <div className="p-3 bg-yellow-50 rounded-md mt-4 border border-yellow-100">

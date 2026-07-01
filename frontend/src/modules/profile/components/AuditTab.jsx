@@ -36,14 +36,14 @@ const AuditTab = () => {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
+    <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
       <div className="flex items-center mb-6 border-b pb-4">
-        <History className="w-5 h-5 !text-black mr-2" />
-        <h3 className="text-lg font-semibold !text-black">Profile Audit History</h3>
+        <History className="w-5 h-5 text-slate-800 mr-2" />
+        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">Profile Audit History</h3>
       </div>
 
       {logs.length === 0 ? (
-        <div className="text-center py-8 !text-black">
+        <div className="text-center py-8 text-slate-800">
           No audit records found for profile changes.
         </div>
       ) : (
@@ -51,17 +51,17 @@ const AuditTab = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-white">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium !text-black uppercase tracking-wider">Date & Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium !text-black uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium !text-black uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium !text-black uppercase tracking-wider">IP Address</th>
-                <th className="px-6 py-3 text-left text-xs font-medium !text-black uppercase tracking-wider">Changes</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">IP Address</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-slate-800 uppercase tracking-wider">Changes</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {logs.map((log) => (
                 <tr key={log.id} className="hover:bg-white">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm !text-black">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
                     {new Date(log.created_at).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -69,18 +69,18 @@ const AuditTab = () => {
                       {log.action}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm !text-black">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
                     {log.performed_by_name} <br/>
-                    <span className="text-xs !text-black">{log.performed_by_email}</span>
+                    <span className="text-xs text-slate-800">{log.performed_by_email}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm !text-black">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800">
                     {log.ip_address}
                   </td>
-                  <td className="px-6 py-4 text-sm !text-black max-w-xs truncate">
+                  <td className="px-6 py-4 text-sm text-slate-800 max-w-xs truncate">
                     {log.action === 'Profile Updated' && log.new_data && log.old_data && (
                       <div className="flex items-center cursor-help" title="Check old vs new state">
-                        <span className="!text-black">Values modified</span>
-                        <ArrowRight className="w-3 h-3 mx-1 !text-black" />
+                        <span className="text-slate-800">Values modified</span>
+                        <ArrowRight className="w-3 h-3 mx-1 text-slate-800" />
                         <span className="text-green-600">Saved</span>
                       </div>
                     )}

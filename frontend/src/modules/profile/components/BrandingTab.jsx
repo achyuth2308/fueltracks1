@@ -39,14 +39,14 @@ const BrandingTab = ({ profile, onUpload }) => {
 
   const renderUploadBox = (title, type, currentUrl, inputRef) => (
     <div className="border-2 border-dashed border-slate-300 rounded-2xl p-6 bg-[#F8FAFC] flex flex-col hover:bg-slate-100 transition-colors cursor-pointer items-center justify-center text-center">
-      <h4 className="text-md font-medium !text-black mb-4">{title}</h4>
+      <h4 className="text-md font-medium text-slate-800 mb-4">{title}</h4>
       
       {currentUrl ? (
         <div className="mb-4 w-32 h-32 relative rounded-md overflow-hidden bg-white shadow-sm flex items-center justify-center">
           <img src={`${API_URL}${currentUrl}`} alt={title} className="max-w-full max-h-full object-contain" />
         </div>
       ) : (
-        <div className="mb-4 w-32 h-32 rounded-md bg-gray-200 flex items-center justify-center !text-black">
+        <div className="mb-4 w-32 h-32 rounded-md bg-gray-200 flex items-center justify-center text-slate-800">
           <ImageIcon className="w-10 h-10" />
         </div>
       )}
@@ -68,13 +68,13 @@ const BrandingTab = ({ profile, onUpload }) => {
         {loading[type] ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
         {currentUrl ? 'Change' : 'Upload'}
       </button>
-      <p className="text-xs !text-black mt-2">PNG, JPG, SVG up to 5MB</p>
+      <p className="text-xs text-slate-800 mt-2">PNG, JPG, SVG up to 5MB</p>
     </div>
   );
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm">
-      <h3 className="text-lg font-semibold !text-black mb-6">Branding Configuration</h3>
+    <div className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
+      <h3 className="text-xl font-extrabold text-slate-900 tracking-tight mb-6">Branding Configuration</h3>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md text-sm">{success}</div>}
