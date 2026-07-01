@@ -52,17 +52,17 @@ const LoginPage = () => {
 
         {/* Left Side */}
         <div className="hidden lg:flex flex-col space-y-8">
-          <div>
+          <div className="flex flex-col justify-center h-full pt-10">
             {/* Logo */}
-            <div className="flex flex-col items-start gap-2 mb-5">
-              <div className="text-3xl font-bold mb-2" style={{ color: '#000080' }}>Welcome to</div>
-              <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ height: '50px', width: 'auto', objectFit: 'contain' }} />
+            <div className="flex flex-col items-start gap-6 mb-12">
+              <div className="text-5xl font-extrabold tracking-tight" style={{ color: '#000080' }}>Welcome to</div>
+              <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ width: '380px', height: 'auto', objectFit: 'contain' }} />
             </div>
 
             {/* Premium Badge */}
-            <div className="inline-flex items-center gap-2 mb-6">
+            <div className="inline-flex items-center gap-2 mb-8">
               <span
-                className="text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full"
+                className="text-xs font-bold uppercase tracking-[0.2em] px-4 py-2 rounded-full"
                 style={{
                   background: 'linear-gradient(90deg, rgba(249,115,22,0.12), rgba(124,77,255,0.12))',
                   border: '1px solid rgba(168,85,247,0.3)',
@@ -75,86 +75,18 @@ const LoginPage = () => {
             </div>
 
             <h2
-              className="text-lg font-bold mb-4 leading-snug"
+              className="text-2xl font-bold mb-6 leading-snug"
               style={{ color: '#1F2937', letterSpacing: '0.01em' }}
             >
               Real-Time Fleet Tracking &amp;<br />Telematics Platform
             </h2>
             <p
-              className="max-w-md leading-relaxed"
-              style={{ color: '#4B5563', fontSize: '15px', lineHeight: '1.75' }}
+              className="max-w-md leading-relaxed text-lg"
+              style={{ color: '#4B5563', lineHeight: '1.8' }}
             >
               Monitor your fleet in real-time, optimize operations, improve efficiency and drive your business forward.
             </p>
           </div>
-
-          {/* Map Graphic Section */}
-          <div className="relative w-full mt-4 bg-transparent opacity-80">
-            {/* World Map — cool dusty blue and biscuit tint */}
-            <img
-              src="/world.svg"
-              alt="World Map"
-              className="w-full h-auto block"
-              style={{
-                opacity: 0.55,
-                filter: 'contrast(1.2) brightness(0.9) sepia(1) saturate(3) hue-rotate(180deg)'
-              }}
-            />
-
-            {/* Overlay container */}
-            <div className="absolute inset-0">
-
-              {/* Static route lines connecting nodes */}
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path d="M 23 32 Q 35 10 50 22" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                <path d="M 50 22 Q 58 15 65 40" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-                <path d="M 65 40 Q 75 55 80 72" fill="none" stroke="#f97316" strokeWidth="0.8" strokeDasharray="2 2" opacity="0.7" vectorEffect="non-scaling-stroke" />
-              </svg>
-
-              {/* North America (USA) */}
-              <div className="absolute" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-[#f97316] rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-[#0ea5e9] rounded-full animate-ping opacity-60"></div>
-                </div>
-              </div>
-              <div className="absolute bg-[#f97316] text-white p-1 rounded-full shadow-md" style={{ top: '32%', left: '23%', transform: 'translate(-50%, -170%)' }}>
-                <Truck size={10} />
-              </div>
-
-              {/* Europe */}
-              <div className="absolute" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-[#f97316] rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-[#0ea5e9] rounded-full animate-ping opacity-60"></div>
-                </div>
-              </div>
-              <div className="absolute bg-[#f97316] text-white p-1 rounded-full shadow-md" style={{ top: '22%', left: '50%', transform: 'translate(-50%, -170%)' }}>
-                <Truck size={10} />
-              </div>
-
-              {/* India */}
-              <div className="absolute" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-[#f97316] rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-[#0ea5e9] rounded-full animate-ping opacity-60"></div>
-                </div>
-              </div>
-              <div className="absolute bg-[#f97316] text-white p-1 rounded-full shadow-md" style={{ top: '40%', left: '65%', transform: 'translate(-50%, -170%)' }}>
-                <Truck size={10} />
-              </div>
-
-              {/* Australia */}
-              <div className="absolute" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -50%)' }}>
-                <div className="relative w-3 h-3 bg-[#f97316] rounded-full shadow-lg">
-                  <div className="absolute inset-0 bg-[#0ea5e9] rounded-full animate-ping opacity-60"></div>
-                </div>
-              </div>
-              <div className="absolute bg-[#f97316] text-white p-1 rounded-full shadow-md" style={{ top: '72%', left: '80%', transform: 'translate(-50%, -170%)' }}>
-                <Truck size={10} />
-              </div>
-            </div>
-          </div>
-
-
-
         </div>
 
         {/* Right Side - Login Form */}
