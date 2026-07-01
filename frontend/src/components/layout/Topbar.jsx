@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatLocalDate } from '../../utils/dateUtils';
-import { Menu, Building, Radio, Wifi, WifiOff, Bell, Clock as ClockIcon, Truck } from 'lucide-react';
+import { Menu, Wifi, WifiOff, Bell, Clock as ClockIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
@@ -81,9 +81,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       flexShrink: 0,
       zIndex: 30,
     }}>
-      {/* Left: org / logo */}
+      {/* Left: logo + org */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-
 
         {/* Hamburger Menu */}
         <button
@@ -105,13 +104,13 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '24px' }}>
           <div style={{
-            width: '32px', height: '32px',
-            background: 'linear-gradient(135deg, #f97316 0%, #7ea0b6 100%)',
+            width: '36px', height: '36px',
             borderRadius: '8px',
+            overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             boxShadow: '0 4px 10px rgba(249,115,22,0.3)',
           }}>
-            <Truck size={16} color="white" />
+            <img src="/fuelimage.png" alt="FuelTracks" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div>
             <div style={{ fontSize: '16px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
@@ -129,7 +128,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             background: '#f97316',
             boxShadow: '0 0 6px rgba(249,115,22,0.5)',
           }} />
-          <span 
+          <span
             className="hidden sm:block"
             style={{
             fontSize: '12px', fontWeight: 600, color: '#f1f5f9',
