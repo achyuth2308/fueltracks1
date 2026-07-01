@@ -10,20 +10,12 @@ import CustomerDashboard from './CustomerDashboard';
 const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
   <div
     onClick={onClick}
+    className="flex-1 min-w-[140px] md:min-w-[160px] p-3 md:p-4 bg-white rounded-[12px] md:rounded-[16px] border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.04)] cursor-pointer transition-all duration-200"
     style={{
-      background: '#FFFFFF',
-      borderRadius: '16px',
-      padding: '16px',
+      borderTop: `4px solid ${color}`,
       display: 'flex',
       alignItems: 'center',
-      gap: '16px',
-      flex: 1,
-      minWidth: '160px',
-      border: '1px solid #F1F5F9',
-      borderTop: '10px solid #2E4867',
-      boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-      cursor: 'pointer',
-      transition: 'all 0.2s ease',
+      gap: '12px',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
@@ -38,20 +30,20 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
       e.currentTarget.style.borderTopColor = '#2E4867';
     }}
   >
-    <div style={{
-      width: '40px', height: '40px',
-      borderRadius: '12px',
+    <div className="w-[32px] h-[32px] md:w-[40px] md:h-[40px] rounded-[10px] md:rounded-[12px] shrink-0 flex items-center justify-center" style={{
+      background: `${color}10`,
+    }}>
       background: `${color}10`,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       flexShrink: 0
     }}>
-      <Icon size={20} color={color} />
+      <Icon className="w-[16px] md:w-[20px] h-[16px] md:h-[20px]" color={color} />
     </div>
     <div>
-      <div style={{ fontSize: '24px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>
+      <div className="text-[18px] md:text-[24px] font-[800] text-gray-900 leading-none">
         {value}
       </div>
-      <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 600, marginTop: '2px' }}>
+      <div className="text-[11px] md:text-[13px] text-gray-500 font-[600] mt-[2px]">
         {label}
       </div>
     </div>
@@ -59,20 +51,11 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
 );
 
 const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
-  <div style={{
-    background: '#FFFFFF',
-    borderRadius: '16px',
-    padding: '16px 20px',
-    border: '1px solid #F1F5F9',
-    borderTop: '10px solid #2E4867',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-    width: '220px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    transition: 'all 0.2s ease',
-  }}
+  <div 
+    className="flex-1 min-w-[140px] md:max-w-[220px] p-3 md:p-4 bg-white rounded-[12px] md:rounded-[16px] border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.04)] transition-all duration-200 flex flex-col items-center justify-center"
+    style={{
+      borderTop: `4px solid ${color}`,
+    }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
       e.currentTarget.style.boxShadow = `0 12px 24px ${color}15`;
@@ -86,17 +69,17 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used',
       e.currentTarget.style.borderTopColor = '#2E4867';
     }}
   >
-    <div style={{ fontSize: '14px', color: '#111827', fontWeight: 700 }}>{title}</div>
-    <div style={{ fontSize: '32px', color: color, fontWeight: 800, marginTop: '6px', marginBottom: '12px', lineHeight: 1 }}>{total}</div>
-    <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', borderTop: '1px solid #F1F5F9', paddingTop: '12px' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>{labelUsed}</span>
-        <span style={{ fontSize: '15px', color: color, fontWeight: 700 }}>{used}</span>
+    <div className="text-[12px] md:text-[14px] text-gray-900 font-[700]">{title}</div>
+    <div className="text-[24px] md:text-[32px] font-[800] leading-none mt-[6px] mb-[10px] md:mb-[12px]" style={{ color: color }}>{total}</div>
+    <div className="flex w-full justify-around border-t border-slate-100 pt-[8px] md:pt-[12px]">
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[11px] text-gray-500 font-[600]">{labelUsed}</span>
+        <span className="text-[13px] md:text-[15px] font-[700]" style={{ color: color }}>{used}</span>
       </div>
-      <div style={{ width: '1px', background: '#F8FAFC' }}></div>
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 600 }}>{labelAvailable}</span>
-        <span style={{ fontSize: '15px', color: color, fontWeight: 700 }}>{available}</span>
+      <div className="w-[1px] bg-slate-50"></div>
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[11px] text-gray-500 font-[600]">{labelAvailable}</span>
+        <span className="text-[13px] md:text-[15px] font-[700]" style={{ color: color }}>{available}</span>
       </div>
     </div>
   </div>
@@ -200,7 +183,7 @@ const DashboardPage = ({ setAppVehicles }) => {
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f0f9ff 0%, #f0f9ff 30%, #f0f9ff 30%, #f0f9ff 100%)', overflowY: 'auto' }}>
 
       {/* KPI Cards Row (Moved Basic Card Here) */}
-      <div style={{ padding: '24px', display: 'flex', gap: '20px', flexShrink: 0, flexWrap: 'wrap', alignItems: 'stretch' }}>
+      <div className="p-4 md:p-6 flex flex-wrap items-stretch shrink-0 gap-3 md:gap-5">
         <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
         <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
         <StatCard label="Vehicles" value={totalVehicles} color="#EC4899" icon={Truck} onClick={() => navigate('/admin/vehicles')} />
