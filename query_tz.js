@@ -9,7 +9,7 @@ async function run() {
         (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata') as d3
     `);
     console.log(res.rows[0]);
-  } catch(e) { console.error(e); }
+  } catch (e) { console.error(e); }
   process.exit(0);
 }
 run();
