@@ -57,9 +57,9 @@ class ReportRepository {
     const query = `
       SELECT 
           DATE(device_time) as date,
-          MIN(odometer) as start_odometer,
-          MAX(odometer) as end_odometer,
-          MAX(odometer) - MIN(odometer) as distance_travelled,
+          COALESCE(MIN(NULLIF(odometer, 0)), 0) as start_odometer,
+          COALESCE(MAX(NULLIF(odometer, 0)), 0) as end_odometer,
+          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled,
           COUNT(*) as point_count
       FROM gps_points
       WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
