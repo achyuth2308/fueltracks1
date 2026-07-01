@@ -291,7 +291,7 @@ const GeofencesAdminPage = () => {
       {modalOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
           <div style={{ background: '#FFFFFF', borderRadius: '20px', width: '100%', maxWidth: '650px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-6 border-b border-slate-200">
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
                 {modalType === 'geofence' ? 'Create New Geofence' : 'Create New Predefined Route'}
               </h2>

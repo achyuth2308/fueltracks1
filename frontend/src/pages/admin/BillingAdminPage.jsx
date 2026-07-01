@@ -62,7 +62,7 @@ const BillingAdminPage = () => {
           flex: '1', overflow: 'hidden'
         }}>
           {/* Search Bar */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-5 border-b border-slate-200">
             <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
               <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
               <input

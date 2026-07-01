@@ -189,7 +189,7 @@ const ReportsAdminPage = () => {
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #bae6fd', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
             
             {/* Table Toolbar */}
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #bae6fd', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#faf8f5' }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-5 border-b border-sky-200 bg-stone-50">
               <div style={{ position: 'relative', width: '320px' }}>
                 <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
                 <input

@@ -244,7 +244,7 @@ const OrgsAdminPage = () => {
             overflow: 'hidden'
           }}>
             {/* Modal Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px 24px', borderBottom: '1px solid #E2E8F0' }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-6 border-b border-slate-200">
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
                 {editingOrg ? 'Configure Organization' : 'Create Organization'}
               </h2>
