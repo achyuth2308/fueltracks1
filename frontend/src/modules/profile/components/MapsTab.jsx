@@ -52,7 +52,7 @@ const MapsTab = ({ profile, onSave }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
         <div>
           <label className="block text-sm font-medium !text-black mb-1">Default Map Provider</label>
-          <select name="map_provider" value={formData.map_provider} onChange={handleChange} className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316]">
+          <select name="map_provider" value={formData.map_provider} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all">
             <option className="!text-black !bg-white hover:!bg-[#f97316]" value="OpenStreetMap">OpenStreetMap</option>
             <option className="!text-black !bg-white hover:!bg-[#f97316]" value="Google Maps">Google Maps</option>
             <option className="!text-black !bg-white hover:!bg-[#f97316]" value="Mapbox">Mapbox</option>
@@ -67,7 +67,7 @@ const MapsTab = ({ profile, onSave }) => {
             value={formData.api_key} 
             onChange={handleChange} 
             placeholder={profile?.api_key ? "••••••••••••••••" : "Enter API Key"}
-            className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316]" 
+            className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" 
           />
           <p className="text-xs !text-black mt-1">Leave blank to keep existing key. Key is stored encrypted.</p>
         </div>
@@ -77,15 +77,15 @@ const MapsTab = ({ profile, onSave }) => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium !text-black mb-1">Center Latitude</label>
-              <input type="number" step="any" name="default_latitude" value={formData.default_latitude} onChange={handleChange} placeholder="e.g., 28.6139" className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316] text-sm" />
+              <input type="number" step="any" name="default_latitude" value={formData.default_latitude} onChange={handleChange} placeholder="e.g., 28.6139" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium !text-black mb-1">Center Longitude</label>
-              <input type="number" step="any" name="default_longitude" value={formData.default_longitude} onChange={handleChange} placeholder="e.g., 77.2090" className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316] text-sm" />
+              <input type="number" step="any" name="default_longitude" value={formData.default_longitude} onChange={handleChange} placeholder="e.g., 77.2090" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" />
             </div>
             <div>
               <label className="block text-xs font-medium !text-black mb-1">Default Zoom Level</label>
-              <input type="number" min="1" max="20" name="default_zoom" value={formData.default_zoom} onChange={handleChange} className="w-full border-black !text-black placeholder-black rounded-md shadow-sm focus:ring-[#f97316] focus:border-[#f97316] text-sm" />
+              <input type="number" min="1" max="20" name="default_zoom" value={formData.default_zoom} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm text-slate-900 focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" />
             </div>
           </div>
         </div>
