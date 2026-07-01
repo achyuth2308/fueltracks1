@@ -404,7 +404,7 @@ const AuditLogsAdminPage = () => {
 
       {/* ── Stat Cards ── */}
       {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#f97316" bg="#f0f9ff" />
           <StatCard label="Today's Events" value={Number(stats.today_events).toLocaleString()} icon={Calendar} color="#6366F1" bg="#EEF2FF" />
           <StatCard label="Failed Logins" value={Number(stats.failed_logins).toLocaleString()} icon={LogIn} color="#DC2626" bg="#FEE2E2" />
