@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye, Server, MapPin, CheckCircle, ChevronRight, X, Building2, Users2, Activity } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';

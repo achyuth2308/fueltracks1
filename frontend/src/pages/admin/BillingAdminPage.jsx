@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatLocalDate } from '../../utils/dateUtils';
 import { Loader2, AlertTriangle, Search, FileText, CalendarX2 } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 

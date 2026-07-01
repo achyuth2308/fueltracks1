@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatLocalDate } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { Users, Users2, Truck, Activity, AlertTriangle } from 'lucide-react';
 

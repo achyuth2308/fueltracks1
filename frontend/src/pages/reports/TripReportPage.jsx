@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Search, Loader2, Map, Filter, FileText } from 'lucide-react';
 import axiosInstance from '../../api/axios';
