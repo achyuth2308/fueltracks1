@@ -68,12 +68,7 @@ const formatDate = (iso) => {
 };
 
 const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-  <div style={{
-    background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0',
-    padding: '20px 24px', display: 'flex', alignItems: 'center', gap: '16px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-    flex: 1, minWidth: '180px',
-  }}>
+  <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 flex items-center gap-4 shadow-sm w-full">
     <div style={{
       width: '48px', height: '48px', borderRadius: '12px',
       background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -385,7 +380,7 @@ const AuditLogsAdminPage = () => {
       <style>{`@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
             {isArchived ? <Archive size={24} color="#f97316" /> : <ClipboardList size={24} color="#f97316" />} 
@@ -409,7 +404,7 @@ const AuditLogsAdminPage = () => {
 
       {/* ── Stat Cards ── */}
       {stats && (
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#f97316" bg="#f0f9ff" />
           <StatCard label="Today's Events" value={Number(stats.today_events).toLocaleString()} icon={Calendar} color="#6366F1" bg="#EEF2FF" />
           <StatCard label="Failed Logins" value={Number(stats.failed_logins).toLocaleString()} icon={LogIn} color="#DC2626" bg="#FEE2E2" />
@@ -418,16 +413,11 @@ const AuditLogsAdminPage = () => {
       )}
 
       {/* ── Filters ── */}
-      <div style={{
-        background: '#FFFFFF', borderRadius: '14px', border: '1px solid #E2E8F0',
-        padding: '16px 20px', marginBottom: '16px',
-        display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-      }}>
-        <Filter size={16} color="#94A3B8" />
+      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-center shadow-sm flex-wrap">
+        <Filter size={16} color="#94A3B8" className="hidden sm:block" />
 
         {/* Audit Type */}
-        <select value={auditType} onChange={e => setAuditType(e.target.value)} style={inputStyle}>
+        <select value={auditType} onChange={e => setAuditType(e.target.value)} style={inputStyle} className="w-full sm:w-auto">
           <option value="all">All Types</option>
           {Object.entries(TYPE_CONFIG).map(([k, v]) => (
             <option key={k} value={k}>{v.label}</option>
@@ -435,7 +425,7 @@ const AuditLogsAdminPage = () => {
         </select>
 
         {/* Action */}
-        <select value={action} onChange={e => setAction(e.target.value)} style={inputStyle}>
+        <select value={action} onChange={e => setAction(e.target.value)} style={inputStyle} className="w-full sm:w-auto">
           <option value="all">All Actions</option>
           {['CREATED','UPDATED','DELETED','REGISTERED','ASSIGNED','REMOVED','LOGIN_SUCCESS','LOGIN_FAILED','LOGOUT'].map(a => (
             <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>
@@ -452,7 +442,7 @@ const AuditLogsAdminPage = () => {
         )}
 
         {/* Search */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '200px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '9px 14px' }}>
+        <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-auto">
           <Search size={14} color="#94A3B8" />
           <input
             placeholder="Search entity, user, action..."
@@ -567,10 +557,7 @@ const AuditLogsAdminPage = () => {
 
         {/* ── Pagination ── */}
         {!loading && pagination.totalPages > 1 && (
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            padding: '16px 20px', borderTop: '1px solid #F1F5F9',
-          }}>
+          <div className="flex flex-col sm:flex-row items-center justify-between p-4 sm:px-5 border-t border-slate-100 gap-4">
             <div style={{ fontSize: '13px', color: '#6B7280' }}>
               Showing <strong>{((page - 1) * pagination.limit) + 1}–{Math.min(page * pagination.limit, pagination.total)}</strong> of <strong>{pagination.total}</strong> events
             </div>
