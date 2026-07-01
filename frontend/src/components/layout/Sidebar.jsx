@@ -70,24 +70,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
 
   return (
     <>
-      {/* Mobile Backdrop */}
-      {isOpen && (
-        <div
-          onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
-          style={{
-            position: 'fixed', inset: 0, zIndex: 40,
-            background: 'rgba(17, 24, 39, 0.5)',
-            backdropFilter: 'blur(4px)',
-          }}
-          className="md:hidden"
-        />
-      )}
+      {/* Mobile Backdrop Removed for Push Effect */}
 
       <aside
         style={{
-          width: collapsed ? '72px' : '260px',
-          minWidth: collapsed ? '72px' : '260px',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           background: '#2E4867', // Live Color
           borderRight: '1px solid #475569',
           boxShadow: '4px 0 24px rgba(249,115,22,0.05)',
@@ -96,14 +82,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           height: '100%',
           flexShrink: 0,
           zIndex: 50,
+          overflow: 'hidden'
         }}
-        className={`${isOpen ? '' : '-translate-x-full'} md:translate-x-0 fixed md:relative transition-transform`}
+        className={`transition-all duration-300 ease-in-out ${
+          isOpen ? 'ml-0' : '-ml-[240px] md:ml-0'
+        } ${
+          collapsed ? 'md:w-[72px]' : 'md:w-[240px]'
+        } w-[240px]`}
       >
         {/* User Profile Header */}
-        <div style={{
-          padding: '24px 16px 16px',
+        <div 
+          className="p-3 md:p-6 pb-4"
+          style={{
           borderBottom: '1px solid #475569',
-          display: 'flex', flexDirection: 'column', gap: '16px',
+          display: 'flex', flexDirection: 'column', gap: '12px',
           alignItems: collapsed ? 'center' : 'flex-start',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -159,10 +151,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             return (
               <div key={group.label || 'top'} style={{ marginBottom: '16px' }}>
                 {!collapsed && group.label && (
-                  <div style={{
-                    fontSize: '11px', fontWeight: 700, letterSpacing: '0.12em',
+                  <div 
+                    className="text-[9px] md:text-[11px] px-2 pb-1 md:px-3 md:pb-2"
+                    style={{
+                    fontWeight: 700, letterSpacing: '0.12em',
                     textTransform: 'uppercase', color: '#99f6e4',
-                    padding: '0 12px 8px',
                   }}>
                     {group.label}
                   </div>
@@ -186,19 +179,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                       key={item.path}
                       to={item.path}
                       onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
+                      className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
                       style={() => ({
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '12px',
-                        padding: collapsed ? '10px' : '10px 14px',
-                        borderRadius: '10px',
-                        fontSize: '14px',
                         fontWeight: customIsActive ? 600 : 500,
                         color: customIsActive ? '#ffffff' : '#ccfbf1',
                         textDecoration: 'none',
                         justifyContent: collapsed ? 'center' : 'flex-start',
                         background: customIsActive ? '#475569' : 'transparent',
-                        marginBottom: '4px',
                         transition: 'all 0.2s ease',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -225,7 +214,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                               background: '#ffffff', borderRadius: '0 4px 4px 0'
                             }} />
                           )}
-                          <Icon size={18} style={{ flexShrink: 0 }} />
+                          <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
+                            <Icon className="w-full h-full" />
+                          </div>
                           {!collapsed && (
                             <span style={{ flex: 1 }}>{item.name}</span>
                           )}
@@ -247,22 +238,18 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           {hasAdminSession && (
             <button
               onClick={handleRestoreAdmin}
+              className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-1 md:mb-2 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '12px',
                 width: '100%',
-                padding: collapsed ? '10px' : '10px 14px',
                 background: '#475569',
                 border: 'none',
                 color: '#ffffff',
                 cursor: 'pointer',
                 justifyContent: collapsed ? 'center' : 'flex-start',
-                borderRadius: '10px',
-                fontSize: '14px',
                 fontWeight: 600,
                 transition: 'all 0.2s',
-                marginBottom: '8px',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               }}
               onMouseEnter={e => {
@@ -272,28 +259,32 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 e.currentTarget.style.background = '#475569';
               }}
             >
-              <ShieldAlert size={18} style={{ flexShrink: 0 }} />
+              <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
+                <ShieldAlert className="w-full h-full" />
+              </div>
               {!collapsed && <span>Return to Admin</span>}
             </button>
           )}
           <button
             onClick={handleLogout}
+            className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
             style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              width: '100%', padding: collapsed ? '10px' : '10px 14px',
+              display: 'flex', alignItems: 'center',
+              width: '100%',
               background: 'transparent',
               border: 'none',
               color: '#f1f5f9',
               cursor: 'pointer',
               justifyContent: collapsed ? 'center' : 'flex-start',
-              borderRadius: '10px',
-              fontSize: '14px', fontWeight: 600,
+              fontWeight: 600,
               transition: 'all 0.2s',
             }}
             onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = '#ffffff'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f1f5f9'; }}
           >
-            <LogOut size={18} style={{ flexShrink: 0 }} />
+            <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
+              <LogOut className="w-full h-full" />
+            </div>
             {!collapsed && <span>Logout</span>}
           </button>
         </div>
