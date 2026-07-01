@@ -130,7 +130,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             background: '#2E4867',
             border: '1px solid #475569',
             borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: 'pointer', color: '#f1f5f9',
             zIndex: 60,
             boxShadow: '0 2px 8px rgba(249,115,22,0.05)',
@@ -138,7 +137,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           }}
           onMouseEnter={e => { e.currentTarget.style.color = '#ffffff'; e.currentTarget.style.borderColor = '#5eead4'; }}
           onMouseLeave={e => { e.currentTarget.style.color = '#f1f5f9'; e.currentTarget.style.borderColor = '#475569'; }}
-          className="hidden md:flex"
+          className="hidden md:flex items-center justify-center"
         >
           {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
