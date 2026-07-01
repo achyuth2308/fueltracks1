@@ -26,9 +26,10 @@ const getExpiryWarning = (expireDateStr) => {
 };
 
 // ── Live Route Plotting & Following for Selected Vehicle ─────────────
-const VehicleRouteAndFit = ({ selectedVehicle, showRoute = false, followSelected = false }) => {
+const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false, followSelected = false }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
+  const hasFitInitially = useRef(false);
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -89,7 +90,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, showRoute = false, followSelected
     };
 
     fetchRoute();
-  }, [selectedVehicle?.id]);
+  }, [selectedVehicle?.id, showRoute]);
 
   // Zoom in when a new vehicle is selected
   useEffect(() => {
@@ -103,13 +104,35 @@ const VehicleRouteAndFit = ({ selectedVehicle, showRoute = false, followSelected
   }, [selectedVehicle?.id]);
 
 
-  // 2. Zoom out when no vehicle selected
+  // 2. Zoom out/Fit Bounds when no vehicle selected
   useEffect(() => {
-    if (!followSelected) return;
-    if (!selectedVehicle) {
-      map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+    if (selectedVehicle) {
+      hasFitInitially.current = false;
+      return;
     }
-  }, [selectedVehicle, map, followSelected]);
+
+    if (followSelected || !hasFitInitially.current) {
+      if (vehicles && vehicles.length > 0) {
+        const validCoords = vehicles
+          .filter(v => v.lat && v.lng)
+          .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
+          .filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0);
+          
+        if (validCoords.length > 0) {
+          const bounds = L.latLngBounds(validCoords);
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
+          hasFitInitially.current = true;
+          return;
+        }
+      }
+      
+      // Fallback
+      if (followSelected || !hasFitInitially.current) {
+        map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
+        hasFitInitially.current = true;
+      }
+    }
+  }, [selectedVehicle, vehicles, map, followSelected]);
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
@@ -119,7 +142,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, showRoute = false, followSelected
     if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
       map.panTo([lat, lng], { animate: true, duration: 0.8 });
     }
-  }, [selectedVehicle?.lat, selectedVehicle?.lng, map]);
+  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, followSelected]);
 
   if (routePoints.length === 0) return null;
 
@@ -530,6 +553,7 @@ const FleetMap = ({
         {/* Handle map zooming and vehicle route plotting */}
         <VehicleRouteAndFit 
           selectedVehicle={effectiveSelected} 
+          vehicles={vehicles}
           showRoute={showRoute}
           followSelected={followSelected}
         />
