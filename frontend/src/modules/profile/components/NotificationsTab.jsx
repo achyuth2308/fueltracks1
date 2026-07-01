@@ -35,17 +35,17 @@ const NotificationsTab = ({ profile, onSave }) => {
 
   const ToggleSwitch = ({ name, label, description, icon: Icon, checked }) => (
     <div className="flex items-start p-4 border border-slate-200 rounded-xl bg-white shadow-sm mb-4">
-      <div className="flex-shrink-0 mt-1 mr-4" style={{ color: "#111827" }}>
+      <div className="flex-shrink-0 mt-1 mr-4" style={{ color: "#000000" }}>
         <Icon className="w-6 h-6" />
       </div>
       <div className="flex-grow">
-        <h4 className="text-sm font-medium" style={{ color: "#111827", margin: 0 }}>{label}</h4>
-        <p className="text-xs mt-1" style={{ color: "#6B7280", margin: 0 }}>{description}</p>
+        <h4 className="text-sm font-medium" style={{ color: "#000000", margin: 0 }}>{label}</h4>
+        <p className="text-xs mt-1" style={{ color: "#000000", margin: 0 }}>{description}</p>
       </div>
       <div className="flex-shrink-0 ml-4 mt-1">
         <label className="relative inline-flex items-center cursor-pointer">
           <input type="checkbox" name={name} checked={checked} onChange={handleChange} className="sr-only peer" />
-          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#f97316] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
+          <div className="w-11 h-6 bg-orange-50 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#f97316] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#f97316]"></div>
         </label>
       </div>
     </div>
@@ -54,8 +54,8 @@ const NotificationsTab = ({ profile, onSave }) => {
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
       <div className="flex items-center mb-6">
-        <Bell className="w-5 h-5 mr-2" style={{ color: "#111827" }} />
-        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>Notification Settings</h2>
+        <Bell className="w-5 h-5 mr-2" style={{ color: "#000000" }} />
+        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#000000", margin: 0, letterSpacing: "-0.01em" }}>Notification Settings</h2>
       </div>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}

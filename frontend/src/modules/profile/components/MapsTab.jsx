@@ -43,7 +43,7 @@ const MapsTab = ({ profile, onSave }) => {
     <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
       <div className="flex items-center mb-6">
         <MapIcon className="w-6 h-6 text-orange-500 mr-3" />
-        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.01em" }}>Map Configuration</h2>
+        <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#000000", margin: 0, letterSpacing: "-0.01em" }}>Map Configuration</h2>
       </div>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
@@ -51,41 +51,41 @@ const MapsTab = ({ profile, onSave }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Default Map Provider</label>
-          <select name="map_provider" value={formData.map_provider} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }}>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="OpenStreetMap">OpenStreetMap</option>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="Google Maps">Google Maps</option>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="Mapbox">Mapbox</option>
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Default Map Provider</label>
+          <select name="map_provider" value={formData.map_provider} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }}>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="OpenStreetMap">OpenStreetMap</option>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="Google Maps">Google Maps</option>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="Mapbox">Mapbox</option>
           </select>
         </div>
 
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>API Key</label>
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>API Key</label>
           <input 
             type="password" 
             name="api_key" 
             value={formData.api_key} 
             onChange={handleChange} 
             placeholder={profile?.api_key ? "••••••••••••••••" : "Enter API Key"}
-            className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} 
+            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} 
           />
-          <p className="text-xs mt-1" style={{ color: "#6B7280", margin: 0 }}>Leave blank to keep existing key. Key is stored encrypted.</p>
+          <p className="text-xs mt-1" style={{ color: "#000000", margin: 0 }}>Leave blank to keep existing key. Key is stored encrypted.</p>
         </div>
 
         <div className="md:col-span-2 border-t pt-6 mt-2">
-          <h4 className="text-sm font-medium mb-4" style={{ color: "#111827" }}>Default Map View</h4>
+          <h4 className="text-sm font-medium mb-4" style={{ color: "#000000" }}>Default Map View</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Center Latitude</label>
-              <input type="number" step="any" name="default_latitude" value={formData.default_latitude} onChange={handleChange} placeholder="e.g., 28.6139" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#111827" }} />
+              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Center Latitude</label>
+              <input type="number" step="any" name="default_latitude" value={formData.default_latitude} onChange={handleChange} placeholder="e.g., 28.6139" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#000000" }} />
             </div>
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Center Longitude</label>
-              <input type="number" step="any" name="default_longitude" value={formData.default_longitude} onChange={handleChange} placeholder="e.g., 77.2090" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#111827" }} />
+              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Center Longitude</label>
+              <input type="number" step="any" name="default_longitude" value={formData.default_longitude} onChange={handleChange} placeholder="e.g., 77.2090" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#000000" }} />
             </div>
             <div>
-              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Default Zoom Level</label>
-              <input type="number" min="1" max="20" name="default_zoom" value={formData.default_zoom} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#111827" }} />
+              <label className="block text-[11px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Default Zoom Level</label>
+              <input type="number" min="1" max="20" name="default_zoom" value={formData.default_zoom} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all text-sm" style={{ color: "#000000" }} />
             </div>
           </div>
         </div>

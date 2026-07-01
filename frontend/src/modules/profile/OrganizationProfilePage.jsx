@@ -63,8 +63,8 @@ const OrganizationProfilePage = () => {
   return (
     <div className="p-6">
       <div className="mb-6">
-        <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Organization Profile</h1>
-        <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Manage your organization's identity, branding, and system preferences.</p>
+        <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#000000', letterSpacing: '-0.02em', margin: 0 }}>Organization Profile</h1>
+        <p style={{ fontSize: '14px', color: '#000000', marginTop: '4px', margin: 0 }}>Manage your organization's identity, branding, and system preferences.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -84,7 +84,7 @@ const OrganizationProfilePage = () => {
                       : '!text-black hover:bg-gray-100'
                   }`}
                 >
-                  <Icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5 ${isActive ? 'text-orange-500' : 'text-slate-400'}`} />
+                  <Icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5 ${isActive ? 'text-orange-500' : 'text-black'}`} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               );

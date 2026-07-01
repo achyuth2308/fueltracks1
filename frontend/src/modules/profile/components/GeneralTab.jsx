@@ -49,63 +49,63 @@ const GeneralTab = ({ profile, onSave }) => {
 
   return (
     <form onSubmit={handleSubmit} className="bg-white p-6 sm:p-10 rounded-2xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] border border-slate-200">
-      <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#111827", margin: 0, letterSpacing: "-0.01em", marginBottom: "24px" }}>Organization Details</h2>
+      <h2 style={{ fontSize: "18px", fontWeight: 700, color: "#000000", margin: 0, letterSpacing: "-0.01em", marginBottom: "24px" }}>Organization Details</h2>
       
       {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-md text-sm">{error}</div>}
       {success && <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-md text-sm">{success}</div>}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Contact Person</label>
-          <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Contact Person</label>
+          <input type="text" name="contact_person" value={formData.contact_person} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Email <span className="text-red-500">*</span></label>
-          <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Email <span className="text-red-500">*</span></label>
+          <input type="email" name="email" value={formData.email} onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Mobile <span className="text-red-500">*</span></label>
-          <input type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Mobile <span className="text-red-500">*</span></label>
+          <input type="tel" name="mobile" value={formData.mobile} onChange={handleChange} required className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Alternate Mobile</label>
-          <input type="tel" name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Alternate Mobile</label>
+          <input type="tel" name="alternate_mobile" value={formData.alternate_mobile} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div className="md:col-span-2">
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Address</label>
-          <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }}></textarea>
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Address</label>
+          <textarea name="address" value={formData.address} onChange={handleChange} rows="3" className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }}></textarea>
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>City</label>
-          <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>City</label>
+          <input type="text" name="city" value={formData.city} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>State</label>
-          <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>State</label>
+          <input type="text" name="state" value={formData.state} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Country</label>
-          <input type="text" name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Country</label>
+          <input type="text" name="country" value={formData.country} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Pincode</label>
-          <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Pincode</label>
+          <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>GST Number (Optional)</label>
-          <input type="text" name="gst_number" value={formData.gst_number} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>GST Number (Optional)</label>
+          <input type="text" name="gst_number" value={formData.gst_number} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Website URL</label>
-          <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }} />
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Website URL</label>
+          <input type="url" name="website" value={formData.website} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }} />
         </div>
         <div>
-          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#374151" }}>Timezone</label>
-          <select name="timezone" value={formData.timezone} onChange={handleChange} className="w-full px-4 py-3 bg-[#F8FAFC] border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#111827" }}>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="UTC">UTC</option>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="America/New_York">America/New_York (EST)</option>
-            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#111827" }} value="Europe/London">Europe/London (GMT)</option>
+          <label className="block text-[13px] font-bold uppercase tracking-wide mb-1" style={{ color: "#000000" }}>Timezone</label>
+          <select name="timezone" value={formData.timezone} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm  focus:outline-none focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10 transition-all" style={{ color: "#000000" }}>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="UTC">UTC</option>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="Asia/Kolkata">Asia/Kolkata (IST)</option>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="America/New_York">America/New_York (EST)</option>
+            <option className="!bg-white hover:!bg-[#f97316]" style={{ color: "#000000" }} value="Europe/London">Europe/London (GMT)</option>
           </select>
         </div>
       </div>

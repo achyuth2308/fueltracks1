@@ -23,17 +23,17 @@ const LicenseTab = ({ license }) => {
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm  font-medium mb-1">Total Allocated</p>
           <p className="text-3xl font-bold ">{license.total}</p>
-          <p className="text-xs mt-1" style={{ color: "#6B7280", margin: 0 }}>Vehicles / Devices</p>
+          <p className="text-xs mt-1" style={{ color: "#000000", margin: 0 }}>Vehicles / Devices</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm  font-medium mb-1">Used</p>
           <p className="text-3xl font-bold text-[#7ea0b6]">{license.used}</p>
-          <p className="text-xs mt-1" style={{ color: "#6B7280", margin: 0 }}>Active Vehicles</p>
+          <p className="text-xs mt-1" style={{ color: "#000000", margin: 0 }}>Active Vehicles</p>
         </div>
         <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
           <p className="text-sm  font-medium mb-1">Available</p>
           <p className={`text-3xl font-bold ${license.available > 0 ? 'text-green-600' : 'text-red-600'}`}>{license.available}</p>
-          <p className="text-xs mt-1" style={{ color: "#6B7280", margin: 0 }}>Remaining Slots</p>
+          <p className="text-xs mt-1" style={{ color: "#000000", margin: 0 }}>Remaining Slots</p>
         </div>
       </div>
 
@@ -42,7 +42,7 @@ const LicenseTab = ({ license }) => {
           <span className="text-sm font-medium ">Capacity Usage</span>
           <span className="text-sm font-bold ">{usagePercentage}%</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
+        <div className="w-full bg-orange-50 rounded-full h-2.5">
           <div 
             className={`h-2.5 rounded-full ${isNearLimit ? 'bg-red-500' : 'bg-[#f97316]'}`} 
             style={{ width: `${Math.min(usagePercentage, 100)}%` }}
