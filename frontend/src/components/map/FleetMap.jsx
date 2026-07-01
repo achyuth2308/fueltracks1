@@ -112,22 +112,22 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
     }
 
     if (followSelected || !hasFitInitially.current) {
-      if (vehicles && vehicles.length > 0) {
-        const validCoords = vehicles
-          .filter(v => v.lat && v.lng)
-          .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
-          .filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0);
-          
-        if (validCoords.length > 0) {
-          const bounds = L.latLngBounds(validCoords);
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
-          hasFitInitially.current = true;
-          return;
-        }
+      // Don't trigger fit bounds or fallback if vehicles haven't loaded yet
+      if (!vehicles || vehicles.length === 0) {
+        return;
       }
-      
-      // Fallback
-      if (followSelected || !hasFitInitially.current) {
+
+      const validCoords = vehicles
+        .filter(v => v.lat && v.lng)
+        .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
+        .filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0);
+        
+      if (validCoords.length > 0) {
+        const bounds = L.latLngBounds(validCoords);
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
+        hasFitInitially.current = true;
+      } else {
+        // Fallback only if we have vehicles but none have valid coords
         map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
         hasFitInitially.current = true;
       }
