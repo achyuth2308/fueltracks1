@@ -69,7 +69,7 @@ function App() {
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
 
-              {/* Admin Protected Routes */}
+              {/* Admin Protected Routes (Strictly Superadmin/Dealer) */}
               <Route path="admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><Outlet /></ProtectedRoute>}>
                 {/* Admin roster management grids */}
                 <Route path="organizations" element={<OrgsAdminPage />} />
@@ -82,7 +82,13 @@ function App() {
                 <Route path="devices" element={<DevicesAdminPage />} />
                 <Route path="billing" element={<BillingAdminPage />} />
                 <Route path="renewal-config" element={<AdminRenewalsPage />} />
-                
+                <Route path="profile" element={<OrganizationProfilePage />} />
+                <Route path="audit-logs" element={<AuditLogsAdminPage />} />
+                <Route path="settings" element={<SettingsAdminPage />} />
+              </Route>
+
+              {/* Shared Protected Routes (All authenticated users including customers) */}
+              <Route path="admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']}><Outlet /></ProtectedRoute>}>
                 {/* System and Integrations */}
                 <Route path="fuel" element={<FuelAdminPage />} />
                 <Route path="alerts" element={<AlertsAdminPage />} />
@@ -97,9 +103,6 @@ function App() {
                 <Route path="reports/stoppage" element={<StoppageReportPage />} />
                 <Route path="reports/consolidated" element={<ConsolidatedReportPage />} />
                 <Route path="reports/individual" element={<IndividualReportPage />} />
-                <Route path="profile" element={<OrganizationProfilePage />} />
-                <Route path="audit-logs" element={<AuditLogsAdminPage />} />
-                <Route path="settings" element={<SettingsAdminPage />} />
               </Route>
 
               {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}
