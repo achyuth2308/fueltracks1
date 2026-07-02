@@ -912,6 +912,10 @@ option {
   border-color: #0f172a !important;
 }
 
+.react-datepicker-popper {
+  z-index: 9999 !important;
+}
+
 .react-datepicker-popper[data-placement^=bottom] .react-datepicker__triangle {
   fill: #f8fafc !important;
   color: #f8fafc !important;
