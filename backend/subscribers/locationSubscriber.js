@@ -353,9 +353,17 @@ async function start(io) {
 
       // 7. Emit real-time events over Socket.io (only for live packets)
       if (isLive) {
+        let displayedOdometer = odometer;
+        const baseline = parseFloat(vehicle.metadata?.odometerReading) || 0;
+        const snapshot = parseFloat(vehicle.metadata?.odometerSnapshot) || 0;
+        if (baseline > 0) {
+          displayedOdometer = baseline + Math.max(0, (odometer || 0) - snapshot);
+        }
+
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat, lng, speed, direction, fuel, ignition, voltage, odometer,
+          lat, lng, speed, direction, fuel, ignition, voltage, 
+          odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true
         };
         io.to(`vehicle:${vehicleId}`).emit('location:update', payload);
