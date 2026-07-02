@@ -364,10 +364,10 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x22) {
     ignition:       acc === 0x01,
     isLive:         !isBuffered,
     odometer,
-    fuel:           0,          // not reported in Concox location packets
-    voltage:        0,          // enriched later from 0x94 info packets if available
-    battery:        50,         // unknown from location packet; heartbeat provides this
-    gsmSignal:      0,
+    fuel:           null,       // not reported in Concox location packets
+    voltage:        null,       // enriched later from 0x94 info packets if available
+    battery:        null,       // unknown from location packet; heartbeat provides this
+    gsmSignal:      null,
     serialNumber,
     rawPacketType,
     // Cell tower metadata (not persisted to DB columns)
@@ -464,8 +464,8 @@ function parseAlarm(info, serialNumber, imei, isMultiFence, rawPacketType) {
     ignition:      termInfo.acc,
     isLive:        true,       // alarm packets are always live/real-time
     odometer,
-    fuel:          0,
-    voltage:       0,
+    fuel:          null,
+    voltage:       null,
     battery:       battPercent,
     gsmSignal:     gsmStrength,
     alertType:     alarmInfo.type,
