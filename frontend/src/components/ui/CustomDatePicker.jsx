@@ -64,7 +64,7 @@ const CustomDatePicker = ({ value, onChange, style, max, showTime }) => {
       selected={selectedDate}
       onChange={handleChange}
       dateFormat={showTime ? "dd-MM-yyyy h:mm aa" : "dd-MM-yyyy"}
-      showTimeSelect={showTime}
+      showTimeInput={showTime}
       maxDate={maxDate}
       customInput={<input style={defaultStyle} />}
     />
