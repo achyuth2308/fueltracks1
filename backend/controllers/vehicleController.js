@@ -462,11 +462,12 @@ const VehicleController = {
         limit: parseInt(limit) || 100
       });
 
-      // Apply Odometer Baseline Offset
+      // Apply Odometer Baseline Offset (baseline + distance driven since snapshot)
       const vehicle = await VehicleModel.findById(id);
       const baseline = parseFloat(vehicle?.metadata?.odometerReading) || 0;
+      const snapshot  = parseFloat(vehicle?.metadata?.odometerSnapshot)  || 0;
       if (baseline > 0 && result.points) {
-        result.points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+        result.points.forEach(p => p.odometer = baseline + Math.max(0, (p.odometer || 0) - snapshot));
       }
 
       res.status(200).json({
@@ -501,11 +502,12 @@ const VehicleController = {
 
       const points = await GpsModel.getRoute(id, { startDate, endDate });
 
-      // Apply Odometer Baseline Offset
+      // Apply Odometer Baseline Offset (baseline + distance driven since snapshot)
       const vehicle = await VehicleModel.findById(id);
       const baseline = parseFloat(vehicle?.metadata?.odometerReading) || 0;
+      const snapshot  = parseFloat(vehicle?.metadata?.odometerSnapshot)  || 0;
       if (baseline > 0 && points) {
-        points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+        points.forEach(p => p.odometer = baseline + Math.max(0, (p.odometer || 0) - snapshot));
       }
 
       res.status(200).json({
