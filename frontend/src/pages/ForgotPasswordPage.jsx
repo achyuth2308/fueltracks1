@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Loader2, AlertCircle, Mail, CheckCircle, Map } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, AlertCircle, Mail, CheckCircle } from 'lucide-react';
 
 
 const ForgotPasswordPage = () => {
@@ -37,21 +37,9 @@ const ForgotPasswordPage = () => {
   return (
     <div className="login-page min-h-screen flex items-start pt-[10vh] justify-center bg-gradient-to-br from-[#f0f9ff] via-white to-[#e0f2fe] font-sans px-6 pb-6 text-slate-800">
       <div className="w-full max-w-md mx-auto relative z-10">
-        
-        <div className="flex items-center gap-3 mb-8 justify-center">
-          <div className="bg-gradient-to-br from-[#f97316] to-[#7ea0b6] p-2.5 rounded-xl shadow-lg">
-            <Map className="text-white" size={26} />
-          </div>
-          <h1
-            className="text-3xl font-black tracking-wide leading-none"
-            style={{
-              background: 'linear-gradient(90deg, #f97316 0%, #7dd3fc 30%,  #7dd3fc 100%)',
-              WebkitBackgroundClip: 'text',
-              backgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 4px 12px rgba(249,115,22,0.15))'
-            }}
-          >FUELTRACKS</h1>
+        {/* Logo */}
+        <div className="flex justify-center mb-6">
+          <img src="/logo_final_transparent.png" alt="FuelTracks" style={{ width: '220px', height: 'auto', objectFit: 'contain' }} />
         </div>
 
         <div className="bg-white rounded-2xl p-6 sm:p-8 shadow-[0_20px_50px_rgba(249,115,22,0.18)] border-2 border-[#7dd3fc]">

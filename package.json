@@ -14,8 +14,14 @@
     "sim:concox": "node scripts/deviceSimulator.js concox",
     "db:init": "node scripts/dbInit.js",
     "db:migrate": "node scripts/runMigrations.js",
+    "db:timescale": "echo 'Run on server: sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql'",
     "start:frontend": "npm --prefix frontend run dev",
-    "build:frontend": "npm --prefix frontend run build"
+    "build:frontend": "npm --prefix frontend run build",
+    "smoke-test": "node scripts/smoke-test.js",
+    "change-passwords": "node scripts/change-default-passwords.js",
+    "pm2:start": "pm2 start ecosystem.config.js --env production",
+    "pm2:reload": "pm2 reload ecosystem.config.js --env production",
+    "pm2:logs": "pm2 logs"
   },
   "dependencies": {
     "@getbrevo/brevo": "^5.0.4",
@@ -24,6 +30,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "express-rate-limit": "^8.5.2",
     "helmet": "^7.1.0",
     "ioredis": "^5.4.1",
     "jsonwebtoken": "^9.0.2",

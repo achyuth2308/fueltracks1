@@ -10,6 +10,7 @@ const socketIo = require('socket.io');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const rateLimit = require('express-rate-limit');
 
 const env = require('./config/env');
 const db = require('./config/db');
@@ -36,27 +37,92 @@ const trackingSocket = require('./sockets/trackingSocket');
 const app = express();
 const server = http.createServer(app);
 
+// ============================================================
+// RATE LIMITERS
+// ============================================================
+
+// General API limiter — 200 requests per 15 minutes per IP
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many requests from this IP, please try again after 15 minutes.',
+    code: 'RATE_LIMIT_EXCEEDED',
+  },
+});
+
+// Strict limiter for auth endpoints — 20 attempts per 15 minutes
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    success: false,
+    error: 'Too many login attempts, please try again after 15 minutes.',
+    code: 'AUTH_RATE_LIMIT_EXCEEDED',
+  },
+});
+
+// ============================================================
+// CORS CONFIGURATION
+// ============================================================
+
+// Build the CORS origin handler based on CORS_ORIGIN env var
+const corsOriginHandler = (() => {
+  const origin = env.CORS_ORIGIN;
+  if (origin === '*') {
+    // Wildcard — accept all (log a warning so operators know)
+    console.warn('[SERVER] CORS_ORIGIN=* — all origins accepted. Set to your domain in production.');
+    return true; // express/cors accepts `true` as "mirror request origin"
+  }
+  // Support comma-separated list of allowed origins
+  const allowed = origin.split(',').map(o => o.trim()).filter(Boolean);
+  return (requestOrigin, callback) => {
+    if (!requestOrigin || allowed.includes(requestOrigin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: origin ${requestOrigin} not allowed`));
+    }
+  };
+})();
+
 // Attach Socket.io
 const io = socketIo(server, {
   cors: {
-    origin: env.CORS_ORIGIN,
+    origin: corsOriginHandler,
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true,
   },
 });
 
-// Middleware
+// ============================================================
+// MIDDLEWARE STACK
+// ============================================================
+
 app.use(helmet()); // Secure HTTP headers
+
 app.use(cors({
-  origin: function (origin, callback) {
-    callback(null, true);
-  },
-  credentials: true
+  origin: corsOriginHandler,
+  credentials: true,
 }));
-app.use(express.json()); // JSON parser
+
+app.use(express.json({ limit: '1mb' })); // JSON parser with body size limit
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP Logging
 
-// Mount REST routes
+// Apply rate limiters
+app.use('/api', apiLimiter);
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/forgot-password', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+
+// ============================================================
+// ROUTES
+// ============================================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
@@ -119,6 +185,7 @@ async function bootstrap() {
       console.log(`  Environment: ${env.NODE_ENV}`);
       console.log(`  PostgreSQL: ${env.DB_HOST}:${env.DB_PORT}`);
       console.log(`  Redis Cache: ${env.REDIS_HOST}:${env.REDIS_PORT}`);
+      console.log(`  Rate limiting: enabled`);
       console.log('============================================================');
     });
 

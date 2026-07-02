@@ -50,31 +50,40 @@ async function publishLocation(parsed) {
           odometer, satellites, gsmSignal, battery, deviceTime, isLive,
           rawPacket, packetType } = parsed;
 
-  // Fallback to last known valid location if coordinates are 0,0 or invalid
-  if (!lat || !lng || (lat === 0 && lng === 0) || (lat === "0" && lng === "0") || (lat === "0.0" && lng === "0.0")) {
+  // Validate coordinates — reject 0,0 or out-of-range values
+  const isInvalidCoords = !lat || !lng
+    || parseFloat(lat) === 0 && parseFloat(lng) === 0
+    || Math.abs(parseFloat(lat)) > 90
+    || Math.abs(parseFloat(lng)) > 180;
+
+  if (isInvalidCoords) {
+    // Try to restore last known valid location from Redis cache
     let restored = false;
     try {
       const prevStateRaw = await publisher.get(`vehicle:state:${imei}`);
       if (prevStateRaw) {
         const prevState = JSON.parse(prevStateRaw);
-        if (prevState && prevState.lat && prevState.lng && Math.abs(parseFloat(prevState.lat)) > 5 && Math.abs(parseFloat(prevState.lng)) > 10) {
+        if (prevState && prevState.lat && prevState.lng
+            && Math.abs(parseFloat(prevState.lat)) > 0.001
+            && Math.abs(parseFloat(prevState.lng)) > 0.001) {
           lat = prevState.lat;
           lng = prevState.lng;
           restored = true;
         }
+        // Always restore voltage from cache if missing in current packet
         if (!voltage && prevState && prevState.voltage) {
           voltage = prevState.voltage;
         }
       }
-    } catch(e) {
-      // Ignore parse error
+    } catch (e) {
+      // Ignore JSON parse error on stale cache
     }
 
-    // If we couldn't restore from cache (because cache was empty or also 0,0),
-    // fallback to a default office location so we NEVER send 0,0 to the frontend
+    // No valid cached coords either — drop the packet entirely.
+    // NEVER fabricate or guess coordinates; that corrupts production data.
     if (!restored) {
-       lat = 17.3411 + (Math.random() * 0.02 - 0.01);
-       lng = 78.5317 + (Math.random() * 0.02 - 0.01);
+      console.warn(`[REDIS] Dropping packet for ${imei}: invalid GPS fix (${lat},${lng}) and no valid cached location`);
+      return;
     }
   }
 

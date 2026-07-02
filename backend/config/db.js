@@ -15,7 +15,7 @@ const pool = new Pool({
   database: env.DB_NAME,
   user: env.DB_USER,
   password: env.DB_PASS,
-  max: 20,                        // Max 20 connections
+  max: env.PG_POOL_MAX,           // Configurable via PG_POOL_MAX env var
   idleTimeoutMillis: 30000,       // Close idle connections after 30s
   connectionTimeoutMillis: 5000,  // Fail fast if DB unreachable
 });

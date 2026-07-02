@@ -146,19 +146,24 @@ const AuditController = {
    */
   async getStats(req, res, next) {
     try {
-      const orgFilter = req.user.role !== 'superadmin' ? `AND org_id = '${req.user.orgId}'` : '';
+      const isSuperadmin = req.user.role === 'superadmin';
+      const params = isSuperadmin ? [] : [req.user.orgId];
+
+      // Build WHERE and FILTER clauses statically — orgId passed as bind variable, never interpolated
+      const whereClause   = isSuperadmin ? '' : 'WHERE org_id = $1';
+      const filterClause  = isSuperadmin ? '' : 'AND org_id = $1';
 
       const result = await db.query(`
         SELECT
           COUNT(*) as total_logs,
-          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours' ${orgFilter}) as today_events,
-          COUNT(*) FILTER (WHERE action = 'LOGIN_FAILED' ${orgFilter}) as failed_logins,
-          COUNT(*) FILTER (WHERE audit_type = 'organization' ${orgFilter}) as org_changes,
-          COUNT(*) FILTER (WHERE audit_type = 'vehicle' ${orgFilter}) as vehicle_changes,
-          COUNT(*) FILTER (WHERE audit_type = 'user' ${orgFilter}) as user_changes
+          COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours' ${filterClause}) as today_events,
+          COUNT(*) FILTER (WHERE action = 'LOGIN_FAILED' ${filterClause}) as failed_logins,
+          COUNT(*) FILTER (WHERE audit_type = 'organization' ${filterClause}) as org_changes,
+          COUNT(*) FILTER (WHERE audit_type = 'vehicle' ${filterClause}) as vehicle_changes,
+          COUNT(*) FILTER (WHERE audit_type = 'user' ${filterClause}) as user_changes
         FROM audit_logs
-        ${req.user.role !== 'superadmin' ? `WHERE org_id = '${req.user.orgId}'` : ''}
-      `);
+        ${whereClause}
+      `, params);
 
       res.status(200).json({ success: true, data: result.rows[0] });
     } catch (err) {
