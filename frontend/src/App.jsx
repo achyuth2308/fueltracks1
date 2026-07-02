@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import ProtectedRoute from './components/layout/ProtectedRoute';
 import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
@@ -68,37 +69,42 @@ function App() {
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
 
-              {/* Admin roster management grids */}
-              <Route path="admin/organizations" element={<OrgsAdminPage />} />
-              <Route path="admin/users" element={<UsersAdminPage />} />
-              <Route path="admin/groups" element={<GroupsAdminPage />} />
-              <Route path="admin/vehicles" element={<VehiclesAdminPage />} />
-              <Route path="admin/vehicles/add" element={<EditVehiclePage />} />
-              <Route path="admin/vehicles/edit/:id" element={<EditVehiclePage />} />
-              <Route path="admin/vehicles/migration/:id" element={<MigrationPage />} />
-              <Route path="admin/devices" element={<DevicesAdminPage />} />
-              <Route path="admin/billing" element={<BillingAdminPage />} />
-              <Route path="admin/renewal-config" element={<AdminRenewalsPage />} />
+              {/* Admin Protected Routes */}
+              <Route path="admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><Outlet /></ProtectedRoute>}>
+                {/* Admin roster management grids */}
+                <Route path="organizations" element={<OrgsAdminPage />} />
+                <Route path="users" element={<UsersAdminPage />} />
+                <Route path="groups" element={<GroupsAdminPage />} />
+                <Route path="vehicles" element={<VehiclesAdminPage />} />
+                <Route path="vehicles/add" element={<EditVehiclePage />} />
+                <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
+                <Route path="vehicles/migration/:id" element={<MigrationPage />} />
+                <Route path="devices" element={<DevicesAdminPage />} />
+                <Route path="billing" element={<BillingAdminPage />} />
+                <Route path="renewal-config" element={<AdminRenewalsPage />} />
+                
+                {/* System and Integrations */}
+                <Route path="fuel" element={<FuelAdminPage />} />
+                <Route path="alerts" element={<AlertsAdminPage />} />
+                <Route path="geofences" element={<GeofencesAdminPage />} />
+                <Route path="reports" element={<ReportsAdminPage />} />
+                <Route path="reports/trip" element={<TripReportPage />} />
+                <Route path="reports/distance" element={<DailyDistanceReportPage />} />
+                <Route path="reports/activity" element={<VehicleActivityReportPage />} />
+                <Route path="reports/route" element={<RouteHistoryReportPage />} />
+                <Route path="reports/ignition" element={<IgnitionReportPage />} />
+                <Route path="reports/overspeeding" element={<OverspeedingReportPage />} />
+                <Route path="reports/stoppage" element={<StoppageReportPage />} />
+                <Route path="reports/consolidated" element={<ConsolidatedReportPage />} />
+                <Route path="reports/individual" element={<IndividualReportPage />} />
+                <Route path="profile" element={<OrganizationProfilePage />} />
+                <Route path="audit-logs" element={<AuditLogsAdminPage />} />
+                <Route path="settings" element={<SettingsAdminPage />} />
+              </Route>
+
+              {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}
               <Route path="renewals" element={<CustomerRenewalsPage />} />
               <Route path="onBoardDevice" element={<OnBoardDevicePage />} />
-
-              {/* System and Integrations */}
-              <Route path="admin/fuel" element={<FuelAdminPage />} />
-              <Route path="admin/alerts" element={<AlertsAdminPage />} />
-              <Route path="admin/geofences" element={<GeofencesAdminPage />} />
-              <Route path="admin/reports" element={<ReportsAdminPage />} />
-              <Route path="admin/reports/trip" element={<TripReportPage />} />
-              <Route path="admin/reports/distance" element={<DailyDistanceReportPage />} />
-              <Route path="admin/reports/activity" element={<VehicleActivityReportPage />} />
-              <Route path="admin/reports/route" element={<RouteHistoryReportPage />} />
-              <Route path="admin/reports/ignition" element={<IgnitionReportPage />} />
-              <Route path="admin/reports/overspeeding" element={<OverspeedingReportPage />} />
-              <Route path="admin/reports/stoppage" element={<StoppageReportPage />} />
-              <Route path="admin/reports/consolidated" element={<ConsolidatedReportPage />} />
-              <Route path="admin/reports/individual" element={<IndividualReportPage />} />
-              <Route path="admin/profile" element={<OrganizationProfilePage />} />
-              <Route path="admin/audit-logs" element={<AuditLogsAdminPage />} />
-              <Route path="admin/settings" element={<SettingsAdminPage />} />
             </Route>
 
             {/* Catch-all redirect */}

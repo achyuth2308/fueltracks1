@@ -28,10 +28,11 @@ const AuditController = {
       const params = [];
       let paramIndex = 1;
 
-      // Superadmin sees all; others see only their org
+      // Superadmin sees all; dealers see their org and child orgs
       if (req.user.role !== 'superadmin') {
-        conditions.push(`org_id = $${paramIndex++}`);
+        conditions.push(`(org_id = $${paramIndex} OR org_id IN (SELECT id FROM organizations WHERE parent_id = $${paramIndex}))`);
         params.push(req.user.orgId);
+        paramIndex++;
       }
 
       if (auditType && auditType !== 'all') {
@@ -150,8 +151,8 @@ const AuditController = {
       const params = isSuperadmin ? [] : [req.user.orgId];
 
       // Build WHERE and FILTER clauses statically — orgId passed as bind variable, never interpolated
-      const whereClause   = isSuperadmin ? '' : 'WHERE org_id = $1';
-      const filterClause  = isSuperadmin ? '' : 'AND org_id = $1';
+      const whereClause   = isSuperadmin ? '' : 'WHERE (org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1))';
+      const filterClause  = isSuperadmin ? '' : 'AND (org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1))';
 
       const result = await db.query(`
         SELECT
