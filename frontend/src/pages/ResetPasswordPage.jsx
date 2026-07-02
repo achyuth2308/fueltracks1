@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Loader2, AlertCircle, Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import axiosInstance from '../api/axios';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -30,14 +31,9 @@ const ResetPasswordPage = () => {
     setLoading(true); setError(null);
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password })
-      });
-      const data = await response.json();
+      const { data } = await axiosInstance.post('/api/auth/reset-password', { token, newPassword: password });
       
-      if (!response.ok || !data.success) {
+      if (!data.success) {
         throw new Error(data.error || 'Failed to reset password');
       }
       
@@ -46,7 +42,7 @@ const ResetPasswordPage = () => {
         navigate('/login');
       }, 3000);
     } catch (err) {
-      setError(err.message || 'An unexpected error occurred.');
+      setError(err.response?.data?.error || err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }

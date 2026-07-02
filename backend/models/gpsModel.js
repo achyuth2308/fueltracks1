@@ -152,7 +152,7 @@ const GpsModel = {
         MAX(speed) as max_speed,
         MIN(CASE WHEN fuel > 0 THEN fuel END)::numeric as min_fuel,
         MAX(fuel)::numeric as max_fuel,
-        MAX(odometer) - MIN(odometer) as distance_km,
+        MAX(odometer) - MIN(NULLIF(odometer, 0)) as distance_km,
         SUM(CASE WHEN ignition = TRUE THEN 1 ELSE 0 END) as ignition_on_count,
         MIN(device_time) as first_point,
         MAX(device_time) as last_point
@@ -169,7 +169,7 @@ const GpsModel = {
         COUNT(*) as total_points,
         ROUND(AVG(speed)::numeric, 1) as avg_speed,
         MAX(speed) as max_speed,
-        MAX(odometer) - MIN(odometer) as total_distance,
+        MAX(odometer) - MIN(NULLIF(odometer, 0)) as total_distance,
         MIN(CASE WHEN fuel > 0 THEN fuel END)::numeric as min_fuel,
         MAX(fuel)::numeric as max_fuel,
         MIN(device_time) as start_time,
