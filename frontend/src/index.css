@@ -816,8 +816,12 @@ option {
   background-color: #f8fafc !important;
   border-bottom: 1px solid #e2e8f0 !important;
   padding-top: 8px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
   border-top-left-radius: 8px !important;
-  border-top-right-radius: 0 !important;
+  border-top-right-radius: 8px !important;
+  position: relative !important;
+  overflow: visible !important;
 }
 
 .react-datepicker__current-month, 
@@ -910,15 +914,52 @@ option {
 }
 
 .react-datepicker__navigation {
-  top: 8px !important;
+  top: 6px !important;
+  width: 28px !important;
+  height: 28px !important;
+  border: none !important;
+  background: none !important;
+  cursor: pointer !important;
+  overflow: visible !important;
+  z-index: 10 !important;
+}
+
+.react-datepicker__navigation--previous {
+  left: 8px !important;
+}
+
+.react-datepicker__navigation--next {
+  right: 8px !important;
+}
+
+.react-datepicker__navigation-icon {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: visible !important;
 }
 
 .react-datepicker__navigation-icon::before {
   border-color: #64748b !important;
+  border-style: solid !important;
   border-width: 2px 2px 0 0 !important;
-  top: 7px !important;
-  width: 6px !important;
-  height: 6px !important;
+  content: "" !important;
+  display: block !important;
+  position: absolute !important;
+  top: 8px !important;
+  width: 7px !important;
+  height: 7px !important;
+}
+
+.react-datepicker__navigation-icon--previous::before {
+  right: 6px !important;
+  transform: rotate(225deg) !important;
+}
+
+.react-datepicker__navigation-icon--next::before {
+  left: 6px !important;
+  transform: rotate(45deg) !important;
 }
 
 .react-datepicker__navigation:hover *::before {

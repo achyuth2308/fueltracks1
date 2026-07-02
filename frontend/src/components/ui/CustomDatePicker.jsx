@@ -104,6 +104,7 @@ const CustomDatePicker = ({ value, onChange, style, max, showTime }) => {
             onChange={handleDateChange}
             dateFormat="dd-MM-yyyy"
             maxDate={maxDate}
+            portalId="root"
             customInput={<input style={{...defaultStyle, width: '100%'}} placeholder="Select Date" />}
           />
         </div>
