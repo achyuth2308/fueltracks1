@@ -118,10 +118,10 @@ const EmailService = {
     } catch (error) {
       const errMsg = error?.message || JSON.stringify(error);
       console.error('[EmailService] Failed to send password reset email to', toEmail, ':', errMsg);
+      console.log(`[EmailService - FALLBACK LOG] Reset Link: ${resetUrl}`);
 
       // In dev mode, log the link so the flow can still be tested without real email
       if (env.NODE_ENV && env.NODE_ENV.includes('dev')) {
-        console.log(`[EmailService - DEV FALLBACK] Reset Link: ${resetUrl}`);
         return true;
       }
 

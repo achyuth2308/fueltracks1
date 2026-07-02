@@ -210,7 +210,13 @@ const AuthController = {
       await UserModel.updateResetToken(user.id, resetToken, expiresAt);
 
       // Send email
-      await EmailService.sendPasswordResetEmail(user.email, resetToken);
+      try {
+        await EmailService.sendPasswordResetEmail(user.email, resetToken);
+      } catch (emailErr) {
+        console.error('[AuthController] Failed to send password reset email:', emailErr.message);
+        // We still return 200 below to prevent email enumeration and handle this gracefully.
+        // The admin can check the logs for the reset link if needed.
+      }
 
       // Audit log
       try {
