@@ -30,7 +30,11 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.is_online,
-              vls.last_seen, (COALESCE(vls.odometer, 0) + COALESCE(CAST(NULLIF(v.metadata->>'odometerReading', '') AS NUMERIC), 0)) as current_odometer,
+              vls.last_seen, CASE
+                WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE COALESCE(vls.odometer, 0)
+              END as current_odometer,
               vls.direction as current_direction,
               vls.satellites as current_satellites,
               vls.gsm_signal as current_gsm_signal,
@@ -115,7 +119,11 @@ const VehicleModel = {
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.is_online,
               vls.last_seen, vls.direction as current_direction,
-              (COALESCE(vls.odometer, 0) + COALESCE(CAST(NULLIF(v.metadata->>'odometerReading', '') AS NUMERIC), 0)) as current_odometer,
+              CASE
+                WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE COALESCE(vls.odometer, 0)
+              END as current_odometer,
               (SELECT COALESCE(MAX(odometer) - MIN(NULLIF(odometer, 0)), 0) FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id

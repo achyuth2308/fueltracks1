@@ -7,6 +7,7 @@ const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const GroupModel = require('../models/groupModel');
 const AuditService = require('../services/auditService');
+const db = require('../config/db');
 
 const VehicleController = {
   /**
@@ -249,6 +250,23 @@ const VehicleController = {
         groupNames: oldGroupNames
       };
 
+      // If odometerReading changed, snapshot the current GPS device odometer so we can
+      // compute: displayed_odo = baseline + (current_gps_odo - snapshot_gps_odo)
+      let finalMetadata = metadata ? { ...metadata } : {};
+      if (metadata && metadata.odometerReading !== undefined) {
+        const oldBaseline = String(oldVehicle.metadata?.odometerReading || '0');
+        const newBaseline = String(metadata.odometerReading || '0');
+        if (oldBaseline !== newBaseline) {
+          // Fetch current GPS device odometer from vehicle_latest_state
+          const vls = await db.query(
+            'SELECT odometer FROM vehicle_latest_state WHERE vehicle_id = $1',
+            [id]
+          );
+          const currentGpsOdo = vls.rows[0]?.odometer ?? 0;
+          finalMetadata.odometerSnapshot = String(currentGpsOdo);
+        }
+      }
+
       const updated = await VehicleModel.update(id, {
         name,
         plate,
@@ -264,7 +282,7 @@ const VehicleController = {
         apn,
         licenceIssuedDate,
         licenceExpireDate,
-        metadata
+        metadata: finalMetadata
       });
 
       // Update group assignments if provided

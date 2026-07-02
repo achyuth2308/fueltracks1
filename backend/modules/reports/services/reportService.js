@@ -33,7 +33,9 @@ class ReportService {
     // Get basic details to attach to report rows
     const placeholders = vehicleIds.map((_, i) => `$${i + 1}`).join(',');
     const query = `
-      SELECT v.id, v.name, v.plate, o.name as org_name, v.metadata->>'odometerReading' as baseline
+      SELECT v.id, v.name, v.plate, o.name as org_name,
+             v.metadata->>'odometerReading' as baseline,
+             v.metadata->>'odometerSnapshot' as snapshot
       FROM vehicles v
       LEFT JOIN organizations o ON v.org_id = o.id
       WHERE v.id IN (${placeholders})
@@ -80,8 +82,9 @@ class ReportService {
       // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
       data.forEach(d => {
         if (baseline > 0) {
-          d.start_odometer = Math.round(((d.start_odometer || 0) + baseline) * 100) / 100;
-          d.end_odometer = Math.round(((d.end_odometer || 0) + baseline) * 100) / 100;
+          const snapshot = parseFloat(vInfo.snapshot) || 0;
+          d.start_odometer = Math.round((baseline + Math.max(0, (d.start_odometer || 0) - snapshot)) * 100) / 100;
+          d.end_odometer   = Math.round((baseline + Math.max(0, (d.end_odometer   || 0) - snapshot)) * 100) / 100;
         }
         allData.push({
           ...d,
@@ -128,8 +131,9 @@ class ReportService {
     const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
     
     const baseline = parseFloat(vInfo.baseline) || 0;
+    const snapshot  = parseFloat(vInfo.snapshot)  || 0;
     if (baseline > 0 && points) {
-      points.forEach(p => p.odometer = (p.odometer || 0) + baseline);
+      points.forEach(p => p.odometer = baseline + Math.max(0, (p.odometer || 0) - snapshot));
     }
     
     const distance = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) : 0;
