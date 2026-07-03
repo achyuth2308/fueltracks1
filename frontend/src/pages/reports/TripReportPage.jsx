@@ -39,7 +39,14 @@ const TripReportPage = () => {
 
   useEffect(() => {
     vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => { if(res.success) setVehicles(res.data); })
+      .then(res => { 
+        if(res.success) {
+          setVehicles(res.data);
+          if (res.data.length > 0) {
+            setFilters(prev => ({ ...prev, vehicleId: res.data[0].id }));
+          }
+        } 
+      })
       .catch(console.error);
   }, []);
 
@@ -101,18 +108,11 @@ const TripReportPage = () => {
 
       {/* Filters Panel */}
       <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle (Optional)</label>
-          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#EEF5F8', color: '#000000' }}>
-            <option value="">All Vehicles</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
-          </select>
-        </div>
-        <div style={{ width: '180px' }}>
+        <div style={{ flex: 1, minWidth: '220px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
           <CustomDatePicker showTime value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
         </div>
-        <div style={{ width: '180px' }}>
+        <div style={{ flex: 1, minWidth: '220px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>End Date</label>
           <CustomDatePicker showTime value={filters.endDate} onChange={e => setFilters({...filters, endDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
         </div>
