@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Search, Loader2, PauseCircle, Filter, FileText } from 'lucide-react';
 import axiosInstance from '../../api/axios';
-import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
+import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+
+const formatDuration = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
 
 const StoppageReportPage = () => {
   const navigate = useNavigate();
@@ -42,7 +50,15 @@ const StoppageReportPage = () => {
 
       const res = await axiosInstance.get(`/api/reports/stoppages?${params.toString()}`);
       if(res.data.success) {
-        setData(res.data.data);
+        const reportData = res.data.data;
+        // Fetch addresses only for Idle and Parked
+        const dataWithAddresses = await Promise.all(reportData.map(async (row) => {
+          if (row.status === 'Moving') return { ...row, address: '-' };
+          const address = await getAddressFromCoordinates(row.lat, row.lng);
+          return { ...row, address };
+        }));
+        
+        setData(dataWithAddresses);
       }
     } catch (err) {
       console.error(err);
@@ -52,20 +68,52 @@ const StoppageReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Plate', 'Org', 'Start Time', 'End Time', 'Duration (mins)', 'Lat', 'Lng'];
+  const columns = ['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration (HH:MM:SS)', 'Location Details'];
 
   const getExportData = () => {
-    return data.map(row => ({
-      'Vehicle Name': row.vehicle_name || '-',
-      'Plate': row.plate || '-',
-      'Org': row.org_name || '-',
-      'Start Time': formatLocalTime(row.start_time),
-      'End Time': formatLocalTime(row.end_time),
-      'Duration (mins)': row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0,
-      'Lat': row.lat,
-      'Lng': row.lng
-    }));
+    const exportRows = [];
+    Object.values(groupedData).forEach(group => {
+      group.events.forEach(row => {
+        exportRows.push({
+          'Vehicle Name': row.vehicle_name || '-',
+          'Status': row.status || '-',
+          'Start Time': formatLocalTime(row.start_time),
+          'End Time': formatLocalTime(row.end_time),
+          'Duration (HH:MM:SS)': formatDuration(row.duration_seconds || 0),
+          'Location Details': row.address || 'Unknown Location'
+        });
+      });
+    });
+    return exportRows;
   };
+
+  // Group data by vehicle and calculate summaries
+  const groupedData = data.reduce((acc, row) => {
+    if (!acc[row.vehicle_id]) {
+      acc[row.vehicle_id] = {
+        vehicle_name: row.vehicle_name,
+        plate: row.plate,
+        moving_seconds: 0,
+        idle_seconds: 0,
+        parked_seconds: 0,
+        events: [] // only Idle and Parked events will go here
+      };
+    }
+    
+    if (row.status === 'Moving') {
+        acc[row.vehicle_id].moving_seconds += parseFloat(row.duration_seconds || 0);
+    } else if (row.status === 'Idle') {
+        acc[row.vehicle_id].idle_seconds += parseFloat(row.duration_seconds || 0);
+        acc[row.vehicle_id].events.push(row);
+    } else if (row.status === 'Parked') {
+        acc[row.vehicle_id].parked_seconds += parseFloat(row.duration_seconds || 0);
+        acc[row.vehicle_id].events.push(row);
+    }
+    
+    return acc;
+  }, {});
+
+  const tableColumns = ['Status', 'Start Time', 'End Time', 'Duration (HH:MM:SS)', 'Location Details'];
 
   return (
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
@@ -107,9 +155,9 @@ const StoppageReportPage = () => {
       </div>
 
       {/* Results */}
-      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data.length} records)</span></div>
+      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data.filter(d => d.status !== 'Moving').length} records)</span></div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => exportToPDF(columns, getExportData(), 'Stoppage Report', 'stoppage_report')} disabled={data.length === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: data.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: data.length ? 1 : 0.5 }}>
@@ -121,38 +169,55 @@ const StoppageReportPage = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto', flex: 1 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
-            <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                {columns.map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
-                    <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                    No data found for the selected criteria.
-                  </td>
-                </tr>
-              ) : data.map((row, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{parseFloat(row.lat).toFixed(4)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{parseFloat(row.lng).toFixed(4)}</td>
-                </tr>
+        <div style={{ overflowX: 'auto', flex: 1, padding: '16px' }}>
+          {Object.keys(groupedData).length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+              <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+              No data found for the selected criteria.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {Object.values(groupedData).map((group, gIdx) => (
+                <div key={gIdx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
+                  
+                  {/* Top Bar - Vehicle Info */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', background: '#DCE4EF', padding: '12px 16px', fontWeight: 700, fontSize: '13px', color: '#1E293B', borderBottom: '1px solid #CBD5E1' }}>
+                    <div>Vehicle Name : {group.vehicle_name}</div>
+                    <div>From : {formatLocalTime(filters.startDate + 'T00:00:00')} - To : {formatLocalTime(filters.endDate + 'T23:59:59')}</div>
+                  </div>
+                  
+                  {/* Summary Bar - Durations */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', background: '#F8FAFC', padding: '12px 16px', fontWeight: 600, fontSize: '13px', color: '#475569', borderBottom: '1px solid #CBD5E1', textAlign: 'center' }}>
+                    <div>Moving : {formatDuration(group.moving_seconds)}</div>
+                    <div>Parked : {formatDuration(group.parked_seconds)}</div>
+                    <div>Idle : {formatDuration(group.idle_seconds)}</div>
+                  </div>
+
+                  {/* Events Table */}
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
+                        {tableColumns.map(c => <th key={c} style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#475569' }}>{c}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.events.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{row.status}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatDuration(row.duration_seconds || 0)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569', minWidth: '200px' }}>{row.address || '-'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
-
     </div>
   );
 };

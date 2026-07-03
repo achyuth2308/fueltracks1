@@ -180,15 +180,19 @@ class ReportRepository {
     const query = `
       WITH flagged AS (
           SELECT lat, lng, speed, device_time, odometer, ignition,
-                 (speed = 0 AND (ignition = false OR ignition IS NULL)) as is_stopped
+                 CASE 
+                    WHEN speed > 0 THEN 'Moving'
+                    WHEN speed = 0 AND ignition = true THEN 'Idle'
+                    ELSE 'Parked' 
+                 END as status
           FROM gps_points
           WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
           ORDER BY device_time
       ),
       state_changes AS (
           SELECT *,
-                 CASE WHEN is_stopped != LAG(is_stopped) OVER (ORDER BY device_time) 
-                      OR LAG(is_stopped) OVER (ORDER BY device_time) IS NULL 
+                 CASE WHEN status != LAG(status) OVER (ORDER BY device_time) 
+                      OR LAG(status) OVER (ORDER BY device_time) IS NULL 
                  THEN 1 ELSE 0 END as is_change
           FROM flagged
       ),
@@ -197,14 +201,14 @@ class ReportRepository {
           FROM state_changes
       )
       SELECT 
+          status,
           MIN(device_time) as start_time, MAX(device_time) as end_time,
           (ARRAY_AGG(lat ORDER BY device_time ASC))[1] as lat,
           (ARRAY_AGG(lng ORDER BY device_time ASC))[1] as lng,
           EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds
       FROM islands
-      WHERE is_stopped = true
-      GROUP BY event_id
-      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) > 60
+      GROUP BY event_id, status
+      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) >= 60
       ORDER BY start_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
