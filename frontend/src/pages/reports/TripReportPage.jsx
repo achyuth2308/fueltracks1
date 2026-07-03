@@ -56,7 +56,7 @@ const TripReportPage = () => {
       params.append('endDate', end.toISOString());
       if(filters.vehicleId) params.append('vehicleId', filters.vehicleId);
 
-      const res = await axiosInstance.get(/api/reports/trip? + params.toString());
+      const res = await axiosInstance.get('/api/reports/trip?' + params.toString());
       if(res.data.success) {
         setData(res.data.data);
       }
