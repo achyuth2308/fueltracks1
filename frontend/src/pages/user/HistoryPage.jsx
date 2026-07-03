@@ -497,9 +497,12 @@ const HistoryPage = () => {
                       <tr
                         key={idx}
                         id={`row-${idx}`}
-                        onClick={() => setCurrentPointIndex(idx)}
+                        onClick={() => {
+                          const globalIdx = points.findIndex(pt => pt.device_time === p.device_time);
+                          if (globalIdx !== -1) setCurrentPointIndex(globalIdx);
+                        }}
                         style={{
-                          background: idx === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
+                          background: points.findIndex(pt => pt.device_time === p.device_time) === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
                           borderBottom: '1px solid rgba(229,231,235,0.5)',
                           cursor: 'pointer'
                         }}

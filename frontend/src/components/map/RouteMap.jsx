@@ -135,42 +135,44 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
     if (!points || points.length === 0) return [];
     const stops = [];
     let stopStart = null;
+    let stopEnd = null;
     
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (!p.lat || !p.lng || !isValidCoord(p.lat, p.lng)) continue;
       
-      if (p.speed <= 2) {
+      if (p.speed <= 5) {
         if (!stopStart) stopStart = p;
+        stopEnd = p;
       } else {
-        if (stopStart) {
+        if (stopStart && stopEnd) {
           const startMs = new Date(stopStart.device_time).getTime();
-          const endMs = new Date(p.device_time).getTime();
+          const endMs = new Date(stopEnd.device_time).getTime();
           const diffMin = (endMs - startMs) / (1000 * 60);
-          if (diffMin >= 5) {
+          if (diffMin >= 4) {
             stops.push({
               lat: parseFloat(stopStart.lat),
               lng: parseFloat(stopStart.lng),
               startTime: stopStart.device_time,
-              endTime: p.device_time,
+              endTime: stopEnd.device_time,
               durationMs: endMs - startMs
             });
           }
           stopStart = null;
+          stopEnd = null;
         }
       }
     }
-    if (stopStart) {
-      const lastPoint = points[points.length - 1];
+    if (stopStart && stopEnd) {
       const startMs = new Date(stopStart.device_time).getTime();
-      const endMs = new Date(lastPoint.device_time).getTime();
+      const endMs = new Date(stopEnd.device_time).getTime();
       const diffMin = (endMs - startMs) / (1000 * 60);
-      if (diffMin >= 5) {
+      if (diffMin >= 4) {
         stops.push({
           lat: parseFloat(stopStart.lat),
           lng: parseFloat(stopStart.lng),
           startTime: stopStart.device_time,
-          endTime: lastPoint.device_time,
+          endTime: stopEnd.device_time,
           durationMs: endMs - startMs
         });
       }
