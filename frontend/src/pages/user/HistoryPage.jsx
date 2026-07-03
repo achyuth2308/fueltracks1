@@ -105,6 +105,19 @@ const HistoryPage = () => {
     }
   }, [currentPointIndex, points.length, rowsPerPage, activeTab]);
 
+  // Auto-scroll the table to the active row during playback
+  useEffect(() => {
+    if (isPlaying && points.length > 0 && currentPointIndex >= 0) {
+      const activeP = points[currentPointIndex];
+      if (activeP) {
+        const rowElement = document.getElementById(`row-time-${activeP.device_time}`);
+        if (rowElement) {
+          rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }
+  }, [currentPointIndex, isPlaying, points]);
+
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
   const currentRows = filteredPoints.slice(indexOfFirstRow, indexOfLastRow);
@@ -496,7 +509,7 @@ const HistoryPage = () => {
                     return (
                       <tr
                         key={idx}
-                        id={`row-${idx}`}
+                        id={`row-time-${p.device_time}`}
                         onClick={() => {
                           const globalIdx = points.findIndex(pt => pt.device_time === p.device_time);
                           if (globalIdx !== -1) setCurrentPointIndex(globalIdx);
