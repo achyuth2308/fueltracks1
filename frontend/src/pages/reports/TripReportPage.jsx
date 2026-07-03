@@ -73,9 +73,9 @@ const TripReportPage = () => {
   const getExportData = () => {
     return data.map(row => ({
       'Start Time': formatLocalTime(row.start_time),
-      'Start Address': (row.start_lat && row.start_lng) ? Lat: \, Lng: \ : 'N/A',
+      'Start Address': (row.start_lat && row.start_lng) ? `Lat: ${row.start_lat}, Lng: ${row.start_lng}` : 'N/A',
       'End Time': formatLocalTime(row.end_time),
-      'End Address': (row.end_lat && row.end_lng) ? Lat: \, Lng: \ : 'N/A',
+      'End Address': (row.end_lat && row.end_lng) ? `Lat: ${row.end_lat}, Lng: ${row.end_lng}` : 'N/A',
       'Duration (mins)': row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0,
       'Distance': row.distance || 0,
       'Max Speed': row.max_speed || 0,
