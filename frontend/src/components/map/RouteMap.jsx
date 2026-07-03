@@ -136,6 +136,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
     const stops = [];
     let stopStart = null;
     let stopEnd = null;
+    let overspeedCount = 0;
     
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
@@ -144,22 +145,28 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
       if (p.speed <= 5) {
         if (!stopStart) stopStart = p;
         stopEnd = p;
+        overspeedCount = 0; // reset spike counter
       } else {
         if (stopStart && stopEnd) {
-          const startMs = new Date(stopStart.device_time).getTime();
-          const endMs = new Date(stopEnd.device_time).getTime();
-          const diffMin = (endMs - startMs) / (1000 * 60);
-          if (diffMin >= 4) {
-            stops.push({
-              lat: parseFloat(stopStart.lat),
-              lng: parseFloat(stopStart.lng),
-              startTime: stopStart.device_time,
-              endTime: stopEnd.device_time,
-              durationMs: endMs - startMs
-            });
+          overspeedCount++;
+          // Only break the stop if we have 2 consecutive points > 5km/h (filters out 1-point GPS spikes)
+          if (overspeedCount >= 2) {
+            const startMs = new Date(stopStart.device_time).getTime();
+            const endMs = new Date(stopEnd.device_time).getTime();
+            const diffMin = (endMs - startMs) / (1000 * 60);
+            if (diffMin >= 3) { // Lowered to 3 mins to be extra safe
+              stops.push({
+                lat: parseFloat(stopStart.lat),
+                lng: parseFloat(stopStart.lng),
+                startTime: stopStart.device_time,
+                endTime: stopEnd.device_time,
+                durationMs: endMs - startMs
+              });
+            }
+            stopStart = null;
+            stopEnd = null;
+            overspeedCount = 0;
           }
-          stopStart = null;
-          stopEnd = null;
         }
       }
     }
@@ -167,7 +174,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
       const startMs = new Date(stopStart.device_time).getTime();
       const endMs = new Date(stopEnd.device_time).getTime();
       const diffMin = (endMs - startMs) / (1000 * 60);
-      if (diffMin >= 4) {
+      if (diffMin >= 3) {
         stops.push({
           lat: parseFloat(stopStart.lat),
           lng: parseFloat(stopStart.lng),
@@ -277,11 +284,28 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         </button>
       )}
 
+      {/* Debug Info Card (Temporary) */}
+      <div style={{
+        position: 'absolute',
+        top: '80px',
+        left: '24px',
+        zIndex: 1000,
+        background: 'rgba(0,0,0,0.8)',
+        color: '#fff',
+        padding: '8px',
+        borderRadius: '4px',
+        fontSize: '11px',
+        pointerEvents: 'none'
+      }}>
+        Debug: Found {stoppages.length} stops.<br/>
+        Active Stop: {activeStoppage ? 'YES' : 'NO'}
+      </div>
+
       {/* Active Stoppage Floating Card (Left side overlay) */}
       {activeStoppage && (
         <div style={{
           position: 'absolute',
-          top: '80px',
+          top: '130px', // Shifted down to make room for debug
           left: '24px',
           zIndex: 1000,
           background: '#ffffff',
