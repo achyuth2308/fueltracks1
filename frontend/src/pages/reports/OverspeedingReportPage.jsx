@@ -69,7 +69,7 @@ const OverspeedingReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Speed Limit', 'Start Time', 'End Time', 'Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Location', 'Distance Covered(KMS)'];
+  const columns = ['Vehicle Name', 'Speed Limit', 'Start Time', 'End Time', 'Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Nearest Location', 'Distance Covered(KMS)'];
 
   const getExportData = () => {
     const exportRows = [];
@@ -85,7 +85,7 @@ const OverspeedingReportPage = () => {
           'OverSpeed Duration (HH:MM:SS)': formatDuration(row.duration_seconds || 0),
           'Driver Name': row.driver_name || '-',
           'Driver Mobile Number': row.driver_phone || '-',
-          'Location': row.address || `${row.lat}, ${row.lng}`,
+          'Nearest Location': row.address || 'Unknown Location',
           'Distance Covered(KMS)': (row.distance || 0).toFixed(2)
         });
       });
@@ -105,7 +105,7 @@ const OverspeedingReportPage = () => {
     return acc;
   }, {});
 
-  const tableColumns = ['Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Location', 'Distance Covered(KMS)'];
+  const tableColumns = ['Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Nearest Location', 'Distance Covered(KMS)'];
 
   return (
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
