@@ -29,9 +29,7 @@ import GeofencesAdminPage from './pages/admin/GeofencesAdminPage';
 import ReportsAdminPage from './pages/admin/ReportsAdminPage';
 import TripReportPage from './pages/reports/TripReportPage';
 import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
-import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
-import IgnitionReportPage from './pages/reports/IgnitionReportPage';
 import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
 import StoppageReportPage from './pages/reports/StoppageReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
@@ -96,9 +94,7 @@ function App() {
                 <Route path="reports" element={<ReportsAdminPage />} />
                 <Route path="reports/trip" element={<TripReportPage />} />
                 <Route path="reports/distance" element={<DailyDistanceReportPage />} />
-                <Route path="reports/activity" element={<VehicleActivityReportPage />} />
                 <Route path="reports/route" element={<RouteHistoryReportPage />} />
-                <Route path="reports/ignition" element={<IgnitionReportPage />} />
                 <Route path="reports/overspeeding" element={<OverspeedingReportPage />} />
                 <Route path="reports/stoppage" element={<StoppageReportPage />} />
                 <Route path="reports/consolidated" element={<ConsolidatedReportPage />} />
