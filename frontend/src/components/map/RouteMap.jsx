@@ -178,6 +178,16 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
     return stops;
   }, [points]);
 
+  const activeStoppage = React.useMemo(() => {
+    if (!activePoint || stoppages.length === 0) return null;
+    const activeMs = new Date(activePoint.device_time).getTime();
+    return stoppages.find(stop => {
+      const startMs = new Date(stop.startTime).getTime();
+      const endMs = new Date(stop.endTime).getTime();
+      return activeMs >= startMs && activeMs <= endMs;
+    });
+  }, [activePoint, stoppages]);
+
   // Sliced positions up to current playback index
   const currentIndex = points.findIndex(
     p => activePoint && p.device_time === activePoint.device_time
@@ -263,6 +273,56 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           {follow ? <Eye size={15} /> : <EyeOff size={15} />}
           {follow ? 'Following Vehicle' : 'Free Map'}
         </button>
+      )}
+
+      {/* Active Stoppage Floating Card (Left side overlay) */}
+      {activeStoppage && (
+        <div style={{
+          position: 'absolute',
+          top: '80px',
+          left: '24px',
+          zIndex: 1000,
+          background: '#ffffff',
+          borderRadius: '8px',
+          padding: '16px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          border: '1px solid #e2e8f0',
+          width: '260px',
+          fontFamily: 'system-ui, -apple-system, sans-serif',
+          animation: 'fadeIn 0.3s ease-out'
+        }}>
+          <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            Vehicle Stopped
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '12px', fontSize: '12px' }}>
+            <tbody>
+              <tr>
+                <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Stopped At</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.startTime)}</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Started At</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.endTime)}</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Duration</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(activeStoppage.durationMs)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ textAlign: 'center', color: '#64748B', fontSize: '11px', background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '12px', lineHeight: '1.4' }}>
+            <LocationDisplay lat={activeStoppage.lat} lng={activeStoppage.lng} />
+          </div>
+          <a 
+            href={`https://maps.google.com/?q=${activeStoppage.lat},${activeStoppage.lng}`} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '8px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s' }}
+          >
+            View in Google Maps
+          </a>
+        </div>
       )}
 
       <MapContainer
