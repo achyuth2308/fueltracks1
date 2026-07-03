@@ -34,6 +34,7 @@ class ReportService {
     const placeholders = vehicleIds.map((_, i) => `$${i + 1}`).join(',');
     const query = `
       SELECT v.id, v.name, v.plate, o.name as org_name,
+             v.driver_name, v.driver_phone,
              v.metadata->>'odometerReading' as baseline,
              v.metadata->>'odometerSnapshot' as snapshot
       FROM vehicles v
@@ -184,7 +185,9 @@ class ReportService {
           vehicle_id: vId,
           vehicle_name: vInfo.name,
           plate: vInfo.plate,
-          org_name: vInfo.org_name
+          org_name: vInfo.org_name,
+          driver_name: vInfo.driver_name,
+          driver_phone: vInfo.driver_phone
         });
       });
     }

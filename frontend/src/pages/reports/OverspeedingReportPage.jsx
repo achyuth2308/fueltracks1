@@ -1,11 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Search, Loader2, Gauge, Filter, FileText } from 'lucide-react';
 import axiosInstance from '../../api/axios';
-import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
+import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+
+const formatDuration = (seconds) => {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+};
 
 const OverspeedingReportPage = () => {
   const navigate = useNavigate();
@@ -44,7 +52,14 @@ const OverspeedingReportPage = () => {
 
       const res = await axiosInstance.get(`/api/reports/overspeeding?${params.toString()}`);
       if(res.data.success) {
-        setData(res.data.data);
+        const reportData = res.data.data;
+        // Fetch addresses
+        const dataWithAddresses = await Promise.all(reportData.map(async (row) => {
+          const address = await getAddressFromCoordinates(row.lat, row.lng);
+          return { ...row, address };
+        }));
+        
+        setData(dataWithAddresses);
       }
     } catch (err) {
       console.error(err);
@@ -54,22 +69,43 @@ const OverspeedingReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Plate', 'Org', 'Start Time', 'End Time', 'Duration (secs)', 'Max Speed', 'Avg Speed', 'Lat', 'Lng'];
+  const columns = ['Vehicle Name', 'Speed Limit', 'Start Time', 'End Time', 'Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Location', 'Distance Covered(KMS)'];
 
   const getExportData = () => {
-    return data.map(row => ({
-      'Vehicle Name': row.vehicle_name || '-',
-      'Plate': row.plate || '-',
-      'Org': row.org_name || '-',
-      'Start Time': formatLocalTime(row.start_time),
-      'End Time': formatLocalTime(row.end_time),
-      'Duration (secs)': row.duration_seconds || 0,
-      'Max Speed': row.max_speed || 0,
-      'Avg Speed': row.avg_speed ? Math.round(row.avg_speed) : 0,
-      'Lat': row.lat,
-      'Lng': row.lng
-    }));
+    const exportRows = [];
+    Object.values(groupedData).forEach(group => {
+      group.events.forEach(row => {
+        exportRows.push({
+          'Vehicle Name': row.vehicle_name || '-',
+          'Speed Limit': filters.speedLimit,
+          'Start Time': formatLocalTime(filters.startDate + 'T00:00:00'),
+          'End Time': formatLocalTime(filters.endDate + 'T23:59:59'),
+          'Date & Time': formatLocalTime(row.start_time),
+          'OverSpeed': row.max_speed || 0,
+          'OverSpeed Duration (HH:MM:SS)': formatDuration(row.duration_seconds || 0),
+          'Driver Name': row.driver_name || '-',
+          'Driver Mobile Number': row.driver_phone || '-',
+          'Location': row.address || `${row.lat}, ${row.lng}`,
+          'Distance Covered(KMS)': (row.distance || 0).toFixed(2)
+        });
+      });
+    });
+    return exportRows;
   };
+
+  const groupedData = data.reduce((acc, row) => {
+    if (!acc[row.vehicle_id]) {
+      acc[row.vehicle_id] = {
+        vehicle_name: row.vehicle_name,
+        plate: row.plate,
+        events: []
+      };
+    }
+    acc[row.vehicle_id].events.push(row);
+    return acc;
+  }, {});
+
+  const tableColumns = ['Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Location', 'Distance Covered(KMS)'];
 
   return (
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
@@ -81,7 +117,7 @@ const OverspeedingReportPage = () => {
         </button>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Gauge size={24} color="#EF4444" /> Overspeeding Report
+            <Gauge size={24} color="#EF4444" /> Consolidated OverSpeed
           </h1>
           <p style={{ fontSize: '14px', color: '#64748B', margin: '4px 0 0 0' }}>Log of all times vehicles exceeded the speed limit.</p>
         </div>
@@ -115,8 +151,8 @@ const OverspeedingReportPage = () => {
       </div>
 
       {/* Results */}
-      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data.length} records)</span></div>
           
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -129,40 +165,48 @@ const OverspeedingReportPage = () => {
           </div>
         </div>
 
-        <div style={{ overflowX: 'auto', flex: 1 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' }}>
-            <thead>
-              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                {columns.map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
-              </tr>
-            </thead>
-            <tbody>
-              {data.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
-                    <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                    No data found for the selected criteria.
-                  </td>
-                </tr>
-              ) : data.map((row, idx) => (
-                <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.duration_seconds || 0}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#EF4444', fontWeight: 700 }}>{row.max_speed || 0}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.avg_speed ? Math.round(row.avg_speed) : 0}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{parseFloat(row.lat).toFixed(4)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{parseFloat(row.lng).toFixed(4)}</td>
-                </tr>
+        <div style={{ overflowX: 'auto', flex: 1, padding: '16px' }}>
+          {data.length === 0 ? (
+            <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+              <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+              No data found for the selected criteria.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              {Object.values(groupedData).map((group, gIdx) => (
+                <div key={gIdx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: '#DCE4EF', padding: '12px 16px', fontWeight: 700, fontSize: '13px', color: '#1E293B', borderBottom: '1px solid #CBD5E1' }}>
+                    <div>Vehicle Name : {group.vehicle_name}</div>
+                    <div>Speed Limit : {filters.speedLimit}</div>
+                    <div>Start Time : {formatLocalTime(filters.startDate + 'T00:00:00')}</div>
+                    <div>End Time : {formatLocalTime(filters.endDate + 'T23:59:59')}</div>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+                    <thead>
+                      <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
+                        {tableColumns.map(c => <th key={c} style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#475569' }}>{c}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.events.map((row, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{row.max_speed || 0}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatDuration(row.duration_seconds || 0)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{row.driver_name || '-'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{row.driver_phone || '-'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569', minWidth: '200px' }}>{row.address || '-'}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{(row.distance || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          )}
         </div>
       </div>
-
     </div>
   );
 };

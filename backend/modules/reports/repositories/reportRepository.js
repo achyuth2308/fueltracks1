@@ -161,7 +161,8 @@ class ReportRepository {
           (ARRAY_AGG(lat ORDER BY device_time ASC))[1] as lat,
           (ARRAY_AGG(lng ORDER BY device_time ASC))[1] as lng,
           MAX(speed) as max_speed, AVG(speed) as avg_speed,
-          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds
+          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds,
+          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance
       FROM islands
       WHERE is_overspeeding = true
       GROUP BY event_id
