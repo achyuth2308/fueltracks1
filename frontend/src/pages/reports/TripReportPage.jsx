@@ -24,6 +24,14 @@ const AddressCell = ({ lat, lng }) => {
   return <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', maxWidth: '250px', whiteSpace: 'normal', wordWrap: 'break-word' }}>{address}</td>;
 };
 
+const formatDuration = (seconds) => {
+  if (!seconds) return '00:00:00';
+  const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+  const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+  const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+  return `${h}:${m}:${s}`;
+};
+
 const TripReportPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -75,7 +83,7 @@ const TripReportPage = () => {
     }
   };
 
-  const columns = ['Start Time', 'Start Address', 'End Time', 'End Address', 'Duration (mins)', 'Distance', 'Max Speed', 'Avg Speed'];
+  const columns = ['Start Time', 'Start Address', 'End Time', 'End Address', 'Duration (hh:mm:ss)', 'Distance', 'Max Speed', 'Avg Speed'];
 
   const getExportData = () => {
     return data.map(row => ({
@@ -83,7 +91,7 @@ const TripReportPage = () => {
       'Start Address': (row.start_lat && row.start_lng) ? `Lat: ${row.start_lat}, Lng: ${row.start_lng}` : 'N/A',
       'End Time': formatLocalTime(row.end_time),
       'End Address': (row.end_lat && row.end_lng) ? `Lat: ${row.end_lat}, Lng: ${row.end_lng}` : 'N/A',
-      'Duration (mins)': row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0,
+      'Duration (hh:mm:ss)': formatDuration(row.duration_seconds),
       'Distance': row.distance || 0,
       'Max Speed': row.max_speed || 0,
       'Avg Speed': row.avg_speed ? Math.round(row.avg_speed) : 0
@@ -108,6 +116,13 @@ const TripReportPage = () => {
 
       {/* Filters Panel */}
       <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle</label>
+          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#EEF5F8', color: '#000000' }}>
+            <option value="">All Vehicles</option>
+            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
+          </select>
+        </div>
         <div style={{ flex: 1, minWidth: '220px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
           <CustomDatePicker showTime value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
@@ -173,7 +188,7 @@ const TripReportPage = () => {
                   <AddressCell lat={row.start_lat} lng={row.start_lng} />
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
                   <AddressCell lat={row.end_lat} lng={row.end_lng} />
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.duration_seconds ? Math.floor(row.duration_seconds / 60) : 0}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{formatDuration(row.duration_seconds)}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.distance || 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.max_speed || 0}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.avg_speed ? Math.round(row.avg_speed) : 0}</td>
