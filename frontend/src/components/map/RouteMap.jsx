@@ -66,6 +66,21 @@ const getSpeedColor = (speed) => {
   return '#22c55e'; // green-500
 };
 
+const formatDuration = (ms) => {
+  if (ms < 0) return '0s';
+  const totalSeconds = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  
+  const parts = [];
+  if (hours > 0) parts.push(`${hours}h`);
+  if (minutes > 0) parts.push(`${minutes}m`);
+  parts.push(`${seconds}s`);
+  
+  return parts.join(' ');
+};
+
 const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const [follow, setFollow] = useState(true);
   const activeMarkerRef = useRef(null);
@@ -115,6 +130,53 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
     .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
 
   const routeSegments = splitIntoSegments(routePositions);
+
+  const stoppages = React.useMemo(() => {
+    if (!points || points.length === 0) return [];
+    const stops = [];
+    let stopStart = null;
+    
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (!p.lat || !p.lng || !isValidCoord(p.lat, p.lng)) continue;
+      
+      if (p.speed <= 2) {
+        if (!stopStart) stopStart = p;
+      } else {
+        if (stopStart) {
+          const startMs = new Date(stopStart.device_time).getTime();
+          const endMs = new Date(p.device_time).getTime();
+          const diffMin = (endMs - startMs) / (1000 * 60);
+          if (diffMin >= 5) {
+            stops.push({
+              lat: parseFloat(stopStart.lat),
+              lng: parseFloat(stopStart.lng),
+              startTime: stopStart.device_time,
+              endTime: p.device_time,
+              durationMs: endMs - startMs
+            });
+          }
+          stopStart = null;
+        }
+      }
+    }
+    if (stopStart) {
+      const lastPoint = points[points.length - 1];
+      const startMs = new Date(stopStart.device_time).getTime();
+      const endMs = new Date(lastPoint.device_time).getTime();
+      const diffMin = (endMs - startMs) / (1000 * 60);
+      if (diffMin >= 5) {
+        stops.push({
+          lat: parseFloat(stopStart.lat),
+          lng: parseFloat(stopStart.lng),
+          startTime: stopStart.device_time,
+          endTime: lastPoint.device_time,
+          durationMs: endMs - startMs
+        });
+      }
+    }
+    return stops;
+  }, [points]);
 
   // Sliced positions up to current playback index
   const currentIndex = points.findIndex(
@@ -427,6 +489,58 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
             </CircleMarker>
           );
         })()}
+
+        {/* Stoppage Markers */}
+        {stoppages.map((stop, idx) => (
+          <Marker 
+            key={`stop-${idx}`}
+            position={[stop.lat, stop.lng]}
+            icon={L.divIcon({ 
+              html: `<div style="background: #ef4444; border: 2px solid #FFFFFF; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                <span style="color: white; font-size: 12px; font-weight: bold; line-height: 1;">P</span>
+              </div>`, 
+              className: '', 
+              iconSize: [22, 22], 
+              iconAnchor: [11, 11] 
+            })}
+          >
+            <Popup className="premium-popup modern-hover-card">
+              <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '220px', background: '#FFFFFF' }}>
+                <div style={{ fontWeight: 700, color: '#ef4444', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                  Long Stop ({formatDuration(stop.durationMs)})
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
+                  <tbody>
+                    <tr>
+                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Stopped At</td>
+                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(stop.startTime)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Started At</td>
+                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(stop.endTime)}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Duration</td>
+                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(stop.durationMs)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '6px', borderRadius: '4px', marginBottom: '6px' }}>
+                  <LocationDisplay lat={stop.lat} lng={stop.lng} />
+                </div>
+                <a 
+                  href={`https://maps.google.com/?q=${stop.lat},${stop.lng}`} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '6px 0', borderRadius: '4px', textDecoration: 'none', fontWeight: 600, fontSize: '11px' }}
+                >
+                  View in Google Maps
+                </a>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
         {/* Active Animated Playback Marker */}
         {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
