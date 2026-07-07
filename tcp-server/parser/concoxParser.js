@@ -557,9 +557,14 @@ function parseInfoTransmission(info, serialNumber, imei) {
         sensorData: { type: 'fuel', raw, parsed },  // canonical metadata field
       });
 
+    } else if (subType === 0x04 || subType === 0x49) {
+      // Sub-type 0x04: Alarm/peripheral data
+      // Sub-type 0x49: Wi-Fi positioning
+      console.debug(`[CONCOX] Skipping unhandled 0x94 sub-type 0x${subType.toString(16).padStart(2, '0')}`);
+      break; // Skip the rest of the payload since length is unknown
     } else {
       // Unknown sub-type — skip rest (cannot determine length without full spec table)
-      console.warn(`[CONCOX] Unknown 0x94 sub-type 0x${subType.toString(16).padStart(2, '0')} — skipping remaining info bytes`);
+      console.debug(`[CONCOX] Unknown 0x94 sub-type 0x${subType.toString(16).padStart(2, '0')} — skipping remaining info bytes`);
       break;
     }
   }

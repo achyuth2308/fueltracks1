@@ -241,6 +241,11 @@ const GpsModel = {
    * Save raw packet for debugging
    */
   async saveRawPacket(imei, raw, parsed = true, error = null) {
+    const sampleRate = parseInt(process.env.RAW_LOG_SAMPLE_RATE) || 1;
+    if (sampleRate > 1 && Math.random() > (1 / sampleRate)) {
+      return; // Skip logging this packet
+    }
+
     await db.query(
       `INSERT INTO raw_packets (imei, raw, parsed, error) VALUES ($1, $2, $3, $4)`,
       [imei, raw, parsed, error]
@@ -252,6 +257,11 @@ const GpsModel = {
    * Strips null bytes (0x00) from string fields to prevent PostgreSQL UTF-8 errors.
    */
   async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson }) {
+    const sampleRate = parseInt(process.env.RAW_LOG_SAMPLE_RATE) || 1;
+    if (sampleRate > 1 && Math.random() > (1 / sampleRate)) {
+      return; // Skip logging this packet
+    }
+
     // PostgreSQL TEXT columns reject null bytes — strip them from every string field
     const sanitizeStr = (v) => (typeof v === 'string' ? v.replace(/\0/g, '') : v);
 
