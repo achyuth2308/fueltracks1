@@ -159,7 +159,7 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
     const header = raw.split(',')[0].trim();
     if (!allowedHeaders.includes(header)) {
       totalPacketsInvalid++;
-      console.warn(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
+      console.debug(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
       return;
     }
 
