@@ -1,15 +1,17 @@
 // ============================================================
 // MULTI-PROTOCOL DEVICE SIMULATOR — FuelTracks
-// Simulates live GPS devices for ALL THREE protocols:
-//   Protocol 1: BSTPL-17     → Port 5000 (ASCII, # delimiter)
-//   Protocol 2: AIS140/tNavIC → Port 5001 (ASCII, * delimiter)
+// Simulates live GPS devices for ALL FOUR protocols:
+//   Protocol 1: BSTPL-17      → Port 5000 (ASCII, # delimiter)
+//   Protocol 2: AIS140 V1     → Port 5001 (ASCII, * delimiter)
 //   Protocol 3: Concox Binary → Port 5002 (binary, 0x78/0x79 frames)
+//   Protocol 4: AIS140 V2     → Port 5003 (ASCII, * delimiter)
 //
 // Usage:
-//   node scripts/deviceSimulator.js           (all three protocols)
-//   node scripts/deviceSimulator.js bstpl      (BSTPL only)
-//   node scripts/deviceSimulator.js ais140     (AIS140 only)
-//   node scripts/deviceSimulator.js concox     (Concox only)
+//   node scripts/deviceSimulator.js              (all four protocols)
+//   node scripts/deviceSimulator.js bstpl        (BSTPL only)
+//   node scripts/deviceSimulator.js ais140       (AIS140 V1 only)
+//   node scripts/deviceSimulator.js concox       (Concox only)
+//   node scripts/deviceSimulator.js ais140v2     (AIS140 V2 only)
 // ============================================================
 
 'use strict';
@@ -22,9 +24,10 @@ const { crcItu } = require('../tcp-server/parser/concoxCrc');
 const TCP_HOST = process.env.TCP_SIM_HOST || '127.0.0.1';
 
 const PORTS = {
-  BSTPL:  parseInt(process.env.TCP_PORT)           || 5000,
-  AIS140: parseInt(process.env.AIS140_TCP_PORT)    || 5001,
-  CONCOX: parseInt(process.env.CONCOX_TCP_PORT)    || 5002,
+  BSTPL:    parseInt(process.env.TCP_PORT)           || 5000,
+  AIS140:   parseInt(process.env.AIS140_TCP_PORT)    || 5001,
+  CONCOX:   parseInt(process.env.CONCOX_TCP_PORT)    || 5002,
+  AIS140V2: parseInt(process.env.AIS140V2_TCP_PORT)  || 5003,
 };
 
 // Filter argument: run only one protocol if specified
@@ -36,14 +39,15 @@ const C = {
   bold:    '\x1b[1m',
   dim:     '\x1b[2m',
   // Protocol colors
-  bstpl:   '\x1b[33m',   // yellow
-  ais140:  '\x1b[36m',   // cyan
-  concox:  '\x1b[35m',   // magenta
+  bstpl:    '\x1b[33m',   // yellow
+  ais140:   '\x1b[36m',   // cyan
+  concox:   '\x1b[35m',   // magenta
+  ais140v2: '\x1b[96m',   // bright cyan
   // Status colors
-  ok:      '\x1b[32m',   // green
-  err:     '\x1b[31m',   // red
-  ack:     '\x1b[34m',   // blue
-  info:    '\x1b[90m',   // grey
+  ok:       '\x1b[32m',   // green
+  err:      '\x1b[31m',   // red
+  ack:      '\x1b[34m',   // blue
+  info:     '\x1b[90m',   // grey
 };
 
 function tag(protocol) {
@@ -647,19 +651,362 @@ function startConcoxSimulator() {
 }
 
 // ============================================================
+// AIS140 V2 SIMULATOR  (port 5003)
+// ============================================================
+
+// V2 Device definitions
+const AIS140V2_DEVICES = [
+  {
+    // Primary device: goes through a full scripted lifecycle
+    imei:       '869247045236301',
+    vehReg:     'TN01AA5678',
+    vendor:     'APMK',
+    firmware:   '1.1.2',
+    lat:        12.971598,
+    lng:        77.594562,
+    speed:      0,
+    ignition:   0,   // 0 = OFF, 1 = ON
+    stage:      0,   // lifecycle stage
+    stageCtr:   0,
+    frameNo:    1,
+    loggedIn:   false,
+    tickCount:  0,
+    battVolt:   4.05,
+    mainsVolt:  13.8,
+    gsmSignal:  28,
+  },
+  {
+    // Secondary device: steady moving vehicle
+    imei:       '864376047795371',
+    vehReg:     'KA03MN9999',
+    vendor:     'APMK',
+    firmware:   '1.0.9',
+    lat:        17.345378,
+    lng:        78.523923,
+    speed:      55,
+    ignition:   1,
+    frameNo:    100,
+    loggedIn:   false,
+    tickCount:  0,
+    battVolt:   3.98,
+    mainsVolt:  14.1,
+    gsmSignal:  25,
+  },
+];
+
+/** Pad a number with leading zeros to given length */
+function padNum(n, len) { return String(n).padStart(len, '0'); }
+
+/** Format current UTC as V2 date DDMMYYYY and time HHMMSS */
+function v2DateTime() {
+  const n   = utcNow();
+  const pad = s => s.toString().padStart(2, '0');
+  return {
+    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth()+1)}${n.getUTCFullYear()}`,
+    time: `${pad(n.getUTCHours())}${pad(n.getUTCMinutes())}${pad(n.getUTCSeconds())}`,
+  };
+}
+
+/** Format current UTC as merged DDMMYYYYHHMMSS (for EPB emergency packets) */
+function v2MergedDateTime() {
+  const { date, time } = v2DateTime();
+  return date + time;
+}
+
+/**
+ * Build V2 LOGIN packet (dollar-delimited format)
+ * $VehicleNo$IMEI$FirmwareVer$ProtocolVer$Lat$LatDir$Lng$LngDir$
+ */
+function makeV2LoginPacket(d) {
+  return `$${d.vehReg}$${d.imei}$${d.firmware}$1.0$${d.lat.toFixed(6)}$N$${d.lng.toFixed(6)}$E$`;
+}
+
+/**
+ * Build V2 GENERAL data packet ($,10 for live, $,200 for history)
+ * Includes all 51 fields as per spec.
+ */
+function makeV2GeneralPacket(d, opts = {}) {
+  const { date, time }  = v2DateTime();
+  const header   = opts.history  ? '200' : '10';
+  const pktType  = opts.pktType  || 'NR';
+  const alertId  = opts.alertId  || '01';
+  const status   = opts.history  ? 'H'  : 'L';
+  const gpsFix   = d.speed > 0 || opts.gpsFix ? '1' : '0';
+  const sats     = d.speed > 0 ? '09' : '08';
+  const heading  = d.speed > 0 ? '180.00' : '000.00';
+  const altitude = '183.5';
+  const pdop     = '1.8';
+  const hdop     = '1.0';
+  const network  = 'AIRTEL';
+  const mainsPwr = '1';
+  const mainsV   = d.mainsVolt.toFixed(1);
+  const battV    = d.battVolt.toFixed(1);
+  const sos      = opts.sos ? '1' : '0';
+  const gsm      = d.gsmSignal.toString();
+  const mcc      = '404';
+  const mnc      = '10';
+  const lac      = '04F5';
+  const cellId   = 'B1FB';
+  // 4 neighbour cells
+  const nbr      = 'B1FA,04F5,82,FA53,04F5,94,B95D,04F5,96,5DE4,04F5,31';
+  const dinStatus  = '0000';
+  const doutStatus = '00';
+  const frameNo  = padNum(d.frameNo++, 6);
+
+  return `$,${header},${d.vendor},${d.firmware},${pktType},${alertId},${status},` +
+         `${d.imei},${d.vehReg},${gpsFix},${date},${time},` +
+         `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
+         `${d.speed.toFixed(1)},${heading},${sats},${altitude},${pdop},${hdop},` +
+         `${network},${d.ignition},${mainsPwr},${mainsV},${battV},${sos},${gsm},` +
+         `${mcc},${mnc},${lac},${cellId},${nbr},` +
+         `${dinStatus},${doutStatus},${frameNo},*`;
+}
+
+/**
+ * Build V2 HEALTH packet ($,101)
+ */
+function makeV2HealthPacket(d) {
+  const battPct    = Math.min(100, Math.max(0, Math.round(((d.battVolt - 3.0) / 1.2) * 100)));
+  const memPct     = Math.round(10 + Math.random() * 5);  // 10-15% used
+  const ignIntvl   = d.ignition ? '10' : '60';
+  return `$,101,${d.vendor.substring(0,3)},${d.firmware},${d.imei},${battPct},20,${memPct},${ignIntvl},60,1000,${d.mainsVolt.toFixed(2)},0.00,*`;
+}
+
+/**
+ * Build V2 EMERGENCY packet ($,EPB)
+ * msgType: 'EMR' (SOS ON) or 'SEM' (SOS OFF)
+ */
+function makeV2EmergencyPacket(d, msgType = 'EMR') {
+  const dt = v2MergedDateTime();
+  return `$,EPB,${msgType},${d.imei},NM,${dt},A,` +
+         `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
+         `183.5,0.0,${d.speed.toFixed(1)},G,${d.vehReg},0,*`;
+}
+
+/**
+ * Build V2 DIAGNOSIS packet ($,500)
+ */
+function makeV2DiagnosisPacket(d) {
+  const { date, time } = v2DateTime();
+  // Dummy ICCID and sensor data
+  return `$,500,${d.imei},89910473121803853296,${date},${time},0,0,1131,,*`;
+}
+
+/**
+ * Build V2 OTA PARAMETER CHANGE packet ($,PC)
+ */
+function makeV2OtaPacket(d, paramStr = 'SETREPORT') {
+  const { date, time } = v2DateTime();
+  return `$,PC,12,${d.imei},1,136.243.105.103,${date},${time},${paramStr},*`;
+}
+
+/**
+ * Scripted lifecycle stages for primary V2 device:
+ * 0: Parked, IGN off  (2 ticks)
+ * 1: IGN ON, idle     (2 ticks)
+ * 2: Moving @ 45 km/h (4 ticks) — sends history packet on first tick
+ * 3: Speeding 90 km/h (3 ticks) — sends overspeed alert
+ * 4: SOS ON            (1 tick)  — sends EPB EMR
+ * 5: SOS OFF           (1 tick)  — sends EPB SEM
+ * 6: Health pkt        (1 tick)  — sends $,101
+ * 7: OTA change        (1 tick)  — sends $,PC
+ * 8: Diagnosis         (1 tick)  — sends $,500
+ * 9: IGN OFF, parked  (2 ticks)  — cycle repeats
+ */
+function updateV2State(d) {
+  if (typeof d.stage === 'undefined') {
+    // Secondary device — just drift
+    d.lat  = nudge(d.lat, 0.0004);
+    d.lng  = nudge(d.lng, 0.0004);
+    d.gsmSignal = Math.max(15, Math.min(31, d.gsmSignal + Math.round((Math.random()-0.5)*2)));
+    d.battVolt  = parseFloat(Math.min(4.2, Math.max(3.2, d.battVolt + (Math.random()-0.5)*0.02)).toFixed(2));
+    return;
+  }
+  d.stageCtr++;
+  switch (d.stage) {
+    case 0: d.ignition = 0; d.speed = 0;
+      if (d.stageCtr >= 2) { d.stage = 1; d.stageCtr = 0; } break;
+    case 1: d.ignition = 1; d.speed = 0;
+      if (d.stageCtr >= 2) { d.stage = 2; d.stageCtr = 0; } break;
+    case 2: d.ignition = 1; d.speed = 45;
+      d.lat = nudge(d.lat, 0.0005); d.lng = nudge(d.lng, 0.0005);
+      if (d.stageCtr >= 4) { d.stage = 3; d.stageCtr = 0; } break;
+    case 3: d.ignition = 1; d.speed = 95;  // overspeed
+      d.lat = nudge(d.lat, 0.001);  d.lng = nudge(d.lng, 0.001);
+      if (d.stageCtr >= 3) { d.stage = 4; d.stageCtr = 0; } break;
+    case 4: d.speed = 0;  // stopped for SOS
+      if (d.stageCtr >= 1) { d.stage = 5; d.stageCtr = 0; } break;
+    case 5:  // SOS ended
+      if (d.stageCtr >= 1) { d.stage = 6; d.stageCtr = 0; } break;
+    case 6:  // health
+      if (d.stageCtr >= 1) { d.stage = 7; d.stageCtr = 0; } break;
+    case 7:  // OTA
+      if (d.stageCtr >= 1) { d.stage = 8; d.stageCtr = 0; } break;
+    case 8:  // diagnosis
+      if (d.stageCtr >= 1) { d.stage = 9; d.stageCtr = 0; } break;
+    case 9: d.ignition = 0; d.speed = 0;
+      if (d.stageCtr >= 2) { d.stage = 0; d.stageCtr = 0; } break;
+  }
+}
+
+function startAis140V2Simulator() {
+  log('AIS140V2', `Starting — targeting ${TCP_HOST}:${PORTS.AIS140V2}`);
+
+  AIS140V2_DEVICES.forEach((device, devIdx) => {
+    const client = new net.Socket();
+    let intervalId = null;
+
+    client.connect(PORTS.AIS140V2, TCP_HOST, () => {
+      log('AIS140V2', `${C.ok}Connected${C.reset} IMEI=${device.imei}`);
+
+      // ── Step 1: Send the V2 Login packet (dollar-delimited) ──
+      const loginPkt = makeV2LoginPacket(device);
+      // Login uses '$' as delimiter, but our TCP stream delimiter is '*'
+      // Append a '*' so server's buffer flushes the login packet correctly
+      client.write(loginPkt + '*');
+      log('AIS140V2', `${C.ok}→ LOGIN${C.reset} ${C.dim}${loginPkt}${C.reset}`);
+      device.loggedIn = true;
+
+      // ── Step 2: Send initial health packet after 1s ──
+      setTimeout(() => {
+        const hpkt = makeV2HealthPacket(device);
+        client.write(hpkt);
+        log('AIS140V2', `${C.ok}→ HEALTH($,101)${C.reset} ${C.dim}${hpkt}${C.reset}`);
+      }, 1000);
+
+      // ── Step 3: Normal loop every 10 seconds ──
+      intervalId = setInterval(() => {
+        device.tickCount++;
+
+        // Update movement/state for primary device
+        if (typeof device.stage !== 'undefined') {
+          updateV2State(device);
+        } else {
+          updateV2State(device);
+        }
+
+        // ── Always send a live general packet ──
+        const nrmPkt = makeV2GeneralPacket(device, { gpsFix: true });
+        client.write(nrmPkt);
+        log('AIS140V2', `${C.ok}→ GENERAL($,10)${C.reset} stage=${device.stage ?? 'n/a'} ign=${device.ignition} spd=${device.speed} ${C.dim}${nrmPkt.substring(0, 90)}...${C.reset}`);
+
+        // ── Primary device lifecycle events ──
+        if (typeof device.stage !== 'undefined') {
+          const stage = device.stage;
+
+          // Send history (buffered) packet on every 5th tick
+          if (device.tickCount % 5 === 0) {
+            const histPkt = makeV2GeneralPacket(device, { history: true, gpsFix: true, alertId: '02' });
+            client.write(histPkt);
+            log('AIS140V2', `${C.ok}→ HISTORY($,200)${C.reset} ${C.dim}${histPkt.substring(0, 80)}...${C.reset}`);
+          }
+
+          // Overspeed alert in stage 3
+          if (stage === 3 && device.stageCtr === 1) {
+            const osPkt = makeV2GeneralPacket(device, { pktType: 'OS', alertId: '17', gpsFix: true });
+            client.write(osPkt);
+            log('AIS140V2', `${C.ok}→ OVERSPEED ALERT($,10 OS)${C.reset} speed=${device.speed}`);
+          }
+
+          // SOS ON in stage 4
+          if (stage === 4 && device.stageCtr === 1) {
+            const sosPkt = makeV2EmergencyPacket(device, 'EMR');
+            client.write(sosPkt);
+            log('AIS140V2', `${C.ok}→ SOS ON($,EPB,EMR)${C.reset} ${C.dim}${sosPkt}${C.reset}`);
+          }
+
+          // SOS OFF in stage 5
+          if (stage === 5 && device.stageCtr === 1) {
+            const semPkt = makeV2EmergencyPacket(device, 'SEM');
+            client.write(semPkt);
+            log('AIS140V2', `${C.ok}→ SOS OFF($,EPB,SEM)${C.reset} ${C.dim}${semPkt}${C.reset}`);
+          }
+
+          // Health packet in stage 6
+          if (stage === 6 && device.stageCtr === 1) {
+            const hpkt = makeV2HealthPacket(device);
+            client.write(hpkt);
+            log('AIS140V2', `${C.ok}→ HEALTH($,101)${C.reset} ${C.dim}${hpkt}${C.reset}`);
+          }
+
+          // OTA change in stage 7
+          if (stage === 7 && device.stageCtr === 1) {
+            const otaPkt = makeV2OtaPacket(device, 'SETREPORT,10,60,120,300,10');
+            client.write(otaPkt);
+            log('AIS140V2', `${C.ok}→ OTA CHANGE($,PC)${C.reset} ${C.dim}${otaPkt}${C.reset}`);
+          }
+
+          // Diagnosis in stage 8
+          if (stage === 8 && device.stageCtr === 1) {
+            const diagPkt = makeV2DiagnosisPacket(device);
+            client.write(diagPkt);
+            log('AIS140V2', `${C.ok}→ DIAGNOSIS($,500)${C.reset} ${C.dim}${diagPkt}${C.reset}`);
+          }
+
+          // Ignition OFF alert in stage 9
+          if (stage === 9 && device.stageCtr === 1) {
+            const ignOffPkt = makeV2GeneralPacket(device, { pktType: 'IF', alertId: '08', gpsFix: false });
+            client.write(ignOffPkt);
+            log('AIS140V2', `${C.ok}→ IGNITION OFF($,10 IF)${C.reset}`);
+          }
+
+          // Ignition ON alert at stage 1→2 transition
+          if (stage === 1 && device.stageCtr === 1) {
+            const ignOnPkt = makeV2GeneralPacket(device, { pktType: 'IN', alertId: '07', gpsFix: false });
+            client.write(ignOnPkt);
+            log('AIS140V2', `${C.ok}→ IGNITION ON($,10 IN)${C.reset}`);
+          }
+        }
+
+        // ── Secondary device: send health every 6 ticks ──
+        if (typeof device.stage === 'undefined' && device.tickCount % 6 === 0) {
+          const hpkt = makeV2HealthPacket(device);
+          client.write(hpkt);
+          log('AIS140V2', `${C.ok}→ HEALTH($,101)${C.reset} batt=${device.battVolt}V IMEI=${device.imei}`);
+        }
+
+      }, 10000);
+    });
+
+    client.on('data', (data) => {
+      // V2 server doesn't send ACKs but log anything received
+      const str = data.toString().trim();
+      if (str) log('AIS140V2', `${C.ack}← RECV${C.reset} ${str}`);
+    });
+
+    client.on('error', (err) => {
+      log('AIS140V2', `${C.err}ERROR${C.reset} IMEI=${device.imei}: ${err.message}`);
+      if (intervalId) clearInterval(intervalId);
+      // Auto-reconnect after 5s
+      setTimeout(() => {
+        log('AIS140V2', `Reconnecting IMEI=${device.imei}...`);
+        client.connect(PORTS.AIS140V2, TCP_HOST);
+      }, 5000);
+    });
+
+    client.on('close', () => {
+      log('AIS140V2', `${C.err}Disconnected${C.reset} IMEI=${device.imei}`);
+      if (intervalId) clearInterval(intervalId);
+    });
+  });
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 
 console.log('');
-console.log(`${C.bold}╔════════════════════════════════════════════════════╗${C.reset}`);
-console.log(`${C.bold}║    FuelTracks Multi-Protocol Device Simulator      ║${C.reset}`);
-console.log(`${C.bold}╠════════════════════════════════════════════════════╣${C.reset}`);
-console.log(`${C.bold}║  ${C.bstpl}BSTPL-17  ${C.reset}${C.bold}→  port ${PORTS.BSTPL}  (ASCII # delimiter)       ║${C.reset}`);
-console.log(`${C.bold}║  ${C.ais140}AIS140    ${C.reset}${C.bold}→  port ${PORTS.AIS140}  (ASCII * delimiter)       ║${C.reset}`);
-console.log(`${C.bold}║  ${C.concox}Concox    ${C.reset}${C.bold}→  port ${PORTS.CONCOX}  (Binary 0x78/0x79)       ║${C.reset}`);
-console.log(`${C.bold}╚════════════════════════════════════════════════════╝${C.reset}`);
+console.log(`${C.bold}╔══════════════════════════════════════════════════════╗${C.reset}`);
+console.log(`${C.bold}║    FuelTracks Multi-Protocol Device Simulator        ║${C.reset}`);
+console.log(`${C.bold}╠══════════════════════════════════════════════════════╣${C.reset}`);
+console.log(`${C.bold}║  ${C.bstpl}BSTPL-17   ${C.reset}${C.bold}→  port ${PORTS.BSTPL}  (ASCII # delimiter)        ║${C.reset}`);
+console.log(`${C.bold}║  ${C.ais140}AIS140 V1  ${C.reset}${C.bold}→  port ${PORTS.AIS140}  (ASCII * delimiter)        ║${C.reset}`);
+console.log(`${C.bold}║  ${C.concox}Concox     ${C.reset}${C.bold}→  port ${PORTS.CONCOX}  (Binary 0x78/0x79)         ║${C.reset}`);
+console.log(`${C.bold}║  ${C.ais140v2}AIS140 V2  ${C.reset}${C.bold}→  port ${PORTS.AIS140V2}  (ASCII * delimiter, V2 spec) ║${C.reset}`);
+console.log(`${C.bold}╚══════════════════════════════════════════════════════╝${C.reset}`);
 console.log('');
 
-if (!FILTER || FILTER === 'bstpl')  startBstplSimulator();
-if (!FILTER || FILTER === 'ais140') startAis140Simulator();
-if (!FILTER || FILTER === 'concox') startConcoxSimulator();
+if (!FILTER || FILTER === 'bstpl')    startBstplSimulator();
+if (!FILTER || FILTER === 'ais140')   startAis140Simulator();
+if (!FILTER || FILTER === 'concox')   startConcoxSimulator();
+if (!FILTER || FILTER === 'ais140v2') startAis140V2Simulator();

@@ -2,8 +2,9 @@
 // TCP SERVER - FuelTracks
 // Receives raw GPS packets from devices on isolated ports:
 // - Port 5000: BSTPL-17 (uses # delimiter)
-// - Port 5001: AIS140 / tNavIC (uses * delimiter)
+// - Port 5001: AIS140 V1 / tNavIC (uses * delimiter)
 // - Port 5002: Concox V5/VL149/GT800 (binary protocol)
+// - Port 5003: AIS140 V2 (MODEL NO:1819001A) (uses * or $ delimiter)
 // ============================================================
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -13,16 +14,18 @@ const http = require('http');
 const { parsePacket } = require('./parser');
 
 const protocolStats = {
-  'BSTPL-17': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'AIS140': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'CONCOX': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
 
-const BSTPL_PORT  = process.env.TCP_PORT || 5000;
-const AIS140_PORT = process.env.AIS140_TCP_PORT || 5001;
-const CONCOX_PORT = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
+const BSTPL_PORT    = process.env.TCP_PORT || 5000;
+const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
+const CONCOX_PORT   = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
+const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
 
 // Concox binary parser + ACK builders
 const { parseConcoxBuffer, buildLoginAck, buildHeartbeatAck, buildAlarmAck } = require('./parser/concoxParser');
@@ -44,7 +47,7 @@ const bstplServer = createProtocolServer(
   ['$10', '$11']
 );
 
-// Start the AIS140 Server on Port 5001
+// Start the AIS140 V1 Server on Port 5001
 const ais140Server = createProtocolServer(
   AIS140_PORT,
   '*',
@@ -54,6 +57,22 @@ const ais140Server = createProtocolServer(
 
 // Start the Concox Server on Port 5002 (binary protocol — separate handler)
 const concoxServer = createConcoxServer(CONCOX_PORT);
+
+// Start the AIS140 V2 Server on Port 5003
+// V2 uses '*' as a packet terminator for general packets, and '$' for login packets.
+// We use '*' as the primary stream delimiter; the login packet fallback is handled
+// inside processPacket via the isV2LoginPacket() heuristic.
+const ais140V2Server = createProtocolServer(
+  AIS140V2_PORT,
+  '*',
+  'AIS140V2',
+  // AIS140 V2 valid first-field headers:
+  //   '$,'     = general/health/emergency/OTA/diagnosis (e.g. $,10 / $,101 / $,EPB)
+  //   'ACTVR'  = activation response
+  //   'HCHKR'  = health check response
+  //   '$'      = dollar-delimited login packet (matched by prefix)
+  ['$,', 'ACTVR', 'HCHKR', '$']
+);
 
 /**
  * Factory to create a TCP server for a specific protocol configuration
@@ -155,9 +174,13 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
  */
 async function processPacket(raw, clientId, protocolName, allowedHeaders) {
   try {
-    // Check if packet header is allowed on this port
+    // Check if packet header is allowed on this port.
+    // For AIS140 V2 we use prefix matching instead of exact match because the
+    // general packet header is '$,' (which varies) and the login packet begins
+    // with '$' followed by vehicle reg no (also variable).
     const header = raw.split(',')[0].trim();
-    if (!allowedHeaders.includes(header)) {
+    const headerAllowed = allowedHeaders.some(allowed => header.startsWith(allowed));
+    if (!headerAllowed) {
       totalPacketsInvalid++;
       console.debug(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
       return;
@@ -282,6 +305,103 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
         protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
       }
       totalPacketsParsed++;
+
+    // ================================================================
+    // AIS140 V2 PACKET TYPES
+    // ================================================================
+
+    } else if (parsed.packetType === 'AIS140V2_GENERAL') {
+      // General/Normal packet — treat the same as $NRM for location tracking
+      const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
+                         Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
+
+      if (!isValidGps) {
+        totalPacketsInvalid++;
+        console.warn(`[TCP - ${protocolName}] V2 General: GPS not fixed for ${parsed.imei}. Dropping location.`);
+      } else {
+        connectedDevices.set(parsed.imei, {
+          clientId,
+          lastPacket: new Date(),
+          lat: parsed.lat,
+          lng: parsed.lng,
+        });
+        await publisher.publishLocation(parsed);
+        totalPacketsParsed++;
+        if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+
+      // If the general packet carries an alert (pktTypeCode != NR), also publish alert
+      if (parsed.pktTypeCode && parsed.pktTypeCode !== 'NR' && parsed.alertText) {
+        await publisher.publishAlert(parsed);
+        console.log(`[TCP - ${protocolName}] V2 Alert from ${parsed.imei}: ${parsed.pktTypeCode} - ${parsed.alertText}`);
+      }
+
+    } else if (parsed.packetType === 'AIS140V2_HEALTH') {
+      console.log(`[TCP - ${protocolName}] V2 Health from ${parsed.imei}: Battery ${parsed.batteryPercent}%, Mem ${parsed.memoryPercent}%`);
+      if (parsed.imei) {
+        await publisher.publishHeartbeat(
+          parsed.imei,
+          parsed.batteryPercent,
+          undefined,
+          undefined,
+          parsed.deviceTime,
+          parsed.rawPacket,
+          parsed.packetType
+        );
+      }
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+
+    } else if (parsed.packetType === 'AIS140V2_EMERGENCY') {
+      // Emergency (SOS) with GPS fix
+      const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
+                         Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
+      if (isValidGps) {
+        connectedDevices.set(parsed.imei, { clientId, lastPacket: new Date(), lat: parsed.lat, lng: parsed.lng });
+        await publisher.publishLocation(parsed);
+      }
+      await publisher.publishAlert(parsed);
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+      console.log(`[TCP - ${protocolName}] V2 Emergency from ${parsed.imei}: ${parsed.alertText}`);
+
+    } else if (parsed.packetType === 'AIS140V2_OTA_CHANGE') {
+      // OTA parameter change — log and publish as alert
+      console.log(`[TCP - ${protocolName}] V2 OTA Change from ${parsed.imei}: ${parsed.paramStr}`);
+      if (parsed.imei && parsed.alertText) {
+        await publisher.publishAlert(parsed);
+      }
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+
+    } else if (parsed.packetType === 'AIS140V2_DIAGNOSIS') {
+      // Diagnosis packet — log only, no location/alert publish
+      console.log(`[TCP - ${protocolName}] V2 Diagnosis from ${parsed.imei}: ICCID=${parsed.iccid}, Flash=${parsed.flashValue}`);
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+
+    } else if (parsed.packetType === 'AIS140V2_ACTIVATION' || parsed.packetType === 'AIS140V2_HEALTH_CHECK') {
+      // Activation / health check response — log and publish heartbeat
+      console.log(`[TCP - ${protocolName}] V2 ${parsed.packetType} from ${parsed.imei}: Battery=${parsed.battVoltage}V, IGN=${parsed.ignition}`);
+      if (parsed.imei) {
+        const battPct = Math.min(100, Math.max(0, Math.round(((parsed.battVoltage - 3.0) / 1.2) * 100)));
+        await publisher.publishHeartbeat(
+          parsed.imei,
+          battPct,
+          parsed.gsmSignal,
+          parsed.ignition,
+          parsed.deviceTime,
+          parsed.rawPacket,
+          parsed.packetType
+        );
+      }
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+
+    } else if (parsed.packetType === 'AIS140V2_LOGIN') {
+      console.log(`[TCP - ${protocolName}] V2 Login from ${parsed.imei} (VehicleNo: ${parsed.vehicleRegNo || 'N/A'}, FW: ${parsed.firmwareVer})`);
+      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
     }
 
   } catch (err) {
@@ -295,6 +415,7 @@ const shutdown = async () => {
   console.log('\n[TCP] Shutting down servers...');
   bstplServer.close();
   ais140Server.close();
+  ais140V2Server.close();
   concoxServer.close();
   if (typeof healthServer !== 'undefined') healthServer.close();
   await publisher.close();
@@ -640,9 +761,10 @@ const healthServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'OK',
-      bstplConnections: protocolStats['BSTPL-17'].connections,
-      ais140Connections: protocolStats['AIS140'].connections,
-      concoxConnections: protocolStats['CONCOX'].connections,
+      bstplConnections:    protocolStats['BSTPL-17'].connections,
+      ais140Connections:   protocolStats['AIS140'].connections,
+      ais140V2Connections: protocolStats['AIS140V2'].connections,
+      concoxConnections:   protocolStats['CONCOX'].connections,
       stats: protocolStats
     }));
   } else {
@@ -658,4 +780,4 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
   console.log(`============================================================`);
 });
 
-module.exports = { bstplServer, ais140Server, concoxServer, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, healthServer };

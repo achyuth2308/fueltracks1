@@ -456,6 +456,7 @@ const OnBoardDevicePage = () => {
                             >
                               <option value="BSTPL">BSTPL</option>
                               <option value="AS140">AS140</option>
+                              <option value="AIS140V2">AIS140 V2</option>
                               <option value="CONCOX">CONCOX</option>
                             </select>
                           </td>
