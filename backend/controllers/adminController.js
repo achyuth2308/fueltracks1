@@ -1062,7 +1062,7 @@ const AdminController = {
   },
 
   // Vehicles for a user
-  async getUserVehicles(req, res, next) {
+  async createRenewalPlan(req, res, next) {
     try {
       const { name, duration_months, price, org_id, user_id, group_id } = req.body;
       if (!name || !duration_months || !price) {
@@ -1178,6 +1178,17 @@ const AdminController = {
       query += ` ORDER BY rt.created_at DESC`;
       const result = await db.query(query, params);
       res.status(200).json({ success: true, data: result.rows });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getRecentAlerts(req, res, next) {
+    try {
+      const orgId = req.user.orgId;
+      const GpsModel = require('../models/gpsModel');
+      const alerts = await GpsModel.getRecentAlerts(orgId);
+      res.json({ success: true, data: alerts });
     } catch (err) {
       next(err);
     }
