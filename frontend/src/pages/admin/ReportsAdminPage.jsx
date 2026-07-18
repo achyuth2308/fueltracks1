@@ -229,7 +229,8 @@ const ReportsAdminPage = () => {
                       <TH>Duration</TH>
                       <TH align="right">Battery</TH>
                       <TH align="center">Ignition</TH>
-                      <TH align="center">Actions</TH>
+                      <TH>Nearest Location</TH>
+                      <TH align="center">Maps</TH>
                     </tr>
                   </thead>
                   <tbody>
@@ -274,8 +275,19 @@ const ReportsAdminPage = () => {
                               {ignition ? 'ON' : 'OFF'}
                             </div>
                           </TD>
+                          <TD style={{ maxWidth: '220px', overflow: 'hidden' }}>
+                            {(v.lat && v.lng) ? (
+                              <AddressText lat={v.lat} lng={v.lng} />
+                            ) : (
+                              <span style={{ color: '#94a3b8', fontSize: '11px', fontStyle: 'italic' }}>Location unavailable</span>
+                            )}
+                          </TD>
                           <TD align="center">
-                            <MoreVertical size={16} color="#64748B" style={{ cursor: 'pointer' }} />
+                            {(v.lat && v.lng) ? (
+                              <a href={`https://maps.google.com/?q=${v.lat},${v.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0EA5E9', textDecoration: 'none', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
+                                View
+                              </a>
+                            ) : <span style={{ color: '#cbd5e1', fontSize: '11px' }}>-</span>}
                           </TD>
                         </tr>
                       );
