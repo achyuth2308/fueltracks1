@@ -186,7 +186,7 @@ const StoppageReportPage = () => {
                   </div>
 
                   {/* Events Table */}
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+                  <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
                     <thead>
                       <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
                         {tableColumns.map(c => <th key={c} style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#475569' }}>{c}</th>)}

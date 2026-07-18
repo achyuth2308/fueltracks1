@@ -483,6 +483,14 @@ option {
   border-bottom: none;
 }
 
+/* ---------- Report Table Grid (Added borders for rows and cols) ---------- */
+.report-table th, .report-table td {
+  border: 1px solid #E2E8F0 !important;
+}
+.report-table {
+  border: 1px solid #E2E8F0 !important;
+}
+
 /* ---------- Map Styling ---------- */
 .leaflet-container {
   background: #E2E8F0 !important;

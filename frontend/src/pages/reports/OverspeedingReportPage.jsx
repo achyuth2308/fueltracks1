@@ -169,7 +169,7 @@ const OverspeedingReportPage = () => {
                     <div>Start Time : {formatLocalTime(filters.startDate + 'T00:00:00')}</div>
                     <div>End Time : {formatLocalTime(filters.endDate + 'T23:59:59')}</div>
                   </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
+                  <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
                     <thead>
                       <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
                         {tableColumns.map(c => <th key={c} style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#475569' }}>{c}</th>)}
