@@ -131,9 +131,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           <span
             className="hidden sm:block"
             style={{
-            fontSize: '12px', fontWeight: 600, color: '#f1f5f9',
-            maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
+              fontSize: '12px', fontWeight: 600, color: '#f1f5f9',
+              maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
             {user?.orgName || 'Platform Workspace'}
           </span>
         </div>

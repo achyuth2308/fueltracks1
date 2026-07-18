@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
-import { 
-  FileText, Map, Activity, Route, Zap, TrendingUp, Printer, 
-  Search, RefreshCw, AlertCircle, Loader2, MapPin, 
-  CheckCircle2, PlayCircle, PauseCircle, StopCircle, 
+import {
+  FileText, Map, Activity, Route, Zap, TrendingUp, Printer,
+  Search, RefreshCw, AlertCircle, Loader2, MapPin,
+  CheckCircle2, PlayCircle, PauseCircle, StopCircle,
   AlertOctagon, Navigation, RefreshCcw, Gauge, Users, UserCircle,
   Building, Calendar, Wifi, Clock, AlertTriangle, Filter, MoreVertical
 } from 'lucide-react';
@@ -125,7 +125,7 @@ const ReportsAdminPage = () => {
               const isActive = location.pathname.startsWith(tab.path);
               const Icon = tab.icon;
               return (
-                <button 
+                <button
                   key={tab.path}
                   onClick={() => navigate(tab.path)}
                   style={{
@@ -151,7 +151,7 @@ const ReportsAdminPage = () => {
 
       {activeTab === 'dashboard' && (
         <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          
+
           {/* Header & Meta Row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
             <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#000000', margin: 0 }}>Real-Time Fleet Telemetry</h2>
@@ -178,7 +178,7 @@ const ReportsAdminPage = () => {
 
           {/* Search Bar & Table Container */}
           <div style={{ background: '#ffffff', borderRadius: '16px', border: 'none', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
-            
+
             {/* Table Toolbar */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', background: '#FFFFFF', borderBottom: '1px solid #F1F5F9' }}>
               <div style={{ position: 'relative', width: '360px' }}>
@@ -307,7 +307,8 @@ const ReportsAdminPage = () => {
         </div>
       )}
 
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         table tbody tr:hover { background: #f1f5f9 !important; }

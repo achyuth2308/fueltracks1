@@ -8,8 +8,8 @@
 /* ---------- CSS Custom Properties ---------- */
 :root {
   --primary: #64748b;
-  --primary-glow: rgba(249,115,22,0.35);
-  --primary-soft: rgba(249,115,22,0.1);
+  --primary-glow: rgba(249, 115, 22, 0.35);
+  --primary-soft: rgba(249, 115, 22, 0.1);
   --bg-base: #0a0f1e;
   --bg-surface: #0f1729;
   --bg-card: #131d30;
@@ -280,17 +280,17 @@ p {
   font-size: 12px;
   font-weight: 600;
   font-family: var(--font-sans);
-  border: 1px solid rgba(249,115,22,0.5);
+  border: 1px solid rgba(249, 115, 22, 0.5);
   border-radius: var(--radius-btn);
   cursor: pointer;
   transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(249,115,22,0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   letter-spacing: 0.01em;
 }
 
 .btn-primary:hover {
   background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
-  box-shadow: 0 6px 20px rgba(249,115,22,0.45);
+  box-shadow: 0 6px 20px rgba(249, 115, 22, 0.45);
   transform: translateY(-1px);
 }
 
@@ -406,9 +406,9 @@ option {
 }
 
 .badge-offline {
-  background: rgba(249,115,22,0.12);
+  background: rgba(249, 115, 22, 0.12);
   color: #64748b;
-  border: 1px solid rgba(249,115,22,0.25);
+  border: 1px solid rgba(249, 115, 22, 0.25);
 }
 
 .badge-warning {
@@ -481,14 +481,6 @@ option {
 
 .data-table tbody tr:last-child td {
   border-bottom: none;
-}
-
-/* ---------- Report Table Grid (Added borders for rows and cols) ---------- */
-.report-table th, .report-table td {
-  border: 1px solid #E2E8F0 !important;
-}
-.report-table {
-  border: 1px solid #E2E8F0 !important;
 }
 
 /* ---------- Map Styling ---------- */
@@ -801,7 +793,8 @@ option {
   background-color: #ffffff !important;
   display: flex !important;
   flex-direction: row !important;
-  width: max-content !important; /* Force to fit content without wrapping */
+  width: max-content !important;
+  /* Force to fit content without wrapping */
   font-size: 11px !important;
 }
 
@@ -832,8 +825,8 @@ option {
   overflow: visible !important;
 }
 
-.react-datepicker__current-month, 
-.react-datepicker-time__header, 
+.react-datepicker__current-month,
+.react-datepicker-time__header,
 .react-datepicker-year-header {
   color: #1e293b !important;
   font-weight: 700 !important;
@@ -868,8 +861,8 @@ option {
   transform: scale(1.05);
 }
 
-.react-datepicker__day--selected, 
-.react-datepicker__day--in-selecting-range, 
+.react-datepicker__day--selected,
+.react-datepicker__day--in-selecting-range,
 .react-datepicker__day--in-range {
   background-color: #3b82f6 !important;
   color: #ffffff !important;
@@ -878,8 +871,8 @@ option {
   transform: none;
 }
 
-.react-datepicker__day--selected:hover, 
-.react-datepicker__day--in-selecting-range:hover, 
+.react-datepicker__day--selected:hover,
+.react-datepicker__day--in-selecting-range:hover,
 .react-datepicker__day--in-range:hover {
   background-color: #2563eb !important;
 }

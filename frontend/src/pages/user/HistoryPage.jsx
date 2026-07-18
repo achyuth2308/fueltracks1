@@ -422,7 +422,13 @@ const HistoryPage = () => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Group</span>
                 <select style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '120px', color: '#000000', background: '#FFFFFF' }}>
-                  <option>Select Group</option>
+                  {vehicle?.groups && vehicle.groups.length > 0 ? (
+                    vehicle.groups.map(g => (
+                      <option key={g.id} value={g.id}>{g.name}</option>
+                    ))
+                  ) : (
+                    <option value="">No Group</option>
+                  )}
                 </select>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
