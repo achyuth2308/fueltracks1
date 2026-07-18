@@ -25,6 +25,24 @@ const GpsModel = {
   },
 
   /**
+   * Get recent alerts for an organization
+   */
+  async getRecentAlerts(orgId, limit = 20) {
+    const result = await db.query(
+      `SELECT a.id, a.vehicle_id as "vehicleId", v.imei, v.name as "vehicleName", v.plate,
+              a.alert_type as "alertType", a.alert_text as "alertText", 
+              a.lat, a.lng, a.device_time as "deviceTime", a.server_time as "serverTime"
+       FROM alerts a
+       JOIN vehicles v ON a.vehicle_id = v.id
+       WHERE v.org_id = $1
+       ORDER BY a.created_at DESC
+       LIMIT $2`,
+      [orgId, limit]
+    );
+    return result.rows;
+  },
+
+  /**
    * Update vehicle latest state (upsert)
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,

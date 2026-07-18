@@ -47,6 +47,11 @@ router.delete('/groups/:id', authorize('superadmin', 'dealer'), AdminController.
 router.get('/dashboard/stats', AdminController.getDashboardStats);
 
 // ============================================================
+// ALERTS
+// ============================================================
+router.get('/alerts/recent', AdminController.getRecentAlerts);
+
+// ============================================================
 // ONBOARDING & DEVICES
 // ============================================================
 router.get('/devices', authorize('superadmin', 'dealer'), AdminController.getDevices);

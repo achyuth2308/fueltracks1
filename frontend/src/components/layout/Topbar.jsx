@@ -4,6 +4,7 @@ import { Menu, Wifi, WifiOff, Bell, Clock as ClockIcon } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
+import axiosInstance from '../../api/axios';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user } = useAuth();
@@ -16,6 +17,15 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const [latestToast, setLatestToast] = useState(null);
 
   useEffect(() => {
+    // Fetch initial alerts
+    axiosInstance.get('/api/admin/alerts/recent')
+      .then(res => {
+        if (res.data && res.data.success) {
+          setAlerts(res.data.data.slice(0, 15));
+        }
+      })
+      .catch(err => console.error('Failed to fetch recent alerts:', err));
+
     if (!socket) return;
     const handleNewAlert = (data) => {
       setAlerts((prev) => [data, ...prev].slice(0, 15)); // Keep 15 latest
