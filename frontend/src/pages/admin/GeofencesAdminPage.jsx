@@ -12,6 +12,7 @@ const GeofencesAdminPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState('geofence'); // 'geofence' or 'route'
   const [modalError, setModalError] = useState('');
+  const [editId, setEditId] = useState(null);
 
   // Geofence Form State
   const [geoName, setGeoName] = useState('');
@@ -72,19 +73,42 @@ const GeofencesAdminPage = () => {
     }
   };
 
-  const handleOpenModal = (type) => {
+  const handleOpenModal = (type, editItem = null) => {
     setModalType(type);
     setModalError('');
-    setSelectedVehicles([]);
+    setEditId(editItem ? editItem.id : null);
+    
     if (type === 'geofence') {
-      setGeoName('');
-      setGeoType('circle');
-      setGeoLat('17.207174');
-      setGeoLng('78.314323');
-      setGeoRadius('100');
+      if (editItem) {
+        setGeoName(editItem.name || '');
+        setGeoType(editItem.type || 'circle');
+        setGeoLat(editItem.center_lat ? String(editItem.center_lat) : '');
+        setGeoLng(editItem.center_lng ? String(editItem.center_lng) : '');
+        setGeoRadius(editItem.radius ? String(editItem.radius) : '');
+        setGeoCoords(editItem.coordinates ? JSON.stringify(editItem.coordinates) : '[]');
+        // We could fetch assigned vehicles, but for simplicity we reset or use existing
+        setSelectedVehicles([]);
+      } else {
+        setGeoName('');
+        setGeoType('circle');
+        setGeoLat('17.207174');
+        setGeoLng('78.314323');
+        setGeoRadius('100');
+        setGeoCoords('[{"lat":17.207174,"lng":78.314323},{"lat":17.208174,"lng":78.315323},{"lat":17.209174,"lng":78.314323}]');
+        setSelectedVehicles([]);
+      }
     } else {
-      setRouteName('');
-      setRouteTolerance('100');
+      if (editItem) {
+        setRouteName(editItem.name || '');
+        setRouteTolerance(editItem.tolerance ? String(editItem.tolerance) : '100');
+        setRouteCoords(editItem.coordinates ? JSON.stringify(editItem.coordinates) : '[]');
+        setSelectedVehicles([]);
+      } else {
+        setRouteName('');
+        setRouteTolerance('100');
+        setRouteCoords('[{"lat":17.207174,"lng":78.314323},{"lat":17.208174,"lng":78.315323},{"lat":17.209174,"lng":78.316323}]');
+        setSelectedVehicles([]);
+      }
     }
     setModalOpen(true);
   };
@@ -122,9 +146,15 @@ const GeofencesAdminPage = () => {
           center_lng: geoType === 'circle' ? parseFloat(geoLng) : null
         };
 
-        const res = await axiosInstance.post('/api/admin/geofences', payload);
+        let res;
+        if (editId) {
+          res = await axiosInstance.put(`/api/admin/geofences/${editId}`, payload);
+        } else {
+          res = await axiosInstance.post('/api/admin/geofences', payload);
+        }
+        
         if (res.data.success && selectedVehicles.length > 0) {
-          const newId = res.data.data.id;
+          const newId = editId || res.data.data.id;
           await axiosInstance.post(`/api/admin/geofences/${newId}/assign`, { vehicleIds: selectedVehicles });
         }
       } else {
@@ -142,9 +172,15 @@ const GeofencesAdminPage = () => {
           tolerance: parseInt(routeTolerance)
         };
 
-        const res = await axiosInstance.post('/api/admin/routes', payload);
+        let res;
+        if (editId) {
+          res = await axiosInstance.put(`/api/admin/routes/${editId}`, payload);
+        } else {
+          res = await axiosInstance.post('/api/admin/routes', payload);
+        }
+        
         if (res.data.success && selectedVehicles.length > 0) {
-          const newId = res.data.data.id;
+          const newId = editId || res.data.data.id;
           await axiosInstance.post(`/api/admin/routes/${newId}/assign`, { vehicleIds: selectedVehicles });
         }
       }
@@ -242,7 +278,10 @@ const GeofencesAdminPage = () => {
                           {geo.type === 'circle' ? `${geo.center_lat}, ${geo.center_lng}` : `${geo.coordinates?.length || 0} polygon coordinates`}
                         </td>
                         <td style={{ padding: '16px 20px', color: '#475569' }}>{geo.type === 'circle' ? `${geo.radius} meters` : '—'}</td>
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '16px 20px', display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleOpenModal('geofence', geo)} style={{ padding: '6px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer' }}>
+                            Edit
+                          </button>
                           <button onClick={() => handleDeleteGeofence(geo.id)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
                             <Trash2 size={16} />
                           </button>
@@ -272,7 +311,10 @@ const GeofencesAdminPage = () => {
                         <td style={{ padding: '16px 20px', fontWeight: 700, color: '#111827' }}>{route.name}</td>
                         <td style={{ padding: '16px 20px', color: '#475569' }}>{route.coordinates?.length || 0} path points</td>
                         <td style={{ padding: '16px 20px', color: '#475569' }}>{route.tolerance} meters</td>
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '16px 20px', display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleOpenModal('route', route)} style={{ padding: '6px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer' }}>
+                            Edit
+                          </button>
                           <button onClick={() => handleDeleteRoute(route.id)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
                             <Trash2 size={16} />
                           </button>
@@ -309,12 +351,12 @@ const GeofencesAdminPage = () => {
                 <>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Name</label>
-                    <input type="text" placeholder="e.g. Warehouse 1 Boundary" value={geoName} onChange={e => setGeoName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                    <input type="text" placeholder="e.g. Warehouse 1 Boundary" value={geoName} onChange={e => setGeoName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                   </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Type</label>
-                    <select value={geoType} onChange={e => setGeoType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', background: '#FFFFFF', boxSizing: 'border-box' }}>
+                    <select value={geoType} onChange={e => setGeoType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', background: '#FFFFFF', boxSizing: 'border-box' }}>
                       <option value="circle">Circular Boundary (Center + Radius)</option>
                       <option value="polygon">Polygon Boundary (Vertices List)</option>
                     </select>
@@ -324,21 +366,21 @@ const GeofencesAdminPage = () => {
                     <div style={{ display: 'flex', gap: '16px' }}>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Latitude</label>
-                        <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                        <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Longitude</label>
-                        <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                        <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (meters)</label>
-                        <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                        <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                       </div>
                     </div>
                   ) : (
                     <div>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Polygon Coordinates (JSON Array)</label>
-                      <textarea value={geoCoords} onChange={e => setGeoCoords(e.target.value)} rows="3" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                      <textarea value={geoCoords} onChange={e => setGeoCoords(e.target.value)} rows="3" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', color: '#111827', fontFamily: 'monospace', boxSizing: 'border-box' }} />
                     </div>
                   )}
                 </>
@@ -346,17 +388,17 @@ const GeofencesAdminPage = () => {
                 <>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Route Name</label>
-                    <input type="text" placeholder="e.g. Delivery Route A" value={routeName} onChange={e => setRouteName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                    <input type="text" placeholder="e.g. Delivery Route A" value={routeName} onChange={e => setRouteName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                   </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Allowed Tolerance (meters)</label>
-                    <input type="number" value={routeTolerance} onChange={e => setRouteTolerance(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', boxSizing: 'border-box' }} />
+                    <input type="number" value={routeTolerance} onChange={e => setRouteTolerance(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                   </div>
 
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Route Checkpoints Path (JSON Array)</label>
-                    <textarea value={routeCoords} onChange={e => setRouteCoords(e.target.value)} rows="4" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                    <textarea value={routeCoords} onChange={e => setRouteCoords(e.target.value)} rows="4" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', color: '#111827', fontFamily: 'monospace', boxSizing: 'border-box' }} />
                   </div>
                 </>
               )}
