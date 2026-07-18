@@ -284,8 +284,8 @@ const ReportsAdminPage = () => {
                           </TD>
                           <TD align="center">
                             {(v.lat && v.lng) ? (
-                              <a href={`https://maps.google.com/?q=${v.lat},${v.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: '#0EA5E9', textDecoration: 'none', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase' }}>
-                                View
+                              <a href={`https://maps.google.com/?q=${v.lat},${v.lng}`} target="_blank" rel="noopener noreferrer" style={{ color: '#3B82F6', display: 'inline-flex', padding: '6px', borderRadius: '6px', background: '#EFF6FF', transition: 'background 0.2s' }} title="View on Google Maps">
+                                <Map size={16} />
                               </a>
                             ) : <span style={{ color: '#cbd5e1', fontSize: '11px' }}>-</span>}
                           </TD>
