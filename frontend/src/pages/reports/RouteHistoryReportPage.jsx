@@ -233,9 +233,6 @@ const RouteHistoryReportPage = () => {
         
         {/* Header - Vehicle Selector */}
         <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '16px', background: '#FAFAFA' }}>
-          <button onClick={() => navigate('/admin/reports')} style={{ padding: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-            <ArrowLeft size={18} />
-          </button>
           <div style={{ flex: 1 }}>
             <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#64748B', textTransform: 'uppercase', marginBottom: '6px', letterSpacing: '0.05em' }}>Select Vehicle</label>
             <select 
@@ -245,7 +242,7 @@ const RouteHistoryReportPage = () => {
             >
               <option value="">-- Choose a vehicle --</option>
               {vehicles.map(v => (
-                <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>
+                <option key={v.id} value={v.id}>{v.name}</option>
               ))}
             </select>
           </div>

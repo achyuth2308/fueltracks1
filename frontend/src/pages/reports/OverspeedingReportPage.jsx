@@ -3,7 +3,7 @@ import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Search, Loader2, Gauge, Filter, FileText } from 'lucide-react';
+import { ArrowLeft, Download, Search, Loader2, Gauge, Filter, FileText, Truck, Calendar } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -19,7 +19,7 @@ const OverspeedingReportPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
-  
+
   // Filters
   const [vehicles, setVehicles] = useState([]);
   const [filters, setFilters] = useState({
@@ -31,34 +31,34 @@ const OverspeedingReportPage = () => {
 
   useEffect(() => {
     vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => { if(res.success) setVehicles(res.data); })
+      .then(res => { if (res.success) setVehicles(res.data); })
       .catch(console.error);
   }, []);
 
   const handleGenerate = async () => {
-    if(!filters.startDate || !filters.endDate) return;
+    if (!filters.startDate || !filters.endDate) return;
     setLoading(true);
     try {
       const start = new Date(filters.startDate);
-      start.setHours(0,0,0,0);
+      start.setHours(0, 0, 0, 0);
       const end = new Date(filters.endDate);
-      end.setHours(23,59,59,999);
+      end.setHours(23, 59, 59, 999);
 
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
       params.append('speedLimit', filters.speedLimit);
-      if(filters.vehicleId) params.append('vehicleId', filters.vehicleId);
+      if (filters.vehicleId) params.append('vehicleId', filters.vehicleId);
 
       const res = await axiosInstance.get(`/api/reports/overspeeding?${params.toString()}`);
-      if(res.data.success) {
+      if (res.data.success) {
         const reportData = res.data.data;
         // Fetch addresses
         const dataWithAddresses = await Promise.all(reportData.map(async (row) => {
           const address = await getAddressFromCoordinates(row.lat, row.lng);
           return { ...row, address };
         }));
-        
+
         setData(dataWithAddresses);
       }
     } catch (err) {
@@ -108,53 +108,41 @@ const OverspeedingReportPage = () => {
   const tableColumns = ['Date & Time', 'OverSpeed', 'OverSpeed Duration (HH:MM:SS)', 'Driver Name', 'Driver Mobile Number', 'Nearest Location', 'Distance Covered(KMS)'];
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
-      
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-        <button onClick={() => navigate('/admin/reports')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Gauge size={24} color="#EF4444" /> Consolidated OverSpeed
-          </h1>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '4px 0 0 0' }}>Log of all times vehicles exceeded the speed limit.</p>
-        </div>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
 
-      {/* Filters Panel */}
-      <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle (Optional)</label>
-          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#F8FAFC', color: '#000000' }}>
+
+
+      {/* Filters Bar */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', padding: '10px 16px', background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Truck size={14} color="#9333EA" />
+          </div>
+          <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, minWidth: '180px' }}>
             <option value="">All Vehicles</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
+            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </div>
-        <div style={{ width: '120px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Speed Limit</label>
-          <input type="number" value={filters.speedLimit} onChange={e => setFilters({...filters, speedLimit: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
+        <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={14} color="#2563EB" />
+          </div>
+          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
+          <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 700 }}>→</span>
+          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
         </div>
-        <div style={{ width: '150px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
-          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
-        </div>
-        <div style={{ width: '150px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>End Date</label>
-          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({...filters, endDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
-        </div>
-        <button onClick={handleGenerate} disabled={loading} style={{ padding: '12px 24px', borderRadius: '10px', background: '#8ba0b5', color: '#FFF', border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(139,160,181,0.2)' }}>
-          {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
-          Generate Report
+        <button onClick={handleGenerate} disabled={loading} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #f43f5e, #e11d48)', color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 2px 8px rgba(225,29,72,0.3)', marginLeft: 'auto' }}>
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+          Generate
         </button>
       </div>
 
       {/* Results */}
       <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data.length} records)</span></div>
-          
+
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => exportToPDF(columns, getExportData(), 'Overspeeding Report', 'overspeeding_report')} disabled={data.length === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: data.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: data.length ? 1 : 0.5 }}>
               <FileText size={16} color="#DC2626" /> PDF

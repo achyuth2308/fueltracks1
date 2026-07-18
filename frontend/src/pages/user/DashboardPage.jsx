@@ -146,10 +146,6 @@ const DashboardPage = ({ setAppVehicles }) => {
         return false;
       });
 
-      if (typeVehicles.length === 0 && type === 'Basic') {
-        typeVehicles = vehicles;
-      }
-
       const online = typeVehicles.filter(v => v.is_online).length;
       return {
         total: typeVehicles.length,

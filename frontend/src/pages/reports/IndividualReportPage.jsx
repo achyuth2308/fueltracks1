@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Loader2, UserCircle, Activity } from 'lucide-react';
+import { ArrowLeft, Search, Loader2, UserCircle, Activity, Truck, Calendar, FileText, Download } from 'lucide-react';
+import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import axiosInstance from '../../api/axios';
 import * as vehicleApi from '../../api/vehicleApi';
 
@@ -52,116 +53,103 @@ const IndividualReportPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: '#f8fafc', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
       
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
-        <button onClick={() => navigate('/admin/reports')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <UserCircle size={24} color="#8B5CF6" /> Individual Vehicle Report
-          </h1>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '4px 0 0 0' }}>Comprehensive individual breakdown of a specific vehicle.</p>
-        </div>
-      </div>
-
-      {/* Filters Panel */}
-      <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle</label>
-          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#F8FAFC', color: '#000000' }}>
+      {/* Filters Bar */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', padding: '10px 16px', background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Truck size={14} color="#9333EA" />
+          </div>
+          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, minWidth: '180px' }}>
             <option value="" disabled>Select a Vehicle</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
+            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </div>
-        <div style={{ width: '150px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
-          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
+        <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Calendar size={14} color="#2563EB" />
+          </div>
+          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
+          <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 700 }}>→</span>
+          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({...filters, endDate: e.target.value})} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
         </div>
-        <div style={{ width: '150px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>End Date</label>
-          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({...filters, endDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
-        </div>
-        <button onClick={handleGenerate} disabled={loading || !filters.vehicleId} style={{ padding: '12px 24px', borderRadius: '10px', background: '#8ba0b5', color: '#FFF', border: 'none', fontWeight: 600, cursor: (loading || !filters.vehicleId) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (loading || !filters.vehicleId) ? 0.6 : 1 }}>
-          {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
-          Generate Report
+        <button onClick={handleGenerate} disabled={loading} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 2px 8px rgba(37,99,235,0.3)', marginLeft: 'auto' }}>
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+          Generate
         </button>
+        <div style={{ width: '1px', height: '28px', background: '#E2E8F0', marginLeft: '4px', marginRight: '4px' }} />
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={() => {
+            const columns = ['Vehicle Name', 'Plate', 'Total Distance (km)', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'];
+            const expData = data ? [{
+              'Vehicle Name': data.vehicle?.name || '-',
+              'Plate': data.vehicle?.plate || '-',
+              'Total Distance (km)': data.activity?.distance_travelled || 0,
+              'Running Time': Math.floor((data.activity?.running_seconds || 0)/60) + ' mins',
+              'Idle Time': Math.floor((data.activity?.idle_seconds || 0)/60) + ' mins',
+              'Trip Count': data.summary?.trip_count || 0,
+              'Stoppages': data.summary?.stoppage_count || 0,
+              'Overspeeding': data.summary?.overspeeding_count || 0
+            }] : [];
+            exportToPDF(columns, expData, 'Individual Report', 'individual_report');
+          }} disabled={!data} style={{ padding: '8px 12px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: data ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: data ? 1 : 0.5 }}>
+            <FileText size={16} color="#DC2626" /> PDF
+          </button>
+          <button onClick={() => {
+            const expData = data ? [{
+              'Vehicle Name': data.vehicle?.name || '-',
+              'Plate': data.vehicle?.plate || '-',
+              'Total Distance (km)': data.activity?.distance_travelled || 0,
+              'Running Time': Math.floor((data.activity?.running_seconds || 0)/60) + ' mins',
+              'Idle Time': Math.floor((data.activity?.idle_seconds || 0)/60) + ' mins',
+              'Trip Count': data.summary?.trip_count || 0,
+              'Stoppages': data.summary?.stoppage_count || 0,
+              'Overspeeding': data.summary?.overspeeding_count || 0
+            }] : [];
+            exportToExcel(expData, 'individual_report');
+          }} disabled={!data} style={{ padding: '8px 12px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: data ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: data ? 1 : 0.5 }}>
+            <Download size={16} color="#10B981" /> Excel
+          </button>
+        </div>
       </div>
 
-      {/* Summary Dashboard */}
-      {data && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Total Distance</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#111827', marginTop: '8px' }}>{data.activity.distance_travelled || 0} km</div>
-            </div>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Running Time</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#10B981', marginTop: '8px' }}>{Math.floor((data.activity.running_seconds || 0)/60)} mins</div>
-            </div>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Idle Time</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B', marginTop: '8px' }}>{Math.floor((data.activity.idle_seconds || 0)/60)} mins</div>
-            </div>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Trip Count</div>
-              <div style={{ fontSize: '24px', fontWeight: 800, color: '#3B82F6', marginTop: '8px' }}>{data.summary.trip_count}</div>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '24px' }}>
-             {/* Stoppages Mini-table */}
-             <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', maxHeight: '400px', overflowY: 'auto' }}>
-               <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 700 }}>Recent Stoppages</h3>
-               {data.stoppages.length === 0 ? <p style={{ color: '#94a3b8' }}>No stoppages found.</p> : (
-                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                   <thead>
-                     <tr style={{ color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                       <th style={{ padding: '8px 0' }}>Start Time</th>
-                       <th>Duration</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {data.stoppages.map((s, i) => (
-                       <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                         <td style={{ padding: '8px 0' }}>{formatLocalTime(s.start_time)}</td>
-                         <td style={{ color: '#EF4444', fontWeight: 600 }}>{Math.floor(s.duration_seconds/60)} mins</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               )}
-             </div>
-
-             {/* Overspeeding Mini-table */}
-             <div style={{ flex: 1, background: '#fff', padding: '20px', borderRadius: '12px', border: '1px solid #e2e8f0', maxHeight: '400px', overflowY: 'auto' }}>
-               <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 700 }}>Overspeeding Events</h3>
-               {data.overspeeding.length === 0 ? <p style={{ color: '#94a3b8' }}>No overspeeding found.</p> : (
-                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                   <thead>
-                     <tr style={{ color: '#64748b', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
-                       <th style={{ padding: '8px 0' }}>Start Time</th>
-                       <th>Max Speed</th>
-                     </tr>
-                   </thead>
-                   <tbody>
-                     {data.overspeeding.map((s, i) => (
-                       <tr key={i} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                         <td style={{ padding: '8px 0' }}>{formatLocalTime(s.start_time)}</td>
-                         <td style={{ color: '#EF4444', fontWeight: 600 }}>{s.max_speed}</td>
-                       </tr>
-                     ))}
-                   </tbody>
-                 </table>
-               )}
-             </div>
-          </div>
+      {/* Results */}
+      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data ? 1 : 0} records)</span></div>
         </div>
-      )}
+        <div style={{ overflowX: 'auto', flex: 1 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+            <thead>
+              <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                {['Vehicle Name', 'Plate', 'Total Distance', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'].map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {!data ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                    No data found for the selected criteria.
+                  </td>
+                </tr>
+              ) : (
+                <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{data.vehicle?.name || '-'}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{data.vehicle?.plate || '-'}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{data.activity?.distance_travelled || 0} km</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#10B981' }}>{Math.floor((data.activity?.running_seconds || 0)/60)} mins</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#F59E0B' }}>{Math.floor((data.activity?.idle_seconds || 0)/60)} mins</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#3B82F6', fontWeight: 600 }}>{data.summary?.trip_count || 0}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#EF4444', fontWeight: 600 }}>{data.summary?.stoppage_count || 0}</td>
+                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#EF4444', fontWeight: 600 }}>{data.summary?.overspeeding_count || 0}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
   );

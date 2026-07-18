@@ -11,7 +11,7 @@ const IgnitionReportPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
-  
+
   const [vehicles, setVehicles] = useState([]);
   const [filters, setFilters] = useState({
     vehicleId: '',
@@ -21,27 +21,27 @@ const IgnitionReportPage = () => {
 
   useEffect(() => {
     vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => { if(res.success) setVehicles(res.data); })
+      .then(res => { if (res.success) setVehicles(res.data); })
       .catch(console.error);
   }, []);
 
   const handleGenerate = async () => {
-    if(!filters.startDate || !filters.endDate) return;
+    if (!filters.startDate || !filters.endDate) return;
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
       const start = new Date(filters.startDate);
-      start.setHours(0,0,0,0);
+      start.setHours(0, 0, 0, 0);
       const end = new Date(filters.endDate);
-      end.setHours(23,59,59,999);
+      end.setHours(23, 59, 59, 999);
 
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
-      if(filters.vehicleId) params.append('vehicleId', filters.vehicleId);
+      if (filters.vehicleId) params.append('vehicleId', filters.vehicleId);
 
       const res = await axiosInstance.get(`/api/reports/ignition?${params.toString()}`);
-      if(res.data.success) {
+      if (res.data.success) {
         setData(res.data.data);
       }
     } catch (err) {
@@ -67,10 +67,10 @@ const IgnitionReportPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', color: '#000000' }}>
-      
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
+
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
         <button onClick={() => navigate('/admin/reports')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
           <ArrowLeft size={20} />
         </button>
@@ -83,21 +83,21 @@ const IgnitionReportPage = () => {
       </div>
 
       {/* Filters Panel */}
-      <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '24px', display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ flex: 1, minWidth: '200px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle (Optional)</label>
-          <select value={filters.vehicleId} onChange={e => setFilters({...filters, vehicleId: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#EEF5F8', color: '#000000' }}>
+          <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#EEF5F8', color: '#000000' }}>
             <option value="">All Vehicles</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
+            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
           </select>
         </div>
         <div style={{ width: '180px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
-          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({...filters, startDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
+          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
         </div>
         <div style={{ width: '180px' }}>
           <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>End Date</label>
-          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({...filters, endDate: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
+          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
         </div>
         <button onClick={handleGenerate} disabled={loading} style={{ padding: '12px 24px', borderRadius: '10px', background: '#f97316', color: '#FFF', border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' }}>
           {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
@@ -107,9 +107,9 @@ const IgnitionReportPage = () => {
 
       {/* Results */}
       <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA' }}>
+        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA' }}>
           <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({data.length} records)</span></div>
-          
+
           <div style={{ display: 'flex', gap: '12px' }}>
             <button onClick={() => exportToPDF(columns, getExportData(), 'Ignition Report', 'ignition_report')} disabled={data.length === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: data.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: data.length ? 1 : 0.5 }}>
               <FileText size={16} color="#DC2626" /> PDF
@@ -127,7 +127,7 @@ const IgnitionReportPage = () => {
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
             <thead>
               <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                {columns.map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
+                {columns.map(c => <th key={c} style={{ padding: '10px 16px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -140,13 +140,13 @@ const IgnitionReportPage = () => {
                 </tr>
               ) : data.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 700, color: row.event_type === 'ON' ? '#10B981' : '#DC2626' }}>{row.event_type}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827' }}>{formatLocalTime(row.device_time)}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lat ? Number(row.lat).toFixed(5) : '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lng ? Number(row.lng).toFixed(5) : '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: row.event_type === 'ON' ? '#10B981' : '#DC2626' }}>{row.event_type}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#111827' }}>{formatLocalTime(row.device_time)}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lat ? Number(row.lat).toFixed(5) : '-'}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{row.lng ? Number(row.lng).toFixed(5) : '-'}</td>
                 </tr>
               ))}
             </tbody>

@@ -91,14 +91,15 @@ function App() {
                 <Route path="fuel" element={<FuelAdminPage />} />
                 <Route path="alerts" element={<AlertsAdminPage />} />
                 <Route path="geofences" element={<GeofencesAdminPage />} />
-                <Route path="reports" element={<ReportsAdminPage />} />
-                <Route path="reports/trip" element={<TripReportPage />} />
-                <Route path="reports/distance" element={<DailyDistanceReportPage />} />
-                <Route path="reports/route" element={<RouteHistoryReportPage />} />
-                <Route path="reports/overspeeding" element={<OverspeedingReportPage />} />
-                <Route path="reports/stoppage" element={<StoppageReportPage />} />
-                <Route path="reports/consolidated" element={<ConsolidatedReportPage />} />
-                <Route path="reports/individual" element={<IndividualReportPage />} />
+                <Route path="reports" element={<ReportsAdminPage />}>
+                  <Route path="trip" element={<TripReportPage />} />
+                  <Route path="distance" element={<DailyDistanceReportPage />} />
+                  <Route path="route" element={<RouteHistoryReportPage />} />
+                  <Route path="overspeeding" element={<OverspeedingReportPage />} />
+                  <Route path="stoppage" element={<StoppageReportPage />} />
+                  <Route path="consolidated" element={<ConsolidatedReportPage />} />
+                  <Route path="individual" element={<IndividualReportPage />} />
+                </Route>
               </Route>
 
               {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}

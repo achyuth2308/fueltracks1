@@ -101,11 +101,18 @@ const OnboardController = {
           gpsSimNo, odoDistance, serviceEngineer, salesman, ticketId, sensorNo
         } = device;
 
-        // Insert into devices table
+        // Upsert into devices table
         await client.query(
           `INSERT INTO devices 
             (org_id, device_id, device_type, licence_id, vehicle_id, assigned_user_id, assigned_group_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (device_id) DO UPDATE SET
+             org_id = EXCLUDED.org_id,
+             device_type = EXCLUDED.device_type,
+             licence_id = EXCLUDED.licence_id,
+             vehicle_id = EXCLUDED.vehicle_id,
+             assigned_user_id = EXCLUDED.assigned_user_id,
+             assigned_group_id = EXCLUDED.assigned_group_id`,
           [targetOrgId, deviceId, deviceType, licenceId, vehicleId, targetUserId, targetGroupId]
         );
 
@@ -129,8 +136,18 @@ const OnboardController = {
 
         await client.query(
           `INSERT INTO vehicles 
-            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+           ON CONFLICT (imei) DO UPDATE SET
+             org_id = EXCLUDED.org_id,
+             name = EXCLUDED.name,
+             plate = EXCLUDED.plate,
+             model = EXCLUDED.model,
+             gps_sim_no = EXCLUDED.gps_sim_no,
+             metadata = EXCLUDED.metadata,
+             licence_issued_date = EXCLUDED.licence_issued_date,
+             licence_expire_date = EXCLUDED.licence_expire_date,
+             is_active = TRUE`,
           [targetOrgId, deviceId, vehicleNameValue, registrationNo, vehicleTypeSelect, gpsSimNo, metadata, issuedDate, expireDate]
         );
 
@@ -180,7 +197,15 @@ const OnboardController = {
     } catch (err) {
       await client.query('ROLLBACK');
       if (err.code === '23505') {
-        return res.status(400).json({ success: false, error: 'One or more Device Ids are already registered in the system.' });
+        let errorMsg = 'A record with this information already exists.';
+        if (err.constraint && err.constraint.includes('email')) {
+          errorMsg = 'A user with this email already exists.';
+        } else if (err.constraint && (err.constraint.includes('device') || err.constraint.includes('imei'))) {
+          errorMsg = 'One or more Device Ids are already registered in the system.';
+        } else if (err.detail) {
+          errorMsg = err.detail;
+        }
+        return res.status(400).json({ success: false, error: errorMsg });
       }
       res.status(400).json({ success: false, error: err.message || 'Failed to onboard devices.' });
     } finally {
