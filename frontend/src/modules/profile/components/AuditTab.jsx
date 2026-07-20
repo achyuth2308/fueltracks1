@@ -44,7 +44,7 @@ const AuditTab = () => {
       </div>
 
       {logs.length === 0 ? (
-        <div className="text-center py-8 ">
+        <div className="text-center py-8 text-slate-500">
           No audit records found for profile changes.
         </div>
       ) : (
@@ -52,40 +52,40 @@ const AuditTab = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-white">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium  uppercase tracking-wider">Date & Time</th>
-                <th className="px-6 py-3 text-left text-xs font-medium  uppercase tracking-wider">Action</th>
-                <th className="px-6 py-3 text-left text-xs font-medium  uppercase tracking-wider">User</th>
-                <th className="px-6 py-3 text-left text-xs font-medium  uppercase tracking-wider">IP Address</th>
-                <th className="px-6 py-3 text-left text-xs font-medium  uppercase tracking-wider">Changes</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Date & Time</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Action</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">User</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">IP Address</th>
+                <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Changes</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {logs.map((log) => (
-                <tr key={log.id} className="hover:bg-white">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm ">
+                <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                     {formatLocalTime(log.created_at)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-[#e0f2fe] text-[#5d7389]">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-slate-100 text-slate-700">
                       {log.action}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm ">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-800 font-medium">
                     {log.performed_by_name} <br/>
-                    <span className="text-xs ">{log.performed_by_email}</span>
+                    <span className="text-xs text-slate-500 font-normal">{log.performed_by_email}</span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm ">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
                     {log.ip_address}
                   </td>
-                  <td className="px-6 py-4 text-sm  max-w-xs truncate">
+                  <td className="px-6 py-4 text-sm text-slate-700 max-w-xs truncate">
                     {log.action === 'Profile Updated' && log.new_data && log.old_data && (
                       <div className="flex items-center cursor-help" title="Check old vs new state">
-                        <span className="">Values modified</span>
-                        <ArrowRight className="w-3 h-3 mx-1 " />
-                        <span className="text-green-600">Saved</span>
+                        <span className="text-slate-600">Values modified</span>
+                        <ArrowRight className="w-3 h-3 mx-1 text-slate-400" />
+                        <span className="text-slate-800 font-medium">Saved</span>
                       </div>
                     )}
-                    {log.action.includes('Logo') && 'Image file updated'}
+                    {log.action.includes('Logo') && <span className="text-slate-600">Image file updated</span>}
                   </td>
                 </tr>
               ))}
