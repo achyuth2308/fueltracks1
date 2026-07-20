@@ -15,16 +15,16 @@ const OrganizationProfilePage = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-full min-h-[400px]">
-        <Loader2 className="w-8 h-8 text-[#f97316] animate-spin" />
+      <div className="flex justify-center items-center min-h-screen bg-[#F6F8FB]">
+        <Loader2 className="w-8 h-8 text-[#FF6A00] animate-spin" />
       </div>
     );
   }
 
   if (error && !profile) {
     return (
-      <div className="p-6 text-center">
-        <div className="bg-red-50 text-red-700 p-4 rounded-md">Error loading profile: {error}</div>
+      <div className="p-6 text-center min-h-screen bg-[#F6F8FB]">
+        <div className="bg-red-50 text-red-700 p-4 rounded-xl shadow-sm border border-red-100">Error loading profile: {error}</div>
       </div>
     );
   }
@@ -44,7 +44,7 @@ const OrganizationProfilePage = () => {
       case 'general':
         return <GeneralTab profile={profile} onSave={updateProfile} />;
       case 'branding':
-        return <BrandingTab profile={profile} onUpload={uploadImage} />;
+        return <BrandingTab profile={profile} onUpload={uploadImage} onSave={updateProfile} />;
       case 'notifications':
         return <NotificationsTab profile={profile} onSave={updateProfile} />;
       case 'maps':
@@ -61,15 +61,19 @@ const OrganizationProfilePage = () => {
   };
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#000000', letterSpacing: '-0.02em', margin: 0 }}>Organization Profile</h1>
-        <p style={{ fontSize: '14px', color: '#000000', marginTop: '4px', margin: 0 }}>Manage your organization's identity, branding, and system preferences.</p>
+    <div className="min-h-screen bg-[#F6F8FB] p-[24px] !text-black">
+      <div className="mb-8 mt-2">
+        <h1 className="text-[32px] font-bold !text-black flex items-center gap-3 tracking-tight m-0">
+          🏢 Organization Profile
+        </h1>
+        <p className="text-[15px] !text-black mt-2 max-w-3xl leading-relaxed m-0">
+          Manage your organization's identity, branding, contact details, address, and administrative settings.
+        </p>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* Sidebar Navigation */}
-        <div className="w-full md:w-72 flex-shrink-0">
+      <div className="flex flex-col lg:flex-row gap-[20px]">
+        {/* Sidebar Navigation - 20% Width */}
+        <div className="w-full lg:w-[20%] flex-shrink-0">
           <nav className="space-y-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
@@ -78,13 +82,16 @@ const OrganizationProfilePage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center px-4 py-3.5 mb-2 text-[14px] font-bold rounded-xl transition-all ${
+                  className={`relative w-full flex items-center px-4 py-3 mb-1 text-[14px] font-medium rounded-xl transition-all duration-200 overflow-hidden ${
                     isActive 
-                      ? 'bg-[#f97316] text-white' 
-                      : '!text-black hover:bg-gray-100'
+                      ? 'bg-[#FFF3EB] !text-black font-bold' 
+                      : '!text-black hover:bg-[#F3F4F6] hover:!text-black'
                   }`}
                 >
-                  <Icon className={`flex-shrink-0 -ml-1 mr-3 h-5 w-5 ${isActive ? 'text-orange-500' : 'text-black'}`} />
+                  {isActive && (
+                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#FF6A00]" />
+                  )}
+                  <Icon className={`flex-shrink-0 mr-3 h-[20px] w-[20px] transition-colors ${isActive ? 'text-[#FF6A00]' : '!text-black'}`} />
                   <span className="truncate">{tab.label}</span>
                 </button>
               );
@@ -92,8 +99,8 @@ const OrganizationProfilePage = () => {
           </nav>
         </div>
 
-        {/* Main Content Area */}
-        <div className="flex-1 min-w-0">
+        {/* Main Content Area - 80% Width (Splits into 55% and 25% relative to the page) */}
+        <div className="w-full lg:w-[80%] flex-shrink-0">
           {renderTabContent()}
         </div>
       </div>
