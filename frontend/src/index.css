@@ -982,3 +982,7 @@ option {
   color: #ffffff !important;
   stroke: #e2e8f0 !important;
 }
+
+.report-table th, .report-table td {
+  border: 1px solid #E2E8F0;
+}
