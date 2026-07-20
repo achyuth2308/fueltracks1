@@ -84,18 +84,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           zIndex: 50,
           overflow: 'hidden'
         }}
-        className={`transition-all duration-300 ease-in-out ${
-          isOpen ? 'ml-0' : '-ml-[240px]'
-        } w-[240px]`}
+        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[240px]'
+          } w-[240px]`}
       >
         {/* User Profile Header */}
-        <div 
+        <div
           className="p-3 md:p-6 pb-4"
           style={{
-          borderBottom: '1px solid #475569',
-          display: 'flex', flexDirection: 'column', gap: '12px',
-          alignItems: collapsed ? 'center' : 'flex-start',
-        }}>
+            borderBottom: '1px solid #475569',
+            display: 'flex', flexDirection: 'column', gap: '12px',
+            alignItems: collapsed ? 'center' : 'flex-start',
+          }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
@@ -129,12 +128,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             return (
               <div key={group.label || 'top'} style={{ marginBottom: '16px' }}>
                 {!collapsed && group.label && (
-                  <div 
+                  <div
                     className="text-[9px] md:text-[11px] px-2 pb-1 md:px-3 md:pb-2"
                     style={{
-                    fontWeight: 700, letterSpacing: '0.12em',
-                    textTransform: 'uppercase', color: '#99f6e4',
-                  }}>
+                      fontWeight: 700, letterSpacing: '0.12em',
+                      textTransform: 'uppercase', color: '#99f6e4',
+                    }}>
                     {group.label}
                   </div>
                 )}

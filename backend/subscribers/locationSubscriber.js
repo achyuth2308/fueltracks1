@@ -22,7 +22,7 @@ let subscriber = null;
 // ============================================================
 
 const FLUSH_INTERVAL_MS = env.WRITER_BATCH_MS;   // default 500ms
-const FLUSH_BATCH_SIZE  = env.WRITER_BATCH_SIZE;  // default 100 rows
+const FLUSH_BATCH_SIZE = env.WRITER_BATCH_SIZE;  // default 100 rows
 
 /** @type {Array<object>} In-memory accumulator for pending GPS rows */
 let gpsBatch = [];
@@ -42,19 +42,19 @@ async function flushGpsBatch() {
 
   try {
     // Extract each column into its own array for unnest()
-    const vehicleIds  = batch.map(p => p.vehicleId);
-    const lats        = batch.map(p => p.lat);
-    const lngs        = batch.map(p => p.lng);
-    const speeds      = batch.map(p => p.speed      ?? null);
-    const directions  = batch.map(p => p.direction  ?? null);
-    const odometers   = batch.map(p => p.odometer   ?? null);
-    const fuels       = batch.map(p => p.fuel        ?? null);
-    const ignitions   = batch.map(p => p.ignition   ?? null);
-    const satellites  = batch.map(p => p.satellites ?? null);
-    const gsmSignals  = batch.map(p => p.gsmSignal  ?? null);
-    const batteries   = batch.map(p => p.battery    ?? null);
-    const voltages    = batch.map(p => p.voltage     ?? null);
-    const isLives     = batch.map(p => p.isLive     ?? true);
+    const vehicleIds = batch.map(p => p.vehicleId);
+    const lats = batch.map(p => p.lat);
+    const lngs = batch.map(p => p.lng);
+    const speeds = batch.map(p => p.speed ?? null);
+    const directions = batch.map(p => p.direction ?? null);
+    const odometers = batch.map(p => p.odometer ?? null);
+    const fuels = batch.map(p => p.fuel ?? null);
+    const ignitions = batch.map(p => p.ignition ?? null);
+    const satellites = batch.map(p => p.satellites ?? null);
+    const gsmSignals = batch.map(p => p.gsmSignal ?? null);
+    const batteries = batch.map(p => p.battery ?? null);
+    const voltages = batch.map(p => p.voltage ?? null);
+    const isLives = batch.map(p => p.isLive ?? true);
     const deviceTimes = batch.map(p => p.deviceTime);
 
     await db.query(`
@@ -78,7 +78,7 @@ async function flushGpsBatch() {
         unnest($14::timestamp[])
       ON CONFLICT (vehicle_id, device_time) DO NOTHING
     `, [vehicleIds, lats, lngs, speeds, directions, odometers, fuels,
-        ignitions, satellites, gsmSignals, batteries, voltages, isLives, deviceTimes]);
+      ignitions, satellites, gsmSignals, batteries, voltages, isLives, deviceTimes]);
 
     if (batch.length >= 10) {
       // Only log large batches to avoid noise at low traffic
@@ -121,10 +121,10 @@ function getHaversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371e3;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -135,7 +135,7 @@ function isPointInPolygon(lat, lng, polygon) {
     const xi = polygon[i].lat, yi = polygon[i].lng;
     const xj = polygon[j].lat, yj = polygon[j].lng;
     const intersect = ((yi > lng) !== (yj > lng))
-        && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+      && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
     if (intersect) inside = !inside;
   }
   return inside;
@@ -144,7 +144,7 @@ function isPointInPolygon(lat, lng, polygon) {
 function getDistanceToSegment(p, a, b) {
   const dAB = getHaversineDistance(a.lat, a.lng, b.lat, b.lng);
   if (dAB === 0) return getHaversineDistance(p.lat, p.lng, a.lat, a.lng);
-  const l2 = (b.lat - a.lat)**2 + (b.lng - a.lng)**2;
+  const l2 = (b.lat - a.lat) ** 2 + (b.lng - a.lng) ** 2;
   let t = ((p.lat - a.lat) * (b.lat - a.lat) + (p.lng - a.lng) * (b.lng - a.lng)) / l2;
   t = Math.max(0, Math.min(1, t));
   const projectionLat = a.lat + t * (b.lat - a.lat);
@@ -155,7 +155,7 @@ function getDistanceToSegment(p, a, b) {
 function getMinDistanceToRoute(lat, lng, routeCoords) {
   let minDistance = Infinity;
   for (let i = 0; i < routeCoords.length - 1; i++) {
-    const dist = getDistanceToSegment({lat, lng}, routeCoords[i], routeCoords[i+1]);
+    const dist = getDistanceToSegment({ lat, lng }, routeCoords[i], routeCoords[i + 1]);
     if (dist < minDistance) minDistance = dist;
   }
   return minDistance;
@@ -206,7 +206,7 @@ async function start(io) {
     try {
       const data = JSON.parse(message);
       const { imei, lat, lng, speed, fuel, ignition, voltage, direction,
-              odometer, satellites, gsmSignal, battery, deviceTime, isLive } = data;
+        odometer, satellites, gsmSignal, battery, deviceTime, isLive } = data;
 
       // 1. Resolve IMEI → Vehicle ID + Org ID
       const vehicle = await VehicleModel.findByImei(imei);
@@ -238,7 +238,7 @@ async function start(io) {
       const prevStateRaw = await redis.get(`vehicle:state:${imei}`);
       let prevState = null;
       if (prevStateRaw) {
-        try { prevState = JSON.parse(prevStateRaw); } catch(e) {}
+        try { prevState = JSON.parse(prevStateRaw); } catch (e) { }
       }
 
       // 3. Cache updated state in Redis (fast — always per-packet)
@@ -362,7 +362,7 @@ async function start(io) {
 
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat, lng, speed, direction, fuel, ignition, voltage, 
+          lat, lng, speed, direction, fuel, ignition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true
         };

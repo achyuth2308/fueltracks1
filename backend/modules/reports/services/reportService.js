@@ -50,7 +50,7 @@ class ReportService {
   async getTripReport(filters, startDate, endDate) {
     const vehicleIds = await this.resolveVehicles(filters);
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);
-    
+
     let allTrips = [];
     for (const vId of vehicleIds) {
       const trips = await reportRepository.getTrips(vId, startDate, endDate);
@@ -78,14 +78,14 @@ class ReportService {
       const data = await reportRepository.getDailyDistance(vId, startDate, endDate);
       const vInfo = vehicleDetails[vId] || {};
       const baseline = parseFloat(vInfo.baseline) || 0;
-      
+
       // We can also fetch trip count for that day
       // But to keep it efficient, we just return the distance for now, or we can do a sub-fetch.
       data.forEach(d => {
         if (baseline > 0) {
           const snapshot = parseFloat(vInfo.snapshot) || 0;
           d.start_odometer = Math.round((baseline + Math.max(0, (d.start_odometer || 0) - snapshot)) * 100) / 100;
-          d.end_odometer   = Math.round((baseline + Math.max(0, (d.end_odometer   || 0) - snapshot)) * 100) / 100;
+          d.end_odometer = Math.round((baseline + Math.max(0, (d.end_odometer || 0) - snapshot)) * 100) / 100;
         }
         allData.push({
           ...d,
@@ -107,7 +107,7 @@ class ReportService {
     for (const vId of vehicleIds) {
       const data = await reportRepository.getActivity(vId, startDate, endDate);
       const trips = await reportRepository.getTrips(vId, startDate, endDate);
-      
+
       const vInfo = vehicleDetails[vId] || {};
       if (data) {
         allData.push({
@@ -127,18 +127,18 @@ class ReportService {
     // Route history is typically for a single vehicle
     const vehicleDetails = await this.getVehicleDetails([vehicleId]);
     const vInfo = vehicleDetails[vehicleId] || {};
-    
+
     const points = await reportRepository.getRouteHistory(vehicleId, startDate, endDate);
     const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
-    
+
     const baseline = parseFloat(vInfo.baseline) || 0;
-    const snapshot  = parseFloat(vInfo.snapshot)  || 0;
+    const snapshot = parseFloat(vInfo.snapshot) || 0;
     if (baseline > 0 && points) {
       points.forEach(p => p.odometer = baseline + Math.max(0, (p.odometer || 0) - snapshot));
     }
-    
-    const distance = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) : 0;
-    
+
+    const distance = points.length > 0 ? (points[points.length - 1].odometer - points[0].odometer) : 0;
+
     return {
       vehicle: vInfo,
       points,
@@ -223,7 +223,7 @@ class ReportService {
   async getIndividualReport(vehicleId, startDate, endDate) {
     const vehicleDetails = await this.getVehicleDetails([vehicleId]);
     const vInfo = vehicleDetails[vehicleId] || {};
-    
+
     const activity = await reportRepository.getActivity(vehicleId, startDate, endDate);
     const trips = await reportRepository.getTrips(vehicleId, startDate, endDate);
     const stoppages = await reportRepository.getStoppages(vehicleId, startDate, endDate);
@@ -247,9 +247,9 @@ class ReportService {
     // Dashboard stats:
     // Today's boundaries
     const todayStart = new Date();
-    todayStart.setHours(0,0,0,0);
+    todayStart.setHours(0, 0, 0, 0);
     const todayEnd = new Date();
-    todayEnd.setHours(23,59,59,999);
+    todayEnd.setHours(23, 59, 59, 999);
 
     const filters = { orgId }; // For superadmin, orgId might be null, resolveVehicles handles it? 
     // Wait, if no orgId, resolveVehicles returns []. We need a way to get all vehicles.
@@ -297,7 +297,7 @@ class ReportService {
         GROUP BY vehicle_id
       ) sub
     `, [vehicleIds, todayStart, todayEnd]);
-    
+
     distanceToday = distResSafe.rows[0]?.total_dist || 0;
 
     return {

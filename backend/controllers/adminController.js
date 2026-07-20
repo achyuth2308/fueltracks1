@@ -806,7 +806,7 @@ const AdminController = {
           else if (row.licence_id.startsWith('AD')) licenceType = 'Advanced';
           else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
         }
-        
+
         return {
           licenceId: row.licence_id || '-',
           vehicleId: row.vehicle_id || '-',
@@ -964,17 +964,17 @@ const AdminController = {
       );
 
       const used = {
-        Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
-        Basic:    parseInt(usedResult.rows[0]?.Basic    || 0, 10),
+        Starter: parseInt(usedResult.rows[0]?.Starter || 0, 10),
+        Basic: parseInt(usedResult.rows[0]?.Basic || 0, 10),
         Advanced: parseInt(usedResult.rows[0]?.Advanced || 0, 10),
-        Premium:  parseInt(usedResult.rows[0]?.Premium  || 0, 10),
+        Premium: parseInt(usedResult.rows[0]?.Premium || 0, 10),
       };
 
       const available = {
-        Starter:  Math.max(0, (limits.Starter  || 0) - used.Starter),
-        Basic:    Math.max(0, (limits.Basic    || 0) - used.Basic),
+        Starter: Math.max(0, (limits.Starter || 0) - used.Starter),
+        Basic: Math.max(0, (limits.Basic || 0) - used.Basic),
         Advanced: Math.max(0, (limits.Advanced || 0) - used.Advanced),
-        Premium:  Math.max(0, (limits.Premium  || 0) - used.Premium),
+        Premium: Math.max(0, (limits.Premium || 0) - used.Premium),
       };
 
       res.status(200).json({ success: true, data: { limits, used, available } });
@@ -1001,10 +1001,10 @@ const AdminController = {
       }
 
       const sanitized = {
-        Starter:  Math.max(0, parseInt(deviceLimits.Starter  || 0, 10)),
-        Basic:    Math.max(0, parseInt(deviceLimits.Basic    || 0, 10)),
+        Starter: Math.max(0, parseInt(deviceLimits.Starter || 0, 10)),
+        Basic: Math.max(0, parseInt(deviceLimits.Basic || 0, 10)),
         Advanced: Math.max(0, parseInt(deviceLimits.Advanced || 0, 10)),
-        Premium:  Math.max(0, parseInt(deviceLimits.Premium  || 0, 10)),
+        Premium: Math.max(0, parseInt(deviceLimits.Premium || 0, 10)),
       };
 
       const result = await db.query(
@@ -1053,7 +1053,7 @@ const AdminController = {
         params.push(req.user.orgId);
       }
       query += ` ORDER BY p.duration_months ASC, p.price ASC`;
-      
+
       const result = await db.query(query, params);
       res.status(200).json({ success: true, data: result.rows });
     } catch (err) {
@@ -1094,7 +1094,7 @@ const AdminController = {
   async deleteRenewalPlan(req, res, next) {
     try {
       const { id } = req.params;
-      
+
       // Check permissions
       const planRes = await db.query('SELECT org_id FROM renewal_plans WHERE id = $1', [id]);
       if (planRes.rows.length === 0) {
