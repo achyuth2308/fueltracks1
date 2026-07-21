@@ -767,7 +767,7 @@ const AdminController = {
   // ============================================================
   async getExpiredBillingLicenses(req, res, next) {
     try {
-      let whereClause = `v.is_active = TRUE AND v.licence_expire_date <= CURRENT_DATE`;
+      let whereClause = `v.is_active = TRUE`;
       const params = [];
 
       if (req.user.role !== 'superadmin') {
@@ -807,6 +807,13 @@ const AdminController = {
           else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
         }
 
+        let isExpired = false;
+        if (row.licence_expire_date) {
+          const expDate = new Date(row.licence_expire_date);
+          const now = new Date();
+          isExpired = expDate <= now;
+        }
+
         return {
           licenceId: row.licence_id || '-',
           vehicleId: row.vehicle_id || '-',
@@ -819,7 +826,7 @@ const AdminController = {
           gpsSimNo: row.gps_sim_no || '-',
           licenceIssuedDate: row.licence_issued_date,
           licenceExpiryDate: row.licence_expire_date,
-          status: 'Expired'
+          status: isExpired ? 'Expired' : 'Active'
         };
       });
 
@@ -1183,16 +1190,6 @@ const AdminController = {
     }
   },
 
-  async getRecentAlerts(req, res, next) {
-    try {
-      const orgId = req.user.orgId;
-      const GpsModel = require('../models/gpsModel');
-      const alerts = await GpsModel.getRecentAlerts(orgId);
-      res.json({ success: true, data: alerts });
-    } catch (err) {
-      next(err);
-    }
-  },
 
   async getRecentAlerts(req, res, next) {
     try {

@@ -35,7 +35,7 @@ const GpsModel = {
        FROM alerts a
        JOIN vehicles v ON a.vehicle_id = v.id
        WHERE v.org_id = $1
-       ORDER BY a.created_at DESC
+       ORDER BY a.server_time DESC
        LIMIT $2`,
       [orgId, limit]
     );

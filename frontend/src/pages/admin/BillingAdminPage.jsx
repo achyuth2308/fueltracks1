@@ -52,7 +52,7 @@ const BillingAdminPage = () => {
             <FileText size={28} color="#f97316" />
             Billing & Subscriptions
           </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Track expired licenses and vehicle renewals.</p>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Track vehicle licenses and renewals.</p>
         </div>
       </div>
 
@@ -79,15 +79,16 @@ const BillingAdminPage = () => {
               />
             </div>
             
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569' }}>
-              Total Expired: <span style={{ color: '#DC2626' }}>{licenses.length}</span>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', display: 'flex', gap: '16px' }}>
+              <span>Total Active: <span style={{ color: '#059669' }}>{licenses.filter(l => l.status === 'Active').length}</span></span>
+              <span>Total Expired: <span style={{ color: '#DC2626' }}>{licenses.filter(l => l.status === 'Expired').length}</span></span>
             </div>
           </div>
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
               <Loader2 size={32} color="#f97316" className="animate-spin" />
-              <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading expired licenses...</span>
+              <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading billing data...</span>
             </div>
           ) : error ? (
             <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
@@ -117,8 +118,8 @@ const BillingAdminPage = () => {
                       <td colSpan="12" style={{ padding: '80px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
                           <CalendarX2 size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No expired licenses</div>
-                          <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>All vehicle subscriptions are currently active.</div>
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No licenses found</div>
+                          <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>There are no vehicle subscriptions to display.</div>
                         </div>
                       </td>
                     </tr>
@@ -147,10 +148,15 @@ const BillingAdminPage = () => {
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{l.deviceModel}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{l.gpsSimNo}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{formatDate(l.licenceIssuedDate)}</td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 600, color: '#DC2626' }}>{formatDate(l.licenceExpiryDate)}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 600, color: l.status === 'Expired' ? '#DC2626' : '#111827' }}>{formatDate(l.licenceExpiryDate)}</td>
                       <td style={{ padding: '16px 20px' }}>
-                        <span style={{ padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA' }}>
-                          EXPIRED
+                        <span style={{ 
+                          padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, 
+                          background: l.status === 'Expired' ? '#FEE2E2' : '#D1FAE5', 
+                          color: l.status === 'Expired' ? '#DC2626' : '#059669', 
+                          border: `1px solid ${l.status === 'Expired' ? '#FECACA' : '#A7F3D0'}` 
+                        }}>
+                          {l.status.toUpperCase()}
                         </span>
                       </td>
                     </tr>

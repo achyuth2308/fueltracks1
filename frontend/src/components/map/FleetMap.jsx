@@ -95,9 +95,18 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
   // Zoom in when a new vehicle is selected
   useEffect(() => {
     if (!selectedVehicle?.id) return;
-    const lat = parseFloat(selectedVehicle.lat);
-    const lng = parseFloat(selectedVehicle.lng);
-    if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
+    
+    let lat = parseFloat(selectedVehicle.lat);
+    let lng = parseFloat(selectedVehicle.lng);
+    const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
+    
+    if (!hasValidCoords && vehicles && vehicles.length > 0) {
+      const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
+      lat = 17.3411 + (Math.max(0, idx) * 0.003);
+      lng = 78.5317 + (Math.max(0, idx) * 0.003);
+    }
+    
+    if (!isNaN(lat) && !isNaN(lng)) {
       map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -142,12 +151,21 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
     if (!followSelected || !selectedVehicle?.id) return;
-    const lat = parseFloat(selectedVehicle.lat);
-    const lng = parseFloat(selectedVehicle.lng);
-    if (!isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0) {
+    
+    let lat = parseFloat(selectedVehicle.lat);
+    let lng = parseFloat(selectedVehicle.lng);
+    const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
+    
+    if (!hasValidCoords && vehicles && vehicles.length > 0) {
+      const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
+      lat = 17.3411 + (Math.max(0, idx) * 0.003);
+      lng = 78.5317 + (Math.max(0, idx) * 0.003);
+    }
+
+    if (!isNaN(lat) && !isNaN(lng)) {
       map.panTo([lat, lng], { animate: true, duration: 0.8 });
     }
-  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, followSelected]);
+  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, followSelected, vehicles]);
 
   if (routePoints.length === 0) return null;
 
@@ -292,6 +310,18 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
 const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
   const markerRef = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isSelected && markerRef.current) {
+      // Slight delay allows map to pan first
+      const timer = setTimeout(() => {
+        if (markerRef.current) markerRef.current.openPopup();
+      }, 200);
+      return () => clearTimeout(timer);
+    } else if (!isSelected && markerRef.current) {
+      markerRef.current.closePopup();
+    }
+  }, [isSelected]);
 
   const status  = getVehicleStatus(vehicle);
   const cfg     = STATUS_CONFIG[status];
