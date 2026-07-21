@@ -2,6 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { MapPin, Plus, Trash2, ShieldAlert, Loader2, Navigation, CheckSquare, Square } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { getVehicles } from '../../api/vehicleApi';
+import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+
+// Fix Leaflet default icon issues
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png'
+});
+
+const MapClickHandler = ({ onMapClick }) => {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng);
+    },
+  });
+  return null;
+};
+
+const MapUpdater = ({ lat, lng }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (lat && lng) {
+      map.flyTo([lat, lng], map.getZoom(), { animate: true, duration: 0.5 });
+    }
+  }, [lat, lng, map]);
+  return null;
+};
 
 const GeofencesAdminPage = () => {
   const [activeTab, setActiveTab] = useState('geofences');
@@ -439,6 +469,23 @@ const GeofencesAdminPage = () => {
                           <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (meters)</label>
                           <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
                         </div>
+                      </div>
+
+                      <div style={{ height: '280px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #CBD5E1', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 400, background: 'rgba(255,255,255,0.9)', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, color: '#0F172A', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', pointerEvents: 'none' }}>
+                          Click map to drop pin
+                        </div>
+                        <MapContainer center={[parseFloat(geoLat) || 17.207174, parseFloat(geoLng) || 78.314323]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                          <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                          <MapClickHandler onMapClick={(latlng) => { setGeoLat(latlng.lat.toFixed(6)); setGeoLng(latlng.lng.toFixed(6)); }} />
+                          <MapUpdater lat={parseFloat(geoLat)} lng={parseFloat(geoLng)} />
+                          {geoLat && geoLng && (
+                            <>
+                              <Marker position={[parseFloat(geoLat), parseFloat(geoLng)]} />
+                              <Circle center={[parseFloat(geoLat), parseFloat(geoLng)]} radius={parseFloat(geoRadius) || 100} pathOptions={{ color: '#0EA5E9', fillColor: '#0EA5E9', fillOpacity: 0.2 }} />
+                            </>
+                          )}
+                        </MapContainer>
                       </div>
                     </div>
                   ) : (
