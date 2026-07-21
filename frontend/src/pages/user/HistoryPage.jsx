@@ -205,7 +205,7 @@ const HistoryPage = () => {
   // Playback Timer logic
   useEffect(() => {
     let timer = null;
-    if (isPlaying && points.length > 0) {
+    if (isPlaying && filteredPoints.length > 0) {
       const speedMs = {
         'Slow': 1000,
         'Normal': 400,
@@ -214,7 +214,7 @@ const HistoryPage = () => {
 
       timer = setInterval(() => {
         setCurrentPointIndex((prev) => {
-          if (prev >= points.length - 1) {
+          if (prev >= filteredPoints.length - 1) {
             setIsPlaying(false);
             clearInterval(timer);
             return prev;
@@ -226,7 +226,7 @@ const HistoryPage = () => {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isPlaying, points, playbackSpeed]);
+  }, [isPlaying, filteredPoints, playbackSpeed]);
 
   const setQuickRange = (rangeType) => {
     const now = new Date();
@@ -286,7 +286,7 @@ const HistoryPage = () => {
     setCurrentPointIndex(0);
   };
 
-  const activePoint = points.length > 0 ? points[currentPointIndex] : null;
+  const activePoint = filteredPoints.length > 0 ? filteredPoints[currentPointIndex] : null;
 
   // Calculate total distance (mock for now, assume max odo - min odo)
   const totalDist = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) || 0 : 0;

@@ -39,7 +39,9 @@ const RecenterMap = ({ activePoint, follow }) => {
   useEffect(() => {
     if (follow && activePoint && activePoint.lat && activePoint.lng) {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
-        map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: 0.5 });
+        const currentZoom = map.getZoom();
+        const targetZoom = currentZoom < 16 ? 16 : currentZoom;
+        map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: true, duration: 0.5 });
       }
     }
   }, [activePoint, follow, map]);
