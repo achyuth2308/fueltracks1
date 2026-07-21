@@ -75,3 +75,63 @@ export const getNoDataDuration = (isoString) => {
     return null;
   }
 };
+
+export const getVehicleExpiryStatus = (expireDateStr, issuedDateStr = null, metadata = null) => {
+  if (!expireDateStr) {
+    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 30 };
+  }
+
+  try {
+    const exp = new Date(expireDateStr);
+    const now = new Date();
+    exp.setHours(0, 0, 0, 0);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const diffDays = Math.round((exp - today) / (1000 * 60 * 60 * 24));
+
+    let durationMonths = 12;
+    if (metadata && metadata.plan_duration_months) {
+      durationMonths = parseInt(metadata.plan_duration_months, 10) || 12;
+    } else if (issuedDateStr && expireDateStr) {
+      const iss = new Date(issuedDateStr);
+      const totalDays = Math.round((exp - iss) / (1000 * 60 * 60 * 24));
+      durationMonths = totalDays >= 180 ? 12 : 1;
+    }
+
+    const thresholdDays = durationMonths >= 6 ? 30 : 7;
+
+    if (diffDays < 0) {
+      return {
+        type: 'expired',
+        text: 'Expired',
+        isExpired: true,
+        isExpiring: true,
+        diffDays,
+        durationMonths,
+        thresholdDays
+      };
+    } else if (diffDays <= thresholdDays) {
+      return {
+        type: 'expiring',
+        text: `Expiring in ${diffDays} day${diffDays === 1 ? '' : 's'}`,
+        isExpired: false,
+        isExpiring: true,
+        diffDays,
+        durationMonths,
+        thresholdDays
+      };
+    } else {
+      return {
+        type: 'active',
+        text: 'Active',
+        isExpired: false,
+        isExpiring: false,
+        diffDays,
+        durationMonths,
+        thresholdDays
+      };
+    }
+  } catch (err) {
+    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 30 };
+  }
+};
+

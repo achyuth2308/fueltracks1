@@ -19,21 +19,21 @@ INSERT INTO organizations (id, name, type, parent_id) VALUES
 -- ============================================================
 -- USERS
 -- ============================================================
-INSERT INTO users (id, org_id, email, password, role, name, phone) VALUES
+INSERT INTO users (id, org_id, email, username, password, role, name, phone) VALUES
   ('b0000000-0000-0000-0000-000000000001', 'a0000000-0000-0000-0000-000000000001',
-   'admin@fueltracks.in', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
+   'admin@fueltracks.in', 'admin', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
    'superadmin', 'Super Admin', '+919999999999'),
 
   ('b0000000-0000-0000-0000-000000000002', 'a0000000-0000-0000-0000-000000000002',
-   'dealer@abclogistics.com', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
+   'dealer@abclogistics.com', 'dealer1', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
    'dealer', 'ABC Dealer Admin', '+919888888888'),
 
   ('b0000000-0000-0000-0000-000000000003', 'a0000000-0000-0000-0000-000000000003',
-   'dealer@xyztransport.com', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
+   'dealer@xyztransport.com', 'dealer2', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
    'dealer', 'XYZ Dealer Admin', '+919777777777'),
 
   ('b0000000-0000-0000-0000-000000000004', 'a0000000-0000-0000-0000-000000000004',
-   'customer@abcfleet.com', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
+   'customer@abcfleet.com', 'customer1', '$2a$10$985IToIvFVALAMSy4SL7ReDk4SJL3XLK.wROiYAgXUbSTtCLMTdM.',
    'customer', 'Fleet Customer', '+919666666666');
 
 -- ============================================================

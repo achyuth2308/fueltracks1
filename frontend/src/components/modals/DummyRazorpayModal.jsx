@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, CreditCard, ShieldCheck, Loader2, CheckCircle } from 'lucide-react';
+import { X, CreditCard, ShieldCheck, Loader2, CheckCircle, Calendar } from 'lucide-react';
 import * as billingApi from '../../api/billingApi';
+import { formatLocalDate } from '../../utils/dateUtils';
 
 const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
+
   const [plans, setPlans] = useState([]);
   const [selectedPlanId, setSelectedPlanId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -97,8 +99,17 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
                 </div>
               </div>
 
-              <div style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '4px' }}>Vehicle: <span style={{ color: '#F8FAFC', fontWeight: 600 }}>{vehicle?.name}</span></div>
+              <div style={{ fontSize: '13px', color: '#94A3B8', marginBottom: '4px' }}>
+                Vehicle: <span style={{ color: '#F8FAFC', fontWeight: 700 }}>{vehicle?.name}</span>
+                {vehicle?.imei && <span style={{ marginLeft: '8px', opacity: 0.8 }}>(IMEI: {vehicle.imei})</span>}
+              </div>
+              <div style={{ fontSize: '12px', color: '#94A3B8', display: 'flex', gap: '12px', marginTop: '6px' }}>
+                <span>Issued: <span style={{ color: '#CBD5E1' }}>{formatLocalDate(vehicle?.licence_issued_date)}</span></span>
+                <span>•</span>
+                <span>Expiry: <span style={{ color: '#FCA5A5', fontWeight: 600 }}>{formatLocalDate(vehicle?.licence_expire_date)}</span></span>
+              </div>
             </div>
+
 
             {/* Body */}
             <div style={{ padding: '24px' }}>

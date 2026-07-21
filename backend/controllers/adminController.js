@@ -785,6 +785,7 @@ const AdminController = {
           v.gps_sim_no, 
           v.licence_issued_date, 
           v.licence_expire_date, 
+          v.metadata,
           d.licence_id, 
           o.name AS org_name, 
           p.name AS dealer_name
@@ -807,14 +808,39 @@ const AdminController = {
           else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
         }
 
-        let isExpired = false;
+        const metadata = row.metadata || {};
+        let durationMonths = 12;
+        if (metadata.plan_duration_months) {
+          durationMonths = parseInt(metadata.plan_duration_months, 10) || 12;
+        } else if (row.licence_issued_date && row.licence_expire_date) {
+          const exp = new Date(row.licence_expire_date);
+          const iss = new Date(row.licence_issued_date);
+          const totalDays = Math.round((exp - iss) / (1000 * 60 * 60 * 24));
+          durationMonths = totalDays >= 180 ? 12 : 1;
+        }
+
+        const thresholdDays = durationMonths >= 6 ? 30 : 7;
+        let status = 'Active';
+        let diffDays = null;
+
         if (row.licence_expire_date) {
           const expDate = new Date(row.licence_expire_date);
+          expDate.setHours(0, 0, 0, 0);
           const now = new Date();
-          isExpired = expDate <= now;
+          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          diffDays = Math.round((expDate - today) / (1000 * 60 * 60 * 24));
+
+          if (diffDays < 0) {
+            status = 'Expired';
+          } else if (diffDays <= thresholdDays) {
+            status = 'Expiring';
+          } else {
+            status = 'Active';
+          }
         }
 
         return {
+          dbVehicleId: row.db_vehicle_id,
           licenceId: row.licence_id || '-',
           vehicleId: row.vehicle_id || '-',
           vehicleName: row.vehicle_name,
@@ -826,7 +852,11 @@ const AdminController = {
           gpsSimNo: row.gps_sim_no || '-',
           licenceIssuedDate: row.licence_issued_date,
           licenceExpiryDate: row.licence_expire_date,
-          status: isExpired ? 'Expired' : 'Active'
+          status: status,
+          diffDays: diffDays,
+          durationMonths: durationMonths,
+          thresholdDays: thresholdDays,
+          renewalPrice: metadata.renewal_price !== undefined && metadata.renewal_price !== null ? parseFloat(metadata.renewal_price) : null
         };
       });
 
@@ -836,6 +866,53 @@ const AdminController = {
       res.status(500).json({ success: false, error: 'Failed to fetch billing data' });
     }
   },
+
+  async setVehicleBillingAmount(req, res, next) {
+    try {
+      const { vehicleId, price, durationMonths } = req.body;
+      if (!vehicleId || price === undefined || price === null) {
+        return res.status(400).json({ success: false, error: 'vehicleId and price are required.' });
+      }
+
+      let checkQuery = `SELECT id, org_id, metadata FROM vehicles WHERE (id::text = $1 OR metadata->>'vehicleId' = $1 OR imei = $1)`;
+      let params = [vehicleId];
+      if (req.user.role !== 'superadmin') {
+        checkQuery += ` AND (org_id = $2 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $2))`;
+        params.push(req.user.orgId);
+      }
+
+      const checkRes = await db.query(checkQuery, params);
+      if (checkRes.rows.length === 0) {
+        return res.status(400).json({ success: false, error: 'Vehicle record not found or permission denied.' });
+      }
+
+
+      const vehicle = checkRes.rows[0];
+      const existingMeta = vehicle.metadata || {};
+      const updatedMeta = {
+        ...existingMeta,
+        renewal_price: parseFloat(price),
+        plan_duration_months: parseInt(durationMonths || 12, 10)
+      };
+
+      await db.query(`UPDATE vehicles SET metadata = $1, updated_at = NOW() WHERE id = $2`, [JSON.stringify(updatedMeta), vehicle.id]);
+
+      res.status(200).json({
+        success: true,
+        message: 'Vehicle renewal amount and plan duration updated successfully.',
+        data: {
+          vehicleId: vehicle.id,
+          renewalPrice: parseFloat(price),
+          durationMonths: parseInt(durationMonths || 12, 10)
+        }
+      });
+    } catch (err) {
+      console.error('Error setting vehicle billing amount:', err);
+      res.status(500).json({ success: false, error: 'Failed to update vehicle billing amount.' });
+    }
+  },
+
+
 
   async impersonateUser(req, res, next) {
     try {

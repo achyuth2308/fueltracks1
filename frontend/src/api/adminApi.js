@@ -17,6 +17,10 @@ export const createOrg = async (data) => {
 };
 
 export const getExpiredLicenses = () => axiosInstance.get('/api/admin/billing/expired').then(r => r.data);
+export const setVehicleBillingAmount = (data) => axiosInstance.post('/api/admin/billing/set-vehicle-amount', data).then(r => r.data);
+
+
+
 
 export const updateOrg = async (id, data) => {
   const response = await axiosInstance.put(`/api/admin/orgs/${id}`, data);

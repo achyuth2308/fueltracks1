@@ -20,7 +20,7 @@ const pool = new Pool({
 
 async function initDb() {
   console.log(`[DB-INIT] Connecting to PostgreSQL database: "${process.env.DB_NAME || 'fueltracks1'}"...`);
-  
+
   let client;
   try {
     client = await pool.connect();
@@ -46,9 +46,30 @@ async function initDb() {
     await client.query(seedSql);
     console.log('[DB-INIT] Seed data loaded successfully.');
 
+    // 5. Execute migrations
+    console.log('[DB-INIT] Running database migrations...');
+    const migrations = [
+      'devices_migration.sql',
+      'audit_migration.sql',
+      'profile_migration.sql',
+      'geofence_route_migration.sql',
+      'raw_packets_enhancement_migration.sql',
+      'raw_packets_maintenance_migration.sql'
+    ];
+
+    for (const migrationFile of migrations) {
+      const filePath = path.join(__dirname, '..', 'database', migrationFile);
+      if (fs.existsSync(filePath)) {
+        console.log(`[DB-INIT] Executing migration: ${migrationFile}...`);
+        const migSql = fs.readFileSync(filePath, 'utf8');
+        await client.query(migSql);
+      }
+    }
+    console.log('[DB-INIT] All migrations applied successfully.');
+
     console.log('============================================================');
     console.log('  DATABASE INITIALIZATION COMPLETE!');
-    console.log('  Tables created & Seed data successfully inserted.');
+    console.log('  Tables created, Seed data & Migrations applied.');
     console.log('============================================================');
 
   } catch (err) {

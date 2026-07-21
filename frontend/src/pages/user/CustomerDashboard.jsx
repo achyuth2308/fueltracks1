@@ -7,22 +7,19 @@ import { useAuth } from '../../hooks/useAuth';
 import FleetMap from '../../components/map/FleetMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatSpeed } from '../../utils/formatUtils';
-import { getRelativeTime } from '../../utils/dateUtils';
+import { getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
-const getExpiryWarning = (expireDateStr) => {
-  if (!expireDateStr) return null;
-  const exp = new Date(expireDateStr);
-  const now = new Date();
-  const diffTime = exp.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-  if (diffDays < 0) {
-    return { type: 'expired', text: `Licence Expired` };
-  } else if (diffDays <= 4) {
-    return { type: 'expiring', text: `Licence Expiring in ${diffDays}d` };
+const getExpiryWarning = (vehicle) => {
+  if (!vehicle || !vehicle.licence_expire_date) return null;
+  const status = getVehicleExpiryStatus(vehicle.licence_expire_date, vehicle.licence_issued_date, vehicle.metadata);
+  if (status.isExpired) {
+    return { type: 'expired', text: 'License Expired' };
+  } else if (status.isExpiring) {
+    return { type: 'expiring', text: `License Expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
   }
   return null;
 };
+
 
 const StatusPill = ({ label, count, color, active, onClick }) => (
   <button
@@ -89,7 +86,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return vehicles.find(v => v.id === selectedVehicle.id) || selectedVehicle;
   }, [vehicles, selectedVehicle]);
 
-  const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected.licence_expire_date) : null;
+  const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
+
 
   return (
     <div style={{

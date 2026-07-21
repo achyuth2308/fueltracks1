@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { formatLocalDate } from '../../utils/dateUtils';
+import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
+
+
 import { useNavigate } from 'react-router-dom';
 import { Users, Users2, Truck, Activity, AlertTriangle } from 'lucide-react';
 
@@ -232,11 +234,11 @@ const DashboardPage = ({ setAppVehicles }) => {
           overflow: 'hidden'
         }}>
           <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
               <AlertTriangle size={20} color="#F59E0B" />
-              Licenses Expiring Within 30 Days
+              Expiring Vehicle Licenses
             </h3>
-            <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>Vehicles requiring license renewal</p>
+            <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Vehicles requiring license renewal</p>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
@@ -252,20 +254,20 @@ const DashboardPage = ({ setAppVehicles }) => {
                 </thead>
                 <tbody>
                   {expiringVehicles.map(v => {
-                    const exp = new Date(v.licence_expire_date);
-                    const isExpired = exp < new Date();
+                    const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
+                    const isExpired = status.isExpired;
                     return (
                       <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#111827', fontWeight: 500 }}>{v.name}</td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{v.plate || '-'}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(exp)}</td>
+                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(v.licence_expire_date)}</td>
                         <td style={{ padding: '16px 20px' }}>
                           <span style={{
-                            padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 600,
+                            padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
                             background: isExpired ? '#FEE2E2' : '#FEF3C7',
                             color: isExpired ? '#DC2626' : '#D97706'
                           }}>
-                            {isExpired ? 'Expired' : 'Expiring Soon'}
+                            {status.text}
                           </span>
                         </td>
                       </tr>
@@ -274,11 +276,9 @@ const DashboardPage = ({ setAppVehicles }) => {
                 </tbody>
               </table>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '300px', gap: '12px', opacity: 0.6 }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '32px', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <AlertTriangle size={32} color="#94A3B8" />
-                </div>
-                <p style={{ fontSize: '15px', color: '#64748B', fontWeight: 500 }}>No licenses expiring within 30 days</p>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px', gap: '12px', opacity: 0.6 }}>
+                <AlertTriangle size={32} color="#94A3B8" />
+                <p style={{ fontSize: '15px', color: '#64748B', fontWeight: 500, margin: 0 }}>All vehicle licenses are active and up to date!</p>
               </div>
             )}
           </div>

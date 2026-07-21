@@ -8,7 +8,9 @@ import {
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import VehicleMap from '../../components/map/VehicleMap';
-import { formatLocalTime, getRelativeTime } from '../../utils/dateUtils';
+import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
+import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
+
 import { formatSpeed, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
 import { useSocket } from '../../hooks/useSocket';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -113,6 +115,9 @@ const VehicleDetailPage = () => {
   const [error, setError] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [reportSummary, setReportSummary] = useState(null);
+  const [showPayModal, setShowPayModal] = useState(false);
+  const [selectedVehicleForPay, setSelectedVehicleForPay] = useState(null);
+
 
   useEffect(() => {
     const fetch = async () => {
@@ -231,9 +236,9 @@ const VehicleDetailPage = () => {
 
         {/* Expiry Warning */}
         {(() => {
-          const warning = vehicle && getExpiryWarning(vehicle.licence_expire_date);
-          if (!warning) return null;
-          const isExpired = warning.type === 'expired';
+          const status = vehicle && getVehicleExpiryStatus(vehicle.licence_expire_date, vehicle.licence_issued_date, vehicle.metadata);
+          if (!status || (!status.isExpired && !status.isExpiring)) return null;
+          const isExpired = status.isExpired;
           return (
             <div style={{
               background: isExpired ? '#FEF2F2' : '#FFFBEB',
@@ -244,17 +249,32 @@ const VehicleDetailPage = () => {
               boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
             }}>
               <AlertTriangle size={24} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '15px', fontWeight: 700, color: isExpired ? '#991B1B' : '#B45309' }}>
                   {isExpired ? 'License Expired' : 'License Expiring Soon'}
                 </div>
                 <div style={{ fontSize: '14px', color: isExpired ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
-                  {warning.text}
+                  {status.type === 'expired' 
+                    ? `Licence expired on ${formatLocalDate(vehicle.licence_expire_date)}.` 
+                    : `Licence expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'} on ${formatLocalDate(vehicle.licence_expire_date)}.`}
                 </div>
               </div>
+              <button
+                onClick={() => { setSelectedVehicleForPay(vehicle); setShowPayModal(true); }}
+                style={{
+                  padding: '8px 16px', background: isExpired ? '#DC2626' : '#D97706',
+                  color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700,
+                  fontSize: '13px', cursor: 'pointer', flexShrink: 0,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                Pay Now
+              </button>
             </div>
           );
         })()}
+
+
 
         {/* 1. Vehicle Summary Card */}
         <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center' }}>
@@ -395,8 +415,23 @@ const VehicleDetailPage = () => {
           </div>
         </div>
       </div>
+
+      <DummyRazorpayModal
+        isOpen={showPayModal}
+        onClose={() => {
+          setShowPayModal(false);
+          setSelectedVehicleForPay(null);
+        }}
+        vehicle={selectedVehicleForPay}
+        onSuccess={() => {
+          setShowPayModal(false);
+          setSelectedVehicleForPay(null);
+          window.location.reload();
+        }}
+      />
     </div>
   );
 };
+
 
 export default VehicleDetailPage;

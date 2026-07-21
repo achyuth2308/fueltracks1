@@ -34,6 +34,7 @@ CREATE TABLE users (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
   email       VARCHAR(100) UNIQUE NOT NULL,
+  username    VARCHAR(255) UNIQUE,
   password    VARCHAR(255) NOT NULL,  -- bcrypt hashed
   role        VARCHAR(20) NOT NULL CHECK (role IN ('superadmin','dealer','customer')),
   name        VARCHAR(100),

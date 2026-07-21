@@ -5,22 +5,27 @@ import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import FleetMap from '../../components/map/FleetMap';
 import { formatSpeed, formatFuel, formatVoltage, formatOdometer } from '../../utils/formatUtils';
-import { getRelativeTime } from '../../utils/dateUtils';
+import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 
-const getExpiryWarning = (expireDateStr) => {
+const getExpiryWarning = (vehicle) => {
+  if (!vehicle) return null;
+  const expireDateStr = typeof vehicle === 'string' ? vehicle : vehicle.licence_expire_date;
   if (!expireDateStr) return null;
-  const exp = new Date(expireDateStr);
-  const now = new Date();
-  const diffTime = exp.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) {
-    return { type: 'expired', text: `Licence expired on ${formatLocalDate(exp)}. Please renew.` };
-  } else if (diffDays <= 4) {
-    return { type: 'expiring', text: `Licence expiring on ${formatLocalDate(exp)}. Please renew.` };
+  const status = getVehicleExpiryStatus(
+    expireDateStr, 
+    typeof vehicle === 'object' ? vehicle.licence_issued_date : null, 
+    typeof vehicle === 'object' ? vehicle.metadata : null
+  );
+
+  if (status.isExpired) {
+    return { type: 'expired', text: `Licence Expired` };
+  } else if (status.isExpiring) {
+    return { type: 'expiring', text: `Licence Expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
   }
   return null;
 };
+
 
 const TrackingPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
@@ -226,8 +231,9 @@ const TrackingPage = ({ setAppVehicles }) => {
                 <div
                   key={v.id}
                   onClick={() => handleSelectVehicle(v)}
-                  title={getExpiryWarning(v.licence_expire_date) ? getExpiryWarning(v.licence_expire_date).text : undefined}
+                  title={getExpiryWarning(v) ? getExpiryWarning(v).text : undefined}
                   style={{
+
                     background: isSelected ? 'linear-gradient(135deg, #4d6076, #6e859b)' : '#ffffff',
                     border: `1px solid ${isSelected ? 'transparent' : '#f3f4f6'}`,
                     borderRadius: '10px',
@@ -336,7 +342,7 @@ const TrackingPage = ({ setAppVehicles }) => {
               }}>
                 {/* Expiry Warning */}
                 {(() => {
-                  const warning = getExpiryWarning(currentSelectedVehicle.licence_expire_date);
+                  const warning = getExpiryWarning(currentSelectedVehicle);
                   if (!warning) return null;
                   const isExpired = warning.type === 'expired';
                   return (
@@ -360,8 +366,9 @@ const TrackingPage = ({ setAppVehicles }) => {
                   padding: '14px 16px', borderBottom: '1px solid rgba(0,0,0,0.06)',
                   display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start',
                   background: 'linear-gradient(135deg, #4d6076, #6e859b)',
-                  borderRadius: getExpiryWarning(currentSelectedVehicle.licence_expire_date) ? '0' : '16px 16px 0 0', color: '#fff'
+                  borderRadius: getExpiryWarning(currentSelectedVehicle) ? '0' : '16px 16px 0 0', color: '#fff'
                 }}>
+
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 700 }}>{currentSelectedVehicle.name}</div>
                     <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>

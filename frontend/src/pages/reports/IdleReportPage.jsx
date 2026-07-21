@@ -3,7 +3,7 @@ import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Search, Loader2, PauseCircle, Filter, FileText, Truck, Calendar } from 'lucide-react';
+import { ArrowLeft, Download, Search, Loader2, Clock, Filter, FileText, Truck, Calendar } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -15,7 +15,7 @@ const formatDuration = (seconds) => {
   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 };
 
-const StoppageReportPage = () => {
+const IdleReportPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -51,9 +51,9 @@ const StoppageReportPage = () => {
       const res = await axiosInstance.get(`/api/reports/stoppages?${params.toString()}`);
       if (res.data.success) {
         const reportData = res.data.data;
-        // Fetch addresses only for Parked (Stoppage) events
+        // Fetch addresses only for Idle events
         const dataWithAddresses = await Promise.all(reportData.map(async (row) => {
-          if (row.status !== 'Parked') return { ...row, address: '-' };
+          if (row.status !== 'Idle') return { ...row, address: '-' };
           const address = await getAddressFromCoordinates(row.lat, row.lng);
           return { ...row, address };
         }));
@@ -96,7 +96,7 @@ const StoppageReportPage = () => {
         moving_seconds: 0,
         idle_seconds: 0,
         parked_seconds: 0,
-        events: [] // only Parked (stoppage) events will go here
+        events: [] // only Idle events will go here
       };
     }
 
@@ -104,16 +104,16 @@ const StoppageReportPage = () => {
       acc[row.vehicle_id].moving_seconds += parseFloat(row.duration_seconds || 0);
     } else if (row.status === 'Idle') {
       acc[row.vehicle_id].idle_seconds += parseFloat(row.duration_seconds || 0);
+      acc[row.vehicle_id].events.push(row);
     } else if (row.status === 'Parked') {
       acc[row.vehicle_id].parked_seconds += parseFloat(row.duration_seconds || 0);
-      acc[row.vehicle_id].events.push(row);
     }
 
     return acc;
   }, {});
 
   const activeGroups = Object.values(groupedData).filter(group => group.events.length > 0);
-  const stoppageRecordCount = data.filter(d => d.status === 'Parked').length;
+  const idleRecordCount = data.filter(d => d.status === 'Idle').length;
   const tableColumns = ['Status', 'Start Time', 'End Time', 'Duration (HH:MM:SS)', 'Location Details'];
 
   return (
@@ -122,8 +122,8 @@ const StoppageReportPage = () => {
       {/* Filters Bar */}
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', padding: '10px 16px', background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Truck size={14} color="#9333EA" />
+          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Truck size={14} color="#D97706" />
           </div>
           <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, minWidth: '180px' }}>
             <option value="">All Vehicles</option>
@@ -139,7 +139,7 @@ const StoppageReportPage = () => {
           <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 700 }}>→</span>
           <CustomDatePicker value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
         </div>
-        <button onClick={handleGenerate} disabled={loading} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 2px 8px rgba(249,115,22,0.3)', marginLeft: 'auto' }}>
+        <button onClick={handleGenerate} disabled={loading} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 2px 8px rgba(217,119,6,0.3)', marginLeft: 'auto' }}>
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
           Generate
         </button>
@@ -148,13 +148,13 @@ const StoppageReportPage = () => {
       {/* Results */}
       <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}>
         <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({stoppageRecordCount} records)</span></div>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Report Results <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>({idleRecordCount} records)</span></div>
 
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => exportToPDF(columns, getExportData(), 'Stoppage Report', 'stoppage_report')} disabled={stoppageRecordCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: stoppageRecordCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: stoppageRecordCount ? 1 : 0.5 }}>
+            <button onClick={() => exportToPDF(columns, getExportData(), 'Idle Report', 'idle_report')} disabled={idleRecordCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: idleRecordCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: idleRecordCount ? 1 : 0.5 }}>
               <FileText size={16} color="#DC2626" /> PDF
             </button>
-            <button onClick={() => exportToExcel(getExportData(), 'stoppage_report')} disabled={stoppageRecordCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: stoppageRecordCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: stoppageRecordCount ? 1 : 0.5 }}>
+            <button onClick={() => exportToExcel(getExportData(), 'idle_report')} disabled={idleRecordCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: idleRecordCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: idleRecordCount ? 1 : 0.5 }}>
               <Download size={16} color="#10B981" /> Excel
             </button>
           </div>
@@ -164,7 +164,7 @@ const StoppageReportPage = () => {
           {activeGroups.length === 0 ? (
             <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
               <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              No stoppage data found for the selected criteria.
+              No idle data found for the selected criteria.
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -194,7 +194,7 @@ const StoppageReportPage = () => {
                     <tbody>
                       {group.events.map((row, idx) => (
                         <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{row.status}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#D97706', fontWeight: 700 }}>{row.status}</td>
                           <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
                           <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
                           <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatDuration(row.duration_seconds || 0)}</td>
@@ -213,4 +213,4 @@ const StoppageReportPage = () => {
   );
 };
 
-export default StoppageReportPage;
+export default IdleReportPage;

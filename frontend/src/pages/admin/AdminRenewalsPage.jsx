@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { formatLocalTime } from '../../utils/dateUtils';
-import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText, Edit2, Save, X } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2, Tag, Building2, Calendar, FileText, Edit2, Save, X, CreditCard, ShieldAlert } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
 const AdminRenewalsPage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [plans, setPlans] = useState([]);
   const [orgs, setOrgs] = useState([]);
@@ -150,8 +152,23 @@ const AdminRenewalsPage = () => {
             <RefreshCw size={28} color="#f97316" />
             Renewal License Management
           </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Configure renewal pricing plans and view transaction history.</p>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
+            Configure default and targeted pricing plans. Thresholds: 1-Year Plan (30 days alert) & 1-Month Plan (7 days alert).
+          </p>
         </div>
+
+        <button
+          onClick={() => navigate('/admin/billing')}
+          style={{
+            padding: '10px 18px', background: '#FFFFFF', color: '#0F172A',
+            border: '1px solid #CBD5E1', borderRadius: '10px', fontSize: '13px',
+            fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}
+        >
+          <CreditCard size={16} color="#f97316" />
+          Vehicle Licenses & Expiry
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0, flexDirection: 'column', overflowY: 'auto' }}>
@@ -169,11 +186,13 @@ const AdminRenewalsPage = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-6 gap-4 items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div style={{ flex: 1, minWidth: '150px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Plan Name</label>
-              <input type="text" placeholder="e.g. 1 Month Basic" value={newPlan.name} onChange={e => setNewPlan({...newPlan, name: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
+              <input type="text" placeholder="e.g. 1 Year Premium / 1 Month Basic" value={newPlan.name} onChange={e => setNewPlan({...newPlan, name: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
             </div>
-            <div style={{ width: '120px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Months</label>
-              <input type="number" placeholder="1" value={newPlan.duration_months} onChange={e => setNewPlan({...newPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
+            <div style={{ width: '130px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>
+                Duration ({parseInt(newPlan.duration_months || 0) >= 6 ? '30d alert' : '7d alert'})
+              </label>
+              <input type="number" placeholder="1 or 12" value={newPlan.duration_months} onChange={e => setNewPlan({...newPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', color: '#000000', boxSizing: 'border-box' }} />
             </div>
             <div style={{ width: '120px' }}>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Price (₹)</label>
@@ -226,90 +245,108 @@ const AdminRenewalsPage = () => {
                 <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Plan Name</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Duration</th>
+                  <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Warning Alert Threshold</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Price</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Target</th>
                   <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
-                {plans.map(p => (
-                  <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    {editingPlan?.id === p.id ? (
-                      <>
-                        <td style={{ padding: '12px 16px' }}>
-                          <input type="text" value={editingPlan.name} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <input type="number" value={editingPlan.duration_months} onChange={e => setEditingPlan({...editingPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
-                        </td>
-                        <td style={{ padding: '12px 16px' }}>
-                          <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
-                        </td>
-                        <td style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <select value={editingPlan.target_type || (editingPlan.group_id ? 'group' : editingPlan.user_id ? 'user' : 'org')} onChange={e => setEditingPlan({...editingPlan, target_type: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
-                            <option value="org">Org</option>
-                            <option value="user">User</option>
-                            <option value="group">Group</option>
-                          </select>
-                          <select value={editingPlan.org_id || ''} onChange={e => setEditingPlan({...editingPlan, org_id: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
-                            <option value="">Global (All Users)</option>
-                            {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                          </select>
-                          {(editingPlan.target_type === 'user' || editingPlan.user_id) && (
-                            <select value={editingPlan.user_id || ''} onChange={e => setEditingPlan({...editingPlan, user_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
-                              <option value="">Select User...</option>
-                              {users.filter(u => u.org_id === editingPlan.org_id).map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                {plans.map(p => {
+                  const thresholdText = p.duration_months >= 6 ? '30 Days Before Expiry' : '7 Days Before Expiry';
+
+                  return (
+                    <tr key={p.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                      {editingPlan?.id === p.id ? (
+                        <>
+                          <td style={{ padding: '12px 16px' }}>
+                            <input type="text" value={editingPlan.name} onChange={e => setEditingPlan({...editingPlan, name: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <input type="number" value={editingPlan.duration_months} onChange={e => setEditingPlan({...editingPlan, duration_months: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '12px', color: '#64748B' }}>
+                            {parseInt(editingPlan.duration_months || 0) >= 6 ? '30 Days Alert' : '7 Days Alert'}
+                          </td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <input type="number" value={editingPlan.price} onChange={e => setEditingPlan({...editingPlan, price: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }} />
+                          </td>
+                          <td style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <select value={editingPlan.target_type || (editingPlan.group_id ? 'group' : editingPlan.user_id ? 'user' : 'org')} onChange={e => setEditingPlan({...editingPlan, target_type: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                              <option value="org">Org</option>
+                              <option value="user">User</option>
+                              <option value="group">Group</option>
                             </select>
-                          )}
-                          {(editingPlan.target_type === 'group' || editingPlan.group_id) && (
-                            <select value={editingPlan.group_id || ''} onChange={e => setEditingPlan({...editingPlan, group_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
-                              <option value="">Select Group...</option>
-                              {groups.filter(g => g.org_id === editingPlan.org_id).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                            <select value={editingPlan.org_id || ''} onChange={e => setEditingPlan({...editingPlan, org_id: e.target.value, user_id: '', group_id: ''})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                              <option value="">Global (All Users)</option>
+                              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
                             </select>
-                          )}
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                          <button onClick={handleUpdatePlan} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#10B981', padding: '4px' }}>
-                            <Save size={16} />
-                          </button>
-                          <button onClick={() => setEditingPlan(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}>
-                            <X size={16} />
-                          </button>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{p.name}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
-                        <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
-                        <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
-                          {p.group_id ? (
-                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Group: {p.group_name}</>
-                          ) : p.user_id ? (
-                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> User: {p.user_name}</>
-                          ) : p.org_id ? (
-                            <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Org: {p.org_name}</>
-                          ) : 'Global'}
-                        </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {(!p.org_id && user?.role !== 'superadmin') ? null : (
-                            <>
-                              <button onClick={() => setEditingPlan(p)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '4px', marginRight: '8px' }}>
-                                <Edit2 size={16} />
-                              </button>
-                              <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
-                                <Trash2 size={16} />
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </>
-                    )}
-                  </tr>
-                ))}
+                            {(editingPlan.target_type === 'user' || editingPlan.user_id) && (
+                              <select value={editingPlan.user_id || ''} onChange={e => setEditingPlan({...editingPlan, user_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                                <option value="">Select User...</option>
+                                {users.filter(u => u.org_id === editingPlan.org_id).map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                              </select>
+                            )}
+                            {(editingPlan.target_type === 'group' || editingPlan.group_id) && (
+                              <select value={editingPlan.group_id || ''} onChange={e => setEditingPlan({...editingPlan, group_id: e.target.value})} style={{ width: '100%', padding: '6px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', fontSize: '13px' }}>
+                                <option value="">Select Group...</option>
+                                {groups.filter(g => g.org_id === editingPlan.org_id).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                              </select>
+                            )}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                            <button onClick={handleUpdatePlan} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#10B981', padding: '4px' }}>
+                              <Save size={16} />
+                            </button>
+                            <button onClick={() => setEditingPlan(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748B', padding: '4px' }}>
+                              <X size={16} />
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 600, color: '#0F172A' }}>{p.name}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', color: '#475569' }}><Calendar size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/>{p.duration_months} Months</td>
+                          <td style={{ padding: '12px 16px' }}>
+                            <span style={{ 
+                              padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, 
+                              background: p.duration_months >= 6 ? '#FFF7ED' : '#F1F5F9',
+                              color: p.duration_months >= 6 ? '#C2410C' : '#475569',
+                              border: `1px solid ${p.duration_months >= 6 ? '#FFEDD5' : '#E2E8F0'}`
+                            }}>
+                              {thresholdText}
+                            </span>
+                          </td>
+                          <td style={{ padding: '12px 16px', fontSize: '14px', fontWeight: 700, color: '#10B981' }}>₹{parseFloat(p.price).toFixed(2)}</td>
+                          <td style={{ padding: '12px 16px', fontSize: '13px', color: '#64748B' }}>
+                            {p.group_id ? (
+                              <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Group: {p.group_name}</>
+                            ) : p.user_id ? (
+                              <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> User: {p.user_name}</>
+                            ) : p.org_id ? (
+                              <><Building2 size={14} style={{display:'inline', marginRight:4, verticalAlign:'middle'}}/> Org: {p.org_name}</>
+                            ) : 'Global'}
+                          </td>
+                          <td style={{ padding: '12px 16px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {(!p.org_id && user?.role !== 'superadmin') ? null : (
+                              <>
+                                <button onClick={() => setEditingPlan(p)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '4px', marginRight: '8px' }}>
+                                  <Edit2 size={16} />
+                                </button>
+                                <button onClick={() => handleDeletePlan(p.id)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '4px' }}>
+                                  <Trash2 size={16} />
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
                 {plans.length === 0 && !loading && (
                   <tr>
-                    <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>No active plans found.</td>
+                    <td colSpan="6" style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>No active plans found.</td>
                   </tr>
                 )}
               </tbody>
@@ -346,7 +383,7 @@ const AdminRenewalsPage = () => {
                         {t.user_name} <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>{t.user_email}</div>
                       </td>
                       <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{t.vehicle_name}</td>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#475569' }}>{t.plan_name || 'Legacy Plan'}</td>
+                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#475569' }}>{t.plan_name || 'Vehicle Renewal Plan'}</td>
                       <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>₹{parseFloat(t.amount).toFixed(2)}</td>
                       <td style={{ padding: '12px 20px', fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>{t.payment_id}</td>
                       <td style={{ padding: '12px 20px' }}>

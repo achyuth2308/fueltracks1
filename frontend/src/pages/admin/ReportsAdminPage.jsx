@@ -21,7 +21,8 @@ const REPORT_TABS = [
   { title: "Trip Report", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
-  { title: "Stoppage & Idle", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
+  { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
+  { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },
   { title: "Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
   { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
 ];

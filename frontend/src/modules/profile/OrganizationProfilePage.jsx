@@ -3,11 +3,10 @@ import { useProfile } from './hooks/useProfile';
 import GeneralTab from './components/GeneralTab';
 import BrandingTab from './components/BrandingTab';
 import MapsTab from './components/MapsTab';
-import NotificationsTab from './components/NotificationsTab';
 import LicenseTab from './components/LicenseTab';
 import SecurityTab from './components/SecurityTab';
 import AuditTab from './components/AuditTab';
-import { Building2, Image as ImageIcon, Map as MapIcon, Bell, Shield, Lock, History, Loader2 } from 'lucide-react';
+import { Building2, Image as ImageIcon, Map as MapIcon, Shield, Lock, History, Loader2 } from 'lucide-react';
 
 const OrganizationProfilePage = () => {
   const { profile, license, loading, error, updateProfile, uploadImage, changePassword } = useProfile();
@@ -32,7 +31,6 @@ const OrganizationProfilePage = () => {
   const tabs = [
     { id: 'general', label: 'General', icon: Building2 },
     { id: 'branding', label: 'Branding', icon: ImageIcon },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'maps', label: 'Maps', icon: MapIcon },
     { id: 'license', label: 'License Info', icon: Shield },
     { id: 'security', label: 'Security', icon: Lock },
@@ -45,8 +43,6 @@ const OrganizationProfilePage = () => {
         return <GeneralTab profile={profile} onSave={updateProfile} />;
       case 'branding':
         return <BrandingTab profile={profile} onUpload={uploadImage} onSave={updateProfile} />;
-      case 'notifications':
-        return <NotificationsTab profile={profile} onSave={updateProfile} />;
       case 'maps':
         return <MapsTab profile={profile} onSave={updateProfile} />;
       case 'license':

@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { formatLocalDate } from '../../utils/dateUtils';
-import { Loader2, AlertTriangle, Truck, CheckCircle, RefreshCw } from 'lucide-react';
+import React, { useState } from 'react';
+import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
+import { Loader2, Truck, CheckCircle, RefreshCw, CreditCard } from 'lucide-react';
 import { useVehicles } from '../../hooks/useVehicles';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 
@@ -8,16 +8,6 @@ const CustomerRenewalsPage = () => {
   const { vehicles, loading: vehiclesLoading } = useVehicles();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [showRazorpay, setShowRazorpay] = useState(false);
-
-  const getStatus = (expireDateStr) => {
-    if (!expireDateStr) return { type: 'unknown', text: 'Unknown', color: '#64748B', bg: '#F1F5F9' };
-    const exp = new Date(expireDateStr);
-    const diffDays = Math.ceil((exp - new Date()) / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) return { type: 'expired', text: 'Expired', color: '#DC2626', bg: '#FEF2F2' };
-    if (diffDays <= 30) return { type: 'expiring', text: `Expiring in ${diffDays} days`, color: '#D97706', bg: '#FFFBEB' };
-    return { type: 'active', text: 'Active', color: '#059669', bg: '#D1FAE5' };
-  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -55,16 +45,34 @@ const CustomerRenewalsPage = () => {
               <thead>
                 <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Vehicle</th>
+
                   <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>IMEI / Device</th>
+                  <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Issued Date</th>
                   <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Expiry Date</th>
+                  <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Plan Threshold</th>
+                  <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Renewal Price</th>
                   <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Status</th>
                   <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {vehicles.map(v => {
-                  const status = getStatus(v.licence_expire_date);
-                  const needsRenewal = status.type === 'expired' || status.type === 'expiring';
+                  const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
+                  const needsRenewal = status.isExpiring || status.isExpired;
+                  const planText = status.durationMonths >= 6 ? '1 Year Plan (30-day alert)' : '1 Month Plan (7-day alert)';
+                  const customPrice = v.metadata?.renewal_price !== undefined && v.metadata?.renewal_price !== null 
+                    ? `₹${parseFloat(v.metadata.renewal_price).toFixed(2)}` 
+                    : null;
+
+                  let bg = '#D1FAE5';
+                  let color = '#059669';
+                  if (status.type === 'expired') {
+                    bg = '#FEF2F2';
+                    color = '#DC2626';
+                  } else if (status.type === 'expiring') {
+                    bg = '#FFFBEB';
+                    color = '#D97706';
+                  }
 
                   return (
                     <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
@@ -75,9 +83,20 @@ const CustomerRenewalsPage = () => {
                         </div>
                       </td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{v.imei}</td>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{formatDate(v.licence_issued_date)}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{formatDate(v.licence_expire_date)}</td>
+
+                      <td style={{ padding: '16px 20px', fontSize: '12px', color: '#64748B' }}>
+                        <span style={{ background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                          {planText}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#10B981' }}>
+                        {customPrice || <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Default Plan</span>}
+                      </td>
+
                       <td style={{ padding: '16px 20px' }}>
-                        <span style={{ padding: '6px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, background: status.bg, color: status.color }}>
+                        <span style={{ padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, background: bg, color: color }}>
                           {status.text}
                         </span>
                       </td>
@@ -85,9 +104,15 @@ const CustomerRenewalsPage = () => {
                         {needsRenewal ? (
                           <button
                             onClick={() => handleRenewClick(v)}
-                            style={{ padding: '8px 16px', background: status.type === 'expired' ? '#EF4444' : '#F59E0B', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', transition: 'all 0.15s' }}
+                            style={{
+                              padding: '8px 18px', background: status.type === 'expired' ? '#EF4444' : '#F59E0B',
+                              color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 800, fontSize: '13px',
+                              cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', transition: 'all 0.15s',
+                              display: 'inline-flex', alignItems: 'center', gap: '6px'
+                            }}
                           >
-                            Pay with Razorpay
+                            <CreditCard size={15} />
+                            Pay Now
                           </button>
                         ) : (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#10B981', fontSize: '13px', fontWeight: 700 }}>
@@ -114,7 +139,6 @@ const CustomerRenewalsPage = () => {
         onSuccess={() => {
           setShowRazorpay(false);
           setSelectedVehicle(null);
-          // Just force reload to get fresh vehicles
           window.location.reload();
         }}
       />

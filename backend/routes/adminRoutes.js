@@ -62,6 +62,8 @@ router.post('/onboard/devices', authorize('superadmin', 'dealer'), OnboardContro
 // BILLING
 // ============================================================
 router.get('/billing/expired', authorize('superadmin', 'dealer'), AdminController.getExpiredBillingLicenses);
+router.post('/billing/set-vehicle-amount', authorize('superadmin', 'dealer'), AdminController.setVehicleBillingAmount);
+
 
 // ============================================================
 // DEVICE QUOTA (tier-based limits per dealer org)

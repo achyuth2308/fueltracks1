@@ -42,10 +42,12 @@ const server = http.createServer(app);
 // RATE LIMITERS
 // ============================================================
 
-// General API limiter — 200 requests per 15 minutes per IP
+const isDev = env.NODE_ENV !== 'production';
+
+// General API limiter — 10,000 requests in dev, 200 in prod per 15 mins per IP
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: isDev ? 10000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -55,10 +57,10 @@ const apiLimiter = rateLimit({
   },
 });
 
-// Strict limiter for auth endpoints — 20 attempts per 15 minutes
+// Strict limiter for auth endpoints — 1,000 in dev, 20 in prod per 15 mins
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: isDev ? 1000 : 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -67,6 +69,7 @@ const authLimiter = rateLimit({
     code: 'AUTH_RATE_LIMIT_EXCEEDED',
   },
 });
+
 
 // ============================================================
 // CORS CONFIGURATION
@@ -169,9 +172,40 @@ app.use(errorHandler);
 // Initialize Subscribers and Sockets
 async function bootstrap() {
   try {
+    // 0. Ensure database tables and columns exist
+    await db.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);
+
+      CREATE TABLE IF NOT EXISTS renewal_plans (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) NOT NULL,
+        duration_months INT NOT NULL,
+        price DECIMAL NOT NULL,
+        org_id UUID REFERENCES organizations(id),
+        user_id UUID REFERENCES users(id),
+        group_id UUID REFERENCES groups(id),
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS renewal_transactions (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+        amount DECIMAL NOT NULL,
+        status VARCHAR(50) DEFAULT 'SUCCESS',
+        payment_id VARCHAR(255) NOT NULL,
+        plan_id INT REFERENCES renewal_plans(id),
+        duration_months INT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    console.log('[BOOT] Database tables & migrations verified');
+
     // 1. Initialize Socket.io room handlers
     trackingSocket.init(io);
     console.log('[BOOT] Socket.io event handlers configured');
+
 
     // 2. Start Redis subscribers for background processing
     await locationSubscriber.start(io);

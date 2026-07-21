@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, Bell, MapPin, Fuel, Radio } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -122,7 +122,6 @@ const OrgsAdminPage = () => {
   const tabs = [
     { id: 'general', label: 'General', icon: Building2 },
     { id: 'alerts', label: 'Alert Policies', icon: Shield },
-    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'geofence', label: 'Geofences', icon: MapPin },
     { id: 'fuel', label: 'Fuel Monitor', icon: Fuel },
     { id: 'advanced', label: 'Advanced', icon: Settings },
@@ -339,35 +338,7 @@ const OrgsAdminPage = () => {
                   </div>
                 )}
 
-                {activeTab === 'notifications' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Notification Channels</h3>
-                    {['SMS Notifications', 'Email Notifications', 'WhatsApp Notifications', 'Telegram Notifications'].map(item => (
-                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
-                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
-                      </label>
-                    ))}
-                    <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: '16px', marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Notification Mobile Number</label>
-                        <input type="text" placeholder="+1 234 567 8900" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Notification Email</label>
-                        <input type="email" placeholder="alerts@organization.com" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>WhatsApp Number</label>
-                        <input type="text" placeholder="+1 234 567 8900" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Telegram Chat ID</label>
-                        <input type="text" placeholder="@org_alerts" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                    </div>
-                  </div>
-                )}
+
 
                 {activeTab === 'geofence' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

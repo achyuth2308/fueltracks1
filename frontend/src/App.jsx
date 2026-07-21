@@ -32,6 +32,7 @@ import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
 import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
 import StoppageReportPage from './pages/reports/StoppageReportPage';
+import IdleReportPage from './pages/reports/IdleReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
@@ -97,6 +98,7 @@ function App() {
                   <Route path="route" element={<RouteHistoryReportPage />} />
                   <Route path="overspeeding" element={<OverspeedingReportPage />} />
                   <Route path="stoppage" element={<StoppageReportPage />} />
+                  <Route path="idle" element={<IdleReportPage />} />
                   <Route path="consolidated" element={<ConsolidatedReportPage />} />
                   <Route path="individual" element={<IndividualReportPage />} />
                 </Route>

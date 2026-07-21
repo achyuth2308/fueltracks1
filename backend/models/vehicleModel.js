@@ -62,15 +62,22 @@ const VehicleModel = {
       // See all vehicles
       whereClause = 'WHERE v.is_active = TRUE';
     } else if (role === 'customer') {
-      // See only vehicles assigned to the groups this customer belongs to
+      // See vehicles in customer's org OR assigned to the customer's groups
+      params.push(orgId);
+      const orgParamIdx = paramIndex++;
       params.push(userId);
-      whereClause = `WHERE v.is_active = TRUE AND v.id IN (
-        SELECT vg.vehicle_id 
-        FROM vehicle_groups vg
-        JOIN user_groups ug ON vg.group_id = ug.group_id
-        WHERE ug.user_id = $${paramIndex++}
+      const userParamIdx = paramIndex++;
+      whereClause = `WHERE v.is_active = TRUE AND (
+        v.org_id = $${orgParamIdx} 
+        OR v.id IN (
+          SELECT vg.vehicle_id 
+          FROM vehicle_groups vg
+          JOIN user_groups ug ON vg.group_id = ug.group_id
+          WHERE ug.user_id = $${userParamIdx}
+        )
       )`;
     } else {
+
       // See vehicles in own org + child orgs
       params.push(orgId);
       whereClause = `WHERE v.is_active = TRUE AND (
