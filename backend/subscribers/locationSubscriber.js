@@ -241,8 +241,33 @@ async function start(io) {
         try { prevState = JSON.parse(prevStateRaw); } catch (e) { }
       }
 
+      // 2b. Compute final Odometer based on deviceOdo flag
+      let finalOdometer = parseFloat(odometer) || 0;
+      if (vehicle.metadata?.deviceOdo !== 'YES' && lat && lng) {
+        const prevOdo = prevState && prevState.odometer ? parseFloat(prevState.odometer) : 0;
+        let distanceMeters = 0;
+        if (prevState && prevState.lat && prevState.lng) {
+          distanceMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
+        }
+        // Accumulate distance if it's > 5m (filter drift) and < 50km (filter massive spikes)
+        if (distanceMeters > 5 && distanceMeters < 50000) {
+          finalOdometer = prevOdo + (distanceMeters / 1000); // km
+        } else {
+          finalOdometer = prevOdo;
+        }
+      }
+
+      let parkedSince = null;
+      if (finalIgnition === false && (speed || 0) === 0) {
+        if (prevState && prevState.parkedSince) {
+          parkedSince = prevState.parkedSince;
+        } else {
+          parkedSince = deviceTime;
+        }
+      }
+
       // 3. Cache updated state in Redis (fast — always per-packet)
-      const updatedPayload = { ...data, ignition: finalIgnition };
+      const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince };
       await redis.set(
         `vehicle:state:${imei}`,
         JSON.stringify(updatedPayload),
@@ -252,7 +277,7 @@ async function start(io) {
       // 4. Queue GPS point for batched DB write (skipped for heartbeats)
       if (!data.isHeartbeat) {
         await queueGpsPoint({
-          vehicleId, lat, lng, speed, direction, odometer, fuel,
+          vehicleId, lat, lng, speed, direction, odometer: finalOdometer, fuel,
           ignition: finalIgnition, satellites, gsmSignal, battery,
           voltage, isLive, deviceTime
         });
@@ -261,7 +286,7 @@ async function start(io) {
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
       await GpsModel.updateLatestState({
         vehicleId, lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
-        odometer, satellites, gsmSignal
+        odometer: finalOdometer, satellites, gsmSignal
       });
 
       // 6. Perform alert checks (only for live, non-heartbeat packets)
@@ -271,6 +296,16 @@ async function start(io) {
         // Check A: Ignition ON transition
         if (finalIgnition === true && (!prevState || prevState.ignition === false)) {
           alertsToTrigger.push({ type: 'ignition_on', text: 'Ignition ON Alert: Vehicle started.' });
+        }
+
+        // Check A2: Safety Park Alarm (Unauthorized Movement / Ignition)
+        if (vehicle.metadata?.safetyPark === 'YES' && prevState && prevState.ignition === false && (prevState.speed || 0) === 0 && prevState.parkedSince) {
+          const parkedDurationMs = new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime();
+          if (parkedDurationMs >= 5 * 60 * 1000) { // > 5 minutes
+            if (finalIgnition === true || speed > 0) {
+              alertsToTrigger.push({ type: 'safety_park', text: 'Safety Park Alarm: Unauthorized movement or ignition detected while parked.' });
+            }
+          }
         }
 
         // Check B: Trip started (stopped/parked → moving)
@@ -353,11 +388,11 @@ async function start(io) {
 
       // 7. Emit real-time events over Socket.io (only for live packets)
       if (isLive) {
-        let displayedOdometer = odometer;
+        let displayedOdometer = finalOdometer;
         const baseline = parseFloat(vehicle.metadata?.odometerReading) || 0;
         const snapshot = parseFloat(vehicle.metadata?.odometerSnapshot) || 0;
         if (baseline > 0) {
-          displayedOdometer = baseline + Math.max(0, (odometer || 0) - snapshot);
+          displayedOdometer = baseline + Math.max(0, (finalOdometer || 0) - snapshot);
         }
 
         const payload = {

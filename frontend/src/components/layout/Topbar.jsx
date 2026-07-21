@@ -30,18 +30,36 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     const handleNewAlert = (data) => {
       setAlerts((prev) => [data, ...prev].slice(0, 15)); // Keep 15 latest
 
-      // Play Beep Sound
+      // Play Sound
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz beep
-        gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 200); // 200ms beep
+
+        if (data.alertType === 'safety_park') {
+          // Police Siren / Theft Alarm
+          oscillator.type = 'square';
+          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+          const now = audioContext.currentTime;
+          let time = now;
+          for (let i = 0; i < 4; i++) {
+            oscillator.frequency.setValueAtTime(900, time);
+            time += 0.4;
+            oscillator.frequency.setValueAtTime(650, time);
+            time += 0.4;
+          }
+          oscillator.start(now);
+          oscillator.stop(time);
+        } else {
+          // Normal Beep
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz beep
+          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+          oscillator.start();
+          setTimeout(() => oscillator.stop(), 200); // 200ms beep
+        }
       } catch (e) { console.warn('Audio play blocked'); }
 
       // Show Visual Toast
