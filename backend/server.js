@@ -196,7 +196,7 @@ async function bootstrap() {
         const result = await db.query(`
           UPDATE vehicle_latest_state 
           SET is_online = FALSE 
-          WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '24 hours'
+          WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '15 minutes'
           RETURNING vehicle_id;
         `);
         if (result.rowCount > 0) {

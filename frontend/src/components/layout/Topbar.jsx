@@ -107,7 +107,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       background: '#223A57',
       borderBottom: '1px solid #475569',
       flexShrink: 0,
-      zIndex: 30,
+      zIndex: 9999,
     }}>
       {/* Left: logo + org */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
