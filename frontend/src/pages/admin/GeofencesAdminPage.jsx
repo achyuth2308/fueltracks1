@@ -57,7 +57,7 @@ const GeofencesAdminPage = () => {
       if (addressQuery.length > 3) {
         setIsSearching(true);
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}&limit=5`);
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}&limit=5&countrycodes=in`);
           const data = await res.json();
           setAddressResults(data || []);
         } catch (err) {
