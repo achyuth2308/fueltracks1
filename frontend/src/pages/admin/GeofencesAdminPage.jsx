@@ -24,6 +24,9 @@ const GeofencesAdminPage = () => {
   const [selectedVehicles, setSelectedVehicles] = useState([]);
 
   // Route Form State
+  const [addressQuery, setAddressQuery] = useState('');
+  const [addressResults, setAddressResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [routeName, setRouteName] = useState('');
   const [routeTolerance, setRouteTolerance] = useState('100');
   const [routeCoords, setRouteCoords] = useState('[{"lat":17.207174,"lng":78.314323},{"lat":17.208174,"lng":78.315323},{"lat":17.209174,"lng":78.316323}]');
@@ -47,6 +50,32 @@ const GeofencesAdminPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleAddressSearch = async (e) => {
+    const q = e.target.value;
+    setAddressQuery(q);
+    if (q.length > 3) {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
+        const data = await res.json();
+        setAddressResults(data || []);
+      } catch (err) {
+        console.error('Address search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    } else {
+      setAddressResults([]);
+    }
+  };
+
+  const handleSelectAddress = (result) => {
+    setGeoLat(result.lat);
+    setGeoLng(result.lon);
+    setAddressQuery(result.display_name);
+    setAddressResults([]);
   };
 
   useEffect(() => {
@@ -363,18 +392,47 @@ const GeofencesAdminPage = () => {
                   </div>
 
                   {geoType === 'circle' ? (
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Latitude</label>
-                        <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div style={{ position: 'relative' }}>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Search Address / Landmark</label>
+                        <input 
+                          type="text" 
+                          placeholder="Type an address to automatically fill coordinates..." 
+                          value={addressQuery} 
+                          onChange={handleAddressSearch} 
+                          style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} 
+                        />
+                        {isSearching && <span style={{ position: 'absolute', right: '12px', top: '35px', fontSize: '12px', color: '#94A3B8' }}>Searching...</span>}
+                        {addressResults.length > 0 && (
+                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', marginTop: '4px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                            {addressResults.map((res, i) => (
+                              <div 
+                                key={i} 
+                                onClick={() => handleSelectAddress(res)} 
+                                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < addressResults.length - 1 ? '1px solid #F1F5F9' : 'none', fontSize: '13px', color: '#334155' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FFF'}
+                              >
+                                {res.display_name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Longitude</label>
-                        <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (meters)</label>
-                        <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
+
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Latitude</label>
+                          <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Longitude</label>
+                          <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (meters)</label>
+                          <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
+                        </div>
                       </div>
                     </div>
                   ) : (
