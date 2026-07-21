@@ -52,23 +52,29 @@ const GeofencesAdminPage = () => {
     }
   };
 
-  const handleAddressSearch = async (e) => {
-    const q = e.target.value;
-    setAddressQuery(q);
-    if (q.length > 3) {
-      setIsSearching(true);
-      try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5`);
-        const data = await res.json();
-        setAddressResults(data || []);
-      } catch (err) {
-        console.error('Address search error:', err);
-      } finally {
-        setIsSearching(false);
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (addressQuery.length > 3) {
+        setIsSearching(true);
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(addressQuery)}&limit=5`);
+          const data = await res.json();
+          setAddressResults(data || []);
+        } catch (err) {
+          console.error('Address search error:', err);
+        } finally {
+          setIsSearching(false);
+        }
+      } else {
+        setAddressResults([]);
       }
-    } else {
-      setAddressResults([]);
-    }
+    }, 600); // Wait 600ms after user stops typing before calling API
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [addressQuery]);
+
+  const handleAddressSearch = (e) => {
+    setAddressQuery(e.target.value);
   };
 
   const handleSelectAddress = (result) => {
