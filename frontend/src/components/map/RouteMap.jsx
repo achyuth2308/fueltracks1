@@ -262,7 +262,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
           style={{
             position: 'absolute',
             top: '24px',
-            left: '24px',
+            left: '180px',
             zIndex: 1000,
             background: follow ? '#0ea5e9' : '#ffffff',
             color: follow ? '#ffffff' : '#475569',
@@ -284,29 +284,14 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         </button>
       )}
 
-      {/* Debug Info Card (Temporary) */}
-      <div style={{
-        position: 'absolute',
-        top: '80px',
-        left: '24px',
-        zIndex: 1000,
-        background: 'rgba(0,0,0,0.8)',
-        color: '#fff',
-        padding: '8px',
-        borderRadius: '4px',
-        fontSize: '11px',
-        pointerEvents: 'none'
-      }}>
-        Debug: Found {stoppages.length} stops.<br/>
-        Active Stop: {activeStoppage ? 'YES' : 'NO'}
-      </div>
+
 
       {/* Active Stoppage Floating Card (Left side overlay) */}
       {activeStoppage && (
         <div style={{
           position: 'absolute',
-          top: '130px', // Shifted down to make room for debug
-          left: '24px',
+          top: '70px',
+          left: '180px',
           zIndex: 1000,
           background: '#ffffff',
           borderRadius: '8px',
@@ -357,7 +342,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         className="w-full h-full"
         zoomControl={false}
       >
-        <LayersControl position="topright">
+        <LayersControl position="topleft">
           <BaseLayer checked name="Modern Light">
             <TileLayer
               attribution='&copy; OpenStreetMap contributors'

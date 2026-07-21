@@ -360,7 +360,7 @@ const HistoryPage = () => {
         {/* Map Container */}
         <div style={{ position: 'absolute', inset: 0 }}>
           <RouteMap
-            points={points}
+            points={filteredPoints}
             activePoint={activePoint}
             vehicleName={vehicle?.name || 'Vehicle'}
             vehicleLastKnownPosition={
