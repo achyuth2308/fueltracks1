@@ -138,18 +138,7 @@ const BillingAdminPage = () => {
             <Clock size={16} />
             Transaction History
           </button>
-          <button
-            onClick={() => navigate('/admin/renewal-config')}
-            style={{
-              padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 700,
-              border: 'none', cursor: 'pointer', transition: 'all 0.15s',
-              background: 'transparent', color: '#64748B',
-              display: 'flex', alignItems: 'center', gap: '8px'
-            }}
-          >
-            <Settings size={16} />
-            Renewal Config
-          </button>
+
         </div>
       </div>
 

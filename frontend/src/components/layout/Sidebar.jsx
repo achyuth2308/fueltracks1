@@ -34,7 +34,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
-        { name: 'Renewal Config', path: '/admin/renewal-config', icon: RefreshCw, roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
         { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer'] },
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },

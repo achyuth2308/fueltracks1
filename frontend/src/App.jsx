@@ -80,7 +80,7 @@ function App() {
                 <Route path="vehicles/migration/:id" element={<MigrationPage />} />
                 <Route path="devices" element={<DevicesAdminPage />} />
                 <Route path="billing" element={<BillingAdminPage />} />
-                <Route path="renewal-config" element={<AdminRenewalsPage />} />
+
                 <Route path="profile" element={<OrganizationProfilePage />} />
                 <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                 <Route path="settings" element={<SettingsAdminPage />} />
