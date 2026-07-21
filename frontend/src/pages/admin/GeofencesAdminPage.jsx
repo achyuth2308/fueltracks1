@@ -476,7 +476,10 @@ const GeofencesAdminPage = () => {
                           Click map to drop pin
                         </div>
                         <MapContainer center={[parseFloat(geoLat) || 17.207174, parseFloat(geoLng) || 78.314323]} zoom={15} style={{ height: '100%', width: '100%' }}>
-                          <TileLayer url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png" />
+                          <TileLayer 
+                            attribution='&copy; OpenStreetMap contributors'
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
+                          />
                           <MapClickHandler onMapClick={(latlng) => { setGeoLat(latlng.lat.toFixed(6)); setGeoLng(latlng.lng.toFixed(6)); }} />
                           <MapUpdater lat={parseFloat(geoLat)} lng={parseFloat(geoLng)} />
                           {geoLat && geoLng && (
