@@ -12,8 +12,8 @@ const client = new Client({
 async function check() {
   await client.connect();
   try {
-    const res = await client.query("SELECT device_id, licence_id FROM devices;");
-    console.log("Devices in DB:", res.rows);
+    const res = await client.query("SELECT id, name FROM vehicles;");
+    console.log("Vehicle:", JSON.stringify(res.rows, null, 2));
   } catch (err) {
     console.error(err);
   } finally {
