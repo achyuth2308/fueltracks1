@@ -146,7 +146,7 @@ const LoginPage = () => {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.4, ease: 'easeOut' }}
-                className="bg-white rounded-xl p-3 shadow-xs border border-slate-100 transition-all duration-300"
+                className="bg-gradient-to-br from-white to-sky-50/50 hover:to-sky-100/50 rounded-xl p-3 shadow-sm border border-sky-100/50 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-sky-900/10 hover:border-sky-200"
               >
                 <div className="w-6.5 h-6.5 rounded-lg bg-sky-50 text-sky-600 flex items-center justify-center mb-2 border border-sky-100">
                   <Truck className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -163,7 +163,7 @@ const LoginPage = () => {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.48, ease: 'easeOut' }}
-                className="bg-white rounded-xl p-3 shadow-xs border border-slate-100 transition-all duration-300"
+                className="bg-gradient-to-br from-white to-emerald-50/50 hover:to-emerald-100/50 rounded-xl p-3 shadow-sm border border-emerald-100/50 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-emerald-900/10 hover:border-emerald-200"
               >
                 <div className="w-6.5 h-6.5 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2 border border-emerald-100">
                   <Clock className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -180,7 +180,7 @@ const LoginPage = () => {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.56, ease: 'easeOut' }}
-                className="bg-white rounded-xl p-3 shadow-xs border border-slate-100 transition-all duration-300"
+                className="bg-gradient-to-br from-white to-violet-50/50 hover:to-violet-100/50 rounded-xl p-3 shadow-sm border border-violet-100/50 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-violet-900/10 hover:border-violet-200"
               >
                 <div className="w-6.5 h-6.5 rounded-lg bg-violet-50 text-violet-600 flex items-center justify-center mb-2 border border-violet-100">
                   <Gauge className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -202,21 +202,21 @@ const LoginPage = () => {
             transition={{ duration: 0.5, delay: 0.65, ease: 'easeOut' }}
             className="flex justify-end items-center gap-2.5 pt-3"
           >
-            <div className="w-[68px] py-2.5 bg-white rounded-xl shadow-xs border border-slate-100 flex flex-col items-center justify-center gap-1 transition-all duration-300">
+            <div className="w-[68px] py-2.5 bg-gradient-to-br from-white to-orange-50/50 hover:to-orange-100/50 rounded-xl shadow-sm border border-orange-100/50 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-orange-900/10 hover:border-orange-200">
               <div className="w-7 h-7 rounded-lg bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100">
                 <Truck className="w-3.5 h-3.5 stroke-[2.2]" />
               </div>
               <span className="text-[9.5px] font-bold text-slate-700">Freight</span>
             </div>
 
-            <div className="w-[68px] py-2.5 bg-white rounded-xl shadow-xs border border-slate-100 flex flex-col items-center justify-center gap-1 transition-all duration-300">
+            <div className="w-[68px] py-2.5 bg-gradient-to-br from-white to-cyan-50/50 hover:to-cyan-100/50 rounded-xl shadow-sm border border-cyan-100/50 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-cyan-900/10 hover:border-cyan-200">
               <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center border border-cyan-100">
                 <Package className="w-3.5 h-3.5 stroke-[2.2]" />
               </div>
               <span className="text-[9.5px] font-bold text-slate-700">Delivery</span>
             </div>
 
-            <div className="w-[68px] py-2.5 bg-white rounded-xl shadow-xs border border-slate-100 flex flex-col items-center justify-center gap-1 transition-all duration-300">
+            <div className="w-[68px] py-2.5 bg-gradient-to-br from-white to-indigo-50/50 hover:to-indigo-100/50 rounded-xl shadow-sm border border-indigo-100/50 flex flex-col items-center justify-center gap-1 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-900/10 hover:border-indigo-200">
               <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
                 <Car className="w-3.5 h-3.5 stroke-[2.2]" />
               </div>
