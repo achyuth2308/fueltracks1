@@ -28,71 +28,81 @@ SELECT create_hypertable(
 );
 
 -- 3. Enable columnar compression (saves ~70-80% disk vs raw rows)
-ALTER TABLE gps_points SET (
-  timescaledb.compress,
-  timescaledb.compress_segmentby = 'vehicle_id',
-  timescaledb.compress_orderby   = 'device_time DESC'
-);
+DO $$ 
+BEGIN
+  ALTER TABLE gps_points SET (
+    timescaledb.compress,
+    timescaledb.compress_segmentby = 'vehicle_id',
+    timescaledb.compress_orderby   = 'device_time DESC'
+  );
+  
+  -- 4. Compression policy: compress chunks older than 14 days automatically
+  PERFORM add_compression_policy(
+    'gps_points',
+    INTERVAL '14 days',
+    if_not_exists => TRUE
+  );
 
--- 4. Compression policy: compress chunks older than 14 days automatically
-SELECT add_compression_policy(
-  'gps_points',
-  INTERVAL '14 days',
-  if_not_exists => TRUE
-);
-
--- 5. Retention policy: drop chunks older than 180 days
-SELECT add_retention_policy(
-  'gps_points',
-  INTERVAL '180 days',
-  if_not_exists => TRUE
-);
+  -- 5. Retention policy: drop chunks older than 180 days
+  PERFORM add_retention_policy(
+    'gps_points',
+    INTERVAL '180 days',
+    if_not_exists => TRUE
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Compression/Retention policies not supported under current Timescale license. Skipping.';
+END $$;
 
 -- 6. Continuous aggregate: hourly rollup (used by trip/speed dashboard queries)
-CREATE MATERIALIZED VIEW IF NOT EXISTS gps_points_hourly
-WITH (timescaledb.continuous) AS
-SELECT
-  time_bucket('1 hour', device_time) AS bucket,
-  vehicle_id,
-  AVG(speed)::SMALLINT                            AS avg_speed,
-  MAX(speed)                                       AS max_speed,
-  (MAX(odometer) - MIN(odometer))                  AS distance_m,
-  COUNT(*)                                         AS point_count,
-  BOOL_OR(ignition)                                AS had_ignition_on
-FROM gps_points
-GROUP BY bucket, vehicle_id
-WITH NO DATA;
+DO $$
+BEGIN
+  CREATE MATERIALIZED VIEW IF NOT EXISTS gps_points_hourly
+  WITH (timescaledb.continuous) AS
+  SELECT
+    time_bucket('1 hour', device_time) AS bucket,
+    vehicle_id,
+    AVG(speed)::SMALLINT                            AS avg_speed,
+    MAX(speed)                                       AS max_speed,
+    (MAX(odometer) - MIN(odometer))                  AS distance_m,
+    COUNT(*)                                         AS point_count,
+    BOOL_OR(ignition)                                AS had_ignition_on
+  FROM gps_points
+  GROUP BY bucket, vehicle_id
+  WITH NO DATA;
 
-SELECT add_continuous_aggregate_policy(
-  'gps_points_hourly',
-  start_offset      => INTERVAL '3 hours',
-  end_offset        => INTERVAL '1 hour',
-  schedule_interval => INTERVAL '1 hour',
-  if_not_exists     => TRUE
-);
+  PERFORM add_continuous_aggregate_policy(
+    'gps_points_hourly',
+    start_offset      => INTERVAL '3 hours',
+    end_offset        => INTERVAL '1 hour',
+    schedule_interval => INTERVAL '1 hour',
+    if_not_exists     => TRUE
+  );
 
--- 7. Continuous aggregate: daily rollup (used by 7-day / 30-day trend charts)
-CREATE MATERIALIZED VIEW IF NOT EXISTS gps_points_daily
-WITH (timescaledb.continuous) AS
-SELECT
-  time_bucket('1 day', device_time) AS bucket,
-  vehicle_id,
-  AVG(speed)::SMALLINT                                              AS avg_speed,
-  MAX(speed)                                                         AS max_speed,
-  (MAX(odometer) - MIN(odometer))                                    AS distance_m,
-  COUNT(*)                                                           AS point_count,
-  SUM(CASE WHEN ignition = TRUE THEN 1 ELSE 0 END)::INTEGER          AS ignition_on_count
-FROM gps_points
-GROUP BY bucket, vehicle_id
-WITH NO DATA;
+  -- 7. Continuous aggregate: daily rollup (used by 7-day / 30-day trend charts)
+  CREATE MATERIALIZED VIEW IF NOT EXISTS gps_points_daily
+  WITH (timescaledb.continuous) AS
+  SELECT
+    time_bucket('1 day', device_time) AS bucket,
+    vehicle_id,
+    AVG(speed)::SMALLINT                                              AS avg_speed,
+    MAX(speed)                                                         AS max_speed,
+    (MAX(odometer) - MIN(odometer))                                    AS distance_m,
+    COUNT(*)                                                           AS point_count,
+    SUM(CASE WHEN ignition = TRUE THEN 1 ELSE 0 END)::INTEGER          AS ignition_on_count
+  FROM gps_points
+  GROUP BY bucket, vehicle_id
+  WITH NO DATA;
 
-SELECT add_continuous_aggregate_policy(
-  'gps_points_daily',
-  start_offset      => INTERVAL '3 days',
-  end_offset        => INTERVAL '1 day',
-  schedule_interval => INTERVAL '1 day',
-  if_not_exists     => TRUE
-);
+  PERFORM add_continuous_aggregate_policy(
+    'gps_points_daily',
+    start_offset      => INTERVAL '3 days',
+    end_offset        => INTERVAL '1 day',
+    schedule_interval => INTERVAL '1 day',
+    if_not_exists     => TRUE
+  );
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'Continuous aggregates not supported under current Timescale license. Skipping.';
+END $$;
 
 -- 8. Performance indexes missing from original schema.sql
 --    These cover the offline checker cron and common fleet queries.
