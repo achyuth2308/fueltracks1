@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
 import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
@@ -95,17 +95,17 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
   // Zoom in when a new vehicle is selected
   useEffect(() => {
     if (!selectedVehicle?.id) return;
-    
+
     let lat = parseFloat(selectedVehicle.lat);
     let lng = parseFloat(selectedVehicle.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
-    
+
     if (!hasValidCoords && vehicles && vehicles.length > 0) {
       const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
       lat = 17.3411 + (Math.max(0, idx) * 0.003);
       lng = 78.5317 + (Math.max(0, idx) * 0.003);
     }
-    
+
     if (!isNaN(lat) && !isNaN(lng)) {
       map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
     }
@@ -130,7 +130,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
         .filter(v => v.lat && v.lng)
         .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
         .filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] !== 0 && coord[1] !== 0);
-        
+
       if (validCoords.length > 0) {
         const bounds = L.latLngBounds(validCoords);
         setTimeout(() => {
@@ -151,11 +151,11 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
     if (!followSelected || !selectedVehicle?.id) return;
-    
+
     let lat = parseFloat(selectedVehicle.lat);
     let lng = parseFloat(selectedVehicle.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
-    
+
     if (!hasValidCoords && vehicles && vehicles.length > 0) {
       const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
       lat = 17.3411 + (Math.max(0, idx) * 0.003);
@@ -196,7 +196,7 @@ const getVehicleType = (vehicle) => {
   if (model === 'bus' || model === 'ambulance') return 'bus';
   if (model === 'van' || model === 'pickup') return 'van';
   if (model === 'truck' || model === 'lorry' || model === 'tanker' ||
-      model === 'tractor' || model === 'jcb' || model === 'crane' || model === 'borewell') return 'lorry';
+    model === 'tractor' || model === 'jcb' || model === 'crane' || model === 'borewell') return 'lorry';
 
   // ── Priority 2: Keyword search (fallback for older/manual entries) ──
   if (model.includes('scooty') || model.includes('scooter') || model.includes('moped')) return 'bike';
@@ -238,10 +238,10 @@ const getVehicleStatus = (vehicle) => {
 };
 
 const STATUS_CONFIG = {
-  running: { color: '#16a34a', label: 'Running',  pulse: true  },
-  idle:    { color: '#f59e0b', label: 'Idle',     pulse: false },
-  parked:  { color: '#f97316', label: 'Parked',   pulse: false },
-  offline: { color: '#ef4444', label: 'Offline',  pulse: false },
+  running: { color: '#16a34a', label: 'Running', pulse: true },
+  idle: { color: '#f59e0b', label: 'Idle', pulse: false },
+  parked: { color: '#f97316', label: 'Parked', pulse: false },
+  offline: { color: '#ef4444', label: 'Offline', pulse: false },
 };
 
 // ── Pin icon builder ─────────────────────────────────────────────
@@ -252,18 +252,18 @@ const STATUS_CONFIG = {
 //   • directional arrow for moving vehicles
 //   • pulse ring animation for running vehicles
 const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
-  const status  = getVehicleStatus(vehicle);
-  const cfg     = STATUS_CONFIG[status];
-  const color   = cfg.color;
-  const type    = getVehicleType(vehicle);
-  const speed   = Math.round(vehicle.current_speed || 0);
+  const status = getVehicleStatus(vehicle);
+  const cfg = STATUS_CONFIG[status];
+  const color = cfg.color;
+  const type = getVehicleType(vehicle);
+  const speed = Math.round(vehicle.current_speed || 0);
 
   // Small glyph inside pin (16×16 viewport)
   const glyphMap = {
-    bike:  `<path d="M3 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M13 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M8 5l2 4H5L8 5zM8 9h8" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
-    car:   `<rect x="2" y="6" width="12" height="7" rx="2" fill="white" fill-opacity="0.9"/><rect x="4" y="4" width="8" height="4" rx="1" fill="white" fill-opacity="0.7"/><circle cx="4.5" cy="13.5" r="1.5" fill="white"/><circle cx="11.5" cy="13.5" r="1.5" fill="white"/>`,
-    bus:   `<rect x="2" y="3" width="12" height="11" rx="1.5" fill="white" fill-opacity="0.9"/><rect x="3" y="4" width="5" height="4" rx="0.5" fill="${color}"/><rect x="9" y="4" width="4" height="4" rx="0.5" fill="${color}"/>`,
-    van:   `<rect x="1" y="5" width="14" height="9" rx="2" fill="white" fill-opacity="0.9"/><rect x="9" y="3" width="5" height="4" rx="1" fill="white" fill-opacity="0.7"/>`,
+    bike: `<path d="M3 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M13 12a3 3 0 1 0 6 0 3 3 0 0 0-6 0M8 5l2 4H5L8 5zM8 9h8" stroke="white" stroke-width="1.5" fill="none" stroke-linecap="round"/>`,
+    car: `<rect x="2" y="6" width="12" height="7" rx="2" fill="white" fill-opacity="0.9"/><rect x="4" y="4" width="8" height="4" rx="1" fill="white" fill-opacity="0.7"/><circle cx="4.5" cy="13.5" r="1.5" fill="white"/><circle cx="11.5" cy="13.5" r="1.5" fill="white"/>`,
+    bus: `<rect x="2" y="3" width="12" height="11" rx="1.5" fill="white" fill-opacity="0.9"/><rect x="3" y="4" width="5" height="4" rx="0.5" fill="${color}"/><rect x="9" y="4" width="4" height="4" rx="0.5" fill="${color}"/>`,
+    van: `<rect x="1" y="5" width="14" height="9" rx="2" fill="white" fill-opacity="0.9"/><rect x="9" y="3" width="5" height="4" rx="1" fill="white" fill-opacity="0.7"/>`,
     lorry: `<rect x="1" y="6" width="10" height="8" rx="1" fill="white" fill-opacity="0.9"/><rect x="11" y="8" width="5" height="6" rx="1" fill="white" fill-opacity="0.7"/><circle cx="3.5" cy="14.5" r="1.5" fill="white"/><circle cx="9.5" cy="14.5" r="1.5" fill="white"/>`,
   };
   const glyph = glyphMap[type] || glyphMap.lorry;
@@ -301,9 +301,9 @@ const createPinIcon = (vehicle, noGps = false, clusterRank = 0) => {
   return L.divIcon({
     html: svgHtml,
     className: 'custom-marker-icon',
-    iconSize:   [36, totalHeight],
+    iconSize: [36, totalHeight],
     iconAnchor: [18, totalHeight - 2],     // tip of the pin/stem
-    popupAnchor:[0, -totalHeight],
+    popupAnchor: [0, -totalHeight],
   });
 };
 
@@ -323,11 +323,11 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
     }
   }, [isSelected]);
 
-  const status  = getVehicleStatus(vehicle);
-  const cfg     = STATUS_CONFIG[status];
-  const noGps   = !!vehicle._noGps;
+  const status = getVehicleStatus(vehicle);
+  const cfg = STATUS_CONFIG[status];
+  const noGps = !!vehicle._noGps;
   const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
-  const warning  = getExpiryWarning(vehicle.licence_expire_date);
+  const warning = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
 
   return (
@@ -336,9 +336,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       icon={createPinIcon(vehicle, noGps, clusterRank)}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
-      eventHandlers={{ 
+      eventHandlers={{
         mouseover: (e) => e.target.openPopup(),
-        click: () => onMarkerClick && onMarkerClick(vehicle) 
+        click: () => onMarkerClick && onMarkerClick(vehicle)
       }}
     >
       <Popup
@@ -365,7 +365,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '12px', rowGap: '6px', marginBottom: '8px' }}>
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicle.name}</span>
-            
+
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{Math.round(vehicle.today_distance || 0)} kms</span>
 
@@ -389,7 +389,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
-            
+
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Comm Time</span>
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
           </div>
@@ -423,7 +423,7 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
     let finalLng = parseFloat(vehicle.lng);
     const hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
       && finalLat !== 0 && finalLng !== 0
-      && finalLat > 6  && finalLat < 38
+      && finalLat > 6 && finalLat < 38
       && finalLng > 68 && finalLng < 98;
 
     if (!hasValidCoords) {
@@ -499,13 +499,15 @@ const ResizeMap = () => {
   return null;
 };
 
-const FleetMap = ({ 
-  vehicles = [], 
-  selectedVehicle = null, 
-  selectedVehicles = null, 
+const FleetMap = ({
+  vehicles = [],
+  selectedVehicle = null,
+  selectedVehicles = null,
   onMarkerClick,
   showRoute = false,
-  followSelected = false
+  followSelected = false,
+  nearbyRadius = null,
+  isNearbyActive = false
 }) => {
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
   // selectedVehicles (array) takes priority; fall back to singular selectedVehicle
@@ -585,9 +587,24 @@ const FleetMap = ({
           }
         />
 
+        {/* Radius Circle for Nearby Mode */}
+        {isNearbyActive && effectiveSelected && effectiveSelected.lat && effectiveSelected.lng && (
+          <Circle
+            center={[effectiveSelected.lat, effectiveSelected.lng]}
+            radius={nearbyRadius * 1000} // Radius is expected in meters for Circle
+            pathOptions={{
+              color: '#3b82f6',
+              fillColor: '#3b82f6',
+              fillOpacity: 0.1,
+              weight: 2,
+              dashArray: '5, 5'
+            }}
+          />
+        )}
+
         {/* Handle map zooming and vehicle route plotting */}
-        <VehicleRouteAndFit 
-          selectedVehicle={effectiveSelected} 
+        <VehicleRouteAndFit
+          selectedVehicle={effectiveSelected}
           vehicles={vehicles}
           showRoute={showRoute}
           followSelected={followSelected}

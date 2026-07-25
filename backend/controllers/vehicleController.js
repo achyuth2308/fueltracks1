@@ -58,7 +58,7 @@ const VehicleController = {
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -204,7 +204,7 @@ const VehicleController = {
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -348,7 +348,7 @@ const VehicleController = {
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -404,7 +404,7 @@ const VehicleController = {
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -445,7 +445,7 @@ const VehicleController = {
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -490,7 +490,7 @@ const VehicleController = {
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -529,7 +529,7 @@ const VehicleController = {
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -560,7 +560,7 @@ const VehicleController = {
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,
@@ -597,7 +597,7 @@ const VehicleController = {
 
       // Access Check
       if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId);
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({
             success: false,

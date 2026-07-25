@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle } from 'lucide-react';
+import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle, Navigation } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import FleetMap from '../../components/map/FleetMap';
 import { formatSpeed, formatFuel, formatVoltage, formatOdometer } from '../../utils/formatUtils';
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
+import { getDistance } from '../../utils/mapUtils';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle) return null;
@@ -13,8 +15,8 @@ const getExpiryWarning = (vehicle) => {
   if (!expireDateStr) return null;
 
   const status = getVehicleExpiryStatus(
-    expireDateStr, 
-    typeof vehicle === 'object' ? vehicle.licence_issued_date : null, 
+    expireDateStr,
+    typeof vehicle === 'object' ? vehicle.licence_issued_date : null,
     typeof vehicle === 'object' ? vehicle.metadata : null
   );
 
@@ -35,6 +37,46 @@ const TrackingPage = ({ setAppVehicles }) => {
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
+  const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
+  const [hoverPosY, setHoverPosY] = useState(12);
+  const [hoveredVehicleAddress, setHoveredVehicleAddress] = useState(null);
+  const hoveredVehicle = useMemo(() => vehicles.find(v => v.id === hoveredVehicleId), [vehicles, hoveredVehicleId]);
+
+  // Nearby Vehicles State
+  const [isNearbyActive, setIsNearbyActive] = useState(false);
+  const [nearbyRadius, setNearbyRadius] = useState(10); // in km
+
+  const nearbyVehiclesList = useMemo(() => {
+    if (!isNearbyActive || selectedVehicles.length !== 1 || !vehicles.length) return [];
+    const target = vehicles.find(v => String(v.id) === String(selectedVehicles[0]));
+    if (!target || !target.lat || !target.lng) return [];
+
+    return vehicles
+      .filter(v => v.id !== target.id && v.lat && v.lng)
+      .map(v => ({
+        ...v,
+        distanceToTarget: getDistance(target.lat, target.lng, v.lat, v.lng)
+      }))
+      .filter(v => v.distanceToTarget <= nearbyRadius)
+      .sort((a, b) => a.distanceToTarget - b.distanceToTarget);
+  }, [isNearbyActive, selectedVehicles, vehicles, nearbyRadius]);
+
+  useEffect(() => {
+    if (hoveredVehicle) {
+      if (hoveredVehicle.current_address) {
+        setHoveredVehicleAddress(hoveredVehicle.current_address);
+      } else if (hoveredVehicle.lat && hoveredVehicle.lng) {
+        setHoveredVehicleAddress('Fetching address...');
+        getAddressFromCoordinates(hoveredVehicle.lat, hoveredVehicle.lng)
+          .then(addr => setHoveredVehicleAddress(addr))
+          .catch(() => setHoveredVehicleAddress('Location unavailable'));
+      } else {
+        setHoveredVehicleAddress('Location unavailable');
+      }
+    } else {
+      setHoveredVehicleAddress(null);
+    }
+  }, [hoveredVehicle]);
 
   useEffect(() => {
     if (!hasSelectedInitial && location.state?.selectedVehicleId && vehicles?.length > 0) {
@@ -101,7 +143,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     });
   }, [vehicles, statusFilter]);
 
-  const handleSelectVehicle = (vehicle) => {
+  const handleVehicleSelect = (vehicle) => {
     setSelectedVehicles(prev => {
       const isSelected = prev.some(v => v.id === vehicle.id);
       if (isSelected) {
@@ -138,28 +180,139 @@ const TrackingPage = ({ setAppVehicles }) => {
   };
 
   return (
-    <div style={{
+    <div className="tracking-container" style={{
       display: 'flex',
       flexDirection: 'row',
       height: 'calc(100vh - 56px)',
       background: '#f0f2f5',
       overflow: 'hidden',
+      position: 'relative',
       fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
     }}>
 
+      {/* ── Hover Tooltip Card ── */}
+      {hoveredVehicle && (
+        <div style={{
+          position: 'absolute',
+          top: `${hoverPosY}px`,
+          left: '324px',
+          width: '260px',
+          background: 'rgba(255, 255, 255, 0.4)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          border: '1px solid rgba(255, 255, 255, 0.6)',
+          borderRadius: '16px',
+          padding: '12px',
+          zIndex: 1001,
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px',
+          pointerEvents: 'none'
+        }}>
+          {/* Header removed as requested */}
+
+          {/* Expiry Warning */}
+          {(() => {
+            const warning = getExpiryWarning(hoveredVehicle);
+            if (!warning) return null;
+            const isExpired = warning.type === 'expired';
+            return (
+              <div style={{
+                background: isExpired ? '#FEF2F2' : '#FFFBEB',
+                border: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
+                padding: '10px 12px',
+                display: 'flex', alignItems: 'center', gap: '10px',
+                borderRadius: '8px'
+              }}>
+                <AlertTriangle size={16} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: isExpired ? '#B91C1C' : '#D97706' }}>
+                    {warning.text}
+                  </div>
+                  {hoveredVehicle.licence_expire_date && (
+                    <div style={{ fontSize: '10px', color: isExpired ? '#991B1B' : '#B45309', marginTop: '2px' }}>
+                      Expires on {formatLocalDate(hoveredVehicle.licence_expire_date)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Driver */}
+          {hoveredVehicle.driver_name && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <User size={16} color="#4b5563" />
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937' }}>{hoveredVehicle.driver_name}</div>
+                {hoveredVehicle.driver_phone && <div style={{ fontSize: '11px', color: '#6b7280' }}>{hoveredVehicle.driver_phone}</div>}
+              </div>
+            </div>
+          )}
+
+          {/* Table Grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.3)' }}>
+            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Compass size={12} color="#3b82f6" /> Odo (kms)</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
+            </div>
+            <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.today_distance || 0).toLocaleString()}</div>
+            </div>
+            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.current_ignition ? 'ON' : 'OFF'}</div>
+            </div>
+            <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Cpu size={12} color="#10b981" /> Battery</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatVoltage(hoveredVehicle.current_voltage)}</div>
+            </div>
+            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#4b5563" /> Speed (km/h)</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.current_speed || 0)}</div>
+            </div>
+            <div style={{ padding: '8px' }}>
+              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#10b981" /> Direction</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.current_course || 'N/A'}</div>
+            </div>
+          </div>
+
+          {/* Location */}
+          <div>
+            <div style={{ fontSize: '10px', color: '#1f2937', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} color="#4b5563" /> Current Location</div>
+            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', lineHeight: '1.4' }}>
+              {hoveredVehicleAddress || 'Unknown location'}
+            </div>
+            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '6px' }}>
+              {getRelativeTime(hoveredVehicle.last_seen)}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══════════ LEFT PANEL: Vehicle List ═══════════ */}
       <div style={{
+        position: 'absolute',
+        top: '12px',
+        left: '12px',
+        maxHeight: 'calc(100% - 24px)',
         width: '300px',
-        background: '#ffffff',
-        borderRight: '1px solid #e5e7eb',
+        background: 'rgba(255, 255, 255, 0.25)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: '1px solid rgba(255, 255, 255, 0.5)',
+        borderRadius: '24px',
         display: 'flex',
         flexDirection: 'column',
-        flexShrink: 0,
-        height: '100%',
-        boxShadow: '2px 0 12px rgba(0,0,0,0.04)'
+        zIndex: 1000,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
       }}>
         {/* Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid #f3f4f6' }}>
+        <div style={{ padding: '16px', borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -184,13 +337,13 @@ const TrackingPage = ({ setAppVehicles }) => {
             <button
               onClick={() => refetch()}
               style={{
-                background: '#f9fafb', border: '1px solid #e5e7eb', color: '#6b7280',
+                background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#6b7280',
                 cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px',
                 borderRadius: '8px', transition: 'all 0.2s', marginTop: '2px'
               }}
               title="Refresh"
-              onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.color = '#374151'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.color = '#6b7280'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'; e.currentTarget.style.color = '#374151'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'; e.currentTarget.style.color = '#6b7280'; }}
             >
               <RefreshCw size={14} />
             </button>
@@ -199,17 +352,20 @@ const TrackingPage = ({ setAppVehicles }) => {
           {statusFilter && (
             <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
               <button onClick={handleClearFilters} style={{
-                padding: '5px 10px', borderRadius: '6px', border: '1px solid #e5e7eb',
-                background: '#f9fafb', color: '#6b7280', fontSize: '10px', fontWeight: 600,
-                cursor: 'pointer'
-              }}>Clear Filter</button>
+                padding: '5px 10px', borderRadius: '6px', border: '1px solid rgba(255, 255, 255, 0.8)',
+                background: 'rgba(255, 255, 255, 0.6)', color: '#6b7280', fontSize: '10px', fontWeight: 600,
+                cursor: 'pointer', transition: 'all 0.2s'
+              }}
+                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'}
+              >Clear Filter</button>
             </div>
           )}
         </div>
 
         {/* Vehicle List */}
         <div className="tracking-scroll" style={{
-          flex: 1, overflowY: 'auto', padding: '8px',
+          overflowY: 'auto', padding: '8px',
           display: 'flex', flexDirection: 'column', gap: '4px'
         }}>
           {loading ? (
@@ -230,24 +386,34 @@ const TrackingPage = ({ setAppVehicles }) => {
               return (
                 <div
                   key={v.id}
-                  onClick={() => handleSelectVehicle(v)}
+                  onClick={() => handleVehicleSelect(v)}
                   title={getExpiryWarning(v) ? getExpiryWarning(v).text : undefined}
                   style={{
-
-                    background: isSelected ? 'linear-gradient(135deg, #4d6076, #6e859b)' : '#ffffff',
-                    border: `1px solid ${isSelected ? 'transparent' : '#f3f4f6'}`,
-                    borderRadius: '10px',
+                    background: isSelected ? 'linear-gradient(135deg, #4d6076, #6e859b)' : 'rgba(255, 255, 255, 0.85)',
+                    backdropFilter: isSelected ? 'none' : 'blur(4px)',
+                    border: `1px solid ${isSelected ? 'transparent' : 'rgba(255, 255, 255, 0.9)'}`,
+                    borderRadius: '16px',
                     padding: '10px 12px',
                     cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    position: 'relative'
+                    transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    position: 'relative',
+                    zIndex: hoveredVehicleId === v.id ? 10 : 1,
+                    transform: hoveredVehicleId === v.id ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: hoveredVehicleId === v.id ? '0 8px 16px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.02)'
                   }}
-                  onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#f9fafb'; e.currentTarget.style.borderColor = '#e5e7eb'; } }}
-                  onMouseLeave={e => { if (!isSelected) { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#f3f4f6'; } }}
+                  onMouseEnter={e => {
+                    setHoveredVehicleId(v.id);
+                    const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
+                    const itemRect = e.currentTarget.getBoundingClientRect();
+                    setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+                  }}
+                  onMouseLeave={e => {
+                    setHoveredVehicleId(null);
+                  }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: isSelected ? '#fff' : '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: isSelected ? '#fff' : '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {v.name}
                       </div>
                       <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.7)' : '#9ca3af', marginTop: '1px' }}>
@@ -274,10 +440,12 @@ const TrackingPage = ({ setAppVehicles }) => {
         <FleetMap
           vehicles={filteredVehicles}
           selectedVehicles={currentSelectedVehicles}
-          onMarkerClick={handleSelectVehicle}
+          onMarkerClick={handleVehicleSelect}
           onMultiTrackClick={handleMultiTrackClick}
           showRoute={false}
           followSelected={true}
+          nearbyRadius={nearbyRadius}
+          isNearbyActive={isNearbyActive}
         />
 
         {/* ── Floating Status Pills (top-right of map) ── */}
@@ -324,7 +492,198 @@ const TrackingPage = ({ setAppVehicles }) => {
           </div>
         </div>
 
-        {/* ── Floating Vehicle Detail Card (right side of map) ── */}
+        {/* ── Top Center "Find Nearby" Action Button ── */}
+        {currentSelectedVehicles.length === 1 && (
+          <div style={{
+            position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001,
+          }}>
+            <button
+              onClick={() => setIsNearbyActive(!isNearbyActive)}
+              style={{
+                background: isNearbyActive ? '#3b82f6' : 'rgba(255,255,255,0.95)',
+                color: isNearbyActive ? '#fff' : '#1f2937',
+                border: isNearbyActive ? '1px solid #2563eb' : '1px solid rgba(0,0,0,0.1)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+                padding: '10px 24px',
+                borderRadius: '30px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)'
+              }}
+              onMouseEnter={(e) => {
+                if (!isNearbyActive) {
+                  e.currentTarget.style.transform = 'translateX(-50%) translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.2)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isNearbyActive) {
+                  e.currentTarget.style.transform = 'translateX(-50%) translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.15)';
+                }
+              }}
+            >
+              <Search size={16} color={isNearbyActive ? '#fff' : '#3b82f6'} />
+              {isNearbyActive ? 'Nearby Search Active' : 'Find Nearby Vehicles'}
+            </button>
+          </div>
+        )}
+
+        {/* ── Real-time Speedometer Widget (bottom-left of map) ── */}
+        {currentSelectedVehicles.length > 0 && (() => {
+          const sv = currentSelectedVehicles[0];
+          const speed = Math.round(sv.current_speed || 0);
+          const maxSpeed = 200;
+          // Arc: 220 degrees total, starts at 200 deg and ends at 340 deg (bottom)
+          const startAngle = -220; // degrees, from 3 o'clock
+          const totalArc = 240;   // degrees
+          const pct = Math.min(speed / maxSpeed, 1);
+          const needleAngle = startAngle + pct * totalArc; // in degrees
+
+          // Convert to radians for needle tip
+          const cx = 90, cy = 90, r = 68;
+          const needleRad = (needleAngle * Math.PI) / 180;
+          const nx = cx + r * Math.cos(needleRad);
+          const ny = cy + r * Math.sin(needleRad);
+
+          // Arc helper: polar to cartesian
+          const polarToCartesian = (angle) => ({
+            x: cx + r * Math.cos((angle * Math.PI) / 180),
+            y: cy + r * Math.sin((angle * Math.PI) / 180),
+          });
+          const arcPath = (from, to, ri = r, outer = false) => {
+            const s = polarToCartesian(from);
+            const e = polarToCartesian(to);
+            const large = Math.abs(to - from) > 180 ? 1 : 0;
+            return `M ${s.x} ${s.y} A ${ri} ${ri} 0 ${large} 1 ${e.x} ${e.y}`;
+          };
+
+          // Ticks
+          const ticks = [];
+          for (let i = 0; i <= 20; i++) {
+            const pctTick = i / 20;
+            const angle = startAngle + pctTick * totalArc;
+            const rad = (angle * Math.PI) / 180;
+            const isMajor = i % 4 === 0;
+            const inner = isMajor ? 55 : 60;
+            const outer2 = 68;
+            const x1 = cx + inner * Math.cos(rad);
+            const y1 = cy + inner * Math.sin(rad);
+            const x2 = cx + outer2 * Math.cos(rad);
+            const y2 = cy + outer2 * Math.sin(rad);
+            ticks.push({ x1, y1, x2, y2, isMajor, pctTick });
+          }
+
+          // Speed color
+          let speedColor = '#10b981';
+          if (speed > 80) speedColor = '#f59e0b';
+          if (speed > 120) speedColor = '#ef4444';
+
+          return (
+            <div style={{
+              position: 'absolute',
+              bottom: '20px',
+              left: '320px',
+              zIndex: 1002,
+              background: 'rgba(255, 255, 255, 0.2)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.5)',
+              borderRadius: '20px',
+              padding: '12px 16px',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '4px',
+              minWidth: '200px',
+            }}>
+              {/* Vehicle name */}
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#1f2937', textAlign: 'center', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {sv.name}
+              </div>
+
+              {/* SVG Speedometer */}
+              <svg width="180" height="110" viewBox="0 0 180 110">
+                {/* Background arc zones */}
+                {/* Green zone: 0-80 (0-40%) */}
+                <path d={arcPath(startAngle, startAngle + 0.4 * totalArc)} fill="none" stroke="rgba(16,185,129,0.25)" strokeWidth="10" strokeLinecap="butt" />
+                {/* Yellow zone: 80-120 (40-60%) */}
+                <path d={arcPath(startAngle + 0.4 * totalArc, startAngle + 0.6 * totalArc)} fill="none" stroke="rgba(245,158,11,0.25)" strokeWidth="10" strokeLinecap="butt" />
+                {/* Red zone: 120-200 (60-100%) */}
+                <path d={arcPath(startAngle + 0.6 * totalArc, startAngle + totalArc)} fill="none" stroke="rgba(239,68,68,0.25)" strokeWidth="10" strokeLinecap="butt" />
+
+                {/* Active speed arc */}
+                {speed > 0 && (
+                  <path
+                    d={arcPath(startAngle, needleAngle)}
+                    fill="none"
+                    stroke={speedColor}
+                    strokeWidth="10"
+                    strokeLinecap="butt"
+                    style={{ transition: 'all 0.6s ease' }}
+                  />
+                )}
+
+                {/* Tick marks */}
+                {ticks.map((t, i) => (
+                  <line
+                    key={i}
+                    x1={t.x1} y1={t.y1}
+                    x2={t.x2} y2={t.y2}
+                    stroke={t.pctTick > 0.6 ? '#ef4444' : t.pctTick > 0.4 ? '#f59e0b' : '#10b981'}
+                    strokeWidth={t.isMajor ? 2 : 1}
+                    opacity={0.7}
+                  />
+                ))}
+
+                {/* Speed labels */}
+                {[0, 50, 100, 150, 200].map((label, i) => {
+                  const pctL = label / maxSpeed;
+                  const ang = startAngle + pctL * totalArc;
+                  const rad = (ang * Math.PI) / 180;
+                  const lx = cx + 47 * Math.cos(rad);
+                  const ly = cy + 47 * Math.sin(rad);
+                  return (
+                    <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
+                      fontSize="8" fontWeight="700" fill="#4b5563">
+                      {label}
+                    </text>
+                  );
+                })}
+
+                {/* Needle */}
+                <line
+                  x1={cx} y1={cy}
+                  x2={nx} y2={ny}
+                  stroke={speedColor}
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  style={{ transition: 'all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1)' }}
+                />
+                {/* Needle base circle */}
+                <circle cx={cx} cy={cy} r="5" fill="#1f2937" />
+                <circle cx={cx} cy={cy} r="2.5" fill={speedColor} />
+              </svg>
+
+              {/* Speed readout */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '-8px' }}>
+                <span style={{ fontSize: '28px', fontWeight: 900, color: speedColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s', fontFamily: 'monospace' }}>
+                  {speed}
+                </span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>km/h</span>
+              </div>
+            </div>
+          );
+        })()}
+
+
         {currentSelectedVehicles.length > 0 && (
           <div style={{
             position: 'absolute', top: '52px', right: '12px', bottom: '12px',
@@ -376,7 +735,10 @@ const TrackingPage = ({ setAppVehicles }) => {
                     </div>
                   </div>
                   <button
-                    onClick={() => setSelectedVehicles(prev => prev.filter(v => v.id !== currentSelectedVehicle.id))}
+                    onClick={() => {
+                      setSelectedVehicles(prev => prev.filter(v => v.id !== currentSelectedVehicle.id));
+                      setIsNearbyActive(false);
+                    }}
                     style={{
                       background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
                       cursor: 'pointer', padding: '4px', borderRadius: '6px',
@@ -519,6 +881,91 @@ const TrackingPage = ({ setAppVehicles }) => {
                 )}
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Nearby Vehicles Floating Panel ── */}
+        {isNearbyActive && currentSelectedVehicles.length === 1 && (
+          <div style={{
+            position: 'absolute',
+            top: '84px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '320px',
+            maxHeight: '400px',
+            background: 'rgba(255, 255, 255, 0.85)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(255, 255, 255, 0.8)',
+            borderRadius: '24px',
+            padding: '16px',
+            zIndex: 1002,
+            boxShadow: '0 12px 48px rgba(0,0,0,0.15)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#1f2937', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MapPin size={16} color="#3b82f6" />
+                Nearby Vehicles
+              </div>
+              <button 
+                onClick={() => setIsNearbyActive(false)}
+                style={{ background: 'rgba(0,0,0,0.05)', borderRadius: '50%', padding: '4px', border: 'none', cursor: 'pointer', color: '#6b7280', display: 'flex' }}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#4b5563', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600 }}>Search Radius</span>
+                <span style={{ fontWeight: 800, color: '#3b82f6', background: 'rgba(59,130,246,0.1)', padding: '2px 8px', borderRadius: '12px' }}>{nearbyRadius} km</span>
+              </div>
+              <input 
+                type="range" 
+                min="1" 
+                max="50" 
+                value={nearbyRadius} 
+                onChange={(e) => setNearbyRadius(Number(e.target.value))}
+                style={{ width: '100%', cursor: 'pointer', accentColor: '#3b82f6' }}
+              />
+            </div>
+
+            <div style={{ overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+              {nearbyVehiclesList.length === 0 ? (
+                <div style={{ fontSize: '13px', color: '#6b7280', textAlign: 'center', padding: '30px 0', fontWeight: 600 }}>
+                  No vehicles found within {nearbyRadius} km.
+                </div>
+              ) : (
+                nearbyVehiclesList.map(v => (
+                  <div key={v.id} style={{
+                    background: '#fff', border: '1px solid rgba(0,0,0,0.08)',
+                    borderRadius: '16px', padding: '12px', display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(0,0,0,0.08)'; e.currentTarget.style.transform = 'translateY(0)'; }}
+                  onClick={() => handleVehicleSelect(v)}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#1f2937' }}>{v.name}</span>
+                      <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>{v.plate || 'No plate'}</span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 900, color: '#3b82f6' }}>
+                        {v.distanceToTarget < 1 ? `${Math.round(v.distanceToTarget * 1000)} m` : `${v.distanceToTarget.toFixed(1)} km`}
+                      </span>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: v.is_online ? '#10b981' : '#9ca3af' }}>
+                        {v.is_online ? 'ONLINE' : 'OFFLINE'}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )}
 

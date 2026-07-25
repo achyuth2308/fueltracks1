@@ -49,7 +49,7 @@ function init(io) {
 
         // Verify authorization for the vehicle
         if (role !== 'superadmin') {
-          const belongs = await VehicleModel.belongsToOrg(vehicleId, orgId);
+          const belongs = await VehicleModel.belongsToOrg(vehicleId, orgId, userId, role);
           if (!belongs) {
             socket.emit('error:socket', { message: 'Access denied to vehicle tracking.' });
             return;

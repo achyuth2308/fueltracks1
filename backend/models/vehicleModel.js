@@ -258,16 +258,33 @@ const VehicleModel = {
   /**
    * Check if vehicle belongs to org (ownership check for RBAC)
    */
-  async belongsToOrg(vehicleId, orgId) {
-    const result = await db.query(
-      `SELECT id FROM vehicles
-       WHERE id = $1 AND (
-         org_id = $2
-         OR org_id IN (SELECT id FROM organizations WHERE parent_id = $2)
-       )`,
-      [vehicleId, orgId]
-    );
-    return result.rows.length > 0;
+  async belongsToOrg(vehicleId, orgId, userId = null, role = null) {
+    if (role === 'customer' && userId) {
+      const result = await db.query(
+        `SELECT v.id FROM vehicles v
+         WHERE v.id = $1 AND (
+           v.org_id = $2
+           OR v.id IN (
+             SELECT vg.vehicle_id 
+             FROM vehicle_groups vg
+             JOIN user_groups ug ON vg.group_id = ug.group_id
+             WHERE ug.user_id = $3
+           )
+         )`,
+        [vehicleId, orgId, userId]
+      );
+      return result.rows.length > 0;
+    } else {
+      const result = await db.query(
+        `SELECT id FROM vehicles
+         WHERE id = $1 AND (
+           org_id = $2
+           OR org_id IN (SELECT id FROM organizations WHERE parent_id = $2)
+         )`,
+        [vehicleId, orgId]
+      );
+      return result.rows.length > 0;
+    }
   },
 
   /**
