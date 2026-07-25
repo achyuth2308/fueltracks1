@@ -8,9 +8,10 @@
  * Returns { valid: boolean, reason: string }
  */
 function validateNormalPacket(parsed) {
-  // GPS must be valid (A = valid, V = invalid)
-  if (parsed.gpsValid !== 'A') {
-    return { valid: false, reason: 'GPS fix invalid (V)' };
+  // We no longer reject on 'V' (Invalid) because the device is still connected and online.
+  // publisher.js handles replacing 0,0 coordinates with the last known cached location.
+  if (parsed.gpsValid && !['A', 'V'].includes(parsed.gpsValid)) {
+    return { valid: false, reason: `Unknown GPS fix status: ${parsed.gpsValid}` };
   }
 
   // IMEI must be present and 15 digits
