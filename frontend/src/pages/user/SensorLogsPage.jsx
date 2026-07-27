@@ -25,7 +25,7 @@ const SensorLogsPage = () => {
     if (!socket || !id) return;
     
     // Join room for this specific vehicle
-    socket.emit('join:vehicle', id);
+    socket.emit('join:vehicle', { vehicleId: id });
 
     const handleRaw = (data) => {
       setMessages(prev => {
@@ -37,7 +37,7 @@ const SensorLogsPage = () => {
     socket.on('raw:update', handleRaw);
     
     return () => {
-      socket.emit('leave:vehicle', id);
+      socket.emit('leave:vehicle', { vehicleId: id });
       socket.off('raw:update', handleRaw);
     };
   }, [socket, id]);
