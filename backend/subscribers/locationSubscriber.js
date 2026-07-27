@@ -194,6 +194,21 @@ async function start(io) {
           rawHex: data.rawHex,
           parsedJson: data.parsedJson
         });
+        
+        if (io) {
+          const vehicle = await VehicleModel.findByImei(data.imei);
+          if (vehicle) {
+            io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
+              received_at: new Date().toISOString(),
+              device_time: data.deviceTime,
+              odometer: data.odometer,
+              parsed: true,
+              packet_type: data.packetType,
+              raw_hex: data.rawHex,
+              raw: message
+            });
+          }
+        }
       } catch (err) {
         console.error('[SUBSCRIBER] Error processing raw log:', err.message);
       }

@@ -6,10 +6,12 @@ import autoTable from 'jspdf-autotable';
 import api from '../../api/axios';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { formatOdometer } from '../../utils/formatUtils';
+import { useSocket } from '../../hooks/useSocket';
 
 const SensorLogsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,6 +20,27 @@ const SensorLogsPage = () => {
   useEffect(() => {
     fetchMessages(1);
   }, [id]);
+
+  useEffect(() => {
+    if (!socket || !id) return;
+    
+    // Join room for this specific vehicle
+    socket.emit('join:vehicle', id);
+
+    const handleRaw = (data) => {
+      setMessages(prev => {
+        // Prepend new log and keep max 100 items for performance
+        return [data, ...prev].slice(0, 100);
+      });
+    };
+
+    socket.on('raw:update', handleRaw);
+    
+    return () => {
+      socket.emit('leave:vehicle', id);
+      socket.off('raw:update', handleRaw);
+    };
+  }, [socket, id]);
 
   const fetchMessages = async (page = 1) => {
     setLoading(true);
