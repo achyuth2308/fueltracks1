@@ -213,8 +213,8 @@ async function publishRawMessage(parsed) {
     imei: parsed.imei,
     packetType: parsed.packetType,
     rawHex: parsed.rawPacket || parsed.rawString || null,
-    deviceTime: parsed.deviceTime || null,
-    odometer: parsed.odometer || null,
+    deviceTime: parsed.deviceTime || new Date().toISOString(),
+    odometer: parsed.odometer !== undefined && parsed.odometer !== null ? parsed.odometer : null,
     parsedJson: parsed,
   });
   // Remove all null byte characters (0x00) which PostgreSQL UTF-8 rejects

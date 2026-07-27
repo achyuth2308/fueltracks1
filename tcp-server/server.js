@@ -240,6 +240,17 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
         return;
       }
 
+      // If alert has valid GPS data, publish as a location update too
+      if (parsed.lat && parsed.lng && Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180) {
+        connectedDevices.set(parsed.imei, {
+          clientId,
+          lastPacket: new Date(),
+          lat: parsed.lat,
+          lng: parsed.lng,
+        });
+        await publisher.publishLocation({ ...parsed, gpsValid: 'A', speed: parsed.speed || 0, odometer: 0, direction: 0 }).catch(() => {});
+      }
+
       // Publish alert to Redis
       await publisher.publishAlert(parsed);
       if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
