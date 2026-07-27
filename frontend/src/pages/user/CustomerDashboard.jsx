@@ -9,6 +9,7 @@ import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatSpeed, formatVoltage } from '../../utils/formatUtils';
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
+import { getDistance } from '../../utils/mapUtils';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle || !vehicle.licence_expire_date) return null;
@@ -52,6 +53,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const [hoverPosY, setHoverPosY] = useState(12);
   const [hoveredVehicleAddress, setHoveredVehicleAddress] = useState(null);
   const hoveredVehicle = useMemo(() => vehicles.find(v => v.id === hoveredVehicleId), [vehicles, hoveredVehicleId]);
+
+  const [isNearbyActive, setIsNearbyActive] = useState(false);
+  const [nearbyRadius, setNearbyRadius] = useState(5);
 
   useEffect(() => {
     if (hoveredVehicle) {
@@ -107,6 +111,26 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     if (!selectedVehicle) return null;
     return vehicles.find(v => v.id === selectedVehicle.id) || selectedVehicle;
   }, [vehicles, selectedVehicle]);
+
+  const nearbyVehicles = useMemo(() => {
+    if (!isNearbyActive || !currentSelected) return [];
+    
+    return vehicles.filter(v => {
+      if (v.id === currentSelected.id) return false;
+      if (!v.lat || !v.lng || !currentSelected.lat || !currentSelected.lng) return false;
+      
+      const dist = getDistance(
+        parseFloat(currentSelected.lat), parseFloat(currentSelected.lng),
+        parseFloat(v.lat), parseFloat(v.lng)
+      );
+      
+      if (dist <= nearbyRadius) {
+        v._distance = dist;
+        return true;
+      }
+      return false;
+    }).sort((a, b) => (a._distance || 0) - (b._distance || 0));
+  }, [isNearbyActive, currentSelected, vehicles, nearbyRadius]);
 
   const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
 
@@ -488,7 +512,106 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             vehicles={filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
+            isNearbyActive={isNearbyActive}
+            nearbyRadius={nearbyRadius}
           />
+          
+          {/* ── Nearby Mode Controls ── */}
+          {currentSelected && (
+            <div style={{
+              position: 'absolute',
+              bottom: '24px',
+              right: '24px',
+              zIndex: 1000,
+              background: 'rgba(255, 255, 255, 0.85)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.6)',
+              borderRadius: '16px',
+              padding: '12px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              minWidth: '220px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Compass size={16} color="#3b82f6" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>Nearby Vehicles</span>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={isNearbyActive} 
+                    onChange={(e) => setIsNearbyActive(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                  />
+                </label>
+              </div>
+              
+              {isNearbyActive && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '8px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>Radius:</span>
+                    <select 
+                      value={nearbyRadius}
+                      onChange={(e) => setNearbyRadius(Number(e.target.value))}
+                      style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', background: '#fff' }}
+                    >
+                      <option value={2}>2 km</option>
+                      <option value={5}>5 km</option>
+                      <option value={10}>10 km</option>
+                      <option value={20}>20 km</option>
+                      <option value={50}>50 km</option>
+                    </select>
+                  </div>
+                  
+                  <div className="tracking-scroll" style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingRight: '4px' }}>
+                    {nearbyVehicles.length === 0 ? (
+                      <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', padding: '12px 0' }}>
+                        No vehicles found within {nearbyRadius}km
+                      </div>
+                    ) : (
+                      nearbyVehicles.map(v => (
+                        <div 
+                          key={v.id}
+                          onClick={() => setSelectedVehicle(v)}
+                          style={{
+                            padding: '8px',
+                            background: '#f9fafb',
+                            borderRadius: '8px',
+                            border: '1px solid #e5e7eb',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                          }}
+                        >
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {v.name}
+                            </div>
+                            <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>
+                              {v.plate || 'No plate'}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: '8px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 800, color: '#3b82f6' }}>
+                              {v._distance.toFixed(1)} km
+                            </span>
+                            <span style={{ fontSize: '9px', fontWeight: 700, color: statusColors[getStatus(v)], marginTop: '2px', background: `${statusColors[getStatus(v)]}15`, padding: '2px 6px', borderRadius: '4px' }}>
+                              {statusLabels[getStatus(v)]}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
         </div>
       </div>
