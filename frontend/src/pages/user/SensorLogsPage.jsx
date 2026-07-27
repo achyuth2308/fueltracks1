@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Server, Loader2, AlertOctagon } from 'lucide-react';
+import { ArrowLeft, Server, Loader2, AlertOctagon, Download } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import api from '../../api/axios';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { formatOdometer } from '../../utils/formatUtils';
@@ -36,6 +38,41 @@ const SensorLogsPage = () => {
     fetchMessages(newPage);
   };
 
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    doc.text('Sensor Data Logs', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${formatLocalTime(new Date().toISOString())}`, 14, 22);
+
+    const tableColumn = ["Date & Time", "Device Time", "Device Odo", "Protocol Status", "Packet Type", "Device Message"];
+    const tableRows = [];
+
+    messages.forEach(m => {
+      const row = [
+        formatLocalTime(m.received_at),
+        m.device_time ? formatLocalTime(m.device_time) : '—',
+        m.odometer != null ? m.odometer : '—',
+        m.parsed ? 'Valid' : 'Invalid',
+        m.packet_type || 'UNKNOWN',
+        m.raw_hex || m.raw || '—'
+      ];
+      tableRows.push(row);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 28,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [249, 115, 22] },
+      columnStyles: {
+        5: { cellWidth: 80 }
+      }
+    });
+
+    doc.save(`sensor_logs_${id}_page${pagination.page}.pdf`);
+  };
+
   if (loading && messages.length === 0) return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '16px' }}>
       <Loader2 size={40} color="#f97316" className="animate-spin" />
@@ -64,8 +101,16 @@ const SensorLogsPage = () => {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button 
+            onClick={handleDownloadPDF}
+            disabled={messages.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', borderRadius: '6px', border: '1px solid #f97316', background: '#FFF7ED', color: '#f97316', cursor: messages.length === 0 ? 'not-allowed' : 'pointer', fontWeight: 600, fontSize: '13px', opacity: messages.length === 0 ? 0.5 : 1 }}
+          >
+            <Download size={14} /> Download PDF
+          </button>
+          
+          <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, borderLeft: '1px solid #E2E8F0', paddingLeft: '16px' }}>
             Page {pagination.page} of {pagination.totalPages || 1}
           </span>
           <div style={{ display: 'flex', gap: '4px' }}>
