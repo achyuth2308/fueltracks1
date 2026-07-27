@@ -534,7 +534,7 @@ const FleetMap = ({
       <div style={{
         position: 'absolute',
         top: '12px',
-        left: '12px',
+        right: '12px',
         zIndex: 1000,
         background: '#ffffff',
         border: '1px solid #bae6fd',
