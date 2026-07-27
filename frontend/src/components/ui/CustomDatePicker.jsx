@@ -114,6 +114,18 @@ const CustomDatePicker = ({ value, onChange, style, max, showTime }) => {
             onChange={handleTimeChange} 
             style={{...defaultStyle, width: '100%', cursor: 'pointer', padding: '10px 8px'}}
           >
+            {!TIME_OPTIONS.some(opt => opt.value === timeString) && (
+              <option value={timeString}>
+                {(() => {
+                  const parts = timeString.split(':');
+                  if (parts.length !== 2) return timeString;
+                  const h = parseInt(parts[0], 10);
+                  const ampm = h < 12 ? 'AM' : 'PM';
+                  const displayH = h === 0 ? 12 : (h > 12 ? h - 12 : h);
+                  return `${String(displayH).padStart(2, '0')}:${parts[1]} ${ampm}`;
+                })()}
+              </option>
+            )}
             {TIME_OPTIONS.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}

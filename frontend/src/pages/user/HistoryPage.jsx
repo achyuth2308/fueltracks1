@@ -155,15 +155,15 @@ const HistoryPage = () => {
     fetchVehicle();
   }, [id]);
 
-  const fetchRouteHistory = async () => {
+  const fetchRouteHistory = async (overrideStart, overrideEnd) => {
     setLoading(true);
     setError(null);
     setIsPlaying(false);
     setCurrentPointIndex(0);
     try {
       const routeRes = await vehicleApi.getVehicleRoute(id, {
-        startDate: new Date(startDate).toISOString(),
-        endDate: new Date(endDate).toISOString()
+        startDate: new Date(overrideStart || startDate).toISOString(),
+        endDate: new Date(overrideEnd || endDate).toISOString()
       });
       if (routeRes.success) {
         const processedPoints = routeRes.data.map(p => {
@@ -251,8 +251,11 @@ const HistoryPage = () => {
       end = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59);
     }
     
-    setStartDate(toLocalISO(start));
-    setEndDate(toLocalISO(end));
+    const startStr = toLocalISO(start);
+    const endStr = toLocalISO(end);
+    setStartDate(startStr);
+    setEndDate(endStr);
+    fetchRouteHistory(startStr, endStr);
   };
 
   const handleExportCSV = () => {
