@@ -185,7 +185,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
   );
 };
 
-import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon } from '../../utils/markerUtils';
+import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon, createTeardropIcon } from '../../utils/markerUtils';
 
 const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
   const markerRef = useRef(null);
@@ -213,7 +213,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   return (
     <Marker
       position={position}
-      icon={createPinIcon(vehicle, noGps, clusterRank)}
+      icon={createTeardropIcon(vehicle, noGps, clusterRank)}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
       eventHandlers={{

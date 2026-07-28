@@ -115,3 +115,37 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
     popupAnchor: [0, clusterRank > 0 ? -totalHeight : -18],
   });
 };
+
+export const createTeardropIcon = (vehicle, noGps = false, clusterRank = 0) => {
+  const status = getVehicleStatus(vehicle);
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
+  const color = cfg.color;
+
+  const stemHeight = clusterRank * 20;
+  const iconHeight = 36;
+  const totalHeight = iconHeight + stemHeight;
+
+  // Modern Teardrop SVG Pin
+  const pinSvg = `
+    <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
+      <path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
+      <circle cx="14" cy="14" r="6" fill="#ffffff" opacity="0.9"/>
+    </svg>
+  `;
+
+  const svgHtml = `
+    <div style="position:relative;width:28px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:28px;height:36px;position:relative;z-index:1;">
+        ${pinSvg}
+      </div>
+      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-4px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
+    </div>`;
+
+  return L.divIcon({
+    html: svgHtml,
+    className: 'custom-teardrop-icon',
+    iconSize: [28, totalHeight],
+    iconAnchor: [14, clusterRank > 0 ? totalHeight : 36],
+    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -36],
+  });
+};
