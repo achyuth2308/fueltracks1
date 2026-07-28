@@ -533,7 +533,7 @@ const FleetMap = ({
       {/* Map type selector overlay */}
       <div style={{
         position: 'absolute',
-        top: '12px',
+        bottom: '24px',
         right: '12px',
         zIndex: 1000,
         background: '#ffffff',
