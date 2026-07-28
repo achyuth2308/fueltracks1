@@ -33,32 +33,39 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       // Play Sound
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        const now = audioContext.currentTime;
+
+        const playTone = (freq, type, startTime, duration, vol) => {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, startTime);
+          gain.gain.setValueAtTime(vol, startTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        };
 
         if (data.alertType === 'safety_park') {
-          // Police Siren / Theft Alarm
-          oscillator.type = 'square';
-          gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
-          const now = audioContext.currentTime;
-          let time = now;
-          for (let i = 0; i < 4; i++) {
-            oscillator.frequency.setValueAtTime(900, time);
-            time += 0.4;
-            oscillator.frequency.setValueAtTime(650, time);
-            time += 0.4;
+          // Dramatic Alert for Parking/Theft
+          for (let i = 0; i < 6; i++) {
+            playTone(800, 'square', now + i * 0.3, 0.25, 0.15);
+            playTone(600, 'square', now + i * 0.3 + 0.15, 0.25, 0.15);
           }
-          oscillator.start(now);
-          oscillator.stop(time);
+        } else if (data.alertType === 'overspeed') {
+          // Rapid triple beep for warning
+          playTone(900, 'sine', now, 0.1, 0.2);
+          playTone(900, 'sine', now + 0.15, 0.1, 0.2);
+          playTone(900, 'sine', now + 0.3, 0.2, 0.2);
+        } else if (data.alertType === 'geofence') {
+          // Pleasant double chime for info
+          playTone(523.25, 'triangle', now, 0.3, 0.2); // C5
+          playTone(659.25, 'triangle', now + 0.15, 0.4, 0.2); // E5
         } else {
-          // Normal Beep
-          oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(800, audioContext.currentTime); // 800Hz beep
-          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-          oscillator.start();
-          setTimeout(() => oscillator.stop(), 200); // 200ms beep
+          // Default soft ping (Ignition, etc)
+          playTone(700, 'sine', now, 0.2, 0.15);
         }
       } catch (e) { console.warn('Audio play blocked'); }
 
@@ -282,19 +289,30 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       {latestToast && (
         <div style={{
           position: 'fixed', top: '70px', right: '20px', zIndex: 1000,
-          background: '#fff', borderRadius: '12px', borderLeft: '4px solid #EF4444',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)', padding: '16px',
-          display: 'flex', gap: '12px', width: '320px', animation: 'fadeInDown 0.3s ease'
+          background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
+          borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderLeft: `4px solid ${latestToast.alertType === 'safety_park' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#3b82f6'}`,
+          boxShadow: '0 20px 40px rgba(0,0,0,0.4)', padding: '16px 20px',
+          display: 'flex', gap: '16px', width: '340px', animation: 'fadeInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}>
-          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Bell size={20} color="#EF4444" />
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.1)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.05)'
+          }}>
+            <Bell size={22} color={latestToast.alertType === 'safety_park' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#60a5fa'} />
           </div>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827', marginBottom: '2px' }}>{latestToast.alertType.toUpperCase()} ALERT</div>
-            <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '4px' }}>
-              <span style={{ fontWeight: 700, color: '#4d6076' }}>{latestToast.vehicleName}</span> ({latestToast.plate})
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              {latestToast.alertType.replace('_', ' ')}
             </div>
-            <div style={{ fontSize: '13px', color: '#111827', lineHeight: 1.4 }}>{latestToast.alertText}</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
+              <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{latestToast.vehicleName}</span> ({latestToast.plate})
+            </div>
+            <div style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.5, fontWeight: 500 }}>
+              {latestToast.alertText}
+            </div>
           </div>
         </div>
       )}
