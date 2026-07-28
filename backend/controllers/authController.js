@@ -9,7 +9,7 @@ const crypto = require('crypto');
 const UserModel = require('../models/userModel');
 const env = require('../config/env');
 const AuditService = require('../services/auditService');
-const EmailService = require('../services/emailService');
+const sendgridService = require('../services/sendgrid.service');
 
 const AuthController = {
   /**
@@ -211,7 +211,13 @@ const AuthController = {
 
       // Send email
       try {
-        await EmailService.sendPasswordResetEmail(user.email, resetToken);
+        const frontendUrl = env.FRONTEND_URL || 'https://app.fueltracks.in';
+        const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+        await sendgridService.sendForgotPasswordEmail({ 
+          email: user.email, 
+          resetLink, 
+          expiryMinutes: 60 
+        });
       } catch (emailErr) {
         console.error('[AuthController] Failed to send password reset email:', emailErr.message);
         // We still return 200 below to prevent email enumeration and handle this gracefully.
