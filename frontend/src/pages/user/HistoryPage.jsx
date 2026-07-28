@@ -365,6 +365,7 @@ const HistoryPage = () => {
           <RouteMap
             points={filteredPoints}
             activePoint={activePoint}
+            vehicle={vehicle}
             vehicleName={vehicle?.name || 'Vehicle'}
             vehicleLastKnownPosition={
               vehicle && vehicle.lat != null && vehicle.lng != null

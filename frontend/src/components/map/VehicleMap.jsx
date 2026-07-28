@@ -32,57 +32,7 @@ const ResizeMap = () => {
   return null;
 };
 
-const getVehicleType = (vehicle) => {
-  if (!vehicle) return 'lorry';
-  const model = (vehicle.model || '').toLowerCase();
-  const name = (vehicle.name || '').toLowerCase();
-  
-  if (model.includes('car') || name.includes('car')) return 'car';
-  if (model.includes('bike') || name.includes('bike') || model.includes('motorcycle') || model.includes('twowheeler')) return 'bike';
-  if (model.includes('bus') || name.includes('bus')) return 'bus';
-  if (model.includes('van') || name.includes('van')) return 'van';
-  return 'lorry';
-};
-
-const getTopDownSvg = (type) => {
-  if (type === 'car') {
-    return `<img src="/long-car.png" style="width:28px;height:28px;object-fit:contain;" />`;
-  } else if (type === 'bike') {
-    return `<img src="/racing-motorbike.png" style="width:28px;height:28px;object-fit:contain;" />`;
-  }
-  // Default Lorry / Truck / Bus / Van
-  return `<img src="/big-cargo-truck.png" style="width:28px;height:28px;object-fit:contain;" />`;
-};
-
-// Custom vehicle marker generator
-const createVehicleIcon = (vehicle, statusColor, direction) => {
-  const type = getVehicleType(vehicle);
-  const svg = getTopDownSvg(type);
-
-  const svgHtml = `
-    <div style="
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 44px;
-      height: 44px;
-      background-color: #ffffff;
-      border: 3px solid ${statusColor};
-      border-radius: 50%;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2), inset 0 0 6px ${statusColor};
-      color: ${statusColor};
-    ">
-      ${svg}
-    </div>
-  `;
-
-  return L.divIcon({
-    html: svgHtml,
-    className: 'custom-leaflet-live-icon',
-    iconSize: [44, 44],
-    iconAnchor: [22, 22],
-  });
-};
+import { createPinIcon } from '../../utils/markerUtils';
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
   const { socket, joinVehicleRoom, leaveVehicleRoom } = useSocket();
@@ -172,7 +122,11 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
         {coords.length > 0 && (
           <Marker
             position={coords[coords.length - 1]}
-            icon={createVehicleIcon(vehicle, statusColor, direction)}
+            icon={createPinIcon(vehicle, false, 0, {
+              status: isOnline ? (isMoving ? 'running' : (ignition ? 'idle' : 'offline')) : 'offline',
+              speed: speed,
+              course: direction
+            })}
           />
         )}
       </MapContainer>

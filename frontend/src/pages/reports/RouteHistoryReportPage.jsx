@@ -171,7 +171,11 @@ const RouteHistoryReportPage = () => {
           </div>
         )}
         <div style={{ flex: 1 }}>
-          <RouteMap points={points} vehicleName={vehicles.find(v => v.id === selectedVehicleId)?.name || 'Vehicle'} />
+          <RouteMap 
+            points={points} 
+            vehicle={vehicles.find(v => String(v.id) === String(selectedVehicleId))}
+            vehicleName={vehicles.find(v => String(v.id) === String(selectedVehicleId))?.name || 'Vehicle'} 
+          />
         </div>
 
         {/* Right Panel Toggle Button */}

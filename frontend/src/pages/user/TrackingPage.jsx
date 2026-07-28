@@ -175,7 +175,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     const ignition = !!v.current_ignition;
     if (!isOnline) return { text: 'Offline', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
     if (speed > 0) return { text: 'Running', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
-    if (ignition) return { text: 'Idle', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' };
+    if (ignition) return { text: 'Idle', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
     return { text: 'Parked', color: '#f97316', bg: 'rgba(249,115,22,0.1)' };
   };
 
@@ -455,7 +455,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         }}>
           {[
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },
-            { type: 'idle', label: 'Idle', count: metrics.idle, color: '#f59e0b' },
+            { type: 'idle', label: 'Idle', count: metrics.idle, color: '#eab308' },
             { type: 'parked', label: 'Parked', count: metrics.parked, color: '#f97316' },
             { type: 'offline', label: 'Offline', count: metrics.offline, color: '#6b7280' },
           ].map(pill => {

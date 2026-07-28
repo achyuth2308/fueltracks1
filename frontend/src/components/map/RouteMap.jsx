@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
+import { createPinIcon } from '../../utils/markerUtils';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff, MapPin } from 'lucide-react';
@@ -83,7 +84,7 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const [follow, setFollow] = useState(true);
   const activeMarkerRef = useRef(null);
 
@@ -96,7 +97,6 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
   // Always start at India (Hyderabad). FitBoundsToRoute will zoom to actual points.
   const defaultCenter = [17.3411, 78.5317];
   const center = defaultCenter;
-
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -209,50 +209,18 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
 
   // Create custom rotated navigation arrow/car icon
   const createVehicleIcon = (direction = 0, speed = 0) => {
-    if (speed < 1) {
-      // Vehicle is stopped - show a simple dot like the history points
-      return L.divIcon({
-        html: `
-          <div style="
-            width: 16px;
-            height: 16px;
-            background: #1e293b;
-            border: 2px solid #ffffff;
-            border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-          "></div>
-        `,
-        className: 'custom-vehicle-stop-marker',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8],
-      });
-    }
-
-    // Vehicle is moving - show directional arrow
-    return L.divIcon({
-      html: `
-        <div style="
-          width: 38px;
-          height: 38px;
-          background: #0ea5e9;
-          border: 3px solid #ffffff;
-          border-radius: 50%;
-          box-shadow: 0 4px 12px rgba(14, 165, 233, 0.5);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transform: rotate(${direction}deg);
-          transition: transform 0.2s linear;
-        ">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
-          </svg>
-        </div>
-      `,
-      className: 'custom-vehicle-playback-marker',
-      iconSize: [38, 38],
-      iconAnchor: [19, 19],
-    });
+    // Use the shared marker logic for both moving and stopped
+    return createPinIcon(
+      vehicle || {}, // fallback to empty object if no vehicle provided
+      false, // noGps
+      0, // clusterRank
+      {
+        course: direction,
+        speed: speed,
+        status: speed < 1 ? 'offline' : 'running', // offline gives red, running gives green
+        hideSpeed: true // Don't show speed bubble over the car in history map
+      }
+    );
   };
 
   return (
@@ -619,7 +587,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicleName = 'Vehicle', ve
         {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
           <Marker
             position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-            icon={createVehicleIcon(activePoint.direction || 0, activePoint.speed || 0)}
+            icon={createVehicleIcon(activePoint.course || 0, activePoint.speed || 0)}
             zIndexOffset={1000}
             ref={activeMarkerRef}
           >
