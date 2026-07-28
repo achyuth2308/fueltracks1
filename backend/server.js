@@ -127,6 +127,8 @@ app.use('/api/auth/reset-password', authLimiter);
 // ROUTES
 // ============================================================
 
+const emailRoutes = require('./routes/emailExample.routes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
@@ -134,6 +136,7 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/billing', billingRoutes);
+app.use('/api/emails', emailRoutes);
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
