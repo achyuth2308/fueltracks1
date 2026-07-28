@@ -584,11 +584,27 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         ))}
 
         {/* Active Animated Playback Marker */}
-        {activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng) && (
-          <Marker
-            position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-            icon={createVehicleIcon(activePoint.course || 0, activePoint.speed || 0)}
-            zIndexOffset={1000}
+        {(() => {
+          if (!activePoint || !activePoint.lat || !activePoint.lng || !isValidCoord(activePoint.lat, activePoint.lng)) return null;
+
+          let heading = activePoint.course || 0;
+          if (!activePoint.course && currentIndex > 0) {
+            const prev = points[currentIndex - 1];
+            if (prev && prev.lat && prev.lng) {
+              const lat1 = prev.lat * Math.PI / 180;
+              const lat2 = activePoint.lat * Math.PI / 180;
+              const dLon = (activePoint.lng - prev.lng) * Math.PI / 180;
+              const y = Math.sin(dLon) * Math.cos(lat2);
+              const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+              heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+            }
+          }
+
+          return (
+            <Marker
+              position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
+              icon={createVehicleIcon(heading, activePoint.speed || 0)}
+              zIndexOffset={1000}
             ref={activeMarkerRef}
           >
             <Popup className="premium-popup modern-hover-card" autoPan={false}>
@@ -624,7 +640,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               </div>
             </Popup>
           </Marker>
-        )}
+          );
+        })()}
 
 
       </MapContainer>
