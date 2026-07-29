@@ -96,19 +96,21 @@ const HistoryPage = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filteredPoints.length, activeTab]);
+    setCurrentPointIndex(0);
+    setIsPlaying(false);
+  }, [activeTab]);
 
   useEffect(() => {
-    if (activeTab === 'All' && points.length > 0 && currentPointIndex >= 0) {
+    if (filteredPoints.length > 0 && currentPointIndex >= 0) {
       const neededPage = Math.floor(currentPointIndex / rowsPerPage) + 1;
       setCurrentPage(prev => prev !== neededPage ? neededPage : prev);
     }
-  }, [currentPointIndex, points.length, rowsPerPage, activeTab]);
+  }, [currentPointIndex, filteredPoints.length, rowsPerPage]);
 
   // Auto-scroll the table to the active row during playback
   useEffect(() => {
-    if (isPlaying && points.length > 0 && currentPointIndex >= 0) {
-      const activeP = points[currentPointIndex];
+    if (isPlaying && filteredPoints.length > 0 && currentPointIndex >= 0 && currentPointIndex < filteredPoints.length) {
+      const activeP = filteredPoints[currentPointIndex];
       if (activeP) {
         const rowElement = document.getElementById(`row-time-${activeP.device_time}`);
         if (rowElement) {
@@ -116,7 +118,7 @@ const HistoryPage = () => {
         }
       }
     }
-  }, [currentPointIndex, isPlaying, points]);
+  }, [currentPointIndex, isPlaying, filteredPoints]);
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
@@ -289,7 +291,7 @@ const HistoryPage = () => {
     setCurrentPointIndex(0);
   };
 
-  const activePoint = filteredPoints.length > 0 ? filteredPoints[currentPointIndex] : null;
+  const activePoint = (filteredPoints.length > 0 && currentPointIndex >= 0 && currentPointIndex < filteredPoints.length) ? filteredPoints[currentPointIndex] : null;
 
   // Calculate total distance (mock for now, assume max odo - min odo)
   const totalDist = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) || 0 : 0;
@@ -521,11 +523,10 @@ const HistoryPage = () => {
                         key={idx}
                         id={`row-time-${p.device_time}`}
                         onClick={() => {
-                          const globalIdx = points.findIndex(pt => pt.device_time === p.device_time);
-                          if (globalIdx !== -1) setCurrentPointIndex(globalIdx);
+                          setCurrentPointIndex(idx);
                         }}
                         style={{
-                          background: points.findIndex(pt => pt.device_time === p.device_time) === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
+                          background: idx === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
                           borderBottom: '1px solid rgba(229,231,235,0.5)',
                           cursor: 'pointer'
                         }}
