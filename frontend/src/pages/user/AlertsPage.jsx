@@ -6,7 +6,7 @@ import {
   RefreshCw, Info, Filter
 } from 'lucide-react';
 import alertsApi from '../../api/alertsApi';
-import { useSocket } from '../../context/SocketContext';
+import { useSocket } from '../../hooks/useSocket';
 
 // ─── Alert type metadata ───────────────────────────────────────────────────────
 const ALERT_GROUPS = [
