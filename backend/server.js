@@ -24,6 +24,7 @@ const auditRoutes = require('./routes/auditRoutes');
 const reportRoutes = require('./modules/reports/routes/reportRoutes');
 const profileRoutes = require('./modules/profile/routes/profileRoutes');
 const billingRoutes = require('./routes/billingRoutes');
+const alertsRoutes = require('./routes/alertsRoutes');
 const path = require('path');
 
 // Import middleware
@@ -137,6 +138,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/emails', emailRoutes);
+app.use('/api/alerts', alertsRoutes);
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -201,6 +203,27 @@ async function bootstrap() {
         plan_id INT REFERENCES renewal_plans(id),
         duration_months INT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Alerts: add is_read column for read/unread tracking
+      ALTER TABLE alerts ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE;
+
+      -- Per-user FCM device tokens (supports multiple devices per user)
+      CREATE TABLE IF NOT EXISTS user_fcm_tokens (
+        id         BIGSERIAL PRIMARY KEY,
+        user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        fcm_token  TEXT NOT NULL,
+        device_info JSONB DEFAULT '{}',
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, fcm_token)
+      );
+
+      -- Per-user alert type preferences
+      CREATE TABLE IF NOT EXISTS user_alert_preferences (
+        user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+        preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"stoppage":false,"moving":false,"stopped":false}',
+        updated_at  TIMESTAMP DEFAULT NOW()
       );
     `);
     console.log('[BOOT] Database tables & migrations verified');

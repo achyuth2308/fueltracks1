@@ -1,0 +1,100 @@
+// ============================================================
+// FCM SERVICE - Firebase Cloud Messaging push notifications
+// Requires FIREBASE_SERVICE_ACCOUNT_JSON in .env (JSON string)
+// ============================================================
+
+let admin = null;
+let messaging = null;
+
+/**
+ * Initialize Firebase Admin SDK (lazy init, only if configured)
+ */
+function getMessaging() {
+  if (messaging) return messaging;
+
+  const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (!serviceAccountJson) {
+    // FCM not configured — silent no-op mode
+    return null;
+  }
+
+  try {
+    if (!admin) {
+      admin = require('firebase-admin');
+    }
+    // Only initialize if no app is already initialized
+    if (admin.apps.length === 0) {
+      const serviceAccount = JSON.parse(serviceAccountJson);
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+      console.log('[FCM] Firebase Admin SDK initialized');
+    }
+    messaging = admin.messaging();
+    return messaging;
+  } catch (err) {
+    console.error('[FCM] Failed to initialize Firebase Admin SDK:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Send a push notification to multiple FCM tokens
+ * @param {string[]} tokens - Array of FCM device tokens
+ * @param {object} payload  - { title, body, data }
+ * @returns {object}         - { success, sent, failed }
+ */
+async function sendMulticast(tokens, { title, body, data = {} }) {
+  if (!tokens || tokens.length === 0) return { success: true, sent: 0, failed: 0 };
+
+  const msg = getMessaging();
+  if (!msg) {
+    // FCM not configured — skip silently
+    return { success: true, sent: 0, failed: 0, skipped: true };
+  }
+
+  try {
+    const message = {
+      tokens,
+      notification: { title, body },
+      data: Object.fromEntries(
+        Object.entries(data).map(([k, v]) => [k, String(v)])
+      ),
+      android: {
+        priority: 'high',
+        notification: { sound: 'default', channelId: 'alerts' },
+      },
+      apns: {
+        payload: {
+          aps: { sound: 'default', badge: 1 },
+        },
+      },
+    };
+
+    const response = await msg.sendEachForMulticast(message);
+    const sent = response.successCount;
+    const failed = response.failureCount;
+
+    if (failed > 0) {
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          console.warn(`[FCM] Token [${idx}] failed:`, resp.error?.message);
+        }
+      });
+    }
+
+    return { success: true, sent, failed };
+  } catch (err) {
+    console.error('[FCM] sendMulticast error:', err.message);
+    return { success: false, sent: 0, failed: tokens.length, error: err.message };
+  }
+}
+
+/**
+ * Send a push notification to a single FCM token
+ */
+async function sendToToken(token, { title, body, data = {} }) {
+  return sendMulticast([token], { title, body, data });
+}
+
+module.exports = { sendMulticast, sendToToken };

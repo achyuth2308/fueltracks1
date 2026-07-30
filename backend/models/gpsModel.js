@@ -332,6 +332,151 @@ const GpsModel = {
   },
 
   /**
+   * Get paginated alerts for an org (user-facing history feed)
+   */
+  async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType } = {}) {
+    const offset = (page - 1) * limit;
+    const params = [orgId];
+    let typeFilter = '';
+
+    if (alertType) {
+      params.push(alertType);
+      typeFilter = ` AND a.alert_type = $${params.length}`;
+    }
+
+    const countResult = await db.query(
+      `SELECT COUNT(*) FROM alerts a
+       JOIN vehicles v ON a.vehicle_id = v.id
+       WHERE v.org_id = $1 ${typeFilter}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    params.push(limit, offset);
+    const result = await db.query(
+      `SELECT a.id, a.vehicle_id as "vehicleId", v.name as "vehicleName", v.plate, v.imei,
+              a.alert_type as "alertType", a.alert_text as "alertText",
+              a.lat, a.lng, a.device_time as "deviceTime", a.server_time as "serverTime",
+              COALESCE(a.is_read, FALSE) as "isRead"
+       FROM alerts a
+       JOIN vehicles v ON a.vehicle_id = v.id
+       WHERE v.org_id = $1 ${typeFilter}
+       ORDER BY a.server_time DESC
+       LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params
+    );
+
+    return {
+      alerts: result.rows,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  },
+
+  /**
+   * Mark a single alert as read
+   */
+  async markAlertRead(alertId, orgId) {
+    const result = await db.query(
+      `UPDATE alerts SET is_read = TRUE
+       WHERE id = $1
+         AND vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $2)
+       RETURNING id`,
+      [alertId, orgId]
+    );
+    return result.rows[0] || null;
+  },
+
+  /**
+   * Mark all alerts as read for an org
+   */
+  async markAllAlertsRead(orgId) {
+    const result = await db.query(
+      `UPDATE alerts SET is_read = TRUE
+       WHERE vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $1)
+         AND COALESCE(is_read, FALSE) = FALSE
+       RETURNING id`,
+      [orgId]
+    );
+    return result.rowCount;
+  },
+
+  /**
+   * Get user alert preferences (returns defaults if not set)
+   */
+  async getUserAlertPreferences(userId) {
+    const result = await db.query(
+      `SELECT preferences FROM user_alert_preferences WHERE user_id = $1`,
+      [userId]
+    );
+    if (result.rows[0]) return result.rows[0].preferences;
+    // Return default preferences
+    return {
+      sos: true, panic: true, crash: true, accident: true,
+      tow: true, power_cut: true, theft: true, theft_alarm: true,
+      overspeed: true, harsh_braking: true, harsh_acceleration: true,
+      geofence_enter: true, geofence_exit: true, low_battery: true,
+      ignition_on: true, ignition_off: true, idle: false,
+      stoppage: false, moving: false, stopped: false,
+    };
+  },
+
+  /**
+   * Upsert user alert preferences
+   */
+  async upsertUserAlertPreferences(userId, preferences) {
+    const result = await db.query(
+      `INSERT INTO user_alert_preferences (user_id, preferences, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET preferences = $2, updated_at = NOW()
+       RETURNING preferences`,
+      [userId, JSON.stringify(preferences)]
+    );
+    return result.rows[0].preferences;
+  },
+
+  /**
+   * Register or update an FCM token for a user
+   */
+  async registerFcmToken(userId, fcmToken, deviceInfo = {}) {
+    await db.query(
+      `INSERT INTO user_fcm_tokens (user_id, fcm_token, device_info, updated_at)
+       VALUES ($1, $2, $3, NOW())
+       ON CONFLICT (user_id, fcm_token) DO UPDATE SET device_info = $3, updated_at = NOW()`,
+      [userId, fcmToken, JSON.stringify(deviceInfo)]
+    );
+  },
+
+  /**
+   * Remove an FCM token (logout / token refresh)
+   */
+  async removeFcmToken(userId, fcmToken) {
+    await db.query(
+      `DELETE FROM user_fcm_tokens WHERE user_id = $1 AND fcm_token = $2`,
+      [userId, fcmToken]
+    );
+  },
+
+  /**
+   * Get all FCM tokens for users in an org who have a given alert type enabled
+   */
+  async getFcmTokensForAlert(orgId, alertType) {
+    const result = await db.query(
+      `SELECT t.fcm_token
+       FROM user_fcm_tokens t
+       JOIN users u ON t.user_id = u.id
+       LEFT JOIN user_alert_preferences p ON p.user_id = u.id
+       WHERE u.org_id = $1
+         AND (
+           p.preferences IS NULL
+           OR COALESCE((p.preferences->$2)::text, 'true') != 'false'
+         )`,
+      [orgId, alertType]
+    );
+    return result.rows.map(r => r.fcm_token);
+  },
+
+  /**
    * Get dashboard stats for an org
    */
   async getDashboardStats(orgId, role) {

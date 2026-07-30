@@ -16,6 +16,7 @@ import {
   Navigation,
   ShieldAlert,
   RefreshCw,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -42,6 +43,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Geofences & Routes', path: '/admin/geofences', icon: ShieldAlert, roles: ['customer'] },
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
+        { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
       ],
     },

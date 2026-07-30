@@ -9,6 +9,8 @@ const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const profileRepository = require('../modules/profile/repositories/profileRepository');
 const NotificationService = require('../services/notificationService');
+const fcmService = require('../services/fcmService');
+
 
 let subscriber = null;
 
@@ -93,6 +95,24 @@ async function start(io) {
 
       // Emit to organization room
       io.to(`org:${orgId}`).emit('alert:new', payload);
+
+      // 4. Dispatch FCM push to users who have this alert type enabled
+      try {
+        const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, alertType.toLowerCase());
+        if (fcmTokens.length > 0) {
+          await fcmService.sendMulticast(fcmTokens, {
+            title: `${alertType.replace(/_/g, ' ').toUpperCase()} — ${vehicle.name}`,
+            body: alertText || `${vehicle.plate} triggered a ${alertType} alert.`,
+            data: {
+              vehicleId: String(vehicleId),
+              alertType,
+              alertId: String(alert.id),
+            },
+          });
+        }
+      } catch (fcmErr) {
+        console.error('[SUBSCRIBER] FCM dispatch error:', fcmErr.message);
+      }
 
     } catch (err) {
       console.error('[SUBSCRIBER] Error processing alert packet:', err.message);

@@ -41,6 +41,7 @@ import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
 import AdminRenewalsPage from './pages/admin/AdminRenewalsPage';
 import CustomerRenewalsPage from './pages/user/CustomerRenewalsPage';
+import AlertsPage from './pages/user/AlertsPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -106,6 +107,7 @@ function App() {
 
               {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}
               <Route path="renewals" element={<CustomerRenewalsPage />} />
+              <Route path="alerts" element={<AlertsPage />} />
               <Route path="onBoardDevice" element={<OnBoardDevicePage />} />
             </Route>
 
