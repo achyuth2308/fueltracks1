@@ -359,6 +359,22 @@ async function start(io) {
           await redis.del(`vehicle:idle_alert_fired:${vehicleId}`);
         }
 
+        // Check D2: Overspeed
+        const speedLimit = parseFloat(vehicle.metadata?.speedLimit) || 80;
+        const overspeedKey = `vehicle:overspeed:${vehicleId}`;
+        if (speed > speedLimit) {
+          const alreadySpeeding = await redis.get(overspeedKey);
+          if (!alreadySpeeding) {
+            alertsToTrigger.push({
+              type: 'overspeed',
+              text: `Overspeed Alert: Vehicle exceeded speed limit (${Math.round(speed)} km/h > ${speedLimit} km/h).`
+            });
+            await redis.set(overspeedKey, 'true');
+          }
+        } else {
+          await redis.del(overspeedKey);
+        }
+
         // Check E: Geofence checks
         try {
           const geofences = await GeofenceModel.findGeofencesForVehicle(vehicleId);
