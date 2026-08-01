@@ -31,10 +31,11 @@ const GpsModel = {
     const result = await db.query(
       `SELECT a.id, a.vehicle_id as "vehicleId", v.imei, v.name as "vehicleName", v.plate,
               a.alert_type as "alertType", a.alert_text as "alertText", 
-              a.lat, a.lng, a.device_time as "deviceTime", a.server_time as "serverTime"
+              a.lat, a.lng, a.device_time as "deviceTime", a.server_time as "serverTime",
+              COALESCE(a.is_read, FALSE) as "isRead"
        FROM alerts a
        JOIN vehicles v ON a.vehicle_id = v.id
-       WHERE v.org_id = $1
+       WHERE v.org_id = $1 AND COALESCE(a.is_read, FALSE) = FALSE
        ORDER BY a.server_time DESC
        LIMIT $2`,
       [orgId, limit]

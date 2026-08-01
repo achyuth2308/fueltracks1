@@ -242,7 +242,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Recent Alerts</span>
                 {alerts.length > 0 && (
-                  <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { e.stopPropagation(); setAlerts([]); }}>Clear</span>
+                  <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { 
+                    e.stopPropagation(); 
+                    axiosInstance.put('/api/alerts/read-all').catch(err => console.error(err));
+                    setAlerts([]); 
+                  }}>Clear</span>
                 )}
               </div>
               <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
