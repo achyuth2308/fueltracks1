@@ -21,14 +21,14 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     axiosInstance.get('/api/admin/alerts/recent')
       .then(res => {
         if (res.data && res.data.success) {
-          setAlerts(res.data.data.slice(0, 15));
+          setAlerts(res.data.data);
         }
       })
       .catch(err => console.error('Failed to fetch recent alerts:', err));
 
     if (!socket) return;
     const handleNewAlert = (data) => {
-      setAlerts((prev) => [data, ...prev].slice(0, 15)); // Keep 15 latest
+      setAlerts((prev) => [data, ...prev]); 
 
       // Play Sound
       try {

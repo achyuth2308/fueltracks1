@@ -27,7 +27,7 @@ const GpsModel = {
   /**
    * Get recent alerts for an organization
    */
-  async getRecentAlerts(orgId, limit = 20) {
+  async getRecentAlerts(orgId, limit = 100) {
     const result = await db.query(
       `SELECT a.id, a.vehicle_id as "vehicleId", v.imei, v.name as "vehicleName", v.plate,
               a.alert_type as "alertType", a.alert_text as "alertText", 
