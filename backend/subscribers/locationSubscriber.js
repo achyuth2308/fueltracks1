@@ -299,8 +299,12 @@ async function start(io) {
       }
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
+      // If the device lost GPS fix and sends 0,0, don't overwrite the last known valid location!
+      const validLat = (lat === 0 || lat === 0.0 || !lat) ? null : lat;
+      const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
+      
       await GpsModel.updateLatestState({
-        vehicleId, lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
+        vehicleId, lat: validLat, lng: validLng, speed, direction, fuel, ignition: finalIgnition, voltage,
         odometer: finalOdometer, satellites, gsmSignal
       });
 
