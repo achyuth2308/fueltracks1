@@ -525,6 +525,10 @@ const FleetMap = ({
             pointer-events: auto !important;
             cursor: pointer;
           }
+          @keyframes pulse-ring {
+            0% { transform: translate(-50%, -50%) scale(0.85); opacity: 0.5; }
+            80%, 100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+          }
         `
       }} />
     </div>
