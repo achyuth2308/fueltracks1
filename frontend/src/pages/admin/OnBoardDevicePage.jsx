@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota } from '../../api/adminApi';
@@ -38,6 +39,88 @@ const OnBoardDevicePage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const fileInputRef = useRef(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+
+  const handleDownloadTemplate = () => {
+    const templateData = [{
+      'Device Id': '',
+      'Device Type (BSTPL/AS140/AIS140V2/CONCOX)': '',
+      'Vehicle Id': '',
+      'Vehicle Name': '',
+      'Registration No': '',
+      'Vehicle Model': '',
+      'Vehicle Type': '',
+      'GPS Sim No': '',
+      'Odo Distance': '',
+      'Service Engineer': '',
+      'Salesman': '',
+      'Ticket Id': '',
+      'Sensor No': ''
+    }];
+    const ws = XLSX.utils.json_to_sheet(templateData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, "Device_Upload_Template.xlsx");
+  };
+
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleImportExcel = () => {
+    if (!selectedFile) {
+      setError('Please choose a file to upload first.');
+      return;
+    }
+    setError('');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet);
+
+        if (!json || json.length === 0) {
+          setError('The uploaded Excel file is empty.');
+          return;
+        }
+
+        const prefix = licenceType === 'Starter' ? 'ST' : licenceType === 'Basic' ? 'BC' : licenceType === 'Advanced' ? 'AD' : 'EN';
+        
+        const newDevices = json.map((row, idx) => ({
+          id: Date.now() + idx,
+          licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+          deviceId: String(row['Device Id'] || '').trim(),
+          deviceType: String(row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'BSTPL').trim(),
+          vehicleId: String(row['Vehicle Id'] || '').trim(),
+          vehicleName: String(row['Vehicle Name'] || '').trim(),
+          registrationNo: String(row['Registration No'] || '').trim(),
+          vehicleModel: String(row['Vehicle Model'] || '').trim(),
+          vehicleTypeSelect: String(row['Vehicle Type'] || '').trim(),
+          gpsSimNo: String(row['GPS Sim No'] || '').trim(),
+          odoDistance: String(row['Odo Distance'] || '').trim(),
+          serviceEngineer: String(row['Service Engineer'] || '').trim(),
+          salesman: String(row['Salesman'] || '').trim(),
+          ticketId: String(row['Ticket Id'] || '').trim(),
+          sensorNo: String(row['Sensor No'] || '').trim(),
+        }));
+
+        setDevices(newDevices);
+        setDeviceEntryMode('details');
+        setMessage(`Successfully imported ${newDevices.length} devices.`);
+        setTimeout(() => setMessage(''), 3000);
+      } catch (err) {
+        setError('Failed to parse the Excel file. Please ensure it matches the template.');
+      }
+    };
+    reader.readAsArrayBuffer(selectedFile);
+  };
 
   useEffect(() => {
     // Fetch data for dropdowns
@@ -399,18 +482,19 @@ const OnBoardDevicePage = () => {
                 <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>Download our template, fill it out, and upload it here.</p>
                 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
-                  <button style={{ padding: '10px 20px', background: '#FFFFFF', color: '#111827', fontSize: '13px', fontWeight: 600, border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                  <button onClick={handleDownloadTemplate} style={{ padding: '10px 20px', background: '#FFFFFF', color: '#111827', fontSize: '13px', fontWeight: 600, border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     Download Template
                   </button>
                   <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ padding: '10px 16px', border: '1px solid #CBD5E1', borderRight: 'none', borderRadius: '8px 0 0 8px', fontSize: '13px', color: '#94A3B8', width: '200px', background: '#FFF', textAlign: 'left' }}>
-                      Choose a File
+                    <div style={{ padding: '10px 16px', border: '1px solid #CBD5E1', borderRight: 'none', borderRadius: '8px 0 0 8px', fontSize: '13px', color: '#94A3B8', width: '200px', background: '#FFF', textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+                      {selectedFile ? selectedFile.name : 'Choose a File'}
                     </div>
-                    <button style={{ padding: '10px 20px', background: '#F8FAFC', color: '#475569', fontSize: '13px', fontWeight: 600, border: '1px solid #CBD5E1', borderRadius: '0 8px 8px 0', cursor: 'pointer' }}>
+                    <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{ padding: '10px 20px', background: '#F8FAFC', color: '#475569', fontSize: '13px', fontWeight: 600, border: '1px solid #CBD5E1', borderRadius: '0 8px 8px 0', cursor: 'pointer' }}>
                       Browse
                     </button>
+                    <input type="file" accept=".xlsx, .xls" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
                   </div>
-                  <button style={{ padding: '10px 24px', background: '#f97316', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
+                  <button onClick={handleImportExcel} style={{ padding: '10px 24px', background: '#f97316', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
                     Import Excel
                   </button>
                 </div>
