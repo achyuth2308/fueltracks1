@@ -337,7 +337,7 @@ async function start(io) {
           alertsToTrigger.push({ type: 'stoppage', text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.' });
         }
 
-        // Check D: Excessive idle (ignition ON, speed 0 for > 30s)
+        // Check D: Excessive idle (ignition ON, speed 0 for > 3min)
         if (finalIgnition === true && speed === 0) {
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
@@ -347,12 +347,12 @@ async function start(io) {
             await redis.set(idleKey, Date.now());
           } else {
             const idleDurationMs = Date.now() - parseInt(idleStart);
-            if (idleDurationMs > 30000) {
+            if (idleDurationMs > 180000) {
               const alreadyFired = await redis.get(alertFiredKey);
               if (!alreadyFired) {
                 alertsToTrigger.push({
                   type: 'excessive_idle',
-                  text: `Excessive Idle Alert: Vehicle is idling for more than 30 seconds.`
+                  text: `Excessive Idle Alert: Vehicle is idling for more than 3 minutes.`
                 });
                 await redis.set(alertFiredKey, '1', 'EX', 300); // Lock for 5 mins
               }
@@ -361,6 +361,33 @@ async function start(io) {
         } else {
           await redis.del(`vehicle:idle_start:${vehicleId}`);
           await redis.del(`vehicle:idle_alert_fired:${vehicleId}`);
+        }
+
+        // Check F: Overspeeding (> speedLimit for > 3min)
+        const speedLimit = parseFloat(vehicle.metadata?.speedLimit) || 60;
+        if (speed > speedLimit) {
+          const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
+          const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
+
+          let overspeedStart = await redis.get(overspeedKey);
+          if (!overspeedStart) {
+            await redis.set(overspeedKey, Date.now());
+          } else {
+            const overspeedDurationMs = Date.now() - parseInt(overspeedStart);
+            if (overspeedDurationMs > 180000) {
+              const alreadyFired = await redis.get(overspeedFiredKey);
+              if (!alreadyFired) {
+                alertsToTrigger.push({
+                  type: 'overspeed',
+                  text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than 3 minutes.`
+                });
+                await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins
+              }
+            }
+          }
+        } else {
+          await redis.del(`vehicle:overspeed_start:${vehicleId}`);
+          await redis.del(`vehicle:overspeed_alert_fired:${vehicleId}`);
         }
 
         // Check E: Geofence checks
