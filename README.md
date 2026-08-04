@@ -233,6 +233,16 @@ npm run db:timescale
   npm run sim:concox
   ```
 
+* **Simulate AIS140 V2 (Port 5003)**:
+  ```bash
+  npm run sim:ais140v2
+  ```
+
+* **Simulate VOLTY (Port 5004)**:
+  ```bash
+  npm run sim:volty
+  ```
+
 ---
 
 ## 🛠️ Production Deployment & Process Management
