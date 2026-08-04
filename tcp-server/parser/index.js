@@ -20,6 +20,7 @@ const {
   parseAis140V2Packet,
   isV2LoginPacket,
 } = require('./ais140V2Parser');
+const { parseVoltyPacket } = require('./voltyParser');
 
 /**
  * Parse a raw packet string and delegate to the correct protocol parser.
@@ -67,6 +68,22 @@ function parsePacket(raw) {
   // ---- AIS140 V2 — dollar-delimited login packet ($VehicleNo$IMEI$...) ----
   if (isV2LoginPacket(trimmed)) {
     return parseAis140V2Packet(trimmed);
+  }
+
+  // ---- VOLTY PROTOCOL ----
+  // Volty usually starts with $VLT or similar, but the start character is $
+  // The TCP server routes purely based on port for Volty, so if it reaches here from port 5004,
+  // we can use a specific header check or just pass it if we add a parameter.
+  // Actually, parsePacket doesn't know the port, but Volty headers start with $VLT or $EPB.
+  if (trimmed.startsWith('$VLT') || trimmed.match(/^\$[A-Z]{2,3},/)) {
+    // Note: $NRM, $ALT are handled above by AIS140 V1. If Volty uses $VLT, this will catch it.
+    // If we want strictly Volty, we rely on the parser to extract IMEI and fields.
+    try {
+      const voltyParsed = parseVoltyPacket(trimmed);
+      if (voltyParsed) return voltyParsed;
+    } catch (e) {
+      // fallback
+    }
   }
 
   // Unknown packet type

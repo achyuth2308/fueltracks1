@@ -17,7 +17,8 @@ const protocolStats = {
   'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
@@ -26,6 +27,7 @@ const BSTPL_PORT    = process.env.TCP_PORT || 5000;
 const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
 const CONCOX_PORT   = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
 const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
+const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 
 // Concox binary parser + ACK builders
 const { parseConcoxBuffer, buildLoginAck, buildHeartbeatAck, buildAlarmAck } = require('./parser/concoxParser');
@@ -72,6 +74,15 @@ const ais140V2Server = createProtocolServer(
   //   'HCHKR'  = health check response
   //   '$'      = dollar-delimited login packet (matched by prefix)
   ['$,', 'ACTVR', 'HCHKR', '$']
+);
+
+// Start the Volty Server on Port 5004
+const voltyServer = createProtocolServer(
+  VOLTY_PORT,
+  '*',
+  'VOLTY',
+  // Volty usually starts with $VLT or other $ prefixes
+  ['$']
 );
 
 /**
@@ -317,6 +328,30 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       }
       totalPacketsParsed++;
 
+    } else if (parsed.packetType === 'VOLTY_NORMAL') {
+      const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
+                         Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
+                         
+      if (!isValidGps) {
+        totalPacketsInvalid++;
+        console.warn(`[TCP - ${protocolName}] Volty: GPS not fixed for ${parsed.imei}. Dropping location.`);
+      } else {
+        connectedDevices.set(parsed.imei, {
+          clientId,
+          lastPacket: new Date(),
+          lat: parsed.lat,
+          lng: parsed.lng,
+        });
+        await publisher.publishLocation(parsed);
+        totalPacketsParsed++;
+        if (protocolStats['VOLTY']) protocolStats['VOLTY'].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+
+      if (parsed.alertText) {
+        await publisher.publishAlert(parsed);
+        console.log(`[TCP - ${protocolName}] Volty Alert from ${parsed.imei}: ${parsed.alertText}`);
+      }
+      
     // ================================================================
     // AIS140 V2 PACKET TYPES
     // ================================================================
@@ -428,6 +463,7 @@ const shutdown = async () => {
   ais140Server.close();
   ais140V2Server.close();
   concoxServer.close();
+  voltyServer.close();
   if (typeof healthServer !== 'undefined') healthServer.close();
   await publisher.close();
   process.exit(0);
@@ -776,6 +812,7 @@ const healthServer = http.createServer((req, res) => {
       ais140Connections:   protocolStats['AIS140'].connections,
       ais140V2Connections: protocolStats['AIS140V2'].connections,
       concoxConnections:   protocolStats['CONCOX'].connections,
+      voltyConnections:    protocolStats['VOLTY'].connections,
       stats: protocolStats
     }));
   } else {
@@ -791,4 +828,4 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
   console.log(`============================================================`);
 });
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, healthServer };

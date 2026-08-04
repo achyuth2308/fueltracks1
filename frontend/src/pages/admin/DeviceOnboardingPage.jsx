@@ -475,6 +475,7 @@ const DeviceOnboardingPage = () => {
                             <option value="V5">V5</option>
                             <option value="Concox">Concox</option>
                             <option value="AIS140 V2">AIS140 V2</option>
+                            <option value="Volty">Volty</option>
                             <option value="Teltonika">Teltonika</option>
                             <option value="Coban">Coban</option>
                             <option value="Other">Other</option>

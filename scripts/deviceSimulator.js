@@ -12,6 +12,7 @@
 //   node scripts/deviceSimulator.js ais140       (AIS140 V1 only)
 //   node scripts/deviceSimulator.js concox       (Concox only)
 //   node scripts/deviceSimulator.js ais140v2     (AIS140 V2 only)
+//   node scripts/deviceSimulator.js volty        (Volty only)
 // ============================================================
 
 'use strict';
@@ -28,6 +29,7 @@ const PORTS = {
   AIS140:   parseInt(process.env.AIS140_TCP_PORT)    || 5001,
   CONCOX:   parseInt(process.env.CONCOX_TCP_PORT)    || 5002,
   AIS140V2: parseInt(process.env.AIS140V2_TCP_PORT)  || 5003,
+  VOLTY:    parseInt(process.env.VOLTY_TCP_PORT)     || 5004,
 };
 
 // Filter argument: run only one protocol if specified
@@ -43,6 +45,7 @@ const C = {
   ais140:   '\x1b[36m',   // cyan
   concox:   '\x1b[35m',   // magenta
   ais140v2: '\x1b[96m',   // bright cyan
+  volty:    '\x1b[92m',   // bright green
   // Status colors
   ok:       '\x1b[32m',   // green
   err:      '\x1b[31m',   // red
@@ -992,6 +995,84 @@ function startAis140V2Simulator() {
 }
 
 // ============================================================
+// VOLTY SIMULATOR  (port 5004)
+// ============================================================
+const voltyDevices = [
+  { imei: '888888888888801', reg: 'DL1VLT01', lat: 17.345, lng: 78.532, speed: 42, hdg: 110, ignition: 1, vBatt: 4.1 },
+  { imei: '888888888888802', reg: 'DL1VLT02', lat: 17.346, lng: 78.533, speed: 38, hdg: 115, ignition: 1, vBatt: 4.2 }
+];
+
+function buildVoltyNormal(dev) {
+  const now = new Date();
+  const d = String(now.getUTCDate()).padStart(2, '0') +
+            String(now.getUTCMonth() + 1).padStart(2, '0') +
+            String(now.getUTCFullYear());
+  const t = String(now.getUTCHours()).padStart(2, '0') +
+            String(now.getUTCMinutes()).padStart(2, '0') +
+            String(now.getUTCSeconds()).padStart(2, '0');
+  
+  return `$VLT,Volty,${dev.imei},${dev.reg},1,${d},${t},${dev.lat.toFixed(6)},N,${dev.lng.toFixed(6)},E,${dev.speed},${dev.hdg},10,500.0,1.0,1.0,INA Airtel,${dev.ignition},1,12.5,${dev.vBatt},0,C,31,404,10,00D6,CFBD,NMR,0001,01,000005,16*`;
+}
+
+function buildVoltyAlert(dev, alertCode) {
+  const now = new Date();
+  const d = String(now.getUTCDate()).padStart(2, '0') +
+            String(now.getUTCMonth() + 1).padStart(2, '0') +
+            String(now.getUTCFullYear());
+  const t = String(now.getUTCHours()).padStart(2, '0') +
+            String(now.getUTCMinutes()).padStart(2, '0') +
+            String(now.getUTCSeconds()).padStart(2, '0');
+            
+  if (alertCode === 10) {
+    return `$EPB,Volty,${dev.imei},${dev.reg},1,${d},${t},${dev.lat.toFixed(6)},N,${dev.lng.toFixed(6)},E,${dev.speed},${dev.hdg},10,500.0,1.0,1.0,INA Airtel,${dev.ignition},1,12.5,${dev.vBatt},1,C,31,404,10,00D6,CFBD,NMR,0001,01,000005,16*`;
+  }
+  return '';
+}
+
+function startVoltySimulator() {
+  log('VOLTY', 'Starting Volty simulator...');
+  
+  voltyDevices.forEach(device => {
+    let client = new net.Socket();
+    let intervalId = null;
+
+    client.connect(PORTS.VOLTY, TCP_HOST, () => {
+      log('VOLTY', `${C.ok}Connected${C.reset} IMEI=${device.imei} to port ${PORTS.VOLTY}`);
+      
+      intervalId = setInterval(() => {
+        device.lat += (Math.random() - 0.5) * 0.001;
+        device.lng += (Math.random() - 0.5) * 0.001;
+        
+        const pkt = buildVoltyNormal(device);
+        client.write(pkt);
+        log('VOLTY', `${C.dim}Sent Normal:${C.reset} ${pkt}`);
+        
+        if (Math.random() < 0.01) {
+          const sosPkt = buildVoltyAlert(device, 10);
+          client.write(sosPkt);
+          log('VOLTY', `${C.err}Sent SOS:${C.reset} ${sosPkt}`);
+        }
+      }, 7000);
+    });
+
+    client.on('error', (err) => {
+      log('VOLTY', `${C.err}Error:${C.reset} ${err.message}`);
+      if (intervalId) clearInterval(intervalId);
+      setTimeout(() => {
+        log('VOLTY', `Reconnecting IMEI=${device.imei}...`);
+        client.connect(PORTS.VOLTY, TCP_HOST);
+      }, 5000);
+    });
+
+    client.on('close', () => {
+      log('VOLTY', `${C.err}Disconnected${C.reset} IMEI=${device.imei}`);
+      if (intervalId) clearInterval(intervalId);
+    });
+  });
+}
+
+
+// ============================================================
 // MAIN
 // ============================================================
 
@@ -1003,6 +1084,7 @@ console.log(`${C.bold}║  ${C.bstpl}BSTPL-17   ${C.reset}${C.bold}→  port ${P
 console.log(`${C.bold}║  ${C.ais140}AIS140 V1  ${C.reset}${C.bold}→  port ${PORTS.AIS140}  (ASCII * delimiter)        ║${C.reset}`);
 console.log(`${C.bold}║  ${C.concox}Concox     ${C.reset}${C.bold}→  port ${PORTS.CONCOX}  (Binary 0x78/0x79)         ║${C.reset}`);
 console.log(`${C.bold}║  ${C.ais140v2}AIS140 V2  ${C.reset}${C.bold}→  port ${PORTS.AIS140V2}  (ASCII * delimiter, V2 spec) ║${C.reset}`);
+console.log(`${C.bold}║  ${C.volty}VOLTY      ${C.reset}${C.bold}→  port ${PORTS.VOLTY}  (ASCII * delimiter, Volty)   ║${C.reset}`);
 console.log(`${C.bold}╚══════════════════════════════════════════════════════╝${C.reset}`);
 console.log('');
 
@@ -1010,3 +1092,4 @@ if (!FILTER || FILTER === 'bstpl')    startBstplSimulator();
 if (!FILTER || FILTER === 'ais140')   startAis140Simulator();
 if (!FILTER || FILTER === 'concox')   startConcoxSimulator();
 if (!FILTER || FILTER === 'ais140v2') startAis140V2Simulator();
+if (!FILTER || FILTER === 'volty')    startVoltySimulator();

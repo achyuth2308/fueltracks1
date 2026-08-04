@@ -12,6 +12,7 @@
     "sim:bstpl": "node scripts/deviceSimulator.js bstpl",
     "sim:ais140": "node scripts/deviceSimulator.js ais140",
     "sim:concox": "node scripts/deviceSimulator.js concox",
+    "sim:volty": "node scripts/deviceSimulator.js volty",
     "db:init": "node scripts/dbInit.js",
     "db:migrate": "node scripts/runMigrations.js",
     "db:timescale": "echo 'Run on server: sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql'",
