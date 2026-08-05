@@ -58,8 +58,8 @@ const StatRow = ({ label, value, badgeColor }) => (
     <span className="text-[14px] font-medium !text-[#163B63]">{label}</span>
     {badgeColor ? (
       <span className={`px-2.5 py-1 text-[12px] font-semibold rounded-full border ${badgeColor === 'green' ? 'bg-[#ECFDF5] text-[#16A34A] border-green-200' :
-          badgeColor === 'blue' ? 'bg-[#EFF6FF] text-[#2563EB] border-blue-200' :
-            'bg-gray-100 text-[#163B63] border-gray-200'
+        badgeColor === 'blue' ? 'bg-[#EFF6FF] text-[#2563EB] border-blue-200' :
+          'bg-gray-100 text-[#163B63] border-gray-200'
         }`}>
         {value}
       </span>

@@ -78,11 +78,10 @@ const OrganizationProfilePage = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`relative w-full flex items-center px-4 py-3 mb-1 text-[14px] font-medium rounded-xl transition-all duration-200 overflow-hidden ${
-                    isActive 
-                      ? 'bg-[#FFF3EB] !text-black font-bold' 
-                      : '!text-black hover:bg-[#F3F4F6] hover:!text-black'
-                  }`}
+                  className={`relative w-full flex items-center px-4 py-3 mb-1 text-[14px] font-medium rounded-xl transition-all duration-200 overflow-hidden ${isActive
+                    ? 'bg-[#FFF3EB] !text-black font-bold'
+                    : '!text-black hover:bg-[#F3F4F6] hover:!text-black'
+                    }`}
                 >
                   {isActive && (
                     <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-[#FF6A00]" />
