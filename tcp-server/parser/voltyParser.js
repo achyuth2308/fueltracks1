@@ -64,7 +64,7 @@ function parseVoltyPacket(raw) {
 
   // The first 2 fields are header and vendor ID. We assume IMEI is next, followed by other fields.
   let imeiIndex = -1;
-  for (let i = 1; i < 5; i++) {
+  for (let i = 1; i <= 10; i++) {
     if (parts[i] && parts[i].length >= 14 && /^[\d]+$/.test(parts[i])) {
       imeiIndex = i;
       break;
