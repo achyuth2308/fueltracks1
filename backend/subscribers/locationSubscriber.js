@@ -185,13 +185,14 @@ async function start(io) {
     if (channel === 'raw_logs') {
       try {
         const data = JSON.parse(message);
+        const actualRaw = data.rawHex || data.rawString || message;
         await GpsModel.saveRawPacketWithMetadata({
           imei: data.imei,
-          raw: message,
+          raw: actualRaw,
           packetType: data.packetType,
           deviceTime: data.deviceTime,
           odometer: data.odometer,
-          rawHex: data.rawHex,
+          rawHex: data.rawHex || actualRaw,
           parsedJson: data.parsedJson
         });
         
@@ -204,8 +205,8 @@ async function start(io) {
               odometer: data.odometer,
               parsed: true,
               packet_type: data.packetType,
-              raw_hex: data.rawHex,
-              raw: message
+              raw_hex: data.rawHex || actualRaw,
+              raw: actualRaw
             });
           }
         }

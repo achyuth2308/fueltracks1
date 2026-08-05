@@ -100,6 +100,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
     // Buffer for handling partial packets (TCP streaming)
     let buffer = '';
     let isFirstData = true;
+    let sessionImei = null;
 
     socket.on('data', (data) => {
       if (isFirstData) {
@@ -132,7 +133,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
         totalPacketsReceived++;
 
         // Process the packet
-        processPacket(packet, clientId, protocolName, allowedHeaders);
+        processPacket(packet, clientId, protocolName, allowedHeaders, () => sessionImei, (val) => { sessionImei = val; });
       }
 
       // Safety: prevent buffer overflow from malformed data
@@ -144,7 +145,8 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
 
     socket.on('close', () => {
       if (protocolStats[protocolName]) protocolStats[protocolName].connections--;
-      console.log(`[TCP - ${protocolName}] Device disconnected: ${clientId}`);
+      console.log(`[TCP - ${protocolName}] Device disconnected: ${clientId} (IMEI: ${sessionImei || 'unknown'})`);
+      if (sessionImei) connectedDevices.delete(sessionImei);
       // Remove from connected devices
       for (const [imei, info] of connectedDevices.entries()) {
         if (info.clientId === clientId) {
@@ -183,7 +185,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
 /**
  * Process a single complete packet
  */
-async function processPacket(raw, clientId, protocolName, allowedHeaders) {
+async function processPacket(raw, clientId, protocolName, allowedHeaders, getSessionImei, setSessionImei) {
   try {
     // Check if packet header is allowed on this port.
     // For AIS140 V2 we use prefix matching instead of exact match because the
@@ -204,6 +206,13 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       totalPacketsInvalid++;
       console.warn(`[TCP - ${protocolName}] Unrecognized packet from ${clientId}: ${raw.substring(0, 50)}`);
       return;
+    }
+
+    // Session IMEI resolution
+    if (parsed.imei && setSessionImei) {
+      setSessionImei(parsed.imei);
+    } else if (!parsed.imei && getSessionImei && getSessionImei()) {
+      parsed.imei = getSessionImei();
     }
 
     parsed.rawString = raw;

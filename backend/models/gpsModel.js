@@ -276,45 +276,72 @@ const GpsModel = {
    * Strips null bytes (0x00) from string fields to prevent PostgreSQL UTF-8 errors.
    */
   async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson }) {
+    if (!imei) return;
     const sampleRate = parseInt(process.env.RAW_LOG_SAMPLE_RATE) || 1;
     if (sampleRate > 1 && Math.random() > (1 / sampleRate)) {
       return; // Skip logging this packet
     }
 
     // PostgreSQL TEXT columns reject null bytes — strip them from every string field
-    const sanitizeStr = (v) => (typeof v === 'string' ? v.replace(/\0/g, '') : v);
+    const sanitizeStr = (v) => (typeof v === 'string' ? v.replace(/\0/g, '') : (v == null ? null : String(v)));
+    const cleanRaw = sanitizeStr(rawHex || raw);
+    const cleanPacketType = sanitizeStr(packetType || 'DATA');
+    const safeDeviceTime = deviceTime && !isNaN(new Date(deviceTime).getTime()) ? new Date(deviceTime) : new Date();
+    const safeOdometer = odometer !== null && odometer !== undefined && !isNaN(Number(odometer)) ? Math.round(Number(odometer)) : 0;
+    const parsedDataJson = parsedJson ? (typeof parsedJson === 'object' ? JSON.stringify(parsedJson) : String(parsedJson)) : null;
 
-    await db.query(
-      `INSERT INTO raw_packets 
-       (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [
-        sanitizeStr(imei),
-        sanitizeStr(raw),
-        true,
-        sanitizeStr(packetType),
-        deviceTime,
-        odometer,
-        sanitizeStr(rawHex),
-        sanitizeStr(parsedJson)
-      ]
-    );
+    try {
+      await db.query(
+        `INSERT INTO raw_packets 
+         (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          sanitizeStr(imei),
+          cleanRaw,
+          true,
+          cleanPacketType,
+          safeDeviceTime,
+          safeOdometer,
+          cleanRaw,
+          parsedDataJson
+        ]
+      );
+    } catch (err) {
+      // Safe fallback if extended columns have issues
+      try {
+        await db.query(
+          `INSERT INTO raw_packets (imei, raw, parsed) VALUES ($1, $2, $3)`,
+          [sanitizeStr(imei), cleanRaw, true]
+        );
+      } catch (fallbackErr) {
+        console.error('[DB] saveRawPacket fallback error:', fallbackErr.message);
+      }
+    }
   },
 
   /**
    * Get raw messages for Sensor Data page
    */
   async getRawMessages(imei, { page = 1, limit = 100 }) {
+    if (!imei) {
+      return { messages: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 1 } };
+    }
     const offset = (page - 1) * limit;
 
     const countResult = await db.query(
       `SELECT COUNT(*) FROM raw_packets WHERE imei = $1`,
       [imei]
     );
-    const total = parseInt(countResult.rows[0].count);
+    const total = parseInt(countResult.rows[0]?.count || 0);
 
     const result = await db.query(
-      `SELECT * FROM raw_packets
+      `SELECT id, imei, raw, parsed, error, received_at,
+              COALESCE(packet_type, 'DATA') as packet_type,
+              COALESCE(device_time, received_at) as device_time,
+              COALESCE(odometer, 0) as odometer,
+              COALESCE(raw_hex, raw) as raw_hex,
+              parsed_data
+       FROM raw_packets
        WHERE imei = $1
        ORDER BY received_at DESC
        LIMIT $2 OFFSET $3`,
@@ -327,7 +354,7 @@ const GpsModel = {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.max(1, Math.ceil(total / limit)),
       },
     };
   },
