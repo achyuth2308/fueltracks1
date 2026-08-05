@@ -133,12 +133,18 @@ const VehicleDetailPage = () => {
           vehicleApi.getVehicleAlerts(id, { limit: 8 }),
           vehicleApi.getVehicleReport(id, { startDate: today.toISOString(), endDate: endToday.toISOString() }),
         ]);
-        if (vRes.status === 'fulfilled' && vRes.value.success) setVehicle(vRes.value.data);
+        
+        if (vRes.status === 'fulfilled' && vRes.value.success) {
+          setVehicle(vRes.value.data);
+          setError(null);
+        } else {
+          setError(vRes.reason?.response?.data?.error || vRes.reason?.message || 'Failed to fetch vehicle data. Please check your network connection.');
+        }
+
         if (aRes.status === 'fulfilled' && aRes.value.success) setAlerts(aRes.value.data);
         if (rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data.summary) setReportSummary(rRes.value.data.summary);
-        setError(null);
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to fetch vehicle data');
+        setError(err.response?.data?.error || err.message || 'Failed to fetch vehicle data');
       } finally { setLoading(false); }
     };
     fetch();
