@@ -80,6 +80,24 @@ function parseVoltyPacket(raw) {
   // Safe extraction helper
   const safeGet = (index) => parts[imeiIndex + index] ? parts[imeiIndex + index].trim() : '';
 
+  // Check if packet is Health Monitoring ($HLM / $HLT)
+  const header = (parts[0] || '').toUpperCase();
+  const pktType = (parts[3] || '').toUpperCase();
+  if (header.includes('HLM') || header.includes('HLT') || pktType === 'HL' || pktType === 'HP' || (parts.length - imeiIndex <= 9)) {
+    const batteryPercent = parseInt(safeGet(1), 10) || 100;
+    const lowBattThreshold = parseInt(safeGet(2), 10) || 15;
+    const memoryPercent = parseInt(safeGet(3), 10) || 0;
+    return {
+      packetType: '$HLM',
+      imei,
+      batteryPercent,
+      lowBattThreshold,
+      memoryPercent,
+      deviceTime: new Date().toISOString(),
+      rawString: raw
+    };
+  }
+
   const gpsFix = safeGet(2); // 1 = GPS fix, 0 = invalid
   const dateStr = safeGet(3);
   const timeStr = safeGet(4);
@@ -100,10 +118,15 @@ function parseVoltyPacket(raw) {
   const lng = convertCoords(rawLng, lngDir);
   const deviceTime = parseVoltyTime(dateStr, timeStr);
 
+  const isGpsFixed = gpsFix === '1' || gpsFix.toUpperCase() === 'A';
+  const isGpsValid = isGpsFixed && lat !== null && lng !== null;
+
+  console.log(`[TCP - VOLTY - DEBUG] IMEI ${imei}: gpsFix=${gpsFix} (valid=${isGpsValid}), lat=${lat}, lng=${lng}, speed=${speed}, ign=${ignition}`);
+
   const result = {
     packetType: 'VOLTY_NORMAL',
     imei,
-    gpsValid: gpsFix === '1' ? 'A' : 'V',
+    gpsValid: isGpsValid ? 'A' : 'V',
     lat,
     lng,
     speed: Math.round(parseFloat(speed)) || 0,
