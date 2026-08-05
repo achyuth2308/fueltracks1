@@ -62,10 +62,10 @@ function parseVoltyPacket(raw) {
   const cleanRaw = raw.replace(/\*/g, '').trim();
   const parts = cleanRaw.split(',');
 
-  // The first 2 fields are header and vendor ID. We assume IMEI is next, followed by other fields.
+  // Look for the 14-16 digit numeric IMEI anywhere in the first few fields of the header
   let imeiIndex = -1;
-  for (let i = 1; i <= 10; i++) {
-    if (parts[i] && parts[i].length >= 14 && /^[\d]+$/.test(parts[i])) {
+  for (let i = 1; i < Math.min(parts.length, 10); i++) {
+    if (parts[i] && parts[i].length >= 14 && /^\d+$/.test(parts[i].trim())) {
       imeiIndex = i;
       break;
     }
@@ -119,6 +119,14 @@ function parseVoltyPacket(raw) {
     rawPacket: raw
   };
   
+  // Check for alert ID in the packet header (e.g. $PVT,VLT1,M1.2.2,NR,01,L,IMEI)
+  const alertIdRaw = imeiIndex >= 2 ? parts[imeiIndex - 2] : '';
+  const alertId = parseInt(alertIdRaw, 10);
+  if (alertId && ALERT_MAP[alertId.toString()]) {
+    result.alertType = ALERT_MAP[alertId.toString()].type;
+    result.alertText = ALERT_MAP[alertId.toString()].text;
+  }
+
   if (emergencyStatus === '1') {
     result.alertText = 'Emergency state ON';
     result.alertType = 'sos';
