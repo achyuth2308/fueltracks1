@@ -15,6 +15,7 @@ echo "Installing Node dependencies..."
 npm install
 
 echo "Building frontend..."
+npm --prefix frontend install
 npm run build:frontend
 
 echo "Setting up PM2 Limits..."
@@ -32,7 +33,7 @@ pm2 save
 
 echo "Running Database Migrations..."
 npm run db:migrate
-sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql
+cat database/timescale_migration.sql | sudo -u postgres psql -d fueltracks
 
 echo "Installing Nginx & Certbot..."
 sudo apt update

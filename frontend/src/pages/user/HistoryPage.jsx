@@ -148,6 +148,7 @@ const HistoryPage = () => {
   const [startDate, setStartDate] = useState(getTodayRange().start);
   const [endDate, setEndDate] = useState(getTodayRange().end);
 
+  useEffect(() => {
     const fetchInitialData = async () => {
       try {
         // Fetch current vehicle
