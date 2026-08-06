@@ -72,6 +72,17 @@ function parseVoltyPacket(raw) {
   }
 
   if (imeiIndex === -1) {
+    const header = (parts[0] || '').toUpperCase();
+    const pktType = (parts[3] || '').toUpperCase();
+    if (pktType === 'OC' || header.includes('OC') || parts.includes('OC')) {
+      return {
+        packetType: 'VOLTY_OPEN_CONN',
+        imei: null,
+        isHeartbeat: true,
+        rawPacket: raw,
+        deviceTime: new Date().toISOString()
+      };
+    }
     throw new Error('Could not find IMEI in Volty packet');
   }
 

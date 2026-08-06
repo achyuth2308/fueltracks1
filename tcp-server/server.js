@@ -416,22 +416,31 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
                          Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
                          
+      connectedDevices.set(parsed.imei, {
+        socket,
+        clientId,
+        protocolName,
+        lastPacket: new Date(),
+        lat: isValidGps ? parsed.lat : undefined,
+        lng: isValidGps ? parsed.lng : undefined,
+      });
+
       if (!isValidGps) {
-        totalPacketsInvalid++;
-        console.warn(`[TCP - ${protocolName}] Volty: GPS not fixed for ${parsed.imei}. Dropping location.`);
+        console.log(`[TCP - ${protocolName}] Volty: GPS not fixed for ${parsed.imei}. Publishing heartbeat.`);
+        await publisher.publishHeartbeat(
+          parsed.imei,
+          parsed.battery,
+          parsed.ignition,
+          parsed.voltage,
+          parsed.deviceTime,
+          parsed.rawPacket,
+          'VOLTY_HEARTBEAT'
+        );
       } else {
-        connectedDevices.set(parsed.imei, {
-          socket,
-          clientId,
-          protocolName,
-          lastPacket: new Date(),
-          lat: parsed.lat,
-          lng: parsed.lng,
-        });
         await publisher.publishLocation(parsed);
-        totalPacketsParsed++;
-        if (protocolStats['VOLTY']) protocolStats['VOLTY'].lastSuccessfulPacketAt = new Date().toISOString();
       }
+      totalPacketsParsed++;
+      if (protocolStats['VOLTY']) protocolStats['VOLTY'].lastSuccessfulPacketAt = new Date().toISOString();
 
       if (parsed.alertText) {
         await publisher.publishAlert(parsed);
