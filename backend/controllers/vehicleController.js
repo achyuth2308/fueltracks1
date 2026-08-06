@@ -730,17 +730,22 @@ const VehicleController = {
       }
 
       // 5. Return response
-      res.status(200).json({
+      // 202 Accepted: command was published to TCP server via Redis.
+      // Delivery is async — we cannot guarantee the device had an active socket
+      // at the exact moment of dispatch (it may have just reconnected).
+      // The TCP server queues the command for up to 2 minutes if device is offline.
+      res.status(202).json({
         success: true,
-        message: isImmobilize 
-          ? 'Immobilize (Engine Cut) command dispatched successfully.' 
-          : 'Mobilize (Engine Restore) command dispatched successfully.',
+        message: isImmobilize
+          ? 'Immobilize (Engine Cut) command dispatched. Will auto-retry for up to 2 minutes if device is momentarily offline.'
+          : 'Mobilize (Engine Restore) command dispatched. Will auto-retry for up to 2 minutes if device is momentarily offline.',
         data: {
           vehicleId: vehicle.id,
           imei: vehicle.imei,
           is_immobilized: isImmobilize,
           action: isImmobilize ? 'IMMOBILIZE' : 'MOBILIZE',
-          immobilizer_updated_at: updatedState ? updatedState.immobilizer_updated_at : new Date()
+          immobilizer_updated_at: updatedState ? updatedState.immobilizer_updated_at : new Date(),
+          dispatched_at: new Date().toISOString()
         }
       });
     } catch (err) {

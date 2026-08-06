@@ -40,10 +40,75 @@ const {
 } = require('./parser/concoxParser');
 
 // Track connected devices
-const connectedDevices = new Map(); // imei → socket info
+const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
 let totalPacketsReceived = 0;
 let totalPacketsParsed = 0;
 let totalPacketsInvalid = 0;
+
+// ============================================================
+// COMMAND ADAPTERS  (Fix 4)
+// One entry per protocol. Each adapter exposes immobilize() and
+// mobilize() returning the exact ASCII string to write to the socket.
+// Add a new entry here when onboarding a new vendor — do NOT add
+// another branch to the dispatch logic below.
+// ============================================================
+const commandAdapters = {
+  CONCOX: {
+    // Binary — handled separately via buildOnlineCommand(); sentinel value
+    immobilize: () => '__CONCOX_BINARY__',
+    mobilize:   () => '__CONCOX_BINARY__',
+  },
+  'BSTPL-17': {
+    immobilize: () => '$SET,RL,1#\r\n',
+    mobilize:   () => '$SET,RL,0#\r\n',
+  },
+  AIS140: {
+    immobilize: () => 'RL:1*\r\n',
+    mobilize:   () => 'RL:0*\r\n',
+  },
+  AIS140V2: {
+    immobilize: () => 'STOPELEC1*\r\n',
+    mobilize:   () => 'STARTELEC1*\r\n',
+  },
+  VOLTY: {
+    // AIS-140 Volty VLTSETT relay token format
+    immobilize: () => 'VLTSETT#0000;PASS#0000;RL#1;\r\n',
+    mobilize:   () => 'VLTSETT#0000;PASS#0000;RL#0;\r\n',
+  },
+};
+
+// ============================================================
+// PENDING COMMAND QUEUE  (Fix 3)
+// When a command arrives but the device is offline, we park it here.
+// When that IMEI registers a new socket we auto-fire and clear it.
+// Entries older than PENDING_CMD_TTL_MS are silently expired.
+// ============================================================
+const PENDING_CMD_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const pendingCommands = new Map(); // imei → { action, protocol, queuedAt }
+
+/**
+ * Register (or replace) a device socket in connectedDevices.
+ * Called synchronously as soon as we know the IMEI — before any async work.
+ * If a pending command exists for this IMEI and it's still fresh, auto-fires it.
+ */
+function registerDeviceSocket(imei, socket, clientId, protocolName) {
+  // Always replace stale entry — old socket from previous connection is dead
+  connectedDevices.set(imei, { socket, clientId, protocolName, lastPacket: new Date() });
+
+  // Auto-fire pending command if one was queued while the device was offline (Fix 3)
+  const pending = pendingCommands.get(imei);
+  if (pending) {
+    const ageMs = Date.now() - pending.queuedAt;
+    if (ageMs > PENDING_CMD_TTL_MS) {
+      console.log(`[TCP - COMMAND] Pending command for IMEI ${imei} expired (age=${Math.round(ageMs/1000)}s) — discarding`);
+      pendingCommands.delete(imei);
+      return;
+    }
+    pendingCommands.delete(imei);
+    // Fire asynchronously — do not block the socket registration path
+    setImmediate(() => dispatchCommand(imei, pending.action, pending.protocol, socket));
+  }
+}
 
 // Initialize Redis publisher
 publisher.init();
@@ -152,7 +217,16 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
         totalPacketsReceived++;
 
         // Process the packet
-        processPacket(packet, socket, clientId, protocolName, allowedHeaders, () => sessionImei, (val) => { sessionImei = val; });
+        processPacket(packet, socket, clientId, protocolName, allowedHeaders,
+          () => sessionImei,
+          (val) => {
+            if (val && val !== sessionImei) {
+              // Fix 1: update registry synchronously on first IMEI resolve
+              sessionImei = val;
+              registerDeviceSocket(val, socket, clientId, protocolName);
+            }
+          }
+        );
       }
 
       // Safety: prevent buffer overflow from malformed data
@@ -1089,6 +1163,64 @@ function createConcoxServer(port) {
 }
 
 /**
+ * Dispatch a relay command to a device socket using its protocol adapter.
+ * Extracted so it can be called both from the Redis subscriber (normal path)
+ * and from registerDeviceSocket (pending-command auto-fire path).
+ *
+ * @param {string}     imei
+ * @param {string}     action        'IMMOBILIZE' | 'MOBILIZE'
+ * @param {string}     proto         Protocol name key (e.g. 'VOLTY', 'CONCOX')
+ * @param {net.Socket} socket        Active, non-destroyed socket to write to
+ */
+async function dispatchCommand(imei, action, proto, socket) {
+  const isImmobilize = action === 'IMMOBILIZE';
+
+  // Fix 4: look up adapter — fail loudly if protocol is unknown
+  const adapter = commandAdapters[proto];
+  if (!adapter) {
+    console.error(`[TCP - COMMAND] No command adapter for protocol '${proto}' (IMEI ${imei}) — command NOT sent. Add an entry to commandAdapters.`);
+    await publisher.publishRawMessage({
+      imei,
+      packetType: 'DOWNLINK_CMD_ERROR',
+      rawString: `No adapter for protocol '${proto}'`,
+      parsed: false,
+      error: `Unknown protocol: ${proto}`
+    }).catch(() => {});
+    return;
+  }
+
+  const cmdStr = isImmobilize ? adapter.immobilize() : adapter.mobilize();
+  let sendBuffer;
+  let rawRepresentation;
+
+  if (proto === 'CONCOX') {
+    // Concox uses its own binary builder — sentinel value triggers this branch
+    const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
+    rawRepresentation = `[CONCOX 0x80] ${relayStr}`;
+    sendBuffer = buildOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
+  } else {
+    rawRepresentation = cmdStr.trim();
+    sendBuffer = Buffer.from(cmdStr, 'ascii');
+  }
+
+  socket.write(sendBuffer, (writeErr) => {
+    if (writeErr) {
+      console.error(`[TCP - COMMAND] Socket write error to IMEI ${imei} (${proto}):`, writeErr.message);
+    } else {
+      console.log(`[TCP - COMMAND] Sent ${action} to IMEI ${imei} (${proto}): ${rawRepresentation}`);
+    }
+  });
+
+  await publisher.publishRawMessage({
+    imei,
+    packetType: isImmobilize ? 'DOWNLINK_IMMOBILIZE' : 'DOWNLINK_MOBILIZE',
+    rawPacket: Buffer.isBuffer(sendBuffer) ? sendBuffer.toString('hex').toUpperCase() : String(sendBuffer),
+    rawString: rawRepresentation,
+    parsed: true
+  }).catch(() => {});
+}
+
+/**
  * Initialize Redis subscription for downlink commands (Immobilizer, Relay control, etc.)
  */
 function startCommandSubscriber() {
@@ -1122,80 +1254,31 @@ function startCommandSubscriber() {
     if (channel !== 'device_commands') return;
     try {
       const data = JSON.parse(message);
-      const { imei, action, protocol, command } = data;
-      if (!imei) return;
+      const { imei, action, protocol } = data;
+      if (!imei || !action) return;
 
       console.log(`[TCP - COMMAND] Received downlink request for IMEI ${imei}: action=${action}, protocol=${protocol || 'AUTO'}`);
 
       const devInfo = connectedDevices.get(imei);
+      // Resolve protocol: prefer live registry (set from actual connect), fall back to what API sent
       const activeProto = (devInfo && devInfo.protocolName) || protocol || 'AUTO';
 
+      // Fix 2 + 3: device offline — queue the command and return a signal
       if (!devInfo || !devInfo.socket || devInfo.socket.destroyed) {
-        console.warn(`[TCP - COMMAND] Device ${imei} is currently offline (no active TCP socket)`);
+        console.warn(`[TCP - COMMAND] Device ${imei} offline — queuing ${action} for up to ${PENDING_CMD_TTL_MS/1000}s`);
+        pendingCommands.set(imei, { action, protocol: activeProto, queuedAt: Date.now() });
+        // Signal the API by publishing a special packet type it can check
         await publisher.publishRawMessage({
           imei,
           packetType: 'DOWNLINK_CMD_QUEUED',
-          rawPacket: `[OFFLINE] Action: ${action} for IMEI ${imei} (${activeProto})`,
-          rawString: `Device offline - queued ${action}`,
+          rawString: `Device offline — ${action} queued (will auto-fire on reconnect)`,
           parsed: true,
-          error: 'Device not currently connected via TCP socket'
+          error: 'device_offline'
         }).catch(() => {});
         return;
       }
 
-      let sendBuffer;
-      let rawRepresentation;
-
-      if (command) {
-        rawRepresentation = command;
-        sendBuffer = Buffer.from(command);
-      } else if (activeProto === 'CONCOX') {
-        // Concox Binary Protocol (0x80)
-        const cmdStr = action === 'IMMOBILIZE' ? 'RELAY,1#' : 'RELAY,0#';
-        rawRepresentation = `[CONCOX 0x80] ${cmdStr}`;
-        sendBuffer = buildOnlineCommand(cmdStr, Math.floor(Math.random() * 65535) + 1, 0);
-      } else if (activeProto === 'BSTPL-17') {
-        // BSTPL-17 Protocol (# Delimited)
-        const cmdStr = action === 'IMMOBILIZE' ? '$SET,RL,1#\r\n' : '$SET,RL,0#\r\n';
-        rawRepresentation = cmdStr.trim();
-        sendBuffer = Buffer.from(cmdStr, 'ascii');
-      } else if (activeProto === 'AIS140V2') {
-        // AIS-140 V2 Protocol (MODEL NO:1819001A)
-        const cmdStr = action === 'IMMOBILIZE' ? 'STOPELEC1*\r\n' : 'STARTELEC1*\r\n';
-        rawRepresentation = cmdStr.trim();
-        sendBuffer = Buffer.from(cmdStr, 'ascii');
-      } else if (activeProto === 'VOLTY') {
-        // Volty GPS Tracker Protocol (AIS-140 standard)
-        // Primary command: VLTSETT format with relay token
-        // Fallback also sends RL: format for older firmware
-        const primary = action === 'IMMOBILIZE'
-          ? 'VLTSETT#0000;PASS#0000;RL#1;\r\n'
-          : 'VLTSETT#0000;PASS#0000;RL#0;\r\n';
-        rawRepresentation = primary.trim();
-        sendBuffer = Buffer.from(primary, 'ascii');
-      } else {
-        // AIS140 V1 / tNavIC / Standard Fallback
-        const cmdStr = action === 'IMMOBILIZE' ? 'RL:1*\r\n' : 'RL:0*\r\n';
-        rawRepresentation = cmdStr.trim();
-        sendBuffer = Buffer.from(cmdStr, 'ascii');
-      }
-
-      devInfo.socket.write(sendBuffer, (writeErr) => {
-        if (writeErr) {
-          console.error(`[TCP - COMMAND] Socket write error to IMEI ${imei}:`, writeErr.message);
-        } else {
-          console.log(`[TCP - COMMAND] Sent ${action} to IMEI ${imei} (${activeProto}): ${rawRepresentation}`);
-        }
-      });
-
-      // Publish downlink record to raw_logs for Sensor Logs UI visibility
-      await publisher.publishRawMessage({
-        imei,
-        packetType: action === 'IMMOBILIZE' ? 'DOWNLINK_IMMOBILIZE' : 'DOWNLINK_MOBILIZE',
-        rawPacket: Buffer.isBuffer(sendBuffer) ? sendBuffer.toString('hex').toUpperCase() : String(sendBuffer),
-        rawString: rawRepresentation,
-        parsed: true
-      }).catch(() => {});
+      await dispatchCommand(imei, action, activeProto, devInfo.socket);
 
     } catch (cmdErr) {
       console.error('[TCP - COMMAND] Error handling device command:', cmdErr.message);
