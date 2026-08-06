@@ -216,6 +216,8 @@ async function publishRawMessage(parsed) {
     deviceTime: parsed.deviceTime || new Date().toISOString(),
     odometer: parsed.odometer !== undefined && parsed.odometer !== null ? parsed.odometer : null,
     parsedJson: parsed,
+    parsed: parsed.parsed !== false,
+    error: parsed.error || null,
   });
   // Remove all null byte characters (0x00) which PostgreSQL UTF-8 rejects
   const payload = rawPayload.replace(/\0/g, '');

@@ -103,6 +103,7 @@ const io = socketIo(server, {
     credentials: true,
   },
 });
+app.set('io', io);
 
 // ============================================================
 // MIDDLEWARE STACK
@@ -225,6 +226,10 @@ async function bootstrap() {
         preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"stoppage":false,"moving":false,"stopped":false}',
         updated_at  TIMESTAMP DEFAULT NOW()
       );
+
+      -- Vehicle latest state immobilizer columns
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS is_immobilized BOOLEAN DEFAULT FALSE;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS immobilizer_updated_at TIMESTAMP;
     `);
     console.log('[BOOT] Database tables & migrations verified');
 

@@ -49,3 +49,8 @@ export const getVehicleAlerts = async (id, params = {}) => {
   const response = await axiosInstance.get(`/api/vehicles/${id}/alerts`, { params });
   return response.data;
 };
+
+export const setVehicleImmobilizer = async (id, action) => {
+  const response = await axiosInstance.post(`/api/vehicles/${id}/immobilizer`, { action });
+  return response.data;
+};

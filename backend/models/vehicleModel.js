@@ -30,6 +30,7 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.is_online,
+              vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
@@ -119,6 +120,7 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.is_online,
+              vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
               CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
@@ -138,7 +140,7 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 o.name, d.licence_id, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
-                vls.voltage, vls.is_online, vls.last_seen, vls.direction, vls.odometer
+                vls.voltage, vls.is_online, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params
@@ -326,6 +328,21 @@ const VehicleModel = {
       [ids]
     );
     return result.rows.map(row => row.name);
+  },
+
+  /**
+   * Update immobilizer state for vehicle
+   */
+  async setImmobilizerState(vehicleId, isImmobilized) {
+    const result = await db.query(
+      `INSERT INTO vehicle_latest_state (vehicle_id, is_immobilized, immobilizer_updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (vehicle_id) DO UPDATE
+       SET is_immobilized = $2, immobilizer_updated_at = NOW()
+       RETURNING is_immobilized, immobilizer_updated_at`,
+      [vehicleId, isImmobilized]
+    );
+    return result.rows[0] || null;
   }
 };
 

@@ -9,8 +9,18 @@
 
 'use strict';
 
-const { parseConcoxBuffer, buildLoginAck, buildHeartbeatAck, buildAlarmAck, decodeImei } = require('./parser/concoxParser');
-const { crcItu } = require('./parser/concoxCrc');
+const {
+  parseConcoxBuffer,
+  buildLoginAck,
+  buildHeartbeatAck,
+  buildAlarmAck,
+  buildOnlineCommand,
+  decodeImei,
+  parseGpsBlock,
+  parseDateTime,
+  parseTerminalInfo,
+  crcItu,
+} = require('./parser/concoxParser');
 
 let passed = 0;
 let failed = 0;
@@ -467,8 +477,8 @@ section('TEST 9: 0x78/0x79 extended-length packet handling');
   const infoContent = Buffer.from([0x00, 0x04, 0xD2]);  // sub-type 0x00, voltage raw=1234
   const serialNum   = 0x0007;
 
-  // For 0x79 0x79: packet length is 2 bytes, value = protocol(1) + info(n)
-  const pktLen = 1 + infoContent.length; // = 4 for this info
+  // For 0x79 0x79: packet length is 2 bytes, value = protocol(1) + info(n) + serial(2) + crc(2)
+  const pktLen = 1 + infoContent.length + 2 + 2; // = 8 for this info
 
   // CRC over [lenHi, lenLo, protocol, ...info, serialHi, serialLo]
   const crcInput = Buffer.concat([
@@ -627,6 +637,34 @@ section('TEST 12: Publisher schema compatibility');
       `publishLocation field '${field}' is present`,
     );
   }
+}
+
+// ============================================================
+// TEST 14 — buildOnlineCommand (protocol 0x80)
+// ============================================================
+section('TEST 14: buildOnlineCommand (protocol 0x80)');
+
+{
+  // Spec example from v5.md:
+  // "sos#" command without language bit:
+  // 78 78 0E 80 08 00 00 00 00 73 6F 73 23 00 01 6D 6A 0D 0A
+  const expectedSos = Buffer.from('78780E800800000000736F732300016D6A0D0A', 'hex');
+  const actualSos   = buildOnlineCommand('sos#', 0x0001, 0);
+
+  assertEq(actualSos.toString('hex').toUpperCase(), expectedSos.toString('hex').toUpperCase(), 'Spec example 0x80 "sos#" matches byte-for-byte');
+
+  // Test immobilizer command "RELAY,1#"
+  const relayCut = buildOnlineCommand('RELAY,1#', 1, 0);
+  assertEq(relayCut[0], 0x78, 'Start byte 1');
+  assertEq(relayCut[1], 0x78, 'Start byte 2');
+  assertEq(relayCut[3], 0x80, 'Protocol number is 0x80');
+  assert(relayCut.toString('ascii').includes('RELAY,1#'), 'Contains RELAY,1# payload');
+  assertEq(relayCut[relayCut.length - 2], 0x0D, 'Stop byte CR');
+  assertEq(relayCut[relayCut.length - 1], 0x0A, 'Stop byte LF');
+
+  // Test mobilize command "RELAY,0#"
+  const relayRestore = buildOnlineCommand('RELAY,0#', 2, 0);
+  assert(relayRestore.toString('ascii').includes('RELAY,0#'), 'Contains RELAY,0# payload');
 }
 
 // ============================================================

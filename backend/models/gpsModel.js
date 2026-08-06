@@ -275,7 +275,7 @@ const GpsModel = {
    * Save raw packet with extended metadata for Sensor Data logs.
    * Strips null bytes (0x00) from string fields to prevent PostgreSQL UTF-8 errors.
    */
-  async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson }) {
+  async saveRawPacketWithMetadata({ imei, raw, packetType, deviceTime, odometer, rawHex, parsedJson, parsed = true, error = null }) {
     if (!imei) return;
     const sampleRate = parseInt(process.env.RAW_LOG_SAMPLE_RATE) || 1;
     if (sampleRate > 1 && Math.random() > (1 / sampleRate)) {
@@ -289,29 +289,32 @@ const GpsModel = {
     const safeDeviceTime = deviceTime && !isNaN(new Date(deviceTime).getTime()) ? new Date(deviceTime) : new Date();
     const safeOdometer = odometer !== null && odometer !== undefined && !isNaN(Number(odometer)) ? Math.round(Number(odometer)) : 0;
     const parsedDataJson = parsedJson ? (typeof parsedJson === 'object' ? JSON.stringify(parsedJson) : String(parsedJson)) : null;
+    const isParsed = parsed !== false;
+    const cleanError = sanitizeStr(error);
 
     try {
       await db.query(
         `INSERT INTO raw_packets 
-         (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         (imei, raw, parsed, packet_type, device_time, odometer, raw_hex, parsed_data, error) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           sanitizeStr(imei),
           cleanRaw,
-          true,
+          isParsed,
           cleanPacketType,
           safeDeviceTime,
           safeOdometer,
           cleanRaw,
-          parsedDataJson
+          parsedDataJson,
+          cleanError
         ]
       );
     } catch (err) {
       // Safe fallback if extended columns have issues
       try {
         await db.query(
-          `INSERT INTO raw_packets (imei, raw, parsed) VALUES ($1, $2, $3)`,
-          [sanitizeStr(imei), cleanRaw, true]
+          `INSERT INTO raw_packets (imei, raw, parsed, error) VALUES ($1, $2, $3, $4)`,
+          [sanitizeStr(imei), cleanRaw, isParsed, cleanError]
         );
       } catch (fallbackErr) {
         console.error('[DB] saveRawPacket fallback error:', fallbackErr.message);

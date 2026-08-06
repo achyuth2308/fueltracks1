@@ -27,4 +27,7 @@ router.get('/:id/report', VehicleController.getVehicleReport);
 router.get('/:id/alerts', VehicleController.getVehicleAlerts);
 router.get('/:id/messages', VehicleController.getVehicleMessages);
 
+// Commands & Controls (Immobilizer / Relay)
+router.post('/:id/immobilizer', VehicleController.toggleImmobilizer);
+
 module.exports = router;

@@ -186,6 +186,8 @@ async function start(io) {
       try {
         const data = JSON.parse(message);
         const actualRaw = data.rawHex || data.rawString || message;
+        const isParsed = data.parsed !== false;
+        const errorMsg = data.error || null;
         await GpsModel.saveRawPacketWithMetadata({
           imei: data.imei,
           raw: actualRaw,
@@ -193,20 +195,24 @@ async function start(io) {
           deviceTime: data.deviceTime,
           odometer: data.odometer,
           rawHex: data.rawHex || actualRaw,
-          parsedJson: data.parsedJson
+          parsedJson: data.parsedJson,
+          parsed: isParsed,
+          error: errorMsg
         });
         
         if (io) {
           const vehicle = await VehicleModel.findByImei(data.imei);
           if (vehicle) {
             io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               received_at: new Date().toISOString(),
               device_time: data.deviceTime,
               odometer: data.odometer,
-              parsed: true,
-              packet_type: data.packetType,
+              parsed: isParsed,
+              packet_type: data.packetType || 'DATA',
               raw_hex: data.rawHex || actualRaw,
-              raw: actualRaw
+              raw: actualRaw,
+              error: errorMsg
             });
           }
         }
