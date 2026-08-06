@@ -1165,10 +1165,14 @@ function startCommandSubscriber() {
         rawRepresentation = cmdStr.trim();
         sendBuffer = Buffer.from(cmdStr, 'ascii');
       } else if (activeProto === 'VOLTY') {
-        // Volty GPS Tracker Protocol
-        const cmdStr = action === 'IMMOBILIZE' ? 'RL:1*\r\n' : 'RL:0*\r\n';
-        rawRepresentation = cmdStr.trim();
-        sendBuffer = Buffer.from(cmdStr, 'ascii');
+        // Volty GPS Tracker Protocol (AIS-140 standard)
+        // Primary command: VLTSETT format with relay token
+        // Fallback also sends RL: format for older firmware
+        const primary = action === 'IMMOBILIZE'
+          ? 'VLTSETT#0000;PASS#0000;RL#1;\r\n'
+          : 'VLTSETT#0000;PASS#0000;RL#0;\r\n';
+        rawRepresentation = primary.trim();
+        sendBuffer = Buffer.from(primary, 'ascii');
       } else {
         // AIS140 V1 / tNavIC / Standard Fallback
         const cmdStr = action === 'IMMOBILIZE' ? 'RL:1*\r\n' : 'RL:0*\r\n';

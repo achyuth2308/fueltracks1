@@ -185,7 +185,7 @@ async function start(io) {
     if (channel === 'raw_logs') {
       try {
         const data = JSON.parse(message);
-        const actualRaw = data.rawHex || data.rawString || message;
+        const actualRaw = data.rawHex || data.rawString || data.raw || message;
         const isParsed = data.parsed !== false;
         const errorMsg = data.error || null;
         await GpsModel.saveRawPacketWithMetadata({
