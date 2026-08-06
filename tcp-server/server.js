@@ -1174,26 +1174,34 @@ function createConcoxServer(port) {
  * @param {string}     proto         Protocol name key (e.g. 'VOLTY', 'CONCOX')
  * @param {net.Socket} socket        Active, non-destroyed socket to write to
  */
-async function dispatchCommand(imei, action, proto, socket) {
+async function dispatchCommand(imei, action, proto, socket, overrideCommand = null) {
   const isImmobilize = action === 'IMMOBILIZE';
 
-  // Fix 4: look up adapter — fail loudly if protocol is unknown
-  const adapter = commandAdapters[proto];
-  if (!adapter) {
-    console.error(`[TCP - COMMAND] No command adapter for protocol '${proto}' (IMEI ${imei}) — command NOT sent. Add an entry to commandAdapters.`);
-    await publisher.publishRawMessage({
-      imei,
-      packetType: 'DOWNLINK_CMD_ERROR',
-      rawString: `No adapter for protocol '${proto}'`,
-      parsed: false,
-      error: `Unknown protocol: ${proto}`
-    }).catch(() => {});
-    return;
-  }
-
-  const cmdStr = isImmobilize ? adapter.immobilize() : adapter.mobilize();
+  let cmdStr = '';
   let sendBuffer;
   let rawRepresentation;
+
+  if (overrideCommand) {
+    cmdStr = overrideCommand;
+    rawRepresentation = `[OVERRIDE] ${cmdStr}`;
+    sendBuffer = Buffer.from(cmdStr, 'ascii');
+  } else {
+    // Fix 4: look up adapter — fail loudly if protocol is unknown
+    const adapter = commandAdapters[proto];
+    if (!adapter) {
+      console.error(`[TCP - COMMAND] No command adapter for protocol '${proto}' (IMEI ${imei}) — command NOT sent. Add an entry to commandAdapters.`);
+      await publisher.publishRawMessage({
+        imei,
+        packetType: 'DOWNLINK_CMD_ERROR',
+        rawString: `No adapter for protocol '${proto}'`,
+        parsed: false,
+        error: `Unknown protocol: ${proto}`
+      }).catch(() => {});
+      return;
+    }
+
+    cmdStr = isImmobilize ? adapter.immobilize() : adapter.mobilize();
+  }
 
   if (proto === 'CONCOX') {
     // Concox uses its own binary builder — sentinel value triggers this branch
@@ -1256,10 +1264,10 @@ function startCommandSubscriber() {
     if (channel !== 'device_commands') return;
     try {
       const data = JSON.parse(message);
-      const { imei, action, protocol } = data;
+      const { imei, action, protocol, command } = data;
       if (!imei || !action) return;
 
-      console.log(`[TCP - COMMAND] Received downlink request for IMEI ${imei}: action=${action}, protocol=${protocol || 'AUTO'}`);
+      console.log(`[TCP - COMMAND] Received downlink request for IMEI ${imei}: action=${action}, protocol=${protocol || 'AUTO'}, override=${command || 'none'}`);
 
       const devInfo = connectedDevices.get(imei);
       // Resolve protocol: prefer live registry (set from actual connect), fall back to what API sent
@@ -1280,7 +1288,7 @@ function startCommandSubscriber() {
         return;
       }
 
-      await dispatchCommand(imei, action, activeProto, devInfo.socket);
+      await dispatchCommand(imei, action, activeProto, devInfo.socket, command);
 
     } catch (cmdErr) {
       console.error('[TCP - COMMAND] Error handling device command:', cmdErr.message);
