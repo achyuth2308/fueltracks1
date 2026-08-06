@@ -274,15 +274,7 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
     parsed.packetType = parsed.packetType || header;
 
     if (parsed.imei) {
-      try {
-        await publisher.publishRawMessage(parsed);
-        // Confirm publish reached Redis (only log for tracking protocols to avoid noise)
-        if (parsed.packetType === 'VOLTY_NORMAL' || parsed.packetType === 'VOLTY_HEARTBEAT') {
-          console.log(`[RAW-LOG] Published raw packet to Redis for IMEI ${parsed.imei} type=${parsed.packetType}`);
-        }
-      } catch (rawErr) {
-        console.error(`[RAW-LOG] FAILED to publish raw packet for IMEI ${parsed.imei}:`, rawErr.message);
-      }
+      publisher.publishRawMessage(parsed).catch(err => console.error('[RAW-LOG] Publish failed:', err.message));
     }
 
     // Process based on packet type
