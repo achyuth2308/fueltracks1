@@ -63,17 +63,21 @@ const commandAdapters = {
     mobilize:   () => '$SET,RL,0#\r\n',
   },
   AIS140: {
-    immobilize: () => 'RL:1*\r\n',
-    mobilize:   () => 'RL:0*\r\n',
+    // TNavic / Standard AIS140 V1 Relay Control
+    immobilize: () => 'SET RL:1\r\n',
+    mobilize:   () => 'SET RL:0\r\n',
   },
   AIS140V2: {
-    immobilize: () => 'STOPELEC1*\r\n',
-    mobilize:   () => 'STARTELEC1*\r\n',
+    // Model No: 1819001A (AIS140 Protocol Document V2.0)
+    // Section 36: STARTELEC1 (turn on relay) / STOPELEC1 (turn off relay)
+    immobilize: () => 'STOPELEC1\r\n',
+    mobilize:   () => 'STARTELEC1\r\n',
   },
   VOLTY: {
-    // Standard Volty / TranSync relay command format
-    immobilize: () => 'STOPELEC1*\r\n',
-    mobilize:   () => 'STARTELEC1*\r\n',
+    // AIS 140 Volty Protocol (Volty IoT Solutions) / TNavic
+    // Section 7 Configuration / Relay Control
+    immobilize: () => 'SET RL:1\r\n',
+    mobilize:   () => 'SET RL:0\r\n',
   },
 };
 
@@ -223,7 +227,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
           () => sessionImei,
           (val) => {
             if (val && val !== sessionImei) {
-              // Fix 1: update registry synchronously on first IMEI resolve
+              // Always use the port's assigned protocolName — do NOT override based on packet format
               sessionImei = val;
               registerDeviceSocket(val, socket, clientId, protocolName);
             }
@@ -306,10 +310,6 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       if (match) currentImei = match[1];
     }
 
-    if (currentImei && setSessionImei) {
-      setSessionImei(currentImei);
-    }
-
     if (!headerAllowed) {
       totalPacketsInvalid++;
       console.debug(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
@@ -348,6 +348,10 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
 
     parsed.rawString = raw;
     parsed.packetType = parsed.packetType || header;
+
+    if (currentImei && setSessionImei) {
+      setSessionImei(currentImei);
+    }
 
     if (parsed.imei) {
       publisher.publishRawMessage(parsed).catch(err => console.error('[RAW-LOG] Publish failed:', err.message));
