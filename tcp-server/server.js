@@ -63,11 +63,11 @@ const commandAdapters = {
     mobilize:   () => '$SET,RL,0#\r\n',
   },
   AIS140: {
-    // TNavic / Standard AIS140 V1 Relay Control (protocol doc: RL – Relay Control)
-    // RL:0 = Turn OFF relay coil → NO contact OPENS → power CUT → IMMOBILIZE
-    // RL:1 = Turn ON relay coil  → NO contact CLOSES → power FLOWS → MOBILIZE
-    immobilize: () => 'SET RL:0\r\n',
-    mobilize:   () => 'SET RL:1\r\n',
+    // TNavic relay — NC (Normally Closed) wiring
+    // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
+    // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
+    immobilize: () => 'SET RL:1\r\n',
+    mobilize:   () => 'SET RL:0\r\n',
   },
   AIS140V2: {
     // Model No: 1819001A (AIS140 Protocol Document V2.0)
@@ -76,11 +76,11 @@ const commandAdapters = {
     mobilize:   () => 'STARTELEC1\r\n',
   },
   VOLTY: {
-    // AIS 140 Volty Protocol (Volty IoT Solutions) / TNavic
-    // RL:0 = Turn OFF relay coil → NO contact OPENS → power CUT → IMMOBILIZE
-    // RL:1 = Turn ON relay coil  → NO contact CLOSES → power FLOWS → MOBILIZE
-    immobilize: () => 'SET RL:0\r\n',
-    mobilize:   () => 'SET RL:1\r\n',
+    // Volty/TNavic relay — NC (Normally Closed) wiring
+    // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
+    // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
+    immobilize: () => 'SET RL:1\r\n',
+    mobilize:   () => 'SET RL:0\r\n',
   },
 };
 
