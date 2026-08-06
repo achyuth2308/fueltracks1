@@ -71,9 +71,9 @@ const commandAdapters = {
     mobilize:   () => 'STARTELEC1*\r\n',
   },
   VOLTY: {
-    // AIS-140 Volty VLTSETT relay token format
-    immobilize: () => 'VLTSETT#0000;PASS#0000;RL#1;\r\n',
-    mobilize:   () => 'VLTSETT#0000;PASS#0000;RL#0;\r\n',
+    // Standard Volty / TranSync relay command format
+    immobilize: () => 'RELAY,1#',
+    mobilize:   () => 'RELAY,0#',
   },
 };
 
