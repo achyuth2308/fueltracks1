@@ -25,11 +25,11 @@ const { crcItu } = require('../tcp-server/parser/concoxCrc');
 const TCP_HOST = process.env.TCP_SIM_HOST || '127.0.0.1';
 
 const PORTS = {
-  BSTPL:    parseInt(process.env.TCP_PORT)           || 5000,
-  AIS140:   parseInt(process.env.AIS140_TCP_PORT)    || 5001,
-  CONCOX:   parseInt(process.env.CONCOX_TCP_PORT)    || 5002,
-  AIS140V2: parseInt(process.env.AIS140V2_TCP_PORT)  || 5003,
-  VOLTY:    parseInt(process.env.VOLTY_TCP_PORT)     || 5004,
+  BSTPL: parseInt(process.env.TCP_PORT) || 5000,
+  AIS140: parseInt(process.env.AIS140_TCP_PORT) || 5001,
+  CONCOX: parseInt(process.env.CONCOX_TCP_PORT) || 5002,
+  AIS140V2: parseInt(process.env.AIS140V2_TCP_PORT) || 5003,
+  VOLTY: parseInt(process.env.VOLTY_TCP_PORT) || 5004,
 };
 
 // Filter argument: run only one protocol if specified
@@ -37,20 +37,20 @@ const FILTER = (process.argv[2] || '').toLowerCase();
 
 // ── ANSI colors for easy visual distinction ──────────────────
 const C = {
-  reset:   '\x1b[0m',
-  bold:    '\x1b[1m',
-  dim:     '\x1b[2m',
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
   // Protocol colors
-  bstpl:    '\x1b[33m',   // yellow
-  ais140:   '\x1b[36m',   // cyan
-  concox:   '\x1b[35m',   // magenta
+  bstpl: '\x1b[33m',   // yellow
+  ais140: '\x1b[36m',   // cyan
+  concox: '\x1b[35m',   // magenta
   ais140v2: '\x1b[96m',   // bright cyan
-  volty:    '\x1b[92m',   // bright green
+  volty: '\x1b[92m',   // bright green
   // Status colors
-  ok:       '\x1b[32m',   // green
-  err:      '\x1b[31m',   // red
-  ack:      '\x1b[34m',   // blue
-  info:     '\x1b[90m',   // grey
+  ok: '\x1b[32m',   // green
+  err: '\x1b[31m',   // red
+  ack: '\x1b[34m',   // blue
+  info: '\x1b[90m',   // grey
 };
 
 function tag(protocol) {
@@ -80,29 +80,29 @@ function nudge(val, range = 0.0003) {
 
 const BSTPL_DEVICES = [
   {
-    imei:    '865006049210220',
-    lat:     17.207174,
-    lng:     78.314323,
-    speed:   0,
-    fuel:    85.5,
+    imei: '865006049210220',
+    lat: 17.207174,
+    lng: 78.314323,
+    speed: 0,
+    fuel: 85.5,
     ignition: 0,
-    stage:   0,
+    stage: 0,
     stageCounter: 0,
   },
   {
-    imei:    '865006049210216',
-    lat:     12.971598,
-    lng:     77.594562,
-    speed:   55,
-    fuel:    72.0,
+    imei: '865006049210216',
+    lat: 12.971598,
+    lng: 77.594562,
+    speed: 55,
+    fuel: 72.0,
     ignition: 1,
   },
   {
-    imei:    '865006049210217',
-    lat:     19.076090,
-    lng:     72.877726,
-    speed:   0,
-    fuel:    50.2,
+    imei: '865006049210217',
+    lat: 19.076090,
+    lng: 72.877726,
+    speed: 0,
+    fuel: 50.2,
     ignition: 0,
   },
 ];
@@ -119,7 +119,7 @@ function bstplDateTime() {
   const n = utcNow();
   const pad = s => s.toString().padStart(2, '0');
   return {
-    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth()+1)}${n.getUTCFullYear().toString().slice(-2)}`,
+    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth() + 1)}${n.getUTCFullYear().toString().slice(-2)}`,
     time: `${pad(n.getUTCHours())}${pad(n.getUTCMinutes())}${pad(n.getUTCSeconds())}`,
   };
 }
@@ -127,8 +127,8 @@ function bstplDateTime() {
 function updateBstplState(d) {
   if (d.imei !== '865006049210220') {
     if (d.speed > 0) {
-      d.lat  = nudge(d.lat);
-      d.lng  = nudge(d.lng);
+      d.lat = nudge(d.lat);
+      d.lng = nudge(d.lng);
       d.fuel = Math.max(5, parseFloat((d.fuel - 0.01).toFixed(2)));
     }
     return;
@@ -150,12 +150,12 @@ function updateBstplState(d) {
 
 function makeBstplPacket(d) {
   const { date, time } = bstplDateTime();
-  const lat  = toBstplDdm(d.lat, false);
-  const lng  = toBstplDdm(d.lng, true);
+  const lat = toBstplDdm(d.lat, false);
+  const lng = toBstplDdm(d.lng, true);
   const latD = d.lat >= 0 ? 'N' : 'S';
   const lngD = d.lng >= 0 ? 'E' : 'W';
-  const odo  = Math.round(54000 + (Date.now() / 10000) % 1000);
-  const sat  = d.speed > 0 ? 12 : 8;
+  const odo = Math.round(54000 + (Date.now() / 10000) % 1000);
+  const sat = d.speed > 0 ? 12 : 8;
   const batt = Math.round(80 + Math.random() * 20);
   return `$10,${d.imei},A,${date},${time},${lat},${latD},${lng},${lngD},${d.speed},${odo},180,${sat},31,${batt},${d.ignition},0,0,0,00.0000,${d.fuel.toFixed(1)},12.15,L#`;
 }
@@ -206,21 +206,21 @@ function startBstplSimulator() {
 
 const AIS140_DEVICES = [
   {
-    imei:    '865006049210220',
-    vehReg:  'TS09EX1001',
-    lat:     17.345378,
-    lng:     78.523923,
-    speed:   0,
+    imei: '865006049210220',
+    vehReg: 'TS09EX1001',
+    lat: 17.345378,
+    lng: 78.523923,
+    speed: 0,
     ignition: 1,
     alertCycle: 0,
     loggedIn: false,
   },
   {
-    imei:    '865006049210216',
-    vehReg:  'TS09EX1002',
-    lat:     12.971598,
-    lng:     77.594562,
-    speed:   40,
+    imei: '865006049210216',
+    vehReg: 'TS09EX1002',
+    lat: 12.971598,
+    lng: 77.594562,
+    speed: 40,
     ignition: 1,
     loggedIn: false,
   },
@@ -230,7 +230,7 @@ function ais140DateTime() {
   const n = utcNow();
   const pad = s => s.toString().padStart(2, '0');
   return {
-    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth()+1)}${n.getUTCFullYear()}`,
+    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth() + 1)}${n.getUTCFullYear()}`,
     time: `${pad(n.getUTCHours())}${pad(n.getUTCMinutes())}${pad(n.getUTCSeconds())}`,
   };
 }
@@ -241,10 +241,10 @@ function makeAis140LoginPacket(d) {
 
 function makeAis140NormalPacket(d) {
   const { date, time } = ais140DateTime();
-  const odo    = (54000 + Math.round((Date.now() / 10000) % 1000)).toFixed(3);
-  const sat    = d.speed > 0 ? 12 : 8;
-  const volt   = (12.0 + Math.random() * 0.5).toFixed(1);
-  const battV  = (4.0 + Math.random() * 0.2).toFixed(1);
+  const odo = (54000 + Math.round((Date.now() / 10000) % 1000)).toFixed(3);
+  const sat = d.speed > 0 ? 12 : 8;
+  const volt = (12.0 + Math.random() * 0.5).toFixed(1);
+  const battV = (4.0 + Math.random() * 0.2).toFixed(1);
   // NRM format: header,vendor,sw,type,alertId,status,imei,vehReg,fix,date,time,lat,latDir,lng,lngDir,
   //             speed,heading,sats,alt,pdop,hdop,operator,ign,mainPwr,mainV,battV,emerg,tamper,
   //             gsm,mcc,mnc,lac,cellid,din,dout,ain1,ain2,frameNo,odo,debug,checksum*
@@ -293,7 +293,7 @@ function startAis140Simulator() {
         // Send an alert every 4 ticks
         if (tick % 4 === 0 && device.imei === '865006049210220') {
           const alertType = ALERT_SEQUENCE[(tick / 4 - 1) % ALERT_SEQUENCE.length];
-          const altPkt    = makeAis140AlertPacket(device, alertType);
+          const altPkt = makeAis140AlertPacket(device, alertType);
           client.write(altPkt);
           log('AIS140', `${C.ok}→ ALT  ${C.reset}(${alertType}) ${C.dim}${altPkt.substring(0, 70)}...${C.reset}`);
         }
@@ -322,24 +322,24 @@ function startAis140Simulator() {
 
 const CONCOX_DEVICES = [
   {
-    imei:      '865006049210220',  // same IMEI as above — Concox on different port
+    imei: '865006049210220',  // same IMEI as above — Concox on different port
     imeiBytes: [0x86, 0x50, 0x06, 0x04, 0x92, 0x10, 0x22, 0x00], // packed BCD with leading 0
-    lat:       17.345378,
-    lng:       78.523923,
-    speed:     0,
-    ignition:  false,
-    serial:    0,
-    stage:     0,
-    stageCtr:  0,
+    lat: 17.345378,
+    lng: 78.523923,
+    speed: 0,
+    ignition: false,
+    serial: 0,
+    stage: 0,
+    stageCtr: 0,
   },
   {
-    imei:      '865006049210217',
+    imei: '865006049210217',
     imeiBytes: [0x86, 0x50, 0x06, 0x04, 0x92, 0x10, 0x21, 0x70],
-    lat:       19.076090,
-    lng:       72.877726,
-    speed:     60,
-    ignition:  true,
-    serial:    0,
+    lat: 19.076090,
+    lng: 72.877726,
+    speed: 60,
+    ignition: true,
+    serial: 0,
   },
 ];
 
@@ -350,7 +350,7 @@ const CONCOX_DEVICES = [
  */
 function packImei(imei) {
   const padded = imei.padStart(16, '0');  // 16 hex digits (8 bytes)
-  const bytes  = [];
+  const bytes = [];
   for (let i = 0; i < 16; i += 2) {
     bytes.push(parseInt(padded[i], 10) << 4 | parseInt(padded[i + 1], 10));
   }
@@ -366,8 +366,8 @@ function nextSerial(device) {
  * Build a CRC'd 0x78 0x78 frame from protocol + info bytes + serial.
  */
 function buildConcoxFrame(protocolNum, infoBytes, serialNum) {
-  const info    = Buffer.isBuffer(infoBytes) ? infoBytes : Buffer.from(infoBytes);
-  const pktLen  = 1 + info.length + 2 + 2;  // protocol + info + serial + crc
+  const info = Buffer.isBuffer(infoBytes) ? infoBytes : Buffer.from(infoBytes);
+  const pktLen = 1 + info.length + 2 + 2;  // protocol + info + serial + crc
 
   const crcSlice = Buffer.concat([
     Buffer.from([pktLen, protocolNum]),
@@ -380,14 +380,14 @@ function buildConcoxFrame(protocolNum, infoBytes, serialNum) {
     Buffer.from([0x78, 0x78, pktLen, protocolNum]),
     info,
     Buffer.from([(serialNum >> 8) & 0xFF, serialNum & 0xFF,
-                 (crc >> 8) & 0xFF, crc & 0xFF, 0x0D, 0x0A]),
+    (crc >> 8) & 0xFF, crc & 0xFF, 0x0D, 0x0A]),
   ]);
 }
 
 /** Build a CRC'd 0x79 0x79 extended frame */
 function buildConcoxExtendedFrame(protocolNum, infoBytes, serialNum) {
-  const info    = Buffer.isBuffer(infoBytes) ? infoBytes : Buffer.from(infoBytes);
-  const pktLen  = 1 + info.length + 2 + 2;  // protocol + info + serial + crc
+  const info = Buffer.isBuffer(infoBytes) ? infoBytes : Buffer.from(infoBytes);
+  const pktLen = 1 + info.length + 2 + 2;  // protocol + info + serial + crc
 
   const crcSlice = Buffer.concat([
     Buffer.from([(pktLen >> 8) & 0xFF, pktLen & 0xFF, protocolNum]),
@@ -400,16 +400,16 @@ function buildConcoxExtendedFrame(protocolNum, infoBytes, serialNum) {
     Buffer.from([0x79, 0x79, (pktLen >> 8) & 0xFF, pktLen & 0xFF, protocolNum]),
     info,
     Buffer.from([(serialNum >> 8) & 0xFF, serialNum & 0xFF,
-                 (crc >> 8) & 0xFF, crc & 0xFF, 0x0D, 0x0A]),
+    (crc >> 8) & 0xFF, crc & 0xFF, 0x0D, 0x0A]),
   ]);
 }
 
 /** Build Login packet (0x01) */
 function makeConcoxLogin(device) {
   const imeiBytes = packImei(device.imei);
-  const model     = Buffer.from([0x00, 0x05]);   // model code 5
-  const tzLang    = Buffer.from([0x00, 0x00]);   // UTC
-  const info      = Buffer.concat([imeiBytes, model, tzLang]);
+  const model = Buffer.from([0x00, 0x05]);   // model code 5
+  const tzLang = Buffer.from([0x00, 0x00]);   // UTC
+  const info = Buffer.concat([imeiBytes, model, tzLang]);
   return buildConcoxFrame(0x01, info, nextSerial(device));
 }
 
@@ -417,9 +417,9 @@ function makeConcoxLogin(device) {
 function makeConcoxHeartbeat(device) {
   // Terminal info: bit3=acc, bit1=gpsTracking → 0x0A if ignition on, 0x02 if off
   const termInfo = device.ignition ? 0x0A : 0x02;
-  const battLvl  = 0x05;  // 80% (good battery)
-  const gsmLvl   = 0x03;  // 75%
-  const info     = Buffer.from([termInfo, battLvl, gsmLvl, 0x00, 0x00]);
+  const battLvl = 0x05;  // 80% (good battery)
+  const gsmLvl = 0x03;  // 75%
+  const info = Buffer.from([termInfo, battLvl, gsmLvl, 0x00, 0x00]);
   return buildConcoxFrame(0x13, info, nextSerial(device));
 }
 
@@ -435,8 +435,8 @@ function makeConcoxInfo(device) {
 
 /** Build Location packet (0x22) */
 function makeConcoxLocation(device) {
-  const now  = utcNow();
-  const pad  = n => n & 0xFF;
+  const now = utcNow();
+  const pad = n => n & 0xFF;
 
   const dateBytes = Buffer.from([
     now.getUTCFullYear() - 2000,
@@ -448,7 +448,7 @@ function makeConcoxLocation(device) {
   ]);
 
   // GPS info byte: high nibble=12 (gps info length), low nibble=satellite count
-  const satCount    = device.speed > 0 ? 12 : 8;
+  const satCount = device.speed > 0 ? 12 : 8;
   const gpsInfoByte = (12 << 4) | (satCount & 0x0F);
 
   const rawLat = Math.round(Math.abs(device.lat) * 1800000);
@@ -463,21 +463,21 @@ function makeConcoxLocation(device) {
   //   bit13 (byte0 bit5) = longitude hemisphere (0=East)
   //   bit12 (byte0 bit4) = latitude hemisphere (1=North)
   //   bits9-0 = heading (use 180)
-  const heading    = 180;
+  const heading = 180;
   const courseHigh = 0x50 | ((heading >> 8) & 0x03);  // fix=1, West=0, North=1
-  const courseLow  = heading & 0xFF;
+  const courseLow = heading & 0xFF;
 
-  const mcc    = Buffer.from([0x01, 0x94]);   // 404
-  const mnc    = Buffer.from([0x62]);          // 98
-  const lac    = Buffer.from([0xAA, 0xAA]);
+  const mcc = Buffer.from([0x01, 0x94]);   // 404
+  const mnc = Buffer.from([0x62]);          // 98
+  const lac = Buffer.from([0xAA, 0xAA]);
   const cellId = Buffer.from([0xBB, 0xBB, 0xBB]);
 
-  const acc        = device.ignition ? 0x01 : 0x00;
+  const acc = device.ignition ? 0x01 : 0x00;
   const uploadMode = 0x00;  // timer
-  const reUpload   = 0x00;  // live
+  const reUpload = 0x00;  // live
 
   const odometer = Math.round((device.speed > 0 ? 5000 : 1000) * 1000);  // metres
-  const milBuf   = Buffer.alloc(4); milBuf.writeUInt32BE(odometer);
+  const milBuf = Buffer.alloc(4); milBuf.writeUInt32BE(odometer);
 
   const info = Buffer.concat([
     dateBytes,
@@ -494,8 +494,8 @@ function makeConcoxLocation(device) {
 
 /** Build Alarm packet (0x26) — overspeed alarm */
 function makeConcoxAlarm(device, alarmCode = 0x06) {
-  const now  = utcNow();
-  const pad  = n => n & 0xFF;
+  const now = utcNow();
+  const pad = n => n & 0xFF;
 
   const dateBytes = Buffer.from([
     now.getUTCFullYear() - 2000,
@@ -512,16 +512,16 @@ function makeConcoxAlarm(device, alarmCode = 0x06) {
   const lngBuf = Buffer.alloc(4); lngBuf.writeUInt32BE(rawLng);
 
   const courseHigh = 0x50;
-  const courseLow  = 0xB4;
+  const courseLow = 0xB4;
 
   const lbsLen = 0x08;
-  const lbs    = Buffer.from([lbsLen, 0x01, 0x94, 0x62, 0xAA, 0xAA, 0xBB, 0xBB, 0xBB]);
+  const lbs = Buffer.from([lbsLen, 0x01, 0x94, 0x62, 0xAA, 0xAA, 0xBB, 0xBB, 0xBB]);
 
   // Terminal info: acc on
   const termInfo = 0x08;
-  const battLvl  = 0x05;
-  const gsmLvl   = 0x03;
-  const lang     = 0x00;
+  const battLvl = 0x05;
+  const gsmLvl = 0x03;
+  const lang = 0x00;
 
   const milBuf = Buffer.alloc(4); milBuf.writeUInt32BE(5000 * 1000);
 
@@ -552,13 +552,13 @@ function updateConcoxState(d) {
   switch (d.stage) {
     case 0: d.ignition = false; d.speed = 0;
       if (d.stageCtr >= 2) { d.stage = 1; d.stageCtr = 0; } break;
-    case 1: d.ignition = true;  d.speed = 0;
+    case 1: d.ignition = true; d.speed = 0;
       if (d.stageCtr >= 3) { d.stage = 2; d.stageCtr = 0; } break;
-    case 2: d.ignition = true;  d.speed = 45;
+    case 2: d.ignition = true; d.speed = 45;
       d.lat = nudge(d.lat, 0.0005); d.lng = nudge(d.lng, 0.0005);
       if (d.stageCtr >= 3) { d.stage = 3; d.stageCtr = 0; } break;
-    case 3: d.ignition = true;  d.speed = 90;  // trigger overspeed alarm
-      d.lat = nudge(d.lat, 0.001);  d.lng = nudge(d.lng, 0.001);
+    case 3: d.ignition = true; d.speed = 90;  // trigger overspeed alarm
+      d.lat = nudge(d.lat, 0.001); d.lng = nudge(d.lng, 0.001);
       if (d.stageCtr >= 2) { d.stage = 4; d.stageCtr = 0; } break;
     case 4: d.ignition = false; d.speed = 0;
       if (d.stageCtr >= 2) { d.stage = 0; d.stageCtr = 0; } break;
@@ -571,8 +571,8 @@ function startConcoxSimulator() {
   CONCOX_DEVICES.forEach((device) => {
     const client = new net.Socket();
     let heartbeatId = null;
-    let locationId  = null;
-    let tick        = 0;
+    let locationId = null;
+    let tick = 0;
 
     client.connect(PORTS.CONCOX, TCP_HOST, () => {
       log('CONCOX', `${C.ok}Connected${C.reset} IMEI=${device.imei}`);
@@ -626,14 +626,14 @@ function startConcoxSimulator() {
         // Parse response header
         if (data[offset] !== 0x78 || data[offset + 1] !== 0x78) { offset++; continue; }
         const pktLen = data[offset + 2];
-        const proto  = data[offset + 3];
+        const proto = data[offset + 3];
         const frameEnd = offset + 2 + 1 + pktLen + 2;  // start + lenField + pktLen + stop
 
         if (frameEnd > data.length) break;
 
         const protoNames = { 0x01: 'LOGIN ACK', 0x13: 'HEARTBEAT ACK', 0x26: 'ALARM ACK', 0x27: 'ALARM ACK' };
-        const protoName  = protoNames[proto] || `ACK 0x${proto.toString(16).toUpperCase()}`;
-        const frameHex   = data.slice(offset, frameEnd).toString('hex').toUpperCase().match(/../g).join(' ');
+        const protoName = protoNames[proto] || `ACK 0x${proto.toString(16).toUpperCase()}`;
+        const frameHex = data.slice(offset, frameEnd).toString('hex').toUpperCase().match(/../g).join(' ');
         log('CONCOX', `${C.ack}← ${protoName}${C.reset} bytes=[${frameHex}]`);
         offset = frameEnd;
       }
@@ -642,13 +642,13 @@ function startConcoxSimulator() {
     client.on('error', (err) => {
       log('CONCOX', `${C.err}ERROR${C.reset} ${device.imei}: ${err.message}`);
       if (heartbeatId) clearInterval(heartbeatId);
-      if (locationId)  clearInterval(locationId);
+      if (locationId) clearInterval(locationId);
     });
 
     client.on('close', () => {
       log('CONCOX', `${C.err}Disconnected${C.reset} ${device.imei}`);
       if (heartbeatId) clearInterval(heartbeatId);
-      if (locationId)  clearInterval(locationId);
+      if (locationId) clearInterval(locationId);
     });
   });
 }
@@ -661,39 +661,39 @@ function startConcoxSimulator() {
 const AIS140V2_DEVICES = [
   {
     // Primary device: goes through a full scripted lifecycle
-    imei:       '869247045236301',
-    vehReg:     'TN01AA5678',
-    vendor:     'APMK',
-    firmware:   '1.1.2',
-    lat:        12.971598,
-    lng:        77.594562,
-    speed:      0,
-    ignition:   0,   // 0 = OFF, 1 = ON
-    stage:      0,   // lifecycle stage
-    stageCtr:   0,
-    frameNo:    1,
-    loggedIn:   false,
-    tickCount:  0,
-    battVolt:   4.05,
-    mainsVolt:  13.8,
-    gsmSignal:  28,
+    imei: '869247045236301',
+    vehReg: 'TN01AA5678',
+    vendor: 'APMK',
+    firmware: '1.1.2',
+    lat: 12.971598,
+    lng: 77.594562,
+    speed: 0,
+    ignition: 0,   // 0 = OFF, 1 = ON
+    stage: 0,   // lifecycle stage
+    stageCtr: 0,
+    frameNo: 1,
+    loggedIn: false,
+    tickCount: 0,
+    battVolt: 4.05,
+    mainsVolt: 13.8,
+    gsmSignal: 28,
   },
   {
     // Secondary device: steady moving vehicle
-    imei:       '864376047795371',
-    vehReg:     'KA03MN9999',
-    vendor:     'APMK',
-    firmware:   '1.0.9',
-    lat:        17.345378,
-    lng:        78.523923,
-    speed:      55,
-    ignition:   1,
-    frameNo:    100,
-    loggedIn:   false,
-    tickCount:  0,
-    battVolt:   3.98,
-    mainsVolt:  14.1,
-    gsmSignal:  25,
+    imei: '864376047795371',
+    vehReg: 'KA03MN9999',
+    vendor: 'APMK',
+    firmware: '1.0.9',
+    lat: 17.345378,
+    lng: 78.523923,
+    speed: 55,
+    ignition: 1,
+    frameNo: 100,
+    loggedIn: false,
+    tickCount: 0,
+    battVolt: 3.98,
+    mainsVolt: 14.1,
+    gsmSignal: 25,
   },
 ];
 
@@ -702,10 +702,10 @@ function padNum(n, len) { return String(n).padStart(len, '0'); }
 
 /** Format current UTC as V2 date DDMMYYYY and time HHMMSS */
 function v2DateTime() {
-  const n   = utcNow();
+  const n = utcNow();
   const pad = s => s.toString().padStart(2, '0');
   return {
-    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth()+1)}${n.getUTCFullYear()}`,
+    date: `${pad(n.getUTCDate())}${pad(n.getUTCMonth() + 1)}${n.getUTCFullYear()}`,
     time: `${pad(n.getUTCHours())}${pad(n.getUTCMinutes())}${pad(n.getUTCSeconds())}`,
   };
 }
@@ -729,50 +729,50 @@ function makeV2LoginPacket(d) {
  * Includes all 51 fields as per spec.
  */
 function makeV2GeneralPacket(d, opts = {}) {
-  const { date, time }  = v2DateTime();
-  const header   = opts.history  ? '200' : '10';
-  const pktType  = opts.pktType  || 'NR';
-  const alertId  = opts.alertId  || '01';
-  const status   = opts.history  ? 'H'  : 'L';
-  const gpsFix   = d.speed > 0 || opts.gpsFix ? '1' : '0';
-  const sats     = d.speed > 0 ? '09' : '08';
-  const heading  = d.speed > 0 ? '180.00' : '000.00';
+  const { date, time } = v2DateTime();
+  const header = opts.history ? '200' : '10';
+  const pktType = opts.pktType || 'NR';
+  const alertId = opts.alertId || '01';
+  const status = opts.history ? 'H' : 'L';
+  const gpsFix = d.speed > 0 || opts.gpsFix ? '1' : '0';
+  const sats = d.speed > 0 ? '09' : '08';
+  const heading = d.speed > 0 ? '180.00' : '000.00';
   const altitude = '183.5';
-  const pdop     = '1.8';
-  const hdop     = '1.0';
-  const network  = 'AIRTEL';
+  const pdop = '1.8';
+  const hdop = '1.0';
+  const network = 'AIRTEL';
   const mainsPwr = '1';
-  const mainsV   = d.mainsVolt.toFixed(1);
-  const battV    = d.battVolt.toFixed(1);
-  const sos      = opts.sos ? '1' : '0';
-  const gsm      = d.gsmSignal.toString();
-  const mcc      = '404';
-  const mnc      = '10';
-  const lac      = '04F5';
-  const cellId   = 'B1FB';
+  const mainsV = d.mainsVolt.toFixed(1);
+  const battV = d.battVolt.toFixed(1);
+  const sos = opts.sos ? '1' : '0';
+  const gsm = d.gsmSignal.toString();
+  const mcc = '404';
+  const mnc = '10';
+  const lac = '04F5';
+  const cellId = 'B1FB';
   // 4 neighbour cells
-  const nbr      = 'B1FA,04F5,82,FA53,04F5,94,B95D,04F5,96,5DE4,04F5,31';
-  const dinStatus  = '0000';
+  const nbr = 'B1FA,04F5,82,FA53,04F5,94,B95D,04F5,96,5DE4,04F5,31';
+  const dinStatus = '0000';
   const doutStatus = '00';
-  const frameNo  = padNum(d.frameNo++, 6);
+  const frameNo = padNum(d.frameNo++, 6);
 
   return `$,${header},${d.vendor},${d.firmware},${pktType},${alertId},${status},` +
-         `${d.imei},${d.vehReg},${gpsFix},${date},${time},` +
-         `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
-         `${d.speed.toFixed(1)},${heading},${sats},${altitude},${pdop},${hdop},` +
-         `${network},${d.ignition},${mainsPwr},${mainsV},${battV},${sos},${gsm},` +
-         `${mcc},${mnc},${lac},${cellId},${nbr},` +
-         `${dinStatus},${doutStatus},${frameNo},*`;
+    `${d.imei},${d.vehReg},${gpsFix},${date},${time},` +
+    `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
+    `${d.speed.toFixed(1)},${heading},${sats},${altitude},${pdop},${hdop},` +
+    `${network},${d.ignition},${mainsPwr},${mainsV},${battV},${sos},${gsm},` +
+    `${mcc},${mnc},${lac},${cellId},${nbr},` +
+    `${dinStatus},${doutStatus},${frameNo},*`;
 }
 
 /**
  * Build V2 HEALTH packet ($,101)
  */
 function makeV2HealthPacket(d) {
-  const battPct    = Math.min(100, Math.max(0, Math.round(((d.battVolt - 3.0) / 1.2) * 100)));
-  const memPct     = Math.round(10 + Math.random() * 5);  // 10-15% used
-  const ignIntvl   = d.ignition ? '10' : '60';
-  return `$,101,${d.vendor.substring(0,3)},${d.firmware},${d.imei},${battPct},20,${memPct},${ignIntvl},60,1000,${d.mainsVolt.toFixed(2)},0.00,*`;
+  const battPct = Math.min(100, Math.max(0, Math.round(((d.battVolt - 3.0) / 1.2) * 100)));
+  const memPct = Math.round(10 + Math.random() * 5);  // 10-15% used
+  const ignIntvl = d.ignition ? '10' : '60';
+  return `$,101,${d.vendor.substring(0, 3)},${d.firmware},${d.imei},${battPct},20,${memPct},${ignIntvl},60,1000,${d.mainsVolt.toFixed(2)},0.00,*`;
 }
 
 /**
@@ -782,8 +782,8 @@ function makeV2HealthPacket(d) {
 function makeV2EmergencyPacket(d, msgType = 'EMR') {
   const dt = v2MergedDateTime();
   return `$,EPB,${msgType},${d.imei},NM,${dt},A,` +
-         `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
-         `183.5,0.0,${d.speed.toFixed(1)},G,${d.vehReg},0,*`;
+    `${d.lat.toFixed(6)},N,${d.lng.toFixed(6)},E,` +
+    `183.5,0.0,${d.speed.toFixed(1)},G,${d.vehReg},0,*`;
 }
 
 /**
@@ -819,10 +819,10 @@ function makeV2OtaPacket(d, paramStr = 'SETREPORT') {
 function updateV2State(d) {
   if (typeof d.stage === 'undefined') {
     // Secondary device — just drift
-    d.lat  = nudge(d.lat, 0.0004);
-    d.lng  = nudge(d.lng, 0.0004);
-    d.gsmSignal = Math.max(15, Math.min(31, d.gsmSignal + Math.round((Math.random()-0.5)*2)));
-    d.battVolt  = parseFloat(Math.min(4.2, Math.max(3.2, d.battVolt + (Math.random()-0.5)*0.02)).toFixed(2));
+    d.lat = nudge(d.lat, 0.0004);
+    d.lng = nudge(d.lng, 0.0004);
+    d.gsmSignal = Math.max(15, Math.min(31, d.gsmSignal + Math.round((Math.random() - 0.5) * 2)));
+    d.battVolt = parseFloat(Math.min(4.2, Math.max(3.2, d.battVolt + (Math.random() - 0.5) * 0.02)).toFixed(2));
     return;
   }
   d.stageCtr++;
@@ -835,7 +835,7 @@ function updateV2State(d) {
       d.lat = nudge(d.lat, 0.0005); d.lng = nudge(d.lng, 0.0005);
       if (d.stageCtr >= 4) { d.stage = 3; d.stageCtr = 0; } break;
     case 3: d.ignition = 1; d.speed = 95;  // overspeed
-      d.lat = nudge(d.lat, 0.001);  d.lng = nudge(d.lng, 0.001);
+      d.lat = nudge(d.lat, 0.001); d.lng = nudge(d.lng, 0.001);
       if (d.stageCtr >= 3) { d.stage = 4; d.stageCtr = 0; } break;
     case 4: d.speed = 0;  // stopped for SOS
       if (d.stageCtr >= 1) { d.stage = 5; d.stageCtr = 0; } break;
@@ -998,31 +998,31 @@ function startAis140V2Simulator() {
 // VOLTY SIMULATOR  (port 5004)
 // ============================================================
 const voltyDevices = [
-  { imei: '888888888888801', reg: 'DL1VLT01', lat: 17.345, lng: 78.532, speed: 42, hdg: 110, ignition: 1, vBatt: 4.1 },
+  { imei: '888888888888801', reg: 'DL1VLT01', lat: 17.345, lng: 78.532, speed: 5, hdg: 110, ignition: 1, vBatt: 4.1 },
   { imei: '888888888888802', reg: 'DL1VLT02', lat: 17.346, lng: 78.533, speed: 38, hdg: 115, ignition: 1, vBatt: 4.2 }
 ];
 
 function buildVoltyNormal(dev) {
   const now = new Date();
   const d = String(now.getUTCDate()).padStart(2, '0') +
-            String(now.getUTCMonth() + 1).padStart(2, '0') +
-            String(now.getUTCFullYear());
+    String(now.getUTCMonth() + 1).padStart(2, '0') +
+    String(now.getUTCFullYear());
   const t = String(now.getUTCHours()).padStart(2, '0') +
-            String(now.getUTCMinutes()).padStart(2, '0') +
-            String(now.getUTCSeconds()).padStart(2, '0');
-  
+    String(now.getUTCMinutes()).padStart(2, '0') +
+    String(now.getUTCSeconds()).padStart(2, '0');
+
   return `$VLT,Volty,${dev.imei},${dev.reg},1,${d},${t},${dev.lat.toFixed(6)},N,${dev.lng.toFixed(6)},E,${dev.speed},${dev.hdg},10,500.0,1.0,1.0,INA Airtel,${dev.ignition},1,12.5,${dev.vBatt},0,C,31,404,10,00D6,CFBD,NMR,0001,01,000005,16*`;
 }
 
 function buildVoltyAlert(dev, alertCode) {
   const now = new Date();
   const d = String(now.getUTCDate()).padStart(2, '0') +
-            String(now.getUTCMonth() + 1).padStart(2, '0') +
-            String(now.getUTCFullYear());
+    String(now.getUTCMonth() + 1).padStart(2, '0') +
+    String(now.getUTCFullYear());
   const t = String(now.getUTCHours()).padStart(2, '0') +
-            String(now.getUTCMinutes()).padStart(2, '0') +
-            String(now.getUTCSeconds()).padStart(2, '0');
-            
+    String(now.getUTCMinutes()).padStart(2, '0') +
+    String(now.getUTCSeconds()).padStart(2, '0');
+
   if (alertCode === 10) {
     return `$EPB,Volty,${dev.imei},${dev.reg},1,${d},${t},${dev.lat.toFixed(6)},N,${dev.lng.toFixed(6)},E,${dev.speed},${dev.hdg},10,500.0,1.0,1.0,INA Airtel,${dev.ignition},1,12.5,${dev.vBatt},1,C,31,404,10,00D6,CFBD,NMR,0001,01,000005,16*`;
   }
@@ -1031,22 +1031,34 @@ function buildVoltyAlert(dev, alertCode) {
 
 function startVoltySimulator() {
   log('VOLTY', 'Starting Volty simulator...');
-  
+
   voltyDevices.forEach(device => {
     let client = new net.Socket();
     let intervalId = null;
 
     client.connect(PORTS.VOLTY, TCP_HOST, () => {
       log('VOLTY', `${C.ok}Connected${C.reset} IMEI=${device.imei} to port ${PORTS.VOLTY}`);
-      
+
+      client.on('data', (data) => {
+        const cmd = data.toString().trim();
+        if (cmd === 'RL:1*') {
+          device.ignition = 0;
+          device.speed = 0;
+          log('VOLTY', `${C.ack}Received Immobilize Command -> Engine Cut${C.reset}`);
+        } else if (cmd === 'RL:0*') {
+          device.ignition = 1;
+          log('VOLTY', `${C.ack}Received Mobilize Command -> Engine Restore${C.reset}`);
+        }
+      });
+
       intervalId = setInterval(() => {
         device.lat += (Math.random() - 0.5) * 0.001;
         device.lng += (Math.random() - 0.5) * 0.001;
-        
+
         const pkt = buildVoltyNormal(device);
         client.write(pkt);
         log('VOLTY', `${C.dim}Sent Normal:${C.reset} ${pkt}`);
-        
+
         if (Math.random() < 0.01) {
           const sosPkt = buildVoltyAlert(device, 10);
           client.write(sosPkt);
@@ -1088,8 +1100,8 @@ console.log(`${C.bold}║  ${C.volty}VOLTY      ${C.reset}${C.bold}→  port ${P
 console.log(`${C.bold}╚══════════════════════════════════════════════════════╝${C.reset}`);
 console.log('');
 
-if (!FILTER || FILTER === 'bstpl')    startBstplSimulator();
-if (!FILTER || FILTER === 'ais140')   startAis140Simulator();
-if (!FILTER || FILTER === 'concox')   startConcoxSimulator();
+if (!FILTER || FILTER === 'bstpl') startBstplSimulator();
+if (!FILTER || FILTER === 'ais140') startAis140Simulator();
+if (!FILTER || FILTER === 'concox') startConcoxSimulator();
 if (!FILTER || FILTER === 'ais140v2') startAis140V2Simulator();
-if (!FILTER || FILTER === 'volty')    startVoltySimulator();
+if (!FILTER || FILTER === 'volty') startVoltySimulator();
