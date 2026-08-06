@@ -30,6 +30,16 @@ const { parseVoltyPacket } = require('./voltyParser');
 function parsePacket(raw) {
   const trimmed = raw.trim();
 
+  // ---- VOLTY PROTOCOL (Identified by VLT1 / VLT vendor signature or Volty headers) ----
+  if (trimmed.includes('VLT1') || trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD') || trimmed.startsWith('$VLT')) {
+    try {
+      const voltyParsed = parseVoltyPacket(trimmed);
+      if (voltyParsed) return voltyParsed;
+    } catch (e) {
+      console.warn(`[PARSER - VOLTY] Error parsing Volty packet: ${e.message}`);
+    }
+  }
+
   // ---- BSTPL-17 ----
   if (trimmed.startsWith('$10')) {
     return parseNormalPacket(trimmed);
@@ -70,14 +80,8 @@ function parsePacket(raw) {
     return parseAis140V2Packet(trimmed);
   }
 
-  // ---- VOLTY PROTOCOL ----
-  // Volty usually starts with $VLT or similar, but the start character is $
-  // The TCP server routes purely based on port for Volty, so if it reaches here from port 5004,
-  // we can use a specific header check or just pass it if we add a parameter.
-  // Actually, parsePacket doesn't know the port, but Volty headers start with $VLT or $EPB.
-  if (trimmed.startsWith('$VLT') || trimmed.match(/^\$[A-Z]{2,3},/)) {
-    // Note: $NRM, $ALT are handled above by AIS140 V1. If Volty uses $VLT, this will catch it.
-    // If we want strictly Volty, we rely on the parser to extract IMEI and fields.
+  // ---- Fallback for other standard dollar-prefixed packets ----
+  if (trimmed.match(/^\$[A-Z0-9]{2,5},/)) {
     try {
       const voltyParsed = parseVoltyPacket(trimmed);
       if (voltyParsed) return voltyParsed;
@@ -90,7 +94,5 @@ function parsePacket(raw) {
   console.warn(`[PARSER] Unknown packet type: ${trimmed.substring(0, 20)}...`);
   return null;
 }
-
-module.exports = { parsePacket };
 
 module.exports = { parsePacket };

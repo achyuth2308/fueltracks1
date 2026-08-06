@@ -22,7 +22,7 @@ export const getVehicleType = (vehicle = {}) => {
 
 export const getVehicleStatus = (vehicle = {}) => {
   if (vehicle.is_online === false) return 'offline';
-  if ((vehicle.current_speed || 0) > 0) return 'running';
+  if ((vehicle.current_speed || 0) > 2.0) return 'running';
   if (vehicle.current_ignition) return 'idle';
   return 'parked';
 };

@@ -450,7 +450,7 @@ async function start(io) {
 
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat, lng, speed, direction, fuel, ignition, voltage,
+          lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true
         };

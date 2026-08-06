@@ -524,7 +524,7 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.is_online = TRUE THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o
@@ -536,7 +536,7 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.is_online = TRUE THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o

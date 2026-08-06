@@ -29,7 +29,8 @@ const VehicleModel = {
               o.name as org_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
-              vls.voltage as current_voltage, vls.is_online,
+              vls.voltage as current_voltage,
+              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
@@ -119,7 +120,8 @@ const VehicleModel = {
               STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
-              vls.voltage as current_voltage, vls.is_online,
+              vls.voltage as current_voltage,
+              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
               CASE
@@ -140,7 +142,7 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 o.name, d.licence_id, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
-                vls.voltage, vls.is_online, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
+                vls.voltage, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params

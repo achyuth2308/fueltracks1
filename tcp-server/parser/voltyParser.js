@@ -105,14 +105,26 @@ function parseVoltyPacket(raw) {
   const latDir = safeGet(6);
   const rawLng = safeGet(7);
   const lngDir = safeGet(8);
-  const speed = safeGet(9);
+  const speedStr = safeGet(9);
   const heading = safeGet(10);
   const satellites = safeGet(11);
   const ignition = safeGet(16);
+  const mainPowerStatus = safeGet(17); // 1 = connected to vehicle battery, 0 = disconnected
   const inputV = safeGet(18);
   const internalV = safeGet(19);
   const emergencyStatus = safeGet(20);
   const gsmSignal = safeGet(22);
+
+  const rawSpeed = parseFloat(speedStr) || 0;
+  // Filter GPS drift below 2.0 km/h
+  const cleanSpeed = rawSpeed > 2.0 ? Math.round(rawSpeed) : 0;
+
+  const mainVoltage = parseFloat(inputV) || 0;
+  const internalVoltage = parseFloat(internalV) || 0;
+
+  // If power is removed (voltage <= 5V or mainPowerStatus is '0'), vehicle ignition is definitely OFF
+  const hasExternalPower = mainVoltage > 5.0 && mainPowerStatus !== '0';
+  const isIgnition = hasExternalPower ? (ignition === '1') : false;
 
   const lat = convertCoords(rawLat, latDir);
   const lng = convertCoords(rawLng, lngDir);
@@ -121,7 +133,7 @@ function parseVoltyPacket(raw) {
   const isGpsFixed = gpsFix === '1' || gpsFix.toUpperCase() === 'A';
   const isGpsValid = isGpsFixed && lat !== null && lng !== null;
 
-  console.log(`[TCP - VOLTY - DEBUG] IMEI ${imei}: gpsFix=${gpsFix} (valid=${isGpsValid}), lat=${lat}, lng=${lng}, speed=${speed}, ign=${ignition}`);
+  console.log(`[TCP - VOLTY - DEBUG] IMEI ${imei}: gpsFix=${gpsFix} (valid=${isGpsValid}), lat=${lat}, lng=${lng}, speed=${cleanSpeed}, ign=${isIgnition}, vIn=${mainVoltage}V, vBatt=${internalVoltage}V`);
 
   const result = {
     packetType: 'VOLTY_NORMAL',
@@ -129,14 +141,14 @@ function parseVoltyPacket(raw) {
     gpsValid: isGpsValid ? 'A' : 'V',
     lat,
     lng,
-    speed: Math.round(parseFloat(speed)) || 0,
+    speed: cleanSpeed,
     odometer: 0, 
     direction: Math.round(parseFloat(heading)) || 0,
     satellites: parseInt(satellites) || 0,
     gsmSignal: parseInt(gsmSignal) || 0,
-    battery: Math.round(Math.min(100, (parseFloat(internalV) / 4.2) * 100)) || 100, 
-    ignition: ignition === '1',
-    voltage: parseFloat(inputV) || 0,
+    battery: Math.round(Math.min(100, Math.max(0, (internalVoltage / 4.2) * 100))) || 100, 
+    ignition: isIgnition,
+    voltage: mainVoltage,
     isLive: true,
     deviceTime,
     rawPacket: raw
