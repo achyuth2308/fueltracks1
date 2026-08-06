@@ -72,8 +72,8 @@ const commandAdapters = {
   },
   VOLTY: {
     // Standard Volty / TranSync relay command format
-    immobilize: () => 'RELAY,1#',
-    mobilize:   () => 'RELAY,0#',
+    immobilize: () => 'STOPELEC1*\r\n',
+    mobilize:   () => 'STARTELEC1*\r\n',
   },
 };
 
