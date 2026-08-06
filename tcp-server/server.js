@@ -105,8 +105,10 @@ function registerDeviceSocket(imei, socket, clientId, protocolName) {
       return;
     }
     pendingCommands.delete(imei);
+    // Resolve the actual protocol if it was 'AUTO' when queued
+    const actualProto = pending.protocol === 'AUTO' ? protocolName : pending.protocol;
     // Fire asynchronously — do not block the socket registration path
-    setImmediate(() => dispatchCommand(imei, pending.action, pending.protocol, socket));
+    setImmediate(() => dispatchCommand(imei, pending.action, actualProto, socket));
   }
 }
 
