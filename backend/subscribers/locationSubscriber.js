@@ -371,7 +371,7 @@ async function start(io) {
         }
 
         // Check F: Overspeeding (> speedLimit for > 3min)
-        const speedLimit = parseFloat(vehicle.metadata?.speedLimit) || 60;
+        const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 60;
         if (speed > speedLimit) {
           const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
           const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
