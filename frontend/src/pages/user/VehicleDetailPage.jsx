@@ -4,7 +4,8 @@ import {
   ArrowLeft, History, BarChart4, Loader2, AlertOctagon,
   Battery, Wifi, Compass, Radio, MapPin, AlertTriangle,
   Truck, Building2, Users2, User, Key, Fuel, Activity,
-  Calendar, Cpu, WifiOff, Server, Navigation, Clock
+  Calendar, Cpu, WifiOff, Server, Navigation, Clock,
+  ShieldAlert, ShieldCheck, Power, Lock, Unlock, AlertCircle, CheckCircle2, X
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import VehicleMap from '../../components/map/VehicleMap';
@@ -118,6 +119,45 @@ const VehicleDetailPage = () => {
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedVehicleForPay, setSelectedVehicleForPay] = useState(null);
 
+  // Immobilizer Modal & Action State
+  const [showImmobilizerModal, setShowImmobilizerModal] = useState(false);
+  const [immobilizerLoading, setImmobilizerLoading] = useState(false);
+  const [immobilizerFeedback, setImmobilizerFeedback] = useState(null);
+
+  const handleToggleImmobilizer = async (action) => {
+    setImmobilizerLoading(true);
+    setImmobilizerFeedback(null);
+    try {
+      const res = await vehicleApi.setVehicleImmobilizer(id, action);
+      if (res.success) {
+        setVehicle(prev => prev ? {
+          ...prev,
+          is_immobilized: res.data.is_immobilized,
+          immobilizer_updated_at: res.data.immobilizer_updated_at || new Date().toISOString()
+        } : prev);
+        setImmobilizerFeedback({
+          type: 'success',
+          message: res.message || `Command ${action} dispatched successfully to device.`
+        });
+        setTimeout(() => {
+          setShowImmobilizerModal(false);
+          setImmobilizerFeedback(null);
+        }, 1800);
+      } else {
+        setImmobilizerFeedback({
+          type: 'error',
+          message: res.error || 'Failed to dispatch command.'
+        });
+      }
+    } catch (err) {
+      setImmobilizerFeedback({
+        type: 'error',
+        message: err.response?.data?.error || err.message || 'Error dispatching command.'
+      });
+    } finally {
+      setImmobilizerLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetch = async () => {
@@ -133,12 +173,18 @@ const VehicleDetailPage = () => {
           vehicleApi.getVehicleAlerts(id, { limit: 8 }),
           vehicleApi.getVehicleReport(id, { startDate: today.toISOString(), endDate: endToday.toISOString() }),
         ]);
-        if (vRes.status === 'fulfilled' && vRes.value.success) setVehicle(vRes.value.data);
+        
+        if (vRes.status === 'fulfilled' && vRes.value.success) {
+          setVehicle(vRes.value.data);
+          setError(null);
+        } else {
+          setError(vRes.reason?.response?.data?.error || vRes.reason?.message || 'Failed to fetch vehicle data. Please check your network connection.');
+        }
+
         if (aRes.status === 'fulfilled' && aRes.value.success) setAlerts(aRes.value.data);
         if (rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data.summary) setReportSummary(rRes.value.data.summary);
-        setError(null);
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to fetch vehicle data');
+        setError(err.response?.data?.error || err.message || 'Failed to fetch vehicle data');
       } finally { setLoading(false); }
     };
     fetch();
@@ -172,9 +218,25 @@ const VehicleDetailPage = () => {
       if (data.vehicleId !== id) return;
       setAlerts(prev => [data, ...prev].slice(0, 8));
     };
+    const handleVehicleState = (data) => {
+      if (data.vehicleId === id && data.is_immobilized !== undefined) {
+        setVehicle(prev => !prev ? null : {
+          ...prev,
+          is_immobilized: data.is_immobilized,
+          immobilizer_updated_at: data.immobilizer_updated_at || prev.immobilizer_updated_at
+        });
+      }
+    };
+
     socket.on('location:update', handleUpdate);
     socket.on('alert:new', handleAlert);
-    return () => { socket.off('location:update', handleUpdate); socket.off('alert:new', handleAlert); };
+    socket.on('vehicle:state', handleVehicleState);
+
+    return () => {
+      socket.off('location:update', handleUpdate);
+      socket.off('alert:new', handleAlert);
+      socket.off('vehicle:state', handleVehicleState);
+    };
   }, [socket, id]);
 
   if (loading && !vehicle) return (
@@ -219,7 +281,41 @@ const VehicleDetailPage = () => {
           </button>
           <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button
+            onClick={() => {
+              setImmobilizerFeedback(null);
+              setShowImmobilizerModal(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 16px',
+              borderRadius: '8px',
+              background: vehicle.is_immobilized ? '#FEF2F2' : '#F8FAFC',
+              color: vehicle.is_immobilized ? '#DC2626' : '#475569',
+              border: vehicle.is_immobilized ? '1px solid #FECACA' : '1px solid #E2E8F0',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: vehicle.is_immobilized ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+              transition: 'all 0.2s'
+            }}
+            title={vehicle.is_immobilized ? "Engine is currently cut / immobilized" : "Immobilize vehicle engine"}
+          >
+            {vehicle.is_immobilized ? (
+              <>
+                <ShieldAlert size={16} color="#DC2626" />
+                <span>Immobilized</span>
+              </>
+            ) : (
+              <>
+                <ShieldCheck size={16} color="#10B981" />
+                <span>Immobilizer</span>
+              </>
+            )}
+          </button>
           <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
             <History size={16} /> Route History
           </Link>
@@ -297,7 +393,7 @@ const VehicleDetailPage = () => {
 
           <div style={{ width: '1px', height: '48px', background: '#E2E8F0', display: 'none' }} />
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', flex: 1, paddingLeft: '24px', borderLeft: '1px solid #E2E8F0' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', flex: 1, paddingLeft: '24px', borderLeft: '1px solid #E2E8F0', alignItems: 'center' }}>
             <div>
               <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Building2 size={14} /> Organization</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || '—'}</div>
@@ -315,10 +411,47 @@ const VehicleDetailPage = () => {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: 'z#73849bff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><MapPin size={14} /> Location</div>
+              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><MapPin size={14} /> Location</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
                 {vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Unknown'}
               </div>
+            </div>
+
+            {/* Immobilizer Quick Action Badge & Button */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
+              <button
+                onClick={() => {
+                  setImmobilizerFeedback(null);
+                  setShowImmobilizerModal(true);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 14px',
+                  borderRadius: '10px',
+                  background: vehicle.is_immobilized ? '#DC2626' : '#F0FDF4',
+                  color: vehicle.is_immobilized ? '#FFFFFF' : '#166534',
+                  border: vehicle.is_immobilized ? 'none' : '1px solid #BBF7D0',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {vehicle.is_immobilized ? (
+                  <>
+                    <ShieldAlert size={16} color="#FFFFFF" />
+                    <span>Engine Cut (Restore)</span>
+                  </>
+                ) : (
+                  <>
+                    <ShieldCheck size={16} color="#16A34A" />
+                    <span>Engine Active (Immobilize)</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -429,6 +562,232 @@ const VehicleDetailPage = () => {
           window.location.reload();
         }}
       />
+
+      {/* Immobilizer Confirmation & Control Modal */}
+      {showImmobilizerModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            maxWidth: '480px',
+            width: '100%',
+            overflow: 'hidden',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            border: '1px solid #E2E8F0'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '20px 24px',
+              background: vehicle.is_immobilized ? '#F0FDF4' : '#FEF2F2',
+              borderBottom: `1px solid ${vehicle.is_immobilized ? '#DCFCE7' : '#FEE2E2'}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '10px',
+                  background: vehicle.is_immobilized ? '#DCFCE7' : '#FEE2E2',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {vehicle.is_immobilized ? (
+                    <ShieldCheck size={24} color="#16A34A" />
+                  ) : (
+                    <ShieldAlert size={24} color="#DC2626" />
+                  )}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 800, color: vehicle.is_immobilized ? '#166534' : '#991B1B', margin: 0 }}>
+                    {vehicle.is_immobilized ? 'Restore Engine Power' : 'Immobilize Vehicle'}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: '#64748B', margin: '2px 0 0 0' }}>
+                    {vehicle.name} ({vehicle.plate || vehicle.imei})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!immobilizerLoading) {
+                    setShowImmobilizerModal(false);
+                    setImmobilizerFeedback(null);
+                  }
+                }}
+                disabled={immobilizerLoading}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748B',
+                  cursor: immobilizerLoading ? 'not-allowed' : 'pointer',
+                  padding: '4px',
+                  borderRadius: '6px'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Feedback banner */}
+              {immobilizerFeedback && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  background: immobilizerFeedback.type === 'success' ? '#F0FDF4' : '#FEF2F2',
+                  color: immobilizerFeedback.type === 'success' ? '#166534' : '#991B1B',
+                  border: `1px solid ${immobilizerFeedback.type === 'success' ? '#BBF7D0' : '#FECACA'}`
+                }}>
+                  {immobilizerFeedback.type === 'success' ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                  <span>{immobilizerFeedback.message}</span>
+                </div>
+              )}
+
+              {/* Warning/Info Box */}
+              {!vehicle.is_immobilized ? (
+                <div style={{
+                  background: '#FFFBEB',
+                  border: '1px solid #FDE68A',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start'
+                }}>
+                  <AlertTriangle size={20} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '13px', color: '#92400E', lineHeight: 1.5 }}>
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>Safety Warning:</strong>
+                    Sending this command will trigger the GPS relay to cut the vehicle's engine power/starter circuit. Please make sure the vehicle is parked safely or traveling at a safe speed before issuing this command.
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  display: 'flex',
+                  gap: '12px',
+                  alignItems: 'flex-start'
+                }}>
+                  <ShieldCheck size={20} color="#16A34A" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '13px', color: '#166534', lineHeight: 1.5 }}>
+                    <strong style={{ display: 'block', marginBottom: '4px' }}>Restore Engine:</strong>
+                    This command will de-energize the relay and restore engine power/ignition circuit so the driver can start and operate the vehicle normally.
+                  </div>
+                </div>
+              )}
+
+              {/* Vehicle Telemetry Snapshot */}
+              <div style={{
+                background: '#F8FAFC',
+                borderRadius: '12px',
+                padding: '14px 16px',
+                border: '1px solid #E2E8F0',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '12px'
+              }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Current Speed</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{speed} km/h</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Ignition</span>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: ignitionOn ? '#10B981' : '#64748B' }}>
+                    {ignitionOn ? 'ON' : 'OFF'}
+                  </div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Device IMEI</span>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827', fontFamily: 'monospace' }}>{vehicle.imei}</div>
+                </div>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, textTransform: 'uppercase' }}>Protocol</span>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{vehicle.server_name || 'AUTO'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '16px 24px',
+              background: '#FAFAF9',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '12px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowImmobilizerModal(false);
+                  setImmobilizerFeedback(null);
+                }}
+                disabled={immobilizerLoading}
+                style={{
+                  padding: '10px 18px',
+                  borderRadius: '10px',
+                  background: '#FFFFFF',
+                  border: '1px solid #D1D5DB',
+                  color: '#374151',
+                  fontWeight: 600,
+                  fontSize: '13px',
+                  cursor: immobilizerLoading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleImmobilizer(vehicle.is_immobilized ? 'MOBILIZE' : 'IMMOBILIZE')}
+                disabled={immobilizerLoading}
+                style={{
+                  padding: '10px 20px',
+                  borderRadius: '10px',
+                  background: vehicle.is_immobilized ? '#16A34A' : '#DC2626',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  fontSize: '13px',
+                  cursor: immobilizerLoading ? 'not-allowed' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                }}
+              >
+                {immobilizerLoading && <Loader2 size={16} className="animate-spin" />}
+                <span>
+                  {immobilizerLoading
+                    ? 'Dispatching Command...'
+                    : vehicle.is_immobilized
+                    ? 'Confirm Restore Engine'
+                    : 'Confirm Immobilize Vehicle'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

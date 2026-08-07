@@ -187,8 +187,8 @@ const SensorLogsPage = () => {
                     </td>
                   </tr>
                 ) : (
-                  messages.map((m) => (
-                    <tr key={m.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  messages.map((m, idx) => (
+                    <tr key={m.id || `${m.received_at}_${m.packet_type}_${idx}`} style={{ borderBottom: '1px solid #F1F5F9' }}>
                       <td style={{ padding: '12px 16px', color: '#475569', fontWeight: 500, whiteSpace: 'nowrap' }}>
                         {formatLocalTime(m.received_at)}
                       </td>
@@ -198,7 +198,7 @@ const SensorLogsPage = () => {
                       <td style={{ padding: '12px 16px', color: '#111827', fontWeight: 600 }}>
                         {m.odometer != null ? m.odometer : '—'}
                       </td>
-                      <td style={{ padding: '12px 16px', color: m.parsed ? '#10B981' : '#EF4444', fontWeight: 600 }}>
+                      <td style={{ padding: '12px 16px', color: m.parsed ? '#10B981' : '#EF4444', fontWeight: 600 }} title={m.error || (m.parsed ? 'Valid packet' : 'Invalid packet')}>
                         {m.parsed ? 'Valid' : 'Invalid'}
                       </td>
                       <td style={{ padding: '12px 16px' }}>

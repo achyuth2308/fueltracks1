@@ -22,7 +22,7 @@ export const getVehicleType = (vehicle = {}) => {
 
 export const getVehicleStatus = (vehicle = {}) => {
   if (vehicle.is_online === false) return 'offline';
-  if ((vehicle.current_speed || 0) > 0) return 'running';
+  if ((vehicle.current_speed || 0) > 2.0) return 'running';
   if (vehicle.current_ignition) return 'idle';
   return 'parked';
 };
@@ -91,18 +91,19 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   const vehicleSvgContent = getVehicleSvgContent(type, color);
 
   const finalSvg = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36" style="transform: rotate(${course}deg); filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" style="transform: rotate(${course}deg); filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));">
   ${vehicleSvgContent}
 </svg>`;
 
   const stemHeight = clusterRank * 24;
-  const totalHeight = 36 + stemHeight;
+  const totalHeight = 40 + stemHeight;
 
   const svgHtml = `
-    <div style="position:relative;width:36px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
-      <div class="pin-interactive" style="width:36px;height:36px;position:relative;z-index:1;">
+    <div style="position:relative;width:40px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+      <div class="pin-interactive" style="width:40px;height:40px;position:relative;z-index:1;">
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:52px; height:52px; border-radius:50%; background-color:${color}; opacity:0.15; border: 2px solid ${color}; z-index:-1; pointer-events:none; ${cfg.pulse ? 'animation: pulse-ring 2s infinite;' : ''}"></div>
         ${finalSvg}
-        ${status === 'running' && speed > 0 && !overrideOptions.hideSpeed ? `<div style="position:absolute;top:-10px;left:0;width:36px;text-align:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${speed}</div>` : ''}
+        ${status === 'running' && speed > 0 && !overrideOptions.hideSpeed ? `<div style="position:absolute;top:-10px;left:0;width:40px;text-align:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${speed}</div>` : ''}
       </div>
       ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-4px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
     </div>`;
@@ -110,9 +111,9 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   return L.divIcon({
     html: svgHtml,
     className: 'custom-marker-icon',
-    iconSize: [36, totalHeight],
-    iconAnchor: [18, clusterRank > 0 ? totalHeight : 18],
-    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -18],
+    iconSize: [40, totalHeight],
+    iconAnchor: [20, clusterRank > 0 ? totalHeight : 20],
+    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -20],
   });
 };
 
@@ -122,20 +123,21 @@ export const createTeardropIcon = (vehicle, noGps = false, clusterRank = 0) => {
   const color = cfg.color;
 
   const stemHeight = clusterRank * 20;
-  const iconHeight = 36;
+  const iconHeight = 40;
   const totalHeight = iconHeight + stemHeight;
 
   // Modern Teardrop SVG Pin
   const pinSvg = `
-    <svg width="28" height="36" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
+    <svg width="32" height="40" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
       <path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
       <circle cx="14" cy="14" r="6" fill="#ffffff" opacity="0.9"/>
     </svg>
   `;
 
   const svgHtml = `
-    <div style="position:relative;width:28px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
-      <div style="width:28px;height:36px;position:relative;z-index:1;">
+    <div style="position:relative;width:32px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+      <div style="width:32px;height:40px;position:relative;z-index:1;">
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:44px; height:44px; border-radius:50%; background-color:${color}; opacity:0.15; border: 2px solid ${color}; z-index:-1; pointer-events:none; ${cfg.pulse ? 'animation: pulse-ring 2s infinite;' : ''}"></div>
         ${pinSvg}
       </div>
       ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-4px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
@@ -144,8 +146,8 @@ export const createTeardropIcon = (vehicle, noGps = false, clusterRank = 0) => {
   return L.divIcon({
     html: svgHtml,
     className: 'custom-teardrop-icon',
-    iconSize: [28, totalHeight],
-    iconAnchor: [14, clusterRank > 0 ? totalHeight : 36],
-    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -36],
+    iconSize: [32, totalHeight],
+    iconAnchor: [16, clusterRank > 0 ? totalHeight : 40],
+    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -40],
   });
 };

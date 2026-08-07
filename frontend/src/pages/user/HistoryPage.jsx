@@ -4,6 +4,7 @@ import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
+import { adminApi } from '../../api/axios';
 import RouteMap from '../../components/map/RouteMap';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
@@ -62,6 +63,10 @@ const HistoryPage = () => {
   const navigate = useNavigate();
 
   const [vehicle, setVehicle] = useState(null);
+  const [allGroups, setAllGroups] = useState([]);
+  const [allVehicles, setAllVehicles] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState('');
+  
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -144,18 +149,37 @@ const HistoryPage = () => {
   const [endDate, setEndDate] = useState(getTodayRange().end);
 
   useEffect(() => {
-    const fetchVehicle = async () => {
+    const fetchInitialData = async () => {
       try {
+        // Fetch current vehicle
         const response = await vehicleApi.getVehicleById(id);
         if (response.success) {
           setVehicle(response.data);
+          if (response.data.groups && response.data.groups.length > 0) {
+            setSelectedGroupId(response.data.groups[0].id);
+          }
         }
+
+        // Fetch all groups and vehicles for the dropdowns
+        const [groupsRes, vehiclesRes] = await Promise.all([
+          adminApi.getGroups({ limit: 1000 }),
+          vehicleApi.getVehicles({ limit: 1000 })
+        ]);
+
+        if (groupsRes?.success) setAllGroups(groupsRes.data);
+        if (vehiclesRes?.success) setAllVehicles(vehiclesRes.data);
+
       } catch (err) {
-        console.error('Failed to fetch vehicle:', err);
+        console.error('Failed to fetch initial data:', err);
       }
     };
-    fetchVehicle();
+    fetchInitialData();
   }, [id]);
+
+  // Filter vehicles by selected group
+  const displayedVehicles = selectedGroupId
+    ? allVehicles.filter(v => v.group_name && v.group_name.includes(allGroups.find(g => g.id === selectedGroupId)?.name))
+    : allVehicles;
 
   const fetchRouteHistory = async (overrideStart, overrideEnd) => {
     setLoading(true);
@@ -427,20 +451,28 @@ const HistoryPage = () => {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Group</span>
-                <select style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '120px', color: '#000000', background: '#FFFFFF' }}>
-                  {vehicle?.groups && vehicle.groups.length > 0 ? (
-                    vehicle.groups.map(g => (
-                      <option key={g.id} value={g.id}>{g.name}</option>
-                    ))
-                  ) : (
-                    <option value="">No Group</option>
-                  )}
+                <select 
+                  value={selectedGroupId} 
+                  onChange={(e) => setSelectedGroupId(e.target.value)} 
+                  style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '120px', color: '#000000', background: '#FFFFFF' }}
+                >
+                  <option value="">All Groups</option>
+                  {allGroups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
                 </select>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Name</span>
-                <select value={id || ''} onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '140px', color: '#000000', background: '#FFFFFF' }}>
-                  <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>
+                <select 
+                  value={id || ''} 
+                  onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} 
+                  style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '140px', color: '#000000', background: '#FFFFFF' }}
+                >
+                  {displayedVehicles.length === 0 && <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>}
+                  {displayedVehicles.map(v => (
+                    <option key={v.id} value={v.id}>{v.name}</option>
+                  ))}
                 </select>
               </div>
             </div>

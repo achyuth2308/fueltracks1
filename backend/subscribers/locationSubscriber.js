@@ -45,14 +45,14 @@ async function flushGpsBatch() {
     const vehicleIds = batch.map(p => p.vehicleId);
     const lats = batch.map(p => p.lat);
     const lngs = batch.map(p => p.lng);
-    const speeds = batch.map(p => p.speed ?? null);
-    const directions = batch.map(p => p.direction ?? null);
-    const odometers = batch.map(p => p.odometer ?? null);
+    const speeds = batch.map(p => p.speed != null ? Math.round(p.speed) : null);
+    const directions = batch.map(p => p.direction != null ? Math.round(p.direction) : null);
+    const odometers = batch.map(p => p.odometer != null ? Math.round(p.odometer) : null);
     const fuels = batch.map(p => p.fuel ?? null);
     const ignitions = batch.map(p => p.ignition ?? null);
-    const satellites = batch.map(p => p.satellites ?? null);
-    const gsmSignals = batch.map(p => p.gsmSignal ?? null);
-    const batteries = batch.map(p => p.battery ?? null);
+    const satellites = batch.map(p => p.satellites != null ? Math.round(p.satellites) : null);
+    const gsmSignals = batch.map(p => p.gsmSignal != null ? Math.round(p.gsmSignal) : null);
+    const batteries = batch.map(p => p.battery != null ? Math.round(p.battery) : null);
     const voltages = batch.map(p => p.voltage ?? null);
     const isLives = batch.map(p => p.isLive ?? true);
     const deviceTimes = batch.map(p => p.deviceTime);
@@ -185,27 +185,34 @@ async function start(io) {
     if (channel === 'raw_logs') {
       try {
         const data = JSON.parse(message);
+        const actualRaw = data.rawHex || data.rawString || data.raw || message;
+        const isParsed = data.parsed !== false;
+        const errorMsg = data.error || null;
         await GpsModel.saveRawPacketWithMetadata({
           imei: data.imei,
-          raw: message,
+          raw: actualRaw,
           packetType: data.packetType,
           deviceTime: data.deviceTime,
           odometer: data.odometer,
-          rawHex: data.rawHex,
-          parsedJson: data.parsedJson
+          rawHex: data.rawHex || actualRaw,
+          parsedJson: data.parsedJson,
+          parsed: isParsed,
+          error: errorMsg
         });
         
         if (io) {
           const vehicle = await VehicleModel.findByImei(data.imei);
           if (vehicle) {
             io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
+              id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               received_at: new Date().toISOString(),
               device_time: data.deviceTime,
               odometer: data.odometer,
-              parsed: true,
-              packet_type: data.packetType,
-              raw_hex: data.rawHex,
-              raw: message
+              parsed: isParsed,
+              packet_type: data.packetType || 'DATA',
+              raw_hex: data.rawHex || actualRaw,
+              raw: actualRaw,
+              error: errorMsg
             });
           }
         }
@@ -299,8 +306,12 @@ async function start(io) {
       }
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
+      // If the device lost GPS fix and sends 0,0, don't overwrite the last known valid location!
+      const validLat = (lat === 0 || lat === 0.0 || !lat) ? null : lat;
+      const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
+      
       await GpsModel.updateLatestState({
-        vehicleId, lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
+        vehicleId, lat: validLat, lng: validLng, speed, direction, fuel, ignition: finalIgnition, voltage,
         odometer: finalOdometer, satellites, gsmSignal
       });
 
@@ -333,7 +344,7 @@ async function start(io) {
           alertsToTrigger.push({ type: 'stoppage', text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.' });
         }
 
-        // Check D: Excessive idle (ignition ON, speed 0 for > 30s)
+        // Check D: Excessive idle (ignition ON, speed 0 for > 3min)
         if (finalIgnition === true && speed === 0) {
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
@@ -343,12 +354,12 @@ async function start(io) {
             await redis.set(idleKey, Date.now());
           } else {
             const idleDurationMs = Date.now() - parseInt(idleStart);
-            if (idleDurationMs > 30000) {
+            if (idleDurationMs > 180000) {
               const alreadyFired = await redis.get(alertFiredKey);
               if (!alreadyFired) {
                 alertsToTrigger.push({
                   type: 'excessive_idle',
-                  text: `Excessive Idle Alert: Vehicle is idling for more than 30 seconds.`
+                  text: `Excessive Idle Alert: Vehicle is idling for more than 3 minutes.`
                 });
                 await redis.set(alertFiredKey, '1', 'EX', 300); // Lock for 5 mins
               }
@@ -359,20 +370,31 @@ async function start(io) {
           await redis.del(`vehicle:idle_alert_fired:${vehicleId}`);
         }
 
-        // Check D2: Overspeed
-        const speedLimit = parseFloat(vehicle.metadata?.speedLimit) || 80;
-        const overspeedKey = `vehicle:overspeed:${vehicleId}`;
+        // Check F: Overspeeding (> speedLimit for > 3min)
+        const speedLimit = parseFloat(vehicle.metadata?.speedLimit) || 60;
         if (speed > speedLimit) {
-          const alreadySpeeding = await redis.get(overspeedKey);
-          if (!alreadySpeeding) {
-            alertsToTrigger.push({
-              type: 'overspeed',
-              text: `Overspeed Alert: Vehicle exceeded speed limit (${Math.round(speed)} km/h > ${speedLimit} km/h).`
-            });
-            await redis.set(overspeedKey, 'true');
+          const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
+          const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
+
+          let overspeedStart = await redis.get(overspeedKey);
+          if (!overspeedStart) {
+            await redis.set(overspeedKey, Date.now());
+          } else {
+            const overspeedDurationMs = Date.now() - parseInt(overspeedStart);
+            if (overspeedDurationMs > 180000) {
+              const alreadyFired = await redis.get(overspeedFiredKey);
+              if (!alreadyFired) {
+                alertsToTrigger.push({
+                  type: 'overspeed',
+                  text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than 3 minutes.`
+                });
+                await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins
+              }
+            }
           }
         } else {
-          await redis.del(overspeedKey);
+          await redis.del(`vehicle:overspeed_start:${vehicleId}`);
+          await redis.del(`vehicle:overspeed_alert_fired:${vehicleId}`);
         }
 
         // Check E: Geofence checks
@@ -428,7 +450,7 @@ async function start(io) {
 
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat, lng, speed, direction, fuel, ignition, voltage,
+          lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true
         };

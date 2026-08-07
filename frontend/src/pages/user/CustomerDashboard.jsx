@@ -88,7 +88,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const getStatus = (v) => {
     if (!v.is_online) return 'offline';
-    if ((v.current_speed || 0) > 0) return 'running';
+    if ((v.current_speed || 0) > 2.0) return 'running';
     if (v.current_ignition) return 'idle';
     return 'parked';
   };

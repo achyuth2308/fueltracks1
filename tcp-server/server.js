@@ -17,8 +17,10 @@ const protocolStats = {
   'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
+const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
 
@@ -26,18 +28,103 @@ const BSTPL_PORT    = process.env.TCP_PORT || 5000;
 const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
 const CONCOX_PORT   = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
 const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
+const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 
-// Concox binary parser + ACK builders
-const { parseConcoxBuffer, buildLoginAck, buildHeartbeatAck, buildAlarmAck } = require('./parser/concoxParser');
+// Concox binary parser + ACK & command builders
+const {
+  parseConcoxBuffer,
+  buildLoginAck,
+  buildHeartbeatAck,
+  buildAlarmAck,
+  buildOnlineCommand
+} = require('./parser/concoxParser');
 
 // Track connected devices
-const connectedDevices = new Map(); // imei → socket info
+const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
 let totalPacketsReceived = 0;
 let totalPacketsParsed = 0;
 let totalPacketsInvalid = 0;
 
+// ============================================================
+// COMMAND ADAPTERS  (Fix 4)
+// One entry per protocol. Each adapter exposes immobilize() and
+// mobilize() returning the exact ASCII string to write to the socket.
+// Add a new entry here when onboarding a new vendor — do NOT add
+// another branch to the dispatch logic below.
+// ============================================================
+const commandAdapters = {
+  CONCOX: {
+    // Binary — handled separately via buildOnlineCommand(); sentinel value
+    immobilize: () => '__CONCOX_BINARY__',
+    mobilize:   () => '__CONCOX_BINARY__',
+  },
+  'BSTPL-17': {
+    immobilize: () => '$SET,RL,1#\r\n',
+    mobilize:   () => '$SET,RL,0#\r\n',
+  },
+  AIS140: {
+    // TNavic relay — NC (Normally Closed) wiring
+    // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
+    // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
+    immobilize: () => 'RL:1\r\n',
+    mobilize:   () => 'RL:0\r\n',
+  },
+  AIS140V2: {
+    // Model No: 1819001A (AIS140 Protocol Document V2.0)
+    // Section 36: STARTELEC1 (turn on relay) / STOPELEC1 (turn off relay)
+    immobilize: () => 'STOPELEC1\r\n',
+    mobilize:   () => 'STARTELEC1\r\n',
+  },
+  VOLTY: {
+    // Volty/TNavic relay — NC (Normally Closed) wiring
+    // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
+    // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
+    immobilize: () => 'RL:1\r\n',
+    mobilize:   () => 'RL:0\r\n',
+  },
+};
+
+// ============================================================
+// PENDING COMMAND QUEUE  (Fix 3)
+// When a command arrives but the device is offline, we park it here.
+// When that IMEI registers a new socket we auto-fire and clear it.
+// Entries older than PENDING_CMD_TTL_MS are silently expired.
+// ============================================================
+const PENDING_CMD_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const pendingCommands = new Map(); // imei → { action, protocol, queuedAt }
+
+/**
+ * Register (or replace) a device socket in connectedDevices.
+ * Called synchronously as soon as we know the IMEI — before any async work.
+ * If a pending command exists for this IMEI and it's still fresh, auto-fires it.
+ */
+function registerDeviceSocket(imei, socket, clientId, protocolName) {
+  // Always replace stale entry — old socket from previous connection is dead
+  connectedDevices.set(imei, { socket, clientId, protocolName, lastPacket: new Date() });
+
+  // Auto-fire pending command if one was queued while the device was offline (Fix 3)
+  const pending = pendingCommands.get(imei);
+  if (pending) {
+    const ageMs = Date.now() - pending.queuedAt;
+    if (ageMs > PENDING_CMD_TTL_MS) {
+      console.log(`[TCP - COMMAND] Pending command for IMEI ${imei} expired (age=${Math.round(ageMs/1000)}s) — discarding`);
+      pendingCommands.delete(imei);
+      return;
+    }
+    pendingCommands.delete(imei);
+    // Resolve the actual protocol if it was 'AUTO' when queued
+    const actualProto = pending.protocol === 'AUTO' ? protocolName : pending.protocol;
+    // Fire asynchronously — do not block the socket registration path
+    setImmediate(() => dispatchCommand(imei, pending.action, actualProto, socket));
+  }
+}
+
 // Initialize Redis publisher
 publisher.init();
+
+// Initialize Redis command subscriber for downlink commands (Immobilizer / Relay)
+let commandSubscriber = null;
+startCommandSubscriber();
 
 // Start the BSTPL-17 Server on Port 5000
 const bstplServer = createProtocolServer(
@@ -74,6 +161,15 @@ const ais140V2Server = createProtocolServer(
   ['$,', 'ACTVR', 'HCHKR', '$']
 );
 
+// Start the Volty Server on Port 5004
+const voltyServer = createProtocolServer(
+  VOLTY_PORT,
+  '*',
+  'VOLTY',
+  // Volty usually starts with $VLT or other $ prefixes
+  ['$']
+);
+
 /**
  * Factory to create a TCP server for a specific protocol configuration
  */
@@ -89,6 +185,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
     // Buffer for handling partial packets (TCP streaming)
     let buffer = '';
     let isFirstData = true;
+    let sessionImei = null;
 
     socket.on('data', (data) => {
       if (isFirstData) {
@@ -111,17 +208,34 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
         let packet = buffer.substring(0, endIndex + 1);
         buffer = buffer.substring(endIndex + 1);
 
-        // Find the start of the packet
-        const startIndex = packet.lastIndexOf('$');
+        // Find the start of the packet ($ for standard protocols, or ACTVR/HCHKR for AIS140V2)
+        let startIndex = packet.lastIndexOf('$');
         if (startIndex === -1) {
-          continue; // No valid packet start found
+          const actvrIdx = packet.indexOf('ACTVR');
+          const hchkrIdx = packet.indexOf('HCHKR');
+          if (actvrIdx !== -1) {
+            startIndex = actvrIdx;
+          } else if (hchkrIdx !== -1) {
+            startIndex = hchkrIdx;
+          } else {
+            continue; // No valid packet start found
+          }
         }
         packet = packet.substring(startIndex);
 
         totalPacketsReceived++;
 
         // Process the packet
-        processPacket(packet, clientId, protocolName, allowedHeaders);
+        processPacket(packet, socket, clientId, protocolName, allowedHeaders,
+          () => sessionImei,
+          (val) => {
+            if (val && val !== sessionImei) {
+              // Always use the port's assigned protocolName — do NOT override based on packet format
+              sessionImei = val;
+              registerDeviceSocket(val, socket, clientId, protocolName);
+            }
+          }
+        );
       }
 
       // Safety: prevent buffer overflow from malformed data
@@ -133,10 +247,16 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
 
     socket.on('close', () => {
       if (protocolStats[protocolName]) protocolStats[protocolName].connections--;
-      console.log(`[TCP - ${protocolName}] Device disconnected: ${clientId}`);
+      console.log(`[TCP - ${protocolName}] Device disconnected: ${clientId} (IMEI: ${sessionImei || 'unknown'})`);
+      if (sessionImei) {
+        const existing = connectedDevices.get(sessionImei);
+        if (existing && existing.socket === socket) {
+          connectedDevices.delete(sessionImei);
+        }
+      }
       // Remove from connected devices
       for (const [imei, info] of connectedDevices.entries()) {
-        if (info.clientId === clientId) {
+        if (info.socket === socket || info.clientId === clientId) {
           connectedDevices.delete(imei);
           break;
         }
@@ -172,7 +292,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
 /**
  * Process a single complete packet
  */
-async function processPacket(raw, clientId, protocolName, allowedHeaders) {
+async function processPacket(raw, socket, clientId, protocolName, allowedHeaders, getSessionImei, setSessionImei) {
   try {
     // Check if packet header is allowed on this port.
     // For AIS140 V2 we use prefix matching instead of exact match because the
@@ -180,26 +300,64 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
     // with '$' followed by vehicle reg no (also variable).
     const header = raw.split(',')[0].trim();
     const headerAllowed = allowedHeaders.some(allowed => header.startsWith(allowed));
-    if (!headerAllowed) {
-      totalPacketsInvalid++;
-      console.debug(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
-      return;
-    }
 
     // Parse the packet
     const parsed = parsePacket(raw);
 
+    // Session IMEI resolution
+    let currentImei = (parsed && parsed.imei) || (getSessionImei && getSessionImei()) || null;
+    
+    // If IMEI not yet resolved, attempt to extract 14-16 digit IMEI pattern from raw packet
+    if (!currentImei) {
+      const match = raw.match(/\b(\d{14,16})\b/);
+      if (match) currentImei = match[1];
+    }
+
+    if (!headerAllowed) {
+      totalPacketsInvalid++;
+      console.debug(`[TCP - ${protocolName}] Disallowed packet header '${header}' received on port. Ignoring.`);
+      if (currentImei) {
+        await publisher.publishRawMessage({
+          imei: currentImei,
+          packetType: header || 'DISALLOWED',
+          rawString: raw,
+          rawPacket: raw,
+          parsed: false,
+          error: `Disallowed packet header '${header}' on ${protocolName} port`
+        }).catch(err => console.error(err));
+      }
+      return;
+    }
+
     if (!parsed) {
       totalPacketsInvalid++;
       console.warn(`[TCP - ${protocolName}] Unrecognized packet from ${clientId}: ${raw.substring(0, 50)}`);
+      if (currentImei) {
+        await publisher.publishRawMessage({
+          imei: currentImei,
+          packetType: header || 'UNRECOGNIZED',
+          rawString: raw,
+          rawPacket: raw,
+          parsed: false,
+          error: 'Unrecognized packet format'
+        }).catch(err => console.error(err));
+      }
       return;
+    }
+
+    if (!parsed.imei && currentImei) {
+      parsed.imei = currentImei;
     }
 
     parsed.rawString = raw;
     parsed.packetType = parsed.packetType || header;
 
+    if (currentImei && setSessionImei) {
+      setSessionImei(currentImei);
+    }
+
     if (parsed.imei) {
-      await publisher.publishRawMessage(parsed).catch(err => console.error(err));
+      publisher.publishRawMessage(parsed).catch(err => console.error('[RAW-LOG] Publish failed:', err.message));
     }
 
     // Process based on packet type
@@ -213,7 +371,9 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
 
       // Track the connected device
       connectedDevices.set(parsed.imei, {
+        socket,
         clientId,
+        protocolName,
         lastPacket: new Date(),
         lat: parsed.lat,
         lng: parsed.lng,
@@ -243,7 +403,9 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       // If alert has valid GPS data, publish as a location update too
       if (parsed.lat && parsed.lng && Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180) {
         connectedDevices.set(parsed.imei, {
+          socket,
           clientId,
+          protocolName,
           lastPacket: new Date(),
           lat: parsed.lat,
           lng: parsed.lng,
@@ -271,7 +433,9 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
 
       // Track the connected device
       connectedDevices.set(parsed.imei, {
+        socket,
         clientId,
+        protocolName,
         lastPacket: new Date(),
         lat: parsed.lat,
         lng: parsed.lng,
@@ -289,6 +453,14 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       console.log(`[TCP - ${protocolName}] Emergency/SOS from ${parsed.imei}: ${parsed.alertText}`);
 
     } else if (parsed.packetType === '$LGN') {
+      if (parsed.imei) {
+        connectedDevices.set(parsed.imei, {
+          socket,
+          clientId,
+          protocolName,
+          lastPacket: new Date()
+        });
+      }
       console.log(`[TCP - ${protocolName}] Login received from device ${parsed.imei} (${parsed.vehicleRegNo || 'No Reg'})`);
       if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
         protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
@@ -300,6 +472,12 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
     } else if (parsed.packetType === '$HLM') {
       console.log(`[TCP - ${protocolName}] Health status received from device ${parsed.imei}. Battery: ${parsed.batteryPercent}%`);
       if (parsed.imei) {
+        connectedDevices.set(parsed.imei, {
+          socket,
+          clientId,
+          protocolName,
+          lastPacket: new Date()
+        });
         await publisher.publishHeartbeat(
           parsed.imei, 
           parsed.batteryPercent, 
@@ -317,6 +495,41 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       }
       totalPacketsParsed++;
 
+    } else if (parsed.packetType === 'VOLTY_NORMAL') {
+      const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
+                         Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
+                         
+      connectedDevices.set(parsed.imei, {
+        socket,
+        clientId,
+        protocolName,
+        lastPacket: new Date(),
+        lat: isValidGps ? parsed.lat : undefined,
+        lng: isValidGps ? parsed.lng : undefined,
+      });
+
+      if (!isValidGps) {
+        console.log(`[TCP - ${protocolName}] Volty: GPS not fixed for ${parsed.imei}. Publishing heartbeat.`);
+        await publisher.publishHeartbeat(
+          parsed.imei,
+          parsed.battery,
+          parsed.ignition,
+          parsed.voltage,
+          parsed.deviceTime,
+          parsed.rawPacket,
+          'VOLTY_HEARTBEAT'
+        );
+      } else {
+        await publisher.publishLocation(parsed);
+      }
+      totalPacketsParsed++;
+      if (protocolStats['VOLTY']) protocolStats['VOLTY'].lastSuccessfulPacketAt = new Date().toISOString();
+
+      if (parsed.alertText) {
+        await publisher.publishAlert(parsed);
+        console.log(`[TCP - ${protocolName}] Volty Alert from ${parsed.imei}: ${parsed.alertText}`);
+      }
+      
     // ================================================================
     // AIS140 V2 PACKET TYPES
     // ================================================================
@@ -331,7 +544,9 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
         console.warn(`[TCP - ${protocolName}] V2 General: GPS not fixed for ${parsed.imei}. Dropping location.`);
       } else {
         connectedDevices.set(parsed.imei, {
+          socket,
           clientId,
+          protocolName,
           lastPacket: new Date(),
           lat: parsed.lat,
           lng: parsed.lng,
@@ -350,6 +565,12 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
     } else if (parsed.packetType === 'AIS140V2_HEALTH') {
       console.log(`[TCP - ${protocolName}] V2 Health from ${parsed.imei}: Battery ${parsed.batteryPercent}%, Mem ${parsed.memoryPercent}%`);
       if (parsed.imei) {
+        connectedDevices.set(parsed.imei, {
+          socket,
+          clientId,
+          protocolName,
+          lastPacket: new Date()
+        });
         await publisher.publishHeartbeat(
           parsed.imei,
           parsed.batteryPercent,
@@ -368,7 +589,7 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
       const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
                          Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
       if (isValidGps) {
-        connectedDevices.set(parsed.imei, { clientId, lastPacket: new Date(), lat: parsed.lat, lng: parsed.lng });
+        connectedDevices.set(parsed.imei, { socket, clientId, protocolName, lastPacket: new Date(), lat: parsed.lat, lng: parsed.lng });
         await publisher.publishLocation(parsed);
       }
       await publisher.publishAlert(parsed);
@@ -421,17 +642,7 @@ async function processPacket(raw, clientId, protocolName, allowedHeaders) {
   }
 }
 
-// Graceful shutdown
-const shutdown = async () => {
-  console.log('\n[TCP] Shutting down servers...');
-  bstplServer.close();
-  ais140Server.close();
-  ais140V2Server.close();
-  concoxServer.close();
-  if (typeof healthServer !== 'undefined') healthServer.close();
-  await publisher.close();
-  process.exit(0);
-};
+
 
 // ============================================================
 // CONCOX BINARY TCP SERVER
@@ -493,7 +704,18 @@ function createConcoxServer(port) {
     socket.on('close', () => {
       protocolStats['CONCOX'].connections--;
       console.log(`[TCP - CONCOX] Device disconnected: ${clientId} (IMEI: ${sessionImei || 'unknown'})`);
-      if (sessionImei) connectedDevices.delete(sessionImei);
+      if (sessionImei) {
+        const existing = connectedDevices.get(sessionImei);
+        if (existing && existing.socket === socket) {
+          connectedDevices.delete(sessionImei);
+        }
+      }
+      for (const [imei, info] of connectedDevices.entries()) {
+        if (info.socket === socket || info.clientId === clientId) {
+          connectedDevices.delete(imei);
+          break;
+        }
+      }
     });
 
     socket.on('error', (err) => {
@@ -522,20 +744,20 @@ function createConcoxServer(port) {
         switch (packet.packetType) {
 
           case 'CONCOX_LOGIN': {
-            // Store IMEI for this socket session
+            // Store IMEI and socket for this session
             sessionImei = packet.imei;
-            connectedDevices.set(sessionImei, { clientId: cId, lastPacket: new Date() });
+            connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() });
             console.log(`[TCP - CONCOX] Login from IMEI ${sessionImei} (model: 0x${packet.modelCode.toString(16)})`);
 
             // MUST ACK within 5 seconds or device reboots
             const ack = buildLoginAck(packet.serialNumber);
             sock.write(ack);
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
             break;
           }
 
@@ -546,6 +768,7 @@ function createConcoxServer(port) {
             console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
 
             if (sessionImei) {
+              connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() });
               await publisher.publishHeartbeat(
                 sessionImei, 
                 packet.battPercent, 
@@ -558,11 +781,11 @@ function createConcoxServer(port) {
             }
 
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
             break;
           }
 
@@ -591,13 +814,13 @@ function createConcoxServer(port) {
             }
 
             const device = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+            device.socket = sock;
+            device.protocolName = 'CONCOX';
             device.lat = packet.lat;
             device.lng = packet.lng;
             connectedDevices.set(sessionImei, device);
 
             // Publish to Redis tracking channel (same as BSTPL/AIS140)
-            // Per spec §3.2: location packet ACK is not mandatory — skipping.
-            // TODO: implement PBSW (server-side history request) mode if required.
             await publisher.publishLocation({
               imei:      sessionImei,
               lat:       packet.lat,
@@ -615,11 +838,11 @@ function createConcoxServer(port) {
               isLive:    packet.isLive,
             });
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
 
             if (totalPacketsParsed % 100 === 0) {
               console.log(`[TCP] Stats: received=${totalPacketsReceived}, parsed=${totalPacketsParsed}, invalid=${totalPacketsInvalid}, devices=${connectedDevices.size}`);
@@ -627,8 +850,7 @@ function createConcoxServer(port) {
             break;
           }
 
-          case 'CONCOX_ALARM':
-          case 'CONCOX_ALARM_MULTI': {
+          case 'CONCOX_ALARM': {
             if (!sessionImei) {
               console.warn(`[TCP - CONCOX] Alarm from ${cId} before login — dropping`);
               totalPacketsInvalid++;
@@ -639,84 +861,280 @@ function createConcoxServer(port) {
             const ack = buildAlarmAck(packet.rawPacketType, packet.serialNumber);
             sock.write(ack);
 
-            console.log(`[TCP - CONCOX] Alarm from ${sessionImei}: ${packet.alertText} (0x${packet.alarmCode.toString(16)})`);
+            console.log(`[TCP - CONCOX] Alarm ACK sent (0x${packet.rawPacketType.toString(16)}) to ${sessionImei}`);
+
+            const alarmDevice = connectedDevices.get(sessionImei) || {};
+            alarmDevice.socket = sock;
+            alarmDevice.protocolName = 'CONCOX';
+            connectedDevices.set(sessionImei, alarmDevice);
+
+            // Also publish location if GPS fix is valid (alarm packets carry GPS data)
+            if (packet.gpsValid === 'A' &&
+                packet.lat !== null && packet.lng !== null &&
+                Math.abs(packet.lat) <= 90 && Math.abs(packet.lng) <= 180) {
+              alarmDevice.lat = packet.lat;
+              alarmDevice.lng = packet.lng;
+              connectedDevices.set(sessionImei, alarmDevice);
+              await publisher.publishLocation({
+                imei:      sessionImei,
+                lat:       packet.lat,
+                lng:       packet.lng,
+                speed:     packet.speed || 0,
+                fuel:      packet.fuel,
+                ignition:  packet.ignition,
+                voltage:   packet.voltage || alarmDevice.voltage || 0,
+                direction: packet.direction || 0,
+                odometer:  packet.odometer || 0,
+                satellites: packet.satellites || 0,
+                gsmSignal: packet.gsmSignal || 0,
+                battery:   packet.battery,
+                deviceTime: packet.deviceTime,
+                isLive:    packet.isLive,
+              }).catch(() => {});
+            }
 
             // Publish alert
             await publisher.publishAlert({
               imei:      sessionImei,
               alertType: packet.alertType,
               alertText: packet.alertText,
-              lat:       packet.lat,
-              lng:       packet.lng,
+              lat:       packet.lat || alarmDevice.lat || 0,
+              lng:       packet.lng || alarmDevice.lng || 0,
+              speed:     packet.speed || 0,
               deviceTime: packet.deviceTime,
             });
-
-            // Also publish location if GPS fix is valid (alarm packets carry GPS data)
-            if (packet.gpsValid === 'A' &&
-                packet.lat !== null && packet.lng !== null &&
-                Math.abs(packet.lat) <= 90 && Math.abs(packet.lng) <= 180) {
-              const alarmDevice = connectedDevices.get(sessionImei) || {};
-              await publisher.publishLocation({
-                imei:      sessionImei,
-                lat:       packet.lat,
-                lng:       packet.lng,
-                speed:     packet.speed,
-                fuel:      packet.fuel,
-                ignition:  packet.ignition,
-                voltage:   packet.voltage || alarmDevice.voltage || 0,
-                direction: packet.direction,
-                odometer:  packet.odometer || 0,
-                satellites: packet.satellites,
-                gsmSignal: packet.gsmSignal,
-                battery:   packet.battery,
-                deviceTime: packet.deviceTime,
-                isLive:    packet.isLive,
-              });
-            }
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            console.log(`[TCP - CONCOX] Alarm processed: ${sessionImei} - ${packet.alertType} (${packet.alertText})`);
             break;
           }
 
           case 'CONCOX_INFO': {
             // Information transmission (0x94): metadata enrichment only.
-            // Log voltage, ICCID, fuel sensor — no Redis publish for now.
-            // Future: use to enrich vehicle:state cache with voltage/fuel.
-            if (packet.voltage !== null) {
-              console.log(`[TCP - CONCOX] External voltage from ${sessionImei || 'unknown'}: ${packet.voltage}V`);
-              if (sessionImei) {
-                const dev = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
-                dev.voltage = packet.voltage;
-                connectedDevices.set(sessionImei, dev);
-              }
-            }
-            if (packet.iccid) {
-              console.log(`[TCP - CONCOX] ICCID from ${sessionImei || 'unknown'}: ${packet.iccid}`);
+            if (packet.voltage !== null && sessionImei) {
+              const dev = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() };
+              dev.voltage = packet.voltage;
+              connectedDevices.set(sessionImei, dev);
+              console.log(`[TCP - CONCOX] External voltage for ${sessionImei}: ${packet.voltage} V`);
             }
             if (packet.sensorData) {
               console.log(`[TCP - CONCOX] Fuel sensor from ${sessionImei || 'unknown'}:`, packet.sensorData);
             }
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
             break;
           }
 
           case 'CONCOX_TIME_CHECK':
             // 0x8A: device asks for current time — no response (per spec, GPS calibrates time)
             if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
-        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
-      } else if (protocolStats['CONCOX']) {
-        protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
-      }
-      totalPacketsParsed++;
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            break;
+
+          case 'CONCOX_COMMAND_RESPONSE':
+          case 'CONCOX_ONLINE_COMMAND':
+          case 'CONCOX_ASCII_MESSAGE':
+            // Ignored/logged at the parser level
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            break;
+
+          case 'CONCOX_HEARTBEAT': {
+            // MUST ACK — device reboots after 3x missed heartbeats
+            const ack = buildHeartbeatAck(packet.serialNumber, packet.rawPacketType);
+            sock.write(ack);
+            console.log(`[TCP - CONCOX] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
+
+            if (sessionImei) {
+              connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() });
+              await publisher.publishHeartbeat(
+                sessionImei, 
+                packet.battPercent, 
+                packet.gsmStrength, 
+                packet.ignition,
+                packet.deviceTime,
+                packet.rawPacket,
+                packet.packetType
+              );
+            }
+
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            break;
+          }
+
+          case 'CONCOX_LOCATION': {
+            if (!sessionImei) {
+              console.warn(`[TCP - CONCOX] Location from ${cId} before login - dropping (no IMEI)`);
+              totalPacketsInvalid++;
+              break;
+            }
+            
+            // Deep debug log for 0x8066 protocol research
+            if (packet.rawCourse !== undefined) {
+              console.log(`[TCP - CONCOX - DEBUG] IMEI ${sessionImei} location packet: rawCourse=0x${packet.rawCourse.toString(16)}, gpsValid=${packet.gpsValid}, lat=${packet.lat}, lng=${packet.lng}`);
+            }
+
+            if (packet.gpsValid !== 'A') {
+              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: GPS not fixed (Status: ${packet.gpsValid}). Dropping.`);
+              totalPacketsInvalid++;
+              break;
+            }
+            if (packet.lat === null || packet.lng === null ||
+                Math.abs(packet.lat) > 90 || Math.abs(packet.lng) > 180) {
+              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: coords out of range`);
+              totalPacketsInvalid++;
+              break;
+            }
+
+            const device = connectedDevices.get(sessionImei) || { clientId: cId, lastPacket: new Date() };
+            device.socket = sock;
+            device.protocolName = 'CONCOX';
+            device.lat = packet.lat;
+            device.lng = packet.lng;
+            connectedDevices.set(sessionImei, device);
+
+            // Publish to Redis tracking channel (same as BSTPL/AIS140)
+            await publisher.publishLocation({
+              imei:      sessionImei,
+              lat:       packet.lat,
+              lng:       packet.lng,
+              speed:     packet.speed,
+              fuel:      packet.fuel,
+              ignition:  packet.ignition,
+              voltage:   packet.voltage || device.voltage || 0,
+              direction: packet.direction,
+              odometer:  packet.odometer || 0,
+              satellites: packet.satellites,
+              gsmSignal: packet.gsmSignal,
+              battery:   packet.battery,
+              deviceTime: packet.deviceTime,
+              isLive:    packet.isLive,
+            });
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+
+            if (totalPacketsParsed % 100 === 0) {
+              console.log(`[TCP] Stats: received=${totalPacketsReceived}, parsed=${totalPacketsParsed}, invalid=${totalPacketsInvalid}, devices=${connectedDevices.size}`);
+            }
+            break;
+          }
+
+          case 'CONCOX_ALARM': {
+            if (!sessionImei) {
+              console.warn(`[TCP - CONCOX] Alarm from ${cId} before login — dropping`);
+              totalPacketsInvalid++;
+              break;
+            }
+
+            // Send ACK — some firmware variants expect it even though spec says optional
+            const ack = buildAlarmAck(packet.rawPacketType, packet.serialNumber);
+            sock.write(ack);
+
+            console.log(`[TCP - CONCOX] Alarm ACK sent (0x${packet.rawPacketType.toString(16)}) to ${sessionImei}`);
+
+            const alarmDevice = connectedDevices.get(sessionImei) || {};
+            alarmDevice.socket = sock;
+            alarmDevice.protocolName = 'CONCOX';
+            connectedDevices.set(sessionImei, alarmDevice);
+
+            // Also publish location if GPS fix is valid (alarm packets carry GPS data)
+            if (packet.gpsValid === 'A' &&
+                packet.lat !== null && packet.lng !== null &&
+                Math.abs(packet.lat) <= 90 && Math.abs(packet.lng) <= 180) {
+              alarmDevice.lat = packet.lat;
+              alarmDevice.lng = packet.lng;
+              connectedDevices.set(sessionImei, alarmDevice);
+              await publisher.publishLocation({
+                imei:      sessionImei,
+                lat:       packet.lat,
+                lng:       packet.lng,
+                speed:     packet.speed || 0,
+                fuel:      packet.fuel,
+                ignition:  packet.ignition,
+                voltage:   packet.voltage || alarmDevice.voltage || 0,
+                direction: packet.direction || 0,
+                odometer:  packet.odometer || 0,
+                satellites: packet.satellites || 0,
+                gsmSignal: packet.gsmSignal || 0,
+                battery:   packet.battery,
+                deviceTime: packet.deviceTime,
+                isLive:    packet.isLive,
+              }).catch(() => {});
+            }
+
+            // Publish alert
+            await publisher.publishAlert({
+              imei:      sessionImei,
+              alertType: packet.alertType,
+              alertText: packet.alertText,
+              lat:       packet.lat || alarmDevice.lat || 0,
+              lng:       packet.lng || alarmDevice.lng || 0,
+              speed:     packet.speed || 0,
+              deviceTime: packet.deviceTime,
+            });
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            console.log(`[TCP - CONCOX] Alarm processed: ${sessionImei} - ${packet.alertType} (${packet.alertText})`);
+            break;
+          }
+
+          case 'CONCOX_INFO': {
+            // Information transmission (0x94): metadata enrichment only.
+            if (packet.voltage !== null && sessionImei) {
+              const dev = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() };
+              dev.voltage = packet.voltage;
+              connectedDevices.set(sessionImei, dev);
+              console.log(`[TCP - CONCOX] External voltage for ${sessionImei}: ${packet.voltage} V`);
+            }
+            if (packet.sensorData) {
+              console.log(`[TCP - CONCOX] Fuel sensor from ${sessionImei || 'unknown'}:`, packet.sensorData);
+            }
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
+            break;
+          }
+
+          case 'CONCOX_TIME_CHECK':
+            // 0x8A: device asks for current time — no response (per spec, GPS calibrates time)
+            if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+              protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+            } else if (protocolStats['CONCOX']) {
+              protocolStats['CONCOX'].lastSuccessfulPacketAt = new Date().toISOString();
+            }
+            totalPacketsParsed++;
             break;
 
           case 'CONCOX_COMMAND_RESPONSE':
@@ -753,8 +1171,137 @@ function createConcoxServer(port) {
   return server;
 }
 
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
+/**
+ * Dispatch a relay command to a device socket using its protocol adapter.
+ * Extracted so it can be called both from the Redis subscriber (normal path)
+ * and from registerDeviceSocket (pending-command auto-fire path).
+ *
+ * @param {string}     imei
+ * @param {string}     action        'IMMOBILIZE' | 'MOBILIZE'
+ * @param {string}     proto         Protocol name key (e.g. 'VOLTY', 'CONCOX')
+ * @param {net.Socket} socket        Active, non-destroyed socket to write to
+ */
+async function dispatchCommand(imei, action, proto, socket, overrideCommand = null) {
+  const isImmobilize = action === 'IMMOBILIZE';
+
+  let cmdStr = '';
+  let sendBuffer;
+  let rawRepresentation;
+
+  if (overrideCommand) {
+    cmdStr = overrideCommand;
+    rawRepresentation = `[OVERRIDE] ${cmdStr}`;
+    sendBuffer = Buffer.from(cmdStr, 'ascii');
+  } else {
+    // Fix 4: look up adapter — fail loudly if protocol is unknown
+    const adapter = commandAdapters[proto];
+    if (!adapter) {
+      console.error(`[TCP - COMMAND] No command adapter for protocol '${proto}' (IMEI ${imei}) — command NOT sent. Add an entry to commandAdapters.`);
+      await publisher.publishRawMessage({
+        imei,
+        packetType: 'DOWNLINK_CMD_ERROR',
+        rawString: `No adapter for protocol '${proto}'`,
+        parsed: false,
+        error: `Unknown protocol: ${proto}`
+      }).catch(() => {});
+      return;
+    }
+
+    cmdStr = isImmobilize ? adapter.immobilize() : adapter.mobilize();
+  }
+
+  if (proto === 'CONCOX') {
+    // Concox uses its own binary builder — sentinel value triggers this branch
+    const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
+    rawRepresentation = `[CONCOX 0x80] ${relayStr}`;
+    sendBuffer = buildOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
+  } else {
+    rawRepresentation = cmdStr.trim();
+    sendBuffer = Buffer.from(cmdStr, 'ascii');
+  }
+
+  socket.write(sendBuffer, (writeErr) => {
+    if (writeErr) {
+      console.error(`[TCP - COMMAND] Socket write error to IMEI ${imei} (${proto}):`, writeErr.message);
+    } else {
+      console.log(`[TCP - COMMAND] Sent ${action} to IMEI ${imei} (${proto}): ${rawRepresentation}`);
+    }
+  });
+
+  await publisher.publishRawMessage({
+    imei,
+    packetType: isImmobilize ? 'DOWNLINK_IMMOBILIZE' : 'DOWNLINK_MOBILIZE',
+    rawPacket: Buffer.isBuffer(sendBuffer) ? sendBuffer.toString('hex').toUpperCase() : String(sendBuffer),
+    rawString: rawRepresentation,
+    parsed: true
+  }).catch(() => {});
+}
+
+/**
+ * Initialize Redis subscription for downlink commands (Immobilizer, Relay control, etc.)
+ */
+function startCommandSubscriber() {
+  const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
+  const REDIS_PORT = process.env.REDIS_PORT || 6379;
+
+  commandSubscriber = new Redis({
+    host: REDIS_HOST,
+    port: REDIS_PORT,
+    retryStrategy: (times) => Math.min(times * 100, 3000),
+    maxRetriesPerRequest: null,
+  });
+
+  commandSubscriber.on('connect', () => {
+    console.log(`[REDIS] Command subscriber connected to ${REDIS_HOST}:${REDIS_PORT}`);
+  });
+
+  commandSubscriber.on('error', (err) => {
+    console.error('[REDIS] Command subscriber error:', err.message);
+  });
+
+  commandSubscriber.subscribe('device_commands', (err, count) => {
+    if (err) {
+      console.error('[REDIS] Failed to subscribe to device_commands:', err.message);
+    } else {
+      console.log(`[REDIS] Successfully subscribed to device_commands channel (${count} active)`);
+    }
+  });
+
+  commandSubscriber.on('message', async (channel, message) => {
+    if (channel !== 'device_commands') return;
+    try {
+      const data = JSON.parse(message);
+      const { imei, action, protocol, command } = data;
+      if (!imei || !action) return;
+
+      console.log(`[TCP - COMMAND] Received downlink request for IMEI ${imei}: action=${action}, protocol=${protocol || 'AUTO'}, override=${command || 'none'}`);
+
+      const devInfo = connectedDevices.get(imei);
+      // Resolve protocol: prefer live registry (set from actual connect), fall back to what API sent
+      const activeProto = (devInfo && devInfo.protocolName) || protocol || 'AUTO';
+
+      // Fix 2 + 3: device offline — queue the command and return a signal
+      if (!devInfo || !devInfo.socket || devInfo.socket.destroyed) {
+        console.warn(`[TCP - COMMAND] Device ${imei} offline — queuing ${action} for up to ${PENDING_CMD_TTL_MS/1000}s`);
+        pendingCommands.set(imei, { action, protocol: activeProto, queuedAt: Date.now() });
+        // Signal the API by publishing a special packet type it can check
+        await publisher.publishRawMessage({
+          imei,
+          packetType: 'DOWNLINK_CMD_QUEUED',
+          rawString: `Device offline — ${action} queued (will auto-fire on reconnect)`,
+          parsed: true,
+          error: 'device_offline'
+        }).catch(() => {});
+        return;
+      }
+
+      await dispatchCommand(imei, action, activeProto, devInfo.socket, command);
+
+    } catch (cmdErr) {
+      console.error('[TCP - COMMAND] Error handling device command:', cmdErr.message);
+    }
+  });
+}
 
 // Log stats every 60 seconds
 setInterval(() => {
@@ -776,6 +1323,7 @@ const healthServer = http.createServer((req, res) => {
       ais140Connections:   protocolStats['AIS140'].connections,
       ais140V2Connections: protocolStats['AIS140V2'].connections,
       concoxConnections:   protocolStats['CONCOX'].connections,
+      voltyConnections:    protocolStats['VOLTY'].connections,
       stats: protocolStats
     }));
   } else {
@@ -791,4 +1339,19 @@ healthServer.listen(HEALTH_PORT, '0.0.0.0', () => {
   console.log(`============================================================`);
 });
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, healthServer };
+function shutdown() {
+  console.log('\n[TCP] Gracefully shutting down servers...');
+  if (commandSubscriber) commandSubscriber.quit().catch(() => {});
+  bstplServer.close();
+  ais140Server.close();
+  concoxServer.close();
+  ais140V2Server.close();
+  voltyServer.close();
+  healthServer.close();
+  setTimeout(() => process.exit(0), 1000);
+}
+
+process.on('SIGINT', shutdown);
+process.on('SIGTERM', shutdown);
+
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, healthServer };

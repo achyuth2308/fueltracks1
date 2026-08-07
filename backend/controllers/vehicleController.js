@@ -7,6 +7,7 @@ const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const GroupModel = require('../models/groupModel');
 const AuditService = require('../services/auditService');
+const { redis } = require('../config/redis');
 const db = require('../config/db');
 
 const VehicleController = {
@@ -626,6 +627,126 @@ const VehicleController = {
         success: true,
         data: result.messages,
         pagination: result.pagination
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Control vehicle immobilizer (cut / restore engine power)
+   * POST /api/vehicles/:id/immobilizer
+   * Body: { action: 'IMMOBILIZE' | 'MOBILIZE' }
+   */
+  async toggleImmobilizer(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { action } = req.body;
+
+      if (!action || !['IMMOBILIZE', 'MOBILIZE'].includes(action.toUpperCase())) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid action. Must be 'IMMOBILIZE' or 'MOBILIZE'.",
+          code: 'INVALID_ACTION'
+        });
+      }
+
+      const isImmobilize = action.toUpperCase() === 'IMMOBILIZE';
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      if (!vehicle.imei) {
+        return res.status(400).json({
+          success: false,
+          error: 'Vehicle has no assigned IMEI device.',
+          code: 'NO_IMEI'
+        });
+      }
+
+      const protocol = vehicle.server_name || 'AUTO';
+
+      // 1. Publish command to Redis for TCP server downlink dispatcher
+      const commandPayload = {
+        imei: vehicle.imei,
+        action: isImmobilize ? 'IMMOBILIZE' : 'MOBILIZE',
+        protocol: protocol,
+        requestedBy: req.user.userId,
+        timestamp: new Date().toISOString()
+      };
+
+      await redis.publish('device_commands', JSON.stringify(commandPayload));
+
+      // 2. Update state in database
+      const updatedState = await VehicleModel.setImmobilizerState(vehicle.id, isImmobilize);
+
+      // 3. Write to Audit Log
+      await AuditService.log({
+        auditType: 'vehicle',
+        entityType: 'Vehicle',
+        entityId: vehicle.id,
+        entityName: vehicle.name || vehicle.plate,
+        action: isImmobilize ? 'IMMOBILIZE' : 'MOBILIZE',
+        performedById: req.user.userId,
+        orgId: vehicle.org_id,
+        vehicleId: vehicle.id,
+        vehicleName: vehicle.name || vehicle.plate,
+        deviceId: vehicle.imei,
+        newData: { is_immobilized: isImmobilize, action: isImmobilize ? 'IMMOBILIZE' : 'MOBILIZE' },
+        ipAddress: AuditService.getIp(req),
+        userAgent: AuditService.getUserAgent(req)
+      });
+
+      // 4. Emit real-time Socket.io update if available
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`vehicle:${vehicle.id}`).emit('vehicle:state', {
+          vehicleId: vehicle.id,
+          is_immobilized: isImmobilize,
+          immobilizer_updated_at: updatedState ? updatedState.immobilizer_updated_at : new Date()
+        });
+        io.to(`org:${vehicle.org_id}`).emit('fleet:update', {
+          vehicleId: vehicle.id,
+          is_immobilized: isImmobilize
+        });
+      }
+
+      // 5. Return response
+      // 202 Accepted: command was published to TCP server via Redis.
+      // Delivery is async — we cannot guarantee the device had an active socket
+      // at the exact moment of dispatch (it may have just reconnected).
+      // The TCP server queues the command for up to 2 minutes if device is offline.
+      res.status(202).json({
+        success: true,
+        message: isImmobilize
+          ? 'Immobilize (Engine Cut) command dispatched. Will auto-retry for up to 2 minutes if device is momentarily offline.'
+          : 'Mobilize (Engine Restore) command dispatched. Will auto-retry for up to 2 minutes if device is momentarily offline.',
+        data: {
+          vehicleId: vehicle.id,
+          imei: vehicle.imei,
+          is_immobilized: isImmobilize,
+          action: isImmobilize ? 'IMMOBILIZE' : 'MOBILIZE',
+          immobilizer_updated_at: updatedState ? updatedState.immobilizer_updated_at : new Date(),
+          dispatched_at: new Date().toISOString()
+        }
       });
     } catch (err) {
       next(err);

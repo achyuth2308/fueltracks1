@@ -680,6 +680,52 @@ function buildAlarmAck(protocolNumber, serialNumber) {
   ]);
 }
 
+/**
+ * Build an Online Command packet (protocol 0x80) sent from Server to Terminal.
+ * Per Concox v5 spec Section 5.1:
+ * Format:
+ * [0x78 0x78] [PacketLength] [0x80] [CmdLength] [ServerFlag(4 bytes)] [Command ASCII] [Serial(2 bytes)] [CRC 2 bytes] [0x0D 0x0A]
+ *
+ * Example without language bit:
+ * 78 78 0E 80 08 00 00 00 00 73 6F 73 23 00 01 6D 6A 0D 0A
+ *
+ * @param {string} commandStr - Command text (e.g. "RELAY,1#" or "DYD#")
+ * @param {number} serialNumber - 16-bit serial number
+ * @param {number} serverFlag - 32-bit server identification flag (default 0)
+ * @returns {Buffer}
+ */
+function buildOnlineCommand(commandStr, serialNumber = 1, serverFlag = 0) {
+  const cmdBuf = Buffer.from(commandStr, 'ascii');
+  const cmdLen = 4 + cmdBuf.length; // Server flag (4 bytes) + command string length
+  const pktLen = 1 + 1 + cmdLen + 2 + 2; // protocol(1) + cmdLen(1) + info(cmdLen) + serial(2) + crc(2)
+
+  const flagBuf = Buffer.alloc(4);
+  flagBuf.writeUInt32BE(serverFlag, 0);
+
+  const serialBuf = Buffer.alloc(2);
+  serialBuf.writeUInt16BE(serialNumber & 0xFFFF, 0);
+
+  // CRC is computed from Packet Length through Information Serial Number
+  const crcInput = Buffer.concat([
+    Buffer.from([pktLen, 0x80, cmdLen]),
+    flagBuf,
+    cmdBuf,
+    serialBuf,
+  ]);
+  const crc = crcItu(crcInput);
+  const crcBuf = Buffer.alloc(2);
+  crcBuf.writeUInt16BE(crc, 0);
+
+  return Buffer.concat([
+    Buffer.from([0x78, 0x78, pktLen, 0x80, cmdLen]),
+    flagBuf,
+    cmdBuf,
+    serialBuf,
+    crcBuf,
+    Buffer.from([0x0D, 0x0A]),
+  ]);
+}
+
 // ------------------------------------------------------------
 // Main buffer parser (frame extractor + dispatcher)
 // ------------------------------------------------------------
@@ -886,8 +932,15 @@ function parseConcoxBuffer(buffer, imei) {
           parsed = { packetType: 'CONCOX_ONLINE_COMMAND', imei: imei || null, serialNumber, rawPacketType: 0x80 };
           break;
         default:
-          console.warn(`[CONCOX] Unknown protocol number 0x${protocolNumber.toString(16).toUpperCase()} — skipping`);
-          parsed = null;
+          console.warn(`[CONCOX] Unknown protocol number 0x${protocolNumber.toString(16).toUpperCase()} — logging raw frame`);
+          parsed = {
+            packetType: `CONCOX_0x${protocolNumber.toString(16).toUpperCase()}`,
+            imei: imei || null,
+            serialNumber,
+            rawPacketType: protocolNumber,
+            parsed: false,
+            error: `Unknown Concox protocol number 0x${protocolNumber.toString(16).toUpperCase()}`
+          };
       }
 
       if (parsed) {
@@ -910,6 +963,7 @@ module.exports = {
   buildLoginAck,
   buildHeartbeatAck,
   buildAlarmAck,
+  buildOnlineCommand,
   // Exported for testing
   decodeImei,
   parseGpsBlock,

@@ -208,21 +208,51 @@ async function publishAlert(parsed) {
  */
 async function publishRawMessage(parsed) {
   if (!publisher) return;
-  // Serialize first, then strip any null bytes that came from binary packet fields
-  const rawPayload = JSON.stringify({
-    imei: parsed.imei,
+  // Build a safe, lean metadata object — exclude raw binary blobs to prevent
+  // oversized or circular-reference JSON that would cause JSON.stringify to throw.
+  const safeParsedJson = {
     packetType: parsed.packetType,
-    rawHex: parsed.rawPacket || parsed.rawString || null,
-    deviceTime: parsed.deviceTime || new Date().toISOString(),
-    odometer: parsed.odometer !== undefined && parsed.odometer !== null ? parsed.odometer : null,
-    parsedJson: parsed,
-  });
+    imei: parsed.imei,
+    lat: parsed.lat,
+    lng: parsed.lng,
+    speed: parsed.speed,
+    direction: parsed.direction,
+    ignition: parsed.ignition,
+    voltage: parsed.voltage,
+    battery: parsed.battery,
+    gpsValid: parsed.gpsValid,
+    satellites: parsed.satellites,
+    deviceTime: parsed.deviceTime,
+    alertType: parsed.alertType || null,
+    alertText: parsed.alertText || null,
+    isLive: parsed.isLive,
+    odometer: parsed.odometer,
+    error: parsed.error || null,
+  };
+
+  let rawPayload;
+  try {
+    rawPayload = JSON.stringify({
+      imei: parsed.imei,
+      packetType: parsed.packetType,
+      rawHex: parsed.rawPacket || parsed.rawString || null,
+      rawString: parsed.rawString || parsed.rawPacket || null,
+      deviceTime: parsed.deviceTime || new Date().toISOString(),
+      odometer: parsed.odometer !== undefined && parsed.odometer !== null ? parsed.odometer : null,
+      parsedJson: safeParsedJson,
+      parsed: parsed.parsed !== false,
+      error: parsed.error || null,
+    });
+  } catch (serErr) {
+    console.error('[REDIS] Raw log serialization error:', serErr.message);
+    return;
+  }
   // Remove all null byte characters (0x00) which PostgreSQL UTF-8 rejects
   const payload = rawPayload.replace(/\0/g, '');
   try {
     await publisher.publish('raw_logs', payload);
   } catch (err) {
-    console.error(`[REDIS] Raw log publish error:`, err.message);
+    console.error('[REDIS] Raw log publish error:', err.message);
   }
 }
 

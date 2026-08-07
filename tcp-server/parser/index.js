@@ -20,6 +20,7 @@ const {
   parseAis140V2Packet,
   isV2LoginPacket,
 } = require('./ais140V2Parser');
+const { parseVoltyPacket } = require('./voltyParser');
 
 /**
  * Parse a raw packet string and delegate to the correct protocol parser.
@@ -28,6 +29,16 @@ const {
  */
 function parsePacket(raw) {
   const trimmed = raw.trim();
+
+  // ---- VOLTY PROTOCOL (Identified by VLT1 / VLT vendor signature or Volty headers) ----
+  if (trimmed.includes('VLT1') || trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD') || trimmed.startsWith('$VLT')) {
+    try {
+      const voltyParsed = parseVoltyPacket(trimmed);
+      if (voltyParsed) return voltyParsed;
+    } catch (e) {
+      console.warn(`[PARSER - VOLTY] Error parsing Volty packet: ${e.message}`);
+    }
+  }
 
   // ---- BSTPL-17 ----
   if (trimmed.startsWith('$10')) {
@@ -69,11 +80,19 @@ function parsePacket(raw) {
     return parseAis140V2Packet(trimmed);
   }
 
+  // ---- Fallback for other standard dollar-prefixed packets ----
+  if (trimmed.match(/^\$[A-Z0-9]{2,5},/)) {
+    try {
+      const voltyParsed = parseVoltyPacket(trimmed);
+      if (voltyParsed) return voltyParsed;
+    } catch (e) {
+      // fallback
+    }
+  }
+
   // Unknown packet type
   console.warn(`[PARSER] Unknown packet type: ${trimmed.substring(0, 20)}...`);
   return null;
 }
-
-module.exports = { parsePacket };
 
 module.exports = { parsePacket };

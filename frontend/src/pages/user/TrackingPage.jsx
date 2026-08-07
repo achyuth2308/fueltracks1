@@ -121,7 +121,7 @@ const TrackingPage = ({ setAppVehicles }) => {
       const speed = v.current_speed || 0;
       const ignition = !!v.current_ignition;
       if (!isOnline) offline++;
-      else if (speed > 0) running++;
+      else if (speed > 2.0) running++;
       else if (ignition) idle++;
       else parked++;
     });
@@ -134,9 +134,9 @@ const TrackingPage = ({ setAppVehicles }) => {
         const isOnline = !!v.is_online;
         const speed = v.current_speed || 0;
         const ignition = !!v.current_ignition;
-        if (statusFilter === 'running') return isOnline && speed > 0;
-        if (statusFilter === 'idle') return isOnline && speed === 0 && ignition;
-        if (statusFilter === 'parked') return isOnline && speed === 0 && !ignition;
+        if (statusFilter === 'running') return isOnline && speed > 2.0;
+        if (statusFilter === 'idle') return isOnline && speed <= 2.0 && ignition;
+        if (statusFilter === 'parked') return isOnline && speed <= 2.0 && !ignition;
         if (statusFilter === 'offline') return !isOnline;
       }
       return true;
@@ -161,7 +161,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     });
   };
 
-  const handleStatusFilterToggle = (filterType) => {
+  const handleStatusFilterClick = (filterType) => {
     setStatusFilter(prev => prev === filterType ? null : filterType);
   };
 
@@ -174,7 +174,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     const speed = v.current_speed || 0;
     const ignition = !!v.current_ignition;
     if (!isOnline) return { text: 'Offline', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
-    if (speed > 0) return { text: 'Running', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
+    if (speed > 2.0) return { text: 'Running', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
     if (ignition) return { text: 'Idle', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
     return { text: 'Parked', color: '#f97316', bg: 'rgba(249,115,22,0.1)' };
   };

@@ -29,7 +29,9 @@ const VehicleModel = {
               o.name as org_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
-              vls.voltage as current_voltage, vls.is_online,
+              vls.voltage as current_voltage,
+              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
@@ -62,22 +64,15 @@ const VehicleModel = {
       // See all vehicles
       whereClause = 'WHERE v.is_active = TRUE';
     } else if (role === 'customer') {
-      // See vehicles in customer's org OR assigned to the customer's groups
-      params.push(orgId);
-      const orgParamIdx = paramIndex++;
+      // See vehicles assigned to the customer's groups ONLY
       params.push(userId);
-      const userParamIdx = paramIndex++;
-      whereClause = `WHERE v.is_active = TRUE AND (
-        v.org_id = $${orgParamIdx} 
-        OR v.id IN (
-          SELECT vg.vehicle_id 
-          FROM vehicle_groups vg
-          JOIN user_groups ug ON vg.group_id = ug.group_id
-          WHERE ug.user_id = $${userParamIdx}
-        )
+      whereClause = `WHERE v.is_active = TRUE AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${paramIndex++}
       )`;
     } else {
-
       // See vehicles in own org + child orgs
       params.push(orgId);
       whereClause = `WHERE v.is_active = TRUE AND (
@@ -125,7 +120,9 @@ const VehicleModel = {
               STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
-              vls.voltage as current_voltage, vls.is_online,
+              vls.voltage as current_voltage,
+              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
               CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
@@ -145,7 +142,7 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 o.name, d.licence_id, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
-                vls.voltage, vls.is_online, vls.last_seen, vls.direction, vls.odometer
+                vls.voltage, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params
@@ -262,16 +259,13 @@ const VehicleModel = {
     if (role === 'customer' && userId) {
       const result = await db.query(
         `SELECT v.id FROM vehicles v
-         WHERE v.id = $1 AND (
-           v.org_id = $2
-           OR v.id IN (
-             SELECT vg.vehicle_id 
-             FROM vehicle_groups vg
-             JOIN user_groups ug ON vg.group_id = ug.group_id
-             WHERE ug.user_id = $3
-           )
+         WHERE v.id = $1 AND v.id IN (
+           SELECT vg.vehicle_id 
+           FROM vehicle_groups vg
+           JOIN user_groups ug ON vg.group_id = ug.group_id
+           WHERE ug.user_id = $2
          )`,
-        [vehicleId, orgId, userId]
+        [vehicleId, userId]
       );
       return result.rows.length > 0;
     } else {
@@ -336,6 +330,21 @@ const VehicleModel = {
       [ids]
     );
     return result.rows.map(row => row.name);
+  },
+
+  /**
+   * Update immobilizer state for vehicle
+   */
+  async setImmobilizerState(vehicleId, isImmobilized) {
+    const result = await db.query(
+      `INSERT INTO vehicle_latest_state (vehicle_id, is_immobilized, immobilizer_updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (vehicle_id) DO UPDATE
+       SET is_immobilized = $2, immobilizer_updated_at = NOW()
+       RETURNING is_immobilized, immobilizer_updated_at`,
+      [vehicleId, isImmobilized]
+    );
+    return result.rows[0] || null;
   }
 };
 
