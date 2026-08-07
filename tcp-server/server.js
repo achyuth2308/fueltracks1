@@ -66,8 +66,8 @@ const commandAdapters = {
     // TNavic relay — NC (Normally Closed) wiring
     // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
     // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
-    immobilize: () => 'SET RL:1\r\n',
-    mobilize:   () => 'SET RL:0\r\n',
+    immobilize: () => 'RL:1\r\n',
+    mobilize:   () => 'RL:0\r\n',
   },
   AIS140V2: {
     // Model No: 1819001A (AIS140 Protocol Document V2.0)
@@ -79,8 +79,8 @@ const commandAdapters = {
     // Volty/TNavic relay — NC (Normally Closed) wiring
     // RL:1 = energize coil → NC OPENS → power CUT   → IMMOBILIZE
     // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
-    immobilize: () => 'SET RL:1\r\n',
-    mobilize:   () => 'SET RL:0\r\n',
+    immobilize: () => 'RL:1\r\n',
+    mobilize:   () => 'RL:0\r\n',
   },
 };
 
