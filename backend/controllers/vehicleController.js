@@ -511,9 +511,13 @@ const VehicleController = {
         points.forEach(p => p.odometer = baseline + Math.max(0, (p.odometer || 0) - snapshot));
       }
 
+      const MAX_ROUTE_POINTS = parseInt(process.env.MAX_ROUTE_POINTS) || 10000;
+      const isTruncated = points && points.length >= MAX_ROUTE_POINTS;
+
       res.status(200).json({
         success: true,
-        data: points
+        data: points,
+        warning: isTruncated ? 'Results truncated due to safety limit. Please select a smaller date range.' : undefined
       });
     } catch (err) {
       next(err);

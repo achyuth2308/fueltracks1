@@ -22,9 +22,20 @@ function getMessaging() {
     if (!admin) {
       admin = require('firebase-admin');
     }
-    // Only initialize if no app is already initialized
     if (admin.apps.length === 0) {
-      const serviceAccount = JSON.parse(serviceAccountJson);
+      // Strip surrounding quotes if the environment variable was loaded with them intact
+      let cleanJson = serviceAccountJson.trim();
+      if ((cleanJson.startsWith("'") && cleanJson.endsWith("'")) || (cleanJson.startsWith('"') && cleanJson.endsWith('"'))) {
+        cleanJson = cleanJson.slice(1, -1);
+      }
+      
+      const serviceAccount = JSON.parse(cleanJson);
+      
+      // Fix double-escaped newlines common when loading JSON from .env files
+      if (serviceAccount.private_key) {
+        serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+      }
+
       admin.initializeApp({
         credential: admin.credential.cert(serviceAccount),
       });
