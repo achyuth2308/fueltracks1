@@ -203,39 +203,52 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
     // Filter out stationary GPS drift ("spiderwebs" or "starring")
     const filtered = [];
-    let lastAnchor = null;
+    let lastValid = null;
 
-    for (const p of raw) {
-      if (!lastAnchor) {
+    for (let i = 0; i < raw.length; i++) {
+      const p = raw[i];
+      if (!lastValid) {
         filtered.push(p);
-        lastAnchor = p;
+        lastValid = p;
         continue;
       }
 
-      const dist = getDistance(lastAnchor.lat, lastAnchor.lng, p.lat, p.lng);
-      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastAnchor.device_time).getTime()) / 60000;
+      const dist = getDistance(lastValid.lat, lastValid.lng, p.lat, p.lng);
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
+      const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
 
       // 1. Spike / Teleport detection (Large GPS drift jumps)
-      // If the jump implies an insane speed, it's a GPS drift spike.
-      if (timeDiffMin > 0 && timeDiffMin < 5) {
-        const impliedSpeedKmph = dist / (timeDiffMin / 60);
-        // If it jumped at > 150 km/h, OR it reports being parked/slow (<= 5 km/h) but jumped at > 50 km/h
-        if (impliedSpeedKmph > 150 || ((p.speed || 0) <= 5 && impliedSpeedKmph > 50)) {
-          continue; // Skip this corrupt spiked point
+      // If the jump implies an insane speed (> 120 km/h), it's a teleport glitch.
+      if (impliedSpeedKmph > 120 && timeDiffMin < 5) {
+        continue; 
+      }
+
+      // 2. Parked Jitter & Slow Spiderwebs
+      // If the device reports it's going slow (< 10 km/h)
+      if ((p.speed || 0) < 10) {
+        // If it moved less than 100 meters from the anchor, it's just GPS wobble in the parking spot.
+        if (dist < 0.1) {
+           continue; 
+        }
+        
+        // If it moved MORE than 100 meters, but the implied speed is > 15 km/h
+        // (e.g. it jumped 200m in 10s = 72 km/h), then it's a drift spike because 
+        // the device says it's going < 10.
+        if (impliedSpeedKmph > 15 && timeDiffMin < 5) {
+           continue;
         }
       }
 
-      // 2. Micro-jitter while stationary
-      // If both current and last points indicate the vehicle is stationary/crawling
-      if ((p.speed || 0) <= 5 && (lastAnchor.speed || 0) <= 5) {
-        // If it drifted less than 150m while supposedly stopped, ignore it for the map polyline
-        if (dist < 0.15) {
-          continue; 
-        }
+      // 3. Prevent "crawling" drifts: 
+      // If speed is exactly 0 and it claims to have moved, but implied speed is very low,
+      // it might just be a very slow GPS drift accumulating. 
+      // We clamp it unless distance > 500m (which would mean it's actually driving but reporting 0).
+      if ((p.speed || 0) === 0 && (lastValid.speed || 0) === 0 && dist < 0.5) {
+         continue;
       }
 
       filtered.push(p);
-      lastAnchor = p;
+      lastValid = p;
     }
     return filtered;
   }, [points]);
