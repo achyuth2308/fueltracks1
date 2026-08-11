@@ -42,7 +42,7 @@ const RecenterMap = ({ activePoint, follow }) => {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
         const currentZoom = map.getZoom();
         const targetZoom = currentZoom < 16 ? 16 : currentZoom;
-        map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: true, duration: 0.5 });
+        map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: false });
       }
     }
   }, [activePoint, follow, map]);

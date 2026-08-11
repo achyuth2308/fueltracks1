@@ -192,14 +192,14 @@ const HistoryPage = () => {
         endDate: new Date(overrideEnd || endDate).toISOString()
       });
       if (routeRes.success) {
-        const processedPoints = routeRes.data.map(p => {
+        const processedPoints = routeRes.data.filter(p => {
           const lat = parseFloat(p.lat);
           const lng = parseFloat(p.lng);
-          if (!isNaN(lat) && !isNaN(lng)) {
-            return p;
-          } else {
-            return { ...p, lat: 17.3411, lng: 78.5317 }; // Fallback
-          }
+          // Filter out invalid coordinates (e.g., 0,0 or out of bounds)
+          // Using India's bounding box as defined in RouteMap
+          return !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
+        }).map(p => {
+          return { ...p, lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
         });
 
         // Ensure chronological
@@ -386,10 +386,9 @@ const HistoryPage = () => {
           </div>
         )}
         
-        {/* Map Container */}
         <div style={{ position: 'absolute', inset: 0 }}>
           <RouteMap
-            points={filteredPoints}
+            points={points}
             activePoint={activePoint}
             vehicle={vehicle}
             vehicleName={vehicle?.name || 'Vehicle'}
