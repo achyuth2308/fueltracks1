@@ -1,49 +1,81 @@
 const db = require('../../../config/db');
 
+// ─── Shared PostgreSQL Haversine expression ───────────────────────────────────
+// Computes distance in km between consecutive GPS points using LAG().
+// Guards against floating-point domain errors with GREATEST/LEAST clamp.
+// Filters out:
+//   - segments with time gap > 10 minutes (signal loss / overnight)
+//   - segments > 5 km in one step (teleport / GPS corrupt)
+const HAVERSINE_SEGMENT_KM = `
+  CASE
+    WHEN prev_lat IS NOT NULL AND prev_lng IS NOT NULL
+         AND prev_time IS NOT NULL
+         AND EXTRACT(EPOCH FROM (device_time - prev_time)) < 600
+         AND (6371 * acos(GREATEST(-1.0, LEAST(1.0,
+               cos(radians(prev_lat)) * cos(radians(lat)) *
+               cos(radians(lng) - radians(prev_lng)) +
+               sin(radians(prev_lat)) * sin(radians(lat))
+             )))) < 5
+    THEN 6371 * acos(GREATEST(-1.0, LEAST(1.0,
+           cos(radians(prev_lat)) * cos(radians(lat)) *
+           cos(radians(lng) - radians(prev_lng)) +
+           sin(radians(prev_lat)) * sin(radians(lat))
+         )))
+    ELSE 0
+  END
+`;
+
 class ReportRepository {
   /**
-   * Trip Report (Ignition / Speed based contiguous sequences)
-   * We use the 'is_moving' flag: speed > 0 OR ignition = true.
+   * Trip Report
+   * Groups consecutive moving points into trips and computes per-trip distance
+   * using Haversine (NOT odometer — odometer is null for buffered packets).
    */
   async getTrips(vehicleId, startDate, endDate) {
     const query = `
-      WITH flagged AS (
-          SELECT 
-              lat, lng, speed, device_time, odometer,
-              (ignition = true OR speed > 0) as is_moving
+      WITH raw AS (
+          SELECT
+              lat, lng, speed, ignition, device_time,
+              LAG(lat)         OVER (ORDER BY device_time) AS prev_lat,
+              LAG(lng)         OVER (ORDER BY device_time) AS prev_lng,
+              LAG(device_time) OVER (ORDER BY device_time) AS prev_time,
+              (ignition = true OR speed > 0)               AS is_moving
           FROM gps_points
-          WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
-          ORDER BY device_time
+          WHERE vehicle_id = $1
+            AND device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
       ),
       state_changes AS (
-          SELECT 
-              *,
-              CASE WHEN is_moving != LAG(is_moving) OVER (ORDER BY device_time) 
-                   OR LAG(is_moving) OVER (ORDER BY device_time) IS NULL 
-              THEN 1 ELSE 0 END as is_change
-          FROM flagged
+          SELECT *,
+              CASE WHEN is_moving != LAG(is_moving) OVER (ORDER BY device_time)
+                        OR LAG(is_moving) OVER (ORDER BY device_time) IS NULL
+              THEN 1 ELSE 0 END AS is_change
+          FROM with_dist
       ),
       islands AS (
-          SELECT 
-              *,
-              SUM(is_change) OVER (ORDER BY device_time) as trip_id
+          SELECT *,
+              SUM(is_change) OVER (ORDER BY device_time) AS trip_id
           FROM state_changes
       )
-      SELECT 
-          MIN(device_time) as start_time,
-          MAX(device_time) as end_time,
-          (ARRAY_AGG(lat ORDER BY device_time ASC))[1] as start_lat,
-          (ARRAY_AGG(lng ORDER BY device_time ASC))[1] as start_lng,
-          (ARRAY_AGG(lat ORDER BY device_time DESC))[1] as end_lat,
-          (ARRAY_AGG(lng ORDER BY device_time DESC))[1] as end_lng,
-          MAX(speed) as max_speed,
-          AVG(speed) as avg_speed,
-          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance,
-          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds
+      SELECT
+          MIN(device_time)                                          AS start_time,
+          MAX(device_time)                                          AS end_time,
+          (ARRAY_AGG(lat ORDER BY device_time ASC))[1]             AS start_lat,
+          (ARRAY_AGG(lng ORDER BY device_time ASC))[1]             AS start_lng,
+          (ARRAY_AGG(lat ORDER BY device_time DESC))[1]            AS end_lat,
+          (ARRAY_AGG(lng ORDER BY device_time DESC))[1]            AS end_lng,
+          MAX(speed)                                                AS max_speed,
+          ROUND(AVG(NULLIF(speed, 0))::numeric, 1)                 AS avg_speed,
+          ROUND(SUM(segment_km)::numeric, 2)                       AS distance,
+          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) AS duration_seconds
       FROM islands
       WHERE is_moving = true
       GROUP BY trip_id
-      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) > 60 -- Only trips > 1 minute
+      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) > 60
       ORDER BY start_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
@@ -52,18 +84,35 @@ class ReportRepository {
 
   /**
    * Daily Distance Report
+   * Uses Haversine per-point with LAG() partitioned by IST date.
    */
   async getDailyDistance(vehicleId, startDate, endDate) {
     const query = `
-      SELECT 
-          DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as date,
-          COALESCE(MIN(NULLIF(odometer, 0)), 0) as start_odometer,
-          COALESCE(MAX(NULLIF(odometer, 0)), 0) as end_odometer,
-          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled,
-          COUNT(*) as point_count
-      FROM gps_points
-      WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
-      GROUP BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+      WITH raw AS (
+          SELECT
+              lat, lng, device_time,
+              DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') AS date,
+              LAG(lat)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+                                    ORDER BY device_time) AS prev_lat,
+              LAG(lng)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+                                    ORDER BY device_time) AS prev_lng,
+              LAG(device_time) OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
+                                    ORDER BY device_time) AS prev_time
+          FROM gps_points
+          WHERE vehicle_id = $1
+            AND device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT date,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
+      )
+      SELECT
+          date,
+          ROUND(SUM(segment_km)::numeric, 2) AS distance_travelled,
+          COUNT(*)                           AS point_count
+      FROM with_dist
+      GROUP BY date
       ORDER BY date;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
@@ -71,33 +120,41 @@ class ReportRepository {
   }
 
   /**
-   * Vehicle Activity Report (Time categorization)
+   * Vehicle Activity Report (Running / Idle / Stopped time + distance)
    */
   async getActivity(vehicleId, startDate, endDate) {
     const query = `
-      WITH time_diffs AS (
-          SELECT 
-              device_time,
-              speed,
-              ignition,
-              odometer,
-              COALESCE(EXTRACT(EPOCH FROM (LEAD(device_time) OVER (ORDER BY device_time) - device_time)), 0) as duration_seconds
+      WITH raw AS (
+          SELECT
+              lat, lng, speed, ignition, device_time,
+              LAG(lat)         OVER (ORDER BY device_time) AS prev_lat,
+              LAG(lng)         OVER (ORDER BY device_time) AS prev_lng,
+              LAG(device_time) OVER (ORDER BY device_time) AS prev_time,
+              COALESCE(EXTRACT(EPOCH FROM (
+                LEAD(device_time) OVER (ORDER BY device_time) - device_time
+              )), 0) AS duration_seconds
           FROM gps_points
-          WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
+          WHERE vehicle_id = $1
+            AND device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
       )
-      SELECT 
-          SUM(CASE WHEN speed > 0 THEN duration_seconds ELSE 0 END) as running_seconds,
-          SUM(CASE WHEN speed = 0 AND ignition = true THEN duration_seconds ELSE 0 END) as idle_seconds,
-          SUM(CASE WHEN speed = 0 AND (ignition = false OR ignition IS NULL) THEN duration_seconds ELSE 0 END) as stopped_seconds,
-          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance_travelled
-      FROM time_diffs;
+      SELECT
+          SUM(CASE WHEN speed > 0 THEN duration_seconds ELSE 0 END)                              AS running_seconds,
+          SUM(CASE WHEN speed = 0 AND ignition = true THEN duration_seconds ELSE 0 END)          AS idle_seconds,
+          SUM(CASE WHEN speed = 0 AND (ignition = false OR ignition IS NULL) THEN duration_seconds ELSE 0 END) AS stopped_seconds,
+          ROUND(SUM(segment_km)::numeric, 2)                                                     AS distance_travelled
+      FROM with_dist;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
     return res.rows[0];
   }
 
   /**
-   * Route History Report (Raw points)
+   * Route History Report (Raw points for map rendering)
    */
   async getRouteHistory(vehicleId, startDate, endDate) {
     const query = `
@@ -105,64 +162,75 @@ class ReportRepository {
       FROM gps_points
       WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
       ORDER BY device_time
-      LIMIT 10000; -- Limit to prevent huge memory spikes, downsampling can be implemented if needed
+      LIMIT 10000;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
     return res.rows;
   }
 
   /**
-   * Ignition Report
+   * Ignition Events Report
    */
   async getIgnitionEvents(vehicleId, startDate, endDate) {
     const query = `
       WITH lagged AS (
-          SELECT 
+          SELECT
               device_time, lat, lng, ignition,
-              LAG(ignition) OVER (ORDER BY device_time) as prev_ignition
+              LAG(ignition) OVER (ORDER BY device_time) AS prev_ignition
           FROM gps_points
           WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
       )
-      SELECT 
-          device_time, lat, lng, 
-          CASE WHEN ignition = true THEN 'ON' ELSE 'OFF' END as event_type
+      SELECT
+          device_time, lat, lng,
+          CASE WHEN ignition = true THEN 'ON' ELSE 'OFF' END AS event_type
       FROM lagged
-      WHERE ignition IS NOT NULL AND (prev_ignition IS NULL OR prev_ignition != ignition)
+      WHERE ignition IS NOT NULL
+        AND (prev_ignition IS NULL OR prev_ignition != ignition)
       ORDER BY device_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
     return res.rows;
   }
+
   /**
    * Overspeeding Report
    */
   async getOverspeeding(vehicleId, startDate, endDate, speedLimit = 60) {
     const query = `
-      WITH flagged AS (
-          SELECT lat, lng, speed, device_time, odometer,
-                 (speed > $4) as is_overspeeding
+      WITH raw AS (
+          SELECT lat, lng, speed, device_time,
+                 LAG(lat)         OVER (ORDER BY device_time) AS prev_lat,
+                 LAG(lng)         OVER (ORDER BY device_time) AS prev_lng,
+                 LAG(device_time) OVER (ORDER BY device_time) AS prev_time,
+                 (speed > $4) AS is_overspeeding
           FROM gps_points
           WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
-          ORDER BY device_time
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
       ),
       state_changes AS (
           SELECT *,
-                 CASE WHEN is_overspeeding != LAG(is_overspeeding) OVER (ORDER BY device_time) 
-                      OR LAG(is_overspeeding) OVER (ORDER BY device_time) IS NULL 
-                 THEN 1 ELSE 0 END as is_change
-          FROM flagged
+              CASE WHEN is_overspeeding != LAG(is_overspeeding) OVER (ORDER BY device_time)
+                        OR LAG(is_overspeeding) OVER (ORDER BY device_time) IS NULL
+              THEN 1 ELSE 0 END AS is_change
+          FROM with_dist
       ),
       islands AS (
-          SELECT *, SUM(is_change) OVER (ORDER BY device_time) as event_id
+          SELECT *, SUM(is_change) OVER (ORDER BY device_time) AS event_id
           FROM state_changes
       )
-      SELECT 
-          MIN(device_time) as start_time, MAX(device_time) as end_time,
-          (ARRAY_AGG(lat ORDER BY device_time ASC))[1] as lat,
-          (ARRAY_AGG(lng ORDER BY device_time ASC))[1] as lng,
-          MAX(speed) as max_speed, AVG(speed) as avg_speed,
-          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds,
-          COALESCE(MAX(NULLIF(odometer, 0)) - MIN(NULLIF(odometer, 0)), 0) as distance
+      SELECT
+          MIN(device_time)                                           AS start_time,
+          MAX(device_time)                                           AS end_time,
+          (ARRAY_AGG(lat ORDER BY device_time ASC))[1]              AS lat,
+          (ARRAY_AGG(lng ORDER BY device_time ASC))[1]              AS lng,
+          MAX(speed)                                                 AS max_speed,
+          ROUND(AVG(NULLIF(speed, 0))::numeric, 1)                  AS avg_speed,
+          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) AS duration_seconds,
+          ROUND(SUM(segment_km)::numeric, 2)                        AS distance
       FROM islands
       WHERE is_overspeeding = true
       GROUP BY event_id
@@ -174,38 +242,39 @@ class ReportRepository {
   }
 
   /**
-   * Stoppage Report
+   * Stoppage / Idle / Parked Report
    */
   async getStoppages(vehicleId, startDate, endDate) {
     const query = `
       WITH flagged AS (
-          SELECT lat, lng, speed, device_time, odometer, ignition,
-                 CASE 
-                    WHEN speed > 0 THEN 'Moving'
-                    WHEN speed = 0 AND ignition = true THEN 'Idle'
-                    ELSE 'Parked' 
-                 END as status
+          SELECT lat, lng, speed, device_time, ignition,
+                 CASE
+                   WHEN speed > 0 THEN 'Moving'
+                   WHEN speed = 0 AND ignition = true THEN 'Idle'
+                   ELSE 'Parked'
+                 END AS status
           FROM gps_points
           WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
           ORDER BY device_time
       ),
       state_changes AS (
           SELECT *,
-                 CASE WHEN status != LAG(status) OVER (ORDER BY device_time) 
-                      OR LAG(status) OVER (ORDER BY device_time) IS NULL 
-                 THEN 1 ELSE 0 END as is_change
+              CASE WHEN status != LAG(status) OVER (ORDER BY device_time)
+                        OR LAG(status) OVER (ORDER BY device_time) IS NULL
+              THEN 1 ELSE 0 END AS is_change
           FROM flagged
       ),
       islands AS (
-          SELECT *, SUM(is_change) OVER (ORDER BY device_time) as event_id
+          SELECT *, SUM(is_change) OVER (ORDER BY device_time) AS event_id
           FROM state_changes
       )
-      SELECT 
+      SELECT
           status,
-          MIN(device_time) as start_time, MAX(device_time) as end_time,
-          (ARRAY_AGG(lat ORDER BY device_time ASC))[1] as lat,
-          (ARRAY_AGG(lng ORDER BY device_time ASC))[1] as lng,
-          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) as duration_seconds
+          MIN(device_time)                                           AS start_time,
+          MAX(device_time)                                           AS end_time,
+          (ARRAY_AGG(lat ORDER BY device_time ASC))[1]              AS lat,
+          (ARRAY_AGG(lng ORDER BY device_time ASC))[1]              AS lng,
+          EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) AS duration_seconds
       FROM islands
       GROUP BY event_id, status
       HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) >= 60
@@ -216,25 +285,35 @@ class ReportRepository {
   }
 
   /**
-   * Consolidated Report (Org-level Activity)
+   * Consolidated Report (Org-level Activity with Haversine distance)
    */
   async getConsolidatedActivity(orgId, startDate, endDate) {
     const query = `
-      WITH time_diffs AS (
-          SELECT 
-              g.vehicle_id, g.device_time, g.speed, g.ignition, g.odometer,
-              COALESCE(EXTRACT(EPOCH FROM (LEAD(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) - g.device_time)), 0) as duration_seconds
+      WITH raw AS (
+          SELECT
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
+              LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
+              LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
+              COALESCE(EXTRACT(EPOCH FROM (
+                LEAD(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) - g.device_time
+              )), 0) AS duration_seconds
           FROM gps_points g
           JOIN vehicles v ON g.vehicle_id = v.id
           WHERE v.org_id = $1 AND g.device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
       )
-      SELECT 
-          t.vehicle_id, v.name as vehicle_name, v.plate,
-          SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END) as running_seconds,
-          SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END) as idle_seconds,
-          SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) as stopped_seconds,
-          COALESCE(MAX(NULLIF(t.odometer, 0)) - MIN(NULLIF(t.odometer, 0)), 0) as distance_travelled
-      FROM time_diffs t
+      SELECT
+          t.vehicle_id, v.name AS vehicle_name, v.plate,
+          SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END)                               AS running_seconds,
+          SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
+          SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
+          ROUND(SUM(t.segment_km)::numeric, 2)                                                        AS distance_travelled
+      FROM with_dist t
       JOIN vehicles v ON t.vehicle_id = v.id
       GROUP BY t.vehicle_id, v.name, v.plate
       ORDER BY v.name;
