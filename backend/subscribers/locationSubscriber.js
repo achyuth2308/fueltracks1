@@ -313,7 +313,7 @@ async function start(io) {
       }
 
       // 2b. Compute final Odometer based on deviceOdo flag
-      let finalOdometer = parseFloat(odometer) || 0;
+      let finalOdometer = odometer != null ? parseFloat(odometer) : null;
       if (vehicle.metadata?.deviceOdo !== 'YES' && lat && lng) {
         const prevOdo = prevState && prevState.odometer ? parseFloat(prevState.odometer) : 0;
         let distanceMeters = 0;
@@ -322,11 +322,17 @@ async function start(io) {
         // Historical buffered packets will NOT add massive jumps to the live odometer.
         if (isLive && prevState && prevState.lat && prevState.lng) {
           distanceMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
-        }
-        
-        // Accumulate distance if it's > 5m (filter drift) and < 50km (filter massive spikes)
-        if (distanceMeters > 5 && distanceMeters < 50000) {
-          finalOdometer = prevOdo + (distanceMeters / 1000); // km
+          
+          // Accumulate distance if it's > 5m (filter drift) and < 50km (filter massive spikes)
+          if (distanceMeters > 5 && distanceMeters < 50000) {
+            finalOdometer = prevOdo + (distanceMeters / 1000); // km
+          } else {
+            finalOdometer = prevOdo;
+          }
+        } else if (!isLive) {
+          // IMPORTANT: Do NOT assign the current LIVE odometer to a historical buffered packet!
+          // This causes massive odometer rollbacks/jumps in the history table.
+          finalOdometer = null;
         } else {
           finalOdometer = prevOdo;
         }
