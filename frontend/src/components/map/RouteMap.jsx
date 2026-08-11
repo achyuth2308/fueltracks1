@@ -195,11 +195,37 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return segs;
   };
 
-  // Valid points (only valid India coordinates, always sorted chronologically)
+  // Valid points (only valid India coordinates, always sorted chronologically, jitter filtered)
   const validPoints = React.useMemo(() => {
-    return points
+    const raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
+
+    // Filter out stationary GPS drift ("spiderwebs" or "starring")
+    // When a vehicle is parked but GPS bounces ~50-100m, it draws ugly spikes.
+    const filtered = [];
+    let lastAnchor = null;
+
+    for (const p of raw) {
+      if (!lastAnchor) {
+        filtered.push(p);
+        lastAnchor = p;
+        continue;
+      }
+
+      // If both current and last points indicate the vehicle is stationary/crawling
+      if ((p.speed || 0) <= 5 && (lastAnchor.speed || 0) <= 5) {
+        const dist = getDistance(lastAnchor.lat, lastAnchor.lng, p.lat, p.lng);
+        // If it drifted less than 200m while supposedly stopped, ignore it for the map polyline
+        if (dist < 0.2) {
+          continue; 
+        }
+      }
+
+      filtered.push(p);
+      lastAnchor = p;
+    }
+    return filtered;
   }, [points]);
 
   const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
