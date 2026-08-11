@@ -325,8 +325,10 @@ async function start(io) {
         });
       }
 
-      // 6. Perform alert checks (only for live packets)
-      if (isLive) {
+      // 6. Perform alert checks (only for live packets that are recent)
+      // Prevents historical bursts from spamming state transitions (Ignition ON/OFF)
+      const isRecent = (Date.now() - new Date(deviceTime).getTime()) < 15 * 60 * 1000;
+      if (isLive && isRecent) {
         const alertsToTrigger = [];
 
         // For Heartbeat packets, inherit lat, lng, and speed from prevState
