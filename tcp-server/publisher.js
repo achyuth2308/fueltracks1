@@ -111,13 +111,6 @@ async function publishLocation(parsed) {
     // 1. Publish to tracking channel
     await publisher.publish('tracking', payload);
 
-    // 2. Cache latest state
-    await publisher.set(
-      `vehicle:state:${imei}`,
-      payload,
-      'EX', 300  // Expire after 5 minutes
-    );
-
     // 3. Set online indicator with 90-second TTL
     await publisher.set(
       `vehicle:online:${imei}`,
@@ -157,13 +150,6 @@ async function publishHeartbeat(imei, battery, gsmSignal, ignition, deviceTime, 
 
     // 1. Publish to tracking channel (Subscriber will handle isHeartbeat logic)
     await publisher.publish('tracking', payload);
-
-    // 2. Cache latest state
-    await publisher.set(
-      `vehicle:state:${imei}`,
-      payload,
-      'EX', 300
-    );
 
     // 3. Set online indicator with 90-second TTL
     await publisher.set(
