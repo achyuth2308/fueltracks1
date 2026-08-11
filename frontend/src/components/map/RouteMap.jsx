@@ -195,61 +195,74 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return segs;
   };
 
-  // Valid points (only valid India coordinates, always sorted chronologically, jitter filtered)
+  // Valid points (only valid India coordinates, always sorted chronologically, powerfully filtered)
   const validPoints = React.useMemo(() => {
     const raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
 
-    // Filter out stationary GPS drift ("spiderwebs" or "starring")
-    const filtered = [];
-    let lastValid = null;
+    if (raw.length === 0) return [];
 
-    for (let i = 0; i < raw.length; i++) {
+    const filtered = [raw[0]];
+    let isParked = false;
+    let parkTimerStart = null;
+    let anchor = raw[0];
+
+    for (let i = 1; i < raw.length; i++) {
       const p = raw[i];
-      if (!lastValid) {
+      const prev = raw[i - 1]; // Immediate previous raw packet
+      const speed = p.speed || 0;
+
+      const distFromPrev = getDistance(prev.lat, prev.lng, p.lat, p.lng);
+      const timeFromPrevMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const impliedSpeedKmph = timeFromPrevMin > 0 ? (distFromPrev / (timeFromPrevMin / 60)) : 0;
+
+      // --- 1. GLOBAL SPIKE REJECTION ---
+      // If it implies > 150 km/h anywhere, or > 80 km/h while supposedly going slow, it's a GPS teleport.
+      if (impliedSpeedKmph > 150) continue;
+      if (impliedSpeedKmph > 80 && speed < 15) continue;
+
+      if (speed > 5) {
+        // --- 2. MOVING STATE ---
+        isParked = false;
+        parkTimerStart = null;
         filtered.push(p);
-        lastValid = p;
-        continue;
-      }
-
-      const dist = getDistance(lastValid.lat, lastValid.lng, p.lat, p.lng);
-      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
-      const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
-
-      // 1. Spike / Teleport detection (Large GPS drift jumps)
-      // If the jump implies an insane speed (> 120 km/h), it's a teleport glitch.
-      if (impliedSpeedKmph > 120 && timeDiffMin < 5) {
-        continue; 
-      }
-
-      // 2. Parked Jitter & Slow Spiderwebs
-      // If the device reports it's going slow (< 10 km/h)
-      if ((p.speed || 0) < 10) {
-        // If it moved less than 100 meters from the anchor, it's just GPS wobble in the parking spot.
-        if (dist < 0.1) {
-           continue; 
+        anchor = p;
+      } else {
+        // --- 3. SLOW/STOPPED STATE ---
+        if (!isParked) {
+          if (!parkTimerStart) parkTimerStart = new Date(p.device_time).getTime();
+          
+          const stoppedMins = (new Date(p.device_time).getTime() - parkTimerStart) / 60000;
+          if (stoppedMins > 3) {
+            isParked = true; // Locked in Parked state after 3 mins of speed <= 5
+          } else {
+            // Grace period: keep plotting as vehicle slows down
+            filtered.push(p);
+            anchor = p;
+          }
+        } else {
+          // --- 4. PARKED LOCKOUT ---
+          // Ignore ALL points to prevent spiderwebs, unless it's a genuine traffic crawl.
+          const distFromAnchor = getDistance(anchor.lat, anchor.lng, p.lat, p.lng);
+          
+          // Genuine crawl: moved > 150m from anchor, BUT implied speed from previous point is slow (< 15km/h).
+          // This allows plotting heavy traffic while blocking fast GPS drift spikes.
+          if (distFromAnchor > 0.15 && impliedSpeedKmph < 15) {
+            filtered.push(p);
+            anchor = p;
+            parkTimerStart = new Date(p.device_time).getTime(); // Reset timer for new spot
+          }
         }
-        
-        // If it moved MORE than 100 meters, but the implied speed is > 15 km/h
-        // (e.g. it jumped 200m in 10s = 72 km/h), then it's a drift spike because 
-        // the device says it's going < 10.
-        if (impliedSpeedKmph > 15 && timeDiffMin < 5) {
-           continue;
-        }
       }
-
-      // 3. Prevent "crawling" drifts: 
-      // If speed is exactly 0 and it claims to have moved, but implied speed is very low,
-      // it might just be a very slow GPS drift accumulating. 
-      // We clamp it unless distance > 500m (which would mean it's actually driving but reporting 0).
-      if ((p.speed || 0) === 0 && (lastValid.speed || 0) === 0 && dist < 0.5) {
-         continue;
-      }
-
-      filtered.push(p);
-      lastValid = p;
     }
+
+    // Ensure the very last point is present so the vehicle marker is at the latest live position
+    const lastPoint = raw[raw.length - 1];
+    if (filtered.length > 0 && filtered[filtered.length - 1] !== lastPoint) {
+       filtered.push(lastPoint);
+    }
+
     return filtered;
   }, [points]);
 
