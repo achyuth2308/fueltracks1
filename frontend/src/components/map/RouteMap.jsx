@@ -4,7 +4,7 @@ import L from 'leaflet';
 import { createPinIcon } from '../../utils/markerUtils';
 import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
-import { Eye, EyeOff, MapPin } from 'lucide-react';
+import { Eye, EyeOff, MapPin, Route, Loader2 } from 'lucide-react';
 import LocationDisplay from '../ui/LocationDisplay';
 
 const { BaseLayer } = LayersControl;
@@ -86,6 +86,9 @@ const formatDuration = (ms) => {
 
 const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const [follow, setFollow] = useState(true);
+  const [snapToRoads, setSnapToRoads] = useState(false);
+  const [snappedSegments, setSnappedSegments] = useState([]);
+  const [isSnapping, setIsSnapping] = useState(false);
   const activeMarkerRef = useRef(null);
 
   useEffect(() => {
@@ -141,6 +144,68 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   }, [points]);
 
   const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSnappedRoutes = async () => {
+      if (!snapToRoads) {
+        setSnappedSegments([]);
+        return;
+      }
+      setIsSnapping(true);
+      
+      const newSnapped = [];
+      
+      try {
+        for (const segment of routeSegments) {
+          if (segment.length < 2) continue;
+          
+          // Chunk segment into 90 points (with 1 point overlap to maintain continuity)
+          const chunkSize = 90;
+          let currentSnappedSegment = [];
+          
+          for (let i = 0; i < segment.length; i += chunkSize) {
+            const chunk = segment.slice(i, i + chunkSize + 1);
+            if (chunk.length < 2) continue;
+            
+            // OSRM expects lng,lat
+            const coordsStr = chunk.map(p => `${p[1]},${p[0]}`).join(';');
+            const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?geometries=geojson&overview=full`;
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+              const coords = data.matchings.map(m => m.geometry.coordinates).flat();
+              // Convert back to [lat, lng]
+              const latLngCoords = coords.map(c => [c[1], c[0]]);
+              currentSnappedSegment.push(...latLngCoords);
+            } else {
+              // Fallback to raw points for this chunk if match fails
+              currentSnappedSegment.push(...chunk);
+            }
+          }
+          if (currentSnappedSegment.length > 0) {
+            newSnapped.push(currentSnappedSegment);
+          }
+        }
+        
+        if (isMounted) {
+          setSnappedSegments(newSnapped);
+        }
+      } catch (error) {
+        console.error("Failed to snap route:", error);
+      } finally {
+        if (isMounted) {
+          setIsSnapping(false);
+        }
+      }
+    };
+    
+    fetchSnappedRoutes();
+    
+    return () => { isMounted = false; };
+  }, [snapToRoads, routeSegments]);
 
   const stoppages = React.useMemo(() => {
     if (!points || points.length === 0) return [];
@@ -245,31 +310,65 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
       {/* Following Vehicle toggle - only show when route is plotted */}
       {points.length > 0 && (
-        <button
-          onClick={() => setFollow(!follow)}
-          style={{
-            position: 'absolute',
-            top: '24px',
-            left: '180px',
-            zIndex: 1000,
-            background: follow ? '#0ea5e9' : '#ffffff',
-            color: follow ? '#ffffff' : '#475569',
-            border: '1px solid #e2e8f0',
-            borderRadius: '8px',
-            padding: '8px 14px',
-            fontSize: '12px',
-            fontWeight: 700,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
-          {follow ? <Eye size={15} /> : <EyeOff size={15} />}
-          {follow ? 'Following Vehicle' : 'Free Map'}
-        </button>
+        <>
+          <button
+            onClick={() => setFollow(!follow)}
+            style={{
+              position: 'absolute',
+              top: '24px',
+              left: '180px',
+              zIndex: 1000,
+              background: follow ? '#0ea5e9' : '#ffffff',
+              color: follow ? '#ffffff' : '#475569',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            {follow ? <Eye size={15} /> : <EyeOff size={15} />}
+            {follow ? 'Following Vehicle' : 'Free Map'}
+          </button>
+          
+          <button
+            onClick={() => setSnapToRoads(!snapToRoads)}
+            disabled={isSnapping}
+            style={{
+              position: 'absolute',
+              top: '24px',
+              left: '350px',
+              zIndex: 1000,
+              background: snapToRoads ? '#10B981' : '#ffffff',
+              color: snapToRoads ? '#ffffff' : '#475569',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: isSnapping ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              transition: 'all 0.2s ease-in-out',
+              opacity: isSnapping ? 0.7 : 1
+            }}
+          >
+            {isSnapping ? (
+              <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <Route size={15} />
+            )}
+            {isSnapping ? 'Snapping...' : snapToRoads ? 'Snapped to Roads' : 'Raw GPS'}
+          </button>
+        </>
       )}
 
 
@@ -357,7 +456,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
 
         {/* Premium Modern Route Path (Base Line) */}
-        {routeSegments.map((seg, idx) => seg.length > 1 && (
+        {(snapToRoads && snappedSegments.length > 0 ? snappedSegments : routeSegments).map((seg, idx) => seg.length > 1 && (
           <React.Fragment key={`route-group-${idx}`}>
             {/* Soft shadow effect underneath the line */}
             <Polyline
@@ -368,10 +467,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               lineCap="round"
               lineJoin="round"
             />
-            {/* Crisp modern blue primary line */}
+            {/* Crisp modern primary line (Blue for raw, Emerald for snapped) */}
             <Polyline
               positions={seg}
-              color="#3B82F6"
+              color={snapToRoads ? "#10B981" : "#3B82F6"}
               weight={4}
               opacity={0.8}
               lineCap="round"
@@ -381,7 +480,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         ))}
 
         {/* Driven Path Trail Effect (Vibrant Green over the path already traveled) */}
-        {pastSegments.map((seg, idx) => seg.length > 1 && (
+        {!snapToRoads && pastSegments.map((seg, idx) => seg.length > 1 && (
           <Polyline
             key={`past-group-${idx}`}
             positions={seg}
