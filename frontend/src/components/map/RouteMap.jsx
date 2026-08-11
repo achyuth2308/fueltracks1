@@ -217,7 +217,16 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   const pastSegments = React.useMemo(() => splitIntoSegments(pastPoints), [pastPoints]);
 
   // Create custom rotated navigation arrow/car icon
-  const createVehicleIcon = (direction = 0, speed = 0) => {
+  const createVehicleIcon = (direction = 0, speed = 0, ignition = false) => {
+    let currentStatus = 'offline';
+    if (speed > 2) {
+      currentStatus = 'running';
+    } else if (ignition) {
+      currentStatus = 'idle';
+    } else {
+      currentStatus = 'parked';
+    }
+
     // Use the shared marker logic for both moving and stopped
     return createPinIcon(
       vehicle || {}, // fallback to empty object if no vehicle provided
@@ -226,7 +235,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       {
         course: direction,
         speed: speed,
-        status: speed < 1 ? 'offline' : 'running', // offline gives red, running gives green
+        status: currentStatus,
         hideSpeed: true // Don't show speed bubble over the car in history map
       }
     );
@@ -612,7 +621,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           return (
             <Marker
               position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-              icon={createVehicleIcon(heading, activePoint.speed || 0)}
+              icon={createVehicleIcon(heading, activePoint.speed || 0, activePoint.ignition)}
               zIndexOffset={1000}
             ref={activeMarkerRef}
           >
