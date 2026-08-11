@@ -202,7 +202,6 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
 
     // Filter out stationary GPS drift ("spiderwebs" or "starring")
-    // When a vehicle is parked but GPS bounces ~50-100m, it draws ugly spikes.
     const filtered = [];
     let lastAnchor = null;
 
@@ -213,11 +212,24 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         continue;
       }
 
+      const dist = getDistance(lastAnchor.lat, lastAnchor.lng, p.lat, p.lng);
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastAnchor.device_time).getTime()) / 60000;
+
+      // 1. Spike / Teleport detection (Large GPS drift jumps)
+      // If the jump implies an insane speed, it's a GPS drift spike.
+      if (timeDiffMin > 0 && timeDiffMin < 5) {
+        const impliedSpeedKmph = dist / (timeDiffMin / 60);
+        // If it jumped at > 150 km/h, OR it reports being parked/slow (<= 5 km/h) but jumped at > 50 km/h
+        if (impliedSpeedKmph > 150 || ((p.speed || 0) <= 5 && impliedSpeedKmph > 50)) {
+          continue; // Skip this corrupt spiked point
+        }
+      }
+
+      // 2. Micro-jitter while stationary
       // If both current and last points indicate the vehicle is stationary/crawling
       if ((p.speed || 0) <= 5 && (lastAnchor.speed || 0) <= 5) {
-        const dist = getDistance(lastAnchor.lat, lastAnchor.lng, p.lat, p.lng);
-        // If it drifted less than 200m while supposedly stopped, ignore it for the map polyline
-        if (dist < 0.2) {
+        // If it drifted less than 150m while supposedly stopped, ignore it for the map polyline
+        if (dist < 0.15) {
           continue; 
         }
       }
