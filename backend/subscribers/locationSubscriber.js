@@ -268,9 +268,13 @@ async function start(io) {
       if (vehicle.metadata?.deviceOdo !== 'YES' && lat && lng) {
         const prevOdo = prevState && prevState.odometer ? parseFloat(prevState.odometer) : 0;
         let distanceMeters = 0;
-        if (prevState && prevState.lat && prevState.lng) {
+        
+        // ONLY accumulate software distance if this is a live packet.
+        // Historical buffered packets will NOT add massive jumps to the live odometer.
+        if (isLive && prevState && prevState.lat && prevState.lng) {
           distanceMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
         }
+        
         // Accumulate distance if it's > 5m (filter drift) and < 50km (filter massive spikes)
         if (distanceMeters > 5 && distanceMeters < 50000) {
           finalOdometer = prevOdo + (distanceMeters / 1000); // km
@@ -289,12 +293,15 @@ async function start(io) {
       }
 
       // 3. Cache updated state in Redis (fast — always per-packet)
-      const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince };
-      await redis.set(
-        `vehicle:state:${imei}`,
-        JSON.stringify(updatedPayload),
-        'EX', 300
-      );
+      // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
+      if (isLive) {
+        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince };
+        await redis.set(
+          `vehicle:state:${imei}`,
+          JSON.stringify(updatedPayload),
+          'EX', 300
+        );
+      }
 
       // 4. Queue GPS point for batched DB write (skipped for heartbeats)
       if (!data.isHeartbeat) {
@@ -307,13 +314,16 @@ async function start(io) {
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
       // If the device lost GPS fix and sends 0,0, don't overwrite the last known valid location!
-      const validLat = (lat === 0 || lat === 0.0 || !lat) ? null : lat;
-      const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
-      
-      await GpsModel.updateLatestState({
-        vehicleId, lat: validLat, lng: validLng, speed, direction, fuel, ignition: finalIgnition, voltage,
-        odometer: finalOdometer, satellites, gsmSignal
-      });
+      // ONLY update latest state if the packet is LIVE, to prevent historical jumps.
+      if (isLive) {
+        const validLat = (lat === 0 || lat === 0.0 || !lat) ? null : lat;
+        const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
+        
+        await GpsModel.updateLatestState({
+          vehicleId, lat: validLat, lng: validLng, speed, direction, fuel, ignition: finalIgnition, voltage,
+          odometer: finalOdometer, satellites, gsmSignal
+        });
+      }
 
       // 6. Perform alert checks (only for live packets)
       if (isLive) {
