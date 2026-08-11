@@ -197,12 +197,56 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
   // Valid points (only valid India coordinates, always sorted chronologically, powerfully filtered)
   const validPoints = React.useMemo(() => {
-    const raw = points
+    let raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
 
     if (raw.length === 0) return [];
 
+    // --- PASS 1: Geometric Spike (V-Shape) Filter ---
+    // Safely removes sudden teleports that jump away and return immediately (multipath/LBS drifts).
+    const deSpikedRaw = [];
+    for (let i = 0; i < raw.length; i++) {
+      if (i === 0 || i >= raw.length - 2) {
+        deSpikedRaw.push(raw[i]);
+        continue;
+      }
+      
+      const prev = raw[i - 1];
+      const curr = raw[i];
+      const next = raw[i + 1];
+      const next2 = raw[i + 2];
+      
+      const distPrevCurr = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+      
+      const timePrevNextMin = (new Date(next.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const timePrevNext2Min = (new Date(next2.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+
+      // Check for 1-point spike (A -> B -> A)
+      if (distPrevCurr > 0.15 && timePrevNextMin < 5) {
+         const distCurrNext = getDistance(curr.lat, curr.lng, next.lat, next.lng);
+         const distPrevNext = getDistance(prev.lat, prev.lng, next.lat, next.lng);
+         if (distCurrNext > 0.15 && distPrevNext < 0.1) {
+            continue; // It's a 1-point spike. Drop curr.
+         }
+      }
+
+      // Check for 2-point spike (A -> B1 -> B2 -> A)
+      if (distPrevCurr > 0.15 && timePrevNext2Min < 5) {
+         const distCurrNext2 = getDistance(curr.lat, curr.lng, next2.lat, next2.lng);
+         const distPrevNext2 = getDistance(prev.lat, prev.lng, next2.lat, next2.lng);
+         if (distCurrNext2 > 0.15 && distPrevNext2 < 0.1) {
+            continue; // It's part of a 2-point spike. Drop curr.
+         }
+      }
+      
+      deSpikedRaw.push(curr);
+    }
+    raw = deSpikedRaw;
+
+    if (raw.length === 0) return [];
+
+    // --- PASS 2: State Machine Parked-Lock Filter ---
     const filtered = [raw[0]];
     let isParked = false;
     let parkTimerStart = null;
@@ -210,54 +254,51 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
     for (let i = 1; i < raw.length; i++) {
       const p = raw[i];
-      const prev = raw[i - 1]; // Immediate previous raw packet
+      const prev = raw[i - 1];
       const speed = p.speed || 0;
 
       const distFromPrev = getDistance(prev.lat, prev.lng, p.lat, p.lng);
       const timeFromPrevMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-      const impliedSpeedKmph = timeFromPrevMin > 0 ? (distFromPrev / (timeFromPrevMin / 60)) : 0;
+      
+      // Fix divide by zero for identical timestamps
+      const impliedSpeedKmph = timeFromPrevMin > 0 ? (distFromPrev / (timeFromPrevMin / 60)) : (distFromPrev > 0.05 ? Infinity : 0);
 
-      // --- 1. GLOBAL SPIKE REJECTION ---
-      // If it implies > 150 km/h anywhere, or > 80 km/h while supposedly going slow, it's a GPS teleport.
+      // Global Teleport Rejection
       if (impliedSpeedKmph > 150) continue;
       if (impliedSpeedKmph > 80 && speed < 15) continue;
+      
+      // Impossible Acceleration (jumped > 70kmh but was parked just seconds ago)
+      if (impliedSpeedKmph > 70 && (prev.speed || 0) <= 5 && timeFromPrevMin < 1) continue;
 
       if (speed > 5) {
-        // --- 2. MOVING STATE ---
+        // MOVING
         isParked = false;
         parkTimerStart = null;
         filtered.push(p);
         anchor = p;
       } else {
-        // --- 3. SLOW/STOPPED STATE ---
+        // SLOW/STOPPED
         if (!isParked) {
           if (!parkTimerStart) parkTimerStart = new Date(p.device_time).getTime();
           
-          const stoppedMins = (new Date(p.device_time).getTime() - parkTimerStart) / 60000;
-          if (stoppedMins > 3) {
-            isParked = true; // Locked in Parked state after 3 mins of speed <= 5
+          if ((new Date(p.device_time).getTime() - parkTimerStart) / 60000 > 3) {
+            isParked = true;
           } else {
-            // Grace period: keep plotting as vehicle slows down
             filtered.push(p);
             anchor = p;
           }
         } else {
-          // --- 4. PARKED LOCKOUT ---
-          // Ignore ALL points to prevent spiderwebs, unless it's a genuine traffic crawl.
+          // PARKED LOCKOUT
           const distFromAnchor = getDistance(anchor.lat, anchor.lng, p.lat, p.lng);
-          
-          // Genuine crawl: moved > 150m from anchor, BUT implied speed from previous point is slow (< 15km/h).
-          // This allows plotting heavy traffic while blocking fast GPS drift spikes.
           if (distFromAnchor > 0.15 && impliedSpeedKmph < 15) {
             filtered.push(p);
             anchor = p;
-            parkTimerStart = new Date(p.device_time).getTime(); // Reset timer for new spot
+            parkTimerStart = new Date(p.device_time).getTime();
           }
         }
       }
     }
 
-    // Ensure the very last point is present so the vehicle marker is at the latest live position
     const lastPoint = raw[raw.length - 1];
     if (filtered.length > 0 && filtered[filtered.length - 1] !== lastPoint) {
        filtered.push(lastPoint);
