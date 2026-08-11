@@ -315,9 +315,14 @@ async function start(io) {
         odometer: finalOdometer, satellites, gsmSignal
       });
 
-      // 6. Perform alert checks (only for live, non-heartbeat packets)
-      if (isLive && !data.isHeartbeat) {
+      // 6. Perform alert checks (only for live packets)
+      if (isLive) {
         const alertsToTrigger = [];
+
+        // For Heartbeat packets, inherit lat, lng, and speed from prevState
+        const evalLat = data.isHeartbeat ? (prevState ? parseFloat(prevState.lat) : null) : lat;
+        const evalLng = data.isHeartbeat ? (prevState ? parseFloat(prevState.lng) : null) : lng;
+        const evalSpeed = data.isHeartbeat ? (prevState ? parseFloat(prevState.speed) : 0) : (speed || 0);
 
         // Check A: Ignition ON transition
         if (finalIgnition === true && (!prevState || prevState.ignition === false)) {
@@ -328,14 +333,14 @@ async function start(io) {
         if (vehicle.metadata?.safetyPark === 'YES' && prevState && prevState.ignition === false && (prevState.speed || 0) === 0 && prevState.parkedSince) {
           const parkedDurationMs = new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime();
           if (parkedDurationMs >= 5 * 60 * 1000) { // > 5 minutes
-            if (finalIgnition === true || speed > 0) {
+            if (finalIgnition === true || evalSpeed > 0) {
               alertsToTrigger.push({ type: 'safety_park', text: 'Safety Park Alarm: Unauthorized movement or ignition detected while parked.' });
             }
           }
         }
 
         // Check B: Trip started (stopped/parked → moving)
-        if (finalIgnition === true && speed > 0 && (!prevState || prevState.speed === 0 || prevState.ignition === false)) {
+        if (finalIgnition === true && evalSpeed > 0 && (!prevState || prevState.speed === 0 || prevState.ignition === false)) {
           alertsToTrigger.push({ type: 'trip_started', text: 'Trip Started Alert: Vehicle has begun moving.' });
         }
 
@@ -345,7 +350,7 @@ async function start(io) {
         }
 
         // Check D: Excessive idle (ignition ON, speed 0 for > 3min)
-        if (finalIgnition === true && speed === 0) {
+        if (finalIgnition === true && evalSpeed === 0) {
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
 
@@ -372,7 +377,7 @@ async function start(io) {
 
         // Check F: Overspeeding (> speedLimit for > 3min)
         const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 60;
-        if (speed > speedLimit) {
+        if (evalSpeed > speedLimit) {
           const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
           const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
 
@@ -398,32 +403,34 @@ async function start(io) {
         }
 
         // Check E: Geofence checks
-        try {
-          const geofences = await GeofenceModel.findGeofencesForVehicle(vehicleId);
-          for (const geofence of geofences) {
-            let isInsideNow = false;
+        if (evalLat != null && evalLng != null) {
+          try {
+            const geofences = await GeofenceModel.findGeofencesForVehicle(vehicleId);
+            for (const geofence of geofences) {
+              let isInsideNow = false;
 
-            if (geofence.type === 'circle') {
-              const dist = getHaversineDistance(lat, lng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
-              isInsideNow = dist <= parseFloat(geofence.radius);
-            } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates)) {
-              isInsideNow = isPointInPolygon(lat, lng, geofence.coordinates);
+              if (geofence.type === 'circle') {
+                const dist = getHaversineDistance(evalLat, evalLng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
+                isInsideNow = dist <= parseFloat(geofence.radius);
+              } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates)) {
+                isInsideNow = isPointInPolygon(evalLat, evalLng, geofence.coordinates);
+              }
+
+              const geoStateKey = `vehicle:geofence:${geofence.id}:${vehicleId}`;
+              const wasInsideRaw = await redis.get(geoStateKey);
+              const wasInside = wasInsideRaw === 'inside';
+
+              if (isInsideNow && !wasInside) {
+                alertsToTrigger.push({ type: 'geofence', text: `Geofence In Alert: Entered geofence "${geofence.name}".` });
+                await redis.set(geoStateKey, 'inside');
+              } else if (!isInsideNow && wasInside) {
+                alertsToTrigger.push({ type: 'geofence', text: `Geofence Out Alert: Exited geofence "${geofence.name}".` });
+                await redis.set(geoStateKey, 'outside');
+              }
             }
-
-            const geoStateKey = `vehicle:geofence:${geofence.id}:${vehicleId}`;
-            const wasInsideRaw = await redis.get(geoStateKey);
-            const wasInside = wasInsideRaw === 'inside';
-
-            if (isInsideNow && !wasInside) {
-              alertsToTrigger.push({ type: 'geofence', text: `Geofence In Alert: Entered geofence "${geofence.name}".` });
-              await redis.set(geoStateKey, 'inside');
-            } else if (!isInsideNow && wasInside) {
-              alertsToTrigger.push({ type: 'geofence', text: `Geofence Out Alert: Exited geofence "${geofence.name}".` });
-              await redis.set(geoStateKey, 'outside');
-            }
+          } catch (geoErr) {
+            console.error('[SUBSCRIBER] Geofence calculation error:', geoErr.message);
           }
-        } catch (geoErr) {
-          console.error('[SUBSCRIBER] Geofence calculation error:', geoErr.message);
         }
 
         // Publish all triggered alerts to Redis
@@ -432,7 +439,8 @@ async function start(io) {
             imei,
             alertType: triggered.type,
             alertText: triggered.text,
-            lat, lng,
+            lat: evalLat,
+            lng: evalLng,
             deviceTime: deviceTime || new Date().toISOString()
           };
           await redis.publish('alerts', JSON.stringify(alertPayload));
