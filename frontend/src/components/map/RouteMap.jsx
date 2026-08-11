@@ -110,37 +110,96 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const splitIntoSegments = (validPoints, maxSpeedKmph = 80) => {
+  /**
+   * TEMPORAL GPS PUZZLE ALGORITHM
+   * ─────────────────────────────────────────────────────────────────────────
+   * Step 1: Sort all received points by device_time (ASC). This places every
+   *         buffered/delayed packet in its correct chronological "slot",
+   *         just like inserting a puzzle piece into the right position.
+   *         The DB already stores by device_time, but buffered dumps from the
+   *         device may arrive out-of-order in the API response.
+   *
+   * Step 2: Walk the sorted points and look for genuine signal gaps:
+   *         A "gap" = the vehicle was parked/stopped AND no signal was
+   *         received for > GPS_GAP_THRESHOLD_MIN minutes.
+   *         At a genuine gap, break the polyline. This prevents the
+   *         map from drawing a straight line through buildings across
+   *         the gap.
+   *
+   * Step 3: Reject points that represent physically impossible teleports:
+   *         implied speed > MAX_POSSIBLE_KMH (500 km/h). This catches
+   *         corrupt GPS coordinates, NOT legitimate highway driving.
+   * ─────────────────────────────────────────────────────────────────────────
+   */
+  const GPS_GAP_THRESHOLD_MIN = 10;   // Break line if signal lost > 10 mins while parked
+  const MAX_POSSIBLE_KMH = 500;       // Only reject physically impossible teleports (NOT highway speed)
+
+  const splitIntoSegments = (pts) => {
+    if (!pts || pts.length === 0) return [];
+
+    // Step 1: Sort chronologically by device_time (puzzle-piece placement)
+    const sorted = [...pts].sort((a, b) =>
+      new Date(a.device_time).getTime() - new Date(b.device_time).getTime()
+    );
+
     const segs = [];
     let cur = [];
-    for (let i = 0; i < validPoints.length; i++) {
-      const p = validPoints[i];
-      if (cur.length > 0) {
-        const prev = cur[cur.length - 1];
-        const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
-        const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
 
-        // Calculate implied speed between these two points
-        const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
+    for (let i = 0; i < sorted.length; i++) {
+      const p = sorted[i];
 
-        // If implied speed is impossible (GPS drift), or huge time gap while moving (e.g. towed or dead zone), or rollback -> break line
-        if (impliedSpeedKmph > maxSpeedKmph || (timeDiffMin > 15 && dist > 0.5) || timeDiffMin < 0) {
-          segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
-          cur = [p];
+      if (cur.length === 0) {
+        cur.push(p);
+        continue;
+      }
+
+      const prev = cur[cur.length - 1];
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
+
+      // Step 3: Detect physically impossible GPS teleports (corrupt data)
+      // Only triggers at speeds that no vehicle can achieve (> 500 km/h)
+      if (timeDiffMin > 0 && timeDiffMin < 5) {
+        const impliedSpeedKmph = (dist / (timeDiffMin / 60));
+        if (impliedSpeedKmph > MAX_POSSIBLE_KMH) {
+          // Skip this corrupt point entirely — don't break the line, don't add it
           continue;
         }
       }
+
+      // Step 2: Detect genuine GPS signal gap:
+      // If time gap > threshold AND vehicle was stopped/parked before the gap,
+      // it means the device truly lost signal (tunnel, parking garage, power off).
+      // Break the polyline here so we don't draw a straight line across the gap.
+      const vehicleWasStoppedBefore = (prev.speed || 0) <= 5;
+      const vehicleIsStoppedAfter  = (p.speed || 0) <= 5;
+      const isGenuineSignalGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN && vehicleWasStoppedBefore;
+
+      // Also break for large gaps while moving (e.g. the vehicle drove through a dead zone)
+      // but only if the distance is suspiciously large relative to reported speed
+      const movingGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN && !vehicleWasStoppedBefore && dist > 2.0;
+
+      if (isGenuineSignalGap || movingGap || timeDiffMin < 0) {
+        if (cur.length > 0) segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
+        cur = [p];
+        continue;
+      }
+
       cur.push(p);
     }
+
     if (cur.length > 0) {
       segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
     }
+
     return segs;
   };
 
-  // Valid points (only valid India coordinates)
+  // Valid points (only valid India coordinates, always sorted chronologically)
   const validPoints = React.useMemo(() => {
-    return points.filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng));
+    return points
+      .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
+      .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
   }, [points]);
 
   const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
@@ -157,17 +216,22 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       const newSnapped = [];
 
       try {
-        // Work directly from validPoints segments so we have device_time for timestamps
+        // Use the shared splitIntoSegments algorithm for OSRM snapping too
         const pointSegments = [];
         let cur = [];
-        for (let i = 0; i < validPoints.length; i++) {
-          const p = validPoints[i];
+        const sortedValid = [...validPoints].sort((a, b) =>
+          new Date(a.device_time).getTime() - new Date(b.device_time).getTime()
+        );
+        for (let i = 0; i < sortedValid.length; i++) {
+          const p = sortedValid[i];
           if (cur.length > 0) {
             const prev = cur[cur.length - 1];
             const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
             const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-            const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
-            if (impliedSpeedKmph > 80 || (timeDiffMin > 15 && dist > 0.5) || timeDiffMin < 0) {
+            const vehicleWasStoppedBefore = (prev.speed || 0) <= 5;
+            const isGenuineSignalGap = timeDiffMin > 10 && vehicleWasStoppedBefore;
+            const movingGap = timeDiffMin > 10 && !vehicleWasStoppedBefore && dist > 2.0;
+            if (isGenuineSignalGap || movingGap || timeDiffMin < 0) {
               pointSegments.push(cur);
               cur = [p];
               continue;
