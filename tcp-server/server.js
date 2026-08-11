@@ -99,6 +99,13 @@ const pendingCommands = new Map(); // imei → { action, protocol, queuedAt }
  * If a pending command exists for this IMEI and it's still fresh, auto-fires it.
  */
 function registerDeviceSocket(imei, socket, clientId, protocolName) {
+  // CRITICAL FIX: Destroy stale socket to prevent silent file descriptor / memory leak
+  const existing = connectedDevices.get(imei);
+  if (existing && existing.socket && existing.socket !== socket) {
+    console.log(`[TCP - SYSTEM] Destroying stale zombie socket for IMEI ${imei} (${existing.clientId}) to prevent file descriptor leak.`);
+    try { existing.socket.destroy(); } catch (e) {}
+  }
+
   // Always replace stale entry — old socket from previous connection is dead
   connectedDevices.set(imei, { socket, clientId, protocolName, lastPacket: new Date() });
 

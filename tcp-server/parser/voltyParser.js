@@ -146,22 +146,25 @@ function parseVoltyPacket(raw) {
 
   console.log(`[TCP - VOLTY - DEBUG] IMEI ${imei}: gpsFix=${gpsFix} (valid=${isGpsValid}), lat=${lat}, lng=${lng}, speed=${cleanSpeed}, ign=${isIgnition}, vIn=${mainVoltage}V, vBatt=${internalVoltage}V`);
 
-  const result = {
-    packetType: 'VOLTY_NORMAL',
-    imei,
-    gpsValid: isGpsValid ? 'A' : 'V',
-    lat,
-    lng,
-    speed: cleanSpeed,
-    odometer: 0, 
-    direction: Math.round(parseFloat(heading)) || 0,
-    satellites: parseInt(satellites) || 0,
-    gsmSignal: parseInt(gsmSignal) || 0,
-    battery: Math.round(Math.min(100, Math.max(0, (internalVoltage / 4.2) * 100))) || 100, 
-    ignition: isIgnition,
-    voltage: mainVoltage,
-    isLive: true,
-    deviceTime,
+    const lOrH = imeiIndex >= 1 ? parts[imeiIndex - 1].trim().toUpperCase() : 'L';
+    const isLivePacket = lOrH !== 'H' && lOrH !== 'A'; // H/A = History/Archive
+
+    const result = {
+      packetType: 'VOLTY_NORMAL',
+      imei,
+      gpsValid: isGpsValid ? 'A' : 'V',
+      lat,
+      lng,
+      speed: cleanSpeed,
+      odometer: 0, 
+      direction: Math.round(parseFloat(heading)) || 0,
+      satellites: parseInt(satellites) || 0,
+      gsmSignal: parseInt(gsmSignal) || 0,
+      battery: Math.round(Math.min(100, Math.max(0, (internalVoltage / 4.2) * 100))) || 100, 
+      ignition: isIgnition,
+      voltage: mainVoltage,
+      isLive: isLivePacket,
+      deviceTime,
     rawPacket: raw
   };
   
