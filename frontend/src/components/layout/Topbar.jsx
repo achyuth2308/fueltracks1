@@ -8,7 +8,7 @@ import axiosInstance from '../../api/axios';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user } = useAuth();
-  const { connected, socket } = useSocket();
+  const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
   const [time, setTime] = useState(new Date());
 
@@ -17,11 +17,17 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const [latestToast, setLatestToast] = useState(null);
 
   useEffect(() => {
+    if (connected && user && (user.org_id || user.orgId)) {
+      joinOrgRoom(user.org_id || user.orgId);
+    }
+  }, [connected, user, joinOrgRoom]);
+
+  useEffect(() => {
     // Fetch initial alerts
-    axiosInstance.get('/api/admin/alerts/recent')
+    axiosInstance.get('/api/alerts?limit=15')
       .then(res => {
         if (res.data && res.data.success) {
-          setAlerts(res.data.data);
+          setAlerts(res.data.alerts || res.data.data || []);
         }
       })
       .catch(err => console.error('Failed to fetch recent alerts:', err));

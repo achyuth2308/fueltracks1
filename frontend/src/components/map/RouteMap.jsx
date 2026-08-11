@@ -75,12 +75,12 @@ const formatDuration = (ms) => {
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
   const seconds = totalSeconds % 60;
-  
+
   const parts = [];
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
   parts.push(`${seconds}s`);
-  
+
   return parts.join(' ');
 };
 
@@ -110,7 +110,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const splitIntoSegments = (validPoints, maxDistKm = 0.5, maxTimeMin = 3, maxSpeedKmph = 120) => {
+  const splitIntoSegments = (validPoints, maxSpeedKmph = 80) => {
     const segs = [];
     let cur = [];
     for (let i = 0; i < validPoints.length; i++) {
@@ -119,12 +119,12 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         const prev = cur[cur.length - 1];
         const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
         const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-        
+
         // Calculate implied speed between these two points
         const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
-        
-        // If distance jump is too large, time gap is too large, OR implied speed is impossible (GPS drift) -> break line
-        if (dist > maxDistKm || timeDiffMin > maxTimeMin || impliedSpeedKmph > maxSpeedKmph) {
+
+        // If implied speed is impossible (GPS drift) -> break line
+        if (impliedSpeedKmph > maxSpeedKmph) {
           segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
           cur = [p];
           continue;
@@ -153,43 +153,76 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         return;
       }
       setIsSnapping(true);
-      
+
       const newSnapped = [];
-      
+
       try {
-        for (const segment of routeSegments) {
+        // Work directly from validPoints segments so we have device_time for timestamps
+        const pointSegments = [];
+        let cur = [];
+        for (let i = 0; i < validPoints.length; i++) {
+          const p = validPoints[i];
+          if (cur.length > 0) {
+            const prev = cur[cur.length - 1];
+            const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
+            const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+            const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
+            if (impliedSpeedKmph > 80) {
+              pointSegments.push(cur);
+              cur = [p];
+              continue;
+            }
+          }
+          cur.push(p);
+        }
+        if (cur.length > 0) pointSegments.push(cur);
+
+        for (const segment of pointSegments) {
           if (segment.length < 2) continue;
-          
-          // Chunk segment into 90 points (with 1 point overlap to maintain continuity)
-          const chunkSize = 90;
+
+          // OSRM match API limit is 100 points per request
+          const chunkSize = 100;
           let currentSnappedSegment = [];
-          
+
           for (let i = 0; i < segment.length; i += chunkSize) {
-            const chunk = segment.slice(i, i + chunkSize + 1);
+            // Overlap by 1 point for continuity between chunks
+            const chunk = segment.slice(i === 0 ? 0 : i - 1, i + chunkSize);
             if (chunk.length < 2) continue;
-            
-            // OSRM expects lng,lat
-            const coordsStr = chunk.map(p => `${p[1]},${p[0]}`).join(';');
-            const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=geojson&overview=full&continue_straight=true`;
-            
-            const response = await fetch(url);
-            const data = await response.json();
-            
-            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-              const coords = data.routes[0].geometry.coordinates;
-              // Convert back to [lat, lng]
-              const latLngCoords = coords.map(c => [c[1], c[0]]);
-              currentSnappedSegment.push(...latLngCoords);
-            } else {
-              // Fallback to raw points for this chunk if match fails
-              currentSnappedSegment.push(...chunk);
+
+            // OSRM match expects lng,lat
+            const coordsStr = chunk.map(p => `${parseFloat(p.lng)},${parseFloat(p.lat)}`).join(';');
+            // Provide Unix timestamps (seconds) for better accuracy
+            const timestampsStr = chunk.map(p => Math.floor(new Date(p.device_time).getTime() / 1000)).join(';');
+            // 20 metre GPS accuracy radius
+            const radiusesStr = chunk.map(() => '20').join(';');
+
+            const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?geometries=geojson&overview=full&timestamps=${timestampsStr}&radiuses=${radiusesStr}&gaps=ignore`;
+
+            try {
+              const response = await fetch(url);
+              const data = await response.json();
+
+              if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
+                // Combine all matchings for this chunk
+                for (const matching of data.matchings) {
+                  const coords = matching.geometry.coordinates;
+                  const latLngCoords = coords.map(c => [c[1], c[0]]);
+                  currentSnappedSegment.push(...latLngCoords);
+                }
+              } else {
+                // Fallback to raw points for this chunk
+                currentSnappedSegment.push(...chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
+              }
+            } catch {
+              // Fallback to raw points on network error
+              currentSnappedSegment.push(...chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
             }
           }
           if (currentSnappedSegment.length > 0) {
             newSnapped.push(currentSnappedSegment);
           }
         }
-        
+
         if (isMounted) {
           setSnappedSegments(newSnapped);
         }
@@ -201,11 +234,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         }
       }
     };
-    
+
     fetchSnappedRoutes();
-    
+
     return () => { isMounted = false; };
-  }, [snapToRoads, routeSegments]);
+  }, [snapToRoads, validPoints]);
 
   const stoppages = React.useMemo(() => {
     if (!points || points.length === 0) return [];
@@ -213,11 +246,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     let stopStart = null;
     let stopEnd = null;
     let overspeedCount = 0;
-    
+
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       if (!p.lat || !p.lng || !isValidCoord(p.lat, p.lng)) continue;
-      
+
       if (p.speed <= 5) {
         if (!stopStart) stopStart = p;
         stopEnd = p;
@@ -336,7 +369,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             {follow ? <Eye size={15} /> : <EyeOff size={15} />}
             {follow ? 'Following Vehicle' : 'Free Map'}
           </button>
-          
+
           <button
             onClick={() => setSnapToRoads(!snapToRoads)}
             disabled={isSnapping}
@@ -412,9 +445,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           <div style={{ textAlign: 'center', color: '#64748B', fontSize: '11px', background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '12px', lineHeight: '1.4' }}>
             <LocationDisplay lat={activeStoppage.lat} lng={activeStoppage.lng} />
           </div>
-          <a 
-            href={`https://maps.google.com/?q=${activeStoppage.lat},${activeStoppage.lng}`} 
-            target="_blank" 
+          <a
+            href={`https://maps.google.com/?q=${activeStoppage.lat},${activeStoppage.lng}`}
+            target="_blank"
             rel="noopener noreferrer"
             style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '8px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s' }}
           >
@@ -496,7 +529,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         {(() => {
           if (points.length < 2) return null;
           const arrowMarkers = [];
-          
+
           // Get total distance to calculate optimal spacing
           const totalDistance = points[points.length - 1].cDist || 0;
           // Target around 12-15 markers across the whole trip so it's never cluttered. 
@@ -504,12 +537,12 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           const distanceInterval = Math.max(totalDistance / 15, 1.0);
 
           let lastMarkerDist = null;
-          
+
           points.forEach((p, idx) => {
             if (!p.lat || !p.lng || idx === 0 || idx === points.length - 1) return;
-            
+
             const currentDist = p.cDist || 0;
-            
+
             // Only draw a marker if the vehicle has physically moved the required distance
             if (lastMarkerDist === null || currentDist - lastMarkerDist >= distanceInterval) {
               lastMarkerDist = currentDist;
@@ -533,11 +566,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               </div>`;
 
               arrowMarkers.push(
-                <Marker 
-                  key={`arrow-${idx}`} 
-                  position={[parseFloat(p.lat), parseFloat(p.lng)]} 
+                <Marker
+                  key={`arrow-${idx}`}
+                  position={[parseFloat(p.lat), parseFloat(p.lng)]}
                   icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [16, 16], iconAnchor: [8, 8] })}
-                  interactive={true} 
+                  interactive={true}
                 >
                   <Popup className="premium-popup modern-hover-card">
                     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
@@ -650,16 +683,16 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
         {/* Stoppage Markers */}
         {stoppages.map((stop, idx) => (
-          <Marker 
+          <Marker
             key={`stop-${idx}`}
             position={[stop.lat, stop.lng]}
-            icon={L.divIcon({ 
+            icon={L.divIcon({
               html: `<div style="background: #ef4444; border: 2px solid #FFFFFF; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
                 <span style="color: white; font-size: 12px; font-weight: bold; line-height: 1;">P</span>
-              </div>`, 
-              className: '', 
-              iconSize: [22, 22], 
-              iconAnchor: [11, 11] 
+              </div>`,
+              className: '',
+              iconSize: [22, 22],
+              iconAnchor: [11, 11]
             })}
           >
             <Popup className="premium-popup modern-hover-card">
@@ -687,9 +720,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                 <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '6px', borderRadius: '4px', marginBottom: '6px' }}>
                   <LocationDisplay lat={stop.lat} lng={stop.lng} />
                 </div>
-                <a 
-                  href={`https://maps.google.com/?q=${stop.lat},${stop.lng}`} 
-                  target="_blank" 
+                <a
+                  href={`https://maps.google.com/?q=${stop.lat},${stop.lng}`}
+                  target="_blank"
                   rel="noopener noreferrer"
                   style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '6px 0', borderRadius: '4px', textDecoration: 'none', fontWeight: 600, fontSize: '11px' }}
                 >
@@ -722,41 +755,41 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
               icon={createVehicleIcon(heading, activePoint.speed || 0, activePoint.ignition)}
               zIndexOffset={1000}
-            ref={activeMarkerRef}
-          >
-            <Popup className="premium-popup modern-hover-card" autoPan={false}>
-              <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
-                <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
-                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(activePoint.device_time)}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
-                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(activePoint.speed || 0)} km/h</td>
-                    </tr>
-                    <tr>
-                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
-                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
-                    </tr>
-                    <tr>
-                      <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
-                      <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
-                    </tr>
-                    <tr>
-                      <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
-                      <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} km</td>
-                    </tr>
-                  </tbody>
-                </table>
-                <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
-                  <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
+              ref={activeMarkerRef}
+            >
+              <Popup className="premium-popup modern-hover-card" autoPan={false}>
+                <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
+                  <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(activePoint.device_time)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(activePoint.speed || 0)} km/h</td>
+                      </tr>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
+                      </tr>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
+                      </tr>
+                      <tr>
+                        <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
+                        <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} km</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                  <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
+                    <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
+                  </div>
                 </div>
-              </div>
-            </Popup>
-          </Marker>
+              </Popup>
+            </Marker>
           );
         })()}
 
