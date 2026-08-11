@@ -123,8 +123,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         // Calculate implied speed between these two points
         const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
 
-        // If implied speed is impossible (GPS drift) -> break line
-        if (impliedSpeedKmph > maxSpeedKmph) {
+        // If implied speed is impossible (GPS drift), or huge time gap while moving (e.g. towed or dead zone), or rollback -> break line
+        if (impliedSpeedKmph > maxSpeedKmph || (timeDiffMin > 15 && dist > 0.5) || timeDiffMin < 0) {
           segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
           cur = [p];
           continue;
@@ -167,7 +167,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
             const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
             const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
-            if (impliedSpeedKmph > 80) {
+            if (impliedSpeedKmph > 80 || (timeDiffMin > 15 && dist > 0.5) || timeDiffMin < 0) {
               pointSegments.push(cur);
               cur = [p];
               continue;

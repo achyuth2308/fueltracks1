@@ -263,6 +263,55 @@ async function start(io) {
         try { prevState = JSON.parse(prevStateRaw); } catch (e) { }
       }
 
+      // ============================================================
+      // 2a. VALIDATE DEVICE TIMESTAMP & GPS JUMPS
+      // ============================================================
+      if (!data.isHeartbeat) {
+        const serverTimeMs = Date.now();
+        const deviceTimeMs = new Date(deviceTime).getTime();
+        const prevDeviceTimeMs = prevState && prevState.deviceTime ? new Date(prevState.deviceTime).getTime() : null;
+        
+        let isValidPoint = true;
+        let rejectReason = '';
+
+        // 1. Check for wildly invalid timestamps (e.g., 2017 on startup)
+        if (deviceTimeMs < serverTimeMs - (30 * 24 * 60 * 60 * 1000)) {
+          isValidPoint = false;
+          rejectReason = `Timestamp too old (>30 days behind server): ${new Date(deviceTime).toISOString()}`;
+        } else if (deviceTimeMs > serverTimeMs + (15 * 60 * 1000)) {
+          isValidPoint = false;
+          rejectReason = `Timestamp in future (>15m ahead of server): ${new Date(deviceTime).toISOString()}`;
+        } 
+        // 2. Rollback check for Live points (allow 2 min slack for unordered network delivery)
+        else if (isLive && prevDeviceTimeMs && deviceTimeMs < prevDeviceTimeMs - (2 * 60 * 1000)) {
+          isValidPoint = false;
+          rejectReason = `Timestamp rollback on live stream: ${new Date(deviceTime).toISOString()} < ${new Date(prevState.deviceTime).toISOString()}`;
+        }
+
+        // 3. Impossible Jump Check
+        if (isValidPoint && prevState && prevState.lat && prevState.lng && lat && lng) {
+          const distMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
+          // If moved > 100m, verify if the speed required to cover it is physically possible
+          if (distMeters > 100 && prevDeviceTimeMs && deviceTimeMs > prevDeviceTimeMs) {
+            const timeDiffHours = (deviceTimeMs - prevDeviceTimeMs) / (1000 * 60 * 60);
+            const impliedSpeedKmph = (distMeters / 1000) / timeDiffHours;
+            
+            // Reject if > 250 km/h (impossible for a commercial vehicle)
+            if (impliedSpeedKmph > 250 && timeDiffHours < 1) {
+              isValidPoint = false;
+              rejectReason = `Impossible GPS jump: ${Math.round(impliedSpeedKmph)} km/h over ${Math.round(distMeters)}m`;
+            }
+          }
+        }
+
+        if (!isValidPoint) {
+          console.warn(`[GPS-REJECT] IMEI ${imei}: ${rejectReason}. Dropped from live tracking & DB.`);
+          // Keep device online in DB even if GPS is drifting or resetting
+          await GpsModel.updateLatestState({ vehicleId, ignition: finalIgnition, voltage });
+          return;
+        }
+      }
+
       // 2b. Compute final Odometer based on deviceOdo flag
       let finalOdometer = parseFloat(odometer) || 0;
       if (vehicle.metadata?.deviceOdo !== 'YES' && lat && lng) {
