@@ -107,31 +107,37 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const splitIntoSegments = (positions, maxDistKm = 50) => {
+  const splitIntoSegments = (validPoints, maxDistKm = 2, maxTimeMin = 5) => {
     const segs = [];
     let cur = [];
-    for (let i = 0; i < positions.length; i++) {
-      const p = positions[i];
+    for (let i = 0; i < validPoints.length; i++) {
+      const p = validPoints[i];
       if (cur.length > 0) {
         const prev = cur[cur.length - 1];
-        if (getDistance(prev[0], prev[1], p[0], p[1]) > maxDistKm) {
-          segs.push(cur);
+        const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
+        const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+        
+        // If distance is too large OR time gap is too large, break the line
+        if (dist > maxDistKm || timeDiffMin > maxTimeMin) {
+          segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
           cur = [p];
           continue;
         }
       }
       cur.push(p);
     }
-    if (cur.length > 0) segs.push(cur);
+    if (cur.length > 0) {
+      segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
+    }
     return segs;
   };
 
-  // Calculate continuous route positions list (only valid India coordinates)
-  const routePositions = points
-    .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
-    .map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+  // Valid points (only valid India coordinates)
+  const validPoints = React.useMemo(() => {
+    return points.filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng));
+  }, [points]);
 
-  const routeSegments = splitIntoSegments(routePositions);
+  const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
 
   const stoppages = React.useMemo(() => {
     if (!points || points.length === 0) return [];
@@ -200,12 +206,12 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   }, [activePoint, stoppages]);
 
   // Sliced positions up to current playback index
-  const currentIndex = points.findIndex(
+  const validCurrentIndex = validPoints.findIndex(
     p => activePoint && p.device_time === activePoint.device_time
   );
 
-  const pastPositions = routePositions.slice(0, (currentIndex === -1 ? 0 : currentIndex) + 1);
-  const pastSegments = splitIntoSegments(pastPositions);
+  const pastPoints = validPoints.slice(0, (validCurrentIndex === -1 ? 0 : validCurrentIndex) + 1);
+  const pastSegments = React.useMemo(() => splitIntoSegments(pastPoints), [pastPoints]);
 
   // Create custom rotated navigation arrow/car icon
   const createVehicleIcon = (direction = 0, speed = 0) => {
@@ -588,8 +594,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           if (!activePoint || !activePoint.lat || !activePoint.lng || !isValidCoord(activePoint.lat, activePoint.lng)) return null;
 
           let heading = activePoint.course || 0;
-          if (!activePoint.course && currentIndex > 0) {
-            const prev = points[currentIndex - 1];
+          if (!activePoint.course && validCurrentIndex > 0) {
+            const prev = validPoints[validCurrentIndex - 1];
             if (prev && prev.lat && prev.lng) {
               const lat1 = prev.lat * Math.PI / 180;
               const lat2 = activePoint.lat * Math.PI / 180;
