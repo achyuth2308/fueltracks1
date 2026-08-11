@@ -392,7 +392,7 @@ async function start(io) {
         const evalSpeed = data.isHeartbeat ? (prevState ? parseFloat(prevState.speed) : 0) : (speed || 0);
 
         // Check A: Ignition ON transition
-        if (finalIgnition === true && (!prevState || prevState.ignition === false)) {
+        if (finalIgnition === true && prevState && prevState.ignition === false) {
           alertsToTrigger.push({ type: 'ignition_on', text: 'Ignition ON Alert: Vehicle started.' });
         }
 
@@ -407,7 +407,7 @@ async function start(io) {
         }
 
         // Check B: Trip started (stopped/parked → moving)
-        if (finalIgnition === true && evalSpeed > 0 && (!prevState || prevState.speed === 0 || prevState.ignition === false)) {
+        if (finalIgnition === true && evalSpeed > 0 && prevState && (prevState.speed === 0 || prevState.ignition === false)) {
           alertsToTrigger.push({ type: 'trip_started', text: 'Trip Started Alert: Vehicle has begun moving.' });
         }
 
@@ -416,7 +416,7 @@ async function start(io) {
           alertsToTrigger.push({ type: 'stoppage', text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.' });
         }
 
-        // Check D: Excessive idle (ignition ON, speed 0 for > 3min)
+        // Check D: Excessive idle (ignition ON, speed 0 for configured milestones: 5, 15, 30, 45 mins)
         if (finalIgnition === true && evalSpeed === 0) {
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
@@ -425,16 +425,21 @@ async function start(io) {
           if (!idleStart) {
             await redis.set(idleKey, Date.now());
           } else {
-            const idleDurationMs = Date.now() - parseInt(idleStart);
-            if (idleDurationMs > 180000) {
-              const alreadyFired = await redis.get(alertFiredKey);
-              if (!alreadyFired) {
-                alertsToTrigger.push({
-                  type: 'excessive_idle',
-                  text: `Excessive Idle Alert: Vehicle is idling for more than 3 minutes.`
-                });
-                await redis.set(alertFiredKey, '1', 'EX', 300); // Lock for 5 mins
-              }
+            const idleDurationMin = (Date.now() - parseInt(idleStart)) / 60000;
+            const lastFired = await redis.get(alertFiredKey);
+            let nextMilestone = null;
+
+            if (idleDurationMin >= 45 && lastFired !== '45') nextMilestone = 45;
+            else if (idleDurationMin >= 30 && idleDurationMin < 45 && lastFired !== '30') nextMilestone = 30;
+            else if (idleDurationMin >= 15 && idleDurationMin < 30 && lastFired !== '15') nextMilestone = 15;
+            else if (idleDurationMin >= 5 && idleDurationMin < 15 && lastFired !== '5') nextMilestone = 5;
+
+            if (nextMilestone) {
+              alertsToTrigger.push({
+                type: 'excessive_idle',
+                text: `Excessive Idle Alert: Vehicle has been idling for ${nextMilestone} minutes.`
+              });
+              await redis.set(alertFiredKey, String(nextMilestone));
             }
           }
         } else {
@@ -442,8 +447,10 @@ async function start(io) {
           await redis.del(`vehicle:idle_alert_fired:${vehicleId}`);
         }
 
-        // Check F: Overspeeding (> speedLimit for > 3min)
+        // Check F: Overspeeding (configurable duration, default 3 mins)
         const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 60;
+        const overspeedDurationLimitMin = parseFloat(vehicle.metadata?.overspeedDurationAlert) || 3;
+        
         if (evalSpeed > speedLimit) {
           const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
           const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
@@ -452,15 +459,15 @@ async function start(io) {
           if (!overspeedStart) {
             await redis.set(overspeedKey, Date.now());
           } else {
-            const overspeedDurationMs = Date.now() - parseInt(overspeedStart);
-            if (overspeedDurationMs > 180000) {
+            const overspeedDurationMin = (Date.now() - parseInt(overspeedStart)) / 60000;
+            if (overspeedDurationMin >= overspeedDurationLimitMin) {
               const alreadyFired = await redis.get(overspeedFiredKey);
               if (!alreadyFired) {
                 alertsToTrigger.push({
                   type: 'overspeed',
-                  text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than 3 minutes.`
+                  text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than ${overspeedDurationLimitMin} minutes.`
                 });
-                await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins
+                await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins so they aren't spammed continuously
               }
             }
           }
