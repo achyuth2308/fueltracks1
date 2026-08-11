@@ -107,7 +107,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
-  const splitIntoSegments = (validPoints, maxDistKm = 2, maxTimeMin = 5) => {
+  const splitIntoSegments = (validPoints, maxDistKm = 0.5, maxTimeMin = 3, maxSpeedKmph = 120) => {
     const segs = [];
     let cur = [];
     for (let i = 0; i < validPoints.length; i++) {
@@ -117,8 +117,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
         const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
         
-        // If distance is too large OR time gap is too large, break the line
-        if (dist > maxDistKm || timeDiffMin > maxTimeMin) {
+        // Calculate implied speed between these two points
+        const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : 0;
+        
+        // If distance jump is too large, time gap is too large, OR implied speed is impossible (GPS drift) -> break line
+        if (dist > maxDistKm || timeDiffMin > maxTimeMin || impliedSpeedKmph > maxSpeedKmph) {
           segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
           cur = [p];
           continue;
