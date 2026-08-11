@@ -170,13 +170,13 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             
             // OSRM expects lng,lat
             const coordsStr = chunk.map(p => `${p[1]},${p[0]}`).join(';');
-            const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?geometries=geojson&overview=full`;
+            const url = `https://router.project-osrm.org/route/v1/driving/${coordsStr}?geometries=geojson&overview=full&continue_straight=true`;
             
             const response = await fetch(url);
             const data = await response.json();
             
-            if (data.code === 'Ok' && data.matchings && data.matchings.length > 0) {
-              const coords = data.matchings.map(m => m.geometry.coordinates).flat();
+            if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+              const coords = data.routes[0].geometry.coordinates;
               // Convert back to [lat, lng]
               const latLngCoords = coords.map(c => [c[1], c[0]]);
               currentSnappedSegment.push(...latLngCoords);
