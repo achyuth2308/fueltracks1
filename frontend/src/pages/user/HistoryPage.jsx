@@ -208,9 +208,17 @@ const HistoryPage = () => {
         let cumulativeDist = 0;
         const withDist = sorted.map((p, idx, arr) => {
           if (idx > 0) {
-            cumulativeDist += calculateDistance(parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng), parseFloat(p.lat), parseFloat(p.lng));
+            const segDist = calculateDistance(
+              parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng),
+              parseFloat(p.lat), parseFloat(p.lng)
+            );
+            // Only accumulate real movement (> 10m). Filters GPS jitter while parked.
+            // Also cap single-segment jumps at 5km to reject teleport glitches.
+            if (segDist > 0.01 && segDist < 5) {
+              cumulativeDist += segDist;
+            }
           }
-          return { ...p, cDist: cumulativeDist };
+          return { ...p, cDist: parseFloat(cumulativeDist.toFixed(3)) };
         });
 
         setPoints(withDist);
@@ -317,8 +325,9 @@ const HistoryPage = () => {
 
   const activePoint = (filteredPoints.length > 0 && currentPointIndex >= 0 && currentPointIndex < filteredPoints.length) ? filteredPoints[currentPointIndex] : null;
 
-  // Calculate total distance (mock for now, assume max odo - min odo)
-  const totalDist = points.length > 0 ? (points[points.length-1].odometer - points[0].odometer) || 0 : 0;
+  // Total distance = cumulative Haversine distance from first to last point
+  // (not odometer diff — odometer can be null for buffered/historical packets)
+  const totalDist = points.length > 0 ? (points[points.length - 1].cDist || 0) : 0;
 
   // --- Draw Semi-Circle Gauges ---
   const renderSemiCircle = (value, max, label, unit, colorRanges) => {
