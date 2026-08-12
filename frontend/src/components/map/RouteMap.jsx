@@ -257,13 +257,19 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       // Fix divide by zero for identical timestamps
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
+      const speedKmph = p.speed || 0;
+
       // 1. Drop impossible teleports (> 150 km/h)
       if (impliedSpeedKmph > 150) continue;
 
-      // 2. Drop GPS drift while parked (ignition OFF and speed <= 5 and distance < 200m)
-      if (!p.ignition && (p.speed || 0) <= 5 && dist > 0 && dist < 0.2) {
-         continue; 
-      }
+      // 2. Doppler Mismatch: Coordinates jumped fast, but hardware doppler speed says it's slow/stopped.
+      if (impliedSpeedKmph > speedKmph + 25) continue;
+
+      // 3. Static Drift: Hardware doppler says it's completely stopped, but coordinates drifted > 30 meters.
+      if (speedKmph < 2 && dist > 0.03) continue;
+
+      // 4. Minor Drift Lock: Drop small drifts when explicitly parked (ignition OFF).
+      if (!p.ignition && speedKmph <= 5 && dist > 0 && dist < 0.2) continue;
 
       filtered.push(p);
     }
