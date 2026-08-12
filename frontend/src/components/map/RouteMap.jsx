@@ -197,113 +197,33 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
   // Valid points (only valid India coordinates, always sorted chronologically, powerfully filtered)
   const validPoints = React.useMemo(() => {
-    let raw = points
+    const raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
 
     if (raw.length === 0) return [];
 
-    // --- PASS 1: Geometric Spike (V-Shape) Filter ---
-    // Safely removes sudden teleports that jump away and return immediately (multipath/LBS drifts).
-    const deSpikedRaw = [];
-    for (let i = 0; i < raw.length; i++) {
-      if (i === 0 || i >= raw.length - 2) {
-        deSpikedRaw.push(raw[i]);
-        continue;
-      }
-      
-      const prev = raw[i - 1];
-      const curr = raw[i];
-      const next = raw[i + 1];
-      const next2 = raw[i + 2];
-      
-      const distPrevCurr = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
-      
-      const timePrevNextMin = (new Date(next.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-      const timePrevNext2Min = (new Date(next2.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-
-      // Check for 1-point spike (A -> B -> A)
-      if (distPrevCurr > 0.15 && timePrevNextMin < 5) {
-         const distCurrNext = getDistance(curr.lat, curr.lng, next.lat, next.lng);
-         const distPrevNext = getDistance(prev.lat, prev.lng, next.lat, next.lng);
-         if (distCurrNext > 0.15 && distPrevNext < 0.1) {
-            continue; // It's a 1-point spike. Drop curr.
-         }
-      }
-
-      // Check for 2-point spike (A -> B1 -> B2 -> A)
-      if (distPrevCurr > 0.15 && timePrevNext2Min < 5) {
-         const distCurrNext2 = getDistance(curr.lat, curr.lng, next2.lat, next2.lng);
-         const distPrevNext2 = getDistance(prev.lat, prev.lng, next2.lat, next2.lng);
-         if (distCurrNext2 > 0.15 && distPrevNext2 < 0.1) {
-            continue; // It's part of a 2-point spike. Drop curr.
-         }
-      }
-      
-      deSpikedRaw.push(curr);
-    }
-    raw = deSpikedRaw;
-
-    if (raw.length === 0) return [];
-
-    // --- PASS 2: State Machine Parked-Lock Filter ---
     const filtered = [raw[0]];
-    let isParked = false;
-    let parkTimerStart = null;
-    let anchor = raw[0];
-
     for (let i = 1; i < raw.length; i++) {
       const p = raw[i];
-      const prev = raw[i - 1];
-      const speed = p.speed || 0;
+      const prev = filtered[filtered.length - 1];
 
-      const distFromPrev = getDistance(prev.lat, prev.lng, p.lat, p.lng);
-      const timeFromPrevMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
       
       // Fix divide by zero for identical timestamps
-      const impliedSpeedKmph = timeFromPrevMin > 0 ? (distFromPrev / (timeFromPrevMin / 60)) : (distFromPrev > 0.05 ? Infinity : 0);
+      const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
-      // Global Teleport Rejection
+      // 1. Drop impossible teleports (> 150 km/h)
       if (impliedSpeedKmph > 150) continue;
-      if (impliedSpeedKmph > 80 && speed < 15) continue;
-      
-      // Impossible Acceleration (jumped > 70kmh but was parked just seconds ago)
-      if (impliedSpeedKmph > 70 && (prev.speed || 0) <= 5 && timeFromPrevMin < 1) continue;
 
-      if (speed > 5) {
-        // MOVING
-        isParked = false;
-        parkTimerStart = null;
-        filtered.push(p);
-        anchor = p;
-      } else {
-        // SLOW/STOPPED
-        if (!isParked) {
-          if (!parkTimerStart) parkTimerStart = new Date(p.device_time).getTime();
-          
-          if ((new Date(p.device_time).getTime() - parkTimerStart) / 60000 > 3) {
-            isParked = true;
-          } else {
-            filtered.push(p);
-            anchor = p;
-          }
-        } else {
-          // PARKED LOCKOUT
-          const distFromAnchor = getDistance(anchor.lat, anchor.lng, p.lat, p.lng);
-          if (distFromAnchor > 0.15 && impliedSpeedKmph < 15) {
-            filtered.push(p);
-            anchor = p;
-            parkTimerStart = new Date(p.device_time).getTime();
-          }
-        }
+      // 2. Drop GPS drift while parked (ignition OFF and speed <= 5 and distance < 200m)
+      if (!p.ignition && (p.speed || 0) <= 5 && dist > 0 && dist < 0.2) {
+         continue; 
       }
-    }
 
-    const lastPoint = raw[raw.length - 1];
-    if (filtered.length > 0 && filtered[filtered.length - 1] !== lastPoint) {
-       filtered.push(lastPoint);
+      filtered.push(p);
     }
-
     return filtered;
   }, [points]);
 
@@ -948,8 +868,14 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                         <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
                       </tr>
                       <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Battery</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.battery !== undefined && activePoint.battery !== null ? Math.round(activePoint.battery) : 100}%</td>
+                      </tr>
+                      <tr>
                         <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
-                        <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.odometer ? Math.round(activePoint.odometer) : '-'} km</td>
+                        <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>
+                          {Math.round((validPoints[0]?.odometer || activePoint.odometer || 0) + (activePoint.cDist || 0))} km
+                        </td>
                       </tr>
                     </tbody>
                   </table>
