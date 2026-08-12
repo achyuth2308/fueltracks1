@@ -321,11 +321,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     }
 
     // If the journey ends while parked, the buffer (spiderweb) is discarded.
-    // Ensure the very last point is pushed so the marker is placed accurately at the end.
-    const lastPoint = filtered[filtered.length - 1];
-    if (finalFiltered.length > 0 && finalFiltered[finalFiltered.length - 1] !== lastPoint) {
-      finalFiltered.push(lastPoint);
-    }
+    // We intentionally DO NOT push the very last point if it was buffered,
+    // because that last point is usually an LBS drift spike. Let the route end naturally at the parking spot!
 
     return finalFiltered;
   }, [points]);
