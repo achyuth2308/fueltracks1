@@ -203,6 +203,49 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
     if (raw.length === 0) return [];
 
+    // --- PASS 1: Geometric Spike (V-Shape) Filter ---
+    // Safely removes sudden teleports that jump away and return immediately (multipath/LBS drifts).
+    const deSpikedRaw = [];
+    for (let i = 0; i < raw.length; i++) {
+      if (i === 0 || i >= raw.length - 2) {
+        deSpikedRaw.push(raw[i]);
+        continue;
+      }
+      
+      const prev = raw[i - 1];
+      const curr = raw[i];
+      const next = raw[i + 1];
+      const next2 = raw[i + 2];
+      
+      const distPrevCurr = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
+      
+      const timePrevNextMin = (new Date(next.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const timePrevNext2Min = (new Date(next2.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+
+      // Check for 1-point spike (A -> B -> A)
+      if (distPrevCurr > 0.15 && timePrevNextMin < 5) {
+         const distCurrNext = getDistance(curr.lat, curr.lng, next.lat, next.lng);
+         const distPrevNext = getDistance(prev.lat, prev.lng, next.lat, next.lng);
+         if (distCurrNext > 0.15 && distPrevNext < 0.1) {
+            continue; // It's a 1-point spike. Drop curr.
+         }
+      }
+
+      // Check for 2-point spike (A -> B1 -> B2 -> A)
+      if (distPrevCurr > 0.15 && timePrevNext2Min < 5) {
+         const distCurrNext2 = getDistance(curr.lat, curr.lng, next2.lat, next2.lng);
+         const distPrevNext2 = getDistance(prev.lat, prev.lng, next2.lat, next2.lng);
+         if (distCurrNext2 > 0.15 && distPrevNext2 < 0.1) {
+            continue; // It's part of a 2-point spike. Drop curr.
+         }
+      }
+      
+      deSpikedRaw.push(curr);
+    }
+    raw = deSpikedRaw;
+
+    if (raw.length === 0) return [];
+
     const filtered = [raw[0]];
     for (let i = 1; i < raw.length; i++) {
       const p = raw[i];
@@ -868,8 +911,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                         <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
                       </tr>
                       <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Battery</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.battery !== undefined && activePoint.battery !== null ? Math.round(activePoint.battery) : 100}%</td>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Voltage</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.voltage !== undefined && activePoint.voltage !== null ? Number(activePoint.voltage).toFixed(1) : '-'} V</td>
                       </tr>
                       <tr>
                         <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
