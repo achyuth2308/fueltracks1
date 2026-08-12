@@ -376,17 +376,17 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           const chunkSize = 100;
           let currentSnappedSegment = [];
 
-          for (let i = 0; i < segment.length; i += chunkSize) {
-            // Overlap by 1 point for continuity between chunks
-            const chunk = segment.slice(i === 0 ? 0 : i - 1, i + chunkSize);
+          // Advance by 99 to ensure a 1-point overlap without exceeding 100 points
+          for (let i = 0; i < segment.length; i += chunkSize - 1) {
+            const chunk = segment.slice(i, i + chunkSize);
             if (chunk.length < 2) continue;
 
             // OSRM match expects lng,lat
             const coordsStr = chunk.map(p => `${parseFloat(p.lng)},${parseFloat(p.lat)}`).join(';');
             // Provide Unix timestamps (seconds) for better accuracy
             const timestampsStr = chunk.map(p => Math.floor(new Date(p.device_time).getTime() / 1000)).join(';');
-            // 20 metre GPS accuracy radius
-            const radiusesStr = chunk.map(() => '20').join(';');
+            // 40 metre GPS accuracy radius (gives OSRM more leeway to snap properly)
+            const radiusesStr = chunk.map(() => '40').join(';');
 
             const url = `https://router.project-osrm.org/match/v1/driving/${coordsStr}?geometries=geojson&overview=full&timestamps=${timestampsStr}&radiuses=${radiusesStr}&gaps=ignore`;
 
@@ -398,16 +398,37 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                 // Combine all matchings for this chunk
                 for (const matching of data.matchings) {
                   const coords = matching.geometry.coordinates;
-                  const latLngCoords = coords.map(c => [c[1], c[0]]);
-                  currentSnappedSegment.push(...latLngCoords);
+                  for (const c of coords) {
+                    const latLng = [c[1], c[0]];
+                    // Prevent pushing exact consecutive duplicates at overlapping seams
+                    if (currentSnappedSegment.length > 0) {
+                       const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                       if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                    }
+                    currentSnappedSegment.push(latLng);
+                  }
                 }
               } else {
                 // Fallback to raw points for this chunk
-                currentSnappedSegment.push(...chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
+                const fallbackPoints = chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+                for (const latLng of fallbackPoints) {
+                  if (currentSnappedSegment.length > 0) {
+                     const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                     if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                  }
+                  currentSnappedSegment.push(latLng);
+                }
               }
             } catch {
               // Fallback to raw points on network error
-              currentSnappedSegment.push(...chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]));
+              const fallbackPoints = chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+              for (const latLng of fallbackPoints) {
+                if (currentSnappedSegment.length > 0) {
+                   const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                   if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                }
+                currentSnappedSegment.push(latLng);
+              }
             }
           }
           if (currentSnappedSegment.length > 0) {
