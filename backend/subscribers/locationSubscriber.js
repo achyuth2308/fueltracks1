@@ -375,8 +375,17 @@ async function start(io) {
         const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
         
         await GpsModel.updateLatestState({
-          vehicleId, lat: validLat, lng: validLng, speed, direction, fuel, ignition: finalIgnition, voltage,
-          odometer: finalOdometer, satellites, gsmSignal
+          vehicleId, 
+          lat: validLat, 
+          lng: validLng, 
+          speed: speed != null ? Math.round(speed) : null, 
+          direction: direction != null ? Math.round(direction) : null, 
+          fuel, 
+          ignition: finalIgnition, 
+          voltage,
+          odometer: finalOdometer != null ? Math.round(finalOdometer) : null, 
+          satellites: satellites != null ? Math.round(satellites) : null, 
+          gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null
         });
       }
 
