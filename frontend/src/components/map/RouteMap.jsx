@@ -214,9 +214,14 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       // Fix divide by zero for identical timestamps
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
-      // Only drop physically impossible teleports (> 250 km/h)
-      if (impliedSpeedKmph > 250) continue;
-
+      // 1. Physically impossible teleports (> 150 km/h for jumps > 200m)
+      // This catches the aggressive 195 km/h LBS drifts that draw straight lines across the map.
+      if (impliedSpeedKmph > 150 && dist > 0.2) continue;
+      
+      // 2. Doppler Mismatch (Catch slower drifts where device claims to be stopped/slow)
+      // E.g., jumping 500m at 80 km/h while device reports 0-10 km/h
+      const reportedSpeed = p.speed || 0;
+      if (impliedSpeedKmph > 80 && reportedSpeed < 20 && dist > 0.5) continue;
       filtered.push(p);
     }
 
