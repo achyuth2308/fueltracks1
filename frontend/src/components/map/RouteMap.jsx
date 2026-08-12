@@ -195,54 +195,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return segs;
   };
 
-  // Valid points (only valid India coordinates, always sorted chronologically, powerfully filtered)
+  // Valid points (only valid India coordinates, sorted chronologically, minimal safe filtering)
   const validPoints = React.useMemo(() => {
-    let raw = points
+    const raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
-
-    if (raw.length === 0) return [];
-
-    // --- PASS 1: Geometric Spike (V-Shape) Filter ---
-    // Safely removes sudden teleports that jump away and return immediately (multipath/LBS drifts).
-    const deSpikedRaw = [];
-    for (let i = 0; i < raw.length; i++) {
-      if (i === 0 || i >= raw.length - 2) {
-        deSpikedRaw.push(raw[i]);
-        continue;
-      }
-      
-      const prev = raw[i - 1];
-      const curr = raw[i];
-      const next = raw[i + 1];
-      const next2 = raw[i + 2];
-      
-      const distPrevCurr = getDistance(prev.lat, prev.lng, curr.lat, curr.lng);
-      
-      const timePrevNextMin = (new Date(next.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-      const timePrevNext2Min = (new Date(next2.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-
-      // Check for 1-point spike (A -> B -> A)
-      if (distPrevCurr > 0.15 && timePrevNextMin < 5) {
-         const distCurrNext = getDistance(curr.lat, curr.lng, next.lat, next.lng);
-         const distPrevNext = getDistance(prev.lat, prev.lng, next.lat, next.lng);
-         if (distCurrNext > 0.15 && distPrevNext < 0.1) {
-            continue; // It's a 1-point spike. Drop curr.
-         }
-      }
-
-      // Check for 2-point spike (A -> B1 -> B2 -> A)
-      if (distPrevCurr > 0.15 && timePrevNext2Min < 5) {
-         const distCurrNext2 = getDistance(curr.lat, curr.lng, next2.lat, next2.lng);
-         const distPrevNext2 = getDistance(prev.lat, prev.lng, next2.lat, next2.lng);
-         if (distCurrNext2 > 0.15 && distPrevNext2 < 0.1) {
-            continue; // It's part of a 2-point spike. Drop curr.
-         }
-      }
-      
-      deSpikedRaw.push(curr);
-    }
-    raw = deSpikedRaw;
 
     if (raw.length === 0) return [];
 
@@ -253,78 +210,17 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
       const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-      
+
       // Fix divide by zero for identical timestamps
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
-      const speedKmph = p.speed || 0;
-
-      // 1. Drop impossible teleports (> 150 km/h)
-      if (impliedSpeedKmph > 150) continue;
-
-      // 2. Doppler Mismatch: Coordinates jumped fast, but hardware doppler speed says it's slow/stopped.
-      if (impliedSpeedKmph > speedKmph + 25) continue;
-
-      // 3. Static Drift: Hardware doppler says it's completely stopped, but coordinates drifted > 30 meters.
-      if (speedKmph < 2 && dist > 0.03) continue;
-
-      // 4. Minor Drift Lock: Drop small drifts when explicitly parked (ignition OFF).
-      if (!p.ignition && speedKmph <= 5 && dist > 0 && dist < 0.2) continue;
+      // Only drop physically impossible teleports (> 250 km/h)
+      if (impliedSpeedKmph > 250) continue;
 
       filtered.push(p);
     }
 
-    if (filtered.length <= 1) return filtered;
-
-    // --- PASS 3: Buffered Lockout (Spiderweb Catcher) ---
-    // Catches drifts that bounce around a small radius while parked, even if speed is artificially low.
-    const finalFiltered = [filtered[0]];
-    let buffer = [];
-    let isParked = false;
-    let parkStartTime = new Date(filtered[0].device_time).getTime();
-    let anchor = filtered[0];
-
-    for (let i = 1; i < filtered.length; i++) {
-      const p = filtered[i];
-      const distToAnchor = getDistance(anchor.lat, anchor.lng, p.lat, p.lng);
-      const speedKmph = p.speed || 0;
-
-      if (!isParked) {
-        if (distToAnchor > 0.05 || speedKmph > 8) {
-          // Moved more than 50m or started driving, reset park timer
-          anchor = p;
-          parkStartTime = new Date(p.device_time).getTime();
-          finalFiltered.push(p);
-        } else {
-          // Staying within 50m
-          const timeSinceParkMin = (new Date(p.device_time).getTime() - parkStartTime) / 60000;
-          if (timeSinceParkMin > 3) {
-            isParked = true;
-            buffer.push(p); // Start buffering
-          } else {
-            finalFiltered.push(p);
-          }
-        }
-      } else {
-        // We are parked. Accumulate in buffer.
-        buffer.push(p);
-        if (distToAnchor > 0.1 || speedKmph > 10) {
-          // Broke out of the 100m radius OR speed exceeded 10 km/h! Genuine movement!
-          // Dump buffer to restore all corners, reset lock.
-          finalFiltered.push(...buffer);
-          buffer = [];
-          isParked = false;
-          anchor = p;
-          parkStartTime = new Date(p.device_time).getTime();
-        }
-      }
-    }
-
-    // If the journey ends while parked, the buffer (spiderweb) is discarded.
-    // We intentionally DO NOT push the very last point if it was buffered,
-    // because that last point is usually an LBS drift spike. Let the route end naturally at the parking spot!
-
-    return finalFiltered;
+    return filtered;
   }, [points]);
 
   const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);

@@ -288,34 +288,18 @@ async function start(io) {
           rejectReason = `Timestamp rollback on live stream: ${new Date(deviceTime).toISOString()} < ${new Date(prevState.deviceTime).toISOString()}`;
         }
 
-        // 3. Impossible Jump & GPS Drift Checks
-        if (isValidPoint && satellites !== undefined && satellites !== null && satellites < 3 && satellites > 0) {
-           // Satellites < 3 is usually a cellular triangulation (LBS) point. Highly inaccurate.
-           // Note: Some cheap trackers report 0 even when locked, so we only reject if it's 1 or 2.
-           isValidPoint = false;
-           rejectReason = `Insufficient satellites (${satellites}) for accurate GPS fix`;
-        }
-
+        // 3. Impossible Jump Check
         if (isValidPoint && prevState && prevState.lat && prevState.lng && lat && lng) {
           const distMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
-          
-          if (distMeters > 30 && prevDeviceTimeMs && deviceTimeMs > prevDeviceTimeMs) {
-            const timeDiffSeconds = (deviceTimeMs - prevDeviceTimeMs) / 1000;
-            const timeDiffHours = timeDiffSeconds / 3600;
+          // If moved > 100m, verify if the speed required to cover it is physically possible
+          if (distMeters > 100 && prevDeviceTimeMs && deviceTimeMs > prevDeviceTimeMs) {
+            const timeDiffHours = (deviceTimeMs - prevDeviceTimeMs) / (1000 * 60 * 60);
             const impliedSpeedKmph = (distMeters / 1000) / timeDiffHours;
-            const hwSpeed = speed || 0;
             
-            // 3a. Reject if > 250 km/h (impossible for a commercial vehicle)
+            // Reject if > 250 km/h (impossible for a commercial vehicle)
             if (impliedSpeedKmph > 250 && timeDiffHours < 1) {
               isValidPoint = false;
-              rejectReason = `Impossible GPS teleport: ${Math.round(impliedSpeedKmph)} km/h over ${Math.round(distMeters)}m`;
-            }
-            // 3b. Static Drift (Spiderweb): Hardware says stopped, but location jumped fast.
-            // (e.g. jumped 50m in 30 seconds while speed is 0)
-            // By requiring timeDiffSeconds < 60, we SAFELY ALLOW tunnel exits where the vehicle stops at the exit.
-            else if (hwSpeed < 2 && distMeters > 30 && timeDiffSeconds < 60) {
-              isValidPoint = false;
-              rejectReason = `Static Drift: moved ${Math.round(distMeters)}m in ${Math.round(timeDiffSeconds)}s with speed 0`;
+              rejectReason = `Impossible GPS jump: ${Math.round(impliedSpeedKmph)} km/h over ${Math.round(distMeters)}m`;
             }
           }
         }
