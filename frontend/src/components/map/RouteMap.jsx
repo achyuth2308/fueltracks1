@@ -273,7 +273,61 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       filtered.push(p);
     }
-    return filtered;
+
+    if (filtered.length <= 1) return filtered;
+
+    // --- PASS 3: Buffered Lockout (Spiderweb Catcher) ---
+    // Catches drifts that bounce around a small radius while parked, even if speed is artificially low.
+    const finalFiltered = [filtered[0]];
+    let buffer = [];
+    let isParked = false;
+    let parkStartTime = new Date(filtered[0].device_time).getTime();
+    let anchor = filtered[0];
+
+    for (let i = 1; i < filtered.length; i++) {
+      const p = filtered[i];
+      const distToAnchor = getDistance(anchor.lat, anchor.lng, p.lat, p.lng);
+      const speedKmph = p.speed || 0;
+
+      if (!isParked) {
+        if (distToAnchor > 0.05 || speedKmph > 8) {
+          // Moved more than 50m or started driving, reset park timer
+          anchor = p;
+          parkStartTime = new Date(p.device_time).getTime();
+          finalFiltered.push(p);
+        } else {
+          // Staying within 50m
+          const timeSinceParkMin = (new Date(p.device_time).getTime() - parkStartTime) / 60000;
+          if (timeSinceParkMin > 3) {
+            isParked = true;
+            buffer.push(p); // Start buffering
+          } else {
+            finalFiltered.push(p);
+          }
+        }
+      } else {
+        // We are parked. Accumulate in buffer.
+        buffer.push(p);
+        if (distToAnchor > 0.1 || speedKmph > 10) {
+          // Broke out of the 100m radius OR speed exceeded 10 km/h! Genuine movement!
+          // Dump buffer to restore all corners, reset lock.
+          finalFiltered.push(...buffer);
+          buffer = [];
+          isParked = false;
+          anchor = p;
+          parkStartTime = new Date(p.device_time).getTime();
+        }
+      }
+    }
+
+    // If the journey ends while parked, the buffer (spiderweb) is discarded.
+    // Ensure the very last point is pushed so the marker is placed accurately at the end.
+    const lastPoint = filtered[filtered.length - 1];
+    if (finalFiltered.length > 0 && finalFiltered[finalFiltered.length - 1] !== lastPoint) {
+      finalFiltered.push(lastPoint);
+    }
+
+    return finalFiltered;
   }, [points]);
 
   const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
