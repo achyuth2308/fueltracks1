@@ -434,6 +434,40 @@ const HistoryPage = () => {
               { max: 100, color: '#ef4444' }
             ])}
 
+            {/* Odometer & Trip Distance Display */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '110px', padding: '8px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#475569', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Odometer</div>
+              <div style={{ fontSize: '22px', fontWeight: 800, color: '#3B82F6' }}>
+                {activePoint.odometer ? Math.round(activePoint.odometer) : '-'} <span style={{ fontSize: '14px', color: '#64748B' }}>km</span>
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#10B981', marginTop: '4px', background: '#dcfce7', padding: '2px 8px', borderRadius: '12px' }}>
+                + {activePoint.cDist !== undefined ? activePoint.cDist.toFixed(2) : '0.00'} Trip km
+              </div>
+            </div>
+
+            {/* Battery Level Gauge */}
+            {renderSemiCircle(activePoint.battery !== undefined && activePoint.battery !== null ? activePoint.battery : 100, 100, 'Battery', '%', [
+              { max: 20, color: '#ef4444' }, 
+              { max: 50, color: '#eab308' }, 
+              { max: 100, color: '#22c55e' } 
+            ])}
+
+            {/* Status Display */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minWidth: '100px', padding: '8px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#475569', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</div>
+              <div style={{ 
+                fontSize: '16px', 
+                fontWeight: 800, 
+                padding: '6px 16px',
+                borderRadius: '20px',
+                background: ((activePoint.speed || 0) > 5) ? '#dcfce7' : (activePoint.ignition ? '#fef9c3' : '#fee2e2'),
+                color: ((activePoint.speed || 0) > 5) ? '#166534' : (activePoint.ignition ? '#854d0e' : '#991b1b'),
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}>
+                {((activePoint.speed || 0) > 5) ? 'MOVING' : (activePoint.ignition ? 'IDLE' : 'STOPPED')}
+              </div>
+            </div>
+
           </div>
         )}
       </div>

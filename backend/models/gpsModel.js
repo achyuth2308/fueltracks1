@@ -99,7 +99,7 @@ const GpsModel = {
     params.push(limit, offset);
     const result = await db.query(
       `SELECT id, lat, lng, speed, direction, odometer, fuel, ignition,
-              satellites, gsm_signal, voltage, is_live, device_time, server_time
+              satellites, gsm_signal, battery, voltage, is_live, device_time, server_time
        FROM gps_points
        WHERE vehicle_id = $1 ${dateFilter}
        ORDER BY device_time DESC
@@ -136,7 +136,7 @@ const GpsModel = {
     }
 
     const result = await db.query(
-      `SELECT lat, lng, speed, fuel, ignition, odometer, direction, device_time
+      `SELECT lat, lng, speed, fuel, ignition, odometer, direction, battery, voltage, device_time
        FROM gps_points
        WHERE vehicle_id = $1 ${dateFilter}
        ORDER BY device_time ASC`,
