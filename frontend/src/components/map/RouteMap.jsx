@@ -197,7 +197,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
   // Valid points (only valid India coordinates, always sorted chronologically, powerfully filtered)
   const validPoints = React.useMemo(() => {
-    const raw = points
+    let raw = points
       .filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng))
       .sort((a, b) => new Date(a.device_time).getTime() - new Date(b.device_time).getTime());
 
