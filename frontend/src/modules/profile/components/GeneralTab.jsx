@@ -217,25 +217,7 @@ const GeneralTab = ({ profile, onSave }) => {
           </div>
         </div>
 
-        {/* Organization Status Widget */}
-        <div className="bg-[#FFFFFF] p-[24px] rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-[#ECFDF5] -mx-[24px] px-[24px] -mt-[24px] pt-[20px] bg-[#ECFDF5] rounded-t-[14px]">
-            <div className="p-1.5 bg-white rounded-lg shadow-sm">
-              <ShieldCheck className="w-[18px] h-[18px] text-[#16A34A]" />
-            </div>
-            <h3 className="text-[16px] font-semibold !text-[#163B63] m-0">Organization Status</h3>
-          </div>
 
-          <div className="space-y-1">
-            <StatRow label="Subscription Plan" value="Enterprise" badgeColor="blue" />
-            <StatRow label="Created Date" value="Jan 12, 2026" />
-            <StatRow label="Total Users" value="12 Active" />
-            <StatRow label="Total Vehicles" value="48 / 50" />
-            <StatRow label="License Status" value="Valid" badgeColor="green" />
-            <StatRow label="Storage Usage" value="4.2 GB" />
-            <StatRow label="Support Tier" value="Premium 24/7" badgeColor="blue" />
-          </div>
-        </div>
       </div>
 
       {/* Dynamic Sticky Save Bar */}
