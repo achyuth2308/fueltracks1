@@ -44,15 +44,48 @@ class ProfileService {
   }
 
   async getProfile(organizationId) {
-    const profile = await profileRepository.getProfile(organizationId);
-    if (profile && profile.encrypted_api_key) {
-      profile.api_key = this.decrypt(profile.encrypted_api_key);
-      delete profile.encrypted_api_key;
+    let currentOrgId = organizationId;
+    let mapProvider = null;
+    let encryptedApiKey = null;
+
+    // Fetch the main profile for the requested org
+    let mainProfile = await profileRepository.getProfile(organizationId) || {};
+
+    // Traverse up the organization hierarchy to find the first available map configuration
+    while (currentOrgId) {
+      const orgProfile = await profileRepository.getProfile(currentOrgId);
+      if (orgProfile && orgProfile.map_provider && orgProfile.encrypted_api_key) {
+        mapProvider = orgProfile.map_provider;
+        encryptedApiKey = orgProfile.encrypted_api_key;
+        break; // Found it!
+      }
+
+      // Get parent_id
+      const res = await db.query('SELECT parent_id FROM organizations WHERE id = $1', [currentOrgId]);
+      if (res.rows.length > 0 && res.rows[0].parent_id) {
+        currentOrgId = res.rows[0].parent_id;
+      } else {
+        // Fallback to superadmin if we reach the top without finding one
+        if (currentOrgId !== 'a0000000-0000-0000-0000-000000000001') {
+          currentOrgId = 'a0000000-0000-0000-0000-000000000001';
+        } else {
+          break;
+        }
+      }
+    }
+
+    // Apply the inherited map configuration if the main profile doesn't have its own
+    mainProfile.map_provider = mainProfile.map_provider || mapProvider;
+    mainProfile.encrypted_api_key = mainProfile.encrypted_api_key || encryptedApiKey;
+
+    if (mainProfile.encrypted_api_key) {
+      mainProfile.api_key = this.decrypt(mainProfile.encrypted_api_key);
+      delete mainProfile.encrypted_api_key;
     }
     
     // Fetch mock license info based on active vehicles
-    const res = await db.query('SELECT COUNT(*) as count FROM vehicles WHERE org_id = $1 AND is_active = true', [organizationId]);
-    const usedVehicles = parseInt(res.rows[0].count);
+    const resCount = await db.query('SELECT COUNT(*) as count FROM vehicles WHERE org_id = $1 AND is_active = true', [organizationId]);
+    const usedVehicles = parseInt(resCount.rows[0].count);
     
     // Let's assume a hardcoded total of 100 for Basic tier for demonstration
     const license = {
@@ -62,7 +95,7 @@ class ProfileService {
       available: Math.max(0, 100 - usedVehicles)
     };
 
-    return { profile: profile || {}, license };
+    return { profile: mainProfile, license };
   }
 
   async updateProfile(organizationId, updateData, user) {

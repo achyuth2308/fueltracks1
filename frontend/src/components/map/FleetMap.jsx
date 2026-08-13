@@ -9,63 +9,7 @@ import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
 
-const GoogleMutantWrapper = ({ mapType, apiKey }) => {
-  const map = useMap();
-  
-  useEffect(() => {
-    if (!apiKey) return;
-    
-    let mutantLayer = null;
-    const addMutantLayer = async () => {
-      if (!window.google) return;
-      
-      window.L = L;
-      await import('leaflet.gridlayer.googlemutant');
-      
-      const typeMap = {
-        'osm': 'roadmap',
-        'google': 'roadmap',
-        'satellite': 'satellite'
-      };
-      
-      mutantLayer = L.gridLayer.googleMutant({
-        type: typeMap[mapType] || 'roadmap'
-      });
-      mutantLayer.addTo(map);
-    };
 
-    const loadGoogleMaps = () => {
-      if (window.google && window.google.maps) {
-        addMutantLayer();
-        return;
-      }
-      
-      const existingScript = document.getElementById('google-maps-script');
-      if (existingScript) {
-        existingScript.addEventListener('load', addMutantLayer);
-        return;
-      }
-
-      const script = document.createElement('script');
-      script.id = 'google-maps-script';
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = addMutantLayer;
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-
-    return () => {
-      if (mutantLayer && map.hasLayer(mutantLayer)) {
-        map.removeLayer(mutantLayer);
-      }
-    };
-  }, [map, mapType, apiKey]);
-  
-  return null;
-};
 
 import { getVehicleRoute } from '../../api/vehicleApi';
 
@@ -463,11 +407,7 @@ const FleetMap = ({
 
   const [mapType, setMapType] = useState('osm'); // 'osm' or 'google'
 
-  useEffect(() => {
-    if (profile?.map_provider === 'Google Maps') {
-      setMapType('google');
-    }
-  }, [profile?.map_provider]);
+
 
   // Default map center for Karmanghat, Hyderabad (FuelTracks Office)
   const defaultCenter = [17.3411, 78.5317];
@@ -526,21 +466,15 @@ const FleetMap = ({
         <ResizeMap />
 
         {/* Dynamic Tile Layer based on mapType */}
-        {(!apiKey || mapType === 'osm') && (
-          <TileLayer
-            attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
-            url={mapType === 'osm'
-              ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              : mapType === 'satellite'
-                ? "https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-                : "https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-            }
-          />
-        )}
-        
-        {apiKey && mapType !== 'osm' && (
-          <GoogleMutantWrapper mapType={mapType} apiKey={apiKey} />
-        )}
+        <TileLayer
+          attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
+          url={mapType === 'osm'
+            ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            : mapType === 'satellite'
+              ? `https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}${apiKey ? '&key=' + apiKey : ''}`
+              : `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}${apiKey ? '&key=' + apiKey : ''}`
+          }
+        />
 
         {/* Radius Circle for Nearby Mode */}
         {isNearbyActive && effectiveSelected && effectiveSelected.lat && effectiveSelected.lng && (
