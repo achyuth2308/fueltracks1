@@ -210,20 +210,6 @@ const MapsTab = ({ profile, onSave }) => {
           </div>
 
           <div className="space-y-4 mt-[16px]">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[#EFF6FF] rounded-lg mt-0.5 shadow-sm border border-blue-100">
-                <Globe className="w-4 h-4 text-[#2563EB]" />
-              </div>
-              <div>
-                <h4 className="text-[14px] font-semibold !text-black">API Usage</h4>
-                <p className="text-[13px] !text-black leading-relaxed mt-1">
-                  12,450 / 50,000 requests used this month.
-                </p>
-                <div className="w-full bg-[#E5E7EB] h-[6px] rounded-full overflow-hidden mt-2">
-                  <div className="bg-[#2563EB] h-full rounded-full" style={{ width: '25%' }}></div>
-                </div>
-              </div>
-            </div>
 
             <div className="p-4 bg-[#FFF5EB] border border-orange-200 rounded-xl mt-4 shadow-sm">
               <h4 className="text-[14px] font-semibold text-orange-800 mb-1">Need a Google API Key?</h4>

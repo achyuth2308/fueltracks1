@@ -4,18 +4,27 @@ const db = require('../../../config/db');
 const profileRepository = require('../repositories/profileRepository');
 
 // Secret for API key encryption (In a real app, this should be in .env)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32).padEnd(32, '0');
+const rawKey = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32).padEnd(32, '0');
+// Ensure key is exactly 32 bytes for aes-256-cbc
+const ENCRYPTION_KEY = Buffer.from(rawKey).length === 32 
+  ? Buffer.from(rawKey) 
+  : crypto.createHash('sha256').update(String(rawKey)).digest();
 const IV_LENGTH = 16;
 
 class ProfileService {
   
   encrypt(text) {
     if (!text) return text;
-    let iv = crypto.randomBytes(IV_LENGTH);
-    let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString('hex') + ':' + encrypted.toString('hex');
+    try {
+      let iv = crypto.randomBytes(IV_LENGTH);
+      let cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
+      let encrypted = cipher.update(text);
+      encrypted = Buffer.concat([encrypted, cipher.final()]);
+      return iv.toString('hex') + ':' + encrypted.toString('hex');
+    } catch (e) {
+      console.error('Encryption Error:', e.message);
+      return '';
+    }
   }
 
   decrypt(text) {
@@ -24,11 +33,12 @@ class ProfileService {
       let textParts = text.split(':');
       let iv = Buffer.from(textParts.shift(), 'hex');
       let encryptedText = Buffer.from(textParts.join(':'), 'hex');
-      let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY), iv);
+      let decipher = crypto.createDecipheriv('aes-256-cbc', ENCRYPTION_KEY, iv);
       let decrypted = decipher.update(encryptedText);
       decrypted = Buffer.concat([decrypted, decipher.final()]);
       return decrypted.toString();
     } catch(e) {
+      console.error('Decryption Error:', e.message);
       return ''; // Decryption failed
     }
   }
