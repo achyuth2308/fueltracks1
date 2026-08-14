@@ -33,6 +33,25 @@ const MapUpdater = ({ lat, lng }) => {
   return null;
 };
 
+const ResizeMap = () => {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(map.getContainer());
+    // Also trigger immediately after mount to fix initial render in modal
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => {
+      observer.disconnect();
+      clearTimeout(timer);
+    };
+  }, [map]);
+  return null;
+};
+
 const GeofencesAdminPage = () => {
   const [activeTab, setActiveTab] = useState('geofences');
   const [vehicles, setVehicles] = useState([]);
@@ -142,7 +161,7 @@ const GeofencesAdminPage = () => {
     setModalType(type);
     setModalError('');
     setEditId(editItem ? editItem.id : null);
-    
+
     if (type === 'geofence') {
       if (editItem) {
         setGeoName(editItem.name || '');
@@ -197,7 +216,7 @@ const GeofencesAdminPage = () => {
         if (geoType === 'polygon') {
           try {
             parsedCoords = JSON.parse(geoCoords);
-          } catch(e) {
+          } catch (e) {
             return setModalError('Invalid polygon coordinates format. Must be JSON array of points.');
           }
         }
@@ -217,7 +236,7 @@ const GeofencesAdminPage = () => {
         } else {
           res = await axiosInstance.post('/api/admin/geofences', payload);
         }
-        
+
         if (res.data.success && selectedVehicles.length > 0) {
           const newId = editId || res.data.data.id;
           await axiosInstance.post(`/api/admin/geofences/${newId}/assign`, { vehicleIds: selectedVehicles });
@@ -227,7 +246,7 @@ const GeofencesAdminPage = () => {
         let parsedCoords = [];
         try {
           parsedCoords = JSON.parse(routeCoords);
-        } catch(e) {
+        } catch (e) {
           return setModalError('Invalid route coordinates format. Must be JSON array of points.');
         }
 
@@ -243,7 +262,7 @@ const GeofencesAdminPage = () => {
         } else {
           res = await axiosInstance.post('/api/admin/routes', payload);
         }
-        
+
         if (res.data.success && selectedVehicles.length > 0) {
           const newId = editId || res.data.data.id;
           await axiosInstance.post(`/api/admin/routes/${newId}/assign`, { vehicleIds: selectedVehicles });
@@ -259,9 +278,9 @@ const GeofencesAdminPage = () => {
 
   return (
     <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      
+
       {/* Header */}
- 
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Geofence & Route Settings</h1>
@@ -396,16 +415,15 @@ const GeofencesAdminPage = () => {
 
       {/* Creation Modal */}
       {modalOpen && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-          <div style={{ background: '#FFFFFF', borderRadius: '20px', width: '100%', maxWidth: '650px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-6 border-b border-slate-200">
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)', overflowY: 'auto', padding: '40px 16px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '20px', width: '100%', maxWidth: (modalType === 'geofence' && geoType === 'circle') ? '900px' : '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-6 border-b border-slate-200" style={{ flexShrink: 0 }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
                 {modalType === 'geofence' ? 'Create New Geofence' : 'Create New Predefined Route'}
               </h2>
-              <button onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}>X</button>
+              <button type="button" onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}>X</button>
             </div>
-
-            <form onSubmit={handleSubmit} style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleSubmit} style={{ flex: 1, padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
               {modalError && (
                 <div style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 500 }}>
                   {modalError}
@@ -413,71 +431,108 @@ const GeofencesAdminPage = () => {
               )}
 
               {modalType === 'geofence' ? (
-                <>
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Name</label>
-                    <input type="text" placeholder="e.g. Warehouse 1 Boundary" value={geoName} onChange={e => setGeoName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
-                  </div>
+                <div style={{ display: 'grid', gridTemplateColumns: geoType === 'circle' ? 'minmax(0, 1fr) minmax(0, 1fr)' : '1fr', gap: '32px', alignItems: 'stretch' }}>
+                  {/* Left Column */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Name</label>
+                      <input type="text" placeholder="e.g. Warehouse 1 Boundary" value={geoName} onChange={e => setGeoName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
+                    </div>
 
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Type</label>
-                    <select value={geoType} onChange={e => setGeoType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', background: '#FFFFFF', boxSizing: 'border-box' }}>
-                      <option value="circle">Circular Boundary (Center + Radius)</option>
-                      <option value="polygon">Polygon Boundary (Vertices List)</option>
-                    </select>
-                  </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Geofence Type</label>
+                      <select value={geoType} onChange={e => setGeoType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', background: '#FFFFFF', boxSizing: 'border-box' }}>
+                        <option value="circle">Circular Boundary (Center + Radius)</option>
+                        <option value="polygon">Polygon Boundary (Vertices List)</option>
+                      </select>
+                    </div>
 
-                  {geoType === 'circle' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div style={{ position: 'relative' }}>
-                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Search Address / Landmark</label>
-                        <input 
-                          type="text" 
-                          placeholder="Type an address to automatically fill coordinates..." 
-                          value={addressQuery} 
-                          onChange={handleAddressSearch} 
-                          style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} 
-                        />
-                        {isSearching && <span style={{ position: 'absolute', right: '12px', top: '35px', fontSize: '12px', color: '#94A3B8' }}>Searching...</span>}
-                        {addressResults.length > 0 && (
-                          <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', marginTop: '4px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                            {addressResults.map((res, i) => (
-                              <div 
-                                key={i} 
-                                onClick={() => handleSelectAddress(res)} 
-                                style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < addressResults.length - 1 ? '1px solid #F1F5F9' : 'none', fontSize: '13px', color: '#334155' }}
-                                onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-                                onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FFF'}
-                              >
-                                {res.display_name}
-                              </div>
-                            ))}
+                    {geoType === 'circle' ? (
+                      <>
+                        <div style={{ position: 'relative' }}>
+                          <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Search Address / Landmark</label>
+                          <input 
+                            type="text" 
+                            placeholder="Type an address to automatically fill coordinates..." 
+                            value={addressQuery} 
+                            onChange={handleAddressSearch} 
+                            style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} 
+                          />
+                          {isSearching && <span style={{ position: 'absolute', right: '12px', top: '35px', fontSize: '12px', color: '#94A3B8' }}>Searching...</span>}
+                          {addressResults.length > 0 && (
+                            <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: '8px', marginTop: '4px', zIndex: 10, maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                              {addressResults.map((res, i) => (
+                                <div 
+                                  key={i} 
+                                  onClick={() => handleSelectAddress(res)} 
+                                  style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: i < addressResults.length - 1 ? '1px solid #F1F5F9' : 'none', fontSize: '13px', color: '#334155' }}
+                                  onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+                                  onMouseLeave={e => e.currentTarget.style.backgroundColor = '#FFF'}
+                                >
+                                  {res.display_name}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '16px' }}>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Latitude</label>
+                            <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
                           </div>
-                        )}
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Longitude</label>
+                            <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (m)</label>
+                            <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Polygon Coordinates (JSON Array)</label>
+                        <textarea value={geoCoords} onChange={e => setGeoCoords(e.target.value)} rows="3" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', color: '#111827', fontFamily: 'monospace', boxSizing: 'border-box' }} />
                       </div>
+                    )}
 
-                      <div style={{ display: 'flex', gap: '16px' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Latitude</label>
-                          <input type="text" value={geoLat} onChange={e => setGeoLat(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Center Longitude</label>
-                          <input type="text" value={geoLng} onChange={e => setGeoLng(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#F8FAFC', fontSize: '14px', color: '#475569', boxSizing: 'border-box' }} readOnly />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Radius (meters)</label>
-                          <input type="number" value={geoRadius} onChange={e => setGeoRadius(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
-                        </div>
+                    {/* Vehicle Assignment checkboxes */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Assign to Vehicles</label>
+                      <div style={{ border: '1px solid #CBD5E1', borderRadius: '8px', padding: '10px', maxHeight: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: '#F8FAFC' }}>
+                        {vehicles.length === 0 ? (
+                          <div style={{ fontSize: '13px', color: '#94A3B8', padding: '4px' }}>No vehicles registered.</div>
+                        ) : vehicles.map(v => {
+                          const isChecked = selectedVehicles.includes(v.id);
+                          return (
+                            <div
+                              key={v.id}
+                              onClick={() => toggleVehicleSelection(v.id)}
+                              style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#475569', padding: '6px 8px', borderRadius: '6px', transition: 'background 0.2s', background: isChecked ? '#E0F2FE' : 'transparent' }}
+                            >
+                              {isChecked ? <CheckSquare size={16} color="#0284C7" /> : <Square size={16} color="#94A3B8" />}
+                              <span style={{ fontWeight: isChecked ? 600 : 400, color: isChecked ? '#0369A1' : '#475569' }}>{v.name} ({v.plate})</span>
+                            </div>
+                          );
+                        })}
                       </div>
+                    </div>
+                  </div>
 
-                      <div style={{ height: '280px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #CBD5E1', position: 'relative' }}>
-                        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 400, background: 'rgba(255,255,255,0.9)', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: 600, color: '#0F172A', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', pointerEvents: 'none' }}>
-                          Click map to drop pin
+                  {/* Right Column: Map Preview */}
+                  {geoType === 'circle' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '350px' }}>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Interactive Map Preview</label>
+                      <div style={{ flex: 1, width: '100%', borderRadius: '12px', overflow: 'hidden', border: '1px solid #CBD5E1', position: 'relative', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
+                        <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 400, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: '#0F172A', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', border: '1px solid #E2E8F0' }}>
+                          📍 Click map to drop pin
                         </div>
                         <MapContainer center={[parseFloat(geoLat) || 17.207174, parseFloat(geoLng) || 78.314323]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                          <ResizeMap />
                           <TileLayer 
-                            attribution='&copy; OpenStreetMap contributors'
+                            attribution='&copy; OpenStreetMap'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" 
                           />
                           <MapClickHandler onMapClick={(latlng) => { setGeoLat(latlng.lat.toFixed(6)); setGeoLng(latlng.lng.toFixed(6)); }} />
@@ -485,21 +540,16 @@ const GeofencesAdminPage = () => {
                           {geoLat && geoLng && (
                             <>
                               <Marker position={[parseFloat(geoLat), parseFloat(geoLng)]} />
-                              <Circle center={[parseFloat(geoLat), parseFloat(geoLng)]} radius={parseFloat(geoRadius) || 100} pathOptions={{ color: '#0EA5E9', fillColor: '#0EA5E9', fillOpacity: 0.2 }} />
+                              <Circle center={[parseFloat(geoLat), parseFloat(geoLng)]} radius={parseFloat(geoRadius) || 100} pathOptions={{ color: '#0EA5E9', fillColor: '#0EA5E9', fillOpacity: 0.2, weight: 2 }} />
                             </>
                           )}
                         </MapContainer>
                       </div>
                     </div>
-                  ) : (
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Polygon Coordinates (JSON Array)</label>
-                      <textarea value={geoCoords} onChange={e => setGeoCoords(e.target.value)} rows="3" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', color: '#111827', fontFamily: 'monospace', boxSizing: 'border-box' }} />
-                    </div>
                   )}
-                </>
+                </div>
               ) : (
-                <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Route Name</label>
                     <input type="text" placeholder="e.g. Delivery Route A" value={routeName} onChange={e => setRouteName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', color: '#111827', boxSizing: 'border-box' }} />
@@ -514,39 +564,32 @@ const GeofencesAdminPage = () => {
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>Route Checkpoints Path (JSON Array)</label>
                     <textarea value={routeCoords} onChange={e => setRouteCoords(e.target.value)} rows="4" style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '13px', color: '#111827', fontFamily: 'monospace', boxSizing: 'border-box' }} />
                   </div>
-                </>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Assign to Vehicles</label>
+                    <div style={{ border: '1px solid #CBD5E1', borderRadius: '8px', padding: '10px', maxHeight: '120px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', background: '#F8FAFC' }}>
+                      {vehicles.length === 0 ? (
+                        <div style={{ fontSize: '13px', color: '#94A3B8', padding: '4px' }}>No vehicles registered.</div>
+                      ) : vehicles.map(v => {
+                        const isChecked = selectedVehicles.includes(v.id);
+                        return (
+                          <div
+                            key={v.id}
+                            onClick={() => toggleVehicleSelection(v.id)}
+                            style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#475569', padding: '6px 8px', borderRadius: '6px', transition: 'background 0.2s', background: isChecked ? '#E0F2FE' : 'transparent' }}
+                          >
+                            {isChecked ? <CheckSquare size={16} color="#0284C7" /> : <Square size={16} color="#94A3B8" />}
+                            <span style={{ fontWeight: isChecked ? 600 : 400, color: isChecked ? '#0369A1' : '#475569' }}>{v.name} ({v.plate})</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               )}
 
-              {/* Vehicle Assignment checkboxes */}
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Assign to Vehicles</label>
-                <div style={{ border: '1px solid #CBD5E1', borderRadius: '8px', padding: '12px', maxHeight: '150px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {vehicles.length === 0 ? (
-                    <div style={{ fontSize: '13px', color: '#94A3B8' }}>No vehicles registered.</div>
-                  ) : vehicles.map(v => {
-                    const isChecked = selectedVehicles.includes(v.id);
-                    return (
-                      <div
-                        key={v.id}
-                        onClick={() => toggleVehicleSelection(v.id)}
-                        style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#475569', padding: '6px 8px', borderRadius: '6px', transition: 'background 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        {isChecked ? (
-                          <CheckSquare size={16} color="#8ba0b5" />
-                        ) : (
-                          <Square size={16} color="#94A3B8" />
-                        )}
-                        <span>{v.name} ({v.plate})</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
               {/* Form Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: 'auto', paddingTop: '20px', borderTop: '1px solid #E2E8F0' }}>
                 <button type="button" onClick={() => setModalOpen(false)} style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#64748B', background: 'transparent', border: '1px solid #CBD5E1', cursor: 'pointer' }}>Cancel</button>
                 <button type="submit" style={{ padding: '10px 20px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#8ba0b5', border: 'none', cursor: 'pointer' }}>Save Settings</button>
               </div>

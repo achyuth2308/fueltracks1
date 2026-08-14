@@ -22,8 +22,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     }
   }, [connected, user, joinOrgRoom]);
 
+  const [preferences, setPreferences] = useState(null);
+
+  // Fetch initial alerts and preferences
   useEffect(() => {
-    // Fetch initial alerts
     axiosInstance.get('/api/alerts?limit=15')
       .then(res => {
         if (res.data && res.data.success) {
@@ -32,8 +34,24 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       })
       .catch(err => console.error('Failed to fetch recent alerts:', err));
 
+    axiosInstance.get('/api/alerts/preferences')
+      .then(res => {
+        if (res.data?.success && res.data.preferences) {
+          setPreferences(res.data.preferences);
+        }
+      })
+      .catch(err => console.error('Failed to fetch preferences:', err));
+  }, []);
+
+  // Handle live socket alerts
+  useEffect(() => {
     if (!socket) return;
     const handleNewAlert = (data) => {
+      // If user opted out in preferences, ignore it for live push/toast
+      if (preferences && preferences[data.alertType] === false) {
+        return; 
+      }
+
       setAlerts((prev) => [data, ...prev]); 
 
       // Play Sound
@@ -65,7 +83,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           playTone(900, 'sine', now, 0.1, 0.2);
           playTone(900, 'sine', now + 0.15, 0.1, 0.2);
           playTone(900, 'sine', now + 0.3, 0.2, 0.2);
-        } else if (data.alertType === 'geofence') {
+        } else if (data.alertType === 'geofence' || data.alertType === 'geofence_enter' || data.alertType === 'geofence_exit') {
           // Pleasant double chime for info
           playTone(523.25, 'triangle', now, 0.3, 0.2); // C5
           playTone(659.25, 'triangle', now + 0.15, 0.4, 0.2); // E5
@@ -79,9 +97,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       setLatestToast(data);
       setTimeout(() => setLatestToast(null), 5000); // Hide after 5 seconds
     };
+    
     socket.on('alert:new', handleNewAlert);
     return () => socket.off('alert:new', handleNewAlert);
-  }, [socket]);
+  }, [socket, preferences]);
 
   // Live clock
   useEffect(() => {
@@ -228,50 +247,55 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         <div className="hidden sm:block" style={{ width: '1px', height: '20px', background: '#ea580c' }} />
 
         {/* Notifications */}
-        <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowDropdown(!showDropdown)}>
-          <Bell size={18} color="#f1f5f9" />
-          {alerts.length > 0 && (
-            <div style={{
-              position: 'absolute', top: '-2px', right: '-2px',
-              width: '14px', height: '14px', borderRadius: '50%',
-              background: '#f97316', color: 'white',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '9px', fontWeight: 'bold', border: '2px solid #223A57',
-            }}>
-              {alerts.length}
-            </div>
-          )}
-          {showDropdown && (
-            <div style={{
-              position: 'absolute', top: '30px', right: '0', width: '300px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, border: '1px solid #e5e7eb', overflow: 'hidden'
-            }} onClick={(e) => e.stopPropagation()}>
-              <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
-                <span>Recent Alerts</span>
-                {alerts.length > 0 && (
-                  <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { 
-                    e.stopPropagation(); 
-                    axiosInstance.put('/api/alerts/read-all').catch(err => console.error(err));
-                    setAlerts([]); 
-                  }}>Clear</span>
-                )}
-              </div>
-              <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                {alerts.length === 0 ? (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#9CA3B8' }}>No new alerts in this session</div>
-                ) : alerts.map((a, i) => (
-                  <div key={i} style={{ padding: '12px 16px', borderBottom: i < alerts.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: '12px', display: 'flex', gap: '12px' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444', flexShrink: 0, marginTop: '4px' }} />
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{a.vehicleName} <span style={{ color: '#6B7280', fontWeight: 500 }}>({a.plate})</span></div>
-                      <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: '6px' }}>{a.alertText}</div>
-                      <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime).toLocaleTimeString()}</div>
+        {(user?.role !== 'superadmin' && user?.role !== 'dealer') && (() => {
+          const unreadCount = alerts.filter(a => !a.isRead && !a.is_read).length;
+          return (
+            <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowDropdown(!showDropdown)}>
+              <Bell size={18} color="#f1f5f9" />
+              {unreadCount > 0 && (
+                <div style={{
+                  position: 'absolute', top: '-2px', right: '-2px',
+                  width: '14px', height: '14px', borderRadius: '50%',
+                  background: '#f97316', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '9px', fontWeight: 'bold', border: '2px solid #223A57',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </div>
+              )}
+            {showDropdown && (
+              <div style={{
+                position: 'absolute', top: '30px', right: '0', width: '300px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, border: '1px solid #e5e7eb', overflow: 'hidden'
+              }} onClick={(e) => e.stopPropagation()}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Recent Alerts</span>
+                  {unreadCount > 0 && (
+                    <span style={{ fontSize: '11px', color: '#6B7280', cursor: 'pointer', fontWeight: 500 }} onClick={(e) => { 
+                      e.stopPropagation(); 
+                      axiosInstance.put('/api/alerts/read-all').catch(err => console.error(err));
+                      setAlerts(alerts.map(a => ({ ...a, isRead: true }))); 
+                    }}>Mark All Read</span>
+                  )}
+                </div>
+                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  {alerts.length === 0 ? (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', fontSize: '13px', color: '#9CA3B8' }}>No new alerts in this session</div>
+                  ) : alerts.map((a, i) => (
+                    <div key={i} style={{ padding: '12px 16px', borderBottom: i < alerts.length - 1 ? '1px solid #f3f4f6' : 'none', fontSize: '12px', display: 'flex', gap: '12px', background: (!a.isRead && !a.is_read) ? '#FFFBEB' : 'transparent' }}>
+                      <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: (!a.isRead && !a.is_read) ? '#F59E0B' : '#D1D5DB', flexShrink: 0, marginTop: '4px' }} />
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{a.vehicleName} <span style={{ color: '#6B7280', fontWeight: 500 }}>({a.plate})</span></div>
+                        <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: '6px' }}>{a.alertText}</div>
+                        <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime || a.serverTime).toLocaleTimeString()}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+          );
+        })()}
 
         {/* Socket status pill */}
         <div style={{

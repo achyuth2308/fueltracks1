@@ -96,6 +96,18 @@ async function start(io) {
       // Emit to organization room
       io.to(`org:${orgId}`).emit('alert:new', payload);
 
+      // 3.5 Cache in Redis for instant Topbar retrieval
+      try {
+        const { redis } = require('../config/redis');
+        const redisKey = `org:alerts:${orgId}`;
+        const cachePayload = { ...payload, isRead: false };
+        await redis.lpush(redisKey, JSON.stringify(cachePayload));
+        await redis.ltrim(redisKey, 0, 49); // Keep strictly latest 50
+        await redis.expire(redisKey, 86400); // 24 hours expiry
+      } catch (redisErr) {
+        console.warn('[SUBSCRIBER] Error caching alert to Redis:', redisErr.message);
+      }
+
       // 4. Dispatch FCM push to users who have this alert type enabled
       try {
         const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, alertType.toLowerCase());

@@ -3,6 +3,7 @@
 // ============================================================
 
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 const GpsModel = {
   /**
@@ -366,6 +367,22 @@ const GpsModel = {
    * Get paginated alerts for an org (user-facing history feed)
    */
   async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType } = {}) {
+    // 1. Try Redis cache for default fetch
+    const redisKey = `org:alerts:${orgId}`;
+    if (page === 1 && !alertType && limit <= 50) {
+      try {
+        const cached = await redis.lrange(redisKey, 0, limit - 1);
+        if (cached && cached.length > 0) {
+          return {
+            alerts: cached.map(JSON.parse),
+            pagination: { page: 1, limit, total: -1, totalPages: 1 }, // approximated for cache
+          };
+        }
+      } catch (err) {
+        console.warn('[REDIS] Alert cache read failed:', err.message);
+      }
+    }
+
     const offset = (page - 1) * limit;
     const params = [orgId];
     let typeFilter = '';
@@ -397,6 +414,21 @@ const GpsModel = {
       params
     );
 
+    // 2. Populate Redis cache on miss
+    if (page === 1 && !alertType && result.rows.length > 0) {
+      try {
+        const pipeline = redis.pipeline();
+        pipeline.del(redisKey);
+        result.rows.slice(0, 50).forEach(alert => {
+          pipeline.rpush(redisKey, JSON.stringify(alert));
+        });
+        pipeline.expire(redisKey, 86400); // 24h
+        await pipeline.exec();
+      } catch (err) {
+        console.warn('[REDIS] Alert cache write failed:', err.message);
+      }
+    }
+
     return {
       alerts: result.rows,
       pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
@@ -414,6 +446,15 @@ const GpsModel = {
        RETURNING id`,
       [alertId, orgId]
     );
+
+    if (result.rows.length > 0) {
+      try {
+        await redis.del(`org:alerts:${orgId}`);
+      } catch (err) {
+        console.warn('[REDIS] Alert cache invalidation failed:', err.message);
+      }
+    }
+
     return result.rows[0] || null;
   },
 
@@ -428,6 +469,15 @@ const GpsModel = {
        RETURNING id`,
       [orgId]
     );
+
+    if (result.rows.length > 0) {
+      try {
+        await redis.del(`org:alerts:${orgId}`);
+      } catch (err) {
+        console.warn('[REDIS] Alert cache invalidation failed:', err.message);
+      }
+    }
+
     return result.rowCount;
   },
 
@@ -435,20 +485,46 @@ const GpsModel = {
    * Get user alert preferences (returns defaults if not set)
    */
   async getUserAlertPreferences(userId) {
+    // 1. Try to fetch from Redis Cache
+    const redisKey = `user:preferences:${userId}`;
+    try {
+      const cached = await redis.get(redisKey);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (err) {
+      console.warn('[REDIS] Failed to get user preferences from cache:', err.message);
+    }
+
+    // 2. Fallback to Database
     const result = await db.query(
       `SELECT preferences FROM user_alert_preferences WHERE user_id = $1`,
       [userId]
     );
-    if (result.rows[0]) return result.rows[0].preferences;
-    // Return default preferences
-    return {
-      sos: true, panic: true, crash: true, accident: true,
-      tow: true, power_cut: true, theft: true, theft_alarm: true,
-      overspeed: true, harsh_braking: true, harsh_acceleration: true,
-      geofence_enter: true, geofence_exit: true, low_battery: true,
-      ignition_on: true, ignition_off: true, idle: false,
-      stoppage: false, moving: false, stopped: false,
-    };
+
+    let preferences = null;
+    if (result.rows[0]) {
+      preferences = result.rows[0].preferences;
+    } else {
+      // Return default preferences
+      preferences = {
+        sos: true, panic: true, crash: true, accident: true,
+        tow: true, power_cut: true, theft: true, theft_alarm: true,
+        overspeed: true, harsh_braking: true, harsh_acceleration: true,
+        geofence_enter: true, geofence_exit: true, low_battery: true,
+        ignition_on: true, ignition_off: true, idle: false,
+        stoppage: false, moving: false, stopped: false,
+      };
+    }
+
+    // 3. Save to Redis Cache (expire in 24 hours to keep fresh)
+    try {
+      await redis.set(redisKey, JSON.stringify(preferences), 'EX', 86400);
+    } catch (err) {
+      console.warn('[REDIS] Failed to cache user preferences:', err.message);
+    }
+
+    return preferences;
   },
 
   /**
@@ -463,6 +539,15 @@ const GpsModel = {
        RETURNING preferences`,
       [userId, JSON.stringify(preferences)]
     );
+
+    // Update Redis Cache instantly
+    const redisKey = `user:preferences:${userId}`;
+    try {
+      await redis.set(redisKey, JSON.stringify(result.rows[0].preferences), 'EX', 86400);
+    } catch (err) {
+      console.warn('[REDIS] Failed to update user preferences cache:', err.message);
+    }
+
     return result.rows[0].preferences;
   },
 
