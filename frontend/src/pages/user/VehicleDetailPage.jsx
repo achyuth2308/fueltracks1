@@ -13,6 +13,7 @@ import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
 import { formatSpeed, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
+import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
 import { useSocket } from '../../hooks/useSocket';
 import { useVehicles } from '../../hooks/useVehicles';
 
@@ -32,24 +33,25 @@ const getExpiryWarning = (expireDateStr) => {
 };
 
 /* ── Reusable Status Dot ── */
-const StatusDot = ({ online, speed }) => {
-  const isOnline = !!online;
-  const isMoving = isOnline && (speed > 0);
-  const color = isOnline ? (isMoving ? '#10B981' : '#F59E0B') : '#94A3B8';
-  const label = isOnline ? (isMoving ? 'Moving' : 'Idle') : 'Offline';
+const StatusDot = ({ vehicle }) => {
+  const status = getVehicleStatus(vehicle);
+  const config = STATUS_CONFIG[status] || { color: '#94A3B8', label: 'Unknown', pulse: false };
+  const isOnline = status !== 'offline';
+  const isMoving = status === 'running';
+  
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: '6px',
       padding: '4px 10px', borderRadius: '99px',
-      background: `${color}15`, border: `1px solid ${color}30`
+      background: `${config.color}15`, border: `1px solid ${config.color}30`
     }}>
       <div style={{
-        width: '6px', height: '6px', borderRadius: '50%', background: color,
-        boxShadow: isOnline ? `0 0 6px ${color}60` : 'none',
+        width: '6px', height: '6px', borderRadius: '50%', background: config.color,
+        boxShadow: isOnline ? `0 0 6px ${config.color}60` : 'none',
         animation: isMoving ? 'pulse-dot 2s infinite' : 'none'
       }} />
-      <span style={{ fontSize: '11px', fontWeight: 700, color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        {label}
+      <span style={{ fontSize: '11px', fontWeight: 700, color: config.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {config.label}
       </span>
       <style>{`
         @keyframes pulse-dot { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
@@ -381,7 +383,7 @@ const VehicleDetailPage = () => {
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
                 <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle.name}</h2>
-                <StatusDot online={vehicle.is_online} speed={speed} />
+                <StatusDot vehicle={vehicle} />
               </div>
               <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'monospace' }}>
                 <span>{vehicle.plate || 'No Plate'}</span>
