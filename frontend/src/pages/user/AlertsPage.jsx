@@ -365,6 +365,7 @@ function PreferencesTab() {
       const res = await alertsApi.updatePreferences(prefs);
       setPrefs(res.preferences);
       setSaved(true);
+      window.dispatchEvent(new CustomEvent('preferences-updated', { detail: res.preferences }));
       setTimeout(() => setSaved(false), 3000);
     } catch (e) { console.error(e); }
     setSaving(false);
@@ -574,6 +575,10 @@ const AlertsPage = () => {
     alertsApi.getPreferences().then(res => {
       if (res.preferences) setGlobalPrefs(res.preferences);
     }).catch(console.error);
+    
+    const handlePrefsUpdated = (e) => setGlobalPrefs(e.detail);
+    window.addEventListener('preferences-updated', handlePrefsUpdated);
+    return () => window.removeEventListener('preferences-updated', handlePrefsUpdated);
   }, []);
 
   // Real-time toasts across all tabs

@@ -50,6 +50,14 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         setAlerts(fetchedAlerts);
       }
     });
+
+    const handlePrefsUpdated = (e) => {
+      const newPrefs = e.detail;
+      setPreferences(newPrefs);
+      setAlerts(prev => prev.filter(a => newPrefs[a.alertType] !== false));
+    };
+    window.addEventListener('preferences-updated', handlePrefsUpdated);
+    return () => window.removeEventListener('preferences-updated', handlePrefsUpdated);
   }, []);
 
   // Handle live socket alerts
