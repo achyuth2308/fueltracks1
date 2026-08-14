@@ -53,7 +53,7 @@ const ALERT_GROUPS = [
       { key: 'ignition_off', label: 'Ignition OFF' },
       { key: 'idle', label: 'Idling' },
       { key: 'stoppage', label: 'Stoppage' },
-      { key: 'moving', label: 'Moving' },
+      { key: 'trip_started', label: 'Trip Started' },
       { key: 'stopped', label: 'Stopped' },
     ],
   },
@@ -566,18 +566,27 @@ const TABS = [
 const AlertsPage = () => {
   const [activeTab, setActiveTab] = useState('history');
   const [toasts, setToasts] = useState([]);
+  const [globalPrefs, setGlobalPrefs] = useState(null);
   const { socket } = useSocket();
+
+  // Load preferences for live toast filtering
+  useEffect(() => {
+    alertsApi.getPreferences().then(res => {
+      if (res.preferences) setGlobalPrefs(res.preferences);
+    }).catch(console.error);
+  }, []);
 
   // Real-time toasts across all tabs
   useEffect(() => {
     if (!socket) return;
     const onAlert = (data) => {
+      if (globalPrefs && globalPrefs[data.alertType] === false) return;
       const id = Date.now() + Math.random();
       setToasts(prev => [...prev, { ...data, _id: id }]);
     };
     socket.on('alert:new', onAlert);
     return () => socket.off('alert:new', onAlert);
-  }, [socket]);
+  }, [socket, globalPrefs]);
 
   const dismissToast = (id) => setToasts(prev => prev.filter(t => t._id !== id));
 
