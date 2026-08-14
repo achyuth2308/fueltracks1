@@ -64,8 +64,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   useEffect(() => {
     if (!socket) return;
     const handleNewAlert = (data) => {
-      // If user opted out in preferences, ignore it for live push/toast
-      if (preferences && preferences[data.alertType] === false) {
+      // If preferences aren't loaded yet, or user opted out, ignore it for live push/toast
+      if (!preferences || preferences[data.alertType] === false) {
         return; 
       }
 

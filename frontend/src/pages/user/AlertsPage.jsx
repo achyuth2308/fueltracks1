@@ -585,7 +585,7 @@ const AlertsPage = () => {
   useEffect(() => {
     if (!socket) return;
     const onAlert = (data) => {
-      if (globalPrefs && globalPrefs[data.alertType] === false) return;
+      if (!globalPrefs || globalPrefs[data.alertType] === false) return;
       const id = Date.now() + Math.random();
       setToasts(prev => [...prev, { ...data, _id: id }]);
     };
