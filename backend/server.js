@@ -223,7 +223,7 @@ async function bootstrap() {
       -- Per-user alert type preferences
       CREATE TABLE IF NOT EXISTS user_alert_preferences (
         user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"stoppage":false,"moving":false,"stopped":false}',
+        preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"stoppage":false,"trip_started":false,"stopped":false}',
         updated_at  TIMESTAMP DEFAULT NOW()
       );
 

@@ -513,7 +513,7 @@ const GpsModel = {
         overspeed: true, harsh_braking: true, harsh_acceleration: true,
         geofence_enter: true, geofence_exit: true, low_battery: true,
         ignition_on: true, ignition_off: true, idle: false,
-        stoppage: false, moving: false, stopped: false,
+        stoppage: false, trip_started: false, stopped: false,
       };
     }
 
