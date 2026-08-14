@@ -26,21 +26,30 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
 
   // Fetch initial alerts and preferences
   useEffect(() => {
-    axiosInstance.get('/api/alerts?limit=15')
-      .then(res => {
-        if (res.data && res.data.success) {
-          setAlerts(res.data.alerts || res.data.data || []);
-        }
+    Promise.all([
+      axiosInstance.get('/api/alerts/preferences').catch(err => {
+        console.error('Failed to fetch preferences:', err);
+        return null;
+      }),
+      axiosInstance.get('/api/alerts?limit=15').catch(err => {
+        console.error('Failed to fetch recent alerts:', err);
+        return null;
       })
-      .catch(err => console.error('Failed to fetch recent alerts:', err));
-
-    axiosInstance.get('/api/alerts/preferences')
-      .then(res => {
-        if (res.data?.success && res.data.preferences) {
-          setPreferences(res.data.preferences);
+    ]).then(([prefRes, alertsRes]) => {
+      let fetchedPrefs = null;
+      if (prefRes?.data?.success && prefRes.data.preferences) {
+        fetchedPrefs = prefRes.data.preferences;
+        setPreferences(fetchedPrefs);
+      }
+      
+      if (alertsRes?.data && alertsRes.data.success) {
+        let fetchedAlerts = alertsRes.data.alerts || alertsRes.data.data || [];
+        if (fetchedPrefs) {
+          fetchedAlerts = fetchedAlerts.filter(a => fetchedPrefs[a.alertType] !== false);
         }
-      })
-      .catch(err => console.error('Failed to fetch preferences:', err));
+        setAlerts(fetchedAlerts);
+      }
+    });
   }, []);
 
   // Handle live socket alerts
