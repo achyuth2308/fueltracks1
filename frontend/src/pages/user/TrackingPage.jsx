@@ -8,6 +8,7 @@ import { formatSpeed, formatFuel, formatVoltage, formatOdometer } from '../../ut
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
+import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle) return null;
@@ -169,15 +170,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     setStatusFilter(null);
   };
 
-  const getVehicleStatus = (v) => {
-    const isOnline = !!v.is_online;
-    const speed = v.current_speed || 0;
-    const ignition = !!v.current_ignition;
-    if (!isOnline) return { text: 'Offline', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
-    if (speed > 2.0) return { text: 'Running', color: '#10b981', bg: 'rgba(16,185,129,0.1)' };
-    if (ignition) return { text: 'Idle', color: '#eab308', bg: 'rgba(234,179,8,0.1)' };
-    return { text: 'Parked', color: '#f97316', bg: 'rgba(249,115,22,0.1)' };
-  };
+  // getVehicleStatus imported from markerUtils
 
   return (
     <div className="tracking-container" style={{
@@ -381,7 +374,12 @@ const TrackingPage = ({ setAppVehicles }) => {
           ) : (
             filteredVehicles.map(v => {
               const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
-              const status = getVehicleStatus(v);
+              const statusKey = getVehicleStatus(v);
+              const status = STATUS_CONFIG[statusKey] ? {
+                text: STATUS_CONFIG[statusKey].label,
+                color: STATUS_CONFIG[statusKey].color,
+                bg: `${STATUS_CONFIG[statusKey].color}15`
+              } : { text: 'Unknown', color: '#6b7280', bg: 'rgba(107,114,128,0.1)' };
 
               return (
                 <div
