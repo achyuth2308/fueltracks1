@@ -262,7 +262,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             </div>
             <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Cpu size={12} color="#10b981" /> Battery</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatVoltage(hoveredVehicle.current_voltage)}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatVoltage(hoveredVehicle.current_voltage || hoveredVehicle.metadata?.batteryVoltage)}</div>
             </div>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#4b5563" /> Speed (km/h)</div>
@@ -798,7 +798,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                       { label: 'Odometer', value: formatOdometer(currentSelectedVehicle.current_odometer), icon: Compass, color: '#4d6076' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10b981' : '#6b7280' },
                       { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#f59e0b' },
-                      { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage), icon: Cpu, color: '#8b5cf6' }
+                      { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage || currentSelectedVehicle.metadata?.batteryVoltage), icon: Cpu, color: '#8b5cf6' }
                     ] : []),
                     { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#6b7280' },
                   ].map(item => (

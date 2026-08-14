@@ -270,7 +270,7 @@ const ReportsAdminPage = () => {
                             <MapPin size={16} color={statusColor} />
                           </TD>
                           <TD style={{ color: '#64748B', fontSize: '12px', fontFamily: 'monospace' }}>00:00:00</TD>
-                          <TD align="right" style={{ fontFamily: 'monospace', fontSize: '12px' }}>{formatVoltage(v.current_voltage)}</TD>
+                          <TD align="right" style={{ fontFamily: 'monospace', fontSize: '12px' }}>{formatVoltage(v.current_voltage || v.metadata?.batteryVoltage)}</TD>
                           <TD align="center">
                             <div style={{ display: 'inline-flex', padding: '4px 8px', borderRadius: '4px', background: ignition ? '#ECFDF5' : '#111827', color: ignition ? '#10B981' : '#FFFFFF', fontSize: '10px', fontWeight: 800 }}>
                               {ignition ? 'ON' : 'OFF'}
