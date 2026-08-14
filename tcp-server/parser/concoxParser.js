@@ -786,9 +786,9 @@ function parseConcoxBuffer(buffer, imei) {
       }
 
       // Not a valid start byte and not a complete ASCII string — skip one byte and keep scanning
-      // Only log at debug level to prevent log flooding from HTTP port scanners
+      // We silence this log because internet port scanners will flood the console with junk bytes
       if (b0 !== 0x0A && b0 !== 0x0D) {
-        console.debug(`[CONCOX] Unexpected byte 0x${b0.toString(16)} at offset ${pos}, scanning forward`);
+        // console.debug(`[CONCOX] Unexpected byte 0x${b0.toString(16)} at offset ${pos}, scanning forward`);
       }
       pos++;
       continue;
