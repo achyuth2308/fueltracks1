@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import { useSocket } from '../../hooks/useSocket';
+
+const { BaseLayer } = LayersControl;
 
 const FitBoundsToTrail = ({ coords }) => {
   const map = useMap();
@@ -100,10 +102,26 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
         zoomControl={false}
       >
         <ResizeMap />
-        <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <LayersControl position="topleft">
+          <BaseLayer checked name="Modern Light">
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          </BaseLayer>
+          <BaseLayer name="Google Maps">
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            />
+          </BaseLayer>
+          <BaseLayer name="Google Satellite">
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+            />
+          </BaseLayer>
+        </LayersControl>
 
         {coords.length > 0 && <FitBoundsToTrail coords={coords} />}
 

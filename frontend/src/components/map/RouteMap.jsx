@@ -586,6 +586,18 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
           </BaseLayer>
+          <BaseLayer name="Google Maps">
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            />
+          </BaseLayer>
+          <BaseLayer name="Google Satellite">
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+            />
+          </BaseLayer>
           <BaseLayer name="Satellite">
             <TileLayer
               attribution='&copy; Esri'
