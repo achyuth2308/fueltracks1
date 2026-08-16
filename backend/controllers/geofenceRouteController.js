@@ -2,7 +2,10 @@ const GeofenceModel = require('../models/geofenceModel');
 const RouteModel = require('../models/routeModel');
 
 const GeofenceRouteController = {
-  // Geofences
+  // ══════════════════════════════════════════════════════════
+  // GEOFENCES (admin-only, called from adminRoutes)
+  // ══════════════════════════════════════════════════════════
+
   async getGeofences(req, res, next) {
     try {
       const orgId = req.user.orgId;
@@ -55,7 +58,7 @@ const GeofenceRouteController = {
   async assignGeofence(req, res, next) {
     try {
       const { id } = req.params;
-      const { vehicleIds } = req.body; // Array of vehicle IDs
+      const { vehicleIds } = req.body;
       if (!Array.isArray(vehicleIds)) {
         return res.status(400).json({ success: false, error: 'vehicleIds must be an array.' });
       }
@@ -76,7 +79,12 @@ const GeofenceRouteController = {
     }
   },
 
-  // Routes
+  // ══════════════════════════════════════════════════════════
+  // ROUTES — Admin versions (called from adminRoutes, no org guard needed
+  // because the admin endpoints already require superadmin/dealer role and
+  // the RouteModel.findAll already filters by orgId).
+  // ══════════════════════════════════════════════════════════
+
   async getRoutes(req, res, next) {
     try {
       const orgId = req.user.orgId;
@@ -94,9 +102,7 @@ const GeofenceRouteController = {
       if (!name || !coordinates) {
         return res.status(400).json({ success: false, error: 'Name and coordinates are required.' });
       }
-      const route = await RouteModel.create({
-        orgId, name, coordinates, tolerance
-      });
+      const route = await RouteModel.create({ orgId, name, coordinates, tolerance });
       res.status(201).json({ success: true, data: route });
     } catch (err) {
       next(err);
@@ -107,9 +113,7 @@ const GeofenceRouteController = {
     try {
       const { id } = req.params;
       const { name, coordinates, tolerance, is_active } = req.body;
-      const updated = await RouteModel.update(id, {
-        name, coordinates, tolerance, is_active
-      });
+      const updated = await RouteModel.update(id, { name, coordinates, tolerance, is_active });
       res.json({ success: true, data: updated });
     } catch (err) {
       next(err);
@@ -129,7 +133,7 @@ const GeofenceRouteController = {
   async assignRoute(req, res, next) {
     try {
       const { id } = req.params;
-      const { vehicleIds } = req.body; // Array of vehicle IDs
+      const { vehicleIds } = req.body;
       if (!Array.isArray(vehicleIds)) {
         return res.status(400).json({ success: false, error: 'vehicleIds must be an array.' });
       }
@@ -148,7 +152,105 @@ const GeofenceRouteController = {
     } catch (err) {
       next(err);
     }
-  }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // ROUTES — Customer-facing (called from vehicleRoutes)
+  // Any authenticated user (including role='customer') can manage
+  // routes that belong to their own organisation. Each method
+  // enforces org ownership before mutating data.
+  // ══════════════════════════════════════════════════════════
+
+  async getMyRoutes(req, res, next) {
+    try {
+      const routes = await RouteModel.findAll(req.user.orgId);
+      res.json({ success: true, data: routes });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createMyRoute(req, res, next) {
+    try {
+      const { name, coordinates, tolerance } = req.body;
+      if (!name || !coordinates || !Array.isArray(coordinates) || coordinates.length < 2) {
+        return res.status(400).json({
+          success: false,
+          error: 'Name and at least 2 coordinate points are required.',
+        });
+      }
+      const route = await RouteModel.create({
+        orgId: req.user.orgId,
+        name,
+        coordinates,
+        tolerance,
+      });
+      res.status(201).json({ success: true, data: route });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateMyRoute(req, res, next) {
+    try {
+      const { id } = req.params;
+      const existing = await RouteModel.findById(id);
+      if (!existing || existing.org_id !== req.user.orgId) {
+        return res.status(404).json({ success: false, error: 'Route not found.' });
+      }
+      const { name, coordinates, tolerance, is_active } = req.body;
+      const updated = await RouteModel.update(id, { name, coordinates, tolerance, is_active });
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteMyRoute(req, res, next) {
+    try {
+      const { id } = req.params;
+      const existing = await RouteModel.findById(id);
+      if (!existing || existing.org_id !== req.user.orgId) {
+        return res.status(404).json({ success: false, error: 'Route not found.' });
+      }
+      await RouteModel.delete(id);
+      res.json({ success: true, message: 'Route deleted.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async assignMyRoute(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { vehicleIds } = req.body;
+      if (!Array.isArray(vehicleIds)) {
+        return res.status(400).json({ success: false, error: 'vehicleIds must be an array.' });
+      }
+      const existing = await RouteModel.findById(id);
+      if (!existing || existing.org_id !== req.user.orgId) {
+        return res.status(404).json({ success: false, error: 'Route not found.' });
+      }
+      await RouteModel.assignToVehicles(id, vehicleIds);
+      res.json({ success: true, message: 'Route assigned to vehicles.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getMyRouteVehicles(req, res, next) {
+    try {
+      const { id } = req.params;
+      const existing = await RouteModel.findById(id);
+      if (!existing || existing.org_id !== req.user.orgId) {
+        return res.status(404).json({ success: false, error: 'Route not found.' });
+      }
+      const vehicles = await RouteModel.findVehiclesForRoute(id);
+      res.json({ success: true, data: vehicles });
+    } catch (err) {
+      next(err);
+    }
+  },
 };
 
 module.exports = GeofenceRouteController;

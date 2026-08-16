@@ -14,6 +14,7 @@ const env = {
 
   // TCP Server
   TCP_PORT: parseInt(process.env.TCP_PORT) || 5000,
+  FMB920_TCP_PORT: parseInt(process.env.FMB920_TCP_PORT) || 5005,
 
   // PostgreSQL
   DB_HOST: process.env.DB_HOST || 'localhost',

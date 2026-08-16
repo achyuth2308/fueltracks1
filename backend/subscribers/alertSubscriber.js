@@ -43,7 +43,7 @@ async function start(io) {
       }
 
       // Filter to only allow requested alerts (Overspeed, Geofence, Ignition, Parking, etc.)
-      const allowedAlerts = ['overspeed', 'geofence', 'ignition_on', 'ignition_off', 'stoppage', 'safety_park', 'trip_started', 'excessive_idle', 'sos', 'battery', 'harsh_driving', 'box_open', 'general'];
+      const allowedAlerts = ['overspeed', 'geofence', 'ignition_on', 'ignition_off', 'stoppage', 'safety_park', 'trip_started', 'trip_ended', 'route_deviation', 'excessive_idle', 'sos', 'battery', 'harsh_driving', 'box_open', 'general'];
       if (!allowedAlerts.includes(alertType.toLowerCase())) {
         return; // Drop unwanted alerts silently
       }

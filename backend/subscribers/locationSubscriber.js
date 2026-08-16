@@ -425,8 +425,9 @@ async function start(io) {
           alertsToTrigger.push({ type: 'stoppage', text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.' });
         }
 
-        // Check D: Excessive idle (ignition ON, speed 0 for configured milestones: 5, 15, 30, 45 mins)
+        // Check D: Excessive idle (ignition ON, speed 0) using custom duration limit
         if (finalIgnition === true && evalSpeed === 0) {
+          const idleDurationLimitMin = parseFloat(vehicle.metadata?.idleDurationAlert) || 10;
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
 
@@ -435,20 +436,15 @@ async function start(io) {
             await redis.set(idleKey, Date.now());
           } else {
             const idleDurationMin = (Date.now() - parseInt(idleStart)) / 60000;
-            const lastFired = await redis.get(alertFiredKey);
-            let nextMilestone = null;
-
-            if (idleDurationMin >= 45 && lastFired !== '45') nextMilestone = 45;
-            else if (idleDurationMin >= 30 && idleDurationMin < 45 && lastFired !== '30') nextMilestone = 30;
-            else if (idleDurationMin >= 15 && idleDurationMin < 30 && lastFired !== '15') nextMilestone = 15;
-            else if (idleDurationMin >= 5 && idleDurationMin < 15 && lastFired !== '5') nextMilestone = 5;
-
-            if (nextMilestone) {
-              alertsToTrigger.push({
-                type: 'excessive_idle',
-                text: `Excessive Idle Alert: Vehicle has been idling for ${nextMilestone} minutes.`
-              });
-              await redis.set(alertFiredKey, String(nextMilestone));
+            if (idleDurationMin >= idleDurationLimitMin) {
+              const alreadyFired = await redis.get(alertFiredKey);
+              if (!alreadyFired) {
+                alertsToTrigger.push({
+                  type: 'excessive_idle',
+                  text: `Excessive Idle Alert: Vehicle has been idling for more than ${idleDurationLimitMin} minutes.`
+                });
+                await redis.set(alertFiredKey, '1', 'EX', 3600); // Lock for 1 hour to prevent spamming
+              }
             }
           }
         } else {
@@ -514,6 +510,56 @@ async function start(io) {
           } catch (geoErr) {
             console.error('[SUBSCRIBER] Geofence calculation error:', geoErr.message);
           }
+        }
+
+        // Check G: Route deviation, Trip Started, Trip Ended
+        // Only runs if the vehicle has an active route assigned.
+        try {
+          const assignedRoute = await RouteModel.findRouteForVehicle(vehicleId);
+          if (assignedRoute && Array.isArray(assignedRoute.coordinates) && assignedRoute.coordinates.length >= 2) {
+            const tripKey = `vehicle:on_trip:${vehicleId}`;
+            const currentTripRouteId = await redis.get(tripKey);
+
+            // ── Trip Started: ignition ON, moving, not already on a tracked trip ──
+            if (finalIgnition === true && evalSpeed > 0 && !currentTripRouteId) {
+              alertsToTrigger.push({
+                type: 'trip_started',
+                text: `Trip Started: Vehicle has started a trip on route "${assignedRoute.name}".`
+              });
+              await redis.set(tripKey, String(assignedRoute.id), 'EX', 86400); // 24h max trip
+            }
+
+            // ── Trip Ended: ignition OFF and was on a trip ──
+            if (finalIgnition === false && currentTripRouteId) {
+              alertsToTrigger.push({
+                type: 'trip_ended',
+                text: `Trip Ended: Vehicle has completed/stopped the trip on route "${assignedRoute.name}".`
+              });
+              await redis.del(tripKey);
+              await redis.del(`vehicle:route_deviation_fired:${vehicleId}`);
+            }
+
+            // ── Route Deviation: moving on a trip but off-route ──
+            if (currentTripRouteId && evalLat != null && evalLng != null && evalSpeed > 0) {
+              const distanceFromRoute = getMinDistanceToRoute(evalLat, evalLng, assignedRoute.coordinates);
+              const toleranceMeters = parseFloat(assignedRoute.tolerance) || 100;
+
+              if (distanceFromRoute > toleranceMeters) {
+                // Debounce: only fire once every 10 minutes so we don't spam the user
+                const deviationFiredKey = `vehicle:route_deviation_fired:${vehicleId}`;
+                const alreadyFired = await redis.get(deviationFiredKey);
+                if (!alreadyFired) {
+                  alertsToTrigger.push({
+                    type: 'route_deviation',
+                    text: `Route Deviation Alert: Vehicle has deviated ${Math.round(distanceFromRoute)}m from route "${assignedRoute.name}" (allowed: ${toleranceMeters}m).`
+                  });
+                  await redis.set(deviationFiredKey, '1', 'EX', 600); // Lock for 10 mins
+                }
+              }
+            }
+          }
+        } catch (routeErr) {
+          console.error('[SUBSCRIBER] Route deviation check error:', routeErr.message);
         }
 
         // Publish all triggered alerts to Redis

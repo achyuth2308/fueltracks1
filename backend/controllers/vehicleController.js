@@ -341,6 +341,71 @@ const VehicleController = {
   },
 
   /**
+   * Update vehicle settings (metadata) - Safe for customers
+   */
+  async updateVehicleSettings(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert } = req.body;
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // Fetch old vehicle to get existing metadata
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      // Merge new settings into existing metadata
+      const currentMetadata = vehicle.metadata || {};
+      const newMetadata = { ...currentMetadata };
+
+      if (overSpeedLimit !== undefined) newMetadata.overSpeedLimit = parseFloat(overSpeedLimit);
+      if (overspeedDurationAlert !== undefined) newMetadata.overspeedDurationAlert = parseFloat(overspeedDurationAlert);
+      if (idleDurationAlert !== undefined) newMetadata.idleDurationAlert = parseFloat(idleDurationAlert);
+
+      // Perform update
+      const updated = await VehicleModel.update(id, { metadata: newMetadata });
+
+      res.status(200).json({
+        success: true,
+        data: updated,
+        message: 'Vehicle settings updated successfully.'
+      });
+
+      // Audit: vehicle settings updated
+      try {
+        await AuditService.log({
+          auditType: 'vehicle_settings', entityType: 'Vehicle',
+          entityId: id, entityName: updated.name, action: 'UPDATED_SETTINGS',
+          oldData: { metadata: currentMetadata },
+          newData: { metadata: newMetadata },
+          performedById: req.user.userId, performedByRole: req.user.role,
+          orgId: req.user.orgId,
+          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+        });
+      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * Delete vehicle (Soft delete)
    */
   async deleteVehicle(req, res, next) {

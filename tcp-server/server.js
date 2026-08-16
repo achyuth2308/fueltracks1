@@ -5,6 +5,7 @@
 // - Port 5001: AIS140 V1 / tNavIC (uses * delimiter)
 // - Port 5002: Concox V5/VL149/GT800 (binary protocol)
 // - Port 5003: AIS140 V2 (MODEL NO:1819001A) (uses * or $ delimiter)
+// - Port 5005: Teltonika FMB920 (binary protocol)
 // ============================================================
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -18,7 +19,8 @@ const protocolStats = {
   'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -29,6 +31,7 @@ const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
 const CONCOX_PORT   = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
 const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
 const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
+const FMB920_PORT   = parseInt(process.env.FMB920_TCP_PORT) || 5005;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -38,6 +41,14 @@ const {
   buildAlarmAck,
   buildOnlineCommand
 } = require('./parser/concoxParser');
+
+// FMB920 binary parser + Codec 12 command builder
+const {
+  isImeiPacket,
+  parseImeiPacket,
+  parseCodec8Packet,
+  buildCodec12Command
+} = require('./parser/fmb920Parser');
 
 // Track connected devices
 const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
@@ -57,6 +68,11 @@ const commandAdapters = {
     // Binary — handled separately via buildOnlineCommand(); sentinel value
     immobilize: () => '__CONCOX_BINARY__',
     mobilize:   () => '__CONCOX_BINARY__',
+  },
+  FMB920: {
+    // Binary — handled separately via buildCodec12Command(); sentinel value
+    immobilize: () => '__FMB920_BINARY_IMMOBILIZE__',
+    mobilize:   () => '__FMB920_BINARY_MOBILIZE__',
   },
   'BSTPL-17': {
     immobilize: () => '$SET,RL,1#\r\n',
@@ -1222,6 +1238,11 @@ async function dispatchCommand(imei, action, proto, socket, overrideCommand = nu
     const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
     rawRepresentation = `[CONCOX 0x80] ${relayStr}`;
     sendBuffer = buildOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
+  } else if (proto === 'FMB920') {
+    // FMB920 uses Codec 12 for remote commands
+    const relayStr = isImmobilize ? 'setdigout 1' : 'setdigout 0';
+    rawRepresentation = `[FMB920 Codec 12] ${relayStr}`;
+    sendBuffer = buildCodec12Command(relayStr);
   } else {
     rawRepresentation = cmdStr.trim();
     sendBuffer = Buffer.from(cmdStr, 'ascii');
@@ -1242,6 +1263,166 @@ async function dispatchCommand(imei, action, proto, socket, overrideCommand = nu
     rawString: rawRepresentation,
     parsed: true
   }).catch(() => {});
+}
+
+/**
+ * Initialize FMB920 (Teltonika) Protocol Server
+ */
+function startFmb920Server(port) {
+  const server = net.createServer((sock) => {
+    const cId = `${sock.remoteAddress}:${sock.remotePort}`;
+    let sessionImei = null;
+    const protocolName = 'FMB920';
+
+    protocolStats[protocolName].connections++;
+    protocolStats[protocolName].totalConnectionAttempts++;
+    console.log(`[TCP - ${protocolName}] Connected: ${cId}`);
+
+    // Buffer to handle TCP fragmentation
+    let dataBuffer = Buffer.alloc(0);
+
+    sock.on('data', async (chunk) => {
+      dataBuffer = Buffer.concat([dataBuffer, chunk]);
+      totalPacketsReceived++;
+      if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+
+      try {
+        // Parse while we have data
+        while (dataBuffer.length > 0) {
+          // If no session IMEI, expect IMEI handshake (2 bytes length + IMEI string)
+          if (!sessionImei) {
+            if (isImeiPacket(dataBuffer)) {
+              const { imei, response } = parseImeiPacket(dataBuffer);
+              sessionImei = imei;
+              
+              registerDeviceSocket(sessionImei, sock, cId, protocolName);
+
+              sock.write(response); // \x01 Accept
+              console.log(`[TCP - ${protocolName}] Authorized IMEI: ${sessionImei}`);
+              
+              // Remove handshake from buffer
+              const len = dataBuffer.readUInt16BE(0);
+              dataBuffer = dataBuffer.subarray(len + 2);
+              continue;
+            } else {
+              // Wait for more data if it looks like an incomplete handshake
+              break;
+            }
+          }
+
+          // We have sessionImei, so we expect Codec 8 packets.
+          const parseResult = parseCodec8Packet(dataBuffer);
+
+          if (parseResult.error === 'Incomplete packet' || parseResult.error === 'Buffer too small for AVL packet') {
+            // Need more data from TCP stream
+            break;
+          }
+
+          if (parseResult.error) {
+            console.warn(`[TCP - ${protocolName}] Parse error from ${sessionImei}: ${parseResult.error}`);
+            totalPacketsInvalid++;
+            // If it's a CRC error or unsupported codec, we should probably drop the connection or flush buffer
+            dataBuffer = Buffer.alloc(0);
+            break;
+          }
+
+          // Successfully parsed a Codec 8 packet
+          if (parseResult.response) {
+            sock.write(parseResult.response);
+          }
+
+          dataBuffer = dataBuffer.subarray(parseResult.bytesConsumed);
+          totalPacketsParsed++;
+
+          // Process the parsed records
+          for (const record of parseResult.records) {
+            const lat = record.lat;
+            const lng = record.lng;
+            const isValidGps = (lat !== 0 || lng !== 0);
+
+            // Update connected device state
+            const devInfo = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName };
+            if (isValidGps) {
+              devInfo.lat = lat;
+              devInfo.lng = lng;
+            }
+            devInfo.lastPacket = new Date();
+            connectedDevices.set(sessionImei, devInfo);
+
+            const ignition = record.ioMap[239] === 1;
+            const speed = record.speed;
+            const batteryVolt = record.ioMap[67] ? record.ioMap[67] / 1000 : 0;
+            const extVolt = record.ioMap[66] ? record.ioMap[66] / 1000 : 0;
+            const odometer = record.ioMap[16] || 0;
+
+            const payload = {
+              imei: sessionImei,
+              lat,
+              lng,
+              speed,
+              ignition,
+              direction: record.direction,
+              satellites: record.satellites,
+              battery: batteryVolt,
+              voltage: extVolt,
+              odometer,
+              deviceTime: record.timestamp.toISOString(),
+              isLive: 1, // Codec 8 packets are usually realtime, Priority=1 means high
+              gpsValid: isValidGps ? 'A' : 'V'
+            };
+
+            await publisher.publishLocation(payload).catch(() => {});
+
+            // Optional: Handle event IO (Panic button, etc.)
+            // If eventIoId is not 0, it means an event triggered this record.
+            if (record.eventIoId !== 0) {
+              // Map Teltonika Event IO to Alert Types if needed.
+              // e.g. 253 = green driving, 239 = ignition change
+              if (record.eventIoId === 239) {
+                const text = ignition ? 'Ignition ON' : 'Ignition OFF';
+                await publisher.publishAlert({
+                  imei: sessionImei,
+                  alertType: 'stoppage',
+                  alertText: text,
+                  lat, lng, speed,
+                  deviceTime: record.timestamp.toISOString()
+                }).catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (err) {
+        totalPacketsInvalid++;
+        console.error(`[TCP - ${protocolName}] Stream parsing error for ${cId}:`, err.message);
+        dataBuffer = Buffer.alloc(0); // flush corrupted buffer
+      }
+    });
+
+    sock.on('close', () => {
+      protocolStats[protocolName].connections = Math.max(0, protocolStats[protocolName].connections - 1);
+      console.log(`[TCP - ${protocolName}] Disconnected: ${cId}`);
+    });
+
+    sock.on('error', (err) => {
+      console.error(`[TCP - ${protocolName}] Socket error ${cId}:`, err.message);
+    });
+
+    sock.setTimeout(300000); // 5 mins
+    sock.on('timeout', () => {
+      console.log(`[TCP - ${protocolName}] Timeout: ${cId}`);
+      sock.destroy();
+    });
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`============================================================`);
+    console.log(`  [TCP - ${protocolName}] Server started successfully`);
+    console.log(`  Listening on port: ${port}`);
+    console.log(`  Protocol: Codec 8 Binary`);
+    console.log(`============================================================`);
+  });
+
+  return server;
 }
 
 /**
@@ -1354,6 +1535,7 @@ function shutdown() {
   concoxServer.close();
   ais140V2Server.close();
   voltyServer.close();
+  fmb920Server.close();
   healthServer.close();
   setTimeout(() => process.exit(0), 1000);
 }
@@ -1361,4 +1543,4 @@ function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, healthServer };

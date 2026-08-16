@@ -111,7 +111,7 @@ const EditVehiclePage = () => {
       fuelBatteryVolt: 'NO', consumptionDuringFill: 'NO',
       deviceOdo: 'YES', assetTrack: 'NO', safetyPark: 'NO', rigMode: 'NO', acToggle: 'NO',
       secondaryEngine: 'Digital Input 2', engineOn: 'Ignition', batteryVoltage: '',
-      odometerReading: '0', overSpeedLimit: '60', expectedMileage: '4', enableDebugs: 'Disable',
+      odometerReading: '0', overSpeedLimit: '60', overspeedDurationAlert: '3', idleDurationAlert: '10', expectedMileage: '4', enableDebugs: 'Disable',
       countryTimezone: '', ipAddress: '', portNo: '', lowBattery: '20',
       externalDevice: 'NO'
     }
@@ -336,6 +336,8 @@ const EditVehiclePage = () => {
             <InputField label="Vehicle Battery Voltage" value={form.metadata.batteryVoltage} onChange={e => updateMeta('batteryVoltage', e.target.value)} focused={focusedField === 'bvolt'} onFocus={() => setFocusedField('bvolt')} onBlur={() => setFocusedField(null)} />
             <InputField label="Odometer Reading" type="number" value={form.metadata.odometerReading} onChange={e => updateMeta('odometerReading', e.target.value)} focused={focusedField === 'odoread'} onFocus={() => setFocusedField('odoread')} onBlur={() => setFocusedField(null)} />
             <InputField label="OverSpeed Limit" type="number" value={form.metadata.overSpeedLimit} onChange={e => updateMeta('overSpeedLimit', e.target.value)} focused={focusedField === 'osplim'} onFocus={() => setFocusedField('osplim')} onBlur={() => setFocusedField(null)} />
+            <InputField label="Overspeed Duration (mins)" type="number" value={form.metadata.overspeedDurationAlert} onChange={e => updateMeta('overspeedDurationAlert', e.target.value)} focused={focusedField === 'ospdur'} onFocus={() => setFocusedField('ospdur')} onBlur={() => setFocusedField(null)} />
+            <InputField label="Idle Duration (mins)" type="number" value={form.metadata.idleDurationAlert} onChange={e => updateMeta('idleDurationAlert', e.target.value)} focused={focusedField === 'idldur'} onFocus={() => setFocusedField('idldur')} onBlur={() => setFocusedField(null)} />
             <InputField label="Expected Mileage" type="number" value={form.metadata.expectedMileage} onChange={e => updateMeta('expectedMileage', e.target.value)} focused={focusedField === 'xmil'} onFocus={() => setFocusedField('xmil')} onBlur={() => setFocusedField(null)} />
             <SelectField label="Enable Debugs" value={form.metadata.enableDebugs} onChange={e => updateMeta('enableDebugs', e.target.value)} options={['Disable', 'Enable']} focused={focusedField === 'dbg'} onFocus={() => setFocusedField('dbg')} onBlur={() => setFocusedField(null)} />
             <SelectField label="Timezone" value={form.timezone} onChange={e => updateField('timezone', e.target.value)} options={['UTC', 'IST', 'EST', 'PST']} focused={focusedField === 'tz'} onFocus={() => setFocusedField('tz')} onBlur={() => setFocusedField(null)} />
