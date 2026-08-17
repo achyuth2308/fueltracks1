@@ -211,7 +211,7 @@ const TripManagerPage = () => {
       if (vehiclesRes.success) setVehicles(vehiclesRes.data);
 
       // Load routes for dropdown
-      const routesRes = await axiosInstance.get('/admin/routes');
+      const routesRes = await axiosInstance.get('/api/vehicles/routes/list');
       if (routesRes.data?.success) setRoutes(routesRes.data.data || []);
     } catch (e) {
       console.error(e);
