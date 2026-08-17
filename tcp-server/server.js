@@ -193,6 +193,9 @@ const voltyServer = createProtocolServer(
   ['$']
 );
 
+// Start the FMB920 Server on Port 5005
+const fmb920Server = startFmb920Server(FMB920_PORT);
+
 /**
  * Factory to create a TCP server for a specific protocol configuration
  */
@@ -1416,7 +1419,7 @@ function startFmb920Server(port) {
 
   server.listen(port, '0.0.0.0', () => {
     console.log(`============================================================`);
-    console.log(`  [TCP - ${protocolName}] Server started successfully`);
+    console.log(`  [TCP - FMB920] Server started successfully`);
     console.log(`  Listening on port: ${port}`);
     console.log(`  Protocol: Codec 8 Binary`);
     console.log(`============================================================`);
