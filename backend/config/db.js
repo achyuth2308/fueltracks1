@@ -9,6 +9,9 @@ const env = require('./env');
 // Parse PostgreSQL NUMERIC/DECIMAL column types (OID 1700) as floats in JavaScript
 types.setTypeParser(1700, (val) => val === null ? null : parseFloat(val));
 
+// Parse PostgreSQL TIMESTAMP WITHOUT TIME ZONE (OID 1114) as UTC
+types.setTypeParser(1114, (val) => val === null ? null : new Date(val + 'Z'));
+
 const pool = new Pool({
   host: env.DB_HOST,
   port: env.DB_PORT,

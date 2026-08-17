@@ -71,17 +71,19 @@ function init(io) {
     });
 
     // Join organization room (specifically for switching views in Superadmin panel)
-    socket.on('join:org', ({ targetOrgId }) => {
-      if (!targetOrgId) return;
+    // Join organization room (specifically for switching views in Superadmin panel or frontend fleet)
+    socket.on('join:org', ({ targetOrgId, orgId: clientOrgId }) => {
+      const orgToJoin = targetOrgId || clientOrgId;
+      if (!orgToJoin) return;
 
       // Only superadmin can join other orgs
-      if (role !== 'superadmin' && targetOrgId !== orgId) {
+      if (role !== 'superadmin' && orgToJoin !== orgId) {
         socket.emit('error:socket', { message: 'Access denied to organization updates.' });
         return;
       }
 
-      socket.join(`org:${targetOrgId}`);
-      console.log(`[SOCKET] Socket ${socket.id} joined room: org:${targetOrgId}`);
+      socket.join(`org:${orgToJoin}`);
+      console.log(`[SOCKET] Socket ${socket.id} joined room: org:${orgToJoin}`);
     });
 
     // Leave organization room

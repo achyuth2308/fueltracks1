@@ -91,11 +91,13 @@ const BSTPL_DEVICES = [
   },
   {
     imei: '865006049210216',
-    lat: 12.971598,
-    lng: 77.594562,
+    lat: 17.3871, // Hyderabad
+    lng: 78.4917,
     speed: 55,
     fuel: 72.0,
     ignition: 1,
+    osrmRoute: null,
+    osrmIndex: 0,
   },
   {
     imei: '865006049210217',
@@ -124,7 +126,65 @@ function bstplDateTime() {
   };
 }
 
+function haversineDist(lat1, lon1, lat2, lon2) {
+  const R = 6371e3; // meters
+  const p1 = lat1 * Math.PI/180;
+  const p2 = lat2 * Math.PI/180;
+  const dp = (lat2-lat1) * Math.PI/180;
+  const dl = (lon2-lon1) * Math.PI/180;
+  const a = Math.sin(dp/2) * Math.sin(dp/2) +
+            Math.cos(p1) * Math.cos(p2) *
+            Math.sin(dl/2) * Math.sin(dl/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
 function updateBstplState(d) {
+  if (d.imei === '865006049210216') {
+    if (d.osrmRoute && d.osrmRoute.length > 0) {
+      if (d.osrmIndex === undefined) d.osrmIndex = 0;
+      if (d.osrmProgress === undefined) d.osrmProgress = 0; // meters traveled towards next point
+      
+      d.speed = Math.round(75 + Math.random() * 10); // ~80 km/h
+      const distanceToTravel = (d.speed * 1000) / 3600 * 10; // meters to travel in 10s
+
+      let remaining = distanceToTravel;
+      
+      while (remaining > 0 && d.osrmIndex < d.osrmRoute.length - 1) {
+        const p1 = d.osrmRoute[d.osrmIndex];
+        const p2 = d.osrmRoute[d.osrmIndex + 1];
+        const segDist = haversineDist(p1[1], p1[0], p2[1], p2[0]);
+        
+        const distLeftOnSegment = segDist - d.osrmProgress;
+        
+        if (remaining >= distLeftOnSegment) {
+          remaining -= distLeftOnSegment;
+          d.osrmProgress = 0;
+          d.osrmIndex++;
+        } else {
+          d.osrmProgress += remaining;
+          remaining = 0;
+        }
+      }
+      
+      if (d.osrmIndex < d.osrmRoute.length - 1) {
+        const p1 = d.osrmRoute[d.osrmIndex];
+        const p2 = d.osrmRoute[d.osrmIndex + 1];
+        const segDist = haversineDist(p1[1], p1[0], p2[1], p2[0]);
+        const fraction = segDist === 0 ? 0 : d.osrmProgress / segDist;
+        
+        d.lat = p1[1] + (p2[1] - p1[1]) * fraction;
+        d.lng = p1[0] + (p2[0] - p1[0]) * fraction;
+      } else {
+        d.osrmIndex = 0;
+        d.osrmProgress = 0;
+      }
+      
+      d.ignition = 1;
+    }
+    return;
+  }
+
   if (d.imei !== '865006049210220') {
     if (d.speed > 0) {
       d.lat = nudge(d.lat);
@@ -162,6 +222,18 @@ function makeBstplPacket(d) {
 
 function startBstplSimulator() {
   log('BSTPL', `Starting — targeting ${TCP_HOST}:${PORTS.BSTPL}`);
+
+  // Fetch real-world highway route for Truck Beta (Hyd -> Vja)
+  fetch('http://router.project-osrm.org/route/v1/driving/78.4917,17.3871;80.6321,16.5151?overview=full&geometries=geojson', { headers: { 'User-Agent': 'FuelTracksSimulator/1.0' } })
+    .then(r => r.json())
+    .then(data => {
+      const truckBeta = BSTPL_DEVICES.find(d => d.imei === '865006049210216');
+      if (truckBeta && data.routes && data.routes.length > 0) {
+        truckBeta.osrmRoute = data.routes[0].geometry.coordinates; // Array of [lng, lat]
+        log('BSTPL', `${C.ok}Loaded OSRM real-road route for Truck Beta (${truckBeta.osrmRoute.length} points)${C.reset}`);
+      }
+    })
+    .catch(err => log('BSTPL', `Failed to load OSRM route: ${err.message}`));
 
   BSTPL_DEVICES.forEach((device) => {
     const client = new net.Socket();
@@ -213,15 +285,6 @@ const AIS140_DEVICES = [
     speed: 0,
     ignition: 1,
     alertCycle: 0,
-    loggedIn: false,
-  },
-  {
-    imei: '865006049210216',
-    vehReg: 'TS09EX1002',
-    lat: 12.971598,
-    lng: 77.594562,
-    speed: 40,
-    ignition: 1,
     loggedIn: false,
   },
 ];

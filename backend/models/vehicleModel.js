@@ -40,7 +40,7 @@ const VehicleModel = {
               vls.direction as current_direction,
               vls.satellites as current_satellites,
               vls.gsm_signal as current_gsm_signal,
-              (SELECT COALESCE(SUM(6371 * acos(least(1.0, cos(radians(prev_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(prev_lng)) + sin(radians(prev_lat)) * sin(radians(lat))))), 0) FROM (SELECT lat, lng, LAG(lat) OVER (ORDER BY device_time) as prev_lat, LAG(lng) OVER (ORDER BY device_time) as prev_lng FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')) sub WHERE prev_lat IS NOT NULL AND (prev_lat != lat OR prev_lng != lng)) as today_distance
+              (SELECT COALESCE(SUM(dist), 0) FROM (SELECT (6371 * acos(least(1.0, cos(radians(prev_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(prev_lng)) + sin(radians(prev_lat)) * sin(radians(lat))))) as dist FROM (SELECT lat, lng, LAG(lat) OVER (ORDER BY device_time) as prev_lat, LAG(lng) OVER (ORDER BY device_time) as prev_lng FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata') AND gp.lat > 6.5 AND gp.lat < 37.5 AND gp.lng > 68.0 AND gp.lng < 98.0) sub WHERE prev_lat IS NOT NULL AND (prev_lat != lat OR prev_lng != lng)) dist_sub WHERE dist > 0.01 AND dist < 5) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
@@ -129,7 +129,7 @@ const VehicleModel = {
                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
                 ELSE COALESCE(vls.odometer, 0)
               END as current_odometer,
-              (SELECT COALESCE(SUM(6371 * acos(least(1.0, cos(radians(prev_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(prev_lng)) + sin(radians(prev_lat)) * sin(radians(lat))))), 0) FROM (SELECT lat, lng, LAG(lat) OVER (ORDER BY device_time) as prev_lat, LAG(lng) OVER (ORDER BY device_time) as prev_lng FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata')) sub WHERE prev_lat IS NOT NULL AND (prev_lat != lat OR prev_lng != lng)) as today_distance
+              (SELECT COALESCE(SUM(dist), 0) FROM (SELECT (6371 * acos(least(1.0, cos(radians(prev_lat)) * cos(radians(lat)) * cos(radians(lng) - radians(prev_lng)) + sin(radians(prev_lat)) * sin(radians(lat))))) as dist FROM (SELECT lat, lng, LAG(lat) OVER (ORDER BY device_time) as prev_lat, LAG(lng) OVER (ORDER BY device_time) as prev_lng FROM gps_points gp WHERE gp.vehicle_id = v.id AND gp.device_time >= (DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata') AND gp.lat > 6.5 AND gp.lat < 37.5 AND gp.lng > 68.0 AND gp.lng < 98.0) sub WHERE prev_lat IS NOT NULL AND (prev_lat != lat OR prev_lng != lng)) dist_sub WHERE dist > 0.01 AND dist < 5) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
