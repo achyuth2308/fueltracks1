@@ -46,7 +46,7 @@ const OnBoardDevicePage = () => {
   const handleDownloadTemplate = () => {
     const templateData = [{
       'Device Id': '',
-      'Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)': '',
+      'Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)': '',
       'Vehicle Id': '',
       'Vehicle Name': '',
       'Registration No': '',
@@ -97,7 +97,7 @@ const OnBoardDevicePage = () => {
           id: Date.now() + idx,
           licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
           deviceId: String(row['Device Id'] || '').trim(),
-          deviceType: String(row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'BSTPL').trim(),
+          deviceType: String(row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'BSTPL').trim(),
           vehicleId: String(row['Vehicle Id'] || '').trim(),
           vehicleName: String(row['Vehicle Name'] || '').trim(),
           registrationNo: String(row['Registration No'] || '').trim(),
@@ -417,7 +417,7 @@ const OnBoardDevicePage = () => {
                     onChange={e => setExistingUserSelection({ ...existingUserSelection, userId: e.target.value })}
                   >
                     <option value="">-- Choose User --</option>
-                    {users.map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
+                    {users.filter(u => u.role !== 'superadmin').map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
                   </select>
                 </div>
                 <div>
@@ -543,6 +543,7 @@ const OnBoardDevicePage = () => {
                               <option value="AIS140 V2">AIS140 V2</option>
                               <option value="CONCOX">CONCOX</option>
                               <option value="VOLTY">VOLTY</option>
+                              <option value="FMB 920">FMB 920</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
