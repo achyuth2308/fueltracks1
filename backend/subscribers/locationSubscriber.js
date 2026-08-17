@@ -389,6 +389,33 @@ async function start(io) {
         });
       }
 
+      // 5b. Active Trip Distance Accumulation
+      // If this vehicle has an in-progress user-defined trip, accumulate distance in Redis.
+      if (isLive && lat && lng && prevState && prevState.lat && prevState.lng) {
+        try {
+          const activeTripId = await redis.get(`vehicle:active_trip:${vehicleId}`);
+          if (activeTripId) {
+            const distKm = getHaversineDistance(
+              parseFloat(prevState.lat), parseFloat(prevState.lng),
+              parseFloat(lat), parseFloat(lng)
+            ) / 1000;
+            // Same jitter/teleport filters used everywhere else
+            if (distKm > 0.01 && distKm < 5) {
+              await redis.incrbyfloat(`trip:dist:${activeTripId}`, distKm);
+              await redis.incr(`trip:pts:${activeTripId}`);
+              const curMax = parseFloat(await redis.get(`trip:maxspd:${activeTripId}`) || '0');
+              if ((speed || 0) > curMax) {
+                await redis.set(`trip:maxspd:${activeTripId}`, String(speed || 0));
+              }
+              await redis.incrbyfloat(`trip:spdsum:${activeTripId}`, speed || 0);
+            }
+          }
+        } catch (tripErr) {
+          // Non-critical — don't let trip accumulation crash the main location pipeline
+          console.error('[SUBSCRIBER] Trip accumulation error:', tripErr.message);
+        }
+      }
+
       // 6. Perform alert checks (only for live packets that are recent)
       // Prevents historical bursts from spamming state transitions (Ignition ON/OFF)
       const isRecent = (Date.now() - new Date(deviceTime).getTime()) < 15 * 60 * 1000;

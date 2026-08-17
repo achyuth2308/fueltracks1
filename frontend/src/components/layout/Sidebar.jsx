@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Route as RouteIcon } from 'lucide-react';
 import {
   LayoutDashboard,
   Briefcase,
@@ -41,6 +42,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Geofences & Routes', path: '/admin/geofences', icon: ShieldAlert, roles: ['customer'] },
+        { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer'] },
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['superadmin', 'dealer', 'customer'] },

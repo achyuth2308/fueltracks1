@@ -25,6 +25,8 @@ const reportRoutes = require('./modules/reports/routes/reportRoutes');
 const profileRoutes = require('./modules/profile/routes/profileRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const alertsRoutes = require('./routes/alertsRoutes');
+const tripRoutes = require('./modules/trips/routes/tripRoutes');
+const tripController = require('./modules/trips/controllers/tripController');
 const path = require('path');
 
 // Import middleware
@@ -140,6 +142,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/trips', tripRoutes);
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -230,6 +233,34 @@ async function bootstrap() {
       -- Vehicle latest state immobilizer columns
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS is_immobilized BOOLEAN DEFAULT FALSE;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS immobilizer_updated_at TIMESTAMP;
+
+      -- User-defined trips table
+      CREATE TABLE IF NOT EXISTS trips (
+        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        vehicle_id    UUID NOT NULL REFERENCES vehicles(id),
+        route_id      UUID REFERENCES routes(id),
+        created_by    UUID REFERENCES users(id),
+        name          VARCHAR(255) NOT NULL,
+        origin        VARCHAR(500),
+        destination   VARCHAR(500),
+        status        VARCHAR(20) DEFAULT 'planned',
+        start_time    TIMESTAMPTZ,
+        end_time      TIMESTAMPTZ,
+        start_lat     NUMERIC(10,7),
+        start_lng     NUMERIC(10,7),
+        end_lat       NUMERIC(10,7),
+        end_lng       NUMERIC(10,7),
+        distance_km   NUMERIC(10,3) DEFAULT 0,
+        max_speed     SMALLINT DEFAULT 0,
+        avg_speed     NUMERIC(5,1) DEFAULT 0,
+        duration_secs INTEGER,
+        point_count   INTEGER DEFAULT 0,
+        notes         TEXT,
+        created_at    TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_trips_vehicle_id ON trips(vehicle_id);
+      CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
+      CREATE INDEX IF NOT EXISTS idx_trips_start_time ON trips(start_time);
     `);
     console.log('[BOOT] Database tables & migrations verified');
 
@@ -278,6 +309,15 @@ async function bootstrap() {
         console.error('[CRON] Offline checker error:', err.message);
       }
     }, 60000); // Run every 60 seconds
+
+    // 5b. Flush active trip stats from Redis → DB every 5 minutes (crash safety)
+    setInterval(async () => {
+      try {
+        await tripController.flushActiveTripsToDb();
+      } catch (err) {
+        console.error('[CRON] Trip flush error:', err.message);
+      }
+    }, 5 * 60 * 1000);
 
   } catch (err) {
     console.error('[BOOT] Bootstrap failed:', err);
