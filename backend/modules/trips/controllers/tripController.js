@@ -14,9 +14,9 @@ class TripController {
   /** GET /api/trips — list trips */
   async list(req, res) {
     try {
-      const { vehicleId, status } = req.query;
+      const { vehicleId, status, startDate, endDate } = req.query;
       const orgId = req.user.role === 'superadmin' ? null : req.user.org_id;
-      const trips = await tripRepository.list({ vehicleId, orgId, status });
+      const trips = await tripRepository.list({ vehicleId, orgId, status, startDate, endDate });
       res.json({ success: true, data: trips });
     } catch (err) {
       console.error('[TripController] list error:', err.message);

@@ -25,6 +25,7 @@ const REPORT_TABS = [
   { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },
   { title: "Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
   { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
+  { title: "Manual Trips", path: "/admin/reports/manual-trips", icon: Route, color: "#7C3AED", bg: "#EDE9FE" },
 ];
 
 const MetricCard = ({ label, value, color, icon: Icon, bg }) => (

@@ -35,6 +35,7 @@ import StoppageReportPage from './pages/reports/StoppageReportPage';
 import IdleReportPage from './pages/reports/IdleReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
+import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
@@ -103,6 +104,7 @@ function App() {
                   <Route path="idle" element={<IdleReportPage />} />
                   <Route path="consolidated" element={<ConsolidatedReportPage />} />
                   <Route path="individual" element={<IndividualReportPage />} />
+                  <Route path="manual-trips" element={<ManualTripsReportPage />} />
                 </Route>
               </Route>
 

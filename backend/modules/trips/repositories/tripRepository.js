@@ -91,7 +91,7 @@ class TripRepository {
   }
 
   /** List trips for a vehicle/org with optional filters */
-  async list({ vehicleId, orgId, status, limit = 100, offset = 0 }) {
+  async list({ vehicleId, orgId, status, startDate, endDate, limit = 100, offset = 0 }) {
     let where = [];
     const params = [];
     let pi = 1;
@@ -99,6 +99,11 @@ class TripRepository {
     if (vehicleId) { where.push(`t.vehicle_id=$${pi++}`); params.push(vehicleId); }
     if (orgId) { where.push(`v.org_id=$${pi++}`); params.push(orgId); }
     if (status) { where.push(`t.status=$${pi++}`); params.push(status); }
+
+    if (startDate && endDate) {
+      where.push(`COALESCE(t.start_time, t.created_at) BETWEEN $${pi++} AND $${pi++}`);
+      params.push(startDate, endDate);
+    }
 
     const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
     params.push(limit, offset);
