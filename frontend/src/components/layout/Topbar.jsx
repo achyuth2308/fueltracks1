@@ -303,7 +303,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
                       <div>
                         <div style={{ fontWeight: 700, color: '#111827', marginBottom: '2px' }}>{a.vehicleName} <span style={{ color: '#6B7280', fontWeight: 500 }}>({a.plate})</span></div>
                         <div style={{ color: '#475569', lineHeight: 1.4, marginBottom: '6px' }}>{a.alertText}</div>
-                        <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime || a.serverTime).toLocaleTimeString()}</div>
+                        <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 600 }}>{new Date(a.deviceTime || a.serverTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                        {a.address && <div style={{ color: '#9ca3af', fontSize: '10px', fontWeight: 500, marginTop: '2px' }}>📍 {a.address}</div>}
                       </div>
                     </div>
                   ))}
@@ -364,6 +365,14 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             <div style={{ fontSize: '13px', color: '#cbd5e1', lineHeight: 1.5, fontWeight: 500 }}>
               {latestToast.alertText}
             </div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px', fontWeight: 600 }}>
+              {new Date(latestToast.deviceTime || latestToast.serverTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            </div>
+            {latestToast.address && (
+              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontWeight: 500 }}>
+                📍 {latestToast.address}
+              </div>
+            )}
           </div>
         </div>
       )}

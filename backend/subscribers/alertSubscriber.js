@@ -10,6 +10,7 @@ const GpsModel = require('../models/gpsModel');
 const profileRepository = require('../modules/profile/repositories/profileRepository');
 const NotificationService = require('../services/notificationService');
 const fcmService = require('../services/fcmService');
+const { getAddress } = require('../utils/geocodeUtils');
 
 
 let subscriber = null;
@@ -51,6 +52,15 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
+      let address = 'Unknown Location';
+      if (lat && lng) {
+        address = await getAddress(lat, lng);
+      }
+
+      const dateObj = new Date(deviceTime || Date.now());
+      const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = dateObj.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+
       // 2. Save alert to database
       const alert = await GpsModel.saveAlert({
         vehicleId,
@@ -86,6 +96,7 @@ async function start(io) {
         alertText,
         lat,
         lng,
+        address,
         deviceTime,
         serverTime: alert.server_time
       };
@@ -112,9 +123,12 @@ async function start(io) {
       try {
         const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, alertType.toLowerCase());
         if (fcmTokens.length > 0) {
+          const bodyText = alertText || `${vehicle.plate} triggered a ${alertType} alert.`;
+          const enhancedBody = `${bodyText}\n\nTime: ${timeStr}, ${dateStr}\nLoc: ${address}\nMaps: https://maps.google.com/?q=${lat},${lng}`;
+          
           await fcmService.sendMulticast(fcmTokens, {
             title: `${alertType.replace(/_/g, ' ').toUpperCase()} — ${vehicle.name}`,
-            body: alertText || `${vehicle.plate} triggered a ${alertType} alert.`,
+            body: enhancedBody,
             data: {
               vehicleId: String(vehicleId),
               alertType,

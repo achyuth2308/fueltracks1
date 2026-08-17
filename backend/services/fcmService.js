@@ -3,13 +3,15 @@
 // Requires FIREBASE_SERVICE_ACCOUNT_JSON in .env (JSON string)
 // ============================================================
 
-let admin = null;
+const { initializeApp, getApps, cert } = require('firebase-admin/app');
+const { getMessaging } = require('firebase-admin/messaging');
+
 let messaging = null;
 
 /**
  * Initialize Firebase Admin SDK (lazy init, only if configured)
  */
-function getMessaging() {
+function getFcmMessaging() {
   if (messaging) return messaging;
 
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -19,10 +21,7 @@ function getMessaging() {
   }
 
   try {
-    if (!admin) {
-      admin = require('firebase-admin');
-    }
-    if (admin.apps.length === 0) {
+    if (getApps().length === 0) {
       // Strip surrounding quotes if the environment variable was loaded with them intact
       let cleanJson = serviceAccountJson.trim();
       if ((cleanJson.startsWith("'") && cleanJson.endsWith("'")) || (cleanJson.startsWith('"') && cleanJson.endsWith('"'))) {
@@ -36,12 +35,12 @@ function getMessaging() {
         serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
       }
 
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
+      initializeApp({
+        credential: cert(serviceAccount),
       });
       console.log('[FCM] Firebase Admin SDK initialized');
     }
-    messaging = admin.messaging();
+    messaging = getMessaging();
     return messaging;
   } catch (err) {
     console.error('[FCM] Failed to initialize Firebase Admin SDK:', err.message);
@@ -58,7 +57,7 @@ function getMessaging() {
 async function sendMulticast(tokens, { title, body, data = {} }) {
   if (!tokens || tokens.length === 0) return { success: true, sent: 0, failed: 0 };
 
-  const msg = getMessaging();
+  const msg = getFcmMessaging();
   if (!msg) {
     // FCM not configured — skip silently
     return { success: true, sent: 0, failed: 0, skipped: true };

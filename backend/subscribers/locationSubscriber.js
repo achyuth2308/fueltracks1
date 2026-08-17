@@ -442,10 +442,8 @@ async function start(io) {
           }
         }
 
-        // Check B: Trip started (stopped/parked → moving)
-        if (finalIgnition === true && evalSpeed > 0 && prevState && (prevState.speed === 0 || prevState.ignition === false)) {
-          alertsToTrigger.push({ type: 'trip_started', text: 'Trip Started Alert: Vehicle has begun moving.' });
-        }
+        // Check B: Trip started (Automated trip started notification removed as requested)
+        // Only Manual Trips (Check G) will now trigger trip_started / trip_ended alerts.
 
         // Check C: Ignition OFF transition
         if (finalIgnition === false && prevState && prevState.ignition === true) {
