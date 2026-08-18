@@ -233,6 +233,7 @@ async function bootstrap() {
       -- Vehicle latest state immobilizer columns
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS is_immobilized BOOLEAN DEFAULT FALSE;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS immobilizer_updated_at TIMESTAMP;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS battery SMALLINT;
 
       -- User-defined trips table
       CREATE TABLE IF NOT EXISTS trips (

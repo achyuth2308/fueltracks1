@@ -247,7 +247,7 @@ async function start(io) {
         if (!isValidPoint) {
           console.warn(`[GPS-REJECT] IMEI ${imei}: ${rejectReason}. Dropped from live tracking & DB.`);
           // Keep device online in DB even if GPS is drifting or resetting
-          await GpsModel.updateLatestState({ vehicleId, ignition: finalIgnition, voltage });
+          await GpsModel.updateLatestState({ vehicleId, ignition: finalIgnition, voltage, battery: battery != null ? Math.round(battery) : null });
           return;
         }
       }
@@ -325,7 +325,8 @@ async function start(io) {
           voltage,
           odometer: finalOdometer != null ? Math.round(finalOdometer) : null, 
           satellites: satellites != null ? Math.round(satellites) : null, 
-          gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null
+          gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null,
+          battery: battery != null ? Math.round(battery) : null
         });
       }
 

@@ -48,12 +48,12 @@ const GpsModel = {
    * Update vehicle latest state (upsert)
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,
-                             ignition, voltage, odometer, satellites, gsmSignal }) {
+                             ignition, voltage, odometer, satellites, gsmSignal, battery }) {
     await db.query(
       `INSERT INTO vehicle_latest_state
         (vehicle_id, lat, lng, speed, direction, fuel, ignition, voltage,
-         odometer, satellites, gsm_signal, is_online, last_seen)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,TRUE,NOW())
+         odometer, satellites, gsm_signal, battery, is_online, last_seen)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE,NOW())
        ON CONFLICT (vehicle_id) DO UPDATE SET
         lat = COALESCE($2, vehicle_latest_state.lat), 
         lng = COALESCE($3, vehicle_latest_state.lng), 
@@ -65,9 +65,10 @@ const GpsModel = {
         odometer = COALESCE($9, vehicle_latest_state.odometer), 
         satellites = COALESCE($10, vehicle_latest_state.satellites), 
         gsm_signal = COALESCE($11, vehicle_latest_state.gsm_signal),
+        battery = COALESCE($12, vehicle_latest_state.battery),
         is_online = TRUE, last_seen = NOW()`,
       [vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
-       odometer, satellites, gsmSignal]
+       odometer, satellites, gsmSignal, battery]
     );
   },
 
