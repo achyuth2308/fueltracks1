@@ -580,10 +580,20 @@ const GpsModel = {
     );
   },
 
-  /**
-   * Get all FCM tokens for users in an org who have a given alert type enabled
-   */
   async getFcmTokensForAlert(orgId, alertType) {
+    let prefKey = alertType;
+    if (alertType) {
+      const type = alertType.toLowerCase();
+      if (type === 'ignition_on' || type === 'stoppage' || type === 'parking' || 
+          type === 'excessive_idle' || type === 'trip_started' || type === 'trip_ended') {
+        prefKey = 'ignition';
+      } else if (type === 'safety_park') {
+        prefKey = 'theft';
+      } else if (type === 'route_deviation') {
+        prefKey = 'geofence';
+      }
+    }
+
     const result = await db.query(
       `SELECT t.fcm_token
        FROM user_fcm_tokens t
@@ -594,7 +604,7 @@ const GpsModel = {
            p.preferences IS NULL
            OR COALESCE((p.preferences->$2)::text, 'true') != 'false'
          )`,
-      [orgId, alertType]
+      [orgId, prefKey]
     );
     return result.rows.map(r => r.fcm_token);
   },
