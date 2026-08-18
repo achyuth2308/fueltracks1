@@ -16,99 +16,39 @@ const env = require('../config/env');
 let subscriber = null;
 
 // ============================================================
-// BATCHED GPS WRITER
-// Accumulates GPS points and flushes to Postgres in bulk using
-// unnest() — dramatically reduces write throughput pressure at scale.
+// IMMEDIATE GPS WRITER
+// Writes GPS points immediately to PostgreSQL for real-time accuracy.
 // ============================================================
 
-const FLUSH_INTERVAL_MS = env.WRITER_BATCH_MS;   // default 500ms
-const FLUSH_BATCH_SIZE = env.WRITER_BATCH_SIZE;  // default 100 rows
-
-/** @type {Array<object>} In-memory accumulator for pending GPS rows */
-let gpsBatch = [];
-/** @type {NodeJS.Timeout|null} Pending flush timer handle */
-let gpsBatchTimer = null;
-
 /**
- * Flush all pending GPS points to Postgres in a single batch INSERT.
- * Uses Postgres unnest() to avoid per-row round-trips.
- * Thread-safe: drains the array atomically before querying.
+ * Inserts a GPS point immediately to Postgres.
  */
-async function flushGpsBatch() {
-  if (gpsBatch.length === 0) return;
-
-  // Drain atomically — any points arriving during the async query go into the next batch
-  const batch = gpsBatch.splice(0, gpsBatch.length);
-
+async function queueGpsPoint(point) {
   try {
-    // Extract each column into its own array for unnest()
-    const vehicleIds = batch.map(p => p.vehicleId);
-    const lats = batch.map(p => p.lat);
-    const lngs = batch.map(p => p.lng);
-    const speeds = batch.map(p => p.speed != null ? Math.round(p.speed) : null);
-    const directions = batch.map(p => p.direction != null ? Math.round(p.direction) : null);
-    const odometers = batch.map(p => p.odometer != null ? Math.round(p.odometer) : null);
-    const fuels = batch.map(p => p.fuel ?? null);
-    const ignitions = batch.map(p => p.ignition ?? null);
-    const satellites = batch.map(p => p.satellites != null ? Math.round(p.satellites) : null);
-    const gsmSignals = batch.map(p => p.gsmSignal != null ? Math.round(p.gsmSignal) : null);
-    const batteries = batch.map(p => p.battery != null ? Math.round(p.battery) : null);
-    const voltages = batch.map(p => p.voltage ?? null);
-    const isLives = batch.map(p => p.isLive ?? true);
-    const deviceTimes = batch.map(p => p.deviceTime);
-
     await db.query(`
       INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
          satellites, gsm_signal, battery, voltage, is_live, device_time)
-      SELECT
-        unnest($1::uuid[]),
-        unnest($2::numeric[]),
-        unnest($3::numeric[]),
-        unnest($4::smallint[]),
-        unnest($5::smallint[]),
-        unnest($6::integer[]),
-        unnest($7::numeric[]),
-        unnest($8::boolean[]),
-        unnest($9::smallint[]),
-        unnest($10::smallint[]),
-        unnest($11::smallint[]),
-        unnest($12::numeric[]),
-        unnest($13::boolean[]),
-        unnest($14::timestamp[])
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       ON CONFLICT (vehicle_id, device_time) DO NOTHING
-    `, [vehicleIds, lats, lngs, speeds, directions, odometers, fuels,
-      ignitions, satellites, gsmSignals, batteries, voltages, isLives, deviceTimes]);
-
-    if (batch.length >= 10) {
-      // Only log large batches to avoid noise at low traffic
-      console.log(`[BATCH] Flushed ${batch.length} GPS points to Postgres`);
-    }
+    `, [
+      point.vehicleId,
+      point.lat,
+      point.lng,
+      point.speed != null ? Math.round(point.speed) : null,
+      point.direction != null ? Math.round(point.direction) : null,
+      point.odometer != null ? Math.round(point.odometer) : null,
+      point.fuel ?? null,
+      point.ignition ?? null,
+      point.satellites != null ? Math.round(point.satellites) : null,
+      point.gsmSignal != null ? Math.round(point.gsmSignal) : null,
+      point.battery != null ? Math.round(point.battery) : null,
+      point.voltage ?? null,
+      point.isLive ?? true,
+      point.deviceTime
+    ]);
   } catch (err) {
-    console.error(`[BATCH] GPS batch flush error (${batch.length} rows dropped):`, err.message);
-  }
-}
-
-/**
- * Queue a GPS point for the next batch flush.
- * Triggers an immediate flush if the batch is full.
- */
-async function queueGpsPoint(point) {
-  gpsBatch.push(point);
-
-  if (gpsBatch.length >= FLUSH_BATCH_SIZE) {
-    // Batch is full — flush immediately, cancel the timer
-    if (gpsBatchTimer) {
-      clearTimeout(gpsBatchTimer);
-      gpsBatchTimer = null;
-    }
-    await flushGpsBatch();
-  } else if (!gpsBatchTimer) {
-    // Schedule a timed flush so low-traffic points don't get stranded
-    gpsBatchTimer = setTimeout(async () => {
-      gpsBatchTimer = null;
-      await flushGpsBatch();
-    }, FLUSH_INTERVAL_MS);
+    console.error(`[GPS-INSERT] Immediate insert error for vehicle ${point.vehicleId}:`, err.message);
   }
 }
 
@@ -662,16 +602,6 @@ async function start(io) {
  * Stop subscriber — flush any pending batch before closing
  */
 async function stop() {
-  // Cancel pending timer and flush remaining points first
-  if (gpsBatchTimer) {
-    clearTimeout(gpsBatchTimer);
-    gpsBatchTimer = null;
-  }
-  if (gpsBatch.length > 0) {
-    console.log(`[SUBSCRIBER] Flushing ${gpsBatch.length} pending GPS points before shutdown...`);
-    await flushGpsBatch();
-  }
-
   if (subscriber) {
     await subscriber.quit();
     subscriber = null;
