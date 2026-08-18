@@ -354,7 +354,7 @@ async function start(io) {
         await redis.set(
           `vehicle:state:${imei}`,
           JSON.stringify(updatedPayload),
-          'EX', 300
+          'EX', 86400 // 24 hours — must outlive the 5-min safety park arming window
         );
       }
 
@@ -433,11 +433,22 @@ async function start(io) {
         }
 
         // Check A2: Safety Park Alarm (Unauthorized Movement / Ignition)
+        // Arms after vehicle has been parked (ignition OFF, speed 0) for > 5 minutes.
         if (vehicle.metadata?.safetyPark === 'YES' && prevState && prevState.ignition === false && (prevState.speed || 0) === 0 && prevState.parkedSince) {
           const parkedDurationMs = new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime();
-          if (parkedDurationMs >= 5 * 60 * 1000) { // > 5 minutes
+          if (parkedDurationMs >= 5 * 60 * 1000) { // Armed after 5+ minutes parked
             if (finalIgnition === true || evalSpeed > 0) {
-              alertsToTrigger.push({ type: 'safety_park', text: 'Safety Park Alarm: Unauthorized movement or ignition detected while parked.' });
+              // Debounce: only fire once every 30 minutes so we don't spam the user
+              const spKey = `vehicle:safety_park_fired:${vehicleId}`;
+              const alreadyFired = await redis.get(spKey);
+              if (!alreadyFired) {
+                const movementType = finalIgnition === true ? 'Ignition turned ON' : `Moving at ${Math.round(evalSpeed)} km/h`;
+                alertsToTrigger.push({
+                  type: 'safety_park',
+                  text: `Vehicle Theft Alarm: ${vehicle.name} (${vehicle.plate}) — ${movementType} detected while vehicle was parked. Check immediately!`
+                });
+                await redis.set(spKey, '1', 'EX', 1800); // Lock for 30 minutes
+              }
             }
           }
         }

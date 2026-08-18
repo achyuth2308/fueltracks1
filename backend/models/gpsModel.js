@@ -510,6 +510,7 @@ const GpsModel = {
       preferences = {
         sos: true, panic: true, crash: true, accident: true,
         tow: true, power_cut: true, theft: true, theft_alarm: true,
+        safety_park: true,
         overspeed: true, harsh_braking: true, harsh_acceleration: true,
         geofence_enter: true, geofence_exit: true, low_battery: true,
         ignition_on: true, ignition_off: true, idle: false,
