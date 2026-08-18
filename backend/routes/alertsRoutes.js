@@ -14,6 +14,8 @@ const {
   updatePreferences,
   registerFcmToken,
   removeFcmToken,
+  deleteAlert,
+  clearAllAlerts,
 } = require('../controllers/alertsController');
 
 // All routes require authentication
@@ -21,8 +23,10 @@ router.use(authenticate);
 
 // Alert history
 router.get('/', getAlerts);
+router.delete('/', clearAllAlerts);
 router.put('/read-all', markAllRead);       // must be before /:id
 router.put('/:id/read', markAlertRead);
+router.delete('/:id', deleteAlert);
 
 // Alert preferences
 router.get('/preferences', getPreferences);

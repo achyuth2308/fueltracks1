@@ -657,6 +657,36 @@ const VehicleController = {
   },
 
   /**
+   * Clear all alerts for a vehicle
+   */
+  async clearVehicleAlerts(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const count = await GpsModel.clearAlertsForVehicle(id, req.user.orgId);
+      res.status(200).json({
+        success: true,
+        message: `${count} alerts cleared successfully.`,
+        count
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * Get raw device messages (Sensor Data)
    * GET /api/vehicles/:id/messages
    */

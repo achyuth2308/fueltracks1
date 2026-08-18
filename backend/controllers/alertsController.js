@@ -145,6 +145,39 @@ async function removeFcmToken(req, res, next) {
   }
 }
 
+/**
+ * DELETE /api/alerts/:id
+ * Delete a single alert
+ */
+async function deleteAlert(req, res, next) {
+  try {
+    const { orgId } = req.user;
+    const alertId = req.params.id;
+
+    const deleted = await GpsModel.deleteAlert(alertId, orgId);
+    if (!deleted) {
+      return res.status(404).json({ success: false, error: 'Alert not found or access denied.' });
+    }
+    res.json({ success: true, message: 'Alert deleted successfully.' });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * DELETE /api/alerts
+ * Clear all alerts for the user's organization
+ */
+async function clearAllAlerts(req, res, next) {
+  try {
+    const { orgId } = req.user;
+    const count = await GpsModel.clearAlertsForOrg(orgId);
+    res.json({ success: true, message: `${count} alerts cleared successfully.`, count });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAlerts,
   markAlertRead,
@@ -153,4 +186,6 @@ module.exports = {
   updatePreferences,
   registerFcmToken,
   removeFcmToken,
+  deleteAlert,
+  clearAllAlerts,
 };

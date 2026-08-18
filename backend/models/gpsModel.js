@@ -240,9 +240,14 @@ const GpsModel = {
 
     params.push(limit, offset);
     const result = await db.query(
-      `SELECT * FROM alerts
-       WHERE vehicle_id = $1 ${typeFilter}
-       ORDER BY device_time DESC
+      `SELECT a.id, a.vehicle_id as "vehicleId", v.name as "vehicleName", v.plate, v.imei,
+              a.alert_type as "alertType", a.alert_text as "alertText",
+              a.lat, a.lng, a.device_time as "deviceTime", a.server_time as "serverTime",
+              COALESCE(a.is_read, FALSE) as "isRead"
+       FROM alerts a
+       JOIN vehicles v ON a.vehicle_id = v.id
+       WHERE a.vehicle_id = $1 ${typeFilter}
+       ORDER BY a.device_time DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
@@ -646,6 +651,42 @@ const GpsModel = {
       organizations: parseInt(result.rows[0].organizations_count || 0),
       users: parseInt(result.rows[0].users_count || 0),
     };
+  },
+
+  async clearAlertsForOrg(orgId) {
+    const result = await db.query(
+      `DELETE FROM alerts
+       USING vehicles
+       WHERE alerts.vehicle_id = vehicles.id AND vehicles.org_id = $1`,
+      [orgId]
+    );
+    const redisKey = `org:alerts:${orgId}`;
+    await redis.del(redisKey).catch(() => {});
+    return result.rowCount;
+  },
+
+  async clearAlertsForVehicle(vehicleId, orgId) {
+    const result = await db.query(
+      `DELETE FROM alerts
+       USING vehicles
+       WHERE alerts.vehicle_id = vehicles.id AND alerts.vehicle_id = $1 AND vehicles.org_id = $2`,
+      [vehicleId, orgId]
+    );
+    const redisKey = `org:alerts:${orgId}`;
+    await redis.del(redisKey).catch(() => {});
+    return result.rowCount;
+  },
+
+  async deleteAlert(alertId, orgId) {
+    const result = await db.query(
+      `DELETE FROM alerts
+       USING vehicles
+       WHERE alerts.vehicle_id = vehicles.id AND alerts.id = $1 AND vehicles.org_id = $2`,
+      [alertId, orgId]
+    );
+    const redisKey = `org:alerts:${orgId}`;
+    await redis.del(redisKey).catch(() => {});
+    return result.rowCount > 0;
   },
 };
 
