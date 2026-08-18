@@ -113,7 +113,7 @@ async function start(io) {
   subscriber = createSubscriber();
 
   subscriber.on('connect', () => {
-    console.log(`[SUBSCRIBER] Location subscriber connected to Redis (batch flush every ${FLUSH_INTERVAL_MS}ms or ${FLUSH_BATCH_SIZE} rows)`);
+    console.log('[SUBSCRIBER] Location subscriber connected to Redis (immediate writes)');
   });
 
   // Subscribe to 'tracking' and 'raw_logs'
