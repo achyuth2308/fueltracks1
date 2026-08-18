@@ -458,7 +458,28 @@ async function start(io) {
 
         // Check C: Ignition OFF transition
         if (finalIgnition === false && prevState && prevState.ignition === true) {
-          alertsToTrigger.push({ type: 'stoppage', text: 'Vehicle Stoppage Alert: Vehicle has stopped and ignition turned OFF.' });
+          alertsToTrigger.push({ type: 'stoppage', text: `Vehicle Stoppage Alert: ${vehicle.name} (${vehicle.plate}) has stopped and ignition turned OFF.` });
+        }
+
+        // Check C2: Long Parking Alert
+        // Fires once after vehicle has been continuously parked (ignition OFF, speed 0) for 30 minutes.
+        if (finalIgnition === false && evalSpeed === 0 && prevState?.parkedSince) {
+          const parkingDurationMin = (new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime()) / 60000;
+          const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
+          if (parkingDurationMin >= 30) {
+            const alreadyFired = await redis.get(parkAlertFiredKey);
+            if (!alreadyFired) {
+              const durationStr = Math.round(parkingDurationMin);
+              alertsToTrigger.push({
+                type: 'parking',
+                text: `Long Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked for ${durationStr} minutes.`
+              });
+              await redis.set(parkAlertFiredKey, '1', 'EX', 86400); // Fire once per parking session (24h max)
+            }
+          }
+        } else if (finalIgnition === true || evalSpeed > 0) {
+          // Vehicle is moving — reset the parking alert so it can fire again next time
+          await redis.del(`vehicle:parking_alert_fired:${vehicleId}`);
         }
 
         // Check D: Excessive idle (ignition ON, speed 0) using custom duration limit
