@@ -344,6 +344,13 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x22) {
     odometer = Math.round(rawMileage / 1000);  // convert to km as integer
   }
 
+  // Parse voltage if available (some device variants append 2 bytes voltage at offset 33)
+  let voltage = null;
+  if (info.length >= 35) {
+    const rawVolts = info.readUInt16BE(33);
+    voltage = rawVolts / 100;
+  }
+
   // Heuristic for clones (e.g. 0x8066) that never set the GPS Valid bit but send real coordinates
   let finalGpsValid = gps.gpsValid ? 'A' : 'V';
   if (finalGpsValid === 'V' && gps.lat !== 0 && gps.lng !== 0) {
@@ -365,7 +372,7 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x22) {
     isLive:         !isBuffered,
     odometer,
     fuel:           null,       // not reported in Concox location packets
-    voltage:        null,       // enriched later from 0x94 info packets if available
+    voltage,
     battery:        null,       // unknown from location packet; heartbeat provides this
     gsmSignal:      null,
     serialNumber,
