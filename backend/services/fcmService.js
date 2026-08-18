@@ -59,7 +59,6 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
 
   const msg = getFcmMessaging();
   if (!msg) {
-    // FCM not configured — skip silently
     return { success: true, sent: 0, failed: 0, skipped: true };
   }
 
@@ -72,16 +71,10 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
           Object.entries(data).map(([k, v]) => [k, String(v)])
         )
       ),
-      android: {
-        priority: 'high',
-      },
+      android: { priority: 'high' },
       apns: {
         payload: {
-          aps: { 
-            alert: { title, body },
-            sound: 'default', 
-            badge: 1 
-          },
+          aps: { alert: { title, body }, sound: 'default', badge: 1 },
         },
       },
     };
@@ -91,11 +84,35 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
     const failed = response.failureCount;
 
     if (failed > 0) {
+      const staleTokens = [];
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
-          console.warn(`[FCM] Token [${idx}] failed:`, resp.error?.message);
+          const errCode = resp.error?.code || resp.error?.message || '';
+          // NotRegistered = app uninstalled / token expired after reinstall
+          // InvalidRegistration = malformed or revoked token
+          if (errCode.includes('registration-token-not-registered') ||
+              errCode.includes('NotRegistered') ||
+              errCode.includes('InvalidRegistration')) {
+            staleTokens.push(tokens[idx]);
+          } else {
+            console.warn(`[FCM] Token [${idx}] failed:`, resp.error?.message);
+          }
         }
       });
+
+      // Auto-purge stale tokens so they stop generating errors on every alert
+      if (staleTokens.length > 0) {
+        console.log(`[FCM] Purging ${staleTokens.length} stale/expired FCM token(s) from DB`);
+        try {
+          const db = require('../config/db');
+          await db.query(
+            `DELETE FROM user_fcm_tokens WHERE fcm_token = ANY($1::text[])`,
+            [staleTokens]
+          );
+        } catch (dbErr) {
+          console.error('[FCM] Failed to purge stale tokens:', dbErr.message);
+        }
+      }
     }
 
     return { success: true, sent, failed };
