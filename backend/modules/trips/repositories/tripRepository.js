@@ -101,8 +101,9 @@ class TripRepository {
     if (status) { where.push(`t.status=$${pi++}`); params.push(status); }
 
     if (startDate && endDate) {
-      where.push(`COALESCE(t.start_time, t.created_at) BETWEEN $${pi++} AND $${pi++}`);
+      where.push(`(t.status IN ('planned', 'in_progress') OR COALESCE(t.start_time, t.created_at) BETWEEN $${pi} AND $${pi+1})`);
       params.push(startDate, endDate);
+      pi += 2;
     }
 
     const whereStr = where.length ? 'WHERE ' + where.join(' AND ') : '';
