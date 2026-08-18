@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Search, Loader2, Map, Filter, FileText, Truck, Calendar } from 'lucide-react';
+import { ArrowLeft, Download, Search, Loader2, Map, Filter, FileText, FileSpreadsheet, Truck, Calendar } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
