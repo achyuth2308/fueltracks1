@@ -1,9 +1,30 @@
 #!/bin/bash
+# =====================================================================
+# ⚠️  DEPRECATED — DO NOT USE ON HETZNER SERVERS ⚠️
+#
+# This script was written for a previous Contabo deployment and has
+# multiple confirmed defects that violate the production non-negotiables:
+#
+#   1. GPS ports 5000-5004 are opened to the ENTIRE INTERNET — not
+#      restricted to the relay IP. This is a security violation.
+#   2. max_connections = 200 (should be 50 — risks OOM on 8GB box).
+#   3. Hardcoded placeholder DB password: 'fuel_db_pass_CHANGE_ME'.
+#   4. Uses deprecated 'apt-key add' (produces warnings on Ubuntu 24.04).
+#   5. Does not create the dedicated non-root 'fueltracks' user.
+#   6. Does not add fail2ban or a swap file.
+#
+# ✅ USE infrastructure/backend_provision.sh FOR ALL HETZNER DEPLOYMENTS.
+#    That script fixes all of the above.
+#
+# This file is kept for historical reference only. If you are reading
+# this at 2am under pressure — stop, close this file, use backend_provision.sh.
+# =====================================================================
 set -e
 # =====================================================================
-# FUELTRACKS CONTABO VPS PROVISIONING SCRIPT
+# FUELTRACKS CONTABO VPS PROVISIONING SCRIPT (HISTORICAL — SEE ABOVE)
 # Target: Contabo VPS 4 (8GB RAM, 4 vCPU, 100GB NVMe) | OS: Ubuntu 24.04
 # =====================================================================
+
 
 # Must run as root
 if [ "$EUID" -ne 0 ]; then

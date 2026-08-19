@@ -4,12 +4,23 @@
 // ============================================================
 
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 const VehicleModel = {
   /**
    * Find vehicle by IMEI (used by TCP server to match packets)
    */
   async findByImei(imei) {
+    // Cache IMEI → vehicle lookups for 5 minutes.
+    // This is the hottest DB read in the system — called on every GPS packet.
+    // TTL-based invalidation is safe: IMEI changes only happen via the migrate
+    // method (which deletes the cache entry), and metadata updates are rare.
+    const cacheKey = `vehicle:imei:${imei}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (_) { /* cache read failed — fall through to DB */ }
+
     const result = await db.query(
       `SELECT v.*, v.metadata, o.name as org_name
        FROM vehicles v
@@ -17,7 +28,15 @@ const VehicleModel = {
        WHERE v.imei = $1`,
       [imei]
     );
-    return result.rows[0] || null;
+    const vehicle = result.rows[0] || null;
+
+    if (vehicle) {
+      try {
+        await redis.set(cacheKey, JSON.stringify(vehicle), 'EX', 300); // 5-min TTL
+      } catch (_) { /* non-critical — DB is the source of truth */ }
+    }
+
+    return vehicle;
   },
 
   /**
@@ -245,10 +264,22 @@ const VehicleModel = {
    * Migrate vehicle to a new IMEI device
    */
   async migrate(vehicleId, newImei) {
+    // Fetch the current IMEI before overwriting so we can purge the old cache entry.
+    const currentRow = await db.query(`SELECT imei FROM vehicles WHERE id = $1`, [vehicleId]);
+    const oldImei = currentRow.rows[0]?.imei;
+
     const result = await db.query(
       `UPDATE vehicles SET imei = $1 WHERE id = $2 RETURNING *`,
       [newImei, vehicleId]
     );
+
+    // Invalidate cache for both the old IMEI (now stale) and the new IMEI
+    // (may exist from a previous registration of the same device).
+    const keysToDelete = [oldImei, newImei].filter(Boolean).map(i => `vehicle:imei:${i}`);
+    if (keysToDelete.length) {
+      try { await redis.del(...keysToDelete); } catch (_) {}
+    }
+
     return result.rows[0] || null;
   },
 

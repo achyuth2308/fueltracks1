@@ -1515,6 +1515,7 @@ const healthServer = http.createServer((req, res) => {
       ais140V2Connections: protocolStats['AIS140V2'].connections,
       concoxConnections:   protocolStats['CONCOX'].connections,
       voltyConnections:    protocolStats['VOLTY'].connections,
+      fmb920Connections:   protocolStats['FMB920'].connections,
       stats: protocolStats
     }));
   } else {
@@ -1545,5 +1546,22 @@ function shutdown() {
 
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
+
+// ============================================================
+// PROCESS-LEVEL ERROR GUARDS
+// An uncaught exception in any packet handler path triggers a clean
+// shutdown so PM2 can restart the ingestion process quickly.
+// unhandledRejection is logged only — a single missed .catch() in a
+// per-packet handler should not kill the whole TCP server.
+// ============================================================
+process.on('uncaughtException', (err) => {
+  console.error('[TCP] Uncaught exception — initiating graceful shutdown:', err.stack || err.message);
+  shutdown();
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[TCP] Unhandled promise rejection (non-fatal, logged for investigation):', reason);
+});
+
 
 module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, healthServer };

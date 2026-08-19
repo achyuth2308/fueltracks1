@@ -1,7 +1,18 @@
 #!/bin/bash
+# =====================================================================
+# ⚠️  DEPRECATED — AWS EC2 one-shot fix script, DO NOT RUN ON HETZNER
+#
+# This was a one-time emergency fix run during the Contabo/EC2 era:
+#   - Targets /home/ubuntu/ (wrong user for Hetzner — use 'fueltracks')
+#   - The TimescaleDB schema fix it performs is now handled by the
+#     standard migration path (npm run db:migrate + timescale_migration.sql)
+#   - Certbot is configured by deploy_fix.sh inline nginx block instead
+#
+# Kept for historical reference only. Do not run on Hetzner servers.
+# =====================================================================
 set -e
 
-cd /home/ubuntu/fueltracks1
+cd /home/fueltracks/fueltracks1
 
 echo "Fixing TimescaleDB Schema..."
 sudo -u postgres psql -d fueltracks -c "ALTER TABLE gps_points DROP CONSTRAINT IF EXISTS gps_points_pkey CASCADE;"

@@ -1,4 +1,18 @@
 #!/bin/bash
+# =====================================================================
+# ⚠️  DEPRECATED — EC2/PG18 fix script, DO NOT RUN ON HETZNER
+#
+# Known issues with this script on the Hetzner stack:
+#   - Installs postgresql-18-timescaledb (Hetzner uses PostgreSQL 16)
+#   - Targets /home/ubuntu/ (wrong user — Hetzner uses 'fueltracks')
+#   - Frontend root hardcoded to /home/ubuntu/fueltracks1/frontend/dist
+#   - nginx inline config is correct (port 3001, right headers) but the
+#     canonical nginx config to use is infrastructure/nginx.conf
+#
+# For Hetzner deployment, use:
+#   1. infrastructure/backend_provision.sh  (server setup)
+#   2. deploy.sh                            (code deploy + nginx)
+# =====================================================================
 set -e
 
 echo "Fixing broken apt dependencies..."
@@ -16,7 +30,7 @@ sudo timescaledb-tune --quiet --yes || true
 sudo systemctl restart postgresql
 
 echo "Running Database Migrations..."
-cd /home/ubuntu/fueltracks1
+cd /home/fueltracks/fueltracks1
 sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql
 
 echo "Configuring Nginx Reverse Proxy..."
@@ -46,7 +60,7 @@ server {
     listen 80;
     server_name app.fueltracks.in;
     
-    root /home/ubuntu/fueltracks1/frontend/dist;
+    root /home/fueltracks/fueltracks1/frontend/dist;
     index index.html;
 
     location / {

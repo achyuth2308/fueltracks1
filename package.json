@@ -9,10 +9,12 @@
     "dev:api": "nodemon backend/server.js",
     "dev:tcp": "nodemon tcp-server/server.js",
     "simulator": "node scripts/deviceSimulator.js",
+    "sim:all": "node scripts/deviceSimulator.js",
     "sim:bstpl": "node scripts/deviceSimulator.js bstpl",
     "sim:ais140": "node scripts/deviceSimulator.js ais140",
     "sim:concox": "node scripts/deviceSimulator.js concox",
     "sim:volty": "node scripts/deviceSimulator.js volty",
+    "sim:fmb920": "node scripts/deviceSimulator.js fmb920",
     "db:init": "node scripts/dbInit.js",
     "db:migrate": "node scripts/runMigrations.js",
     "db:timescale": "echo 'Run on server: sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql'",
@@ -41,7 +43,6 @@
     "multer": "^2.1.1",
     "nodemailer": "^9.0.1",
     "pg": "^8.11.5",
-    "redis": "^6.0.0",
     "socket.io": "^4.5.4"
   },
   "devDependencies": {

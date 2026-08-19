@@ -1,6 +1,16 @@
 #!/bin/bash
+# =====================================================================
+# ⚠️  DEPRECATED — EC2 resume script, DO NOT RUN ON HETZNER
+#
+# This script was a mid-deploy recovery tool for the EC2/Contabo era.
+#   - Targets /home/ubuntu/ (wrong user — Hetzner uses 'fueltracks')
+#   - Frontend root hardcoded to /home/ubuntu/fueltracks1/frontend/dist
+#   - nginx inline config IS correct (port 3001, right headers)
+#
+# For Hetzner deployment, use deploy.sh instead.
+# =====================================================================
 set -e
-cd /home/ubuntu/fueltracks1 || exit 1
+cd /home/fueltracks/fueltracks1 || exit 1
 
 echo "Running Database Migrations..."
 npm run db:migrate
@@ -33,7 +43,7 @@ server {
     listen 80;
     server_name app.fueltracks.in;
     
-    root /home/ubuntu/fueltracks1/frontend/dist;
+    root /home/fueltracks/fueltracks1/frontend/dist;
     index index.html;
 
     location / {

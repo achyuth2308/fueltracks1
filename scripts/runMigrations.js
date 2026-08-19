@@ -12,14 +12,14 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const pool = new Pool({
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT) || 5432,
-  database: process.env.DB_NAME || 'fueltracks1',
+  database: process.env.DB_NAME || 'fueltracks',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASS || 'postgres',
   connectionTimeoutMillis: 5000,
 });
 
 async function runMigrations() {
-  console.log(`[DB-MIGRATE] Connecting to database: "${process.env.DB_NAME || 'fueltracks1'}"...`);
+  console.log(`[DB-MIGRATE] Connecting to database: "${process.env.DB_NAME || 'fueltracks'}"...`);
   
   let client;
   try {

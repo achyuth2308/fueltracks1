@@ -65,6 +65,12 @@ command=socat TCP-LISTEN:5004,fork,reuseaddr TCP:$BACKEND_IP:5004
 autostart=true
 autorestart=true
 user=root
+
+[program:relay-fmb920]
+command=socat TCP-LISTEN:5005,fork,reuseaddr TCP:$BACKEND_IP:5005
+autostart=true
+autorestart=true
+user=root
 EOF
 
 systemctl restart supervisor
@@ -75,7 +81,7 @@ systemctl enable supervisor
 ufw default deny incoming
 ufw default allow outgoing
 ufw allow 22/tcp
-ufw allow 5000:5004/tcp
+ufw allow 5000:5005/tcp
 echo "NOTE: run 'ufw enable' after verifying SSH access."
 
 # fail2ban for SSH brute-force protection
@@ -84,6 +90,6 @@ systemctl start fail2ban
 
 echo ""
 echo "✅ RELAY PROVISIONING COMPLETE"
-echo "Forwarding ports 5000-5004 to $BACKEND_IP"
+echo "Forwarding ports 5000-5005 to $BACKEND_IP"
 echo "Check status: supervisorctl status"
 echo "Run 'ufw enable' when ready."

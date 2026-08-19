@@ -6,7 +6,8 @@ echo "  🚀 Starting FuelTracks EC2 Production Deployment"
 echo "============================================================"
 
 # Ensure we are in the right directory
-cd /home/ubuntu/fueltracks1 || { echo "Directory not found!"; exit 1; }
+cd /home/fueltracks/fueltracks1 || { echo "Directory not found!"; exit 1; }
+
 
 echo "1. Pulling latest code from main..."
 git fetch origin main

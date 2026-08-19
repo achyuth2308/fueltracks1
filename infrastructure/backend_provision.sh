@@ -133,6 +133,7 @@ ufw allow from $RELAY_IP to any port 5001 proto tcp
 ufw allow from $RELAY_IP to any port 5002 proto tcp
 ufw allow from $RELAY_IP to any port 5003 proto tcp
 ufw allow from $RELAY_IP to any port 5004 proto tcp
+ufw allow from $RELAY_IP to any port 5005 proto tcp  # FMB920
 
 systemctl enable fail2ban
 systemctl start fail2ban

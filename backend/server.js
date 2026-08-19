@@ -349,4 +349,21 @@ async function shutdown() {
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
+// ============================================================
+// PROCESS-LEVEL ERROR GUARDS
+// Catch any exception that escapes a try/catch.
+// uncaughtException triggers graceful shutdown so PM2 can restart cleanly.
+// unhandledRejection is logged but non-fatal — a single missed .catch()
+// should not take down the whole server in production.
+// ============================================================
+process.on('uncaughtException', (err) => {
+  console.error('[SERVER] Uncaught exception — initiating graceful shutdown:', err.stack || err.message);
+  shutdown();
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[SERVER] Unhandled promise rejection (non-fatal, logged for investigation):', reason);
+});
+
+
 module.exports = { app, server, io };

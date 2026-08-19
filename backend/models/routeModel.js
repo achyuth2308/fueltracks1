@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 const RouteModel = {
   async findAll(orgId) {
@@ -67,6 +68,12 @@ const RouteModel = {
         );
       }
       await client.query('COMMIT');
+
+      // Invalidate route cache for every affected vehicle so the
+      // location subscriber picks up the new assignment on the next packet.
+      for (const vehicleId of vehicleIds) {
+        try { await redis.del(`vehicle:route:${vehicleId}`); } catch (_) {}
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -86,13 +93,30 @@ const RouteModel = {
   },
 
   async findRouteForVehicle(vehicleId) {
+    // Cache route lookups per vehicle for 5 minutes.
+    // Called on every live GPS packet for route deviation checks.
+    // Invalidated immediately in assignToVehicles when the assignment changes.
+    // TTL handles route edits/deactivations (up to 5 min stale — acceptable).
+    const cacheKey = `vehicle:route:${vehicleId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return cached === 'null' ? null : JSON.parse(cached);
+    } catch (_) { /* cache read failed — fall through to DB */ }
+
     const result = await db.query(
       `SELECT r.* FROM routes r
        JOIN vehicle_routes vr ON r.id = vr.route_id
        WHERE vr.vehicle_id = $1 AND r.is_active = TRUE`,
       [vehicleId]
     );
-    return result.rows[0] || null;
+    const route = result.rows[0] || null;
+
+    try {
+      // Cache null as the string 'null' so cache hits are distinguishable from cache misses
+      await redis.set(cacheKey, route ? JSON.stringify(route) : 'null', 'EX', 300);
+    } catch (_) { /* non-critical */ }
+
+    return route;
   }
 };
 

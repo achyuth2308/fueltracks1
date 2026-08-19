@@ -15,11 +15,14 @@ const net   = require('net');
 const { Pool } = require('pg');
 const Redis = require('ioredis');
 
-const API_PORT    = parseInt(process.env.API_PORT)  || 3001;
-const TCP_PORT    = parseInt(process.env.TCP_PORT)  || 5000;
-const AIS_PORT    = parseInt(process.env.AIS140_TCP_PORT) || 5001;
-const CONCOX_PORT = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
-const HEALTH_PORT = parseInt(process.env.TCP_HEALTH_PORT) || 5050;
+const API_PORT    = parseInt(process.env.API_PORT)        || 3001;
+const TCP_PORT    = parseInt(process.env.TCP_PORT)         || 5000;
+const AIS_PORT    = parseInt(process.env.AIS140_TCP_PORT)  || 5001;
+const CONCOX_PORT = parseInt(process.env.CONCOX_TCP_PORT)  || 5002;
+const AIS2_PORT   = parseInt(process.env.AIS140V2_TCP_PORT)|| 5003;
+const VOLTY_PORT  = parseInt(process.env.VOLTY_TCP_PORT)   || 5004;
+const FMB920_PORT = parseInt(process.env.FMB920_TCP_PORT)  || 5005;
+const HEALTH_PORT = parseInt(process.env.TCP_HEALTH_PORT)  || 5050;
 
 let passed = 0;
 let failed = 0;
@@ -213,10 +216,13 @@ async function testApiAuthRequired() {
 
 async function testTcpPorts() {
   const ports = [
-    { port: TCP_PORT,    label: `TCP BSTPL port ${TCP_PORT}` },
-    { port: AIS_PORT,   label: `TCP AIS140 port ${AIS_PORT}` },
-    { port: CONCOX_PORT, label: `TCP Concox port ${CONCOX_PORT}` },
-    { port: HEALTH_PORT, label: `TCP health port ${HEALTH_PORT}` },
+    { port: TCP_PORT,    label: `BSTPL-17      port ${TCP_PORT}` },
+    { port: AIS_PORT,   label: `AIS140 V1     port ${AIS_PORT}` },
+    { port: CONCOX_PORT, label: `Concox        port ${CONCOX_PORT}` },
+    { port: AIS2_PORT,  label: `AIS140 V2     port ${AIS2_PORT}` },
+    { port: VOLTY_PORT,  label: `Volty         port ${VOLTY_PORT}` },
+    { port: FMB920_PORT, label: `FMB920 Codec8 port ${FMB920_PORT}` },
+    { port: HEALTH_PORT, label: `TCP health    port ${HEALTH_PORT}` },
   ];
   for (const { port, label } of ports) {
     const open = await checkTcpPort('localhost', port);

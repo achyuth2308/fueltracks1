@@ -650,7 +650,8 @@ const GpsModel = {
     }
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
-    const availableInventory = 150; // Simulated unused inventory
+    const availableInventory = 0; // Inventory not tracked in DB — honest zero rather than fabricated constant
+
 
     return {
       total_devices: totalVehicles + availableInventory,

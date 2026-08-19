@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 const GeofenceModel = {
   async findAll(orgId) {
@@ -70,6 +71,12 @@ const GeofenceModel = {
         );
       }
       await client.query('COMMIT');
+
+      // Invalidate geofence list cache for every affected vehicle so the
+      // location subscriber picks up the new assignment on the next packet.
+      for (const vehicleId of vehicleIds) {
+        try { await redis.del(`vehicle:geofences:${vehicleId}`); } catch (_) {}
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -89,12 +96,26 @@ const GeofenceModel = {
   },
 
   async findGeofencesForVehicle(vehicleId) {
+    // Cache geofence lists per vehicle for 5 minutes.
+    // Invalidated immediately in assignToVehicles when assignments change.
+    // TTL handles geofence edits/deletes (up to 5 min stale — acceptable).
+    const cacheKey = `vehicle:geofences:${vehicleId}`;
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (_) { /* cache read failed — fall through to DB */ }
+
     const result = await db.query(
       `SELECT g.* FROM geofences g
        JOIN vehicle_geofences vg ON g.id = vg.geofence_id
        WHERE vg.vehicle_id = $1 AND g.is_active = TRUE`,
       [vehicleId]
     );
+
+    try {
+      await redis.set(cacheKey, JSON.stringify(result.rows), 'EX', 300); // 5-min TTL
+    } catch (_) { /* non-critical */ }
+
     return result.rows;
   }
 };
