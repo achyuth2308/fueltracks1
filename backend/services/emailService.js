@@ -128,6 +128,46 @@ const EmailService = {
       throw new Error('Failed to send password reset email. Please try again later.');
     }
   },
+  /**
+   * Send Archival Status Email
+   */
+  async sendArchivalStatusEmail(toEmail, status, vehicleId) {
+    if (!env.BREVO_API_KEY || env.BREVO_API_KEY === 'YOUR_BREVO_API_KEY_HERE' || env.BREVO_API_KEY === 'your_brevo_api_key_here') {
+      console.warn('[EmailService] BREVO_API_KEY is not configured. Skipping archival email send.');
+      return true;
+    }
+
+    const subject = status === 'completed' ? 'Historical Route Data is Ready!' : 'Historical Route Data - Retrieval Failed';
+    const message = status === 'completed'
+      ? `The historical GPS data you requested for vehicle ${vehicleId} has been fully retrieved from cold storage and is now ready to view in the app!`
+      : `We attempted to retrieve historical GPS data for vehicle ${vehicleId}, but the cloud storage provider failed to process the request. Please try your request again.`;
+
+    const htmlContent = `
+    <html>
+      <body style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+        <h2 style="color: #f97316;">FuelTracks - Historical Data Update</h2>
+        <p>${message}</p>
+      </body>
+    </html>`;
+
+    try {
+      const brevo = getBrevoClient();
+      const result = await brevo.transactionalEmails.sendTransacEmail({
+        subject,
+        htmlContent,
+        sender: {
+          name: 'FuelTracks Support',
+          email: env.BREVO_SENDER_EMAIL || 'info@fueltracks.in',
+        },
+        to: [{ email: toEmail }],
+      });
+      console.log('[EmailService] Archival status email sent successfully to:', toEmail, '| messageId:', result?.messageId || 'N/A');
+      return true;
+    } catch (error) {
+      console.error('[EmailService] Failed to send archival status email to', toEmail, ':', error?.message);
+      throw new Error('Failed to send archival status email.');
+    }
+  },
 };
 
 module.exports = EmailService;

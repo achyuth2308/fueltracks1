@@ -27,6 +27,7 @@
     "pm2:logs": "pm2 logs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1114.0",
     "@getbrevo/brevo": "^5.0.4",
     "@sendgrid/mail": "^8.1.6",
     "axios": "^1.18.0",

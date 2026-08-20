@@ -6,6 +6,8 @@
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const GroupModel = require('../models/groupModel');
+const archiveService = require('../services/archiveService');
+const GeofenceModel = require('../models/geofenceModel');
 const AuditService = require('../services/auditService');
 const { redis } = require('../config/redis');
 const db = require('../config/db');
@@ -566,8 +568,29 @@ const VehicleController = {
         }
       }
 
-      const points = await GpsModel.getRoute(id, { startDate, endDate });
+      let points = [];
+      const reqStart = new Date(startDate);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - 180);
 
+      // If the requested route starts more than 180 days ago, it's in cold storage
+      if (reqStart < cutoff) {
+        const orgId = req.user.orgId;
+        const reqUserEmail = req.user.email; // assuming email is in jwt payload
+        
+        const archiveResult = await archiveService.getArchivedRoute(id, orgId, startDate, endDate, reqUserEmail);
+        
+        if (archiveResult.status === 'restoring') {
+          return res.status(202).json({
+            success: true,
+            status: 'restoring',
+            message: archiveResult.message
+          });
+        }
+        points = archiveResult.data;
+      } else {
+        points = await GpsModel.getRoute(id, { startDate, endDate });
+      }
       // Apply Odometer Baseline Offset (baseline + distance driven since snapshot)
       const vehicle = await VehicleModel.findById(id);
       const baseline = parseFloat(vehicle?.metadata?.odometerReading) || 0;

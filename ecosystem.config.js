@@ -69,5 +69,43 @@ module.exports = {
       watch: false,
       autorestart: true,
     },
+
+    // ── CRON JOBS ──────────────────────────────────────────
+    {
+      name: 'fueltracks-archiver',
+      script: 'backend/jobs/archiverJob.js',
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '0 2 * * *', // Run every day at 2:00 AM UTC
+      autorestart: false, // Exit after running
+      env_production: { NODE_ENV: 'production' },
+      error_file: '/var/log/pm2/fueltracks-archiver-error.log',
+      out_file: '/var/log/pm2/fueltracks-archiver-out.log',
+      merge_logs: true,
+    },
+    {
+      name: 'fueltracks-restore-monitor',
+      script: 'backend/jobs/restoreMonitorJob.js',
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '*/30 * * * *', // Run every 30 minutes
+      autorestart: false,
+      env_production: { NODE_ENV: 'production' },
+      error_file: '/var/log/pm2/fueltracks-restore-monitor-error.log',
+      out_file: '/var/log/pm2/fueltracks-restore-monitor-out.log',
+      merge_logs: true,
+    },
+    {
+      name: 'fueltracks-disk-monitor',
+      script: 'backend/jobs/diskMonitorJob.js',
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '0 8 * * *', // Run every day at 8:00 AM UTC
+      autorestart: false,
+      env_production: { NODE_ENV: 'production' },
+      error_file: '/var/log/pm2/fueltracks-disk-monitor-error.log',
+      out_file: '/var/log/pm2/fueltracks-disk-monitor-out.log',
+      merge_logs: true,
+    }
   ],
 };
