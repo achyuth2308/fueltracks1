@@ -28,6 +28,7 @@ const alertsRoutes = require('./routes/alertsRoutes');
 const tripRoutes = require('./modules/trips/routes/tripRoutes');
 const tripController = require('./modules/trips/controllers/tripController');
 const path = require('path');
+const publicApiRoutes = require('./routes/publicApiRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -143,6 +144,11 @@ app.use('/api/billing', billingRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/alerts', alertsRoutes);
 app.use('/api/trips', tripRoutes);
+
+// ─── Third-Party Public API ───────────────────────────────────
+// Auth: X-API-Key header (no JWT required)
+app.use('/api/v1', publicApiRoutes);
+
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

@@ -244,6 +244,7 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
           } else if (hchkrIdx !== -1) {
             startIndex = hchkrIdx;
           } else {
+            console.log(`[TCP - ${protocolName}] Dropped unparseable data (no valid start byte): HEX=${Buffer.from(packet).toString('hex')} ASCII=${packet.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}`);
             continue; // No valid packet start found
           }
         }
