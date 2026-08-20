@@ -61,7 +61,7 @@ function formatPoint(row, isHistory) {
   };
 }
 
-// ─── GET /api/v1/location/live ───────────────────────────────
+// ─── GET /api/v1/location/live ──────────────────────────────
 // Returns the latest known position for every vehicle in the org.
 // Optional query param: ?imei=<imei>  (filter to a single vehicle)
 async function getLiveLocation(req, res, next) {
@@ -99,7 +99,6 @@ async function getLiveLocation(req, res, next) {
       params
     );
 
-
     if (imei && result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -114,6 +113,82 @@ async function getLiveLocation(req, res, next) {
       success: true,
       count: data.length,
       data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── POST /api/v1/location/live ──────────────────────────────
+// Client sends IMEI(s) in the request body.
+// They hit this when they spot a vehicle in their own system
+// and want to know its live GPS position.
+//
+// Body (single):  { "imei": "869925070566102" }
+// Body (batch):   { "imeis": ["869925070566102", "867440068994847"] }
+async function postLiveLocation(req, res, next) {
+  try {
+    const { orgId } = req.apiOrg;
+    const { imei, imeis } = req.body || {};
+
+    // Build list of IMEIs from either `imei` (single) or `imeis` (array)
+    let imeiList = [];
+    if (imei)  imeiList = [String(imei).trim()];
+    if (imeis && Array.isArray(imeis)) imeiList = imeis.map(i => String(i).trim()).filter(Boolean);
+
+    if (imeiList.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Provide "imei" (single string) or "imeis" (array of strings) in the request body.',
+        code: 'MISSING_IMEI',
+      });
+    }
+
+    if (imeiList.length > 100) {
+      return res.status(400).json({
+        success: false,
+        error: 'Maximum 100 IMEIs per request.',
+        code: 'TOO_MANY_IMEIS',
+      });
+    }
+
+    // Build $2, $3, $4 ... placeholders for the IN clause
+    const placeholders = imeiList.map((_, i) => `$${i + 2}`).join(', ');
+    const params = [orgId, ...imeiList];
+
+    const result = await db.query(
+      `SELECT
+         v.imei,
+         v.plate,
+         vls.lat,
+         vls.lng,
+         vls.speed,
+         vls.direction,
+         vls.voltage,
+         vls.battery,
+         vls.ignition,
+         vls.satellites,
+         vls.gsm_signal,
+         vls.last_seen AS device_time
+       FROM vehicles v
+       JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
+       WHERE v.org_id = $1
+         AND v.imei IN (${placeholders})
+       ORDER BY v.plate ASC`,
+      params
+    );
+
+    const data = result.rows.map((row) => formatPoint(row, false));
+
+    // Identify any requested IMEIs that were not found in this org
+    const foundImeis = new Set(result.rows.map(r => r.imei));
+    const notFound = imeiList.filter(i => !foundImeis.has(i));
+
+    return res.status(200).json({
+      success: true,
+      count: data.length,
+      data,
+      ...(notFound.length > 0 && { not_found: notFound }),
     });
   } catch (err) {
     next(err);
@@ -223,4 +298,5 @@ async function getHistory(req, res, next) {
   }
 }
 
-module.exports = { getLiveLocation, getHistory };
+module.exports = { getLiveLocation, postLiveLocation, getHistory };
+

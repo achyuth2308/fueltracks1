@@ -9,7 +9,7 @@ const express = require('express');
 const router = express.Router();
 
 const { authenticateApiKey } = require('../middleware/apiKeyAuth');
-const { getLiveLocation, getHistory } = require('../controllers/publicApiController');
+const { getLiveLocation, postLiveLocation, getHistory } = require('../controllers/publicApiController');
 
 // Apply API key auth to ALL routes in this router
 router.use(authenticateApiKey);
@@ -22,11 +22,24 @@ router.use(authenticateApiKey);
 router.get('/location/live', getLiveLocation);
 
 /**
+ * POST /api/v1/location/live
+ * Client sends IMEI(s) in the request body to look up live GPS position.
+ *
+ * Single vehicle:
+ *   Body: { "imei": "869925070566102" }
+ *
+ * Multiple vehicles (batch, max 100):
+ *   Body: { "imeis": ["869925070566102", "867440068994847"] }
+ */
+router.post('/location/live', postLiveLocation);
+
+/**
  * GET /api/v1/location/history
  * Returns paginated GPS history for a specific vehicle.
  * Required: ?imei=<device_imei>&start=YYYY-MM-DD&end=YYYY-MM-DD
  * Optional: ?page=1&limit=500
  */
 router.get('/location/history', getHistory);
+
 
 module.exports = router;
