@@ -94,11 +94,11 @@ async function getLiveLocation(req, res, next) {
        FROM vehicles v
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
        WHERE v.org_id = $1
-         AND v.deleted_at IS NULL
          ${whereImei}
        ORDER BY v.plate ASC`,
       params
     );
+
 
     if (imei && result.rows.length === 0) {
       return res.status(404).json({
@@ -152,9 +152,10 @@ async function getHistory(req, res, next) {
     // ── Verify vehicle belongs to org (security scope check) ─
     const vehicleRes = await db.query(
       `SELECT v.id FROM vehicles v
-       WHERE v.imei = $1 AND v.org_id = $2 AND v.deleted_at IS NULL`,
+       WHERE v.imei = $1 AND v.org_id = $2`,
       [imei.trim(), orgId]
     );
+
 
     if (vehicleRes.rows.length === 0) {
       return res.status(404).json({
