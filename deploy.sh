@@ -20,6 +20,10 @@ echo "3. Building frontend application..."
 npm --prefix frontend install
 npm run build:frontend
 
+echo "3.5 Fixing permissions for Nginx..."
+chmod o+x /home/fueltracks
+chmod -R o+rx /home/fueltracks/fueltracks1/frontend/dist
+
 echo "4. Running Database Migrations..."
 npm run db:migrate || echo "[WARN] db:migrate finished with warnings"
 
