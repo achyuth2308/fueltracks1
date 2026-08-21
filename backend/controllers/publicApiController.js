@@ -55,6 +55,9 @@ function formatPoint(row, isHistory) {
   if (!isHistory && !isOnline) {
     speed = 0;
     ignitionOn = false;
+    gpsFix = false;
+    gpsSignalQuality = 'none';
+    accuracy = null;
   }
 
   return {
