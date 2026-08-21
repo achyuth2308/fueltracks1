@@ -43,16 +43,30 @@ function formatPoint(row, isHistory) {
   else if (sats >= 3) accuracy = 25;
   else accuracy = null;
 
+  const deviceTime = new Date(row.device_time);
+  const now = new Date();
+  // Consider vehicle offline if last seen is more than 5 minutes ago
+  const isOnline = (now - deviceTime) < 5 * 60 * 1000;
+
+  let speed = parseFloat(row.speed) || 0;
+  let ignitionOn = row.ignition === true || row.ignition === 'true';
+
+  // If this is a live request and the vehicle is offline, zero out active states
+  if (!isHistory && !isOnline) {
+    speed = 0;
+    ignitionOn = false;
+  }
+
   return {
     vehicleRegistrationNumber: row.plate || null,
     imei:                      row.imei,
-    speed:                     parseFloat(row.speed) || 0,
+    speed:                     speed,
     longitude:                 parseFloat(row.lng),
     latitude:                  parseFloat(row.lat),
     dateTime:                  toIST(row.device_time),
     vehicleBatteryVoltage:     isNaN(voltageRaw) ? null : Math.min(32, Math.max(0, voltageRaw)),
     deviceBatteryVoltage:      isNaN(batteryRaw) ? null : Math.min(6, Math.max(0, batteryRaw)),
-    ignitionOn:                row.ignition === true || row.ignition === 'true',
+    ignitionOn:                ignitionOn,
     gpsFix,
     gpsSignalQuality,
     accuracy,
