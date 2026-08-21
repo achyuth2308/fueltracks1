@@ -299,12 +299,20 @@ async function start(io) {
       }
 
       // 4. Queue GPS point for batched DB write (skipped for heartbeats)
-      if (!data.isHeartbeat) {
+      // Also skip if coordinates are 0,0 (Indian Ocean bug — device has no GPS fix yet)
+      const hasValidGps = lat && lng
+        && !(parseFloat(lat) === 0 && parseFloat(lng) === 0)
+        && Math.abs(parseFloat(lat)) <= 90
+        && Math.abs(parseFloat(lng)) <= 180;
+
+      if (!data.isHeartbeat && hasValidGps) {
         await queueGpsPoint({
           vehicleId, lat, lng, speed, direction, odometer: finalOdometer, fuel,
           ignition: finalIgnition, satellites, gsmSignal, battery,
           voltage, isLive, deviceTime
         });
+      } else if (!data.isHeartbeat && !hasValidGps) {
+        console.warn(`[SUBSCRIBER] Skipping GPS DB write for ${imei}: invalid/zero coordinates (${lat},${lng})`);
       }
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
