@@ -90,7 +90,9 @@ const corsOriginHandler = (() => {
   // Support comma-separated list of allowed origins
   const allowed = origin.split(',').map(o => o.trim()).filter(Boolean);
   return (requestOrigin, callback) => {
-    if (!requestOrigin || allowed.includes(requestOrigin)) {
+    // allow requests with no origin (like mobile apps or curl requests)
+    // and allow 'null' origin (local file:// executions for testing)
+    if (!requestOrigin || requestOrigin === 'null' || allowed.includes(requestOrigin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${requestOrigin} not allowed`));
