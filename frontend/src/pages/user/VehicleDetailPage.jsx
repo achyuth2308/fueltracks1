@@ -259,8 +259,8 @@ const VehicleDetailPage = () => {
     </div>
   );
 
-  const speed = vehicle.current_speed || 0;
-  const ignitionOn = !!vehicle.current_ignition;
+  const speed = vehicle.is_online ? (vehicle.current_speed || 0) : 0;
+  const ignitionOn = vehicle.is_online ? !!vehicle.current_ignition : false;
   const batteryStatus = getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition);
 
   return (
@@ -473,7 +473,7 @@ const VehicleDetailPage = () => {
 
           {/* Large Map */}
           <div style={{ flex: 1, minHeight: '400px', background: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', position: 'relative' }}>
-            <VehicleMap vehicle={vehicle} vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={vehicle.current_ignition} initialSpeed={vehicle.current_speed} />
+            <VehicleMap vehicle={vehicle} vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={ignitionOn} initialSpeed={speed} />
           </div>
 
           {/* 4. Bottom Information Cards */}
