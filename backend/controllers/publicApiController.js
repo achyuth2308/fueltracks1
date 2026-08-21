@@ -34,7 +34,7 @@ function formatPoint(row, isHistory) {
   else if (sats >= 1) gpsSignalQuality = 'poor';
 
   // gpsFix: device has a valid GPS lock (>= 3 satellites)
-  const gpsFix = sats >= 3;
+  let gpsFix = sats >= 3;
 
   // accuracy: derived from satellite count (rough HDOP approximation in metres)
   let accuracy;
