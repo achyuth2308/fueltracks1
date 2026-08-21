@@ -48,32 +48,21 @@ function formatPoint(row, isHistory) {
   // Consider vehicle offline if last seen is more than 5 minutes ago
   const isOnline = (now - deviceTime) < 5 * 60 * 1000;
 
-  let speed = parseFloat(row.speed) || 0;
-  let ignitionOn = row.ignition === true || row.ignition === 'true';
-
-  // If this is a live request and the vehicle is offline, zero out active states
-  if (!isHistory && !isOnline) {
-    speed = 0;
-    ignitionOn = false;
-    gpsFix = false;
-    gpsSignalQuality = 'none';
-    accuracy = null;
-  }
-
   return {
     vehicleRegistrationNumber: row.plate || null,
     imei:                      row.imei,
-    speed:                     speed,
+    speed:                     parseFloat(row.speed) || 0,
     longitude:                 parseFloat(row.lng),
     latitude:                  parseFloat(row.lat),
     dateTime:                  toIST(row.device_time),
     vehicleBatteryVoltage:     isNaN(voltageRaw) ? null : Math.min(32, Math.max(0, voltageRaw)),
     deviceBatteryVoltage:      isNaN(batteryRaw) ? null : Math.min(6, Math.max(0, batteryRaw)),
-    ignitionOn:                ignitionOn,
+    ignitionOn:                row.ignition === true || row.ignition === 'true',
     gpsFix,
     gpsSignalQuality,
     accuracy,
     bearing:                   parseFloat(row.direction) || 0,
+    is_online:                 isOnline,
     is_history:                isHistory,
   };
 }
