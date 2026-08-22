@@ -299,9 +299,10 @@ async function start(io) {
       }
 
       // 4. Queue GPS point for batched DB write (skipped for heartbeats)
-      // Also skip if coordinates are 0,0 (Indian Ocean bug — device has no GPS fix yet)
+      // Also skip if coordinates are glitchy (e.g. Lat=0 or Lng=0 which puts vehicles in the Indian Ocean or Africa)
       const hasValidGps = lat && lng
-        && !(parseFloat(lat) === 0 && parseFloat(lng) === 0)
+        && parseFloat(lat) !== 0 
+        && parseFloat(lng) !== 0
         && Math.abs(parseFloat(lat)) <= 90
         && Math.abs(parseFloat(lng)) <= 180;
 
@@ -316,11 +317,11 @@ async function start(io) {
       }
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
-      // If the device lost GPS fix and sends 0,0, don't overwrite the last known valid location!
+      // If the device lost GPS fix and sends a 0 coordinate, don't overwrite the last known valid location!
       // ONLY update latest state if the packet is LIVE, to prevent historical jumps.
       if (isLive) {
-        const validLat = (lat === 0 || lat === 0.0 || !lat) ? null : lat;
-        const validLng = (lng === 0 || lng === 0.0 || !lng) ? null : lng;
+        const validLat = (lat === 0 || lat === 0.0 || parseFloat(lat) === 0 || !lat) ? null : lat;
+        const validLng = (lng === 0 || lng === 0.0 || parseFloat(lng) === 0 || !lng) ? null : lng;
         
         await GpsModel.updateLatestState({
           vehicleId, 
