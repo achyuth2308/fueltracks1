@@ -50,7 +50,7 @@ async function runMigrations() {
       { name: 'Raw Packets Enhancement Migration', file: 'raw_packets_enhancement_migration.sql' },
       { name: 'Raw Packets Maintenance Migration', file: 'raw_packets_maintenance_migration.sql' },
       { name: 'API Keys Migration', file: 'api_keys_migration.sql' },
-
+      { name: 'FCM Notifications Migration', file: 'fcm_notifications_migration.sql' },
     ];
 
     for (const migration of migrations) {
