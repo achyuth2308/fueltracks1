@@ -107,7 +107,7 @@ const EditVehiclePage = () => {
       madeIn: 'India', mfgDate: '', chassisNo: '', altVehicleName: '', remarks: '',
       serviceEngineer: '', salesman: '', ticketId: '', sensorNo: '',
       fuelMode: 'Manual Calibrate', sensorCount: '1', noOfTanks: '1', fuelType: 'None',
-      vehicleMode: 'Moving Vehicle', tankSize: '0', speed: '',
+      vehicleMode: 'Moving Vehicle', tankSize: '0', fuelEmptyAdc: '0', fuelFullAdc: '1000', speed: '',
       fuelBatteryVolt: 'NO', consumptionDuringFill: 'NO',
       deviceOdo: 'YES', assetTrack: 'NO', safetyPark: 'NO', rigMode: 'NO', acToggle: 'NO',
       secondaryEngine: 'Digital Input 2', engineOn: 'Ignition', batteryVoltage: '',
@@ -309,6 +309,37 @@ const EditVehiclePage = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
             <InputField label="Driver Name" value={form.driverName} onChange={e => updateField('driverName', e.target.value)} placeholder="Full Name" focused={focusedField === 'dName'} onFocus={() => setFocusedField('dName')} onBlur={() => setFocusedField(null)} />
             <InputField label="Driver Mobile No" value={form.driverPhone} onChange={e => updateField('driverPhone', e.target.value)} placeholder="+91 XXXXX XXXXX" focused={focusedField === 'dPhone'} onFocus={() => setFocusedField('dPhone')} onBlur={() => setFocusedField(null)} />
+          </div>
+        </SectionCard>
+
+        {/* Section 3: Fuel Configuration */}
+        <SectionCard title="Fuel Configuration" icon={Settings}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4B5563', marginBottom: '4px' }}>Fuel Type</label>
+              <select value={form.metadata.fuelType} onChange={e => updateMeta('fuelType', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }}>
+                <option>None</option>
+                <option>Diesel</option>
+                <option>Petrol</option>
+                <option>CNG</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4B5563', marginBottom: '4px' }}>Tank Size (Liters)</label>
+              <input type="number" value={form.metadata.tankSize} onChange={e => updateMeta('tankSize', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4B5563', marginBottom: '4px' }}>Fuel Empty ADC (Quick Calib)</label>
+              <input type="number" placeholder="e.g. 0" value={form.metadata.fuelEmptyAdc || '0'} onChange={e => updateMeta('fuelEmptyAdc', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4B5563', marginBottom: '4px' }}>Fuel Full ADC (Quick Calib)</label>
+              <input type="number" placeholder="e.g. 1000" value={form.metadata.fuelFullAdc || '1000'} onChange={e => updateMeta('fuelFullAdc', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4B5563', marginBottom: '4px' }}>Expected Mileage (km/L)</label>
+              <input type="number" value={form.metadata.expectedMileage} onChange={e => updateMeta('expectedMileage', e.target.value)} style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid #D1D5DB', fontSize: '14px' }} />
+            </div>
           </div>
         </SectionCard>
 

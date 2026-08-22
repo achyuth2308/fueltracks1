@@ -44,11 +44,16 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   const [direction, setDirection] = useState(vehicle?.current_direction || 0);
   const isOnline = vehicle?.is_online !== false;
 
-  // Track coordinates history (max 10 points for the tail)
+  // Track coordinates history (max 10 points for the path trail)
   useEffect(() => {
     if (initialLat && initialLng) {
-      const position = [parseFloat(initialLat), parseFloat(initialLng)];
-      setCoords([position]);
+      const lat = parseFloat(initialLat);
+      const lng = parseFloat(initialLng);
+      // Ensure we don't plot glitchy (0,0) or out-of-India coordinates (e.g. Niger, Africa)
+      const isValid = lat !== 0 && lng !== 0 && lat > 6.0 && lat < 38.0 && lng > 65.0 && lng < 100.0;
+      if (isValid) {
+        setCoords([[lat, lng]]);
+      }
     }
   }, [initialLat, initialLng]);
 

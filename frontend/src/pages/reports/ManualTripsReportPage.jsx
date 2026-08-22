@@ -82,7 +82,7 @@ const ManualTripsReportPage = () => {
     }
   };
 
-  const columns = ['Trip Name', 'Status', 'Start Time', 'Start Loc', 'End Time', 'End Loc', 'Duration (hh:mm:ss)', 'Distance (km)', 'Max Speed', 'Avg Speed'];
+  const columns = ['Trip Name', 'Status', 'Start Time', 'Start Loc', 'End Time', 'End Loc', 'Duration (hh:mm:ss)', 'Distance (km)', 'Max Speed', 'Avg Speed', 'Fuel Consumed (Liters)'];
 
   const getExportData = () => {
     return data.map(row => ({
@@ -95,7 +95,8 @@ const ManualTripsReportPage = () => {
       'Duration (hh:mm:ss)': formatDuration(row.duration_secs || row.duration_seconds),
       'Distance (km)': row.distance_km || row.distance || 0,
       'Max Speed': row.max_speed || 0,
-      'Avg Speed': row.avg_speed ? Math.round(row.avg_speed) : 0
+      'Avg Speed': row.avg_speed ? Math.round(row.avg_speed) : 0,
+      'Fuel Consumed (Liters)': row.fuel_consumed ? `${parseFloat(row.fuel_consumed).toFixed(1)} L` : '-'
     }));
   };
 
@@ -177,6 +178,7 @@ const ManualTripsReportPage = () => {
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.distance_km || row.distance || 0}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.max_speed || 0}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.avg_speed ? Math.round(row.avg_speed) : 0}</td>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{row.fuel_consumed ? `${parseFloat(row.fuel_consumed).toFixed(1)} L` : '-'}</td>
                 </tr>
               ))}
             </tbody>

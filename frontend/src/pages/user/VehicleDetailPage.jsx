@@ -461,7 +461,7 @@ const VehicleDetailPage = () => {
         {/* 2. KPI Cards Row */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
           <KPICard icon={Activity} label="Speed" value={`${speed} km/h`} color={speed > 80 ? '#EF4444' : speed > 0 ? '#10B981' : '#3B82F6'} />
-          <KPICard icon={Fuel} label="Fuel Level" value={`${Number(vehicle.current_fuel || 0).toFixed(1)}%`} color="#8B5CF6" />
+          <KPICard icon={Fuel} label="Fuel Level" value={formatFuel(vehicle.current_fuel)} color="#8B5CF6" />
           <KPICard icon={Battery} label="Battery Volts" value={`${batteryStatus.value} (${batteryStatus.status})`} color={batteryStatus.color} />
           <KPICard icon={Key} label="Ignition" value={ignitionOn ? 'ON' : 'OFF'} color={ignitionOn ? '#10B981' : '#94A3B8'} />
           <KPICard icon={Navigation} label="Odometer" value={formatOdometer(vehicle.current_odometer)} color="#F59E0B" />

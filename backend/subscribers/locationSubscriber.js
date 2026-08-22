@@ -287,10 +287,61 @@ async function start(io) {
         }
       }
 
+      // 2c. Compute Fuel in Liters (Quick Calibration Interpolation)
+      let finalFuelLiters = fuel; // Default to raw if no calibration exists
+      if (vehicle.metadata) {
+        const capacity = parseFloat(vehicle.metadata.tankSize);
+        const emptyAdc = parseFloat(vehicle.metadata.fuelEmptyAdc);
+        const fullAdc = parseFloat(vehicle.metadata.fuelFullAdc);
+        
+        // Only interpolate if capacity is defined and valid
+        if (capacity > 0 && !isNaN(emptyAdc) && !isNaN(fullAdc) && fullAdc !== emptyAdc) {
+          // Linear interpolation: (current - empty) / (full - empty) * capacity
+          let liters = ((fuel - emptyAdc) / (fullAdc - emptyAdc)) * capacity;
+          
+          // Clamp to [0, capacity]
+          if (liters < 0) liters = 0;
+          if (liters > capacity) liters = capacity;
+          
+          finalFuelLiters = liters;
+        }
+      }
+
+      // 2d. Fuel Alerts (Theft & Refill)
+      if (isLive && prevState && prevState.fuel !== undefined && finalFuelLiters !== undefined) {
+        const prevFuel = parseFloat(prevState.fuel);
+        const currFuel = parseFloat(finalFuelLiters);
+        const capacity = parseFloat(vehicle.metadata?.tankSize) || 100;
+        
+        // Threshold: 5% of tank or 10L, min 5L, max 30L jump
+        const threshold = Math.max(5, Math.min(30, capacity * 0.05)); 
+        const diff = currFuel - prevFuel;
+        
+        // We only trigger alert if there was a real jump AND the engine is OFF (for theft) or ON/OFF (for refill).
+        // Actually, fuel sloshing while moving can cause false alerts. Usually fuel alerts are suppressed while moving.
+        const isSloshing = speed > 5;
+        
+        if (!isSloshing) {
+          if (diff <= -threshold) {
+            redis.publish('alerts', JSON.stringify({
+              imei: vehicle.imei, alertType: 'fuel_theft',
+              alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L. Possible theft or leak.`,
+              lat, lng, deviceTime
+            }));
+          } else if (diff >= threshold) {
+            redis.publish('alerts', JSON.stringify({
+              imei: vehicle.imei, alertType: 'fuel_refill',
+              alertText: `Fuel refilled by ${diff.toFixed(1)}L.`,
+              lat, lng, deviceTime
+            }));
+          }
+        }
+      }
+
       // 3. Cache updated state in Redis (fast — always per-packet)
       // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
       if (isLive) {
-        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince };
+        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince, fuel: finalFuelLiters };
         await redis.set(
           `vehicle:state:${imei}`,
           JSON.stringify(updatedPayload),
@@ -315,7 +366,7 @@ async function start(io) {
 
       if (!data.isHeartbeat && hasValidGps) {
         await queueGpsPoint({
-          vehicleId, lat, lng, speed, direction, odometer: finalOdometer, fuel,
+          vehicleId, lat, lng, speed, direction, odometer: finalOdometer, fuel: finalFuelLiters,
           ignition: finalIgnition, satellites, gsmSignal, battery,
           voltage, isLive, deviceTime
         });
@@ -337,7 +388,7 @@ async function start(io) {
           lng: validLng, 
           speed: speed != null ? Math.round(speed) : null, 
           direction: direction != null ? Math.round(direction) : null, 
-          fuel, 
+          fuel: finalFuelLiters, 
           ignition: finalIgnition, 
           voltage,
           odometer: finalOdometer != null ? Math.round(finalOdometer) : null, 
