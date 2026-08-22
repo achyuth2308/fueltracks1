@@ -299,12 +299,19 @@ async function start(io) {
       }
 
       // 4. Queue GPS point for batched DB write (skipped for heartbeats)
-      // Also skip if coordinates are glitchy (e.g. Lat=0 or Lng=0 which puts vehicles in the Indian Ocean or Africa)
-      const hasValidGps = lat && lng
-        && parseFloat(lat) !== 0 
-        && parseFloat(lng) !== 0
-        && Math.abs(parseFloat(lat)) <= 90
-        && Math.abs(parseFloat(lng)) <= 180;
+      //
+      // GPS VALIDITY RULES (fixes Indian Ocean + Africa/Niger bugs):
+      // - Bug A: BSTPL firmware sends lat=0 when GPS fix is lost → Indian Ocean
+      // - Bug B: BSTPL firmware drops leading zero from longitude ("0831" instead of "08331")
+      //          → parser gets degrees=8 instead of 83 → Niger/Africa
+      //
+      // PERMANENT FIX: Hard India bounding box. All vehicles use Indian SIM cards.
+      // ANY coordinate outside India bounding box is guaranteed firmware garbage.
+      // India bbox with generous buffer: lat 6–38°N, lng 65–100°E
+      const fLat = parseFloat(lat);
+      const fLng = parseFloat(lng);
+      const isWithinIndia = fLat >= 6.0 && fLat <= 38.0 && fLng >= 65.0 && fLng <= 100.0;
+      const hasValidGps = lat && lng && fLat !== 0 && fLng !== 0 && isWithinIndia;
 
       if (!data.isHeartbeat && hasValidGps) {
         await queueGpsPoint({
@@ -313,15 +320,16 @@ async function start(io) {
           voltage, isLive, deviceTime
         });
       } else if (!data.isHeartbeat && !hasValidGps) {
-        console.warn(`[SUBSCRIBER] Skipping GPS DB write for ${imei}: invalid/zero coordinates (${lat},${lng})`);
+        console.warn(`[GPS-REJECT] IMEI ${imei}: Coordinates (${fLat},${fLng}) outside India bbox or zero — firmware glitch, dropped from DB.`);
       }
 
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
       // If the device lost GPS fix and sends a 0 coordinate, don't overwrite the last known valid location!
       // ONLY update latest state if the packet is LIVE, to prevent historical jumps.
       if (isLive) {
-        const validLat = (lat === 0 || lat === 0.0 || parseFloat(lat) === 0 || !lat) ? null : lat;
-        const validLng = (lng === 0 || lng === 0.0 || parseFloat(lng) === 0 || !lng) ? null : lng;
+        // Only write lat/lng to latest state if it's within India — same bbox guard as GPS history
+        const validLat = hasValidGps ? fLat : null;
+        const validLng = hasValidGps ? fLng : null;
         
         await GpsModel.updateLatestState({
           vehicleId, 
