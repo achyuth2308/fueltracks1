@@ -226,10 +226,22 @@ const GpsModel = {
     const offset = (page - 1) * limit;
     const params = [vehicleId];
     let typeFilter = '';
-
     if (alertType) {
-      params.push(alertType);
-      typeFilter = ` AND alert_type = $${params.length}`;
+      const typeStr = alertType.toLowerCase();
+      if (typeStr === 'geofence') {
+        typeFilter = ` AND alert_type IN ('geofence', 'geofence_enter', 'geofence_exit', 'geofenceenter', 'geofenceexit')`;
+      } else if (typeStr === 'ignition') {
+        typeFilter = ` AND alert_type IN ('ignition', 'ignition_on', 'ignition_off', 'moving', 'start_moving', 'trip_started', 'trip_ended', 'stopped', 'idle', 'stoppage')`;
+      } else if (typeStr === 'sos') {
+        typeFilter = ` AND alert_type IN ('sos', 'panic', 'theft', 'theft_alarm', 'tamper', 'tow', 'crash', 'accident')`;
+      } else if (typeStr === 'power') {
+        typeFilter = ` AND alert_type IN ('power', 'power_cut', 'power_disconnected', 'battery', 'low_battery')`;
+      } else if (typeStr === 'harsh') {
+        typeFilter = ` AND alert_type IN ('harsh', 'harsh_driving', 'harsh_braking', 'harsh_acceleration')`;
+      } else {
+        params.push(typeStr);
+        typeFilter = ` AND alert_type = $${params.length}`;
+      }
     }
 
     const countResult = await db.query(
