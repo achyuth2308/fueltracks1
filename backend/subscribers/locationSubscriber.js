@@ -431,6 +431,14 @@ async function start(io) {
       if (isLive && isRecent) {
         const alertsToTrigger = [];
 
+        // Detect if device was asleep (no packets for > 5 mins)
+        // If it was asleep, it was likely parked, so we shouldn't falsely accumulate Idling time during the sleep gap.
+        const prevDeviceTimeMs = prevState && prevState.deviceTime ? new Date(prevState.deviceTime).getTime() : 0;
+        const currentDeviceTimeMs = new Date(deviceTime).getTime();
+        const timeSinceLastPacketMs = currentDeviceTimeMs - prevDeviceTimeMs;
+        const wasAsleep = timeSinceLastPacketMs > (5 * 60 * 1000); // 5 minutes gap
+
+
         // For Heartbeat packets, inherit lat, lng, and speed from prevState
         const evalLat = data.isHeartbeat ? (prevState ? parseFloat(prevState.lat) : null) : lat;
         const evalLng = data.isHeartbeat ? (prevState ? parseFloat(prevState.lng) : null) : lng;
@@ -473,17 +481,22 @@ async function start(io) {
         // Check C2: Long Parking Alert
         // Fires once after vehicle has been continuously parked (ignition OFF, speed 0) for 30 minutes.
         if (finalIgnition === false && evalSpeed === 0 && prevState?.parkedSince) {
-          const parkingDurationMin = (new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime()) / 60000;
-          const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
-          if (parkingDurationMin >= 30) {
-            const alreadyFired = await redis.get(parkAlertFiredKey);
-            if (!alreadyFired) {
-              const durationStr = Math.round(parkingDurationMin);
-              alertsToTrigger.push({
-                type: 'parking',
-                text: `Long Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked for ${durationStr} minutes.`
-              });
-              await redis.set(parkAlertFiredKey, '1', 'EX', 86400); // Fire once per parking session (24h max)
+          if (wasAsleep) {
+            // If device was asleep, reset the parkedSince timer to avoid false jumps
+            await redis.set(`vehicle:state:${imei}`, JSON.stringify({ ...JSON.parse(await redis.get(`vehicle:state:${imei}`) || '{}'), parkedSince: deviceTime }));
+          } else {
+            const parkingDurationMin = (new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime()) / 60000;
+            const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
+            if (parkingDurationMin >= 30) {
+              const alreadyFired = await redis.get(parkAlertFiredKey);
+              if (!alreadyFired) {
+                const durationStr = Math.round(parkingDurationMin);
+                alertsToTrigger.push({
+                  type: 'parking',
+                  text: `Long Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked for ${durationStr} minutes.`
+                });
+                await redis.set(parkAlertFiredKey, '1', 'EX', 86400); // Fire once per parking session (24h max)
+              }
             }
           }
         } else if (finalIgnition === true || evalSpeed > 0) {
@@ -498,7 +511,8 @@ async function start(io) {
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
 
           let idleStart = await redis.get(idleKey);
-          if (!idleStart) {
+          if (!idleStart || wasAsleep) {
+            // If it was asleep, it wasn't actively idling. Reset the idle start time!
             await redis.set(idleKey, Date.now());
           } else {
             const idleDurationMin = (Date.now() - parseInt(idleStart)) / 60000;
