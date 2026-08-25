@@ -185,11 +185,13 @@ const ais140V2Server = createProtocolServer(
 );
 
 // Start the Volty Server on Port 5004
+// Volty packets are terminated with \r\n (not '*' like AIS140).
+// The OC handshake uses: $PVT,VLT1,M1.2.2,OC,...\r\n
+// Normal location packets also end with \r\n.
 const voltyServer = createProtocolServer(
   VOLTY_PORT,
-  '*',
+  '\n',   // ← was '*', but Volty uses \r\n line endings
   'VOLTY',
-  // Volty usually starts with $VLT or other $ prefixes
   ['$']
 );
 
