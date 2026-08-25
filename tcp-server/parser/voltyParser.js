@@ -75,9 +75,18 @@ function parseVoltyPacket(raw) {
     const header = (parts[0] || '').toUpperCase();
     const pktType = (parts[3] || '').toUpperCase();
     if (pktType === 'OC' || header.includes('OC') || parts.includes('OC')) {
+      // Try to find IMEI anywhere in the OC packet (some firmware versions include it)
+      let ocImei = null;
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i].replace(/[^0-9]/g, '');
+        if (p.length >= 14 && p.length <= 16 && /^\d+$/.test(p)) {
+          ocImei = p;
+          break;
+        }
+      }
       return {
         packetType: 'VOLTY_OPEN_CONN',
-        imei: null,
+        imei: ocImei,
         isHeartbeat: true,
         rawPacket: raw,
         deviceTime: new Date().toISOString()

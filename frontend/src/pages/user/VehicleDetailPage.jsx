@@ -12,7 +12,7 @@ import VehicleMap from '../../components/map/VehicleMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
-import { formatSpeed, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
+import { formatSpeed, formatFuel, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
 import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
 import { useSocket } from '../../hooks/useSocket';
 import { useVehicles } from '../../hooks/useVehicles';

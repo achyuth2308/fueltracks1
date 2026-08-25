@@ -121,7 +121,7 @@ async function start(io) {
 
       // 4. Dispatch FCM push to users who have this alert type enabled
       try {
-        const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, alertType.toLowerCase());
+        const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, vehicleId, alertType.toLowerCase());
         if (fcmTokens.length > 0) {
           const bodyText = alertText || `${vehicle.plate} triggered a ${alertType} alert.`;
           const enhancedBody = `${bodyText}\n\nTime: ${timeStr}, ${dateStr}\nLoc: ${address}\nMaps: https://maps.google.com/?q=${lat},${lng}`;

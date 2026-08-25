@@ -85,8 +85,65 @@ function readIoBlock(buffer, offset, valueSize, ioMap) {
 }
 
 /**
- * Parse a full Codec 8 Data Packet
+ * Reads an IO block for Codec 8 Extended (2-byte IO IDs).
+ */
+function readIoBlockExtended(buffer, offset, valueSize, ioMap) {
+  let currentOffset = offset;
+  const count = buffer.readUInt16BE(currentOffset);
+  currentOffset += 2;
+
+  for (let i = 0; i < count; i++) {
+    const ioId = buffer.readUInt16BE(currentOffset);
+    currentOffset += 2;
+
+    let value = 0;
+    if (valueSize === 1) {
+      value = buffer.readInt8(currentOffset);
+    } else if (valueSize === 2) {
+      value = buffer.readInt16BE(currentOffset);
+    } else if (valueSize === 4) {
+      value = buffer.readInt32BE(currentOffset);
+    } else if (valueSize === 8) {
+      value = Number(buffer.readBigInt64BE(currentOffset));
+    }
+    currentOffset += valueSize;
+    ioMap[ioId] = value;
+  }
+  return currentOffset;
+}
+
+/**
+ * Reads a Variable Length IO block for Codec 8 Extended.
+ */
+function readVariableIoBlockExtended(buffer, offset, ioMap) {
+  let currentOffset = offset;
+  const count = buffer.readUInt16BE(currentOffset);
+  currentOffset += 2;
+
+  for (let i = 0; i < count; i++) {
+    const ioId = buffer.readUInt16BE(currentOffset);
+    currentOffset += 2;
+    const length = buffer.readUInt16BE(currentOffset);
+    currentOffset += 2;
+
+    // We just store the raw buffer for variable length IO.
+    // If the data is ASCII, it can be decoded later.
+    const value = buffer.subarray(currentOffset, currentOffset + length);
+    currentOffset += length;
+    
+    // Store as hex string to avoid object reference issues in Redis, 
+    // or you could just store it as is if Redis handles buffers.
+    ioMap[ioId] = value.toString('hex');
+  }
+  return currentOffset;
+}
+
+/**
+ * Parse a full Codec 8 or Codec 8 Extended Data Packet
  * Returns { records: [...], response: Buffer, bytesConsumed: number }
+ * Supports:
+ *   0x08 — Codec 8 (IO IDs are 1 byte)
+ *   0x8E — Codec 8 Extended (IO IDs are 2 bytes)
  */
 function parseCodec8Packet(buffer) {
   if (buffer.length < 45) {
@@ -110,7 +167,7 @@ function parseCodec8Packet(buffer) {
   // 3. CRC-16 Check
   const expectedCrc = buffer.readUInt32BE(packetTotalLength - 4);
   const actualCrc = calculateCrc16(buffer, 8, dataLength);
-  
+
   if (expectedCrc !== actualCrc) {
     return { error: `CRC mismatch. Expected ${expectedCrc}, got ${actualCrc}`, bytesConsumed: packetTotalLength };
   }
@@ -120,8 +177,9 @@ function parseCodec8Packet(buffer) {
   const codecId = buffer.readUInt8(offset);
   offset += 1;
 
-  if (codecId !== 0x08) {
-    // We only support Codec 8 here. Codec 8 Extended is 0x8E.
+  // Support both Codec 8 (0x08) and Codec 8 Extended (0x8E)
+  const isExtended = (codecId === 0x8E);
+  if (codecId !== 0x08 && codecId !== 0x8E) {
     return { error: `Unsupported Codec ID: 0x${codecId.toString(16)}`, bytesConsumed: packetTotalLength };
   }
 
@@ -154,34 +212,62 @@ function parseCodec8Packet(buffer) {
     offset += 2;
 
     // IO Element
-    const eventIoId = buffer.readUInt8(offset);
-    offset += 1;
-    const totalIoCount = buffer.readUInt8(offset);
-    offset += 1;
-
     const ioMap = {};
-    
-    // 1-byte properties
-    offset = readIoBlock(buffer, offset, 1, ioMap);
-    // 2-byte properties
-    offset = readIoBlock(buffer, offset, 2, ioMap);
-    // 4-byte properties
-    offset = readIoBlock(buffer, offset, 4, ioMap);
-    // 8-byte properties
-    offset = readIoBlock(buffer, offset, 8, ioMap);
 
-    records.push({
-      timestamp: new Date(timestampMs),
-      priority,
-      lat,
-      lng: lon,
-      altitude,
-      direction: angle,
-      satellites,
-      speed,
-      ioMap,
-      eventIoId,
-    });
+    if (isExtended) {
+      // Codec 8 Extended: event IO ID is 2 bytes, total IO count is 2 bytes
+      const eventIoId = buffer.readUInt16BE(offset);
+      offset += 2;
+      const totalIoCount = buffer.readUInt16BE(offset);
+      offset += 2;
+
+      // IO blocks with 2-byte IDs
+      offset = readIoBlockExtended(buffer, offset, 1, ioMap);
+      offset = readIoBlockExtended(buffer, offset, 2, ioMap);
+      offset = readIoBlockExtended(buffer, offset, 4, ioMap);
+      offset = readIoBlockExtended(buffer, offset, 8, ioMap);
+      
+      // Variable Length IO (Codec 8 Extended only)
+      offset = readVariableIoBlockExtended(buffer, offset, ioMap);
+
+      records.push({
+        timestamp: new Date(timestampMs),
+        priority,
+        lat,
+        lng: lon,
+        altitude,
+        direction: angle,
+        satellites,
+        speed,
+        ioMap,
+        eventIoId,
+      });
+    } else {
+      // Codec 8: event IO ID is 1 byte, total IO count is 1 byte
+      const eventIoId = buffer.readUInt8(offset);
+      offset += 1;
+      const totalIoCount = buffer.readUInt8(offset);
+      offset += 1;
+
+      // IO blocks with 1-byte IDs
+      offset = readIoBlock(buffer, offset, 1, ioMap);
+      offset = readIoBlock(buffer, offset, 2, ioMap);
+      offset = readIoBlock(buffer, offset, 4, ioMap);
+      offset = readIoBlock(buffer, offset, 8, ioMap);
+
+      records.push({
+        timestamp: new Date(timestampMs),
+        priority,
+        lat,
+        lng: lon,
+        altitude,
+        direction: angle,
+        satellites,
+        speed,
+        ioMap,
+        eventIoId,
+      });
+    }
   }
 
   const recordCount2 = buffer.readUInt8(offset);

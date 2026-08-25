@@ -604,7 +604,7 @@ const GpsModel = {
     );
   },
 
-  async getFcmTokensForAlert(orgId, alertType) {
+  async getFcmTokensForAlert(orgId, vehicleId, alertType) {
     let prefKey = alertType;
     if (alertType) {
       const type = alertType.toLowerCase();
@@ -627,8 +627,17 @@ const GpsModel = {
          AND (
            p.preferences IS NULL
            OR COALESCE((p.preferences->$2)::text, 'true') != 'false'
+         )
+         AND (
+           u.role != 'customer'
+           OR EXISTS (
+             SELECT 1
+             FROM user_groups ug
+             JOIN vehicle_groups vg ON ug.group_id = vg.group_id
+             WHERE ug.user_id = u.id AND vg.vehicle_id = $3
+           )
          )`,
-      [orgId, prefKey]
+      [orgId, prefKey, vehicleId]
     );
     return result.rows.map(r => r.fcm_token);
   },

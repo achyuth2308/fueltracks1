@@ -396,18 +396,32 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
         return;
       }
 
+      // Check for 0,0 coordinates — device has network but no GPS fix yet.
+      // Publish as heartbeat so the vehicle shows ONLINE without corrupting map.
+      const fLat = parseFloat(parsed.lat);
+      const fLng = parseFloat(parsed.lng);
+      const isZeroCoords = (fLat === 0 && fLng === 0);
+
       // Track the connected device
       connectedDevices.set(parsed.imei, {
         socket,
         clientId,
         protocolName,
         lastPacket: new Date(),
-        lat: parsed.lat,
-        lng: parsed.lng,
+        lat: isZeroCoords ? undefined : parsed.lat,
+        lng: isZeroCoords ? undefined : parsed.lng,
       });
 
-      // Publish to Redis
-      await publisher.publishLocation(parsed);
+      if (isZeroCoords) {
+        console.log(`[TCP - ${protocolName}] IMEI ${parsed.imei}: GPS fix not yet acquired (0,0). Publishing heartbeat only.`);
+        await publisher.publishHeartbeat(
+          parsed.imei, parsed.battery, parsed.gsmSignal,
+          parsed.ignition, parsed.deviceTime, parsed.rawPacket, parsed.packetType
+        );
+      } else {
+        // Publish to Redis
+        await publisher.publishLocation(parsed);
+      }
       if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
         protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       } else if (protocolStats['CONCOX']) {
@@ -522,6 +536,39 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       }
       totalPacketsParsed++;
 
+    } else if (parsed.packetType === 'VOLTY_OPEN_CONN') {
+      // ================================================================
+      // VOLTY OPEN CONNECTION HANDSHAKE (OC packet)
+      // The device ALWAYS sends this first before any GPS data.
+      // We MUST reply with "OK\r\n" otherwise the device closes the
+      // TCP connection immediately and never sends location packets.
+      // ================================================================
+      console.log(`[TCP - ${protocolName}] Volty OC handshake from ${clientId} (IMEI: ${parsed.imei || 'pending'}). Sending ACK.`);
+      try {
+        socket.write('OK\r\n');
+      } catch (e) {
+        console.error(`[TCP - ${protocolName}] Failed to send OC ACK: ${e.message}`);
+      }
+      if (parsed.imei) {
+        connectedDevices.set(parsed.imei, {
+          socket,
+          clientId,
+          protocolName,
+          lastPacket: new Date()
+        });
+        await publisher.publishHeartbeat(
+          parsed.imei,
+          100,
+          undefined,
+          undefined,
+          parsed.deviceTime,
+          parsed.rawPacket,
+          'VOLTY_OPEN_CONN'
+        ).catch(() => {});
+      }
+      if (protocolStats['VOLTY']) protocolStats['VOLTY'].lastSuccessfulPacketAt = new Date().toISOString();
+      totalPacketsParsed++;
+
     } else if (parsed.packetType === 'VOLTY_NORMAL') {
       const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
                          Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
@@ -534,6 +581,17 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
         lat: isValidGps ? parsed.lat : undefined,
         lng: isValidGps ? parsed.lng : undefined,
       });
+
+      // ── ACK the data packet so the device stops retrying ──────────
+      // Volty devices expect an "OK\r\n" acknowledgement after every
+      // data packet they send. Without it the device queues the packet
+      // as unacknowledged and re-transmits it endlessly, which is the
+      // source of the repeated errors you were seeing.
+      try {
+        if (!socket.destroyed) socket.write('OK\r\n');
+      } catch (ackErr) {
+        console.warn(`[TCP - ${protocolName}] Failed to ACK VOLTY_NORMAL for ${parsed.imei}: ${ackErr.message}`);
+      }
 
       if (!isValidGps) {
         console.log(`[TCP - ${protocolName}] Volty: GPS not fixed for ${parsed.imei}. Publishing heartbeat.`);
@@ -556,6 +614,7 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
         await publisher.publishAlert(parsed);
         console.log(`[TCP - ${protocolName}] Volty Alert from ${parsed.imei}: ${parsed.alertText}`);
       }
+
       
     // ================================================================
     // AIS140 V2 PACKET TYPES
@@ -563,12 +622,22 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
 
     } else if (parsed.packetType === 'AIS140V2_GENERAL') {
       // General/Normal packet — treat the same as $NRM for location tracking
+      const fLat = parseFloat(parsed.lat);
+      const fLng = parseFloat(parsed.lng);
       const isValidGps = parsed.gpsValid === 'A' && parsed.lat !== null && parsed.lng !== null &&
-                         Math.abs(parsed.lat) <= 90 && Math.abs(parsed.lng) <= 180;
+                         Math.abs(fLat) <= 90 && Math.abs(fLng) <= 180;
+      const isZeroCoords = (fLat === 0 && fLng === 0);
 
-      if (!isValidGps) {
-        totalPacketsInvalid++;
-        console.warn(`[TCP - ${protocolName}] V2 General: GPS not fixed for ${parsed.imei}. Dropping location.`);
+      if (!isValidGps || isZeroCoords) {
+        // GPS not fixed — still mark device as online via heartbeat
+        console.log(`[TCP - ${protocolName}] V2 General: GPS not fixed for ${parsed.imei} (valid=${isValidGps}, zero=${isZeroCoords}). Publishing heartbeat.`);
+        connectedDevices.set(parsed.imei, { socket, clientId, protocolName, lastPacket: new Date() });
+        await publisher.publishHeartbeat(
+          parsed.imei, parsed.battery, parsed.gsmSignal,
+          parsed.ignition, parsed.deviceTime, parsed.rawPacket, parsed.packetType
+        );
+        totalPacketsParsed++;
+        if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
       } else {
         connectedDevices.set(parsed.imei, {
           socket,
@@ -829,14 +898,31 @@ function createConcoxServer(port) {
             }
 
             if (packet.gpsValid !== 'A') {
-              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: GPS not fixed (Status: ${packet.gpsValid}). Dropping.`);
-              totalPacketsInvalid++;
+              // GPS not fixed — still mark device online via heartbeat
+              console.log(`[TCP - CONCOX] Location from ${sessionImei}: GPS not fixed (Status: ${packet.gpsValid}). Publishing heartbeat.`);
+              if (sessionImei) {
+                connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() });
+                await publisher.publishHeartbeat(
+                  sessionImei, packet.battPercent, packet.gsmStrength,
+                  packet.ignition, packet.deviceTime, packet.rawPacket, packet.packetType
+                );
+              }
+              totalPacketsParsed++;
               break;
             }
             if (packet.lat === null || packet.lng === null ||
-                Math.abs(packet.lat) > 90 || Math.abs(packet.lng) > 180) {
-              console.warn(`[TCP - CONCOX] Location from ${sessionImei}: coords out of range`);
-              totalPacketsInvalid++;
+                Math.abs(packet.lat) > 90 || Math.abs(packet.lng) > 180 ||
+                (parseFloat(packet.lat) === 0 && parseFloat(packet.lng) === 0)) {
+              // 0,0 or invalid range — Indian Ocean / null island bug. Publish heartbeat only.
+              console.log(`[TCP - CONCOX] Location from ${sessionImei}: coords invalid or 0,0 (lat=${packet.lat},lng=${packet.lng}). Publishing heartbeat.`);
+              if (sessionImei) {
+                connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName: 'CONCOX', lastPacket: new Date() });
+                await publisher.publishHeartbeat(
+                  sessionImei, packet.battPercent, packet.gsmStrength,
+                  packet.ignition, packet.deviceTime, packet.rawPacket, packet.packetType
+                );
+              }
+              totalPacketsParsed++;
               break;
             }
 
