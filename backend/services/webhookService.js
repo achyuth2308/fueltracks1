@@ -256,7 +256,7 @@ async function _dispatchAsync(vehicle, point) {
       event:     'gps.update',
       timestamp: toIST(new Date()),
       data: {
-        vehicleRegistrationNumber: vehicle.plate || null,
+        vehicleRegistrationNumber: vehicle.plate || vehicle.name || null,
         imei:                      vehicle.imei,
         speed:                     parseFloat(point.speed) || 0,
         longitude:                 parseFloat(point.lng),
