@@ -235,7 +235,7 @@ async function postLiveLocation(req, res, next) {
 
     // Report back any identifiers that weren't found
     const foundImeis  = new Set(result.rows.map((r) => r.imei));
-    const foundPlates = new Set(result.rows.map((r) => (r.plate || '').toUpperCase()));
+    const foundPlates = new Set(result.rows.map((r) => (r.plate || r.name || '').toUpperCase()));
     const notFound = [
       ...imeiList.filter((i) => !foundImeis.has(i)),
       ...plateList.filter((p) => !foundPlates.has(p)),
