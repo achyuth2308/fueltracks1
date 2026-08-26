@@ -12,6 +12,7 @@ const GeofenceModel = require('../models/geofenceModel');
 const RouteModel = require('../models/routeModel');
 const db = require('../config/db');
 const env = require('../config/env');
+const webhookService = require('../services/webhookService'); // Civil Supply webhook push
 
 let subscriber = null;
 
@@ -673,6 +674,16 @@ async function start(io) {
         };
         io.to(`vehicle:${vehicleId}`).emit('location:update', payload);
         io.to(`org:${orgId}`).emit('fleet:update', payload);
+
+        // 8. Webhook push (Civil Supply / third-party clients)
+        // Fire-and-forget: NEVER awaited, NEVER blocks this pipeline.
+        // webhookService internally catches all errors — safe in production.
+        if (hasValidGps) {
+          webhookService.dispatch(vehicle, {
+            lat, lng, speed, direction, voltage, battery, satellites,
+            ignition: finalIgnition, deviceTime
+          });
+        }
       }
 
     } catch (err) {

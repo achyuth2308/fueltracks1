@@ -270,6 +270,36 @@ async function bootstrap() {
       CREATE INDEX IF NOT EXISTS idx_trips_vehicle_id ON trips(vehicle_id);
       CREATE INDEX IF NOT EXISTS idx_trips_status ON trips(status);
       CREATE INDEX IF NOT EXISTS idx_trips_start_time ON trips(start_time);
+
+      -- ── Civil Supply / Third-Party API additions ─────────────────────────────
+      -- Scope an API key to a specific group (NULL = org-wide access, unchanged behaviour)
+      ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE SET NULL;
+
+      -- Webhook subscriptions: where to push GPS updates for each client
+      CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        group_id    UUID REFERENCES groups(id) ON DELETE SET NULL,
+        url         TEXT NOT NULL,
+        secret      TEXT,
+        label       VARCHAR(255),
+        is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_webhook_subs_org   ON webhook_subscriptions(org_id);
+      CREATE INDEX IF NOT EXISTS idx_webhook_subs_group ON webhook_subscriptions(group_id);
+
+      -- Delivery log: audit trail for every webhook attempt
+      CREATE TABLE IF NOT EXISTS webhook_delivery_log (
+        id                BIGSERIAL PRIMARY KEY,
+        subscription_id   UUID REFERENCES webhook_subscriptions(id) ON DELETE CASCADE,
+        attempt           SMALLINT NOT NULL DEFAULT 1,
+        status_code       SMALLINT,
+        error             TEXT,
+        delivered_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_webhook_log_sub ON webhook_delivery_log(subscription_id);
     `);
     console.log('[BOOT] Database tables & migrations verified');
 

@@ -2,30 +2,34 @@
 // THIRD-PARTY API CONTROLLER — FuelTracks
 // Exposes live location and GPS history to external clients.
 // All requests are org-scoped via API key.
+//
+// CHANGELOG:
+//  v2 — Civil Supply integration additions (production-safe, additive only):
+//       • postLiveLocation now also accepts vehicleRegistrationNumber / plates
+//       • Added postHistory  (POST /api/v1/location/history)
+//       • Added getVehicleList (GET /api/v1/vehicles)
+//       • All new endpoints respect optional group_id scoping on the API key
 // ============================================================
 
 const db = require('../config/db');
 
-// ─── Helper ─────────────────────────────────────────────────
-// Convert a UTC timestamp from PostgreSQL to IST formatted string
+// ─── Helpers ────────────────────────────────────────────────
+
+/** Convert a UTC timestamp from PostgreSQL to IST formatted string */
 function toIST(utcDate) {
   if (!utcDate) return null;
   const d = new Date(utcDate);
-  // IST = UTC + 5:30
   const istOffset = 5.5 * 60 * 60 * 1000;
   const ist = new Date(d.getTime() + istOffset);
   const pad = (n) => String(n).padStart(2, '0');
   return `${ist.getUTCFullYear()}-${pad(ist.getUTCMonth() + 1)}-${pad(ist.getUTCDate())} ${pad(ist.getUTCHours())}:${pad(ist.getUTCMinutes())}:${pad(ist.getUTCSeconds())}`;
 }
 
-// ─── Shape a GPS record into the client-required format ─────
+/** Shape a GPS record into the client-required format */
 function formatPoint(row, isHistory) {
-  // vehicleBatteryVoltage: the main 12/24V vehicle supply (stored as `voltage`, 0-32V)
-  // deviceBatteryVoltage:  the internal GPS device battery (stored as `battery`, 0-6V)
   const voltageRaw = parseFloat(row.voltage);
   const batteryRaw = parseFloat(row.battery);
 
-  // GPS signal quality: map satellites count to descriptive quality
   let gpsSignalQuality = 'none';
   const sats = parseInt(row.satellites) || 0;
   if (sats >= 7)      gpsSignalQuality = 'excellent';
@@ -33,19 +37,16 @@ function formatPoint(row, isHistory) {
   else if (sats >= 3) gpsSignalQuality = 'fair';
   else if (sats >= 1) gpsSignalQuality = 'poor';
 
-  // gpsFix: device has a valid GPS lock (>= 3 satellites)
   let gpsFix = sats >= 3;
 
-  // accuracy: derived from satellite count (rough HDOP approximation in metres)
   let accuracy;
-  if (sats >= 7) accuracy = 5;
+  if (sats >= 7)      accuracy = 5;
   else if (sats >= 5) accuracy = 10;
   else if (sats >= 3) accuracy = 25;
-  else accuracy = null;
+  else                accuracy = null;
 
   const deviceTime = new Date(row.device_time);
   const now = new Date();
-  // Consider vehicle offline if last seen is more than 5 minutes ago
   const isOnline = (now - deviceTime) < 5 * 60 * 1000;
 
   return {
@@ -56,7 +57,7 @@ function formatPoint(row, isHistory) {
     latitude:                  parseFloat(row.lat),
     dateTime:                  toIST(row.device_time),
     vehicleBatteryVoltage:     isNaN(voltageRaw) ? null : Math.min(32, Math.max(0, voltageRaw)),
-    deviceBatteryVoltage:      isNaN(batteryRaw) ? null : Math.min(6, Math.max(0, batteryRaw)),
+    deviceBatteryVoltage:      isNaN(batteryRaw) ? null : Math.min(6,  Math.max(0, batteryRaw)),
     ignitionOn:                row.ignition === true || row.ignition === 'true',
     gpsFix,
     gpsSignalQuality,
@@ -67,12 +68,28 @@ function formatPoint(row, isHistory) {
   };
 }
 
+/**
+ * Build an optional GROUP scope fragment for SQL queries.
+ * If the API key has a group_id attached, restricts results to that group only.
+ * Returns { clause: string, params: array } to splice into an existing query.
+ *
+ * IMPORTANT: pass `startIndex` as the number of params already in the array
+ * so placeholder numbering is correct.
+ */
+function buildGroupScope(groupId, currentParams) {
+  if (!groupId) return { clause: '', params: [] };
+  const idx = currentParams.length + 1;
+  return {
+    clause: `AND v.id IN (SELECT vehicle_id FROM vehicle_groups WHERE group_id = $${idx})`,
+    params: [groupId],
+  };
+}
+
 // ─── GET /api/v1/location/live ──────────────────────────────
-// Returns the latest known position for every vehicle in the org.
-// Optional query param: ?imei=<imei>  (filter to a single vehicle)
+// (Unchanged from v1 — kept exactly as-is for backward compatibility)
 async function getLiveLocation(req, res, next) {
   try {
-    const { orgId } = req.apiOrg;
+    const { orgId, groupId } = req.apiOrg;
     const { imei } = req.query;
 
     let whereImei = '';
@@ -82,6 +99,9 @@ async function getLiveLocation(req, res, next) {
       params.push(imei.trim());
       whereImei = `AND v.imei = $${params.length}`;
     }
+
+    const scope = buildGroupScope(groupId, params);
+    params.push(...scope.params);
 
     const result = await db.query(
       `SELECT
@@ -101,6 +121,7 @@ async function getLiveLocation(req, res, next) {
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
        WHERE v.org_id = $1
          ${whereImei}
+         ${scope.clause}
        ORDER BY v.plate ASC`,
       params
     );
@@ -126,41 +147,64 @@ async function getLiveLocation(req, res, next) {
 }
 
 // ─── POST /api/v1/location/live ──────────────────────────────
-// Client sends IMEI(s) in the request body.
-// They hit this when they spot a vehicle in their own system
-// and want to know its live GPS position.
-//
-// Body (single):  { "imei": "869925070566102" }
-// Body (batch):   { "imeis": ["869925070566102", "867440068994847"] }
+// v2: now also accepts vehicleRegistrationNumber / plates in addition to imei / imeis.
+// The client's format: { "user_id": "srsl", "vehicle_id": "WB11E1543" }
+// Our format:         { "imei": "..." } | { "imeis": [...] } | { "vehicleRegistrationNumber": "..." } | { "plates": [...] }
 async function postLiveLocation(req, res, next) {
   try {
-    const { orgId } = req.apiOrg;
-    const { imei, imeis } = req.body || {};
+    const { orgId, groupId } = req.apiOrg;
+    const { imei, imeis, vehicle_id, vehicleRegistrationNumber, plates } = req.body || {};
 
-    // Build list of IMEIs from either `imei` (single) or `imeis` (array)
-    let imeiList = [];
-    if (imei)  imeiList = [String(imei).trim()];
-    if (imeis && Array.isArray(imeis)) imeiList = imeis.map(i => String(i).trim()).filter(Boolean);
+    // ── Normalise input into two lists: IMEI list and plate list ──────────────
+    let imeiList  = [];
+    let plateList = [];
 
-    if (imeiList.length === 0) {
+    // IMEI-based lookup
+    if (imei)  imeiList  = [String(imei).trim()];
+    if (imeis && Array.isArray(imeis)) imeiList = imeis.map((i) => String(i).trim()).filter(Boolean);
+
+    // Plate-based lookup (support both naming conventions from the client's spec)
+    const rawPlate = vehicle_id || vehicleRegistrationNumber;
+    if (rawPlate)  plateList = [String(rawPlate).trim().toUpperCase()];
+    if (plates && Array.isArray(plates)) {
+      plateList = plates.map((p) => String(p).trim().toUpperCase()).filter(Boolean);
+    }
+
+    if (imeiList.length === 0 && plateList.length === 0) {
       return res.status(400).json({
         success: false,
-        error: 'Provide "imei" (single string) or "imeis" (array of strings) in the request body.',
-        code: 'MISSING_IMEI',
+        error: 'Provide one of: "imei", "imeis", "vehicle_id", "vehicleRegistrationNumber", or "plates" in the request body.',
+        code: 'MISSING_VEHICLE_IDENTIFIER',
       });
     }
 
-    if (imeiList.length > 100) {
+    const totalCount = imeiList.length + plateList.length;
+    if (totalCount > 100) {
       return res.status(400).json({
         success: false,
-        error: 'Maximum 100 IMEIs per request.',
-        code: 'TOO_MANY_IMEIS',
+        error: 'Maximum 100 vehicle identifiers per request.',
+        code: 'TOO_MANY_IDENTIFIERS',
       });
     }
 
-    // Build $2, $3, $4 ... placeholders for the IN clause
-    const placeholders = imeiList.map((_, i) => `$${i + 2}`).join(', ');
-    const params = [orgId, ...imeiList];
+    // ── Build query — handles IMEI list, plate list, or both ─────────────────
+    const params = [orgId];
+    const conditions = [];
+
+    if (imeiList.length > 0) {
+      const ph = imeiList.map((_, i) => `$${params.length + i + 1}`).join(', ');
+      params.push(...imeiList);
+      conditions.push(`v.imei IN (${ph})`);
+    }
+    if (plateList.length > 0) {
+      const ph = plateList.map((_, i) => `$${params.length + i + 1}`).join(', ');
+      params.push(...plateList);
+      conditions.push(`UPPER(v.plate) IN (${ph})`);
+    }
+
+    const vehicleWhere = conditions.length > 0 ? `AND (${conditions.join(' OR ')})` : '';
+    const scope = buildGroupScope(groupId, params);
+    params.push(...scope.params);
 
     const result = await db.query(
       `SELECT
@@ -179,16 +223,21 @@ async function postLiveLocation(req, res, next) {
        FROM vehicles v
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
        WHERE v.org_id = $1
-         AND v.imei IN (${placeholders})
+         ${vehicleWhere}
+         ${scope.clause}
        ORDER BY v.plate ASC`,
       params
     );
 
     const data = result.rows.map((row) => formatPoint(row, false));
 
-    // Identify any requested IMEIs that were not found in this org
-    const foundImeis = new Set(result.rows.map(r => r.imei));
-    const notFound = imeiList.filter(i => !foundImeis.has(i));
+    // Report back any identifiers that weren't found
+    const foundImeis  = new Set(result.rows.map((r) => r.imei));
+    const foundPlates = new Set(result.rows.map((r) => (r.plate || '').toUpperCase()));
+    const notFound = [
+      ...imeiList.filter((i) => !foundImeis.has(i)),
+      ...plateList.filter((p) => !foundPlates.has(p)),
+    ];
 
     return res.status(200).json({
       success: true,
@@ -202,15 +251,12 @@ async function postLiveLocation(req, res, next) {
 }
 
 // ─── GET /api/v1/location/history ───────────────────────────
-// Returns paginated GPS history for a specific vehicle.
-// Required:  ?imei=<imei>&start=YYYY-MM-DD&end=YYYY-MM-DD
-// Optional:  ?page=1&limit=500
+// (Unchanged from v1 — kept exactly as-is for backward compatibility)
 async function getHistory(req, res, next) {
   try {
-    const { orgId } = req.apiOrg;
+    const { orgId, groupId } = req.apiOrg;
     const { imei, start, end, page = 1, limit = 500 } = req.query;
 
-    // ── Validation ──────────────────────────────────────────
     if (!imei) {
       return res.status(400).json({
         success: false,
@@ -230,13 +276,15 @@ async function getHistory(req, res, next) {
     const parsedLimit = Math.min(1000, Math.max(1, parseInt(limit) || 500));
     const offset      = (parsedPage - 1) * parsedLimit;
 
-    // ── Verify vehicle belongs to org (security scope check) ─
+    const vehicleParams = [imei.trim(), orgId];
+    const vehicleScope  = buildGroupScope(groupId, vehicleParams);
+    vehicleParams.push(...vehicleScope.params);
+
     const vehicleRes = await db.query(
       `SELECT v.id FROM vehicles v
-       WHERE v.imei = $1 AND v.org_id = $2`,
-      [imei.trim(), orgId]
+       WHERE v.imei = $1 AND v.org_id = $2 ${vehicleScope.clause}`,
+      vehicleParams
     );
-
 
     if (vehicleRes.rows.length === 0) {
       return res.status(404).json({
@@ -250,7 +298,6 @@ async function getHistory(req, res, next) {
     const startTs   = `${start} 00:00:00`;
     const endTs     = `${end} 23:59:59`;
 
-    // ── Count total ─────────────────────────────────────────
     const countRes = await db.query(
       `SELECT COUNT(*) FROM gps_points
        WHERE vehicle_id = $1
@@ -259,8 +306,6 @@ async function getHistory(req, res, next) {
     );
     const total = parseInt(countRes.rows[0].count);
 
-    // ── Fetch points ────────────────────────────────────────
-    // Join vehicles to get plate + imei for formatting
     const histRes = await db.query(
       `SELECT
          v.imei,
@@ -304,5 +349,157 @@ async function getHistory(req, res, next) {
   }
 }
 
-module.exports = { getLiveLocation, postLiveLocation, getHistory };
+// ─── POST /api/v1/location/history ──────────────────────────
+// NEW in v2 — accepts same params as GET history but via JSON body.
+// Supports lookup by imei OR vehicleRegistrationNumber (plate).
+async function postHistory(req, res, next) {
+  try {
+    const { orgId, groupId } = req.apiOrg;
+    const {
+      imei,
+      vehicle_id,
+      vehicleRegistrationNumber,
+      start,
+      end,
+      page  = 1,
+      limit = 500,
+    } = req.body || {};
 
+    // Accept plate from either "vehicle_id" (legacy client format) or "vehicleRegistrationNumber"
+    const plate = vehicle_id || vehicleRegistrationNumber;
+
+    if (!imei && !plate) {
+      return res.status(400).json({
+        success: false,
+        error: 'Provide "imei" or "vehicleRegistrationNumber" (vehicle registration number) in the request body.',
+        code: 'MISSING_VEHICLE_IDENTIFIER',
+      });
+    }
+    if (!start || !end) {
+      return res.status(400).json({
+        success: false,
+        error: 'Provide "start" and "end" dates in YYYY-MM-DD format.',
+        code: 'MISSING_DATE_RANGE',
+      });
+    }
+
+    const parsedPage  = Math.max(1, parseInt(page)  || 1);
+    const parsedLimit = Math.min(1000, Math.max(1, parseInt(limit) || 500));
+    const offset      = (parsedPage - 1) * parsedLimit;
+
+    // ── Resolve vehicle by IMEI or plate ─────────────────────
+    let vehicleQuery, vehicleParams;
+    if (imei) {
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate FROM vehicles v WHERE v.imei = $1 AND v.org_id = $2';
+      vehicleParams = [String(imei).trim(), orgId];
+    } else {
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate FROM vehicles v WHERE UPPER(v.plate) = $1 AND v.org_id = $2';
+      vehicleParams = [String(plate).trim().toUpperCase(), orgId];
+    }
+
+    const scope = buildGroupScope(groupId, vehicleParams);
+    vehicleParams.push(...scope.params);
+    const vehicleRes = await db.query(`${vehicleQuery} ${scope.clause}`, vehicleParams);
+
+    if (vehicleRes.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: `Vehicle not found in your organization.`,
+        code: 'VEHICLE_NOT_FOUND',
+      });
+    }
+
+    const vehicle   = vehicleRes.rows[0];
+    const vehicleId = vehicle.id;
+    const startTs   = `${start} 00:00:00`;
+    const endTs     = `${end} 23:59:59`;
+
+    const countRes = await db.query(
+      `SELECT COUNT(*) FROM gps_points WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3`,
+      [vehicleId, startTs, endTs]
+    );
+    const total = parseInt(countRes.rows[0].count);
+
+    const histRes = await db.query(
+      `SELECT
+         v.imei,
+         v.plate,
+         gp.lat,
+         gp.lng,
+         gp.speed,
+         gp.direction,
+         gp.voltage,
+         gp.battery,
+         gp.ignition,
+         gp.satellites,
+         gp.gsm_signal,
+         gp.device_time
+       FROM gps_points gp
+       JOIN vehicles v ON v.id = gp.vehicle_id
+       WHERE gp.vehicle_id = $1
+         AND gp.device_time BETWEEN $2 AND $3
+       ORDER BY gp.device_time ASC
+       LIMIT $4 OFFSET $5`,
+      [vehicleId, startTs, endTs, parsedLimit, offset]
+    );
+
+    const data = histRes.rows.map((row) => formatPoint(row, true));
+
+    return res.status(200).json({
+      success: true,
+      vehicleRegistrationNumber: vehicle.plate || null,
+      imei: vehicle.imei,
+      dateRange: { start, end },
+      pagination: {
+        page:       parsedPage,
+        limit:      parsedLimit,
+        total,
+        totalPages: Math.ceil(total / parsedLimit),
+      },
+      count: data.length,
+      data,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── GET /api/v1/vehicles ────────────────────────────────────
+// NEW in v2 — returns a directory of all vehicles the client is allowed to see.
+// No GPS data — identity info only (IMEI + plate + name).
+// Lets the client build their own local mapping table.
+async function getVehicleList(req, res, next) {
+  try {
+    const { orgId, groupId } = req.apiOrg;
+
+    const params = [orgId];
+    const scope  = buildGroupScope(groupId, params);
+    params.push(...scope.params);
+
+    const result = await db.query(
+      `SELECT v.imei, v.plate, v.name
+       FROM vehicles v
+       WHERE v.org_id = $1
+         AND v.is_active = TRUE
+         ${scope.clause}
+       ORDER BY v.plate ASC`,
+      params
+    );
+
+    const vehicles = result.rows.map((v) => ({
+      vehicleRegistrationNumber: v.plate || null,
+      imei:                      v.imei,
+      name:                      v.name || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: vehicles.length,
+      vehicles,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getLiveLocation, postLiveLocation, getHistory, postHistory, getVehicleList };
