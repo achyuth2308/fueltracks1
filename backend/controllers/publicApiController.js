@@ -50,7 +50,7 @@ function formatPoint(row, isHistory) {
   const isOnline = (now - deviceTime) < 5 * 60 * 1000;
 
   return {
-    vehicleRegistrationNumber: row.plate || null,
+    vehicleRegistrationNumber: row.plate || row.name || null,
     imei:                      row.imei,
     speed:                     parseFloat(row.speed) || 0,
     longitude:                 parseFloat(row.lng),
@@ -107,6 +107,7 @@ async function getLiveLocation(req, res, next) {
       `SELECT
          v.imei,
          v.plate,
+         v.name,
          vls.lat,
          vls.lng,
          vls.speed,
@@ -199,7 +200,7 @@ async function postLiveLocation(req, res, next) {
     if (plateList.length > 0) {
       const ph = plateList.map((_, i) => `$${params.length + i + 1}`).join(', ');
       params.push(...plateList);
-      conditions.push(`UPPER(v.plate) IN (${ph})`);
+      conditions.push(`(UPPER(v.plate) IN (${ph}) OR UPPER(v.name) IN (${ph}))`);
     }
 
     const vehicleWhere = conditions.length > 0 ? `AND (${conditions.join(' OR ')})` : '';
@@ -210,6 +211,7 @@ async function postLiveLocation(req, res, next) {
       `SELECT
          v.imei,
          v.plate,
+         v.name,
          vls.lat,
          vls.lng,
          vls.speed,
@@ -310,6 +312,7 @@ async function getHistory(req, res, next) {
       `SELECT
          v.imei,
          v.plate,
+         v.name,
          gp.lat,
          gp.lng,
          gp.speed,
@@ -390,10 +393,10 @@ async function postHistory(req, res, next) {
     // ── Resolve vehicle by IMEI or plate ─────────────────────
     let vehicleQuery, vehicleParams;
     if (imei) {
-      vehicleQuery  = 'SELECT v.id, v.imei, v.plate FROM vehicles v WHERE v.imei = $1 AND v.org_id = $2';
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE v.imei = $1 AND v.org_id = $2';
       vehicleParams = [String(imei).trim(), orgId];
     } else {
-      vehicleQuery  = 'SELECT v.id, v.imei, v.plate FROM vehicles v WHERE UPPER(v.plate) = $1 AND v.org_id = $2';
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE (UPPER(v.plate) = $1 OR UPPER(v.name) = $1) AND v.org_id = $2';
       vehicleParams = [String(plate).trim().toUpperCase(), orgId];
     }
 
@@ -424,6 +427,7 @@ async function postHistory(req, res, next) {
       `SELECT
          v.imei,
          v.plate,
+         v.name,
          gp.lat,
          gp.lng,
          gp.speed,
