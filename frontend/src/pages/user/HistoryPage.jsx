@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download } from 'lucide-react';
+import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download, ArrowLeft } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import { adminApi } from '../../api/axios';
 import RouteMap from '../../components/map/RouteMap';
@@ -388,6 +388,41 @@ const HistoryPage = () => {
 
       {/* ═══════════ LEFT PANEL: MAP AREA ═══════════ */}
       <div style={{ position: 'absolute', inset: 0, background: '#E2E8F0', display: 'flex', flexDirection: 'column' }}>
+        {/* Floating Back to Live Map Button */}
+        <button
+          onClick={() => navigate('/dashboard')}
+          style={{
+            position: 'absolute',
+            top: '24px',
+            left: '24px',
+            zIndex: 1001,
+            width: '40px',
+            height: '40px',
+            borderRadius: '50%',
+            background: '#FFFFFF',
+            border: '1px solid #CBD5E1',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#1E293B',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.05)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+            e.currentTarget.style.background = '#F8FAFC';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            e.currentTarget.style.background = '#FFFFFF';
+          }}
+          title="Back to Live Dashboard"
+        >
+          <ArrowLeft size={20} />
+        </button>
         {loading && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
             <Loader2 size={32} color="#0EA5E9" className="animate-spin" style={{ marginBottom: '16px' }} />
