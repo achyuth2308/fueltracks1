@@ -484,7 +484,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                           {v.name}
                         </div>
                         <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.7)' : '#9ca3af', marginTop: '2px' }}>
-                          {v.plate || 'No plate'} · {formatSpeed(v.current_speed)}
+                          {v.plate || v.name} · {formatSpeed(v.current_speed)}
                         </div>
                       </div>
                       <span style={{
@@ -593,7 +593,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                               {v.name}
                             </div>
                             <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '2px' }}>
-                              {v.plate || 'No plate'}
+                              {v.plate || v.name}
                             </div>
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginLeft: '8px' }}>

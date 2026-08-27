@@ -415,7 +415,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                         {v.name}
                       </div>
                       <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.7)' : '#9ca3af', marginTop: '1px' }}>
-                        {v.plate || 'No plate'} • {formatSpeed(v.current_speed)}
+                        {v.plate || v.name} • {formatSpeed(v.current_speed)}
                       </div>
                     </div>
                     <span style={{
@@ -729,7 +729,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 700 }}>{currentSelectedVehicle.name}</div>
                     <div style={{ fontSize: '10px', opacity: 0.8, marginTop: '2px' }}>
-                      {currentSelectedVehicle.plate || 'No plate'} • {currentSelectedVehicle.is_online ? 'Online' : 'Offline'}
+                      {currentSelectedVehicle.plate || currentSelectedVehicle.name} • {currentSelectedVehicle.is_online ? 'Online' : 'Offline'}
                     </div>
                   </div>
                   <button
@@ -950,7 +950,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                   >
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                       <span style={{ fontSize: '13px', fontWeight: 800, color: '#1f2937' }}>{v.name}</span>
-                      <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>{v.plate || 'No plate'}</span>
+                      <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>{v.plate || v.name}</span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                       <span style={{ fontSize: '14px', fontWeight: 900, color: '#3b82f6' }}>

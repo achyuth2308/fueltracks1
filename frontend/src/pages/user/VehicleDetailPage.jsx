@@ -386,7 +386,7 @@ const VehicleDetailPage = () => {
                 <StatusDot vehicle={vehicle} />
               </div>
               <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'monospace' }}>
-                <span>{vehicle.plate || 'No Plate'}</span>
+                <span>{vehicle.plate || vehicle.name}</span>
                 <span>•</span>
                 <span>IMEI: {vehicle.imei}</span>
               </div>

@@ -221,7 +221,7 @@ const VehiclesAdminPage = () => {
                 </div>
               </div>
               <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingVehicle.name}</h2>
-              <p style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'monospace' }}>{viewingVehicle.plate || 'No Plate'}</p>
+              <p style={{ fontSize: '13px', color: '#6B7280', fontFamily: 'monospace' }}>{viewingVehicle.plate || viewingVehicle.name}</p>
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
                 <button onClick={(e) => { e.stopPropagation(); navigate(`/vehicles/${viewingVehicle.id}`); }} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#EEF5F8', border: '1px solid #e0f2fe', color: '#f97316', fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
