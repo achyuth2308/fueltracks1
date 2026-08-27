@@ -30,8 +30,8 @@ const { parseVoltyPacket } = require('./voltyParser');
 function parsePacket(raw) {
   const trimmed = raw.trim();
 
-  // ---- VOLTY PROTOCOL (Identified by VLT1 / VLT vendor signature or Volty headers) ----
-  if (trimmed.includes('VLT1') || trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD') || trimmed.startsWith('$VLT')) {
+  // ---- VOLTY PROTOCOL (Identified by VLT1 / Volty vendor signature or Volty headers) ----
+  if (trimmed.includes('VLT1') || trimmed.includes('Volty') || trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD') || trimmed.startsWith('$VLT')) {
     try {
       const voltyParsed = parseVoltyPacket(trimmed);
       if (voltyParsed) return voltyParsed;
