@@ -428,7 +428,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   // Create custom rotated navigation arrow/car icon
   const createVehicleIcon = (direction = 0, speed = 0, ignition = false) => {
     let currentStatus = 'offline';
-    if (speed > 2) {
+    if (ignition && speed > 3) {
       currentStatus = 'running';
     } else if (ignition) {
       currentStatus = 'idle';
@@ -670,8 +670,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             if (lastMarkerDist === null || currentDist - lastMarkerDist >= distanceInterval) {
               lastMarkerDist = currentDist;
 
-              let heading = p.course || 0;
-              if (!p.course && idx > 0) {
+              let heading = p.direction !== undefined ? p.direction : (p.course || 0);
+              if (p.direction === undefined && !p.course && idx > 0) {
                 const prev = points[idx - 1];
                 const lat1 = prev.lat * Math.PI / 180;
                 const lat2 = p.lat * Math.PI / 180;
@@ -860,8 +860,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         {(() => {
           if (!activePoint || !activePoint.lat || !activePoint.lng || !isValidCoord(activePoint.lat, activePoint.lng)) return null;
 
-          let heading = activePoint.course || 0;
-          if (!activePoint.course && validCurrentIndex > 0) {
+          let heading = activePoint.direction !== undefined ? activePoint.direction : (activePoint.course || 0);
+          if (activePoint.direction === undefined && !activePoint.course && validCurrentIndex > 0) {
             const prev = validPoints[validCurrentIndex - 1];
             if (prev && prev.lat && prev.lng) {
               const lat1 = prev.lat * Math.PI / 180;

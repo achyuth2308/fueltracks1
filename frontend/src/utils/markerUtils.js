@@ -26,7 +26,7 @@ export const getVehicleStatus = (vehicle = {}) => {
   const ignition = !!vehicle.current_ignition;
 
   if (!isOnline) return 'offline';
-  if (speed > 2.0) return 'running';
+  if (ignition && speed > 3.0) return 'running';
   if (ignition) return 'idle';
   return 'parked';
 };
@@ -88,7 +88,7 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   const status = overrideOptions.status || getVehicleStatus(vehicle);
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
   const color = overrideOptions.color || cfg.color;
-  const course = overrideOptions.course !== undefined ? overrideOptions.course : (vehicle.course || vehicle.heading || 0);
+  const course = overrideOptions.course !== undefined ? overrideOptions.course : (vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0);
   const speed = overrideOptions.speed !== undefined ? overrideOptions.speed : Math.round(vehicle.current_speed || 0);
   const type = overrideOptions.type || getVehicleType(vehicle);
 

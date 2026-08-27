@@ -592,7 +592,7 @@ const HistoryPage = () => {
                   currentRows.map((p, index) => {
                     const idx = indexOfFirstRow + index;
                     const prev = idx > 0 ? filteredPoints[idx - 1] : null;
-                    const direction = getDirectionStr(p.course, prev?.lat, prev?.lng, p.lat, p.lng);
+                    const direction = getDirectionStr(p.direction !== undefined ? p.direction : p.course, prev?.lat, prev?.lng, p.lat, p.lng);
                     return (
                       <tr
                         key={idx}

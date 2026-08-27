@@ -34,3 +34,13 @@ export const getBatteryStatus = (voltage, ignition) => {
   }
 };
 
+export const formatDirection = (course) => {
+  if (course === undefined || course === null || course === '') return 'N/A';
+  const angle = parseFloat(course);
+  if (isNaN(angle)) return 'N/A';
+  const val = Math.floor((angle / 22.5) + 0.5);
+  const arr = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
+  return `${arr[(val % 16)]} (${Math.round(angle)}°)`;
+};
+
+

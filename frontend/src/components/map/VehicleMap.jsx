@@ -95,7 +95,7 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   const center = coords.length > 0 ? coords[coords.length - 1] : defaultCenter;
   
   // Calculate status color matching dashboard logic
-  const isMoving = speed > 0;
+  const isMoving = ignition && speed > 3;
   const statusColor = isOnline ? (isMoving ? '#10b981' : (ignition ? '#f59e0b' : '#ef4444')) : '#64748b';
 
   return (

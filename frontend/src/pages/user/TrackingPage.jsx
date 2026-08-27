@@ -4,7 +4,7 @@ import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw,
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
 import FleetMap from '../../components/map/FleetMap';
-import { formatSpeed, formatFuel, formatVoltage, formatOdometer } from '../../utils/formatUtils';
+import { formatSpeed, formatFuel, formatVoltage, formatOdometer, formatDirection } from '../../utils/formatUtils';
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
@@ -118,13 +118,11 @@ const TrackingPage = ({ setAppVehicles }) => {
   const metrics = useMemo(() => {
     let running = 0, idle = 0, parked = 0, offline = 0;
     vehicles.forEach(v => {
-      const isOnline = !!v.is_online;
-      const speed = v.current_speed || 0;
-      const ignition = !!v.current_ignition;
-      if (!isOnline) offline++;
-      else if (speed > 2.0) running++;
-      else if (ignition) idle++;
-      else parked++;
+      const status = getVehicleStatus(v);
+      if (status === 'running') running++;
+      else if (status === 'idle') idle++;
+      else if (status === 'parked') parked++;
+      else if (status === 'offline') offline++;
     });
     return { running, idle, parked, offline, total: vehicles.length };
   }, [vehicles]);
@@ -132,13 +130,7 @@ const TrackingPage = ({ setAppVehicles }) => {
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
       if (statusFilter) {
-        const isOnline = !!v.is_online;
-        const speed = v.current_speed || 0;
-        const ignition = !!v.current_ignition;
-        if (statusFilter === 'running') return isOnline && speed > 2.0;
-        if (statusFilter === 'idle') return isOnline && speed <= 2.0 && ignition;
-        if (statusFilter === 'parked') return isOnline && speed <= 2.0 && !ignition;
-        if (statusFilter === 'offline') return !isOnline;
+        return getVehicleStatus(v) === statusFilter;
       }
       return true;
     });
@@ -270,7 +262,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             </div>
             <div style={{ padding: '8px' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#10b981" /> Direction</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.current_course || 'N/A'}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatDirection(hoveredVehicle.current_direction)}</div>
             </div>
           </div>
 

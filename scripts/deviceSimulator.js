@@ -25,12 +25,12 @@ const { crcItu } = require('../tcp-server/parser/concoxCrc');
 const TCP_HOST = process.env.TCP_SIM_HOST || '127.0.0.1';
 
 const PORTS = {
-  BSTPL:    parseInt(process.env.TCP_PORT) || 5000,
-  AIS140:   parseInt(process.env.AIS140_TCP_PORT) || 5001,
-  CONCOX:   parseInt(process.env.CONCOX_TCP_PORT) || 5002,
+  BSTPL: parseInt(process.env.TCP_PORT) || 5000,
+  AIS140: parseInt(process.env.AIS140_TCP_PORT) || 5001,
+  CONCOX: parseInt(process.env.CONCOX_TCP_PORT) || 5002,
   AIS140V2: parseInt(process.env.AIS140V2_TCP_PORT) || 5003,
-  VOLTY:    parseInt(process.env.VOLTY_TCP_PORT) || 5004,
-  FMB920:   parseInt(process.env.FMB920_TCP_PORT) || 5005,
+  VOLTY: parseInt(process.env.VOLTY_TCP_PORT) || 5004,
+  FMB920: parseInt(process.env.FMB920_TCP_PORT) || 5005,
 };
 
 // Filter argument: run only one protocol if specified
@@ -129,14 +129,14 @@ function bstplDateTime() {
 
 function haversineDist(lat1, lon1, lat2, lon2) {
   const R = 6371e3; // meters
-  const p1 = lat1 * Math.PI/180;
-  const p2 = lat2 * Math.PI/180;
-  const dp = (lat2-lat1) * Math.PI/180;
-  const dl = (lon2-lon1) * Math.PI/180;
-  const a = Math.sin(dp/2) * Math.sin(dp/2) +
-            Math.cos(p1) * Math.cos(p2) *
-            Math.sin(dl/2) * Math.sin(dl/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const p1 = lat1 * Math.PI / 180;
+  const p2 = lat2 * Math.PI / 180;
+  const dp = (lat2 - lat1) * Math.PI / 180;
+  const dl = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dp / 2) * Math.sin(dp / 2) +
+    Math.cos(p1) * Math.cos(p2) *
+    Math.sin(dl / 2) * Math.sin(dl / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -145,19 +145,19 @@ function updateBstplState(d) {
     if (d.osrmRoute && d.osrmRoute.length > 0) {
       if (d.osrmIndex === undefined) d.osrmIndex = 0;
       if (d.osrmProgress === undefined) d.osrmProgress = 0; // meters traveled towards next point
-      
+
       d.speed = Math.round(75 + Math.random() * 10); // ~80 km/h
       const distanceToTravel = (d.speed * 1000) / 3600 * 10; // meters to travel in 10s
 
       let remaining = distanceToTravel;
-      
+
       while (remaining > 0 && d.osrmIndex < d.osrmRoute.length - 1) {
         const p1 = d.osrmRoute[d.osrmIndex];
         const p2 = d.osrmRoute[d.osrmIndex + 1];
         const segDist = haversineDist(p1[1], p1[0], p2[1], p2[0]);
-        
+
         const distLeftOnSegment = segDist - d.osrmProgress;
-        
+
         if (remaining >= distLeftOnSegment) {
           remaining -= distLeftOnSegment;
           d.osrmProgress = 0;
@@ -167,20 +167,20 @@ function updateBstplState(d) {
           remaining = 0;
         }
       }
-      
+
       if (d.osrmIndex < d.osrmRoute.length - 1) {
         const p1 = d.osrmRoute[d.osrmIndex];
         const p2 = d.osrmRoute[d.osrmIndex + 1];
         const segDist = haversineDist(p1[1], p1[0], p2[1], p2[0]);
         const fraction = segDist === 0 ? 0 : d.osrmProgress / segDist;
-        
+
         d.lat = p1[1] + (p2[1] - p1[1]) * fraction;
         d.lng = p1[0] + (p2[0] - p1[0]) * fraction;
       } else {
         d.osrmIndex = 0;
         d.osrmProgress = 0;
       }
-      
+
       d.ignition = 1;
     }
     return;
@@ -1103,11 +1103,33 @@ function startVoltySimulator() {
   log('VOLTY', 'Starting Volty simulator...');
 
   voltyDevices.forEach(device => {
-    let client = new net.Socket();
+    let client = null;
     let intervalId = null;
 
-    client.connect(PORTS.VOLTY, TCP_HOST, () => {
-      log('VOLTY', `${C.ok}Connected${C.reset} IMEI=${device.imei} to port ${PORTS.VOLTY}`);
+    function connect() {
+      if (client) {
+        try { client.destroy(); } catch (e) { }
+      }
+      client = new net.Socket();
+
+      client.connect(PORTS.VOLTY, TCP_HOST, () => {
+        log('VOLTY', `${C.ok}Connected${C.reset} IMEI=${device.imei} to port ${PORTS.VOLTY}`);
+
+        intervalId = setInterval(() => {
+          device.lat += (Math.random() - 0.5) * 0.001;
+          device.lng += (Math.random() - 0.5) * 0.001;
+
+          const pkt = buildVoltyNormal(device);
+          client.write(pkt);
+          log('VOLTY', `${C.dim}Sent Normal:${C.reset} ${pkt}`);
+
+          if (Math.random() < 0.01) {
+            const sosPkt = buildVoltyAlert(device, 10);
+            client.write(sosPkt);
+            log('VOLTY', `${C.err}Sent SOS:${C.reset} ${sosPkt}`);
+          }
+        }, 7000);
+      });
 
       client.on('data', (data) => {
         const cmd = data.toString().trim();
@@ -1121,43 +1143,23 @@ function startVoltySimulator() {
         }
       });
 
-      intervalId = setInterval(() => {
-        device.lat += (Math.random() - 0.5) * 0.001;
-        device.lng += (Math.random() - 0.5) * 0.001;
+      client.on('error', (err) => {
+        log('VOLTY', `${C.err}Error:${C.reset} IMEI=${device.imei}: ${err.message}`);
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+        // Auto-reconnect after 5s
+        setTimeout(() => {
+          log('VOLTY', `Reconnecting IMEI=${device.imei}...`);
+          connect();
+        }, 5000);
+      });
 
-        const pkt = buildVoltyNormal(device);
-        client.write(pkt);
-        log('VOLTY', `${C.dim}Sent Normal:${C.reset} ${pkt}`);
+      client.on('close', () => {
+        log('VOLTY', `${C.err}Disconnected${C.reset} IMEI=${device.imei}`);
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+      });
+    }
 
-        if (Math.random() < 0.01) {
-          const sosPkt = buildVoltyAlert(device, 10);
-          client.write(sosPkt);
-          log('VOLTY', `${C.err}Sent SOS:${C.reset} ${sosPkt}`);
-        }
-      }, 7000);
-    });
-
-    client.on('error', (err) => {
-      log('VOLTY', `${C.err}Error:${C.reset} ${err.message}`);
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
-      setTimeout(() => {
-        log('VOLTY', `Reconnecting IMEI=${device.imei}...`);
-        client = new net.Socket();  // must create new socket — errored socket cannot be reused
-        client.connect(PORTS.VOLTY, TCP_HOST, () => {
-          log('VOLTY', `${C.ok}Reconnected${C.reset} IMEI=${device.imei}`);
-          intervalId = setInterval(() => {
-            device.lat += (Math.random() - 0.5) * 0.001;
-            device.lng += (Math.random() - 0.5) * 0.001;
-            client.write(buildVoltyNormal(device));
-          }, 7000);
-        });
-      }, 5000);
-    });
-
-    client.on('close', () => {
-      log('VOLTY', `${C.err}Disconnected${C.reset} IMEI=${device.imei}`);
-      if (intervalId) { clearInterval(intervalId); intervalId = null; }
-    });
+    connect();
   });
 }
 
@@ -1289,10 +1291,10 @@ function buildFmbCodec8Packet(device, eventIoId = 0) {
   const totalIo = n1Count + n2Count + n4Count + n8Count;
 
   const ioSize = 1 + 1 +                          // event IO + total count
-                 1 + (n1Count * (1 + 1)) +         // N1 count + entries
-                 1 + (n2Count * (1 + 2)) +         // N2 count + entries
-                 1 + (n4Count * (1 + 4)) +         // N4 count + entries
-                 1;                                // N8 count
+    1 + (n1Count * (1 + 1)) +         // N1 count + entries
+    1 + (n2Count * (1 + 2)) +         // N2 count + entries
+    1 + (n4Count * (1 + 4)) +         // N4 count + entries
+    1;                                // N8 count
 
   const io = Buffer.alloc(ioSize);
   let o = 0;
@@ -1305,7 +1307,7 @@ function buildFmbCodec8Packet(device, eventIoId = 0) {
   // N2 (2-byte values)
   io.writeUInt8(n2Count, o++);
   io.writeUInt8(239, o++); io.writeUInt16BE(device.ignition ? 1 : 0, o); o += 2;  // ignition
-  io.writeUInt8(24, o++);  io.writeUInt16BE(3, o); o += 2;                        // GSM signal (0-5)
+  io.writeUInt8(24, o++); io.writeUInt16BE(3, o); o += 2;                        // GSM signal (0-5)
 
   // N4 (4-byte values)
   io.writeUInt8(n4Count, o++);
@@ -1465,9 +1467,9 @@ console.log(`${C.bold}║  ${C.ok}FMB920     ${C.reset}${C.bold}→  port ${PORT
 console.log(`${C.bold}╚══════════════════════════════════════════════════════╝${C.reset}`);
 console.log('');
 
-if (!FILTER || FILTER === 'bstpl')    startBstplSimulator();
-if (!FILTER || FILTER === 'ais140')   startAis140Simulator();
-if (!FILTER || FILTER === 'concox')   startConcoxSimulator();
+if (!FILTER || FILTER === 'bstpl') startBstplSimulator();
+if (!FILTER || FILTER === 'ais140') startAis140Simulator();
+if (!FILTER || FILTER === 'concox') startConcoxSimulator();
 if (!FILTER || FILTER === 'ais140v2') startAis140V2Simulator();
-if (!FILTER || FILTER === 'volty')    startVoltySimulator();
-if (!FILTER || FILTER === 'fmb920')   startFmb920Simulator();
+if (!FILTER || FILTER === 'volty') startVoltySimulator();
+if (!FILTER || FILTER === 'fmb920') startFmb920Simulator();

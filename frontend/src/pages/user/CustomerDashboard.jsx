@@ -6,7 +6,7 @@ import { useVehicles } from '../../hooks/useVehicles';
 import { useAuth } from '../../hooks/useAuth';
 import FleetMap from '../../components/map/FleetMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
-import { formatSpeed, formatVoltage } from '../../utils/formatUtils';
+import { formatSpeed, formatVoltage, formatDirection } from '../../utils/formatUtils';
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
@@ -343,7 +343,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             </div>
             <div style={{ padding: '8px' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#10b981" /> Direction</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.current_course || 'N/A'}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatDirection(hoveredVehicle.current_direction)}</div>
             </div>
           </div>
 

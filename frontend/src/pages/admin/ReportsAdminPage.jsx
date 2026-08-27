@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
+import { getVehicleStatus } from '../../utils/markerUtils';
 import { formatVoltage, formatFuel } from '../../utils/formatUtils';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import AddressText from '../../components/ui/AddressText';
@@ -59,14 +60,12 @@ const ReportsAdminPage = () => {
   const metrics = useMemo(() => {
     let running = 0, idle = 0, parking = 0, noData = 0, totalKms = 0, notSynced = 0;
     vehicles.forEach(v => {
-      const isOnline = !!v.is_online;
-      const speed = v.current_speed || 0;
-      const ignition = !!v.current_ignition;
       totalKms += Number(v.current_odometer || 0);
-      if (!isOnline) noData++;
-      else if (speed > 0) running++;
-      else if (ignition) idle++;
-      else parking++;
+      const status = getVehicleStatus(v);
+      if (status === 'running') running++;
+      else if (status === 'idle') idle++;
+      else if (status === 'parked') parking++;
+      else if (status === 'offline') noData++;
       if (!v.last_seen || (new Date() - new Date(v.last_seen)) > 24 * 60 * 60 * 1000) notSynced++;
     });
     return {
@@ -237,16 +236,14 @@ const ReportsAdminPage = () => {
                   </thead>
                   <tbody>
                     {filteredVehicles.map((v, idx) => {
-                      const isOnline = !!v.is_online;
                       const speed = Math.round(v.current_speed || 0);
                       const ignition = !!v.current_ignition;
 
                       let statusColor = '#94A3B8'; // Offline gray
-                      if (isOnline) {
-                        if (speed > 0) statusColor = '#10B981'; // Running green
-                        else if (ignition) statusColor = '#F59E0B'; // Idle amber
-                        else statusColor = '#64748B'; // Parking slate
-                      }
+                      const status = getVehicleStatus(v);
+                      if (status === 'running') statusColor = '#10B981'; // Running green
+                      else if (status === 'idle') statusColor = '#F59E0B'; // Idle amber
+                      else if (status === 'parked') statusColor = '#64748B'; // Parking slate
 
                       return (
                         <tr key={v.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', transition: 'background 0.2s' }}>
@@ -264,7 +261,7 @@ const ReportsAdminPage = () => {
                           <TD style={{ color: '#64748b', fontSize: '11px', fontFamily: 'monospace' }}>{formatDateTime(v.last_seen)}</TD>
                           <TD>{v.driver_name || '-'}</TD>
                           <TD align="right" style={{ fontFamily: 'monospace', fontSize: '13px' }}>{Math.round(v.current_odometer || 0).toLocaleString()} km</TD>
-                          <TD align="center" style={{ fontFamily: 'monospace', fontSize: '13px', color: speed > 0 ? '#10B981' : '#64748B', fontWeight: 700 }}>
+                          <TD align="center" style={{ fontFamily: 'monospace', fontSize: '13px', color: (getVehicleStatus(v) === 'running') ? '#10B981' : '#64748B', fontWeight: 700 }}>
                             {speed} <span style={{ fontSize: '10px', color: '#94A3B8' }}>km/h</span>
                           </TD>
                           <TD align="center">
