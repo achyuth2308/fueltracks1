@@ -29,6 +29,7 @@ const tripRoutes = require('./modules/trips/routes/tripRoutes');
 const tripController = require('./modules/trips/controllers/tripController');
 const path = require('path');
 const publicApiRoutes = require('./routes/publicApiRoutes');
+const geocodeRoutes = require('./routes/geocodeRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -153,6 +154,7 @@ app.use('/api/trips', tripRoutes);
 // ─── Third-Party Public API ───────────────────────────────────
 // Auth: X-API-Key header (no JWT required)
 app.use('/api/v1', publicApiRoutes);
+app.use('/api/geocode', geocodeRoutes);
 
 
 // Mount Static File Serving for Uploads
