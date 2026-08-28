@@ -12,10 +12,10 @@ import { useSocket } from '../../hooks/useSocket';
 const ALERT_GROUPS = [
   {
     label: 'Critical',
-    color: '#EF4444',
+    color: '#991B1B', // Dark red (red-800)
     bg: '#FEF2F2',
-    border: '#FECACA',
-    dot: '#DC2626',
+    border: '#FCA5A5', // Stronger red border (red-300)
+    dot: '#7F1D1D',
     types: [
       { key: 'sos', label: 'SOS' },
       { key: 'panic', label: 'Panic Button' },
@@ -29,10 +29,10 @@ const ALERT_GROUPS = [
   },
   {
     label: 'Warning',
-    color: '#F59E0B',
+    color: '#92400E', // Dark amber/orange (amber-800)
     bg: '#FFFBEB',
-    border: '#FDE68A',
-    dot: '#D97706',
+    border: '#FCD34D', // Stronger amber border (amber-300)
+    dot: '#78350F',
     types: [
       { key: 'overspeed', label: 'Overspeed' },
       { key: 'harsh_braking', label: 'Harsh Braking' },
@@ -44,10 +44,10 @@ const ALERT_GROUPS = [
   },
   {
     label: 'Info',
-    color: '#3B82F6',
+    color: '#1E40AF', // Dark blue (blue-800)
     bg: '#EFF6FF',
-    border: '#BFDBFE',
-    dot: '#2563EB',
+    border: '#93C5FD', // Stronger blue border (blue-300)
+    dot: '#1E3A8A',
     types: [
       { key: 'ignition_on', label: 'Ignition ON' },
       { key: 'ignition_off', label: 'Ignition OFF' },
