@@ -11,7 +11,7 @@ export const useVehicles = (initialParams = {}) => {
   const [params, setParams] = useState(initialParams);
   const [pagination, setPagination] = useState({ page: 1, limit: 100, total: 0, totalPages: 1 });
 
-  const { socket } = useSocket();
+  const { socket, connected, joinVehicleRoom, leaveVehicleRoom } = useSocket();
 
   const fetchVehicles = useCallback(async (currentParams = params) => {
     setLoading(true);
@@ -54,6 +54,39 @@ export const useVehicles = (initialParams = {}) => {
     fetchVehicles();
     fetchGroups();
   }, [fetchVehicles, fetchGroups]);
+
+  // Polling fallback when WebSocket is disconnected (prevents tab suspension freezes)
+  useEffect(() => {
+    let pollInterval = null;
+    if (!connected) {
+      console.log('[useVehicles] Socket disconnected. Starting 30s API polling fallback...');
+      pollInterval = setInterval(() => {
+        fetchVehicles();
+      }, 30000);
+    }
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [connected, fetchVehicles]);
+
+  const vehicleIdsStr = vehicles.map(v => v.id).sort().join(',');
+
+  // Subscribe to individual vehicle rooms to receive live location updates
+  useEffect(() => {
+    if (!socket || !connected || vehicles.length === 0) return;
+
+    vehicles.forEach(vehicle => {
+      joinVehicleRoom(vehicle.id);
+    });
+
+    return () => {
+      vehicles.forEach(vehicle => {
+        leaveVehicleRoom(vehicle.id);
+      });
+    };
+  }, [socket, connected, vehicleIdsStr, joinVehicleRoom, leaveVehicleRoom]);
 
   // Handle Socket.io real-time updates for matching vehicles in the list
   useEffect(() => {
