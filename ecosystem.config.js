@@ -31,8 +31,11 @@ module.exports = {
       log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
       merge_logs: true,
 
-      // Wait 1 second between restarts to avoid rapid crash loops
-      restart_delay: 1000,
+      // Kill any stale process holding port 3001 before starting (prevents EADDRINUSE crash loops)
+      pre_start: 'fuser -k 3001/tcp 2>/dev/null || true',
+
+      // Wait 2 seconds between restarts so the port is definitely free
+      restart_delay: 2000,
       max_restarts: 10,
       min_uptime: '10s',
 
