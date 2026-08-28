@@ -16,7 +16,47 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <style>
+        body { margin: 0; background-color: #0B0F19; font-family: 'Inter', sans-serif; }
+        .initial-loader-wrapper {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+          width: 100vw;
+        }
+        .initial-loader {
+          width: 48px;
+          height: 48px;
+          border: 4px solid rgba(255, 255, 255, 0.1);
+          border-left-color: #3B82F6;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 24px;
+        }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        .initial-brand {
+          color: white;
+          font-size: 20px;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+        }
+        
+        /* Smooth Leaflet marker movement */
+        .animated-marker {
+          transition: transform 4s linear;
+        }
+      </style>
+      <div class="initial-loader-wrapper">
+        <div class="initial-loader"></div>
+        <div class="initial-brand">FuelTracks</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

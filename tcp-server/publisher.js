@@ -56,6 +56,13 @@ async function publishLocation(parsed) {
     || Math.abs(parseFloat(lat)) > 90
     || Math.abs(parseFloat(lng)) > 180;
 
+  // Virtual Ignition Fallback: 
+  // If the vehicle has speed > 0 (post-drift-filtering), it is moving.
+  // We must assume the engine is ON, even if the physical ACC wire is broken or sending 0.
+  if (parseFloat(speed) > 0) {
+    ignition = true;
+  }
+
   if (isInvalidCoords) {
     // Try to restore last known valid location from Redis cache
     let restored = false;

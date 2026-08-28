@@ -114,7 +114,7 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
 
   return L.divIcon({
     html: svgHtml,
-    className: 'custom-marker-icon',
+    className: 'custom-marker-icon animated-marker',
     iconSize: [40, totalHeight],
     iconAnchor: [20, clusterRank > 0 ? totalHeight : 20],
     popupAnchor: [0, clusterRank > 0 ? -totalHeight : -20],
@@ -149,7 +149,7 @@ export const createTeardropIcon = (vehicle, noGps = false, clusterRank = 0) => {
 
   return L.divIcon({
     html: svgHtml,
-    className: 'custom-teardrop-icon',
+    className: 'custom-teardrop-icon animated-marker',
     iconSize: [32, totalHeight],
     iconAnchor: [16, clusterRank > 0 ? totalHeight : 40],
     popupAnchor: [0, clusterRank > 0 ? -totalHeight : -40],

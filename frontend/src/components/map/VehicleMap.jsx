@@ -37,7 +37,7 @@ const ResizeMap = () => {
 import { createPinIcon } from '../../utils/markerUtils';
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
-  const { socket, joinVehicleRoom, leaveVehicleRoom } = useSocket();
+  const { socket, connected, joinVehicleRoom, leaveVehicleRoom } = useSocket();
   const [coords, setCoords] = useState([]);
   const [ignition, setIgnition] = useState(initialIgnition);
   const [speed, setSpeed] = useState(initialSpeed || 0);
@@ -59,7 +59,7 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
 
   // Handle live WebSocket tracking streams
   useEffect(() => {
-    if (!vehicleId) return;
+    if (!vehicleId || !connected) return;
 
     // Join vehicle tracking room
     joinVehicleRoom(vehicleId);
@@ -89,7 +89,7 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
         leaveVehicleRoom(vehicleId);
       };
     }
-  }, [socket, vehicleId]);
+  }, [socket, connected, vehicleId]);
 
   const defaultCenter = [20.5937, 78.9629];
   const center = coords.length > 0 ? coords[coords.length - 1] : defaultCenter;

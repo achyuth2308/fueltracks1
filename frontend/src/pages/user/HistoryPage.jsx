@@ -9,18 +9,32 @@ import RouteMap from '../../components/map/RouteMap';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 const AddressCell = ({ lat, lng }) => {
-  const [address, setAddress] = useState('Fetching...');
-  useEffect(() => {
-    let mounted = true;
-    if (lat && lng) {
-      getAddressFromCoordinates(lat, lng).then(addr => {
-        if (mounted) setAddress(addr);
-      });
-    } else {
-      setAddress('N/A');
+  const [address, setAddress] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  const fetchAddress = async (e) => {
+    e.stopPropagation();
+    if (!lat || !lng) return;
+    setLoading(true);
+    try {
+      const addr = await getAddressFromCoordinates(lat, lng);
+      setAddress(addr);
+    } catch (err) {
+      setAddress('Error fetching');
     }
-    return () => { mounted = false; };
-  }, [lat, lng]);
+    setLoading(false);
+  };
+
+  if (!address) {
+    return (
+      <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', textAlign: 'center' }}>
+         <button onClick={fetchAddress} style={{ cursor: 'pointer', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '4px', color: '#0284C7', fontSize: '9px', fontWeight: 600, padding: '2px 6px' }}>
+           {loading ? '...' : 'Get Address'}
+         </button>
+      </td>
+    );
+  }
+
   return <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', fontSize: '9px', color: '#000000', maxWidth: '140px', whiteSpace: 'normal', wordWrap: 'break-word' }}>{address}</td>;
 };
 
@@ -86,15 +100,24 @@ const HistoryPage = () => {
   const tabs = ['All', 'Movement', 'OverSpeed', 'Parked', 'Idle', 'Ignition', 'Stoppage'];
 
   // Calculate filtered points for the table based on active tab
+  // NOTE: All tabs (including 'All') exclude ignition OFF records to reduce noise.
+  // The map/playback still uses the full 'points' array for an accurate route line.
   const getFilteredPoints = () => {
-    if (activeTab === 'All') return points;
-    if (activeTab === 'Movement') return points.filter(p => p.speed > 5);
-    if (activeTab === 'OverSpeed') return points.filter(p => p.speed > 60); // Mock overspeed
-    if (activeTab === 'Parked') return points.filter(p => p.speed <= 5 && !p.ignition);
-    if (activeTab === 'Idle') return points.filter(p => p.speed <= 5 && p.ignition);
-    if (activeTab === 'Ignition') return points.filter(p => p.ignition);
-    if (activeTab === 'Stoppage') return points.filter(p => p.speed <= 2);
-    return points;
+    // Base: Only show actual travel points (ignition ON AND speed > 8kmph) for accurate trips
+    const travelPoints = points.filter(p => p.ignition && p.speed > 8);
+    
+    if (activeTab === 'All') return travelPoints;
+    if (activeTab === 'Movement') return travelPoints;
+    if (activeTab === 'OverSpeed') return travelPoints.filter(p => p.speed > 60);
+    
+    // Non-travel tabs need to bypass the strict >8kmph base rule
+    const ignitionOn = points.filter(p => p.ignition);
+    if (activeTab === 'Parked') return points.filter(p => p.speed <= 5 && !p.ignition); // Parked intentionally keeps ignition OFF
+    if (activeTab === 'Idle') return ignitionOn.filter(p => p.speed <= 5);
+    if (activeTab === 'Ignition') return ignitionOn;
+    if (activeTab === 'Stoppage') return ignitionOn.filter(p => p.speed <= 2);
+    
+    return travelPoints;
   };
   
   const filteredPoints = getFilteredPoints();

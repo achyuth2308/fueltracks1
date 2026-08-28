@@ -246,7 +246,17 @@ const VehicleModel = {
        RETURNING *`,
       values
     );
-    return result.rows[0] || null;
+    
+    const updatedVehicle = result.rows[0] || null;
+    if (updatedVehicle && updatedVehicle.imei) {
+      try {
+        await redis.del(`vehicle:imei:${updatedVehicle.imei}`);
+      } catch (err) {
+        console.error('[REDIS] Cache invalidation failed for vehicle update:', err.message);
+      }
+    }
+    
+    return updatedVehicle;
   },
 
   /**

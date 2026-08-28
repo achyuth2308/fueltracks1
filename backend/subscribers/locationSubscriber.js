@@ -666,9 +666,12 @@ async function start(io) {
           displayedOdometer = baseline + Math.max(0, (finalOdometer || 0) - snapshot);
         }
 
+        const emitLat = hasValidGps ? lat : (prevState ? prevState.lat : null);
+        const emitLng = hasValidGps ? lng : (prevState ? prevState.lng : null);
+
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat, lng, speed, direction, fuel, ignition: finalIgnition, voltage,
+          lat: emitLat, lng: emitLng, speed, direction, fuel, ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true
         };

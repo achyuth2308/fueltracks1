@@ -511,9 +511,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <FleetMap
             vehicles={filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
+            onMarkerClick={(v) => setSelectedVehicle(v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
             isNearbyActive={isNearbyActive}
             nearbyRadius={nearbyRadius}
+            followSelected={true}
           />
           
           {/* ── Nearby Mode Controls ── */}

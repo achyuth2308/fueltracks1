@@ -48,23 +48,34 @@ function formatPoint(row, isHistory) {
   const deviceTime = new Date(row.device_time);
   const now = new Date();
   const isOnline = (now - deviceTime) < 5 * 60 * 1000;
+  
+  const speed = parseFloat(row.speed) || 0;
+  const ignitionOn = row.ignition === true || row.ignition === 'true';
+  
+  let vehicleState = 'Offline';
+  if (isOnline) {
+    if (speed > 0) vehicleState = 'Moving';
+    else if (ignitionOn) vehicleState = 'Idle';
+    else vehicleState = 'Stopped';
+  }
 
   return {
     vehicleRegistrationNumber: row.plate || row.name || null,
     imei:                      row.imei,
-    speed:                     parseFloat(row.speed) || 0,
+    speed,
     longitude:                 parseFloat(row.lng),
     latitude:                  parseFloat(row.lat),
     dateTime:                  toIST(row.device_time),
     vehicleBatteryVoltage:     isNaN(voltageRaw) ? null : Math.min(32, Math.max(0, voltageRaw)),
     deviceBatteryVoltage:      isNaN(batteryRaw) ? null : Math.min(6,  Math.max(0, batteryRaw)),
-    ignitionOn:                row.ignition === true || row.ignition === 'true',
+    ignitionOn,
     gpsFix,
     gpsSignalQuality,
     accuracy,
     bearing:                   parseFloat(row.direction) || 0,
     is_online:                 isOnline,
     is_history:                isHistory,
+    vehicleState
   };
 }
 

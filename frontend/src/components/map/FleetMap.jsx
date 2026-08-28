@@ -29,10 +29,12 @@ const getExpiryWarning = (expireDateStr) => {
 };
 
 // ── Live Route Plotting & Following for Selected Vehicle ─────────────
-const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false, followSelected = false }) => {
+const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
+  const [liveTrail, setLiveTrail] = useState([]);
   const hasFitInitially = useRef(false);
+  const prevVehicleIdRef = useRef(selectedVehicle?.id);
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -93,37 +95,39 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
     };
 
     fetchRoute();
-  }, [selectedVehicle?.id, showRoute]);
+  }, [selectedVehicle?.id, selectedVehicles, showRoute]);
 
-  // Zoom in when a new vehicle is selected
+  // 1. Zoom to selected vehicle
   useEffect(() => {
-    if (!selectedVehicle?.id) return;
+    const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
+    if (!targetVehicle?.id) return;
 
-    let lat = parseFloat(selectedVehicle.lat);
-    let lng = parseFloat(selectedVehicle.lng);
+    let lat = parseFloat(targetVehicle.lat);
+    let lng = parseFloat(targetVehicle.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (!hasValidCoords && vehicles && vehicles.length > 0) {
-      const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
+      const idx = vehicles.findIndex(v => v.id === targetVehicle.id);
       lat = 17.3411 + (Math.max(0, idx) * 0.003);
       lng = 78.5317 + (Math.max(0, idx) * 0.003);
     }
 
     if (!isNaN(lat) && !isNaN(lng)) {
-      map.setView([lat, lng], 16, { animate: true, duration: 1.2 });
+      map.setView([lat, lng], 16, { animate: true, duration: 1 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicle?.id]);
+  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id]);
 
 
   // 2. Zoom out/Fit Bounds when no vehicle selected
   useEffect(() => {
-    if (selectedVehicle) {
+    const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
+    if (targetVehicle) {
       hasFitInitially.current = false;
       return;
     }
 
-    if (followSelected || !hasFitInitially.current) {
+    if (!hasFitInitially.current) {
       // Don't trigger fit bounds or fallback if vehicles haven't loaded yet
       if (!vehicles || vehicles.length === 0) {
         return;
@@ -138,42 +142,61 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
         const bounds = L.latLngBounds(validCoords);
         setTimeout(() => {
           map.invalidateSize();
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: true, duration: 1.5 });
-        }, 300);
+          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+        }, 100);
         hasFitInitially.current = true;
       } else {
         // Fallback only if we have vehicles but none have valid coords
         setTimeout(() => {
-          map.setView([22.5937, 78.9629], 5, { animate: true, duration: 1.5 });
-        }, 300);
+          map.setView([22.5937, 78.9629], 5, { animate: false });
+        }, 100);
         hasFitInitially.current = true;
       }
     }
-  }, [selectedVehicle, vehicles, map, followSelected]);
+  }, [selectedVehicle, selectedVehicles, vehicles, map, followSelected]);
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
-    if (!followSelected || !selectedVehicle?.id) return;
+    const target = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
+    if (!followSelected || !target?.id) return;
 
-    let lat = parseFloat(selectedVehicle.lat);
-    let lng = parseFloat(selectedVehicle.lng);
+    let lat = parseFloat(target.lat);
+    let lng = parseFloat(target.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (!hasValidCoords && vehicles && vehicles.length > 0) {
-      const idx = vehicles.findIndex(v => v.id === selectedVehicle.id);
+      const idx = vehicles.findIndex(v => v.id === target.id);
       lat = 17.3411 + (Math.max(0, idx) * 0.003);
       lng = 78.5317 + (Math.max(0, idx) * 0.003);
     }
 
     if (!isNaN(lat) && !isNaN(lng)) {
       map.panTo([lat, lng], { animate: true, duration: 0.8 });
+      
+      const isNewVehicle = prevVehicleIdRef.current !== target.id;
+      prevVehicleIdRef.current = target.id;
+
+      // Append the live point to the route trail so it follows the vehicle
+      setRoutePoints(prev => {
+        const base = isNewVehicle ? [] : prev;
+        const last = base[base.length - 1];
+        if (!last || last.lat !== lat || last.lng !== lng) {
+          return [...base, { lat, lng }];
+        }
+        return base;
+      });
+
+      // Keep a trail of the last 10 points for the dashed line
+      setLiveTrail(prev => {
+        const base = isNewVehicle ? [] : prev;
+        const nextList = [...base, [lat, lng]];
+        if (nextList.length > 10) nextList.shift();
+        return nextList;
+      });
     }
-  }, [selectedVehicle?.lat, selectedVehicle?.lng, map, followSelected, vehicles]);
+  }, [selectedVehicle, selectedVehicles, map, followSelected, vehicles]);
 
-  if (routePoints.length === 0) return null;
-
-
-  const positions = routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
+  const positions = routePoints.length > 0 ? routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]) : [];
   const segments = splitIntoSegments(positions);
 
   return (
@@ -184,6 +207,17 @@ const VehicleRouteAndFit = ({ selectedVehicle, vehicles = [], showRoute = false,
           <Polyline positions={seg} color="#38BDF8" weight={2} opacity={1} />
         </React.Fragment>
       ))}
+      
+      {/* Live Trail Polyline (like VehicleMap) */}
+      {liveTrail.length > 1 && (
+        <Polyline
+          positions={liveTrail}
+          color="#3b82f6"
+          weight={4}
+          opacity={0.8}
+          dashArray="5, 10"
+        />
+      )}
     </>
   );
 };
@@ -193,18 +227,20 @@ import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon, createT
 const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
   const markerRef = useRef(null);
   const navigate = useNavigate();
+  const map = useMap();
 
   useEffect(() => {
     if (isSelected && markerRef.current) {
-      // Slight delay allows map to pan first
-      const timer = setTimeout(() => {
-        if (markerRef.current) markerRef.current.openPopup();
-      }, 200);
-      return () => clearTimeout(timer);
+      try {
+        map.closePopup(); // Forcefully close any stuck popups
+        markerRef.current.openPopup();
+      } catch (e) {
+        console.error("Popup open error:", e);
+      }
     } else if (!isSelected && markerRef.current) {
       markerRef.current.closePopup();
     }
-  }, [isSelected]);
+  }, [isSelected, map]);
 
   const status = getVehicleStatus(vehicle);
   const cfg = STATUS_CONFIG[status];
@@ -216,17 +252,25 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   return (
     <Marker
       position={position}
-      icon={createTeardropIcon(vehicle, noGps, clusterRank)}
+      icon={createPinIcon(vehicle, noGps, clusterRank, {
+        speed: Math.round(vehicle.current_speed || 0),
+        course: vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0,
+        status: status
+      })}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
       eventHandlers={{
-        mouseover: (e) => e.target.openPopup(),
-        click: () => onMarkerClick && onMarkerClick(vehicle)
+        click: () => {
+          if (onMarkerClick) onMarkerClick(vehicle);
+          if (markerRef.current) markerRef.current.openPopup();
+        }
       }}
     >
       <Popup
         className="premium-popup"
         closeButton={false}
+        offset={[0, -5]}
+        autoPan={false}
       >
         <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
           {/* No GPS notice */}
@@ -279,9 +323,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
           {/* Links */}
           <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '10px', paddingBottom: '4px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
-            <span onClick={() => navigate('/admin/reports')} style={{ color: '#f97316', cursor: 'pointer' }}>Reports</span>
-            <span onClick={() => navigate(`/vehicles/${vehicle.id}`)} style={{ color: '#f97316', cursor: 'pointer' }}>Track</span>
-            <span onClick={() => navigate(`/vehicles/${vehicle.id}/history`)} style={{ color: '#f97316', cursor: 'pointer' }}>History</span>
+            <a href="/admin/reports" style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>Reports</a>
+            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>Track</a>
+            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>History</a>
           </div>
         </div>
       </Popup>
@@ -354,14 +398,15 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
       _noGps: !hasValidCoords,
       _clusterRank: _clusterRank
     };
-    // Displaced pins get a higher z-index so they always appear above
-    const zOffset = (_clusterRank || 0) * 200;
+    const isSelected = allSelected.some(sv => sv.id === safeVehicle.id);
+    // Displaced pins get a higher z-index so they always appear above. Selected pins get massive boost.
+    const zOffset = ((_clusterRank || 0) * 200) + (isSelected ? 10000 : 0);
 
     return (
       <VehicleMarker
         key={safeVehicle.id}
         vehicle={safeVehicle}
-        isSelected={allSelected.some(sv => sv.id === safeVehicle.id)}
+        isSelected={isSelected}
         onMarkerClick={onMarkerClick}
         zIndexOffset={zOffset}
       />

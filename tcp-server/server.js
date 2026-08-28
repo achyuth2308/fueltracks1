@@ -190,7 +190,7 @@ const ais140V2Server = createProtocolServer(
 // Normal location packets also end with \r\n.
 const voltyServer = createProtocolServer(
   VOLTY_PORT,
-  '\n',   // ← was '*', but Volty uses \r\n line endings
+  '*',
   'VOLTY',
   ['$']
 );
@@ -399,10 +399,12 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       }
 
       // Check for 0,0 coordinates — device has network but no GPS fix yet.
+      // Also check if the device explicitly marked the GPS as invalid (gpsValid === 'V').
       // Publish as heartbeat so the vehicle shows ONLINE without corrupting map.
       const fLat = parseFloat(parsed.lat);
       const fLng = parseFloat(parsed.lng);
       const isZeroCoords = (fLat === 0 && fLng === 0);
+      const isInvalidGpsFlag = parsed.gpsValid === 'V';
 
       // Track the connected device
       connectedDevices.set(parsed.imei, {
@@ -414,8 +416,8 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
         lng: isZeroCoords ? undefined : parsed.lng,
       });
 
-      if (isZeroCoords) {
-        console.log(`[TCP - ${protocolName}] IMEI ${parsed.imei}: GPS fix not yet acquired (0,0). Publishing heartbeat only.`);
+      if (isZeroCoords || isInvalidGpsFlag) {
+        console.log(`[TCP - ${protocolName}] IMEI ${parsed.imei}: GPS fix not yet acquired (0,0) or marked Invalid (V). Publishing heartbeat only.`);
         await publisher.publishHeartbeat(
           parsed.imei, parsed.battery, parsed.gsmSignal,
           parsed.ignition, parsed.deviceTime, parsed.rawPacket, parsed.packetType
