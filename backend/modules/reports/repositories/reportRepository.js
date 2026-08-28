@@ -90,7 +90,7 @@ class ReportRepository {
     const query = `
       WITH raw AS (
           SELECT
-              lat, lng, device_time,
+              lat, lng, device_time, odometer,
               DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') AS date,
               LAG(lat)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
                                     ORDER BY device_time) AS prev_lat,
@@ -103,14 +103,16 @@ class ReportRepository {
             AND device_time BETWEEN $2 AND $3
       ),
       with_dist AS (
-          SELECT date,
+          SELECT date, odometer, device_time,
               ${HAVERSINE_SEGMENT_KM} AS segment_km
           FROM raw
       )
       SELECT
           date,
           ROUND(SUM(segment_km)::numeric, 2) AS distance_travelled,
-          COUNT(*)                           AS point_count
+          COUNT(*)                           AS point_count,
+          COALESCE((ARRAY_AGG(odometer ORDER BY device_time ASC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS start_odometer,
+          COALESCE((ARRAY_AGG(odometer ORDER BY device_time DESC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS end_odometer
       FROM with_dist
       GROUP BY date
       ORDER BY date;
