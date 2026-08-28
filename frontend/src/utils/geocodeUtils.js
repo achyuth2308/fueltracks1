@@ -13,19 +13,14 @@ export const getAddressFromCoordinates = async (lat, lng) => {
   
   try {
     const response = await fetch(
-      `https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode?location=${lng},${lat}&f=json`,
-      {
-        headers: {
-          'Accept-Language': 'en-US,en;q=0.9',
-        }
-      }
+      `/api/geocode/reverse?lat=${lat}&lng=${lng}`
     );
     if (response.ok) {
       const data = await response.json();
-      let address = 'Unknown Location';
+      let address = 'Location unavailable';
       
-      if (data && data.address) {
-        address = data.address.LongLabel || data.address.Match_addr || 'Location unavailable';
+      if (data && data.success && data.label) {
+        address = data.label;
       }
       
       addressCache.set(cacheKey, address);
