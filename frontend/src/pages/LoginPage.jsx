@@ -346,6 +346,12 @@ const LoginPage = () => {
                 </p>
               </div>
 
+              <div className="mt-4 text-center">
+                <Link to="/privacy-policy" className="text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors">
+                  Privacy Policy
+                </Link>
+              </div>
+
             </div>
           </motion.div>
 
