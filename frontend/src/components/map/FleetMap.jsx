@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle } from 'react-leaflet';
@@ -254,14 +254,28 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const warning = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
 
+  const speed = Math.round(vehicle.current_speed || 0);
+  const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
+
+  // Memoize the initial icon so react-leaflet never destroys the DOM node during position updates
+  const initialIcon = useMemo(() => {
+    return createPinIcon(vehicle, noGps, clusterRank, { speed, course, status });
+  }, []); // Only run once on mount
+
+  // Manually update the icon HTML when properties change
+  useEffect(() => {
+    if (markerRef.current && markerRef.current._icon) {
+      const newIcon = createPinIcon(vehicle, noGps, clusterRank, { speed, course, status });
+      // Update the innerHTML of the Leaflet divIcon container.
+      // This preserves the outer DOM node, keeping CSS transitions intact!
+      markerRef.current._icon.innerHTML = newIcon.options.html;
+    }
+  }, [speed, course, status, noGps, clusterRank, vehicle]);
+
   return (
     <Marker
       position={position}
-      icon={createPinIcon(vehicle, noGps, clusterRank, {
-        speed: Math.round(vehicle.current_speed || 0),
-        course: vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0,
-        status: status
-      })}
+      icon={initialIcon}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
       eventHandlers={{
