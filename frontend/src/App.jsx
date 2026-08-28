@@ -8,6 +8,7 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import LoginPage from './pages/LoginPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
 import DashboardPage from './pages/user/DashboardPage';
 import VehicleDetailPage from './pages/user/VehicleDetailPage';
 import HistoryPage from './pages/user/HistoryPage';
@@ -58,6 +59,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
 
             {/* Guarded dashboard route layout shell */}
             <Route path="/" element={<DashboardLayout vehicles={vehicles} />}>
