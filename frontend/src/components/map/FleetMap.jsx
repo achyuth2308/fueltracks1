@@ -121,6 +121,9 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
   // 2. Zoom out/Fit Bounds when no vehicle selected
   useEffect(() => {
+    let t1 = null;
+    let t2 = null;
+
     const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
     if (targetVehicle) {
       hasFitInitially.current = false;
@@ -140,19 +143,36 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
       if (validCoords.length > 0) {
         const bounds = L.latLngBounds(validCoords);
-        setTimeout(() => {
-          map.invalidateSize();
-          map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+        t1 = setTimeout(() => {
+          if (map && map.getContainer()) {
+            try {
+              map.invalidateSize();
+              map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15, animate: false });
+            } catch (e) {
+              console.warn('Map fitBounds failed:', e.message);
+            }
+          }
         }, 100);
         hasFitInitially.current = true;
       } else {
         // Fallback only if we have vehicles but none have valid coords
-        setTimeout(() => {
-          map.setView([22.5937, 78.9629], 5, { animate: false });
+        t2 = setTimeout(() => {
+          if (map && map.getContainer()) {
+            try {
+              map.setView([22.5937, 78.9629], 5, { animate: false });
+            } catch (e) {
+              console.warn('Map fallback setView failed:', e.message);
+            }
+          }
         }, 100);
         hasFitInitially.current = true;
       }
     }
+
+    return () => {
+      if (t1) clearTimeout(t1);
+      if (t2) clearTimeout(t2);
+    };
   }, [selectedVehicle, selectedVehicles, vehicles, map, followSelected]);
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
