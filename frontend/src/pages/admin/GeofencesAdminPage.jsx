@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MapPin, Plus, Trash2, ShieldAlert, Loader2, Navigation, CheckSquare, Square } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { getVehicles } from '../../api/vehicleApi';
@@ -37,12 +38,27 @@ const ResizeMap = () => {
   const map = useMap();
   useEffect(() => {
     const observer = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (map && map.getContainer()) {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          console.warn('Map resize adjustment failed:', e.message);
+        }
+      }
     });
-    observer.observe(map.getContainer());
+    const container = map.getContainer();
+    if (container) {
+      observer.observe(container);
+    }
     // Also trigger immediately after mount to fix initial render in modal
     const timer = setTimeout(() => {
-      map.invalidateSize();
+      if (map && map.getContainer()) {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          // ignore
+        }
+      }
     }, 100);
     return () => {
       observer.disconnect();
@@ -53,6 +69,7 @@ const ResizeMap = () => {
 };
 
 const GeofencesAdminPage = () => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('geofences');
   const [vehicles, setVehicles] = useState([]);
   const [geofences, setGeofences] = useState([]);
@@ -529,7 +546,7 @@ const GeofencesAdminPage = () => {
                         <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 400, background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, color: '#0F172A', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', pointerEvents: 'none', border: '1px solid #E2E8F0' }}>
                           📍 Click map to drop pin
                         </div>
-                        <MapContainer center={[parseFloat(geoLat) || 17.207174, parseFloat(geoLng) || 78.314323]} zoom={15} style={{ height: '100%', width: '100%' }}>
+                        <MapContainer key={location.pathname} center={[parseFloat(geoLat) || 17.207174, parseFloat(geoLng) || 78.314323]} zoom={15} style={{ height: '100%', width: '100%' }}>
                           <ResizeMap />
                           <TileLayer 
                             attribution='&copy; OpenStreetMap'
