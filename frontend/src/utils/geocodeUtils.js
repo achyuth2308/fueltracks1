@@ -1,3 +1,5 @@
+import axiosInstance from '../api/axios';
+
 // In-memory cache to prevent spamming
 const addressCache = new Map();
 
@@ -12,11 +14,9 @@ export const getAddressFromCoordinates = async (lat, lng) => {
   }
   
   try {
-    const response = await fetch(
-      `/api/geocode/reverse?lat=${lat}&lng=${lng}`
-    );
-    if (response.ok) {
-      const data = await response.json();
+    const response = await axiosInstance.get(`/api/geocode/reverse?lat=${lat}&lng=${lng}`);
+    if (response.status === 200) {
+      const data = response.data;
       let address = 'Location unavailable';
       
       if (data && data.success && data.label) {
