@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
@@ -424,10 +424,21 @@ const ResizeMap = () => {
   const map = useMap();
   useEffect(() => {
     const observer = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (map && map.getContainer()) {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          console.warn('Map resize adjustment failed:', e.message);
+        }
+      }
     });
-    observer.observe(map.getContainer());
-    return () => observer.disconnect();
+    const container = map.getContainer();
+    if (container) {
+      observer.observe(container);
+    }
+    return () => {
+      observer.disconnect();
+    };
   }, [map]);
   return null;
 };
@@ -442,6 +453,7 @@ const FleetMap = ({
   nearbyRadius = null,
   isNearbyActive = false
 }) => {
+  const location = useLocation();
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
   // selectedVehicles (array) takes priority; fall back to singular selectedVehicle
   const effectiveSelected = selectedVehicles != null
@@ -505,6 +517,7 @@ const FleetMap = ({
       </div>
 
       <MapContainer
+        key={location.pathname}
         center={mapCenter}
         zoom={10}
         className="w-full h-full"

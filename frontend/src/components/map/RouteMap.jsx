@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap, LayersControl } from 'react-leaflet';
+import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
 import { createPinIcon } from '../../utils/markerUtils';
 import { formatSpeed } from '../../utils/formatUtils';
@@ -54,10 +55,21 @@ const MapResizer = () => {
   const map = useMap();
   useEffect(() => {
     const observer = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (map && map.getContainer()) {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          console.warn('Map resize adjustment failed:', e.message);
+        }
+      }
     });
-    observer.observe(map.getContainer());
-    return () => observer.disconnect();
+    const container = map.getContainer();
+    if (container) {
+      observer.observe(container);
+    }
+    return () => {
+      observer.disconnect();
+    };
   }, [map]);
   return null;
 };
@@ -85,6 +97,7 @@ const formatDuration = (ms) => {
 };
 
 const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
+  const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [snapToRoads, setSnapToRoads] = useState(false);
   const [snappedSegments, setSnappedSegments] = useState([]);
@@ -568,6 +581,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       )}
 
       <MapContainer
+        key={location.pathname}
         center={center}
         zoom={13}
         className="w-full h-full"

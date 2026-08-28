@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import { useSocket } from '../../hooks/useSocket';
+import { useLocation } from 'react-router-dom';
 
 const { BaseLayer } = LayersControl;
 
@@ -26,10 +27,21 @@ const ResizeMap = () => {
   const map = useMap();
   useEffect(() => {
     const observer = new ResizeObserver(() => {
-      map.invalidateSize();
+      if (map && map.getContainer()) {
+        try {
+          map.invalidateSize();
+        } catch (e) {
+          console.warn('Map resize adjustment failed:', e.message);
+        }
+      }
     });
-    observer.observe(map.getContainer());
-    return () => observer.disconnect();
+    const container = map.getContainer();
+    if (container) {
+      observer.observe(container);
+    }
+    return () => {
+      observer.disconnect();
+    };
   }, [map]);
   return null;
 };
@@ -37,6 +49,7 @@ const ResizeMap = () => {
 import { createPinIcon } from '../../utils/markerUtils';
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
+  const location = useLocation();
   const { socket, connected, joinVehicleRoom, leaveVehicleRoom } = useSocket();
   const [coords, setCoords] = useState([]);
   const [ignition, setIgnition] = useState(initialIgnition);
@@ -101,6 +114,7 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   return (
     <div className="w-full h-full border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
       <MapContainer
+        key={location.pathname}
         center={center}
         zoom={15}
         className="w-full h-full"
