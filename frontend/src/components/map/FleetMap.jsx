@@ -229,6 +229,13 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const navigate = useNavigate();
   const map = useMap();
 
+  const targetLat = parseFloat(vehicle.lat);
+  const targetLng = parseFloat(vehicle.lng);
+  
+  const [currentPos, setCurrentPos] = useState([targetLat, targetLng]);
+  const animationRef = useRef(null);
+  const lastTarget = useRef([targetLat, targetLng]);
+
   useEffect(() => {
     if (isSelected && markerRef.current) {
       try {
@@ -242,16 +249,62 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
     }
   }, [isSelected, map]);
 
+  // Smooth marker position tweening
+  useEffect(() => {
+    const [tLat, tLng] = [targetLat, targetLng];
+    const [cLat, cLng] = currentPos;
+    
+    // Snap immediately if it's the first load, no GPS, or a huge teleport jump
+    const dist = Math.abs(tLat - cLat) + Math.abs(tLng - cLng);
+    if (dist > 0.05 || (tLat === cLat && tLng === cLng) || vehicle._noGps) {
+       setCurrentPos([tLat, tLng]);
+       lastTarget.current = [tLat, tLng];
+       return;
+    }
+    
+    if (tLat !== lastTarget.current[0] || tLng !== lastTarget.current[1]) {
+      lastTarget.current = [tLat, tLng];
+      const startLat = cLat;
+      const startLng = cLng;
+      const startTime = performance.now();
+      
+      const duration = 2500; // 2.5 seconds smooth glide
+      
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      
+      const animate = (time) => {
+        const elapsed = time - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Linear ease for steady moving vehicle
+        const ease = progress; 
+        
+        const nextLat = startLat + (tLat - startLat) * ease;
+        const nextLng = startLng + (tLng - startLng) * ease;
+        
+        setCurrentPos([nextLat, nextLng]);
+        
+        if (progress < 1) {
+          animationRef.current = requestAnimationFrame(animate);
+        }
+      };
+      animationRef.current = requestAnimationFrame(animate);
+    }
+    
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [targetLat, targetLng, vehicle._noGps]);
+
   const status = getVehicleStatus(vehicle);
   const cfg = STATUS_CONFIG[status];
   const noGps = !!vehicle._noGps;
-  const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
 
   return (
     <Marker
-      position={position}
+      position={currentPos}
       icon={createPinIcon(vehicle, noGps, clusterRank, {
         speed: Math.round(vehicle.current_speed || 0),
         course: vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0,
