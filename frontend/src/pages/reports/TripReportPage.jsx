@@ -83,10 +83,11 @@ const TripReportPage = () => {
     }
   };
 
-  const columns = ['Start Time', 'Start Address', 'End Time', 'End Address', 'Duration (hh:mm:ss)', 'Distance', 'Max Speed', 'Avg Speed'];
+  const columns = ['Vehicle Name', 'Start Time', 'Start Address', 'End Time', 'End Address', 'Duration (hh:mm:ss)', 'Distance', 'Max Speed', 'Avg Speed'];
 
   const getExportData = () => {
     return data.map(row => ({
+      'Vehicle Name': row.vehicle_name || '-',
       'Start Time': formatLocalTime(row.start_time),
       'Start Address': (row.start_lat && row.start_lng) ? `Lat: ${row.start_lat}, Lng: ${row.start_lng}` : 'N/A',
       'End Time': formatLocalTime(row.end_time),
@@ -166,6 +167,7 @@ const TripReportPage = () => {
                 </tr>
               ) : data.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
+                  <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
                   <AddressCell lat={row.start_lat} lng={row.start_lng} />
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
