@@ -92,13 +92,16 @@ const corsOriginHandler = (() => {
   return (requestOrigin, callback) => {
     // allow requests with no origin (like mobile apps or curl requests)
     // and allow 'null' origin (local file:// executions for testing)
-    if (!requestOrigin || requestOrigin === 'null' || allowed.includes(requestOrigin)) {
+    // and allow any localhost port (for Flutter web / local dev testing)
+    const isLocalhost = requestOrigin && /^https?:\/\/localhost(:\d+)?$/.test(requestOrigin);
+    if (!requestOrigin || requestOrigin === 'null' || isLocalhost || allowed.includes(requestOrigin)) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${requestOrigin} not allowed`));
     }
   };
 })();
+
 
 // Attach Socket.io
 const io = socketIo(server, {
