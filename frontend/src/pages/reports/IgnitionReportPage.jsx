@@ -52,12 +52,11 @@ const IgnitionReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Plate', 'Org', 'Event', 'Date & Time', 'Latitude', 'Longitude'];
+  const columns = ['Vehicle Name', 'Org', 'Event', 'Date & Time', 'Latitude', 'Longitude'];
 
   const getExportData = () => {
     return data.map(row => ({
       'Vehicle Name': row.vehicle_name || '-',
-      'Plate': row.plate || '-',
       'Org': row.org_name || '-',
       'Event': row.event_type,
       'Date & Time': formatLocalTime(row.device_time),
@@ -141,7 +140,6 @@ const IgnitionReportPage = () => {
               ) : data.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 700, color: row.event_type === 'ON' ? '#10B981' : '#DC2626' }}>{row.event_type}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#111827' }}>{formatLocalTime(row.device_time)}</td>

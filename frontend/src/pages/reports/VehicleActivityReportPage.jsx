@@ -51,12 +51,11 @@ const VehicleActivityReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Plate', 'Org', 'Running (hrs)', 'Idle (hrs)', 'Stopped (hrs)', 'Distance (km)', 'Trips'];
+  const columns = ['Vehicle Name', 'Org', 'Running (hrs)', 'Idle (hrs)', 'Stopped (hrs)', 'Distance (km)', 'Trips'];
 
   const getExportData = () => {
     return data.map(row => ({
       'Vehicle Name': row.vehicle_name || '-',
-      'Plate': row.plate || '-',
       'Org': row.org_name || '-',
       'Running (hrs)': (row.running_seconds / 3600).toFixed(2),
       'Idle (hrs)': (row.idle_seconds / 3600).toFixed(2),
@@ -141,7 +140,6 @@ const VehicleActivityReportPage = () => {
               ) : data.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#10B981', fontWeight: 600 }}>{(row.running_seconds / 3600).toFixed(2)} h</td>
                   <td style={{ padding: '10px 16px', fontSize: '13px', color: '#F59E0B', fontWeight: 600 }}>{(row.idle_seconds / 3600).toFixed(2)} h</td>

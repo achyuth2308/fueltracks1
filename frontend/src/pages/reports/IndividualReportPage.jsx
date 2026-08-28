@@ -82,10 +82,9 @@ const IndividualReportPage = () => {
         <div style={{ width: '1px', height: '28px', background: '#E2E8F0', marginLeft: '4px', marginRight: '4px' }} />
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={() => {
-            const columns = ['Vehicle Name', 'Plate', 'Total Distance (km)', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'];
+            const columns = ['Vehicle Name', 'Total Distance (km)', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'];
             const expData = data ? [{
               'Vehicle Name': data.vehicle?.name || '-',
-              'Plate': data.vehicle?.plate || '-',
               'Total Distance (km)': data.activity?.distance_travelled || 0,
               'Running Time': Math.floor((data.activity?.running_seconds || 0)/60) + ' mins',
               'Idle Time': Math.floor((data.activity?.idle_seconds || 0)/60) + ' mins',
@@ -100,7 +99,6 @@ const IndividualReportPage = () => {
           <button onClick={() => {
             const expData = data ? [{
               'Vehicle Name': data.vehicle?.name || '-',
-              'Plate': data.vehicle?.plate || '-',
               'Total Distance (km)': data.activity?.distance_travelled || 0,
               'Running Time': Math.floor((data.activity?.running_seconds || 0)/60) + ' mins',
               'Idle Time': Math.floor((data.activity?.idle_seconds || 0)/60) + ' mins',
@@ -124,7 +122,7 @@ const IndividualReportPage = () => {
           <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
             <thead>
               <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                {['Vehicle Name', 'Plate', 'Total Distance', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'].map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
+                {['Vehicle Name', 'Total Distance', 'Running Time', 'Idle Time', 'Trip Count', 'Stoppages', 'Overspeeding'].map(c => <th key={c} style={{ padding: '14px 24px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{c}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -137,7 +135,6 @@ const IndividualReportPage = () => {
               ) : (
                 <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{data.vehicle?.name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{data.vehicle?.plate || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>{data.activity?.distance_travelled || 0} km</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#10B981' }}>{Math.floor((data.activity?.running_seconds || 0)/60)} mins</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#F59E0B' }}>{Math.floor((data.activity?.idle_seconds || 0)/60)} mins</td>
