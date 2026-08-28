@@ -301,7 +301,8 @@ class ReportRepository {
 
     if (role === 'customer') {
       params.push(userId);
-      vehicleFilter += ` AND v.id IN (
+      // For customers, disregard orgId completely, only look at their assigned groups
+      vehicleFilter = `v.is_active = TRUE AND v.id IN (
         SELECT vg.vehicle_id 
         FROM vehicle_groups vg
         JOIN user_groups ug ON vg.group_id = ug.group_id

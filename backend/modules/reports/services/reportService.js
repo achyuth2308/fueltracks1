@@ -10,6 +10,29 @@ class ReportService {
    */
   async resolveVehicles(filters) {
     const { vehicleId, groupId, orgId, isSuperAdmin, role, userId } = filters;
+
+    // Apply customer user -> group -> vehicles restriction first.
+    // Customers can only see vehicles explicitly assigned to their groups, regardless of orgId.
+    if (role === 'customer' && userId) {
+      const res = await db.query(`
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        JOIN vehicles v ON vg.vehicle_id = v.id
+        WHERE ug.user_id = $1 AND v.is_active = true
+      `, [userId]);
+      const allowedIds = res.rows.map(r => r.vehicle_id);
+
+      if (vehicleId) {
+        return allowedIds.filter(id => id === vehicleId);
+      }
+      if (groupId) {
+        const gRes = await db.query('SELECT vehicle_id FROM vehicle_groups WHERE group_id = $1', [groupId]);
+        const groupIds = new Set(gRes.rows.map(r => r.vehicle_id));
+        return allowedIds.filter(id => groupIds.has(id));
+      }
+      return allowedIds;
+    }
     
     let candidates = [];
     if (vehicleId) {
@@ -23,18 +46,6 @@ class ReportService {
     } else if (isSuperAdmin) {
       const res = await db.query('SELECT id as vehicle_id FROM vehicles WHERE is_active = true');
       candidates = res.rows.map(r => r.vehicle_id);
-    }
-
-    // Apply customer user -> group -> vehicles restriction
-    if (role === 'customer' && userId) {
-      const res = await db.query(`
-        SELECT vg.vehicle_id 
-        FROM vehicle_groups vg
-        JOIN user_groups ug ON vg.group_id = ug.group_id
-        WHERE ug.user_id = $1
-      `, [userId]);
-      const allowedIds = new Set(res.rows.map(r => r.vehicle_id));
-      return candidates.filter(id => allowedIds.has(id));
     }
 
     return candidates;
