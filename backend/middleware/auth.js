@@ -28,8 +28,10 @@ function authenticate(req, res, next) {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     req.user = {
       userId: decoded.userId,
+      id: decoded.userId, // fallback
       role: decoded.role,
       orgId: decoded.orgId,
+      org_id: decoded.orgId, // fallback
       orgType: decoded.orgType,
     };
     next();

@@ -9,23 +9,35 @@ class ReportService {
    * If orgId is provided, returns all vehicleIds in that org.
    */
   async resolveVehicles(filters) {
-    const { vehicleId, groupId, orgId, isSuperAdmin } = filters;
+    const { vehicleId, groupId, orgId, isSuperAdmin, role, userId } = filters;
+    
+    let candidates = [];
     if (vehicleId) {
-      return [vehicleId];
-    }
-    if (groupId) {
+      candidates = [vehicleId];
+    } else if (groupId) {
       const res = await db.query('SELECT vehicle_id FROM vehicle_groups WHERE group_id = $1', [groupId]);
-      return res.rows.map(r => r.vehicle_id);
-    }
-    if (orgId) {
-      const res = await db.query('SELECT id as vehicle_id FROM vehicles WHERE org_id = $1', [orgId]);
-      return res.rows.map(r => r.vehicle_id);
-    }
-    if (isSuperAdmin) {
+      candidates = res.rows.map(r => r.vehicle_id);
+    } else if (orgId) {
+      const res = await db.query('SELECT id as vehicle_id FROM vehicles WHERE org_id = $1 AND is_active = true', [orgId]);
+      candidates = res.rows.map(r => r.vehicle_id);
+    } else if (isSuperAdmin) {
       const res = await db.query('SELECT id as vehicle_id FROM vehicles WHERE is_active = true');
-      return res.rows.map(r => r.vehicle_id);
+      candidates = res.rows.map(r => r.vehicle_id);
     }
-    return [];
+
+    // Apply customer user -> group -> vehicles restriction
+    if (role === 'customer' && userId) {
+      const res = await db.query(`
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $1
+      `, [userId]);
+      const allowedIds = new Set(res.rows.map(r => r.vehicle_id));
+      return candidates.filter(id => allowedIds.has(id));
+    }
+
+    return candidates;
   }
 
   async getVehicleDetails(vehicleIds) {
@@ -215,8 +227,8 @@ class ReportService {
     return allStoppages.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
 
-  async getConsolidatedReport(orgId, startDate, endDate) {
-    const data = await reportRepository.getConsolidatedActivity(orgId, startDate, endDate);
+  async getConsolidatedReport(orgId, role, userId, startDate, endDate) {
+    const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate);
     return data;
   }
 

@@ -293,68 +293,104 @@ class ReportRepository {
    *         end_lat/end_lng (last GPS point) so the mobile app can
    *         reverse-geocode the From/To locations.
    */
-  async getConsolidatedActivity(orgId, startDate, endDate) {
+  async getConsolidatedActivity(orgId, role, userId, startDate, endDate) {
+    let vehicleFilter = 'v.org_id = $1 AND v.is_active = TRUE';
+    const params = [orgId, startDate, endDate];
+
+    if (role === 'customer') {
+      params.push(userId);
+      vehicleFilter += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $4
+      )`;
+    }
+
     const query = `
-      WITH gps_in_range AS (
-          -- All GPS points for this org within the date window
+      WITH raw AS (
           SELECT
-              g.vehicle_id,
-              g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time, g.fuel,
+              v.metadata,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
+              LAG(g.fuel)        OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_fuel,
               COALESCE(EXTRACT(EPOCH FROM (
                 LEAD(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) - g.device_time
-              )), 0) AS duration_seconds,
-              -- First GPS point for this vehicle in the range
-              FIRST_VALUE(g.lat) OVER (
-                  PARTITION BY g.vehicle_id ORDER BY g.device_time
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-              ) AS first_lat,
-              FIRST_VALUE(g.lng) OVER (
-                  PARTITION BY g.vehicle_id ORDER BY g.device_time
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-              ) AS first_lng,
-              -- Last GPS point for this vehicle in the range
-              LAST_VALUE(g.lat) OVER (
-                  PARTITION BY g.vehicle_id ORDER BY g.device_time
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-              ) AS last_lat,
-              LAST_VALUE(g.lng) OVER (
-                  PARTITION BY g.vehicle_id ORDER BY g.device_time
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-              ) AS last_lng
+              )), 0) AS duration_seconds
           FROM gps_points g
           JOIN vehicles v ON g.vehicle_id = v.id
-          WHERE v.org_id = $1
-            AND g.device_time BETWEEN $2 AND $3
+          WHERE ${vehicleFilter} AND g.device_time BETWEEN $2 AND $3
       ),
       with_dist AS (
           SELECT *,
-              ${HAVERSINE_SEGMENT_KM} AS segment_km
-          FROM gps_in_range
+              ${HAVERSINE_SEGMENT_KM} AS segment_km,
+              COALESCE(fuel - prev_fuel, 0) AS fuel_diff,
+              GREATEST(5.0, LEAST(30.0, COALESCE((metadata->>'tankSize')::numeric, 100) * 0.05)) AS fuel_threshold
+          FROM raw
+      ),
+      aggregated AS (
+          SELECT
+              t.vehicle_id,
+              SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END)                               AS running_seconds,
+              SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
+              SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
+              SUM(CASE WHEN t.ignition = true THEN t.duration_seconds ELSE 0 END)                         AS engine_on_seconds,
+              ROUND(SUM(t.segment_km)::numeric, 2)                                                        AS distance_travelled,
+              
+              -- First/last fuel and locations
+              (ARRAY_AGG(t.fuel ORDER BY t.device_time ASC) FILTER (WHERE t.fuel IS NOT NULL))[1]        AS start_fuel,
+              (ARRAY_AGG(t.fuel ORDER BY t.device_time DESC) FILTER (WHERE t.fuel IS NOT NULL))[1]       AS end_fuel,
+              (ARRAY_AGG(t.lat ORDER BY t.device_time ASC) FILTER (WHERE t.lat IS NOT NULL))[1]          AS start_lat,
+              (ARRAY_AGG(t.lng ORDER BY t.device_time ASC) FILTER (WHERE t.lng IS NOT NULL))[1]          AS start_lng,
+              (ARRAY_AGG(t.lat ORDER BY t.device_time DESC) FILTER (WHERE t.lat IS NOT NULL))[1]         AS end_lat,
+              (ARRAY_AGG(t.lng ORDER BY t.device_time DESC) FILTER (WHERE t.lng IS NOT NULL))[1]         AS end_lng,
+              
+              -- Refills and thefts
+              SUM(CASE WHEN t.fuel_diff >= t.fuel_threshold AND t.speed <= 5 THEN t.fuel_diff ELSE 0 END) AS total_refill,
+              SUM(CASE WHEN t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 THEN -t.fuel_diff ELSE 0 END) AS total_theft
+          FROM with_dist t
+          GROUP BY t.vehicle_id
       )
-      -- LEFT JOIN ensures ALL org vehicles appear, even those with 0 activity
       SELECT
-          v.id                                                                                               AS vehicle_id,
-          v.name                                                                                             AS vehicle_name,
+          v.id AS vehicle_id,
+          v.name AS vehicle_name,
           v.plate,
-          COALESCE(SUM(CASE WHEN d.speed > 0 THEN d.duration_seconds ELSE 0 END), 0)                       AS running_seconds,
-          COALESCE(SUM(CASE WHEN d.speed = 0 AND d.ignition = true THEN d.duration_seconds ELSE 0 END), 0)  AS idle_seconds,
-          COALESCE(SUM(CASE WHEN d.speed = 0 AND (d.ignition = false OR d.ignition IS NULL)
-                        THEN d.duration_seconds ELSE 0 END), 0)                                            AS stopped_seconds,
-          COALESCE(ROUND(SUM(d.segment_km)::numeric, 2), 0)                                               AS distance_travelled,
-          MAX(d.first_lat)  AS start_lat,
-          MAX(d.first_lng)  AS start_lng,
-          MAX(d.last_lat)   AS end_lat,
-          MAX(d.last_lng)   AS end_lng
+          COALESCE(a.running_seconds, 0) AS running_seconds,
+          COALESCE(a.idle_seconds, 0) AS idle_seconds,
+          COALESCE(a.stopped_seconds, 0) AS stopped_seconds,
+          COALESCE(a.engine_on_seconds, 0) AS engine_on_seconds,
+          COALESCE(a.distance_travelled, 0) AS distance_travelled,
+          a.start_fuel,
+          a.end_fuel,
+          a.start_lat,
+          a.start_lng,
+          a.end_lat,
+          a.end_lng,
+          COALESCE(a.total_refill, 0) AS total_refill,
+          COALESCE(a.total_theft, 0) AS total_theft,
+          CASE 
+            WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL 
+            THEN GREATEST(0, ROUND((a.start_fuel - a.end_fuel + a.total_refill - a.total_theft)::numeric, 2))
+            ELSE NULL
+          END AS consumption,
+          CASE 
+            WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL AND (a.start_fuel - a.end_fuel + a.total_refill - a.total_theft) > 0
+            THEN ROUND((a.distance_travelled / (a.start_fuel - a.end_fuel + a.total_refill - a.total_theft))::numeric, 2)
+            ELSE NULL
+          END AS kmpl,
+          CASE 
+            WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL AND a.engine_on_seconds > 0
+            THEN ROUND(((a.start_fuel - a.end_fuel + a.total_refill - a.total_theft) / (a.engine_on_seconds / 3600.0))::numeric, 2)
+            ELSE NULL
+          END AS lph
       FROM vehicles v
-      LEFT JOIN with_dist d ON d.vehicle_id = v.id
-      WHERE v.org_id = $1
-      GROUP BY v.id, v.name, v.plate
+      LEFT JOIN aggregated a ON v.id = a.vehicle_id
+      WHERE ${vehicleFilter}
       ORDER BY v.name;
     `;
-    const res = await db.query(query, [orgId, startDate, endDate]);
+    const res = await db.query(query, params);
     return res.rows;
   }
 }

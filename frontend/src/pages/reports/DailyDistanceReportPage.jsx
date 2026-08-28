@@ -52,12 +52,11 @@ const DailyDistanceReportPage = () => {
     }
   };
 
-  const columns = ['Vehicle Name', 'Plate', 'Org', 'Date', 'Start Odometer', 'End Odometer', 'Distance Travelled (km)', 'Points Logged'];
+  const columns = ['Vehicle Name', 'Org', 'Date', 'Start Odometer', 'End Odometer', 'Distance Travelled (km)', 'Points Logged'];
 
   const getExportData = () => {
     return data.map(row => ({
       'Vehicle Name': row.vehicle_name || '-',
-      'Plate': row.plate || '-',
       'Org': row.org_name || '-',
       'Date': formatLocalDate(row.date),
       'Start Odometer': row.start_odometer || 0,
@@ -132,7 +131,6 @@ const DailyDistanceReportPage = () => {
               ) : data.map((row, idx) => (
                 <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
                   <td style={{ padding: '14px 24px', fontSize: '13px', fontWeight: 600, color: '#111827' }}>{row.vehicle_name || '-'}</td>
-                  <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.plate || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.org_name || '-'}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{formatLocalDate(row.date)}</td>
                   <td style={{ padding: '14px 24px', fontSize: '13px', color: '#475569' }}>{row.start_odometer || 0}</td>

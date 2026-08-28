@@ -1,4 +1,5 @@
 const reportService = require('../services/reportService');
+const VehicleModel = require('../../../models/vehicleModel');
 
 class ReportController {
   
@@ -22,6 +23,8 @@ class ReportController {
     } else if (req.user?.role === 'superadmin') {
       filters.isSuperAdmin = true;
     }
+    filters.role = req.user?.role;
+    filters.userId = req.user?.userId;
     return filters;
   }
 
@@ -63,6 +66,14 @@ class ReportController {
       const { start, end } = this.parseDates(req);
       const { vehicleId } = req.query;
       if (!vehicleId) throw new Error('vehicleId is required for Route History');
+      
+      if (req.user?.role === 'customer') {
+        const hasAccess = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle' });
+        }
+      }
+      
       const data = await reportService.getRouteHistoryReport(vehicleId, start, end);
       res.json({ success: true, data });
     } catch (err) {
@@ -110,7 +121,11 @@ class ReportController {
       // For consolidated report, orgId must be tied to user or selected by superadmin
       const orgId = req.user?.role === 'superadmin' ? req.query.orgId : req.user?.orgId;
       if (!orgId) throw new Error('orgId is required for Consolidated Report');
-      const data = await reportService.getConsolidatedReport(orgId, start, end);
+      
+      const role = req.user?.role;
+      const userId = req.user?.userId;
+      
+      const data = await reportService.getConsolidatedReport(orgId, role, userId, start, end);
       res.json({ success: true, data });
     } catch (err) {
       next(err);
@@ -122,6 +137,14 @@ class ReportController {
       const { start, end } = this.parseDates(req);
       const { vehicleId } = req.query;
       if (!vehicleId) throw new Error('vehicleId is required for Individual Report');
+      
+      if (req.user?.role === 'customer') {
+        const hasAccess = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle' });
+        }
+      }
+      
       const data = await reportService.getIndividualReport(vehicleId, start, end);
       res.json({ success: true, data });
     } catch (err) {
