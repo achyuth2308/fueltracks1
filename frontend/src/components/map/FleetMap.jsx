@@ -157,24 +157,29 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
-    const target = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
-    if (!followSelected || !target?.id) return;
+    const targetId = selectedVehicle?.id || (selectedVehicles && selectedVehicles[0]?.id);
+    if (!followSelected || !targetId) return;
 
-    let lat = parseFloat(target.lat);
-    let lng = parseFloat(target.lng);
+    // ALways fetch the freshest coordinate from the vehicles array
+    const latestTarget = vehicles?.find(v => v.id === targetId);
+    if (!latestTarget) return;
+
+    let lat = parseFloat(latestTarget.lat);
+    let lng = parseFloat(latestTarget.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (!hasValidCoords && vehicles && vehicles.length > 0) {
-      const idx = vehicles.findIndex(v => v.id === target.id);
+      const idx = vehicles.findIndex(v => v.id === targetId);
       lat = 17.3411 + (Math.max(0, idx) * 0.003);
       lng = 78.5317 + (Math.max(0, idx) * 0.003);
     }
 
     if (!isNaN(lat) && !isNaN(lng)) {
-      map.panTo([lat, lng], { animate: true, duration: 0.8 });
+      // Smoothly pan camera to vehicle's new position - matching the exact behavior of VehicleMap.jsx
+      map.setView([lat, lng], map.getZoom(), { animate: true, duration: 1.0 });
       
-      const isNewVehicle = prevVehicleIdRef.current !== target.id;
-      prevVehicleIdRef.current = target.id;
+      const isNewVehicle = prevVehicleIdRef.current !== targetId;
+      prevVehicleIdRef.current = targetId;
 
       // Append the live point to the route trail so it follows the vehicle
       setRoutePoints(prev => {
@@ -229,13 +234,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const navigate = useNavigate();
   const map = useMap();
 
-  const targetLat = parseFloat(vehicle.lat);
-  const targetLng = parseFloat(vehicle.lng);
-  
-  const [currentPos, setCurrentPos] = useState([targetLat, targetLng]);
-  const animationRef = useRef(null);
-  const lastTarget = useRef([targetLat, targetLng]);
-
   useEffect(() => {
     if (isSelected && markerRef.current) {
       try {
@@ -249,62 +247,16 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
     }
   }, [isSelected, map]);
 
-  // Smooth marker position tweening
-  useEffect(() => {
-    const [tLat, tLng] = [targetLat, targetLng];
-    const [cLat, cLng] = currentPos;
-    
-    // Snap immediately if it's the first load, no GPS, or a huge teleport jump
-    const dist = Math.abs(tLat - cLat) + Math.abs(tLng - cLng);
-    if (dist > 0.05 || (tLat === cLat && tLng === cLng) || vehicle._noGps) {
-       setCurrentPos([tLat, tLng]);
-       lastTarget.current = [tLat, tLng];
-       return;
-    }
-    
-    if (tLat !== lastTarget.current[0] || tLng !== lastTarget.current[1]) {
-      lastTarget.current = [tLat, tLng];
-      const startLat = cLat;
-      const startLng = cLng;
-      const startTime = performance.now();
-      
-      const duration = 2500; // 2.5 seconds smooth glide
-      
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      
-      const animate = (time) => {
-        const elapsed = time - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-        
-        // Linear ease for steady moving vehicle
-        const ease = progress; 
-        
-        const nextLat = startLat + (tLat - startLat) * ease;
-        const nextLng = startLng + (tLng - startLng) * ease;
-        
-        setCurrentPos([nextLat, nextLng]);
-        
-        if (progress < 1) {
-          animationRef.current = requestAnimationFrame(animate);
-        }
-      };
-      animationRef.current = requestAnimationFrame(animate);
-    }
-    
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
-  }, [targetLat, targetLng, vehicle._noGps]);
-
   const status = getVehicleStatus(vehicle);
   const cfg = STATUS_CONFIG[status];
   const noGps = !!vehicle._noGps;
+  const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
   const warning = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
 
   return (
     <Marker
-      position={currentPos}
+      position={position}
       icon={createPinIcon(vehicle, noGps, clusterRank, {
         speed: Math.round(vehicle.current_speed || 0),
         course: vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0,
