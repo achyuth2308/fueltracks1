@@ -286,36 +286,72 @@ class ReportRepository {
 
   /**
    * Consolidated Report (Org-level Activity with Haversine distance)
+   *
+   * FIX 1: LEFT JOIN from vehicles so every vehicle in the org appears,
+   *         even those with zero GPS data in the selected period.
+   * FIX 2: Returns start_lat/start_lng (first GPS point) and
+   *         end_lat/end_lng (last GPS point) so the mobile app can
+   *         reverse-geocode the From/To locations.
    */
   async getConsolidatedActivity(orgId, startDate, endDate) {
     const query = `
-      WITH raw AS (
+      WITH gps_in_range AS (
+          -- All GPS points for this org within the date window
           SELECT
-              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              g.vehicle_id,
+              g.lat, g.lng, g.speed, g.ignition, g.device_time,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
               COALESCE(EXTRACT(EPOCH FROM (
                 LEAD(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) - g.device_time
-              )), 0) AS duration_seconds
+              )), 0) AS duration_seconds,
+              -- First GPS point for this vehicle in the range
+              FIRST_VALUE(g.lat) OVER (
+                  PARTITION BY g.vehicle_id ORDER BY g.device_time
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+              ) AS first_lat,
+              FIRST_VALUE(g.lng) OVER (
+                  PARTITION BY g.vehicle_id ORDER BY g.device_time
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+              ) AS first_lng,
+              -- Last GPS point for this vehicle in the range
+              LAST_VALUE(g.lat) OVER (
+                  PARTITION BY g.vehicle_id ORDER BY g.device_time
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+              ) AS last_lat,
+              LAST_VALUE(g.lng) OVER (
+                  PARTITION BY g.vehicle_id ORDER BY g.device_time
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+              ) AS last_lng
           FROM gps_points g
           JOIN vehicles v ON g.vehicle_id = v.id
-          WHERE v.org_id = $1 AND g.device_time BETWEEN $2 AND $3
+          WHERE v.org_id = $1
+            AND g.device_time BETWEEN $2 AND $3
       ),
       with_dist AS (
           SELECT *,
               ${HAVERSINE_SEGMENT_KM} AS segment_km
-          FROM raw
+          FROM gps_in_range
       )
+      -- LEFT JOIN ensures ALL org vehicles appear, even those with 0 activity
       SELECT
-          t.vehicle_id, v.name AS vehicle_name, v.plate,
-          SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END)                               AS running_seconds,
-          SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
-          SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
-          ROUND(SUM(t.segment_km)::numeric, 2)                                                        AS distance_travelled
-      FROM with_dist t
-      JOIN vehicles v ON t.vehicle_id = v.id
-      GROUP BY t.vehicle_id, v.name, v.plate
+          v.id                                                                                               AS vehicle_id,
+          v.name                                                                                             AS vehicle_name,
+          v.plate,
+          COALESCE(SUM(CASE WHEN d.speed > 0 THEN d.duration_seconds ELSE 0 END), 0)                       AS running_seconds,
+          COALESCE(SUM(CASE WHEN d.speed = 0 AND d.ignition = true THEN d.duration_seconds ELSE 0 END), 0)  AS idle_seconds,
+          COALESCE(SUM(CASE WHEN d.speed = 0 AND (d.ignition = false OR d.ignition IS NULL)
+                        THEN d.duration_seconds ELSE 0 END), 0)                                            AS stopped_seconds,
+          COALESCE(ROUND(SUM(d.segment_km)::numeric, 2), 0)                                               AS distance_travelled,
+          MAX(d.first_lat)  AS start_lat,
+          MAX(d.first_lng)  AS start_lng,
+          MAX(d.last_lat)   AS end_lat,
+          MAX(d.last_lng)   AS end_lng
+      FROM vehicles v
+      LEFT JOIN with_dist d ON d.vehicle_id = v.id
+      WHERE v.org_id = $1
+      GROUP BY v.id, v.name, v.plate
       ORDER BY v.name;
     `;
     const res = await db.query(query, [orgId, startDate, endDate]);
