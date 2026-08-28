@@ -296,18 +296,20 @@ class ReportRepository {
    *         reverse-geocode the From/To locations.
    */
   async getConsolidatedActivity(orgId, role, userId, startDate, endDate) {
-    let vehicleFilter = 'v.org_id = $1 AND v.is_active = TRUE';
-    const params = [orgId, startDate, endDate];
+    let vehicleFilter;
+    const params = [startDate, endDate];
 
     if (role === 'customer') {
-      params.push(userId);
-      // For customers, disregard orgId completely, only look at their assigned groups
+      params.unshift(userId); // userId becomes $1, startDate $2, endDate $3
       vehicleFilter = `v.is_active = TRUE AND v.id IN (
         SELECT vg.vehicle_id 
         FROM vehicle_groups vg
         JOIN user_groups ug ON vg.group_id = ug.group_id
-        WHERE ug.user_id = $4
+        WHERE ug.user_id = $1
       )`;
+    } else {
+      params.unshift(orgId); // orgId becomes $1, startDate $2, endDate $3
+      vehicleFilter = 'v.org_id = $1 AND v.is_active = TRUE';
     }
 
     const query = `

@@ -34,6 +34,27 @@ class ReportService {
       return allowedIds;
     }
     
+    // Apply customer user -> group -> vehicles restriction directly (bypassing orgId boundaries)
+    if (role === 'customer' && userId) {
+      const res = await db.query(`
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $1
+      `, [userId]);
+      const allowedIds = res.rows.map(r => r.vehicle_id);
+
+      if (vehicleId) {
+        return allowedIds.includes(vehicleId) ? [vehicleId] : [];
+      }
+      if (groupId) {
+        const groupRes = await db.query('SELECT vehicle_id FROM vehicle_groups WHERE group_id = $1', [groupId]);
+        const groupVehicleIds = groupRes.rows.map(r => r.vehicle_id);
+        return groupVehicleIds.filter(id => allowedIds.includes(id));
+      }
+      return allowedIds;
+    }
+
     let candidates = [];
     if (vehicleId) {
       candidates = [vehicleId];
