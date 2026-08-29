@@ -46,7 +46,7 @@ const OnBoardDevicePage = () => {
   const handleDownloadTemplate = () => {
     const templateData = [{
       'Device ID / IMEI': '',
-      'Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)': '',
+      'Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)': '',
       'Vehicle Id': '',
       'Vehicle Name': '',
       'Registration No': '',
@@ -100,7 +100,7 @@ const OnBoardDevicePage = () => {
           id: Date.now() + idx,
           licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
           deviceId: String(row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
-          deviceType: String(row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'BSTPL').trim(),
+          deviceType: String(row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
           vehicleId: String(row['Vehicle Id'] || '').trim(),
           vehicleName: String(row['Vehicle Name'] || '').trim(),
           registrationNo: String(row['Registration No'] || '').trim(),
@@ -171,7 +171,7 @@ const OnBoardDevicePage = () => {
         id: Date.now() + i,
         licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         deviceId: '',
-        deviceType: 'BSTPL',
+        deviceType: 'VOLTY',
         vehicleId: '',
         vehicleName: '',
         registrationNo: '',
@@ -562,12 +562,12 @@ const OnBoardDevicePage = () => {
                               onChange={(e) => updateDevice(idx, 'deviceType', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             >
-                              <option value="BSTPL">BSTPL</option>
-                              <option value="AS140">AS140</option>
-                              <option value="AIS140 V2">AIS140 V2</option>
-                              <option value="CONCOX">CONCOX</option>
-                              <option value="VOLTY">VOLTY</option>
-                              <option value="FMB 920">FMB 920</option>
+                              <option value="VOLTY">VOLTY (5004)</option>
+                              <option value="BSTPL">BSTPL (5000)</option>
+                              <option value="AS140">AS140 (5001)</option>
+                              <option value="CONCOX">CONCOX (5002)</option>
+                              <option value="AIS140 V2">AIS140 V2 (5003)</option>
+                              <option value="FMB 920">FMB 920 (5005)</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
