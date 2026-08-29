@@ -127,7 +127,7 @@ const VehiclesAdminPage = () => {
               <table style={{ minWidth: '2400px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Action', 'Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks'].map(h => (
+                    {['Action', 'Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID / IMEI', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
