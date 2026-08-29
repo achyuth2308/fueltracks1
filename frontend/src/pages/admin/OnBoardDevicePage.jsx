@@ -1,18 +1,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const OnBoardDevicePage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isDealer = user?.role === 'dealer';
+  const isSuperAdmin = user?.role === 'superadmin';
 
   // Step management
   const [step, setStep] = useState(1);
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
 
   // Pre-table state (Step 1)
   const [licenceType, setLicenceType] = useState('Starter');
@@ -278,12 +282,32 @@ const OnBoardDevicePage = () => {
         </div>
       )}
 
-      {error && (
-        <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#DC2626', marginBottom: '24px' }}>
-          <AlertTriangle size={20} />
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>{error}</div>
+      {/* Fast Bulk Onboarding Banner */}
+      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <div>
+          <span className="bg-white/20 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+            Fast Bulk Onboarding
+          </span>
+          <h2 className="text-xl font-extrabold mt-1.5 text-white">Have multiple devices to onboard at once?</h2>
+          <p className="text-sm text-orange-100 mt-1">
+            Download our pre-formatted Excel template with dropdowns, fill in your hardware data, and onboard in 1 click.
+          </p>
         </div>
-      )}
+        <div className="flex items-center gap-3 shrink-0">
+          <button
+            onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
+            className="px-4 py-2.5 bg-white text-orange-700 hover:bg-orange-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+          >
+            <Download size={15} /> Excel Template
+          </button>
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-orange-400" /> Upload Excel
+          </button>
+        </div>
+      </div>
 
       <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '32px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
 
@@ -800,6 +824,20 @@ const OnBoardDevicePage = () => {
         )}
 
       </div>
+
+      {/* Excel Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onSuccess={() => {
+          setIsExcelModalOpen(false);
+          navigate('/admin/devices');
+        }}
+        availableGroups={groups}
+        availableOrgs={orgs}
+        currentOrgId={user?.orgId}
+        isSuperAdmin={isSuperAdmin}
+      />
     </div>
   );
 };

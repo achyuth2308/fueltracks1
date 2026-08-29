@@ -279,6 +279,20 @@ async function bootstrap() {
       CREATE INDEX IF NOT EXISTS idx_trips_start_time ON trips(start_time);
 
       -- ── Civil Supply / Third-Party API additions ─────────────────────────────
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        org_id        UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        key_hash      TEXT NOT NULL UNIQUE,
+        key_prefix    VARCHAR(12) NOT NULL,
+        name          TEXT NOT NULL,
+        is_active     BOOLEAN NOT NULL DEFAULT TRUE,
+        last_used_at  TIMESTAMPTZ,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_by    UUID REFERENCES users(id) ON DELETE SET NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_api_keys_key_hash ON api_keys(key_hash);
+      CREATE INDEX IF NOT EXISTS idx_api_keys_org_id   ON api_keys(org_id);
+
       -- Scope an API key to a specific group (NULL = org-wide access, unchanged behaviour)
       ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS group_id UUID REFERENCES groups(id) ON DELETE SET NULL;
 

@@ -57,6 +57,7 @@ router.get('/alerts/recent', AdminController.getRecentAlerts);
 router.get('/devices', authorize('superadmin', 'dealer'), AdminController.getDevices);
 router.delete('/devices/:id', authorize('superadmin', 'dealer'), AdminController.deleteDevice);
 router.post('/onboard/devices', authorize('superadmin', 'dealer'), OnboardController.onboardDevices);
+router.post('/onboard/bulk-excel', authorize('superadmin', 'dealer'), OnboardController.bulkOnboardExcel);
 
 // ============================================================
 // BILLING

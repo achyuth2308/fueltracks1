@@ -21,6 +21,7 @@ router.put('/:id', authorize('superadmin', 'dealer'), VehicleController.updateVe
 
 // Partial update for vehicle settings (overspeed limits, etc)
 router.patch('/:id/settings', authorize('customer', 'superadmin', 'dealer'), VehicleController.updateVehicleSettings);
+router.post('/bulk-assign-groups', authorize('superadmin', 'dealer'), VehicleController.bulkAssignGroups);
 router.delete('/:id', authorize('superadmin'), VehicleController.deleteVehicle);
 router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController.migrateVehicle);
 

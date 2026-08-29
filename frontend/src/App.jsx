@@ -81,6 +81,7 @@ function App() {
                 <Route path="groups" element={<GroupsAdminPage />} />
                 <Route path="vehicles" element={<VehiclesAdminPage />} />
                 <Route path="vehicles/add" element={<EditVehiclePage />} />
+                <Route path="vehicles/new" element={<EditVehiclePage />} />
                 <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
                 <Route path="vehicles/migration/:id" element={<MigrationPage />} />
                 <Route path="devices" element={<DevicesAdminPage />} />

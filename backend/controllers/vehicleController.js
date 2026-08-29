@@ -18,7 +18,7 @@ const VehicleController = {
    */
   async getAllVehicles(req, res, next) {
     try {
-      const { page, limit, search, groupId } = req.query;
+      const { page, limit, search, groupId, category, orgId } = req.query;
       const parsedPage = parseInt(page) || 1;
       const parsedLimit = parseInt(limit) || 100;
 
@@ -39,6 +39,8 @@ const VehicleController = {
         limit: parsedLimit,
         search,
         groupId,
+        category,
+        orgId,
         userId: req.user.userId
       });
 
@@ -99,7 +101,7 @@ const VehicleController = {
    */
   async createVehicle(req, res, next) {
     try {
-      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata } = req.body;
+      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category } = req.body;
 
       if (!imei || !/^\d{15}$/.test(imei)) {
         return res.status(400).json({
@@ -148,7 +150,8 @@ const VehicleController = {
         apn,
         licenceIssuedDate,
         licenceExpireDate,
-        metadata
+        metadata,
+        category: category || 'General'
       });
 
       // Assign to groups if provided
@@ -178,7 +181,7 @@ const VehicleController = {
         await AuditService.log({
           auditType: 'vehicle', entityType: 'Vehicle',
           entityId: newVehicle.id, entityName: newVehicle.name, action: 'CREATED',
-          newData: { imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, metadata },
+          newData: { imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, metadata, category },
           performedById: req.user.userId, performedByRole: req.user.role,
           orgId: targetOrgId,
           ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
@@ -195,7 +198,7 @@ const VehicleController = {
   async updateVehicle(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata } = req.body;
+      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category } = req.body;
 
       if (!name || name.trim() === '') {
         return res.status(400).json({
@@ -250,6 +253,7 @@ const VehicleController = {
         serverName: oldVehicle.server_name,
         gpsSimNo: oldVehicle.gps_sim_no,
         metadata: oldVehicle.metadata,
+        category: oldVehicle.category,
         groupNames: oldGroupNames
       };
 
@@ -285,7 +289,8 @@ const VehicleController = {
         apn,
         licenceIssuedDate,
         licenceExpireDate,
-        metadata: finalMetadata
+        metadata: finalMetadata,
+        category
       });
 
       // Update group assignments if provided
@@ -337,6 +342,45 @@ const VehicleController = {
           ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
         });
       } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Bulk assign groups to multiple vehicles
+   */
+  async bulkAssignGroups(req, res, next) {
+    try {
+      const { vehicleIds, groupIds, mode = 'replace' } = req.body;
+      if (!Array.isArray(vehicleIds) || vehicleIds.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'At least one vehicle ID is required.'
+        });
+      }
+
+      // Check access for each vehicle if not superadmin
+      if (req.user.role !== 'superadmin') {
+        for (const vId of vehicleIds) {
+          const belongs = await VehicleModel.belongsToOrg(vId, req.user.orgId, req.user.userId, req.user.role);
+          if (!belongs) {
+            return res.status(403).json({
+              success: false,
+              error: `Access denied to vehicle ${vId}.`,
+              code: 'FORBIDDEN'
+            });
+          }
+        }
+      }
+
+      const result = await VehicleModel.bulkAssignGroups(vehicleIds, groupIds || [], mode);
+
+      res.status(200).json({
+        success: true,
+        message: `Successfully updated groups for ${result.updatedCount} vehicles.`,
+        data: result
+      });
     } catch (err) {
       next(err);
     }

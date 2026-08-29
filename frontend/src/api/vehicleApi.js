@@ -30,6 +30,11 @@ export const migrateVehicle = async (id, newImei) => {
   return response.data;
 };
 
+export const bulkAssignGroups = async (vehicleIds, groupIds, mode = 'replace') => {
+  const response = await axiosInstance.post('/api/vehicles/bulk-assign-groups', { vehicleIds, groupIds, mode });
+  return response.data;
+};
+
 export const getVehicleHistory = async (id, params = {}) => {
   const response = await axiosInstance.get(`/api/vehicles/${id}/history`, { params });
   return response.data;

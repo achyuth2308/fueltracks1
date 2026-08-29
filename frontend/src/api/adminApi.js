@@ -144,3 +144,9 @@ export const getRenewalTransactions = async () => {
   const response = await axiosInstance.get(`/api/admin/renewal-transactions`);
   return response.data;
 };
+
+// Bulk Onboarding
+export const bulkOnboardExcel = async (data) => {
+  const response = await axiosInstance.post('/api/admin/onboard/bulk-excel', data);
+  return response.data;
+};

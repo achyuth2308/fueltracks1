@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck, Building2, Activity, Wifi, WifiOff, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck,
+  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download
+} from 'lucide-react';
 import { adminApi } from '../../api/axios';
+import * as api from '../../api/adminApi';
+import { useAuth } from '../../hooks/useAuth';
+import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const DevicesAdminPage = () => {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
+
   const [devices, setDevices] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
 
   const fetchDevices = async () => {
     setLoading(true);
     try {
       const res = await adminApi.getDevices();
       if (res.success) {
-        // Map backend database fields to UI fields
         const mappedDevices = res.data.map(d => ({
           id: d.id,
           imei: d.device_id,
@@ -35,11 +48,14 @@ const DevicesAdminPage = () => {
 
   useEffect(() => {
     fetchDevices();
+    api.getGroups?.().then(res => { if (res.success) setGroups(res.data); }).catch(() => {});
+    api.getOrgs?.().then(res => { if (res.success) setOrgs(res.data); }).catch(() => {});
   }, []);
 
   const filtered = devices.filter(d =>
     d.imei?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.vehicle_name?.toLowerCase().includes(searchQuery.toLowerCase())
+    d.vehicle_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    d.type?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDelete = async (id, e) => {
@@ -60,32 +76,53 @@ const DevicesAdminPage = () => {
     <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Device Inventory</h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Monitor hardware telemetry, connectivity, and vehicle assignments.</p>
+          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
         </div>
-        <button
-          onClick={() => window.location.href = '/onBoardDevice'}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#f97316', color: '#FFFFFF',
-            padding: '10px 20px', borderRadius: '10px',
-            fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
-            transition: 'all 0.2s ease'
-          }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.2)'; }}
-        >
-          <Plus size={18} />
-          <span>Add Device</span>
-        </button>
+
+        {/* Action Buttons */}
+        <div className="flex items-center flex-wrap gap-2.5">
+          <button
+            onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm transition-all cursor-pointer"
+            title="Download formatted Excel template for bulk onboarding"
+          >
+            <Download size={14} className="text-slate-500" />
+            <span>Excel Template</span>
+          </button>
+
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl shadow-md shadow-slate-900/10 transition-all cursor-pointer"
+          >
+            <FileSpreadsheet size={15} className="text-orange-400" />
+            <span>Upload Excel</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/onBoardDevice')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: '#f97316', color: '#FFFFFF',
+              padding: '10px 20px', borderRadius: '12px',
+              fontSize: '14px', fontWeight: 700, border: 'none',
+              cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.2)'; }}
+          >
+            <Plus size={18} />
+            <span>Add Device</span>
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
 
-        {/* Left Side: List */}
+        {/* List Card */}
         <div style={{
           background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
           boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
@@ -97,7 +134,7 @@ const DevicesAdminPage = () => {
               <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
               <input
                 type="text"
-                placeholder="Search IMEI or Vehicle..."
+                placeholder="Search IMEI, Vehicle, or Model..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -126,7 +163,7 @@ const DevicesAdminPage = () => {
             </div>
           ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map(h => (
@@ -187,13 +224,20 @@ const DevicesAdminPage = () => {
         </div>
       </div>
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeInRight {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}} />
+      {/* Excel Upload Modal */}
+      <ExcelBulkUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onSuccess={() => {
+          setIsExcelModalOpen(false);
+          fetchDevices();
+        }}
+        availableGroups={groups}
+        availableOrgs={orgs}
+        currentOrgId={user?.orgId}
+        isSuperAdmin={isSuperAdmin}
+      />
+
     </div>
   );
 };

@@ -73,15 +73,20 @@ const VehicleModel = {
    * Get all vehicles for an org (with latest state)
    * Filtered by org hierarchy: superadmin sees all, dealer sees their org + children
    */
-  async findAll(orgId, role, { page = 1, limit = 100, search, groupId, userId } = {}) {
+  async findAll(orgId, role, { page = 1, limit = 100, search, groupId, userId, category, orgId: filterOrgId } = {}) {
     const offset = (page - 1) * limit;
     let whereClause = '';
     const params = [];
     let paramIndex = 1;
 
     if (role === 'superadmin') {
-      // See all vehicles
-      whereClause = 'WHERE v.is_active = TRUE';
+      // See all vehicles, or filter by specific org if provided
+      if (filterOrgId && filterOrgId !== 'all') {
+        params.push(filterOrgId);
+        whereClause = `WHERE v.is_active = TRUE AND v.org_id = $${paramIndex++}`;
+      } else {
+        whereClause = 'WHERE v.is_active = TRUE';
+      }
     } else if (role === 'customer') {
       // See vehicles assigned to the customer's groups ONLY
       params.push(userId);
@@ -92,12 +97,27 @@ const VehicleModel = {
         WHERE ug.user_id = $${paramIndex++}
       )`;
     } else {
-      // See vehicles in own org + child orgs
-      params.push(orgId);
-      whereClause = `WHERE v.is_active = TRUE AND (
-        v.org_id = $${paramIndex++}
-        OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
-      )`;
+      // Dealer: See vehicles in own org + child orgs, or scoped to selected child org
+      if (filterOrgId && filterOrgId !== 'all') {
+        params.push(filterOrgId, orgId);
+        whereClause = `WHERE v.is_active = TRUE AND v.org_id = $${paramIndex++} AND (
+          v.org_id = $${paramIndex} OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $${paramIndex})
+        )`;
+        paramIndex++;
+      } else {
+        params.push(orgId);
+        whereClause = `WHERE v.is_active = TRUE AND (
+          v.org_id = $${paramIndex++}
+          OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
+        )`;
+      }
+    }
+
+    // Category filter (TG Mining, VLTD, VLTD + Mining, General, etc.)
+    if (category && category !== 'All' && category !== 'all') {
+      params.push(category);
+      whereClause += ` AND (v.category ILIKE $${paramIndex} OR (v.category IS NULL AND $${paramIndex} = 'General'))`;
+      paramIndex++;
     }
 
     // Search filter (name, plate, IMEI)
@@ -122,7 +142,7 @@ const VehicleModel = {
 
     // Count total
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM vehicles v ${whereClause}`,
+      `SELECT COUNT(DISTINCT v.id) FROM vehicles v ${whereClause}`,
       params
     );
     const total = parseInt(countResult.rows[0].count);
@@ -134,9 +154,11 @@ const VehicleModel = {
               v.driver_name, v.driver_phone, v.is_active, v.created_at,
               v.server_name, v.gps_sim_no, v.device_version, v.timezone,
               v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
+              v.category,
               o.name as org_name,
               d.licence_id as "licenceId",
               STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
+              JSON_AGG(DISTINCT jsonb_build_object('id', g.id, 'name', g.name)) FILTER (WHERE g.id IS NOT NULL) as groups,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
@@ -160,6 +182,7 @@ const VehicleModel = {
                 v.driver_name, v.driver_phone, v.is_active, v.created_at,
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
+                v.category,
                 o.name, d.licence_id, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
                 vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
@@ -181,17 +204,17 @@ const VehicleModel = {
   /**
    * Create a new vehicle (IMEI is required!)
    */
-  async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata }) {
+  async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category }) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
       // Insert vehicle
       const result = await client.query(
-        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata, category)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING *`,
-        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}]
+        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}, category || 'General']
       );
       const vehicle = result.rows[0];
 
@@ -215,7 +238,7 @@ const VehicleModel = {
   /**
    * Update vehicle
    */
-  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata }) {
+  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -237,6 +260,7 @@ const VehicleModel = {
     if (licenceIssuedDate !== undefined) { fields.push(`licence_issued_date = $${paramIndex++}`); values.push(licenceIssuedDate || null); }
     if (licenceExpireDate !== undefined) { fields.push(`licence_expire_date = $${paramIndex++}`); values.push(licenceExpireDate || null); }
     if (metadata !== undefined) { fields.push(`metadata = $${paramIndex++}`); values.push(metadata); }
+    if (category !== undefined) { fields.push(`category = $${paramIndex++}`); values.push(category || 'General'); }
 
     if (fields.length === 0) return null;
 
@@ -346,13 +370,50 @@ const VehicleModel = {
       // Remove existing assignments
       await client.query('DELETE FROM vehicle_groups WHERE vehicle_id = $1', [vehicleId]);
       // Add new assignments
-      for (const groupId of groupIds) {
-        await client.query(
-          'INSERT INTO vehicle_groups (vehicle_id, group_id) VALUES ($1, $2)',
-          [vehicleId, groupId]
-        );
+      if (Array.isArray(groupIds)) {
+        for (const groupId of groupIds) {
+          if (groupId) {
+            await client.query(
+              'INSERT INTO vehicle_groups (vehicle_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+              [vehicleId, groupId]
+            );
+          }
+        }
       }
       await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  /**
+   * Bulk assign multiple vehicles to multiple groups
+   */
+  async bulkAssignGroups(vehicleIds, groupIds, mode = 'replace') {
+    if (!Array.isArray(vehicleIds) || vehicleIds.length === 0) return { updatedCount: 0 };
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      for (const vehicleId of vehicleIds) {
+        if (mode === 'replace') {
+          await client.query('DELETE FROM vehicle_groups WHERE vehicle_id = $1', [vehicleId]);
+        }
+        if (Array.isArray(groupIds)) {
+          for (const groupId of groupIds) {
+            if (groupId) {
+              await client.query(
+                'INSERT INTO vehicle_groups (vehicle_id, group_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+                [vehicleId, groupId]
+              );
+            }
+          }
+        }
+      }
+      await client.query('COMMIT');
+      return { updatedCount: vehicleIds.length };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

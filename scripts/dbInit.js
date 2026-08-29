@@ -54,7 +54,11 @@ async function initDb() {
       'profile_migration.sql',
       'geofence_route_migration.sql',
       'raw_packets_enhancement_migration.sql',
-      'raw_packets_maintenance_migration.sql'
+      'raw_packets_maintenance_migration.sql',
+      'api_keys_migration.sql',
+      'fcm_notifications_migration.sql',
+      'forgot_password_migration.sql',
+      'category_and_onboarding_migration.sql'
     ];
 
     for (const migrationFile of migrations) {
