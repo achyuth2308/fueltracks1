@@ -88,8 +88,26 @@ class ProfileService {
     const orgRow = orgRes.rows[0];
     const limits = orgRow?.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
 
-    // Calculate total allocated devices across all tiers
+    // Fetch actual used counts per tier (based on device licenceId prefixes)
+    const usedResult = await db.query(
+      `SELECT
+         COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') AS "Starter",
+         COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') AS "Basic",
+         COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') AS "Advanced",
+         COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium"
+       FROM devices WHERE org_id = $1`, [organizationId]
+    );
+
+    const used = {
+      Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
+      Basic:    parseInt(usedResult.rows[0]?.Basic    || 0, 10),
+      Advanced: parseInt(usedResult.rows[0]?.Advanced || 0, 10),
+      Premium:  parseInt(usedResult.rows[0]?.Premium  || 0, 10),
+    };
+
+    // Calculate total allocated and used devices across all tiers
     const totalAllocated = Object.values(limits).reduce((sum, val) => sum + parseInt(val || 0, 10), 0);
+    const totalUsed = Object.values(used).reduce((sum, val) => sum + val, 0);
 
     // Determine the active tier (the one with non-zero limit, or default to Basic)
     let activeTier = 'Basic';
@@ -100,14 +118,13 @@ class ProfileService {
       }
     }
 
-    const resCount = await db.query('SELECT COUNT(*) as count FROM vehicles WHERE org_id = $1 AND is_active = true', [organizationId]);
-    const usedVehicles = parseInt(resCount.rows[0].count);
-    
     const license = {
       type: activeTier,
       total: totalAllocated,
-      used: usedVehicles,
-      available: Math.max(0, totalAllocated - usedVehicles)
+      used: totalUsed,
+      available: Math.max(0, totalAllocated - totalUsed),
+      limits,
+      usedTiers: used
     };
 
     return { profile: mainProfile, license };

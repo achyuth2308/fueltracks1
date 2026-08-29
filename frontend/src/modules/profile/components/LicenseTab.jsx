@@ -1,8 +1,8 @@
-import React from 'react';
-import { Shield, CheckCircle, AlertTriangle, CreditCard, Activity, ArrowUpRight } from 'lucide-react';
+import React, { useState } from 'react';
+import { Shield, AlertTriangle } from 'lucide-react';
 
 const SectionHeader = ({ icon: Icon, title, description, extra, tint = 'bg-teal-50', iconColor = 'text-teal-600' }) => (
-  <div className={`mb-5 pb-4 border-b border-[#E5E7EB] ${tint} -mx-[24px] px-[24px] -mt-[24px] pt-[24px] rounded-t-[14px] flex items-start justify-between`}>
+  <div className={`mb-5 pb-4 border-b border-[#E5E7EB] ${tint} -mx-[24px] px-[24px] -mt-[24px] pt-[24px] rounded-t-[14px] flex items-center justify-between`}>
     <div>
       <div className="flex items-center gap-3 mb-1">
         <div className="p-2.5 bg-white rounded-xl shadow-sm flex items-center justify-center">
@@ -19,14 +19,20 @@ const SectionHeader = ({ icon: Icon, title, description, extra, tint = 'bg-teal-
 const LicenseTab = ({ license }) => {
   if (!license) return <div className="p-6 !text-black">Loading license information...</div>;
 
-  const usagePercentage = Math.round((license.used / license.total) * 100);
+  // Determine default selected tier (the active tier, or the first one with a non-zero limit, or 'Basic')
+  const defaultTier = license.type || 'Basic';
+  const [selectedTier, setSelectedTier] = useState(defaultTier);
+
+  // Compute stats dynamically based on the selected tier
+  const total = parseInt(license.limits?.[selectedTier] || 0, 10);
+  const used = parseInt(license.usedTiers?.[selectedTier] || 0, 10);
+  const available = Math.max(0, total - used);
+  const usagePercentage = total > 0 ? Math.round((used / total) * 100) : 0;
   const isNearLimit = usagePercentage >= 90;
 
   return (
-    <div className="flex flex-col lg:flex-row gap-[20px] items-start w-full relative pb-[100px]">
-
-      {/* Main Content Area (~68% of the remaining 80% page space) */}
-      <div className="w-full lg:w-[68%] flex flex-col gap-[20px]">
+    <div className="w-full relative pb-[100px]">
+      <div className="w-full flex flex-col gap-[20px]">
 
         {/* License Details Card */}
         <div className="bg-[#FFFFFF] p-[24px] pt-0 rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow">
@@ -35,27 +41,48 @@ const LicenseTab = ({ license }) => {
             title="License & Usage"
             description="Manage your enterprise subscription limits and allocations."
             extra={
-              <span className="px-3.5 py-1.5 bg-white text-teal-700 text-[13px] font-bold rounded-full border border-teal-200 shadow-sm">
-                {license.type} Tier
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>License Tier:</span>
+                <select
+                  value={selectedTier}
+                  onChange={(e) => setSelectedTier(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    color: '#0F766E',
+                    background: '#FFFFFF',
+                    border: '1px solid #99F6E4',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                  }}
+                >
+                  <option value="Starter">Starter Tier ({license.limits?.Starter || 0})</option>
+                  <option value="Basic">Basic Tier ({license.limits?.Basic || 0})</option>
+                  <option value="Advanced">Advanced Tier ({license.limits?.Advanced || 0})</option>
+                  <option value="Premium">Premium Tier ({license.limits?.Premium || 0})</option>
+                </select>
+              </div>
             }
           />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-[20px] mb-8 mt-[24px]">
             <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-[10px] p-5 text-center shadow-sm">
               <p className="text-[13px] font-semibold !text-black mb-1">Total Allocated</p>
-              <p className="text-[32px] font-bold !text-black">{license.total}</p>
+              <p className="text-[32px] font-bold !text-black">{total}</p>
               <p className="text-[12px] font-medium !text-black mt-1">Vehicles / Devices</p>
             </div>
             <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-[10px] p-5 text-center shadow-sm">
               <p className="text-[13px] font-semibold !text-black mb-1">Used Slots</p>
-              <p className="text-[32px] font-bold !text-black">{license.used}</p>
+              <p className="text-[32px] font-bold !text-black">{used}</p>
               <p className="text-[12px] font-medium !text-black mt-1">Active Vehicles</p>
             </div>
-            <div className={`border rounded-[10px] p-5 text-center shadow-sm ${license.available > 0 ? 'bg-[#ECFDF5] border-green-200' : 'bg-red-50 border-red-200'}`}>
-              <p className={`text-[13px] font-semibold mb-1 ${license.available > 0 ? 'text-[#16A34A]' : 'text-red-700'}`}>Available</p>
-              <p className={`text-[32px] font-bold ${license.available > 0 ? 'text-[#16A34A]' : 'text-red-600'}`}>{license.available}</p>
-              <p className={`text-[12px] font-medium mt-1 ${license.available > 0 ? 'text-[#16A34A]' : 'text-red-700'}`}>Remaining Slots</p>
+            <div className={`border rounded-[10px] p-5 text-center shadow-sm ${available > 0 ? 'bg-[#ECFDF5] border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <p className={`text-[13px] font-semibold mb-1 ${available > 0 ? 'text-[#16A34A]' : 'text-red-700'}`}>Available</p>
+              <p className={`text-[32px] font-bold ${available > 0 ? 'text-[#16A34A]' : 'text-red-600'}`}>{available}</p>
+              <p className={`text-[12px] font-medium mt-1 ${available > 0 ? 'text-[#16A34A]' : 'text-red-700'}`}>Remaining Slots</p>
             </div>
           </div>
 
@@ -79,63 +106,6 @@ const LicenseTab = ({ license }) => {
           </div>
         </div>
 
-        {/* Subscription Info Card */}
-        <div className="bg-[#FFFFFF] p-[24px] pt-0 rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow">
-          <SectionHeader icon={CreditCard} title="Subscription Plan" description="Billing and subscription renewal details." />
-
-          <div className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-[10px] p-5 flex items-start gap-4 mt-[24px] shadow-sm">
-            <div className="p-2 bg-[#ECFDF5] rounded-xl mt-0.5 shrink-0 border border-green-100">
-              <CheckCircle className="w-[20px] h-[20px] text-[#16A34A]" />
-            </div>
-            <div>
-              <h4 className="text-[16px] font-bold !text-black m-0 mb-1">Subscription Active</h4>
-              <p className="text-[14px] !text-black font-medium leading-relaxed m-0">
-                Your FuelTracks enterprise license is fully active and automatically renewing on the 1st of every month. Modifications to your tier or payment methods must be performed by your dedicated account manager.
-              </p>
-
-              <button className="mt-4 flex items-center text-[14px] font-bold text-[#FF6A00] hover:text-[#E65C00] transition-colors group">
-                Contact Account Manager <ArrowUpRight className="w-4 h-4 ml-1 transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-              </button>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Right Information Panel (~32% of the remaining 80% page space) */}
-      <div className="w-full lg:w-[32%] flex-shrink-0">
-        <div className="bg-[#FFFFFF] p-[24px] rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow sticky top-[24px]">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-teal-50 -mx-[24px] px-[24px] -mt-[24px] pt-[20px] bg-teal-50 rounded-t-[14px]">
-            <div className="p-1.5 bg-white rounded-lg shadow-sm">
-              <Activity className="w-[18px] h-[18px] text-teal-600" />
-            </div>
-            <h3 className="text-[16px] font-semibold !text-black m-0">Included Features</h3>
-          </div>
-
-          <div className="space-y-3.5 mt-[20px]">
-            {[
-              'Unlimited Admin Users',
-              'Advanced Telematics',
-              'API Access (50k req/mo)',
-              'Custom Domain',
-              'White-label Branding',
-              '24/7 Priority Support'
-            ].map((feature, idx) => (
-              <div key={idx} className="flex items-center gap-3">
-                <div className="p-1 rounded-full bg-[#ECFDF5]">
-                  <CheckCircle className="w-[14px] h-[14px] text-[#16A34A]" />
-                </div>
-                <span className="text-[14px] font-medium !text-black">{feature}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 pt-5 border-t border-[#E5E7EB]">
-            <p className="text-[13px] font-medium !text-black leading-relaxed">
-              Need more capacity? Enterprise agreements can be scaled instantly without downtime.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );
