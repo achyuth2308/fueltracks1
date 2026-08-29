@@ -88,6 +88,10 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!username || username.trim() === '') {
+      setError('Username is required.');
+      return;
+    }
     if (!editingUser && !password) {
       setError('Password is required for new users.');
       return;
@@ -177,7 +181,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 20px' }}>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                User Name<span style={{ color: '#EF4444' }}>*</span>
+                Customer Name<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
                 type="text" required value={name} onChange={(e) => setName(e.target.value)}
@@ -205,10 +209,10 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             </div>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Username (Optional)
+                Username<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="text" value={username} onChange={(e) => setUsername(e.target.value)}
+                type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
                 style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
