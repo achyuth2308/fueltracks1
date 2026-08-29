@@ -129,7 +129,7 @@ const DevicesAdminPage = () => {
               <table style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm', ''].map(h => (
+                    {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
                       </th>
@@ -139,7 +139,7 @@ const DevicesAdminPage = () => {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan="7" style={{ padding: '80px', textAlign: 'center' }}>
+                      <td colSpan="5" style={{ padding: '80px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
                           <Server size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
                           <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No devices found</div>
@@ -177,17 +177,6 @@ const DevicesAdminPage = () => {
                       </td>
                       <td style={{ padding: '16px 20px', fontSize: '12px', color: '#64748B', fontWeight: 500 }}>
                         {d.last_update ? new Date(d.last_update).toLocaleTimeString() : 'Never'}
-                      </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <button
-                          onClick={(e) => handleDelete(d.id, e)}
-                          style={{
-                            background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', padding: '6px 12px',
-                            borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer'
-                          }}
-                        >
-                          Delete
-                        </button>
                       </td>
                     </tr>
                   ))}
