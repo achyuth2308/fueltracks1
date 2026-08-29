@@ -75,15 +75,15 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
       android: { 
         priority: 'high',
         notification: {
-          channelId: 'fueltracks_alerts_v3',
-          sound: 'observation_haki',
+          channelId: 'fueltracks_alerts_v4',
+          sound: 'default',
           icon: 'ic_notification',
           color: '#4F6BFF'
         }
       },
       apns: {
         payload: {
-          aps: { alert: { title, body }, sound: 'observation_haki.mp3', badge: 1 },
+          aps: { alert: { title, body }, sound: 'default', badge: 1 },
         },
       },
     };

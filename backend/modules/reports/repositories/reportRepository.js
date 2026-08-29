@@ -90,7 +90,7 @@ class ReportRepository {
     const query = `
       WITH raw AS (
           SELECT
-              lat, lng, device_time, odometer,
+              lat, lng, device_time, odometer, speed,
               DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') AS date,
               LAG(lat)         OVER (PARTITION BY DATE(device_time AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')
                                     ORDER BY device_time) AS prev_lat,
@@ -103,13 +103,13 @@ class ReportRepository {
             AND device_time BETWEEN $2 AND $3
       ),
       with_dist AS (
-          SELECT date, odometer, device_time,
+          SELECT date, odometer, device_time, speed,
               ${HAVERSINE_SEGMENT_KM} AS segment_km
           FROM raw
       )
       SELECT
           date,
-          ROUND(SUM(segment_km)::numeric, 2) AS distance_travelled,
+          ROUND(SUM(CASE WHEN speed > 0 THEN segment_km ELSE 0 END)::numeric, 2) AS distance_travelled,
           COUNT(*)                           AS point_count,
           COALESCE((ARRAY_AGG(odometer ORDER BY device_time ASC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS start_odometer,
           COALESCE((ARRAY_AGG(odometer ORDER BY device_time DESC) FILTER (WHERE odometer IS NOT NULL AND odometer > 0))[1], 0) AS end_odometer
@@ -148,7 +148,7 @@ class ReportRepository {
           SUM(CASE WHEN speed > 0 THEN duration_seconds ELSE 0 END)                              AS running_seconds,
           SUM(CASE WHEN speed = 0 AND ignition = true THEN duration_seconds ELSE 0 END)          AS idle_seconds,
           SUM(CASE WHEN speed = 0 AND (ignition = false OR ignition IS NULL) THEN duration_seconds ELSE 0 END) AS stopped_seconds,
-          ROUND(SUM(segment_km)::numeric, 2)                                                     AS distance_travelled
+          ROUND(SUM(CASE WHEN speed > 0 THEN segment_km ELSE 0 END)::numeric, 2)                 AS distance_travelled
       FROM with_dist;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
@@ -339,7 +339,7 @@ class ReportRepository {
               SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
               SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
               SUM(CASE WHEN t.ignition = true THEN t.duration_seconds ELSE 0 END)                         AS engine_on_seconds,
-              ROUND(SUM(t.segment_km)::numeric, 2)                                                        AS distance_travelled,
+              ROUND(SUM(CASE WHEN t.speed > 0 THEN t.segment_km ELSE 0 END)::numeric, 2)                  AS distance_travelled,
               
               -- First/last fuel and locations
               (ARRAY_AGG(t.fuel ORDER BY t.device_time ASC) FILTER (WHERE t.fuel IS NOT NULL))[1]        AS start_fuel,

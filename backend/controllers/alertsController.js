@@ -50,7 +50,7 @@ async function markAlertRead(req, res, next) {
  */
 async function markAllRead(req, res, next) {
   try {
-    const { orgId } = req.user;
+    const orgId = req.user.role === 'superadmin' ? null : req.user.orgId;
     const count = await GpsModel.markAllAlertsRead(orgId);
     res.json({ success: true, message: `${count} alert(s) marked as read.`, count });
   } catch (err) {
@@ -170,7 +170,7 @@ async function deleteAlert(req, res, next) {
  */
 async function clearAllAlerts(req, res, next) {
   try {
-    const { orgId } = req.user;
+    const orgId = req.user.role === 'superadmin' ? null : req.user.orgId;
     const count = await GpsModel.clearAlertsForOrg(orgId);
     res.json({ success: true, message: `${count} alerts cleared successfully.`, count });
   } catch (err) {

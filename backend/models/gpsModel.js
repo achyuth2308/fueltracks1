@@ -469,17 +469,20 @@ const GpsModel = {
    * Mark a single alert as read
    */
   async markAlertRead(alertId, orgId) {
-    const result = await db.query(
-      `UPDATE alerts SET is_read = TRUE
-       WHERE id = $1
-         AND vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $2)
-       RETURNING id`,
-      [alertId, orgId]
-    );
+    let query, params;
+    if (orgId) {
+      query = `UPDATE alerts SET is_read = TRUE WHERE id = $1 AND vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $2) RETURNING id`;
+      params = [alertId, orgId];
+    } else {
+      query = `UPDATE alerts SET is_read = TRUE WHERE id = $1 RETURNING id, (SELECT org_id FROM vehicles WHERE id = vehicle_id) as v_org`;
+      params = [alertId];
+    }
+    const result = await db.query(query, params);
 
     if (result.rows.length > 0) {
       try {
-        await redis.del(`org:alerts:${orgId}`);
+        const targetOrgId = orgId || result.rows[0].v_org;
+        if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`);
       } catch (err) {
         console.warn('[REDIS] Alert cache invalidation failed:', err.message);
       }
@@ -492,15 +495,17 @@ const GpsModel = {
    * Mark all alerts as read for an org
    */
   async markAllAlertsRead(orgId) {
-    const result = await db.query(
-      `UPDATE alerts SET is_read = TRUE
-       WHERE vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $1)
-         AND COALESCE(is_read, FALSE) = FALSE
-       RETURNING id`,
-      [orgId]
-    );
+    let query, params;
+    if (orgId) {
+      query = `UPDATE alerts SET is_read = TRUE WHERE vehicle_id IN (SELECT id FROM vehicles WHERE org_id = $1) AND COALESCE(is_read, FALSE) = FALSE RETURNING id`;
+      params = [orgId];
+    } else {
+      query = `UPDATE alerts SET is_read = TRUE WHERE COALESCE(is_read, FALSE) = FALSE RETURNING id`;
+      params = [];
+    }
+    const result = await db.query(query, params);
 
-    if (result.rows.length > 0) {
+    if (result.rows.length > 0 && orgId) {
       try {
         await redis.del(`org:alerts:${orgId}`);
       } catch (err) {
@@ -623,7 +628,7 @@ const GpsModel = {
        FROM user_fcm_tokens t
        JOIN users u ON t.user_id = u.id
        LEFT JOIN user_alert_preferences p ON p.user_id = u.id
-       WHERE u.org_id = $1
+       WHERE (u.org_id = $1 OR u.role = 'superadmin')
          AND (
            p.preferences IS NULL
            OR COALESCE((p.preferences->$2)::text, 'true') != 'false'
@@ -698,38 +703,46 @@ const GpsModel = {
   },
 
   async clearAlertsForOrg(orgId) {
-    const result = await db.query(
-      `DELETE FROM alerts
-       USING vehicles
-       WHERE alerts.vehicle_id = vehicles.id AND vehicles.org_id = $1`,
-      [orgId]
-    );
-    const redisKey = `org:alerts:${orgId}`;
-    await redis.del(redisKey).catch(() => {});
+    let query, params;
+    if (orgId) {
+      query = `DELETE FROM alerts USING vehicles WHERE alerts.vehicle_id = vehicles.id AND vehicles.org_id = $1`;
+      params = [orgId];
+    } else {
+      query = `DELETE FROM alerts`;
+      params = [];
+    }
+    const result = await db.query(query, params);
+    if (orgId) await redis.del(`org:alerts:${orgId}`).catch(() => {});
     return result.rowCount;
   },
 
   async clearAlertsForVehicle(vehicleId, orgId) {
-    const result = await db.query(
-      `DELETE FROM alerts
-       USING vehicles
-       WHERE alerts.vehicle_id = vehicles.id AND alerts.vehicle_id = $1 AND vehicles.org_id = $2`,
-      [vehicleId, orgId]
-    );
-    const redisKey = `org:alerts:${orgId}`;
-    await redis.del(redisKey).catch(() => {});
+    let query, params;
+    if (orgId) {
+      query = `DELETE FROM alerts USING vehicles WHERE alerts.vehicle_id = vehicles.id AND alerts.vehicle_id = $1 AND vehicles.org_id = $2`;
+      params = [vehicleId, orgId];
+    } else {
+      query = `DELETE FROM alerts WHERE vehicle_id = $1 RETURNING (SELECT org_id FROM vehicles WHERE id = $1) as v_org`;
+      params = [vehicleId];
+    }
+    const result = await db.query(query, params);
+    const targetOrgId = orgId || (result.rows.length > 0 ? result.rows[0].v_org : null);
+    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => {});
     return result.rowCount;
   },
 
   async deleteAlert(alertId, orgId) {
-    const result = await db.query(
-      `DELETE FROM alerts
-       USING vehicles
-       WHERE alerts.vehicle_id = vehicles.id AND alerts.id = $1 AND vehicles.org_id = $2`,
-      [alertId, orgId]
-    );
-    const redisKey = `org:alerts:${orgId}`;
-    await redis.del(redisKey).catch(() => {});
+    let query, params;
+    if (orgId) {
+      query = `DELETE FROM alerts USING vehicles WHERE alerts.vehicle_id = vehicles.id AND alerts.id = $1 AND vehicles.org_id = $2`;
+      params = [alertId, orgId];
+    } else {
+      query = `DELETE FROM alerts WHERE id = $1 RETURNING (SELECT org_id FROM vehicles WHERE id = vehicle_id) as v_org`;
+      params = [alertId];
+    }
+    const result = await db.query(query, params);
+    const targetOrgId = orgId || (result.rows.length > 0 ? result.rows[0].v_org : null);
+    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => {});
     return result.rowCount > 0;
   },
 };

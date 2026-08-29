@@ -698,7 +698,8 @@ const VehicleController = {
         }
       }
 
-      const count = await GpsModel.clearAlertsForVehicle(id, req.user.orgId);
+      const targetOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
+      const count = await GpsModel.clearAlertsForVehicle(id, targetOrgId);
       res.status(200).json({
         success: true,
         message: `${count} alerts cleared successfully.`,
