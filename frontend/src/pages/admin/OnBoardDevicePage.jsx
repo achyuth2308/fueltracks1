@@ -45,7 +45,7 @@ const OnBoardDevicePage = () => {
 
   const handleDownloadTemplate = () => {
     const templateData = [{
-      'Device Id': '',
+      'Device ID / IMEI': '',
       'Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)': '',
       'Vehicle Id': '',
       'Vehicle Name': '',
@@ -99,7 +99,7 @@ const OnBoardDevicePage = () => {
         const newDevices = json.map((row, idx) => ({
           id: Date.now() + idx,
           licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          deviceId: String(row['Device Id'] || '').trim(),
+          deviceId: String(row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
           deviceType: String(row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'BSTPL').trim(),
           vehicleId: String(row['Vehicle Id'] || '').trim(),
           vehicleName: String(row['Vehicle Name'] || '').trim(),
@@ -533,7 +533,7 @@ const OnBoardDevicePage = () => {
                     <tr style={{ background: '#F8FAFC', color: '#475569' }}>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Id</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device ID / IMEI</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Type</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle Id</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>Action</th>
@@ -551,7 +551,7 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
                             <input
-                              type="text" placeholder="Enter Device Id" value={device.deviceId}
+                              type="text" placeholder="Enter Device ID / IMEI" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             />
