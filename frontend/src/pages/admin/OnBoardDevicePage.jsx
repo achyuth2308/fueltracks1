@@ -26,7 +26,7 @@ const OnBoardDevicePage = () => {
   const [userType, setUserType] = useState('new'); // 'new' | 'existing'
   const [deviceEntryMode, setDeviceEntryMode] = useState('details'); // 'upload' | 'details'
 
-  const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '' });
+  const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '', aadhar: '' });
   const [existingUserSelection, setExistingUserSelection] = useState({ userId: '', groupId: '', orgId: '' });
 
   const [users, setUsers] = useState([]);
@@ -45,16 +45,20 @@ const OnBoardDevicePage = () => {
 
   const handleDownloadTemplate = () => {
     const templateData = [{
-      'Device ID / IMEI': '',
+      'VLTD SLNO': '',
       'Device Type (VOLTY/AS140/CONCOX/AIS140V2/FMB 920)': '',
       'Vehicle Id': '',
       'Vehicle Name': '',
       'Registration No': '',
       'Vehicle Model': '',
       'Vehicle Type': '',
+      'ICCID': '',
       'GPS SIMNO 1': '',
       'GPS SIMNO 2': '',
       'Odo Distance': '',
+      'Vehicle Voltage': '',
+      'Timezone': '',
+      'Ignition Detection (ENGINE ON STATUS WITH IGNITION/IGNITION + VOLTAGE/VOLTAGE)': '',
       'Service Engineer': '',
       'Service Engineer Mobno': '',
       'Salesman': '',
@@ -99,7 +103,7 @@ const OnBoardDevicePage = () => {
         const newDevices = json.map((row, idx) => ({
           id: Date.now() + idx,
           licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          deviceId: String(row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
+          deviceId: String(row['VLTD SLNO'] || row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
           deviceType: String(row['Device Type (VOLTY/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
           vehicleId: String(row['Vehicle Id'] || '').trim(),
           vehicleName: String(row['Vehicle Name'] || '').trim(),
@@ -115,6 +119,10 @@ const OnBoardDevicePage = () => {
           salesmanMob: String(row['Salesman Mobno'] || '').trim(),
           ticketId: String(row['Ticket Id'] || '').trim(),
           sensorNo: String(row['Sensor No'] || '').trim(),
+          iccid: String(row['ICCID'] || '').trim(),
+          vehicleVoltage: String(row['Vehicle Voltage'] || '').trim(),
+          timezone: String(row['Timezone'] || '').trim(),
+          ignitionDetection: String(row['Ignition Detection'] || row['Ignition Detection (ENGINE ON STATUS WITH IGNITION/IGNITION + VOLTAGE/VOLTAGE)'] || 'ENGINE ON STATUS WITH IGNITION').trim(),
         }));
 
         setDevices(newDevices);
@@ -178,11 +186,18 @@ const OnBoardDevicePage = () => {
         vehicleModel: '',
         vehicleTypeSelect: '',
         gpsSimNo: '',
+        gpsSimNo2: '',
         odoDistance: '',
         serviceEngineer: '',
+        serviceEngineerMob: '',
         salesman: '',
+        salesmanMob: '',
         ticketId: '',
-        sensorNo: ''
+        sensorNo: '',
+        iccid: '',
+        vehicleVoltage: '12V',
+        timezone: 'UTC+05:30',
+        ignitionDetection: 'ENGINE ON STATUS WITH IGNITION'
       });
     }
     setDevices(newRows);
@@ -375,7 +390,7 @@ const OnBoardDevicePage = () => {
 
             {/* User Details Form */}
             {userType === 'new' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Name *</label>
                   <input
@@ -401,6 +416,15 @@ const OnBoardDevicePage = () => {
                     style={inputStyle}
                     value={newUser.location}
                     onChange={e => setNewUser({ ...newUser, location: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Aadhar</label>
+                  <input
+                    type="text" placeholder="Enter Aadhar"
+                    style={inputStyle}
+                    value={newUser.aadhar}
+                    onChange={e => setNewUser({ ...newUser, aadhar: e.target.value })}
                   />
                 </div>
                 <div>
@@ -533,7 +557,7 @@ const OnBoardDevicePage = () => {
                     <tr style={{ background: '#F8FAFC', color: '#475569' }}>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device ID / IMEI</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>VLTD SLNO</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Type</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle Id</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>Action</th>
@@ -551,7 +575,7 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
                             <input
-                              type="text" placeholder="Enter Device ID / IMEI" value={device.deviceId}
+                              type="text" placeholder="Enter VLTD SLNO" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             />
@@ -708,6 +732,47 @@ const OnBoardDevicePage = () => {
                                     onChange={(e) => updateDevice(idx, 'sensorNo', e.target.value)}
                                     style={{ ...inputStyle, padding: '10px 14px' }}
                                   />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>ICCID</label>
+                                  <input
+                                    type="text" placeholder="ICCID" value={device.iccid || ''}
+                                    onChange={(e) => updateDevice(idx, 'iccid', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Voltage</label>
+                                  <select
+                                    value={device.vehicleVoltage || '12V'}
+                                    onChange={(e) => updateDevice(idx, 'vehicleVoltage', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  >
+                                    <option value="12V">12V</option>
+                                    <option value="24V">24V</option>
+                                    <option value="36V">36V</option>
+                                    <option value="48V">48V</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Timezone</label>
+                                  <input
+                                    type="text" placeholder="UTC+05:30" value={device.timezone || 'UTC+05:30'}
+                                    onChange={(e) => updateDevice(idx, 'timezone', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Ignition Detection</label>
+                                  <select
+                                    value={device.ignitionDetection || 'ENGINE ON STATUS WITH IGNITION'}
+                                    onChange={(e) => updateDevice(idx, 'ignitionDetection', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  >
+                                    <option value="ENGINE ON STATUS WITH IGNITION">ENGINE ON STATUS WITH IGNITION</option>
+                                    <option value="IGNITION + VOLTAGE">IGNITION + VOLTAGE</option>
+                                    <option value="VOLTAGE">VOLTAGE</option>
+                                  </select>
                                 </div>
                               </div>
                             </td>

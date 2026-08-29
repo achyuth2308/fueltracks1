@@ -198,6 +198,7 @@ async function bootstrap() {
     await db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhar VARCHAR(255);
 
       CREATE TABLE IF NOT EXISTS renewal_plans (
         id SERIAL PRIMARY KEY,

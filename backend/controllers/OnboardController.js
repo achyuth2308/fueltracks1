@@ -19,7 +19,7 @@ const OnboardController = {
       let targetGroupId = null;
 
       if (userType === 'new') {
-        const { name, phone, email, password, username, location } = newUser;
+        const { name, phone, email, password, username, location, aadhar } = newUser;
         const finalUsername = (username || email).toLowerCase().trim();
         if (!email || !password || !name || !finalUsername) {
           throw new Error('Customer Name, Email, Password, and Username are required.');
@@ -29,10 +29,10 @@ const OnboardController = {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const userResult = await client.query(
-          `INSERT INTO users (org_id, email, password, role, name, phone, username, location)
-           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7)
+          `INSERT INTO users (org_id, email, password, role, name, phone, username, location, aadhar)
+           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7, $8)
            RETURNING id`,
-          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name, phone, finalUsername, location || '']
+          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name, phone, finalUsername, location || '', aadhar || '']
         );
         targetUserId = userResult.rows[0].id;
       } else {
@@ -99,7 +99,8 @@ const OnboardController = {
         const {
           licenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
-          gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo
+          gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo,
+          iccid, vehicleVoltage, ignitionDetection, timezone
         } = device;
 
         // Upsert into devices table
@@ -129,7 +130,10 @@ const OnboardController = {
           sensorNo: sensorNo || '',
           odoDistance: odoDistance || '',
           make: vehicleModel || '',
-          gpsSimNo2: gpsSimNo2 || ''
+          gpsSimNo2: gpsSimNo2 || '',
+          iccid: iccid || '',
+          vehicleVoltage: vehicleVoltage || '',
+          ignitionDetection: ignitionDetection || ''
         };
 
         const vehicleNameValue = vehicleName || `Vehicle ${deviceId}`;
@@ -140,8 +144,8 @@ const OnboardController = {
 
         await client.query(
           `INSERT INTO vehicles 
-            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date, is_active)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE)
+            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date, is_active, timezone)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10)
            ON CONFLICT (imei) DO UPDATE SET
              org_id = EXCLUDED.org_id,
              name = EXCLUDED.name,
@@ -151,8 +155,9 @@ const OnboardController = {
              metadata = EXCLUDED.metadata,
              licence_issued_date = EXCLUDED.licence_issued_date,
              licence_expire_date = EXCLUDED.licence_expire_date,
+             timezone = EXCLUDED.timezone,
              is_active = TRUE`,
-          [targetOrgId, deviceId, vehicleNameValue, registrationNo, vehicleTypeSelect, gpsSimNo, metadata, issuedDate, expireDate]
+          [targetOrgId, deviceId, vehicleNameValue, registrationNo, vehicleTypeSelect, gpsSimNo, metadata, issuedDate, expireDate, timezone || 'UTC+05:30']
         );
 
         // Ensure vehicle_latest_state exists for the new vehicle
