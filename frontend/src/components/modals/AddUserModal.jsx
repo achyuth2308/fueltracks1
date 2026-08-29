@@ -381,26 +381,6 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             </div>
 
             <div>
-              <h4 className="text-[14px] font-semibold text-black mb-3">Selected Groups:</h4>
-              <div className="flex flex-wrap gap-4">
-                {selectedGroups.length === 0 && <span className="text-sm text-slate-500">None</span>}
-                {selectedGroups.map(gid => {
-                  const g = availableGroups.find(a => a.id === gid);
-                  if (!g) return null;
-                  return (
-                    <label key={g.id} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox" checked={true} onChange={() => handleGroupToggle(g.id)}
-                        className="w-4 h-4 text-[#3B82F6] rounded border-slate-300 focus:ring-[#3B82F6]"
-                      />
-                      <span className="text-sm text-slate-700 font-medium">{g.name}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div>
               <h4 className="text-[14px] font-semibold text-black mb-4">Select the Groups:</h4>
               {filteredGroups.length === 0 ? (
                 <div className="text-[13px] text-slate-500 italic">No groups available in this organization.</div>

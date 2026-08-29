@@ -52,7 +52,13 @@ const UserModel = {
       SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
              u.is_active, u.last_login, u.created_at,
              o.name as org_name,
-             string_agg(g.name, ', ' ORDER BY g.name) as group_names
+             string_agg(g.name, ', ' ORDER BY g.name) as group_names,
+             COALESCE(
+               json_agg(
+                 json_build_object('id', g.id, 'name', g.name)
+               ) FILTER (WHERE g.id IS NOT NULL),
+               '[]'::json
+             ) as groups
       FROM users u
       JOIN organizations o ON u.org_id = o.id
       LEFT JOIN user_groups ug ON u.id = ug.user_id
