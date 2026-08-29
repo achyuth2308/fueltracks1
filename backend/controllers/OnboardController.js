@@ -19,19 +19,20 @@ const OnboardController = {
       let targetGroupId = null;
 
       if (userType === 'new') {
-        const { name, phone, email, password } = newUser;
-        if (!email || !password || !name) {
-          throw new Error('Name, Email, and Password are required for a new user.');
+        const { name, phone, email, password, username, location } = newUser;
+        const finalUsername = (username || email).toLowerCase().trim();
+        if (!email || !password || !name || !finalUsername) {
+          throw new Error('Customer Name, Email, Password, and Username are required.');
         }
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const userResult = await client.query(
-          `INSERT INTO users (org_id, email, password, role, name, phone)
-           VALUES ($1, $2, $3, 'customer', $4, $5)
+          `INSERT INTO users (org_id, email, password, role, name, phone, username, location)
+           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7)
            RETURNING id`,
-          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name, phone]
+          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name, phone, finalUsername, location || '']
         );
         targetUserId = userResult.rows[0].id;
       } else {
@@ -98,7 +99,7 @@ const OnboardController = {
         const {
           licenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
-          gpsSimNo, odoDistance, serviceEngineer, salesman, ticketId, sensorNo
+          gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo
         } = device;
 
         // Upsert into devices table
@@ -121,11 +122,14 @@ const OnboardController = {
           vehicleId: vehicleId || '',
           licenceNo: registrationNo || '',
           serviceEngineer: serviceEngineer || '',
+          serviceEngineerMob: serviceEngineerMob || '',
           salesman: salesman || '',
+          salesmanMob: salesmanMob || '',
           ticketId: ticketId || '',
           sensorNo: sensorNo || '',
           odoDistance: odoDistance || '',
-          make: vehicleModel || ''
+          make: vehicleModel || '',
+          gpsSimNo2: gpsSimNo2 || ''
         };
 
         const vehicleNameValue = vehicleName || `Vehicle ${deviceId}`;

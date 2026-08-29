@@ -26,7 +26,7 @@ const OnBoardDevicePage = () => {
   const [userType, setUserType] = useState('new'); // 'new' | 'existing'
   const [deviceEntryMode, setDeviceEntryMode] = useState('details'); // 'upload' | 'details'
 
-  const [newUser, setNewUser] = useState({ name: '', phone: '', email: '', password: '' });
+  const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '' });
   const [existingUserSelection, setExistingUserSelection] = useState({ userId: '', groupId: '', orgId: '' });
 
   const [users, setUsers] = useState([]);
@@ -52,10 +52,13 @@ const OnBoardDevicePage = () => {
       'Registration No': '',
       'Vehicle Model': '',
       'Vehicle Type': '',
-      'GPS Sim No': '',
+      'GPS SIMNO 1': '',
+      'GPS SIMNO 2': '',
       'Odo Distance': '',
       'Service Engineer': '',
+      'Service Engineer Mobno': '',
       'Salesman': '',
+      'Salesman Mobno': '',
       'Ticket Id': '',
       'Sensor No': ''
     }];
@@ -103,10 +106,13 @@ const OnBoardDevicePage = () => {
           registrationNo: String(row['Registration No'] || '').trim(),
           vehicleModel: String(row['Vehicle Model'] || '').trim(),
           vehicleTypeSelect: String(row['Vehicle Type'] || '').trim(),
-          gpsSimNo: String(row['GPS Sim No'] || '').trim(),
+          gpsSimNo: String(row['GPS SIMNO 1'] || row['GPS Sim No'] || '').trim(),
+          gpsSimNo2: String(row['GPS SIMNO 2'] || '').trim(),
           odoDistance: String(row['Odo Distance'] || '').trim(),
           serviceEngineer: String(row['Service Engineer'] || '').trim(),
+          serviceEngineerMob: String(row['Service Engineer Mobno'] || '').trim(),
           salesman: String(row['Salesman'] || '').trim(),
+          salesmanMob: String(row['Salesman Mobno'] || '').trim(),
           ticketId: String(row['Ticket Id'] || '').trim(),
           sensorNo: String(row['Sensor No'] || '').trim(),
         }));
@@ -369,9 +375,9 @@ const OnBoardDevicePage = () => {
 
             {/* User Details Form */}
             {userType === 'new' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>User Name</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Name *</label>
                   <input
                     type="text" placeholder="Enter Name"
                     style={inputStyle}
@@ -380,7 +386,7 @@ const OnBoardDevicePage = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Mobile Number</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Mobile Number *</label>
                   <input
                     type="text" placeholder="Enter Mobile"
                     style={inputStyle}
@@ -389,7 +395,16 @@ const OnBoardDevicePage = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Email</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Loc</label>
+                  <input
+                    type="text" placeholder="Enter Location"
+                    style={inputStyle}
+                    value={newUser.location}
+                    onChange={e => setNewUser({ ...newUser, location: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Email ID *</label>
                   <input
                     type="email" placeholder="Enter Email"
                     style={inputStyle}
@@ -398,7 +413,16 @@ const OnBoardDevicePage = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Password</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Username Name *</label>
+                  <input
+                    type="text" placeholder="Enter Username"
+                    style={inputStyle}
+                    value={newUser.username}
+                    onChange={e => setNewUser({ ...newUser, username: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Password *</label>
                   <input
                     type="password" placeholder="Enter Password"
                     style={inputStyle}
@@ -615,10 +639,18 @@ const OnBoardDevicePage = () => {
                                   />
                                 </div>
                                 <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>GPS Sim No</label>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>GPS SIMNO 1</label>
                                   <input
-                                    type="text" placeholder="GPS Sim No" value={device.gpsSimNo}
+                                    type="text" placeholder="GPS SIMNO 1" value={device.gpsSimNo}
                                     onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>GPS SIMNO 2</label>
+                                  <input
+                                    type="text" placeholder="GPS SIMNO 2" value={device.gpsSimNo2 || ''}
+                                    onChange={(e) => updateDevice(idx, 'gpsSimNo2', e.target.value)}
                                     style={{ ...inputStyle, padding: '10px 14px' }}
                                   />
                                 </div>
@@ -639,10 +671,26 @@ const OnBoardDevicePage = () => {
                                   />
                                 </div>
                                 <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Service Engineer Mobno</label>
+                                  <input
+                                    type="text" placeholder="Engineer Mobno" value={device.serviceEngineerMob || ''}
+                                    onChange={(e) => updateDevice(idx, 'serviceEngineerMob', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  />
+                                </div>
+                                <div>
                                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Salesman</label>
                                   <input
                                     type="text" placeholder="Salesman" value={device.salesman}
                                     onChange={(e) => updateDevice(idx, 'salesman', e.target.value)}
+                                    style={{ ...inputStyle, padding: '10px 14px' }}
+                                  />
+                                </div>
+                                <div>
+                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Salesman Mobno</label>
+                                  <input
+                                    type="text" placeholder="Salesman Mobno" value={device.salesmanMob || ''}
+                                    onChange={(e) => updateDevice(idx, 'salesmanMob', e.target.value)}
                                     style={{ ...inputStyle, padding: '10px 14px' }}
                                   />
                                 </div>
