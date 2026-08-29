@@ -127,7 +127,7 @@ const VehiclesAdminPage = () => {
               <table style={{ minWidth: '2400px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks', 'Action'].map(h => (
+                    {['Action', 'Vehicle ID', 'Vehicle Name', 'Registration No', 'Device ID', 'Server Name', 'Last Comm Time', 'GPS Sim No', 'Status', 'Device Model', 'Version', 'TimeZone', 'APN', 'Licence Issued', 'Onboard Date', 'Licence Expire', 'Made In', 'Mfg Date', 'Chassis No', 'Alt Vehicle Name', 'Service Engineer', 'Salesman', 'Ticket Id', 'Sensor No', 'Remarks'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
@@ -152,6 +152,11 @@ const VehiclesAdminPage = () => {
                       onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#F8FAFC'; }}
                       onMouseLeave={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = 'transparent'; }}
                     >
+                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F8FAFC', color: '#f97316' }}>
+                          <Eye size={16} />
+                        </div>
+                      </td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.metadata?.vehicleId || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.name || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.plate || '-'}</td>
@@ -176,11 +181,6 @@ const VehiclesAdminPage = () => {
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.ticketId || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{v.metadata?.sensorNo || '-'}</td>
                       <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.metadata?.remarks || '-'}</td>
-                      <td style={{ padding: '16px 20px', textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F8FAFC', color: '#f97316' }}>
-                          <Eye size={16} />
-                        </div>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
