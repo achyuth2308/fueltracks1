@@ -421,6 +421,7 @@ su - fueltracks
 cd app
 git pull origin main
 npm ci --production
+npm run build:frontend
 pm2 reload ecosystem.config.js --env production
 ```
 
