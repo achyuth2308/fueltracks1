@@ -200,7 +200,7 @@ const UsersAdminPage = () => {
               <table style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['Name', 'Username', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
+                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
                       </th>
@@ -224,11 +224,11 @@ const UsersAdminPage = () => {
                       onMouseLeave={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{u.name || 'Unnamed'}</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>{u.username || '—'}</div>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '13px', color: '#111827' }}>
-                          {u.username || '—'}
+                        <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                          {u.name || 'Unnamed'}
                         </div>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
