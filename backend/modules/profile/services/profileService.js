@@ -83,16 +83,31 @@ class ProfileService {
       delete mainProfile.encrypted_api_key;
     }
     
-    // Fetch mock license info based on active vehicles
+    // Fetch actual license limits from organization device limits
+    const orgRes = await db.query('SELECT device_limits FROM organizations WHERE id = $1', [organizationId]);
+    const orgRow = orgRes.rows[0];
+    const limits = orgRow?.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+
+    // Calculate total allocated devices across all tiers
+    const totalAllocated = Object.values(limits).reduce((sum, val) => sum + parseInt(val || 0, 10), 0);
+
+    // Determine the active tier (the one with non-zero limit, or default to Basic)
+    let activeTier = 'Basic';
+    for (const [tier, val] of Object.entries(limits)) {
+      if (parseInt(val || 0, 10) > 0) {
+        activeTier = tier;
+        break;
+      }
+    }
+
     const resCount = await db.query('SELECT COUNT(*) as count FROM vehicles WHERE org_id = $1 AND is_active = true', [organizationId]);
     const usedVehicles = parseInt(resCount.rows[0].count);
     
-    // Let's assume a hardcoded total of 100 for Basic tier for demonstration
     const license = {
-      type: 'Basic',
-      total: 100,
+      type: activeTier,
+      total: totalAllocated,
       used: usedVehicles,
-      available: Math.max(0, 100 - usedVehicles)
+      available: Math.max(0, totalAllocated - usedVehicles)
     };
 
     return { profile: mainProfile, license };
