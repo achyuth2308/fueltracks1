@@ -132,16 +132,16 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, overflow: 'hidden' }}>
+        <form onSubmit={handleSubmit} style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
           {error && (
-            <div style={{ padding: '12px', fontSize: '13px', fontWeight: 600, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', borderRadius: '8px' }}>
+            <div style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', borderRadius: '8px' }}>
               {error}
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '24px' }}>
+          <div style={{ display: 'flex', gap: '20px' }}>
             <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Group Name *
               </label>
               <input
@@ -150,7 +150,7 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. North Zone Fleet"
-                style={{ width: '100%', padding: '10px 14px', fontSize: '14px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
 
@@ -158,13 +158,13 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
           </div>
           
           {/* Controls Bar: Select All + Search */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px', marginBottom: '12px', paddingBottom: '16px', borderBottom: '1px solid #F1F5F9' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: '#475569' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#475569' }}>
               <input 
                 type="checkbox" 
                 checked={isAllSelected}
                 onChange={handleSelectAll}
-                style={{ width: '16px', height: '16px', accentColor: '#3B82F6', cursor: 'pointer' }}
+                style={{ width: '15px', height: '15px', accentColor: '#3B82F6', cursor: 'pointer' }}
               />
               Select all Vehicles
             </label>
@@ -174,13 +174,13 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
               placeholder="Search..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '300px', padding: '10px 14px', fontSize: '14px', border: '1px solid #CBD5E1', borderRadius: '4px', outline: 'none' }}
+              style={{ width: '260px', padding: '6px 12px', fontSize: '13px', border: '1px solid #94A3B8', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
             />
           </div>
 
           {/* Vehicle Checklist Grid */}
-          <div style={{ marginTop: '8px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 700, color: '#3B82F6', marginBottom: '16px' }}>
+          <div style={{ marginTop: '4px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#3B82F6', marginBottom: '8px' }}>
               Select the Vehicles:
             </label>
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
@@ -195,9 +195,9 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                   {filteredVehicles.map((v) => (
-                    <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', color: '#000000' }}>
-                      <input type="checkbox" checked={selectedVehicleIds.has(v.id)} onChange={() => handleCheckboxChange(v.id)} />
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000' }}>
+                    <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000' }}>
+                      <input type="checkbox" checked={selectedVehicleIds.has(v.id)} onChange={() => handleCheckboxChange(v.id)} style={{ accentColor: '#3B82F6', cursor: 'pointer' }} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
                         {v.name || v.metadata?.vehicleId || v.imei}
                       </span>
                     </label>
@@ -208,20 +208,20 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
           </div>
 
           {/* Footer Save buttons */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '8px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '4px', paddingTop: '12px', borderTop: '1px solid #F1F5F9' }}>
             <button
               type="button"
               onClick={onClose}
-              style={{ padding: '10px 16px', fontSize: '13px', fontWeight: 600, color: '#64748B', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer' }}
+              style={{ padding: '8px 16px', fontSize: '13px', fontWeight: 600, color: '#64748B', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer' }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', borderRadius: '4px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px 24px', fontSize: '13px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', borderRadius: '6px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1, boxShadow: '0 2px 4px rgba(249,115,22,0.2)' }}
             >
-              {loading ? <Loader2 size={16} style={{ marginRight: '8px', animation: 'spin 1s linear infinite' }} /> : null}
+              {loading ? <Loader2 size={14} style={{ marginRight: '8px', animation: 'spin 1s linear infinite' }} /> : null}
               Submit
             </button>
           </div>
