@@ -34,6 +34,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
+        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
@@ -46,7 +47,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
       ],
     },
   ];
