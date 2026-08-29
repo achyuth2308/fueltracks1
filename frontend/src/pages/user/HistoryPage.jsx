@@ -106,7 +106,7 @@ const HistoryPage = () => {
     // Base: Only show actual travel points (ignition ON AND speed > 8kmph) for accurate trips
     const travelPoints = points.filter(p => p.ignition && p.speed > 8);
     
-    if (activeTab === 'All') return travelPoints;
+    if (activeTab === 'All') return points;
     if (activeTab === 'Movement') return travelPoints;
     if (activeTab === 'OverSpeed') return travelPoints.filter(p => p.speed > 60);
     

@@ -387,7 +387,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             const startMs = new Date(stopStart.device_time).getTime();
             const endMs = new Date(stopEnd.device_time).getTime();
             const diffMin = (endMs - startMs) / (1000 * 60);
-            if (diffMin >= 3) { // Lowered to 3 mins to be extra safe
+            if (diffMin >= 5) {
               stops.push({
                 lat: parseFloat(stopStart.lat),
                 lng: parseFloat(stopStart.lng),
@@ -407,7 +407,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       const startMs = new Date(stopStart.device_time).getTime();
       const endMs = new Date(stopEnd.device_time).getTime();
       const diffMin = (endMs - startMs) / (1000 * 60);
-      if (diffMin >= 3) {
+      if (diffMin >= 5) {
         stops.push({
           lat: parseFloat(stopStart.lat),
           lng: parseFloat(stopStart.lng),
