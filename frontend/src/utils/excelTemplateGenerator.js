@@ -63,84 +63,11 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     };
   });
 
-  // Sample Rows
-  const sampleGroup = availableGroups[0]?.name || 'Mining Depot';
-
-  const row1 = sheet.addRow({
-    slno: 1,
-    licenceId: 'ST6A1FE9FC0E066',
-    deviceType: 'AIS140 (5001)',
-    imei: '865006049210215',
-    iccid: '8991860000000000000',
-    vltdSlno: 'VLT-TS-98721',
-    vehicleId: 'TS09AB1234',
-    vehicleName: 'Tipper TS09',
-    registrationNo: 'TS09AB1234',
-    vehicleTypeSelect: 'Tipper',
-    chassisNo: 'MAT426012ABC12345',
-    sim1: '9876543210',
-    sim2: '9876543211',
-    odoDistance: '150',
-    vehicleVoltage: '24V',
-    engineOnStatus: 'Voltage+Ignition',
-    sensorNo: 'SNS-FUEL-01',
-    serviceEngineer: 'Vikram Patel',
-    serviceEngineerPhone: '9822233344',
-    salesman: 'Rahul Sharma',
-    salesmanPhone: '9811122233',
-    installedDate: '2026-08-29',
-    onboardingDate: '2026-08-30',
-    ownerName: 'Ramesh Reddy',
-    ownerPhone: '9833344455',
-    email: 'ramesh.reddy@example.com',
-    rtoLocation: 'Hyderabad RTO',
-    ownerAadhar: '123456789012',
-    ownerPan: 'ABCDE1234F',
-    username: 'ramesh_reddy',
-    password: 'Password@123',
-    group: sampleGroup,
-    category: 'TG Mining'
-  });
-
-  const row2 = sheet.addRow({
-    slno: 2,
-    licenceId: 'ST6A1FE9FC0E067',
-    deviceType: 'BSTPL (5000)',
-    imei: '865006049210216',
-    iccid: '8991860000000000001',
-    vltdSlno: 'VLT-TS-98722',
-    vehicleId: 'TS07CD5678',
-    vehicleName: 'Bus TS07',
-    registrationNo: 'TS07CD5678',
-    vehicleTypeSelect: 'Bus',
-    chassisNo: 'MAT426012ABC12346',
-    sim1: '9876543220',
-    sim2: '',
-    odoDistance: '0',
-    vehicleVoltage: '12V',
-    engineOnStatus: 'Ignition',
-    sensorNo: 'SNS-TEMP-02',
-    serviceEngineer: 'Vikram Patel',
-    serviceEngineerPhone: '9822233344',
-    salesman: 'Rahul Sharma',
-    salesmanPhone: '9811122233',
-    installedDate: '2026-08-29',
-    onboardingDate: '2026-08-30',
-    ownerName: 'Suresh Kumar',
-    ownerPhone: '9844455566',
-    email: 'suresh.k@example.com',
-    rtoLocation: 'Secunderabad',
-    ownerAadhar: '234567890123',
-    ownerPan: 'BCDEF2345G',
-    username: 'suresh_kumar',
-    password: 'Password@123',
-    group: sampleGroup,
-    category: 'VLTD'
-  });
-
-  [row1, row2].forEach(r => {
-    r.height = 22;
-    r.eachCell(cell => {
+  // Blank Rows for User Input (Pre-formatted styling)
+  for (let i = 1; i <= 50; i++) {
+    const row = sheet.addRow({});
+    row.height = 22;
+    row.eachCell({ includeEmpty: true }, (cell) => {
       cell.font = { name: 'Arial', size: 9 };
       cell.alignment = { vertical: 'middle' };
       cell.border = {
@@ -150,7 +77,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
         right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
       };
     });
-  });
+  }
 
   // 2. Reference Sheet for Dropdowns
   const refSheet = workbook.addWorksheet('Dropdown_Options');
