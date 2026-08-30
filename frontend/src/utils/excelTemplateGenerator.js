@@ -174,9 +174,9 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   // 2. Reference Sheet for Dropdowns
   const refSheet = workbook.addWorksheet('Dropdown_Options');
   
-  const deviceTypeOptions = ['AIS140', 'BSTPL', 'CONCOX', 'FMB920', 'VOLTY', 'AIS140 V2', 'GT06N'];
+  const deviceTypeOptions = ['VOLTY', 'AS140', 'CONCOX', 'AIS140 V2', 'FMB 920', 'BSTPL', 'AIS140'];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
-  const vehicleTypeOptions = ['Truck', 'Tipper', 'Tanker', 'Bus', 'Car', 'Van', 'Tractor', 'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Trailer', 'Auto / 3-Wheeler'];
+  const vehicleTypeOptions = ['Truck', 'Car', 'Van', 'Bus', 'Scooty', 'Motorcycle', 'Tractor', 'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper'];
   const engineOnOptions = ['Voltage+Ignition', 'Ignition', 'Voltage', 'Digital Input 1', 'Digital Input 2'];
   const timezoneOptions = ['IST', 'UTC', 'Asia/Kolkata'];
   const groupOptions = availableGroups.length > 0
