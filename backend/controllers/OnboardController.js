@@ -246,8 +246,8 @@ const OnboardController = {
         const imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
         const category = String(row['Category'] || row.category || 'General').trim();
         const registrationNo = String(row['Registration No'] || row.registrationNo || row.plate || '').trim();
-        const vehicleId = String(row['Vehicle Id'] || row.vehicleId || '').trim();
-        const vehicleNumber = registrationNo || vehicleId || '';
+        const vehicleIdInput = String(row['Vehicle Id'] || row.vehicleId || '').trim();
+        const vehicleNumber = registrationNo || vehicleIdInput || '';
         const vehicleModel = String(row['Vehicle Model'] || row.vehicleModel || row.model || 'Truck').trim();
         const vehicleName = String(row['Vehicle Name'] || row.vehicleName || vehicleNumber || `Vehicle ${imei}`).trim();
 
@@ -379,7 +379,7 @@ const OnboardController = {
 
         // 4. Construct comprehensive metadata
         const metadata = {
-          vehicleId: vehicleId || vehicleNumber,
+          vehicleId: vehicleIdInput || vehicleNumber,
           vlttdSlno,
           iccid,
           sim1,
