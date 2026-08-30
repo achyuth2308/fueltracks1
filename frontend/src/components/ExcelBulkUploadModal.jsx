@@ -267,40 +267,6 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         {/* Modal Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
 
-          {/* Org Selector for Superadmin */}
-          {/* Quick Creation Action Bar */}
-          <div className="bg-orange-50/60 p-4 rounded-xl border border-orange-200/80 flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <span className="text-xs font-bold text-orange-950 block">Quick Resource Creation</span>
-              <p className="text-xs text-slate-500">Need to provision a missing Organization, Group, or User account before importing?</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {isSuperAdmin && (
-                <button
-                  type="button"
-                  onClick={() => setIsAddOrgOpen(true)}
-                  className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-                >
-                  + Add Org
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setIsAddGroupOpen(true)}
-                className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-              >
-                + Add Group
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAddUserOpen(true)}
-                className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-              >
-                + Add User
-              </button>
-            </div>
-          </div>
-
           {isSuperAdmin && availableOrgs.length > 0 && (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
               <div>
