@@ -155,18 +155,18 @@ const EditVehiclePage = () => {
       madeIn: 'India', mfgDate: '', chassisNo: '', engineNo: '', rtoLocation: '',
       serviceEngineer: '', serviceEngineerPhone: '', salesman: '', salesmanPhone: '',
       ticketId: '', sensorNo: '',
-      vehicleVoltage: '12V', batteryVoltage: '12V', engineOnStatus: 'Voltage+Ignition', engineOn: 'Voltage+Ignition',
+      vehicleVoltage: '', batteryVoltage: '', engineOnStatus: '', engineOn: '',
       oldGroups: '',
       ownerName: '', ownerPhone: '', customerName: '', customerPhone: '', aadharNo: '', panNo: '',
       email: '', username: '', password: '',
-      // Fuel configuration fields matching screenshot 3
-      fuelType: 'None', tankSize: '0', fuelEmptyAdc: '0', fuelFullAdc: '1000', expectedMileage: '4',
-      // Configuration Details Toggles matching screenshots 3 & 4
-      deviceOdo: 'YES', assetTrack: 'NO', safetyPark: 'NO', rigMode: 'NO', acToggle: 'NO', externalDevice: 'NO',
-      // Telemetry & Threshold fields matching screenshots 4 & 5
-      secondaryEngine: 'Digital Input 2', odometerReading: '0', odoDistance: '0',
-      overSpeedLimit: '60', overspeedDurationAlert: '3', idleDurationAlert: '10', enableDebugs: 'Disable',
-      ipAddress: '', portNo: '', lowBattery: '20'
+      // Fuel configuration fields - defaulted to empty
+      fuelType: '', tankSize: '', fuelEmptyAdc: '', fuelFullAdc: '', expectedMileage: '',
+      // Configuration Details Toggles - ALL DEFAULT TO NO
+      deviceOdo: 'NO', assetTrack: 'NO', safetyPark: 'NO', rigMode: 'NO', acToggle: 'NO', externalDevice: 'NO',
+      // Telemetry & Threshold fields - defaulted to empty
+      secondaryEngine: '', odometerReading: '', odoDistance: '',
+      overSpeedLimit: '', overspeedDurationAlert: '', idleDurationAlert: '', enableDebugs: '',
+      ipAddress: '', portNo: '', lowBattery: ''
     }
   });
 
@@ -307,10 +307,10 @@ const EditVehiclePage = () => {
             <ArrowLeft size={20} />
           </button>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-xs sm:text-sm text-slate-500 font-semibold mb-1">
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
               Vehicles <ChevronRight size={14} /> {isEditing ? 'Edit Vehicle' : 'Register Vehicle'}
             </div>
-            <h1 className="text-xl sm:text-3xl font-extrabold text-slate-900 m-0 tracking-tight truncate">
+            <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>
               {isEditing ? form.name || form.plate || 'Edit Vehicle' : 'Register New Vehicle'}
             </h1>
           </div>
