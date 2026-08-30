@@ -43,11 +43,11 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
       const rawDeviceType = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
       const deviceModel = rawDeviceType.split(' (')[0].trim();
 
-      // IMEI Validation
+      // IMEI Validation — must be exactly 15 numeric digits
       if (!imei) {
         errors.push('IMEI number is required');
-      } else if (!/^\d{10,20}$/.test(imei)) {
-        errors.push('IMEI must be 10-20 numeric digits');
+      } else if (!/^\d{15}$/.test(imei)) {
+        errors.push('IMEI must be exactly 15 numeric digits');
       } else if (seenImeis.has(imei)) {
         errors.push(`Duplicate IMEI in file (${imei})`);
       } else {

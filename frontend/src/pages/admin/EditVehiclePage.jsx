@@ -384,7 +384,51 @@ const EditVehiclePage = () => {
             />
 
             <div style={{ position: 'relative' }}>
-              <InputField label="Device ID / IMEI No" value={form.imei} onChange={e => updateField('imei', e.target.value)} disabled={isEditing} placeholder="868329087240119" />
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
+                Device ID / IMEI No
+              </label>
+              <input
+                type="text"
+                value={form.imei}
+                onChange={e => updateField('imei', e.target.value.replace(/\D/g, '').slice(0, 15))}
+                disabled={isEditing}
+                placeholder="868329087240119"
+                maxLength={15}
+                style={{
+                  ...inputBaseStyle,
+                  cursor: isEditing ? 'not-allowed' : 'text',
+                  border: !isEditing && form.imei && form.imei.length !== 15
+                    ? '2px solid #EF4444'
+                    : form.imei && form.imei.length === 15
+                    ? '2px solid #22C55E'
+                    : '1px solid #CBD5E1',
+                  background: isEditing ? '#F1F5F9' : '#FFFFFF',
+                  color: '#0F172A',
+                  boxShadow: !isEditing && form.imei && form.imei.length !== 15
+                    ? '0 0 0 3px rgba(239,68,68,0.15)'
+                    : form.imei && form.imei.length === 15
+                    ? '0 0 0 3px rgba(34,197,94,0.15)'
+                    : 'none'
+                }}
+              />
+              {/* IMEI digit counter */}
+              {!isEditing && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                  {form.imei && form.imei.length !== 15 && (
+                    <span style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700 }}>
+                      ⚠ IMEI must be exactly 15 digits
+                    </span>
+                  )}
+                  {form.imei && form.imei.length === 15 && (
+                    <span style={{ fontSize: '11px', color: '#22C55E', fontWeight: 700 }}>
+                      ✓ Valid IMEI
+                    </span>
+                  )}
+                  <span style={{ fontSize: '11px', color: form.imei?.length === 15 ? '#22C55E' : '#64748B', fontWeight: 600, marginLeft: 'auto' }}>
+                    {form.imei?.length || 0}/15
+                  </span>
+                </div>
+              )}
               {isEditing && (
                 <span style={{ position: 'absolute', top: '0', right: '0', fontSize: '11px', color: '#f97316', fontWeight: 700, background: '#EEF5F8', padding: '2px 8px', borderRadius: '4px' }}>
                   Use Migrate
