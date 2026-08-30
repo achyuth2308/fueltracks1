@@ -11,49 +11,40 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
   });
 
-  // Columns definition matching simplified specifications
+  // Columns definition matching user's exact specification and order
   sheet.columns = [
-    // Business Information
-    { header: 'Customer Name', key: 'customerName', width: 22 },
-    { header: 'Customer Mobile Number', key: 'customerPhone', width: 22 },
-    { header: 'Customer Location', key: 'rtoLocation', width: 26 },
-    { header: 'Customer Aadhar', key: 'ownerAadhar', width: 20 },
-    { header: 'Customer PAN', key: 'ownerPan', width: 18 },
-    { header: 'Customer Email ID', key: 'email', width: 26 },
-    { header: 'Username Name', key: 'username', width: 20 },
-    { header: 'Password', key: 'password', width: 20 },
-
-    // Device & Compliance
+    { header: 'Sl.No', key: 'slno', width: 10 },
     { header: 'LicenceId', key: 'licenceId', width: 20 },
-    { header: 'Device Type', key: 'deviceType', width: 18 },
+    { header: 'Device Type', key: 'deviceType', width: 22 },
     { header: 'Device ID(IMEI)', key: 'imei', width: 22 },
-    { header: 'VLTD SLNO', key: 'vltdSlno', width: 22 },
     { header: 'ICCID', key: 'iccid', width: 24 },
-    { header: 'GPS SIMNO 1', key: 'sim1', width: 18 },
-    { header: 'GPS SIMNO 2', key: 'sim2', width: 18 },
-    { header: 'Sensor No', key: 'sensorNo', width: 18 },
-
-    // Vehicle Configurations
+    { header: 'VLTD SLNO', key: 'vltdSlno', width: 22 },
     { header: 'Vehicle Id', key: 'vehicleId', width: 22 },
     { header: 'Vehicle Name', key: 'vehicleName', width: 22 },
-    { header: 'Registration No', key: 'registrationNo', width: 20 },
+    { header: 'Registration Number', key: 'registrationNo', width: 24 },
     { header: 'Vehicle Type', key: 'vehicleTypeSelect', width: 20 },
-    { header: 'Vehicle Model', key: 'vehicleModel', width: 20 },
     { header: 'Chassis Number', key: 'chassisNo', width: 24 },
-    { header: 'Engine Number', key: 'engineNo', width: 20 },
-    { header: 'Odo Distance', key: 'odoDistance', width: 16 },
+    { header: 'GPS SIM Number 1', key: 'sim1', width: 20 },
+    { header: 'GPS SIM Number 2', key: 'sim2', width: 20 },
+    { header: 'Odometer', key: 'odoDistance', width: 16 },
     { header: 'Vehicle Voltage', key: 'vehicleVoltage', width: 18 },
-    { header: 'Timezone', key: 'timezone', width: 16 },
-    { header: 'Ignition Detection', key: 'engineOnStatus', width: 26 },
-
-    // Installation & Logistics
-    { header: 'Service Engineer', key: 'serviceEngineer', width: 22 },
-    { header: 'Service Engineer Mobno', key: 'serviceEngineerPhone', width: 28 },
+    { header: 'Ignition ON Status', key: 'engineOnStatus', width: 26 },
+    { header: 'Sensor Number', key: 'sensorNo', width: 18 },
+    { header: 'Service Engineer Number', key: 'serviceEngineer', width: 26 },
+    { header: 'Service Mobile Number', key: 'serviceEngineerPhone', width: 24 },
     { header: 'Salesman', key: 'salesman', width: 20 },
-    { header: 'Salesman Mobno', key: 'salesmanPhone', width: 24 },
-    { header: 'Ticket Id', key: 'ticketId', width: 18 },
-    { header: 'Installed Date', key: 'installedDate', width: 18 },
-    { header: 'GROUP', key: 'group', width: 24 },
+    { header: 'Salesman Mobile Number', key: 'salesmanPhone', width: 24 },
+    { header: 'Installation Date', key: 'installedDate', width: 18 },
+    { header: 'Onboarding Date', key: 'onboardingDate', width: 18 },
+    { header: 'Owner Name', key: 'ownerName', width: 22 },
+    { header: 'Owner Mobile Number', key: 'ownerPhone', width: 22 },
+    { header: 'Owner Email ID', key: 'email', width: 26 },
+    { header: 'Owner Location', key: 'rtoLocation', width: 26 },
+    { header: 'Owner Aadhar ID', key: 'ownerAadhar', width: 20 },
+    { header: 'Owner Pancard Number', key: 'ownerPan', width: 22 },
+    { header: 'Username', key: 'username', width: 20 },
+    { header: 'Password', key: 'password', width: 20 },
+    { header: 'Group', key: 'group', width: 24 },
     { header: 'Category', key: 'category', width: 20 }
   ];
 
@@ -76,83 +67,73 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   const sampleGroup = availableGroups[0]?.name || 'Mining Depot';
 
   const row1 = sheet.addRow({
-    customerName: 'Ramesh Reddy',
-    customerPhone: '9833344455',
-    rtoLocation: 'Hyderabad RTO',
-    ownerAadhar: '123456789012',
-    ownerPan: 'ABCDE1234F',
-    email: 'ramesh.reddy@example.com',
-    username: 'ramesh_reddy',
-    password: 'Password@123',
-
+    slno: 1,
     licenceId: 'ST6A1FE9FC0E066',
-    deviceType: 'AIS140',
+    deviceType: 'AIS140 (5001)',
     imei: '865006049210215',
-    vltdSlno: 'VLT-TS-98721',
     iccid: '8991860000000000000',
-    sim1: '9876543210',
-    sim2: '9876543211',
-    sensorNo: 'SNS-FUEL-01',
-
+    vltdSlno: 'VLT-TS-98721',
     vehicleId: 'TS09AB1234',
     vehicleName: 'Tipper TS09',
     registrationNo: 'TS09AB1234',
     vehicleTypeSelect: 'Tipper',
-    vehicleModel: 'Tata Prima',
     chassisNo: 'MAT426012ABC12345',
-    engineNo: 'ENG987654321',
+    sim1: '9876543210',
+    sim2: '9876543211',
     odoDistance: '150',
     vehicleVoltage: '24V',
-    timezone: 'IST',
     engineOnStatus: 'Voltage+Ignition',
-
+    sensorNo: 'SNS-FUEL-01',
     serviceEngineer: 'Vikram Patel',
     serviceEngineerPhone: '9822233344',
     salesman: 'Rahul Sharma',
     salesmanPhone: '9811122233',
-    ticketId: 'TCK-98721',
     installedDate: '2026-08-29',
+    onboardingDate: '2026-08-30',
+    ownerName: 'Ramesh Reddy',
+    ownerPhone: '9833344455',
+    email: 'ramesh.reddy@example.com',
+    rtoLocation: 'Hyderabad RTO',
+    ownerAadhar: '123456789012',
+    ownerPan: 'ABCDE1234F',
+    username: 'ramesh_reddy',
+    password: 'Password@123',
     group: sampleGroup,
     category: 'TG Mining'
   });
 
   const row2 = sheet.addRow({
-    customerName: 'Suresh Kumar',
-    customerPhone: '9844455566',
-    rtoLocation: 'Secunderabad',
-    ownerAadhar: '234567890123',
-    ownerPan: 'BCDEF2345G',
-    email: 'suresh.k@example.com',
-    username: 'suresh_kumar',
-    password: 'Password@123',
-
+    slno: 2,
     licenceId: 'ST6A1FE9FC0E067',
-    deviceType: 'BSTPL',
+    deviceType: 'BSTPL (5000)',
     imei: '865006049210216',
-    vltdSlno: 'VLT-TS-98722',
     iccid: '8991860000000000001',
-    sim1: '9876543220',
-    sim2: '',
-    sensorNo: 'SNS-TEMP-02',
-
+    vltdSlno: 'VLT-TS-98722',
     vehicleId: 'TS07CD5678',
     vehicleName: 'Bus TS07',
     registrationNo: 'TS07CD5678',
     vehicleTypeSelect: 'Bus',
-    vehicleModel: 'Eicher Starline',
     chassisNo: 'MAT426012ABC12346',
-    engineNo: 'ENG987654322',
+    sim1: '9876543220',
+    sim2: '',
     odoDistance: '0',
     vehicleVoltage: '12V',
-    timezone: 'IST',
     engineOnStatus: 'Ignition',
-
+    sensorNo: 'SNS-TEMP-02',
     serviceEngineer: 'Vikram Patel',
     serviceEngineerPhone: '9822233344',
     salesman: 'Rahul Sharma',
     salesmanPhone: '9811122233',
-    ticketId: 'TCK-98722',
     installedDate: '2026-08-29',
+    onboardingDate: '2026-08-30',
+    ownerName: 'Suresh Kumar',
+    ownerPhone: '9844455566',
+    email: 'suresh.k@example.com',
+    rtoLocation: 'Secunderabad',
+    ownerAadhar: '234567890123',
+    ownerPan: 'BCDEF2345G',
+    username: 'suresh_kumar',
+    password: 'Password@123',
     group: sampleGroup,
     category: 'VLTD'
   });
@@ -174,11 +155,34 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   // 2. Reference Sheet for Dropdowns
   const refSheet = workbook.addWorksheet('Dropdown_Options');
   
-  const deviceTypeOptions = ['VOLTY', 'AS140', 'CONCOX', 'AIS140 V2', 'FMB 920', 'BSTPL', 'AIS140'];
+  // Device types with port numbers as requested by user
+  const deviceTypeOptions = [
+    'VOLTY (5004)',
+    'AS140 (5001)',
+    'CONCOX (5002)',
+    'AIS140 V2 (5003)',
+    'FMB 920 (5005)',
+    'BSTPL (5000)',
+    'AIS140 (5001)'
+  ];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
-  const vehicleTypeOptions = ['Truck', 'Car', 'Van', 'Bus', 'Scooty', 'Motorcycle', 'Tractor', 'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper'];
+  const vehicleTypeOptions = [
+    'Truck',
+    'Car',
+    'Van',
+    'Bus',
+    'Scooty',
+    'Motorcycle',
+    'Tractor',
+    'JCB',
+    'Crane',
+    'Ambulance',
+    'Pickup',
+    'Borewell',
+    'Tanker',
+    'Tipper'
+  ];
   const engineOnOptions = ['Voltage+Ignition', 'Ignition', 'Voltage', 'Digital Input 1', 'Digital Input 2'];
-  const timezoneOptions = ['IST', 'UTC', 'Asia/Kolkata'];
   const groupOptions = availableGroups.length > 0
     ? availableGroups.map(g => g.name)
     : ['North Fleet', 'South Fleet', 'Mining Depot', 'Hyderabad Hub', 'Night Shift'];
@@ -189,8 +193,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     { col: 'B', title: 'Categories', values: categoryOptions },
     { col: 'C', title: 'Vehicle Types', values: vehicleTypeOptions },
     { col: 'D', title: 'Ignition Detection', values: engineOnOptions },
-    { col: 'E', title: 'Timezones', values: timezoneOptions },
-    { col: 'F', title: 'Groups', values: groupOptions }
+    { col: 'E', title: 'Groups', values: groupOptions }
   ];
 
   optionsMap.forEach(({ col, title, values }) => {
@@ -205,28 +208,18 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
 
   // 3. Apply Native Excel Data Validations (Dropdowns) across rows 2 to 500
   for (let rowIdx = 2; rowIdx <= 500; rowIdx++) {
-    // Column J: Device Type Dropdown
-    sheet.getCell(`J${rowIdx}`).dataValidation = {
+    // Column C: Device Type Dropdown
+    sheet.getCell(`C${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$A$2:$A$${deviceTypeOptions.length + 1}`],
       showErrorMessage: true,
       errorTitle: 'Invalid Device Type',
-      error: 'Please select a supported device protocol from the dropdown list.'
+      error: 'Please select a supported device type from the dropdown list.'
     };
 
-    // Column AI: Category Dropdown
-    sheet.getCell(`AI${rowIdx}`).dataValidation = {
-      type: 'list',
-      allowBlank: true,
-      formulae: [`Dropdown_Options!$B$2:$B$${categoryOptions.length + 1}`],
-      showErrorMessage: true,
-      errorTitle: 'Invalid Category',
-      error: 'Please select a category from the dropdown list.'
-    };
-
-    // Column T: Vehicle Type Dropdown
-    sheet.getCell(`T${rowIdx}`).dataValidation = {
+    // Column J: Vehicle Type Dropdown
+    sheet.getCell(`J${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$C$2:$C$${vehicleTypeOptions.length + 1}`],
@@ -235,32 +228,34 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select a vehicle type from the dropdown list.'
     };
 
-    // Column AA: Ignition Detection Dropdown
-    sheet.getCell(`AA${rowIdx}`).dataValidation = {
+    // Column P: Ignition ON Status Dropdown
+    sheet.getCell(`P${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$D$2:$D$${engineOnOptions.length + 1}`],
       showErrorMessage: true,
-      errorTitle: 'Invalid Ignition Detection',
-      error: 'Please select an ignition detection status from the dropdown list.'
+      errorTitle: 'Invalid Ignition ON Status',
+      error: 'Please select an ignition status from the dropdown list.'
     };
 
-    // Column Z: Timezone Dropdown
-    sheet.getCell(`Z${rowIdx}`).dataValidation = {
+    // Column AF: Group Dropdown
+    sheet.getCell(`AF${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
-      formulae: [`Dropdown_Options!$E$2:$E$${timezoneOptions.length + 1}`],
-      showErrorMessage: false
-    };
-
-    // Column AH: GROUP Dropdown
-    sheet.getCell(`AH${rowIdx}`).dataValidation = {
-      type: 'list',
-      allowBlank: true,
-      formulae: [`Dropdown_Options!$F$2:$F$${groupOptions.length + 1}`],
+      formulae: [`Dropdown_Options!$E$2:$E$${groupOptions.length + 1}`],
       showErrorMessage: false,
       promptTitle: 'Assigned Group',
       prompt: 'Select a group from the list, or enter multiple groups separated by commas.'
+    };
+
+    // Column AG: Category Dropdown
+    sheet.getCell(`AG${rowIdx}`).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [`Dropdown_Options!$B$2:$B$${categoryOptions.length + 1}`],
+      showErrorMessage: true,
+      errorTitle: 'Invalid Category',
+      error: 'Please select a category from the dropdown list.'
     };
   }
 
@@ -279,42 +274,37 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   infoHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
 
   const guidelines = [
-    { colName: 'Customer Name', hasDropdown: 'NO', req: 'NO', desc: 'Customer account full name.' },
-    { colName: 'Customer Mobile Number', hasDropdown: 'NO', req: 'NO', desc: 'Customer 10-digit mobile contact number.' },
-    { colName: 'Customer Location', hasDropdown: 'NO', req: 'NO', desc: 'Operational location / RTO circle of customer.' },
-    { colName: 'Customer Aadhar', hasDropdown: 'NO', req: 'NO', desc: '12-digit customer Aadhar number.' },
-    { colName: 'Customer PAN', hasDropdown: 'NO', req: 'NO', desc: '10-character customer PAN card number.' },
-    { colName: 'Customer Email ID', hasDropdown: 'NO', req: 'NO', desc: 'Unique customer email address. Used for notifications.' },
-    { colName: 'Username Name', hasDropdown: 'NO', req: 'NO', desc: 'Web portal login username.' },
-    { colName: 'Password', hasDropdown: 'NO', req: 'NO', desc: 'Web portal login password.' },
-
-    { colName: 'LicenceId', hasDropdown: 'NO', req: 'NO', desc: 'Optional license verification token (e.g. basic, advanced, premium).' },
-    { colName: 'Device Type', hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'VOLTY, AIS140, BSTPL, CONCOX, FMB920, AIS140 V2, GT06N.' },
+    { colName: 'Sl.No', hasDropdown: 'NO', req: 'NO', desc: 'Sequential index number.' },
+    { colName: 'LicenceId', hasDropdown: 'NO', req: 'NO', desc: 'Optional license verification token.' },
+    { colName: 'Device Type', hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'Select device protocol with port number (e.g. VOLTY (5004)).' },
     { colName: 'Device ID(IMEI)', hasDropdown: 'NO', req: 'YES', desc: '15-digit unique GPS device IMEI number.' },
-    { colName: 'VLTD SLNO', hasDropdown: 'NO', req: 'NO', desc: 'VLT compliance serial number.' },
     { colName: 'ICCID', hasDropdown: 'NO', req: 'NO', desc: 'SIM card ICCID number (19-20 digits).' },
-    { colName: 'GPS SIMNO 1 & 2', hasDropdown: 'NO', req: 'NO', desc: 'Primary and secondary SIM phone numbers.' },
-    { colName: 'Sensor No', hasDropdown: 'NO', req: 'NO', desc: 'Optional temperature / fuel sensor ID.' },
-
+    { colName: 'VLTD SLNO', hasDropdown: 'NO', req: 'NO', desc: 'Compliance serial number.' },
     { colName: 'Vehicle Id', hasDropdown: 'NO', req: 'YES', desc: 'System unique vehicle ID / tracker map key.' },
     { colName: 'Vehicle Name', hasDropdown: 'NO', req: 'NO', desc: 'Display name of vehicle (e.g. Tipper TS09).' },
-    { colName: 'Registration No', hasDropdown: 'NO', req: 'YES', desc: 'Official RTO license plate number.' },
-    { colName: 'Vehicle Type', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Truck, Tipper, Tanker, Bus, Car, Tractor, JCB, Crane, etc.' },
-    { colName: 'Vehicle Model', hasDropdown: 'NO', req: 'NO', desc: 'Make and model (e.g. Tata Prima).' },
-    { colName: 'Chassis Number', hasDropdown: 'NO', req: 'NO', desc: 'Vehicle chassis/VIN number.' },
-    { colName: 'Engine Number', hasDropdown: 'NO', req: 'NO', desc: 'Vehicle engine serial number.' },
-    { colName: 'Odo Distance', hasDropdown: 'NO', req: 'NO', desc: 'Current starting odometer reading offset (km).' },
-    { colName: 'Vehicle Voltage', hasDropdown: 'NO', req: 'NO', desc: 'Battery voltage rating (12V or 24V).' },
-    { colName: 'Timezone', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'IST, UTC, or Asia/Kolkata (Default IST).' },
-    { colName: 'Ignition Detection', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Voltage+Ignition, Ignition, Voltage, Digital Input 1.' },
-
-    { colName: 'Service Engineer', hasDropdown: 'NO', req: 'NO', desc: 'Name of technician who installed the device.' },
-    { colName: 'Service Engineer Mobno', hasDropdown: 'NO', req: 'NO', desc: 'Mobile number of the service engineer.' },
-    { colName: 'Salesman', hasDropdown: 'NO', req: 'NO', desc: 'Name of sales executive.' },
-    { colName: 'Salesman Mobno', hasDropdown: 'NO', req: 'NO', desc: 'Mobile number of the salesman.' },
-    { colName: 'Ticket Id', hasDropdown: 'NO', req: 'NO', desc: 'Assigned installation support ticket ID.' },
-    { colName: 'Installed Date', hasDropdown: 'NO', req: 'NO', desc: 'Installation date (YYYY-MM-DD).' },
-    { colName: 'GROUP', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Assigned monitoring groups (comma-separated).' },
+    { colName: 'Registration Number', hasDropdown: 'NO', req: 'YES', desc: 'Official license plate number.' },
+    { colName: 'Vehicle Type', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Truck, Car, Van, Bus, Scooty, Motorcycle, etc.' },
+    { colName: 'Chassis Number', hasDropdown: 'NO', req: 'NO', desc: 'Vehicle chassis serial number.' },
+    { colName: 'GPS SIM Number 1 & 2', hasDropdown: 'NO', req: 'NO', desc: 'Primary and secondary SIM phone numbers.' },
+    { colName: 'Odometer', hasDropdown: 'NO', req: 'NO', desc: 'Current starting odometer reading (km).' },
+    { colName: 'Vehicle Voltage', hasDropdown: 'NO', req: 'NO', desc: 'Battery voltage rating entered manually.' },
+    { colName: 'Ignition ON Status', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Ignition status detection configuration.' },
+    { colName: 'Sensor Number', hasDropdown: 'NO', req: 'NO', desc: 'Optional fuel / temp sensor ID.' },
+    { colName: 'Service Engineer Number', hasDropdown: 'NO', req: 'NO', desc: 'Name of installation technician.' },
+    { colName: 'Service Mobile Number', hasDropdown: 'NO', req: 'NO', desc: 'Service engineer phone number.' },
+    { colName: 'Salesman', hasDropdown: 'NO', req: 'NO', desc: 'Sales representative name.' },
+    { colName: 'Salesman Mobile Number', hasDropdown: 'NO', req: 'NO', desc: 'Sales representative phone number.' },
+    { colName: 'Installation Date', hasDropdown: 'NO', req: 'NO', desc: 'Date of device installation (YYYY-MM-DD).' },
+    { colName: 'Onboarding Date', hasDropdown: 'NO', req: 'NO', desc: 'Date of system onboarding (YYYY-MM-DD).' },
+    { colName: 'Owner Name', hasDropdown: 'NO', req: 'NO', desc: 'Full name of vehicle owner.' },
+    { colName: 'Owner Mobile Number', hasDropdown: 'NO', req: 'NO', desc: 'Owner mobile number.' },
+    { colName: 'Owner Email ID', hasDropdown: 'NO', req: 'NO', desc: 'Owner email address.' },
+    { colName: 'Owner Location', hasDropdown: 'NO', req: 'NO', desc: 'Operational location / RTO circle.' },
+    { colName: 'Owner Aadhar ID', hasDropdown: 'NO', req: 'NO', desc: '12-digit owner Aadhar ID.' },
+    { colName: 'Owner Pancard Number', hasDropdown: 'NO', req: 'NO', desc: '10-character PAN number.' },
+    { colName: 'Username', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login username.' },
+    { colName: 'Password', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login password.' },
+    { colName: 'Group', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Assigned monitoring groups (comma-separated).' },
     { colName: 'Category', hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'TG Mining, VLTD, VLTD + Mining, General.' }
   ];
 

@@ -28,9 +28,10 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
     return rows.map((row, index) => {
       const errors = [];
       const imei = String(row['Device ID(IMEI)'] || row['IMEI Number'] || row['IMEI'] || row.imei || '').trim();
-      const vehicleNo = String(row['Vehicle Id'] || row['Registration No'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
+      const vehicleNo = String(row['Vehicle Id'] || row['Registration Number'] || row['Registration No'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
       const category = String(row['Category'] || row.category || 'General').trim();
-      const deviceModel = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
+      const rawDeviceType = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
+      const deviceModel = rawDeviceType.split(' (')[0].trim();
 
       // IMEI Validation
       if (!imei) {
@@ -137,45 +138,51 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
     setImportStatus(null);
 
     try {
-      const recordsToSubmit = validRows.map(r => ({
-        imei: r._imei || r['Device ID(IMEI)'] || '',
-        vehicleNumber: r._vehicleNo || r['Registration No'] || r['Vehicle Id'] || '',
-        vehicleName: r['Vehicle Name'] || r._vehicleNo,
-        vehicleId: r['Vehicle Id'] || '',
-        vehicleModel: r['Vehicle Model'] || '',
-        vehicleTypeSelect: r['Vehicle Type'] || '',
-        deviceType: r._deviceModel || r['Device Type'] || '',
-        category: r._category || r['Category'] || 'General',
-        vlttdSlno: r['VLTD SLNO'] || r['VLTTD SLNO'] || '',
-        iccid: r['ICCID'] || '',
-        sim1: r['GPS SIMNO 1'] || r['GPS SIMNO1'] || r['SIM 1'] || '',
-        sim2: r['GPS SIMNO 2'] || r['GPS SIMNO2'] || r['SIM 2'] || '',
-        chassisNo: r['Chassis Number'] || '',
-        engineNo: r['Engine Number'] || '',
-        sensorNo: r['Sensor No'] || '',
-        engineOnStatus: r['Ignition Detection'] || r['engine on status'] || r['Engine ON Status'] || 'Voltage+Ignition',
-        vehicleVoltage: r['Vehicle Voltage'] || r['vehicle voltage'] || '',
-        timezone: r['Timezone'] || r['timezone'] || 'IST',
-        serviceEngineer: r['Service Engineer'] || r['service engineer'] || '',
-        serviceEngineerPhone: r['Service Engineer Mobno'] || r['service engineer mobile number'] || '',
-        salesman: r['Salesman'] || r['salesman'] || '',
-        salesmanPhone: r['Salesman Mobno'] || r['salesman mobile number'] || '',
-        group: r['GROUP'] || r['Groups'] || '',
-        oldGroups: r['OLD GROUPS'] || '',
-        ownerName: r['Customer Name'] || r['Owner name'] || '',
-        ownerPhone: r['Customer Mobile Number'] || r['Owner mobile number'] || '',
-        ownerAadhar: r['Customer Aadhar'] || r['Owner AADHAR'] || '',
-        ownerPan: r['Customer PAN'] || r['Owner PAN'] || '',
-        rtoLocation: r['Customer Location'] || r['OWNER /RTO LOCATION'] || '',
-        installedDate: r['Installed Date'] || null,
-        email: r['Customer Email ID'] || r['Email'] || '',
-        username: r['Username Name'] || r['Username'] || '',
-        password: r['Password'] || r['password'] || '',
-        licenceId: r['LicenceId'] || r['LicenceId (Starter)'] || '',
-        odoDistance: r['Odo Distance'] || '',
-        ticketId: r['Ticket Id'] || '',
-        orgId: selectedOrgId || currentOrgId
-      }));
+      const recordsToSubmit = validRows.map(r => {
+        const rawDeviceType = String(r['Device Type'] || r._deviceModel || 'AIS140').trim();
+        const cleanDeviceType = rawDeviceType.split(' (')[0].trim();
+
+        return {
+          imei: r._imei || r['Device ID(IMEI)'] || '',
+          vehicleNumber: r._vehicleNo || r['Registration Number'] || r['Registration No'] || r['Vehicle Id'] || '',
+          vehicleName: r['Vehicle Name'] || r._vehicleNo,
+          vehicleId: r['Vehicle Id'] || '',
+          vehicleModel: r['Vehicle Model'] || '',
+          vehicleTypeSelect: r['Vehicle Type'] || '',
+          deviceType: cleanDeviceType,
+          category: r._category || r['Category'] || 'General',
+          vlttdSlno: r['VLTD SLNO'] || r['VLTTD SLNO'] || '',
+          iccid: r['ICCID'] || '',
+          sim1: r['GPS SIM Number 1'] || r['GPS SIMNO 1'] || r['GPS SIMNO1'] || r['SIM 1'] || '',
+          sim2: r['GPS SIM Number 2'] || r['GPS SIMNO 2'] || r['GPS SIMNO2'] || r['SIM 2'] || '',
+          chassisNo: r['Chassis Number'] || '',
+          engineNo: r['Engine Number'] || '',
+          sensorNo: r['Sensor Number'] || r['Sensor No'] || '',
+          engineOnStatus: r['Ignition ON Status'] || r['Ignition Detection'] || r['engine on status'] || r['Engine ON Status'] || 'Voltage+Ignition',
+          vehicleVoltage: r['Vehicle Voltage'] || r['vehicle voltage'] || '',
+          timezone: r['Timezone'] || r['timezone'] || 'IST',
+          serviceEngineer: r['Service Engineer Number'] || r['Service Engineer'] || r['service engineer'] || '',
+          serviceEngineerPhone: r['Service Mobile Number'] || r['Service Engineer Mobno'] || r['service engineer mobile number'] || '',
+          salesman: r['Salesman'] || r['salesman'] || '',
+          salesmanPhone: r['Salesman Mobile Number'] || r['Salesman Mobno'] || r['salesman mobile number'] || '',
+          group: r['Group'] || r['GROUP'] || r['Groups'] || '',
+          oldGroups: r['OLD GROUPS'] || '',
+          ownerName: r['Owner Name'] || r['Customer Name'] || r['Owner name'] || '',
+          ownerPhone: r['Owner Mobile Number'] || r['Customer Mobile Number'] || r['Owner mobile number'] || '',
+          ownerAadhar: r['Owner Aadhar ID'] || r['Customer Aadhar'] || r['Owner AADHAR'] || '',
+          ownerPan: r['Owner Pancard Number'] || r['Customer PAN'] || r['Owner PAN'] || '',
+          rtoLocation: r['Owner Location'] || r['Customer Location'] || r['OWNER /RTO LOCATION'] || '',
+          installedDate: r['Installation Date'] || r['Installed Date'] || null,
+          onboardingDate: r['Onboarding Date'] || null,
+          email: r['Owner Email ID'] || r['Customer Email ID'] || r['Email'] || '',
+          username: r['Username'] || r['Username Name'] || '',
+          password: r['Password'] || r['password'] || '',
+          licenceId: r['LicenceId'] || r['LicenceId (Starter)'] || '',
+          odoDistance: r['Odometer'] || r['Odo Distance'] || '',
+          ticketId: r['Ticket Id'] || '',
+          orgId: selectedOrgId || currentOrgId
+        };
+      });
 
       const res = await bulkOnboardExcel({
         records: recordsToSubmit,
