@@ -164,16 +164,6 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select an ignition status from the dropdown list.'
     };
 
-    // Column AE: Group Dropdown
-    sheet.getCell(`AE${rowIdx}`).dataValidation = {
-      type: 'list',
-      allowBlank: true,
-      formulae: [`Dropdown_Options!$E$2:$E$${groupOptions.length + 1}`],
-      showErrorMessage: false,
-      promptTitle: 'Assigned Group',
-      prompt: 'Select a group from the list, or enter multiple groups separated by commas.'
-    };
-
     // Column AF: Category Dropdown
     sheet.getCell(`AF${rowIdx}`).dataValidation = {
       type: 'list',
@@ -230,7 +220,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     { colName: 'Owner Pancard Number', hasDropdown: 'NO', req: 'NO', desc: '10-character PAN number.' },
     { colName: 'Username', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login username.' },
     { colName: 'Password', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login password.' },
-    { colName: 'Group', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Assigned monitoring groups (comma-separated).' },
+    { colName: 'Group', hasDropdown: 'NO', req: 'NO', desc: 'Assigned monitoring groups (comma-separated).' },
     { colName: 'Category', hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'TG Mining, VLTD, VLTD + Mining, General.' }
   ];
 
