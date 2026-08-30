@@ -203,7 +203,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                 Email<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+                type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off"
                 style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -212,7 +212,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                 Username<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
+                type="text" required value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off"
                 style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
               />
             </div>
@@ -292,7 +292,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                   Password<span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
-                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password"
                   style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
