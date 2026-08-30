@@ -134,8 +134,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
 
   // 3. Apply Native Excel Data Validations (Dropdowns) across rows 2 to 500
   for (let rowIdx = 2; rowIdx <= 500; rowIdx++) {
-    // Column C: Device Type Dropdown
-    sheet.getCell(`C${rowIdx}`).dataValidation = {
+    // Column B: Device Type Dropdown
+    sheet.getCell(`B${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$A$2:$A$${deviceTypeOptions.length + 1}`],
@@ -144,8 +144,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select a supported device type from the dropdown list.'
     };
 
-    // Column J: Vehicle Type Dropdown
-    sheet.getCell(`J${rowIdx}`).dataValidation = {
+    // Column I: Vehicle Type Dropdown
+    sheet.getCell(`I${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$C$2:$C$${vehicleTypeOptions.length + 1}`],
@@ -154,8 +154,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select a vehicle type from the dropdown list.'
     };
 
-    // Column P: Ignition ON Status Dropdown
-    sheet.getCell(`P${rowIdx}`).dataValidation = {
+    // Column O: Ignition ON Status Dropdown
+    sheet.getCell(`O${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$D$2:$D$${engineOnOptions.length + 1}`],
@@ -164,8 +164,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select an ignition status from the dropdown list.'
     };
 
-    // Column AF: Group Dropdown
-    sheet.getCell(`AF${rowIdx}`).dataValidation = {
+    // Column AE: Group Dropdown
+    sheet.getCell(`AE${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$E$2:$E$${groupOptions.length + 1}`],
@@ -174,8 +174,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       prompt: 'Select a group from the list, or enter multiple groups separated by commas.'
     };
 
-    // Column AG: Category Dropdown
-    sheet.getCell(`AG${rowIdx}`).dataValidation = {
+    // Column AF: Category Dropdown
+    sheet.getCell(`AF${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$B$2:$B$${categoryOptions.length + 1}`],
