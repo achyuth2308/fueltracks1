@@ -79,7 +79,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     if (selectedVehicle && selectedVehicle.id !== dismissedToastId) {
       setDismissedToastId(null);
     }
-  }, [selectedVehicle, dismissedToastId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicle]);
 
   // Sync vehicles up to App level
   React.useEffect(() => {
@@ -137,7 +138,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)',
+      display: 'flex', flexDirection: 'column', height: '100%',
       fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f2f5', overflow: 'hidden', position: 'relative'
     }}>
