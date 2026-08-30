@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X } from 'lucide-react';
 import { adminApi } from '../../api/axios';
-import { getDeviceQuota } from '../../api/adminApi';
+import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import AddGroupModal from '../../components/modals/AddGroupModal';
+import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const OnBoardDevicePage = () => {
@@ -13,6 +15,14 @@ const OnBoardDevicePage = () => {
   const { user } = useAuth();
   const isDealer = user?.role === 'dealer';
   const isSuperAdmin = user?.role === 'superadmin';
+
+  // Quick Modal States
+  const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isAddOrgOpen, setIsAddOrgOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgType, setNewOrgType] = useState('company');
+  const [orgCreating, setOrgCreating] = useState(false);
 
   // Step management
   const [step, setStep] = useState(1);
@@ -482,7 +492,16 @@ const OnBoardDevicePage = () => {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select User</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select User</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddUserOpen(true)}
+                      className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <Plus size={12} /> Add User
+                    </button>
+                  </div>
                   <select
                     style={inputStyle}
                     value={existingUserSelection.userId}
@@ -493,7 +512,16 @@ const OnBoardDevicePage = () => {
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Group</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Group</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddGroupOpen(true)}
+                      className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                    >
+                      <Plus size={12} /> Add Group
+                    </button>
+                  </div>
                   <select
                     style={inputStyle}
                     value={existingUserSelection.groupId}
@@ -504,7 +532,18 @@ const OnBoardDevicePage = () => {
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Organization</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Organization</label>
+                    {isSuperAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddOrgOpen(true)}
+                        className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <Plus size={12} /> Add Org
+                      </button>
+                    )}
+                  </div>
                   <select
                     style={inputStyle}
                     value={existingUserSelection.orgId}
@@ -838,6 +877,82 @@ const OnBoardDevicePage = () => {
         currentOrgId={user?.orgId}
         isSuperAdmin={isSuperAdmin}
       />
+
+      {/* Quick Add Org Modal */}
+      {isAddOrgOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-800">Quick Add Organization</h3>
+              <button onClick={() => setIsAddOrgOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Organization Name</label>
+                <input type="text" value={newOrgName} onChange={e => setNewOrgName(e.target.value)} placeholder="e.g. Apex Logistics" className="w-full px-3 py-2 border rounded-lg text-xs" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-slate-700 block mb-1">Organization Type</label>
+                <select value={newOrgType} onChange={e => setNewOrgType(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-xs">
+                  <option value="company">Company</option>
+                  <option value="dealer">Dealer</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button onClick={() => setIsAddOrgOpen(false)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
+              <button
+                disabled={orgCreating || !newOrgName.trim()}
+                onClick={async () => {
+                  setOrgCreating(true);
+                  try {
+                    const res = await createOrg({ name: newOrgName, type: newOrgType });
+                    if (res.success) {
+                      alert(`Organization "${newOrgName}" created successfully!`);
+                      setIsAddOrgOpen(false);
+                      setNewOrgName('');
+                      adminApi.getOrgs?.().then(r => setOrgs(r.data || []));
+                    }
+                  } catch (err) {
+                    alert(err.response?.data?.error || 'Failed to create organization');
+                  } finally {
+                    setOrgCreating(false);
+                  }
+                }}
+                className="px-4 py-1.5 text-xs font-bold text-white bg-orange-600 rounded-lg cursor-pointer"
+              >
+                {orgCreating ? 'Creating...' : 'Save Organization'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Add Group Modal */}
+      {isAddGroupOpen && (
+        <AddGroupModal
+          isOpen={isAddGroupOpen}
+          onClose={() => setIsAddGroupOpen(false)}
+          orgs={orgs}
+          onSave={() => {
+            setIsAddGroupOpen(false);
+            adminApi.getGroups?.().then(r => setGroups(r.data || []));
+          }}
+        />
+      )}
+
+      {/* Quick Add User Modal */}
+      {isAddUserOpen && (
+        <AddUserModal
+          isOpen={isAddUserOpen}
+          onClose={() => setIsAddUserOpen(false)}
+          orgs={orgs}
+          onSave={() => {
+            setIsAddUserOpen(false);
+            adminApi.getUsers?.().then(r => setUsers(r.data || []));
+          }}
+        />
+      )}
     </div>
   );
 };

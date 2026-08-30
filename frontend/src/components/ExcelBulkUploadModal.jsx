@@ -2,10 +2,12 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload, FileSpreadsheet, AlertCircle, CheckCircle2, X, Download,
-  Loader2, RefreshCw, Edit3, Trash2, Check, AlertTriangle, Eye
+  Loader2, RefreshCw, Edit3, Trash2, Check, AlertTriangle, Eye, Plus
 } from 'lucide-react';
-import { bulkOnboardExcel } from '../api/adminApi';
+import { bulkOnboardExcel, createOrg } from '../api/adminApi';
 import { generateVehicleOnboardingTemplate } from '../utils/excelTemplateGenerator';
+import AddGroupModal from './modals/AddGroupModal';
+import AddUserModal from './modals/AddUserModal';
 
 export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, availableGroups = [], availableOrgs = [], currentOrgId, isSuperAdmin }) {
   const fileInputRef = useRef(null);
@@ -18,6 +20,14 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
   const [editingRowIndex, setEditingRowIndex] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [importStatus, setImportStatus] = useState(null); // { success: boolean, message: string, count: number }
+
+  // Quick Modal States
+  const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+  const [isAddOrgOpen, setIsAddOrgOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [newOrgType, setNewOrgType] = useState('company');
+  const [orgCreating, setOrgCreating] = useState(false);
 
   if (!isOpen) return null;
 
@@ -258,6 +268,39 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
 
           {/* Org Selector for Superadmin */}
+          {/* Quick Creation Action Bar */}
+          <div className="bg-orange-50/60 p-4 rounded-xl border border-orange-200/80 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-bold text-orange-950 block">Quick Resource Creation</span>
+              <p className="text-xs text-slate-500">Need to provision a missing Organization, Group, or User account before importing?</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddOrgOpen(true)}
+                  className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                >
+                  + Add Org
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsAddGroupOpen(true)}
+                className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                + Add Group
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAddUserOpen(true)}
+                className="px-3 py-1.5 bg-white hover:bg-orange-100/60 text-orange-900 border border-orange-300 rounded-lg text-xs font-bold transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+              >
+                + Add User
+              </button>
+            </div>
+          </div>
+
           {isSuperAdmin && availableOrgs.length > 0 && (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
               <div>
@@ -561,6 +604,82 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
             </div>
           )}
         </div>
+
+        {/* Quick Add Org Modal */}
+        {isAddOrgOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 w-full max-w-md space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-800">Quick Add Organization</h3>
+                <button onClick={() => setIsAddOrgOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Organization Name</label>
+                  <input type="text" value={newOrgName} onChange={e => setNewOrgName(e.target.value)} placeholder="e.g. Apex Logistics" className="w-full px-3 py-2 border rounded-lg text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Organization Type</label>
+                  <select value={newOrgType} onChange={e => setNewOrgType(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-xs">
+                    <option value="company">Company</option>
+                    <option value="dealer">Dealer</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button onClick={() => setIsAddOrgOpen(false)} className="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-lg">Cancel</button>
+                <button
+                  disabled={orgCreating || !newOrgName.trim()}
+                  onClick={async () => {
+                    setOrgCreating(true);
+                    try {
+                      const res = await createOrg({ name: newOrgName, type: newOrgType });
+                      if (res.success) {
+                        alert(`Organization "${newOrgName}" created successfully!`);
+                        setIsAddOrgOpen(false);
+                        setNewOrgName('');
+                        if (onSuccess) onSuccess();
+                      }
+                    } catch (err) {
+                      alert(err.response?.data?.error || 'Failed to create organization');
+                    } finally {
+                      setOrgCreating(false);
+                    }
+                  }}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-orange-600 rounded-lg cursor-pointer"
+                >
+                  {orgCreating ? 'Creating...' : 'Save Organization'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Quick Add Group Modal */}
+        {isAddGroupOpen && (
+          <AddGroupModal
+            isOpen={isAddGroupOpen}
+            onClose={() => setIsAddGroupOpen(false)}
+            orgs={availableOrgs}
+            onSave={() => {
+              setIsAddGroupOpen(false);
+              if (onSuccess) onSuccess();
+            }}
+          />
+        )}
+
+        {/* Quick Add User Modal */}
+        {isAddUserOpen && (
+          <AddUserModal
+            isOpen={isAddUserOpen}
+            onClose={() => setIsAddUserOpen(false)}
+            orgs={availableOrgs}
+            onSave={() => {
+              setIsAddUserOpen(false);
+              if (onSuccess) onSuccess();
+            }}
+          />
+        )}
 
       </div>
     </div>
