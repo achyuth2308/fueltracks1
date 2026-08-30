@@ -134,7 +134,8 @@ const VehiclesAdminPage = () => {
       meta.serviceEngineer?.toLowerCase().includes(q) ||
       meta.sensorNo?.toLowerCase().includes(q) ||
       meta.sim2?.toLowerCase().includes(q) ||
-      meta.iccid?.toLowerCase().includes(q)
+      meta.iccid?.toLowerCase().includes(q) ||
+      meta.username?.toLowerCase().includes(q)
     );
   });
 
@@ -148,154 +149,173 @@ const VehiclesAdminPage = () => {
   }, {});
 
   return (
-    <div style={{ padding: '24px 32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-
-      {/* Header with Title and Action Buttons */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 shrink-0">
+    <div style={{ background: '#EEF5F8', minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
+      
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Fleet Vehicles</h1>
-          <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>
-            Manage vehicle assets, categorize operations (TG Mining, VLTD), and batch assign multiple groups.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748B', fontSize: '13px', fontWeight: 600, marginBottom: '4px' }}>
+            <span>Fleet Management</span>
+            <ChevronRight size={14} />
+            <span style={{ color: '#f97316' }}>Vehicle Assets</span>
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#111827', margin: 0, letterSpacing: '-0.02em' }}>
+            Vehicle Assets Registry
+          </h1>
+          <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0' }}>
+            Manage fleet assets, telemetry hardware mapping, and full device configuration.
           </p>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center flex-wrap gap-2.5">
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => generateVehicleOnboardingTemplate(groups, user?.org_name || 'FuelTracks')}
+            style={{
+              padding: '10px 18px', borderRadius: '12px', background: '#FFFFFF',
+              border: '1px solid #CBD5E1', color: '#334155', fontSize: '13px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+            }}
+          >
+            <Download size={16} color="#64748B" /> Download Excel Template
+          </button>
+
+          <button
+            onClick={() => setIsExcelModalOpen(true)}
+            style={{
+              padding: '10px 18px', borderRadius: '12px', background: '#0F172A',
+              border: 'none', color: '#FFFFFF', fontSize: '13px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(15,23,42,0.15)'
+            }}
+          >
+            <FileSpreadsheet size={16} color="#f97316" /> Bulk Excel Onboard
+          </button>
+
           <button
             onClick={() => navigate('/admin/vehicles/new')}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-md shadow-orange-500/20 transition-all cursor-pointer"
+            style={{
+              padding: '10px 20px', borderRadius: '12px', background: '#f97316',
+              border: 'none', color: '#FFFFFF', fontSize: '13px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(249,115,22,0.25)'
+            }}
           >
-            <Plus size={16} />
-            <span>Add Vehicle</span>
+            <Plus size={18} /> Register Vehicle
           </button>
         </div>
       </div>
 
-      {/* Filters Bar & Category Pills */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm mb-4 shrink-0 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-        
-        {/* Category Tabs */}
-        <div className="flex items-center flex-wrap gap-1.5">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 flex items-center gap-1">
-            <Tag size={13} /> Category:
-          </span>
-          {CATEGORIES.map(cat => {
-            const count = cat === 'All' ? vehicles.length : (categoryCounts[cat] || 0);
-            const isSelected = selectedCategory === cat;
+      {/* Category Tabs */}
+      <div className="flex flex-wrap items-center gap-2 mb-6 p-1.5 bg-white rounded-2xl border border-slate-200 shadow-2xs">
+        {CATEGORIES.map(cat => {
+          const count = cat === 'All' ? vehicles.length : (categoryCounts[cat] || 0);
+          const isSelected = selectedCategory === cat;
 
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  isSelected
-                    ? 'bg-orange-600 text-white shadow-sm shadow-orange-500/20'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
-                }`}
-              >
-                <span>{cat}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                  isSelected ? 'bg-orange-700 text-white' : 'bg-slate-200 text-slate-600'
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-slate-900 text-white shadow-xs'
+                  : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <span>{cat}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Search & Dropdown Filters */}
-        <div className="flex items-center flex-wrap gap-2.5 w-full lg:w-auto">
-          
-          {/* Org Filter (Superadmin) */}
-          {isSuperAdmin && (
-            <div className="relative min-w-[160px]">
-              <select
-                value={selectedOrgId}
-                onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white"
-              >
-                <option value="all">🏢 All Organizations</option>
-                {orgs.map(org => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-            </div>
+      {/* Filter Toolbar */}
+      <div style={{
+        background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+        padding: '16px 20px', marginBottom: '24px', display: 'flex', gap: '16px',
+        alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.01)'
+      }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: 1, minWidth: '280px' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={18} color="#94A3B8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Search by Vehicle Name, Plate, IMEI, Owner, Group, SIM..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 14px 10px 42px', borderRadius: '10px',
+                border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none',
+                background: '#F8FAFC', color: '#0F172A', boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {/* Org Filter (for Superadmin/Dealer) */}
+          {(isSuperAdmin || user?.role === 'dealer') && orgs.length > 0 && (
+            <select
+              value={selectedOrgId}
+              onChange={e => setSelectedOrgId(e.target.value)}
+              style={{
+                padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1',
+                fontSize: '13px', background: '#F8FAFC', color: '#0F172A', outline: 'none', cursor: 'pointer'
+              }}
+            >
+              <option value="all">All Organizations</option>
+              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
           )}
 
           {/* Group Filter */}
-          <div className="relative min-w-[140px]">
+          {groups.length > 0 && (
             <select
               value={selectedGroupId}
-              onChange={(e) => setSelectedGroupId(e.target.value)}
-              className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white"
+              onChange={e => setSelectedGroupId(e.target.value)}
+              style={{
+                padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1',
+                fontSize: '13px', background: '#F8FAFC', color: '#0F172A', outline: 'none', cursor: 'pointer'
+              }}
             >
-              <option value="all">👥 All Groups</option>
-              {groups.map(group => (
-                <option key={group.id} value={group.id}>{group.name}</option>
-              ))}
+              <option value="all">All Groups</option>
+              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-          </div>
-
-          {/* Global Search Input */}
-          <div className="relative flex-1 sm:w-64">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search plate, IMEI, owner, Aadhar..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition-all"
-            />
-            {searchQuery && (
-              <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
+          )}
         </div>
-      </div>
 
-      {/* Floating Bulk Actions Bar */}
-      {selectedVehicleIds.length > 0 && (
-        <div className="bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-xl flex items-center justify-between gap-4 mb-4 animate-slide-up shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 rounded-lg bg-orange-600 flex items-center justify-center font-bold text-xs text-white">
-              {selectedVehicleIds.length}
-            </div>
-            <span className="text-xs font-semibold">
-              vehicle{selectedVehicleIds.length !== 1 ? 's' : ''} selected
+        {/* Selection Actions */}
+        {selectedVehicleIds.length > 0 && (
+          <div className="flex items-center gap-3 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200">
+            <span className="text-xs font-bold text-orange-950">
+              {selectedVehicleIds.length} vehicle{selectedVehicleIds.length !== 1 ? 's' : ''} selected
             </span>
-          </div>
-
-          <div className="flex items-center gap-2">
             <button
               onClick={() => setIsBulkGroupModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
             >
-              <Layers size={14} /> Assign Groups
+              <Layers size={14} /> Bulk Assign Groups
             </button>
             <button
               onClick={() => setSelectedVehicleIds([])}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+              className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer underline"
             >
-              Clear Selection
+              Deselect
             </button>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Main Content Area: Table + Right Details Panel */}
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
+      {/* Main Content Layout */}
+      <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch' }}>
         
-        {/* Vehicles Table Card */}
+        {/* Table Container */}
         <div style={{
           flex: 1, background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
-          overflow: 'hidden'
+          boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
         }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '48px' }}>
@@ -318,7 +338,7 @@ const VehiclesAdminPage = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 10 }}>
                   <tr style={{ borderBottom: '1px solid #E2E8F0', fontSize: '11px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700, letterSpacing: '0.05em' }}>
-                    <th style={{ padding: '14px 16px', width: '40px', textAlign: 'center' }}>
+                    <th style={{ padding: '14px 12px', width: '40px', textAlign: 'center' }}>
                       <input
                         type="checkbox"
                         checked={selectedVehicleIds.length === filtered.length && filtered.length > 0}
@@ -326,27 +346,44 @@ const VehiclesAdminPage = () => {
                         className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
                       />
                     </th>
-                    <th style={{ padding: '14px 18px' }}>Category</th>
-                    <th style={{ padding: '14px 18px' }}>Vehicle Name</th>
-                    <th style={{ padding: '14px 18px' }}>Plate Number</th>
-                    <th style={{ padding: '14px 18px' }}>Assigned Groups</th>
-                    <th style={{ padding: '14px 18px' }}>Device ID (IMEI)</th>
-                    <th style={{ padding: '14px 18px' }}>VLTTD SLNO</th>
-                    <th style={{ padding: '14px 18px' }}>Owner Name & Mobile</th>
-                    <th style={{ padding: '14px 18px' }}>Organization</th>
-                    <th style={{ padding: '14px 18px' }}>Status</th>
-                    <th style={{ padding: '14px 18px' }}>Speed</th>
-                    <th style={{ padding: '14px 18px' }}>Device Type</th>
-                    <th style={{ padding: '14px 18px' }}>SIM 1</th>
-                    <th style={{ padding: '14px 18px' }}>SIM 2</th>
-                    <th style={{ padding: '14px 18px' }}>Salesman</th>
-                    <th style={{ padding: '14px 18px' }}>Service Engineer</th>
-                    <th style={{ padding: '14px 18px' }}>RTO / Location</th>
-                    <th style={{ padding: '14px 18px', textAlign: 'center' }}>View</th>
+                    <th style={{ padding: '14px 12px', width: '50px', textAlign: 'center' }}>Sl.No</th>
+                    <th style={{ padding: '14px 16px', textAlign: 'center' }}>Action</th>
+                    <th style={{ padding: '14px 16px' }}>LicenceId</th>
+                    <th style={{ padding: '14px 16px' }}>Device Type</th>
+                    <th style={{ padding: '14px 16px' }}>Device ID(IMEI)</th>
+                    <th style={{ padding: '14px 16px' }}>ICCID</th>
+                    <th style={{ padding: '14px 16px' }}>VLTD SLNO</th>
+                    <th style={{ padding: '14px 16px' }}>Vehicle Id</th>
+                    <th style={{ padding: '14px 16px' }}>Vehicle Name</th>
+                    <th style={{ padding: '14px 16px' }}>Registration Number</th>
+                    <th style={{ padding: '14px 16px' }}>Vehicle Type</th>
+                    <th style={{ padding: '14px 16px' }}>Chassis Number</th>
+                    <th style={{ padding: '14px 16px' }}>GPS SIM Number 1</th>
+                    <th style={{ padding: '14px 16px' }}>GPS SIM Number 2</th>
+                    <th style={{ padding: '14px 16px' }}>Odometer</th>
+                    <th style={{ padding: '14px 16px' }}>Vehicle Voltage</th>
+                    <th style={{ padding: '14px 16px' }}>Ignition ON Status</th>
+                    <th style={{ padding: '14px 16px' }}>Sensor Number</th>
+                    <th style={{ padding: '14px 16px' }}>Service Engineer Number</th>
+                    <th style={{ padding: '14px 16px' }}>Service Mobile Number</th>
+                    <th style={{ padding: '14px 16px' }}>Salesman</th>
+                    <th style={{ padding: '14px 16px' }}>Salesman Mobile Number</th>
+                    <th style={{ padding: '14px 16px' }}>Installation Date</th>
+                    <th style={{ padding: '14px 16px' }}>Onboarding Date</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Name</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Mobile Number</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Email ID</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Location</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Aadhar ID</th>
+                    <th style={{ padding: '14px 16px' }}>Owner Pancard Number</th>
+                    <th style={{ padding: '14px 16px' }}>Username</th>
+                    <th style={{ padding: '14px 16px' }}>Password</th>
+                    <th style={{ padding: '14px 16px' }}>Group</th>
+                    <th style={{ padding: '14px 16px' }}>Category</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((v) => {
+                  {filtered.map((v, idx) => {
                     const isSelected = selectedVehicleIds.includes(v.id);
                     const meta = v.metadata || {};
 
@@ -364,7 +401,7 @@ const VehiclesAdminPage = () => {
                         onMouseLeave={e => { if (viewingVehicle?.id !== v.id && !isSelected) e.currentTarget.style.background = 'transparent'; }}
                       >
                         {/* Checkbox */}
-                        <td style={{ padding: '14px 16px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <td style={{ padding: '14px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -373,23 +410,190 @@ const VehiclesAdminPage = () => {
                           />
                         </td>
 
-                        {/* Category Badge */}
-                        <td style={{ padding: '14px 18px' }}>
-                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${
-                            v.category === 'TG Mining' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
-                            v.category === 'VLTD' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
-                            v.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
-                            'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}>
-                            {v.category || 'General'}
-                          </span>
+                        {/* 1. Sl.No */}
+                        <td style={{ padding: '14px 12px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
+                          {idx + 1}
                         </td>
 
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.name || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>{v.plate || '-'}</td>
+                        {/* 2. Action (View / Edit / Delete buttons right after Sl.No!) */}
+                        <td style={{ padding: '14px 16px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                            <button
+                              onClick={() => setViewingVehicle(v)}
+                              title="View Quick Details"
+                              style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                              <Eye size={15} />
+                            </button>
+                            <button
+                              onClick={() => navigate(`/admin/vehicles/edit/${v.id}`)}
+                              title="Edit Vehicle Details"
+                              style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#3B82F6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                              <Edit2 size={15} />
+                            </button>
+                            <button
+                              onClick={(e) => handleDelete(v.id, e)}
+                              title="Delete Vehicle"
+                              style={{ width: '30px', height: '30px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
 
-                        {/* Multi-Groups Badge */}
-                        <td style={{ padding: '14px 18px' }}>
+                        {/* 3. LicenceId */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {meta.licenceId || v.licence_no || '-'}
+                        </td>
+
+                        {/* 4. Device Type */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                          {v.model || meta.deviceModel || 'AIS140'}
+                        </td>
+
+                        {/* 5. Device ID(IMEI) */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 700, fontFamily: 'monospace' }}>
+                          {v.imei || '-'}
+                        </td>
+
+                        {/* 6. ICCID */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                          {meta.iccid || '-'}
+                        </td>
+
+                        {/* 7. VLTD SLNO */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                          {meta.vlttdSlno || meta.vltdSlno || '-'}
+                        </td>
+
+                        {/* 8. Vehicle Id */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                          {meta.vehicleId || v.plate || '-'}
+                        </td>
+
+                        {/* 9. Vehicle Name */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>
+                          {v.name || '-'}
+                        </td>
+
+                        {/* 10. Registration Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>
+                          {v.plate || meta.registrationNo || '-'}
+                        </td>
+
+                        {/* 11. Vehicle Type */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.vehicleTypeSelect || v.vehicle_type || 'Truck'}
+                        </td>
+
+                        {/* 12. Chassis Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                          {meta.chassisNo || '-'}
+                        </td>
+
+                        {/* 13. GPS SIM Number 1 */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {v.gps_sim_no || meta.sim1 || '-'}
+                        </td>
+
+                        {/* 14. GPS SIM Number 2 */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {meta.sim2 || '-'}
+                        </td>
+
+                        {/* 15. Odometer */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                          {meta.odoDistance ? `${meta.odoDistance} km` : '0 km'}
+                        </td>
+
+                        {/* 16. Vehicle Voltage */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.vehicleVoltage || meta.batteryVoltage || '12V'}
+                        </td>
+
+                        {/* 17. Ignition ON Status */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.engineOnStatus || meta.engineOn || 'Voltage+Ignition'}
+                        </td>
+
+                        {/* 18. Sensor Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B' }}>
+                          {meta.sensorNo || '-'}
+                        </td>
+
+                        {/* 19. Service Engineer Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.serviceEngineer || '-'}
+                        </td>
+
+                        {/* 20. Service Mobile Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {meta.serviceEngineerPhone || '-'}
+                        </td>
+
+                        {/* 21. Salesman */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.salesman || '-'}
+                        </td>
+
+                        {/* 22. Salesman Mobile Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {meta.salesmanPhone || '-'}
+                        </td>
+
+                        {/* 23. Installation Date */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B' }}>
+                          {meta.installationDate || meta.installedDate || '-'}
+                        </td>
+
+                        {/* 24. Onboarding Date */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B' }}>
+                          {meta.onboardingDate || meta.onboardDate || (v.created_at ? formatLocalDate(v.created_at) : '-')}
+                        </td>
+
+                        {/* 25. Owner Name */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                          {meta.ownerName || meta.customerName || v.driver_name || '-'}
+                        </td>
+
+                        {/* 26. Owner Mobile Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                          {meta.ownerPhone || meta.customerPhone || v.driver_phone || '-'}
+                        </td>
+
+                        {/* 27. Owner Email ID */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.email || '-'}
+                        </td>
+
+                        {/* 28. Owner Location */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
+                          {meta.rtoLocation || '-'}
+                        </td>
+
+                        {/* 29. Owner Aadhar ID */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                          {meta.aadharNo || '-'}
+                        </td>
+
+                        {/* 30. Owner Pancard Number */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                          {meta.panNo || '-'}
+                        </td>
+
+                        {/* 31. Username */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontWeight: 600 }}>
+                          {meta.username || '-'}
+                        </td>
+
+                        {/* 32. Password */}
+                        <td style={{ padding: '14px 16px', fontSize: '13px', color: '#94A3B8', fontFamily: 'monospace' }}>
+                          {meta.password ? '••••••••' : '-'}
+                        </td>
+
+                        {/* 33. Group */}
+                        <td style={{ padding: '14px 16px' }}>
                           {v.group_name ? (
                             <div className="flex flex-wrap gap-1 max-w-[200px]">
                               {v.group_name.split(',').map((g, i) => (
@@ -403,28 +607,16 @@ const VehiclesAdminPage = () => {
                           )}
                         </td>
 
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#111827', fontWeight: 600, fontFamily: 'monospace' }}>{v.imei || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>{meta.vlttdSlno || '-'}</td>
-                        
-                        {/* Owner Details */}
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#111827' }}>
-                          <div className="font-semibold">{meta.ownerName || v.driver_name || '-'}</div>
-                          <div className="text-[11px] text-slate-400 font-mono">{meta.ownerPhone || v.driver_phone || ''}</div>
-                        </td>
-
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569', fontWeight: 500 }}>{v.org_name || '-'}</td>
-                        <td style={{ padding: '14px 18px' }}><StatusDot online={v.is_online} /></td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{v.current_speed ? `${v.current_speed} km/h` : '0 km/h'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569' }}>{v.model || meta.deviceModel || 'AIS140'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{v.gps_sim_no || meta.sim1 || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>{meta.sim2 || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569' }}>{meta.salesman || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569' }}>{meta.serviceEngineer || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '13px', color: '#475569' }}>{meta.rtoLocation || '-'}</td>
-                        <td style={{ padding: '14px 18px', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '32px', height: '32px', borderRadius: '8px', background: '#F8FAFC', color: '#f97316' }}>
-                            <Eye size={16} />
-                          </div>
+                        {/* 34. Category Badge */}
+                        <td style={{ padding: '14px 16px' }}>
+                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${
+                            v.category === 'TG Mining' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
+                            v.category === 'VLTD' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
+                            v.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                            'bg-slate-100 text-slate-700 border border-slate-200'
+                          }`}>
+                            {v.category || 'General'}
+                          </span>
                         </td>
                       </tr>
                     );
@@ -438,7 +630,7 @@ const VehiclesAdminPage = () => {
         {/* Right Side: Details Panel */}
         {viewingVehicle && (
           <div style={{
-            width: '360px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+            width: '380px', background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
             boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
             overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
           }}>
@@ -498,120 +690,89 @@ const VehiclesAdminPage = () => {
 
               {/* Assigned Groups */}
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Assigned Groups</h3>
-                <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '10px', border: '1px solid #F1F5F9' }}>
-                  {viewingVehicle.group_name ? (
-                    <div className="flex flex-wrap gap-1.5">
-                      {viewingVehicle.group_name.split(',').map((g, i) => (
-                        <span key={i} className="px-2.5 py-1 bg-white border border-slate-200 text-slate-800 rounded-lg text-xs font-semibold shadow-2xs">
-                          {g.trim()}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-xs text-slate-400 italic">No groups assigned yet.</div>
-                  )}
-                  {viewingVehicle.metadata?.oldGroups && (
-                    <div className="mt-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-                      <span className="font-semibold text-slate-600">Old Groups:</span> {viewingVehicle.metadata.oldGroups}
-                    </div>
-                  )}
-                </div>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Assigned Groups</div>
+                {viewingVehicle.group_name ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {viewingVehicle.group_name.split(',').map((g, i) => (
+                      <span key={i} className="px-2.5 py-1 bg-slate-100 border border-slate-200 text-slate-800 rounded-md text-xs font-bold">
+                        {g.trim()}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="text-slate-400 text-xs italic">Unassigned</span>
+                )}
               </div>
 
-              {/* Device & Hardware Specifications */}
+              {/* Hardware Specs */}
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Device & Hardware</h3>
-                <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '12px', border: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Device ID (IMEI):</span>
-                    <span className="font-mono font-bold text-slate-800">{viewingVehicle.imei}</span>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Hardware Specs</div>
+                <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Device Type:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{viewingVehicle.model || viewingVehicle.metadata?.deviceModel || 'AIS140'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">VLTTD SLNO:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.vlttdSlno || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>IMEI Number:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.imei || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Device Type / Model:</span>
-                    <span className="text-slate-800 font-semibold">{viewingVehicle.model || viewingVehicle.metadata?.deviceModel || 'AIS140'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>VLTD SLNO:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.vlttdSlno || viewingVehicle.metadata?.vltdSlno || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Primary SIM 1:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.gps_sim_no || viewingVehicle.metadata?.sim1 || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>SIM 1:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.gps_sim_no || viewingVehicle.metadata?.sim1 || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Secondary SIM 2:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.sim2 || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>SIM 2:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.sim2 || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">SIM ICCID:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.iccid || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Engine ON Status:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.engineOnStatus || viewingVehicle.metadata?.engineOn || 'Voltage+Ignition'}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Vehicle Voltage:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.batteryVoltage || viewingVehicle.metadata?.vehicleVoltage || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>ICCID:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.iccid || '-'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Owner & KYC Information */}
+              {/* Owner KYC */}
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Owner & KYC Details</h3>
-                <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '12px', border: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Owner Name:</span>
-                    <span className="text-slate-800 font-semibold">{viewingVehicle.metadata?.ownerName || viewingVehicle.driver_name || '—'}</span>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Owner KYC</div>
+                <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Name:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{viewingVehicle.metadata?.ownerName || viewingVehicle.metadata?.customerName || viewingVehicle.driver_name || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Owner Mobile:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.ownerPhone || viewingVehicle.driver_phone || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Mobile:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.ownerPhone || viewingVehicle.metadata?.customerPhone || viewingVehicle.driver_phone || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Owner Aadhar:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.aadharNo || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Location:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{viewingVehicle.metadata?.rtoLocation || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Owner PAN:</span>
-                    <span className="font-mono text-slate-800 uppercase">{viewingVehicle.metadata?.panNo || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Aadhar:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.aadharNo || '-'}</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">RTO / Location:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.rtoLocation || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>PAN:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A', fontFamily: 'monospace' }}>{viewingVehicle.metadata?.panNo || '-'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Operations & Personnel */}
+              {/* Personnel */}
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>Personnel & Compliance</h3>
-                <div style={{ background: '#F8FAFC', borderRadius: '12px', padding: '12px', border: '1px solid #F1F5F9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Service Engineer:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.serviceEngineer || '—'} {viewingVehicle.metadata?.serviceEngineerPhone ? `(${viewingVehicle.metadata.serviceEngineerPhone})` : ''}</span>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.05em' }}>Personnel</div>
+                <div style={{ background: '#F8FAFC', borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Service Engineer:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{viewingVehicle.metadata?.serviceEngineer || '-'} ({viewingVehicle.metadata?.serviceEngineerPhone || 'N/A'})</span>
                   </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Salesman:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.salesman || '—'} {viewingVehicle.metadata?.salesmanPhone ? `(${viewingVehicle.metadata.salesmanPhone})` : ''}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Chassis No:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.chassisNo || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Engine No:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.engineNo || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Sensor No:</span>
-                    <span className="font-mono text-slate-800">{viewingVehicle.metadata?.sensorNo || '—'}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-medium">Installed Date:</span>
-                    <span className="text-slate-800">{viewingVehicle.metadata?.installedDate || viewingVehicle.metadata?.installationDate || '—'}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748B' }}>Salesman:</span>
+                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{viewingVehicle.metadata?.salesman || '-'} ({viewingVehicle.metadata?.salesmanPhone || 'N/A'})</span>
                   </div>
                 </div>
               </div>
@@ -621,25 +782,34 @@ const VehiclesAdminPage = () => {
         )}
       </div>
 
-      {/* Bulk Assign Groups Modal */}
-      <BulkAssignGroupsModal
-        isOpen={isBulkGroupModalOpen}
-        onClose={() => setIsBulkGroupModalOpen(false)}
-        onSuccess={() => {
-          setSelectedVehicleIds([]);
-          fetchVehicles();
-        }}
-        selectedVehicles={selectedVehiclesList}
-        availableGroups={groups}
-      />
+      {/* Bulk Excel Upload Modal */}
+      {isExcelModalOpen && (
+        <ExcelBulkUploadModal
+          isOpen={isExcelModalOpen}
+          onClose={() => setIsExcelModalOpen(false)}
+          onSuccess={() => {
+            setIsExcelModalOpen(false);
+            fetchVehicles();
+          }}
+          currentOrgId={user?.org_id}
+        />
+      )}
 
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        @keyframes fadeInRight {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-      `}} />
+      {/* Bulk Assign Groups Modal */}
+      {isBulkGroupModalOpen && (
+        <BulkAssignGroupsModal
+          isOpen={isBulkGroupModalOpen}
+          onClose={() => setIsBulkGroupModalOpen(false)}
+          selectedVehicles={selectedVehiclesList}
+          groups={groups}
+          onSuccess={() => {
+            setIsBulkGroupModalOpen(false);
+            setSelectedVehicleIds([]);
+            fetchVehicles();
+          }}
+        />
+      )}
+
     </div>
   );
 };
