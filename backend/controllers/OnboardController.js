@@ -245,7 +245,9 @@ const OnboardController = {
         const deviceType = String(row['Device Type'] || row.deviceType || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || 'AIS140').trim();
         const imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
         const category = String(row['Category'] || row.category || 'General').trim();
-        const vehicleNumber = String(row['Vehicle Id'] || row.vehicleId || row.vehicleNumber || row['Vehicle Number'] || row.plate || row['Registration No'] || '').trim();
+        const registrationNo = String(row['Registration No'] || row.registrationNo || row.plate || '').trim();
+        const vehicleId = String(row['Vehicle Id'] || row.vehicleId || '').trim();
+        const vehicleNumber = registrationNo || vehicleId || '';
         const vehicleModel = String(row['Vehicle Model'] || row.vehicleModel || row.model || 'Truck').trim();
         const vehicleName = String(row['Vehicle Name'] || row.vehicleName || vehicleNumber || `Vehicle ${imei}`).trim();
 
@@ -253,35 +255,40 @@ const OnboardController = {
           throw new Error(`Row ${i + 1}: Invalid or missing IMEI number (${imei || 'empty'}). Must be 10-20 digits.`);
         }
         if (!vehicleNumber) {
-          throw new Error(`Row ${i + 1} (IMEI ${imei}): Vehicle Id / Plate Number is required.`);
+          throw new Error(`Row ${i + 1} (IMEI ${imei}): Vehicle Id or Registration No is required.`);
         }
 
-        const vlttdSlno = String(row.vlttdSlno || row['VLTTD SLNO'] || '').trim();
+        const vlttdSlno = String(row.vlttdSlno || row['VLTD SLNO'] || row['VLTTD SLNO'] || '').trim();
         const iccid = String(row.iccid || row['ICCID'] || '').trim();
-        const sim1 = String(row.sim1 || row['GPS SIMNO1'] || row['SIM 1'] || row.gpsSimNo || '').trim();
-        const sim2 = String(row.sim2 || row['GPS SIMNO2'] || row['SIM 2'] || '').trim();
+        const sim1 = String(row.sim1 || row['GPS SIMNO 1'] || row['GPS SIMNO1'] || row['SIM 1'] || row.gpsSimNo || '').trim();
+        const sim2 = String(row.sim2 || row['GPS SIMNO 2'] || row['GPS SIMNO2'] || row['SIM 2'] || '').trim();
         const chassisNo = String(row.chassisNo || row.chassisNumber || row['Chassis Number'] || '').trim();
         const engineNo = String(row.engineNo || row.engineNumber || row['Engine Number'] || '').trim();
         const sensorNo = String(row.sensorNo || row['Sensor No'] || '').trim();
-        const engineOnStatus = String(row.engineOnStatus || row['engine on status'] || row['Engine ON Status'] || 'Voltage+Ignition').trim();
-        const vehicleVoltage = String(row.vehicleVoltage || row['vehicle voltage'] || '').trim();
-        const timezone = String(row.timezone || row['timezone'] || 'IST').trim();
-        const rtoLocation = String(row.rtoLocation || row['OWNER /RTO LOCATION'] || row['RTO or Customer Location'] || row.rto || '').trim();
+        const engineOnStatus = String(row.engineOnStatus || row['Ignition Detection'] || row['engine on status'] || row['Engine ON Status'] || 'Voltage+Ignition').trim();
+        const vehicleVoltage = String(row.vehicleVoltage || row['Vehicle Voltage'] || row['vehicle voltage'] || '').trim();
+        const timezone = String(row.timezone || row['Timezone'] || row['timezone'] || 'IST').trim();
+        const rtoLocation = String(row.rtoLocation || row['Customer Location'] || row['OWNER /RTO LOCATION'] || row['RTO or Customer Location'] || row.rto || '').trim();
         const installedDate = row.installedDate || row['Installed Date'] || null;
 
-        const serviceEngineer = String(row.serviceEngineer || row['service engineer'] || row['Service Engineer'] || row['Installation Person Name'] || '').trim();
-        const serviceEngineerPhone = String(row.serviceEngineerPhone || row['service engineer mobile number'] || row['Installation Person Phone Number'] || '').trim();
+        const serviceEngineer = String(row.serviceEngineer || row['Service Engineer'] || row['service engineer'] || row['Installation Person Name'] || '').trim();
+        const serviceEngineerPhone = String(row.serviceEngineerPhone || row['Service Engineer Mobno'] || row['service engineer mobile number'] || row['Installation Person Phone Number'] || '').trim();
         const salesman = String(row.salesman || row['Salesman'] || row['Sales Person Name'] || '').trim();
-        const salesmanPhone = String(row.salesmanPhone || row['salesman mobile number'] || row['Sales Person Phone Number'] || '').trim();
+        const salesmanPhone = String(row.salesmanPhone || row['Salesman Mobno'] || row['salesman mobile number'] || row['Sales Person Phone Number'] || '').trim();
 
         const oldGroups = String(row.oldGroups || row['OLD GROUPS'] || '').trim();
-        const customerName = String(row.ownerName || row['Owner name'] || row['Customer Name'] || row.name || '').trim();
-        const customerPhone = String(row.ownerPhone || row['Owner mobile number'] || row['Customer Phone Number'] || row.phone || '').trim();
-        const aadharNo = String(row.ownerAadhar || row['Owner AADHAR'] || row['Aadhar Number'] || row.aadharNo || '').trim();
-        const panNo = String(row.ownerPan || row['Owner PAN'] || row['PAN Number'] || row.panNo || '').trim();
-        const email = String(row.email || row['Email'] || '').trim().toLowerCase();
-        const username = String(row.username || row['Username'] || '').trim();
-        const password = String(row.password || row['password'] || row['Password'] || '').trim();
+        const customerName = String(row.ownerName || row['Customer Name'] || row['Owner name'] || row.name || '').trim();
+        const customerPhone = String(row.ownerPhone || row['Customer Mobile Number'] || row['Owner mobile number'] || row['Customer Phone Number'] || row.phone || '').trim();
+        const aadharNo = String(row.ownerAadhar || row['Customer Aadhar'] || row['Owner AADHAR'] || row['Aadhar Number'] || row.aadharNo || '').trim();
+        const panNo = String(row.ownerPan || row['Customer PAN'] || row['Owner PAN'] || row['PAN Number'] || row.panNo || '').trim();
+        const email = String(row.email || row['Customer Email ID'] || row['Email'] || '').trim().toLowerCase();
+        const username = String(row.username || row['Username Name'] || row['Username'] || '').trim();
+        const password = String(row.password || row['Password'] || row['password'] || '').trim();
+
+        const licenceId = String(row.licenceId || row['LicenceId'] || row['LicenceId (Starter)'] || '').trim();
+        const vehicleTypeSelect = String(row.vehicleTypeSelect || row['Vehicle Type'] || '').trim();
+        const odoDistance = String(row.odoDistance || row['Odo Distance'] || '').trim();
+        const ticketId = String(row.ticketId || row['Ticket Id'] || '').trim();
 
         const targetOrgId = row.orgId || callerOrgId;
 
@@ -359,19 +366,20 @@ const OnboardController = {
         // 3. Upsert Device
         await client.query(
           `INSERT INTO devices 
-            (org_id, device_id, device_type, assigned_user_id, assigned_group_id)
-           VALUES ($1, $2, $3, $4, $5)
+            (org_id, device_id, device_type, licence_id, assigned_user_id, assigned_group_id)
+           VALUES ($1, $2, $3, $4, $5, $6)
            ON CONFLICT (device_id) DO UPDATE SET
              org_id = EXCLUDED.org_id,
              device_type = EXCLUDED.device_type,
+             licence_id = EXCLUDED.licence_id,
              assigned_user_id = EXCLUDED.assigned_user_id,
              assigned_group_id = EXCLUDED.assigned_group_id`,
-          [targetOrgId, imei, deviceType, targetUserId, groupIds[0] || null]
+          [targetOrgId, imei, deviceType, licenceId || null, targetUserId, groupIds[0] || null]
         );
 
         // 4. Construct comprehensive metadata
         const metadata = {
-          vehicleId: vehicleNumber,
+          vehicleId: vehicleId || vehicleNumber,
           vlttdSlno,
           iccid,
           sim1,
@@ -397,7 +405,12 @@ const OnboardController = {
           aadharNo,
           panNo,
           deviceModel: deviceType,
-          onboardedVia: 'EXCEL_BULK_IMPORT'
+          onboardedVia: 'EXCEL_BULK_IMPORT',
+          registrationNo,
+          vehicleTypeSelect,
+          odoDistance,
+          ticketId,
+          licenceId
         };
 
         let issuedDate = new Date();
@@ -421,13 +434,13 @@ const OnboardController = {
              plate = EXCLUDED.plate,
              model = EXCLUDED.model,
              gps_sim_no = EXCLUDED.gps_sim_no,
-             metadata = vehicles.metadata || EXCLUDED.metadata,
+             metadata = EXCLUDED.metadata,
              licence_issued_date = EXCLUDED.licence_issued_date,
              licence_expire_date = EXCLUDED.licence_expire_date,
              is_active = TRUE,
              category = EXCLUDED.category
            RETURNING id, name, imei, plate, category`,
-          [targetOrgId, imei, vehicleName, vehicleNumber, vehicleModel || 'Truck', sim1, JSON.stringify(metadata), issuedDate, expireDate, category || 'General']
+          [targetOrgId, imei, vehicleName, registrationNo || vehicleNumber, vehicleTypeSelect || vehicleModel || 'Truck', sim1, JSON.stringify(metadata), issuedDate, expireDate, category || 'General']
         );
 
         const vehicleId = vehicleRes.rows[0]?.id;

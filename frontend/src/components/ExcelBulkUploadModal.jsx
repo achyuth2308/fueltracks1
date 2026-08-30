@@ -28,7 +28,7 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
     return rows.map((row, index) => {
       const errors = [];
       const imei = String(row['Device ID(IMEI)'] || row['IMEI Number'] || row['IMEI'] || row.imei || '').trim();
-      const vehicleNo = String(row['Vehicle Id'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
+      const vehicleNo = String(row['Vehicle Id'] || row['Registration No'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
       const category = String(row['Category'] || row.category || 'General').trim();
       const deviceModel = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
 
@@ -138,38 +138,42 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
     try {
       const recordsToSubmit = validRows.map(r => ({
-        imei: r._imei,
-        vehicleNumber: r._vehicleNo,
+        imei: r._imei || r['Device ID(IMEI)'] || '',
+        vehicleNumber: r._vehicleNo || r['Registration No'] || r['Vehicle Id'] || '',
         vehicleName: r['Vehicle Name'] || r._vehicleNo,
         vehicleId: r['Vehicle Id'] || '',
         vehicleModel: r['Vehicle Model'] || '',
-        deviceType: r._deviceModel,
-        category: r._category,
-        vlttdSlno: r['VLTTD SLNO'] || '',
+        vehicleTypeSelect: r['Vehicle Type'] || '',
+        deviceType: r._deviceModel || r['Device Type'] || '',
+        category: r._category || r['Category'] || 'General',
+        vlttdSlno: r['VLTD SLNO'] || r['VLTTD SLNO'] || '',
         iccid: r['ICCID'] || '',
-        sim1: r['GPS SIMNO1'] || r['SIM 1'] || '',
-        sim2: r['GPS SIMNO2'] || r['SIM 2'] || '',
+        sim1: r['GPS SIMNO 1'] || r['GPS SIMNO1'] || r['SIM 1'] || '',
+        sim2: r['GPS SIMNO 2'] || r['GPS SIMNO2'] || r['SIM 2'] || '',
         chassisNo: r['Chassis Number'] || '',
         engineNo: r['Engine Number'] || '',
         sensorNo: r['Sensor No'] || '',
-        engineOnStatus: r['engine on status'] || r['Engine ON Status'] || 'Voltage+Ignition',
-        vehicleVoltage: r['vehicle voltage'] || '',
-        timezone: r['timezone'] || 'IST',
-        serviceEngineer: r['service engineer'] || r['Installation Person Name'] || '',
-        serviceEngineerPhone: r['service engineer mobile number'] || r['Installation Person Phone Number'] || '',
-        salesman: r['Salesman'] || r['Sales Person Name'] || '',
-        salesmanPhone: r['salesman mobile number'] || r['Sales Person Phone Number'] || '',
+        engineOnStatus: r['Ignition Detection'] || r['engine on status'] || r['Engine ON Status'] || 'Voltage+Ignition',
+        vehicleVoltage: r['Vehicle Voltage'] || r['vehicle voltage'] || '',
+        timezone: r['Timezone'] || r['timezone'] || 'IST',
+        serviceEngineer: r['Service Engineer'] || r['service engineer'] || '',
+        serviceEngineerPhone: r['Service Engineer Mobno'] || r['service engineer mobile number'] || '',
+        salesman: r['Salesman'] || r['salesman'] || '',
+        salesmanPhone: r['Salesman Mobno'] || r['salesman mobile number'] || '',
         group: r['GROUP'] || r['Groups'] || '',
         oldGroups: r['OLD GROUPS'] || '',
-        ownerName: r['Owner name'] || r['Customer Name'] || '',
-        ownerPhone: r['Owner mobile number'] || r['Customer Phone Number'] || '',
-        ownerAadhar: r['Owner AADHAR'] || r['Aadhar Number'] || '',
-        ownerPan: r['Owner PAN'] || r['PAN Number'] || '',
-        rtoLocation: r['OWNER /RTO LOCATION'] || r['RTO or Customer Location'] || '',
+        ownerName: r['Customer Name'] || r['Owner name'] || '',
+        ownerPhone: r['Customer Mobile Number'] || r['Owner mobile number'] || '',
+        ownerAadhar: r['Customer Aadhar'] || r['Owner AADHAR'] || '',
+        ownerPan: r['Customer PAN'] || r['Owner PAN'] || '',
+        rtoLocation: r['Customer Location'] || r['OWNER /RTO LOCATION'] || '',
         installedDate: r['Installed Date'] || null,
-        email: r['Email'] || '',
-        username: r['Username'] || '',
-        password: r['password'] || r['Password'] || '',
+        email: r['Customer Email ID'] || r['Email'] || '',
+        username: r['Username Name'] || r['Username'] || '',
+        password: r['Password'] || r['password'] || '',
+        licenceId: r['LicenceId'] || r['LicenceId (Starter)'] || '',
+        odoDistance: r['Odo Distance'] || '',
+        ticketId: r['Ticket Id'] || '',
         orgId: selectedOrgId || currentOrgId
       }));
 
