@@ -9,13 +9,13 @@ import * as adminApi from '../../api/adminApi';
 
 const inputBaseStyle = {
   width: '100%', padding: '12px 16px', borderRadius: '10px',
-  border: '1px solid #E2E8F0', fontSize: '14px', outline: 'none',
-  color: '#111827', background: '#F8FAFC', boxSizing: 'border-box',
+  border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none',
+  color: '#0F172A', fontWeight: 600, background: '#FFFFFF', boxSizing: 'border-box',
   transition: 'all 0.2s ease', fontFamily: 'Inter, sans-serif'
 };
 
 const labelStyle = {
-  display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px'
+  display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '8px'
 };
 
 const InputField = ({ label, type = "text", value, onChange, disabled, placeholder, onFocus, onBlur, focused }) => (
@@ -32,9 +32,10 @@ const InputField = ({ label, type = "text", value, onChange, disabled, placehold
       style={{
         ...inputBaseStyle,
         background: disabled ? '#F1F5F9' : (focused ? '#FFFFFF' : '#F8FAFC'),
-        border: focused ? '1px solid #f97316' : '1px solid #E2E8F0',
+        border: focused ? '1px solid #f97316' : '1px solid #CBD5E1',
         boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
-        opacity: disabled ? 0.7 : 1,
+        color: '#0F172A',
+        opacity: 1,
         cursor: disabled ? 'not-allowed' : 'text'
       }}
     />

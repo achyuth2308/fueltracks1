@@ -302,9 +302,9 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
               <div className="w-16 h-16 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Upload size={30} />
               </div>
-              <h3 className="text-base font-bold text-slate-800 mb-1">Click to Upload or Drag & Drop Excel File</h3>
-              <p className="text-xs text-slate-500 mb-4 text-center max-w-md">Supports <code>.xlsx</code>, <code>.xls</code>, or <code>.csv</code> formatted files with IMEI, Vehicle Number, Category, Customer credentials, and Groups.</p>
-              <span className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 shadow-sm group-hover:border-orange-300">
+              <h3 className="text-base font-extrabold text-slate-900 mb-1">Click to Upload or Drag & Drop Excel File</h3>
+              <p className="text-xs text-slate-700 font-medium mb-4 text-center max-w-md">Supports <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.xlsx</code>, <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.xls</code>, or <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.csv</code> formatted files with IMEI, Vehicle Number, Category, Customer credentials, and Groups.</p>
+              <span className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition-all">
                 Browse Files
               </span>
             </div>
@@ -542,7 +542,7 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-slate-50/80">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl transition-colors"
+            className="px-5 py-2.5 text-xs font-bold text-slate-800 bg-white border border-slate-300 hover:bg-slate-100 rounded-xl transition-all shadow-2xs cursor-pointer"
           >
             Cancel
           </button>

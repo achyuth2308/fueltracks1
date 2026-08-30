@@ -11,7 +11,7 @@ const inputBaseStyle = {
 };
 
 const labelStyle = {
-  width: '200px', textAlign: 'right', fontSize: '14px', fontWeight: 600, color: '#475569', marginRight: '24px'
+  width: '200px', textAlign: 'right', fontSize: '14px', fontWeight: 700, color: '#0F172A', marginRight: '24px'
 };
 
 const MigrationPage = () => {
@@ -154,24 +154,24 @@ const MigrationPage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', gap: '16px', borderTop: '1px solid #F1F5F9', background: '#FAFAFA' }}>
-          <button 
-            onClick={() => navigate(-1)}
-            style={{ padding: '10px 32px', borderRadius: '4px', background: '#EF4444', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 500, cursor: 'pointer', transition: 'background 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#DC2626'}
-            onMouseLeave={e => e.currentTarget.style.background = '#EF4444'}
-          >
-            Cancel
-          </button>
+        <div style={{ padding: '24px', display: 'flex', justifyContent: 'center', gap: '16px', borderTop: '1px solid #E2E8F0', background: '#F8FAFC' }}>
           <button 
             onClick={handleMigrate}
             disabled={migrating || newImei.length !== 15}
-            style={{ padding: '10px 24px', borderRadius: '4px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 500, cursor: (migrating || newImei.length !== 15) ? 'not-allowed' : 'pointer', opacity: (migrating || newImei.length !== 15) ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s' }}
+            style={{ padding: '10px 28px', borderRadius: '8px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 700, cursor: (migrating || newImei.length !== 15) ? 'not-allowed' : 'pointer', opacity: (migrating || newImei.length !== 15) ? 0.6 : 1, display: 'flex', alignItems: 'center', gap: '8px', transition: 'background 0.2s', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}
             onMouseEnter={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#ea580c'; }}
             onMouseLeave={e => { if(!migrating && newImei.length === 15) e.currentTarget.style.background = '#f97316'; }}
           >
             {migrating && <Loader2 size={16} className="animate-spin" />}
             Migrate Vehicle
+          </button>
+          <button 
+            onClick={() => navigate(-1)}
+            style={{ padding: '10px 32px', borderRadius: '8px', background: '#EF4444', border: 'none', color: '#FFFFFF', fontSize: '14px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.2s', boxShadow: '0 2px 4px rgba(239,68,68,0.2)' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#DC2626'}
+            onMouseLeave={e => e.currentTarget.style.background = '#EF4444'}
+          >
+            Cancel
           </button>
         </div>
       </div>
