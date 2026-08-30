@@ -243,8 +243,8 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
               <FileSpreadsheet size={22} />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Bulk Vehicle Onboarding via Excel</h2>
-              <p className="text-xs text-slate-500">Upload pre-filled spreadsheet to onboard vehicles, configure devices, and auto-create customer accounts.</p>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Bulk Vehicle Onboarding via Excel</h2>
+              <p style={{ fontSize: '12px', color: '#334155', fontWeight: 600, margin: 0 }}>Upload pre-filled spreadsheet to onboard vehicles, configure devices, and auto-create customer accounts.</p>
             </div>
           </div>
 
@@ -270,13 +270,13 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
           {isSuperAdmin && availableOrgs.length > 0 && (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
               <div>
-                <label className="text-xs font-bold text-slate-700 block">Target Organization</label>
-                <p className="text-xs text-slate-500">Vehicles and customer accounts will be provisioned under this organization.</p>
+                <label style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', display: 'block' }}>Target Organization</label>
+                <p style={{ fontSize: '12px', color: '#334155', fontWeight: 500, margin: 0 }}>Vehicles and customer accounts will be provisioned under this organization.</p>
               </div>
               <select
                 value={selectedOrgId}
                 onChange={(e) => setSelectedOrgId(e.target.value)}
-                className="px-3 py-2 bg-white border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                style={{ padding: '8px 12px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', fontSize: '13px', fontWeight: 700, color: '#0F172A', outline: 'none' }}
               >
                 <option value="">Default (Current Organization)</option>
                 {availableOrgs.map(org => (
@@ -290,7 +290,9 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
           {parsedRows.length === 0 ? (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-slate-300 hover:border-orange-500 bg-slate-50 hover:bg-orange-50/40 rounded-2xl p-10 flex flex-col items-center justify-center cursor-pointer transition-all group"
+              style={{ border: '2px dashed #CBD5E1', background: '#F8FAFC', borderRadius: '16px', padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.borderColor = '#f97316'}
+              onMouseLeave={e => e.currentTarget.style.borderColor = '#CBD5E1'}
             >
               <input
                 ref={fileInputRef}
@@ -299,12 +301,16 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
                 onChange={handleFileUpload}
                 className="hidden"
               />
-              <div className="w-16 h-16 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+              <div className="w-16 h-16 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center mb-4">
                 <Upload size={30} />
               </div>
-              <h3 className="text-base font-extrabold text-slate-900 mb-1">Click to Upload or Drag & Drop Excel File</h3>
-              <p className="text-xs text-slate-700 font-medium mb-4 text-center max-w-md">Supports <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.xlsx</code>, <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.xls</code>, or <code className="bg-slate-200 px-1 py-0.5 rounded text-slate-900 font-bold">.csv</code> formatted files with IMEI, Vehicle Number, Category, Customer credentials, and Groups.</p>
-              <span className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-md transition-all">
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', marginBottom: '8px', textAlign: 'center' }}>
+                Click to Upload or Drag & Drop Excel File
+              </h3>
+              <p style={{ fontSize: '13px', color: '#334155', fontWeight: 600, marginBottom: '20px', textAlign: 'center', maxWidth: '520px', lineHeight: '1.5' }}>
+                Supports <code style={{ background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px', color: '#0F172A', fontWeight: 800 }}>.xlsx</code>, <code style={{ background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px', color: '#0F172A', fontWeight: 800 }}>.xls</code>, or <code style={{ background: '#E2E8F0', padding: '2px 6px', borderRadius: '4px', color: '#0F172A', fontWeight: 800 }}>.csv</code> formatted files with IMEI, Vehicle Number, Category, Customer credentials, and Groups.
+              </p>
+              <span style={{ padding: '10px 24px', background: '#0F172A', color: '#FFFFFF', borderRadius: '10px', fontSize: '13px', fontWeight: 800, boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
                 Browse Files
               </span>
             </div>
