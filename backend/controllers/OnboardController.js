@@ -97,11 +97,14 @@ const OnboardController = {
 
       for (const device of devices) {
         const {
-          licenceId, deviceId, deviceType, vehicleId,
+          licenceId: rawDeviceLicenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
           gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo,
           iccid, vehicleVoltage, ignitionDetection, timezone
         } = device;
+
+        // Auto-generate licenceId if not provided
+        const licenceId = rawDeviceLicenceId || `ST${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
         // Upsert into devices table
         await client.query(
@@ -287,7 +290,10 @@ const OnboardController = {
         const username = String(row.username || row['Username'] || row['Username Name'] || '').trim();
         const password = String(row.password || row['Password'] || row['password'] || '').trim();
 
-        const licenceId = String(row.licenceId || row['LicenceId'] || row['LicenceId (Starter)'] || '').trim();
+        // Auto-generate licenceId if not provided in Excel
+        const rawLicenceId = String(row.licenceId || row['LicenceId'] || row['LicenceId (Starter)'] || '').trim();
+        const licencePrefix = 'ST'; // Default tier prefix
+        const licenceId = rawLicenceId || `${licencePrefix}${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
         const vehicleTypeSelect = String(row.vehicleTypeSelect || row['Vehicle Type'] || '').trim();
         const odoDistance = String(row.odoDistance || row['Odometer'] || row['Odo Distance'] || '').trim();
         const ticketId = String(row.ticketId || row['Ticket Id'] || '').trim();

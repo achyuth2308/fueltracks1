@@ -14,7 +14,6 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   // Columns definition matching user's exact specification and order
   sheet.columns = [
     { header: 'Sl.No', key: 'slno', width: 10 },
-    { header: 'LicenceId', key: 'licenceId', width: 20 },
     { header: 'Device Type', key: 'deviceType', width: 22 },
     { header: 'Device ID(IMEI)', key: 'imei', width: 22 },
     { header: 'ICCID', key: 'iccid', width: 24 },
