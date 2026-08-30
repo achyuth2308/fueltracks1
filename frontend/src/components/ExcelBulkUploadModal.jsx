@@ -494,14 +494,14 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
                             </td>
 
                             {/* Groups */}
-                            <td className="py-2.5 px-3 text-slate-600 max-w-[150px] truncate" title={row['Groups'] || ''}>
-                              {row['Groups'] || <span className="text-slate-400 italic">None</span>}
+                            <td className="py-2.5 px-3 text-slate-600 max-w-[150px] truncate" title={row['Group'] || row['Groups'] || ''}>
+                              {row['Group'] || row['Groups'] || <span className="text-slate-400 italic">None</span>}
                             </td>
 
                             {/* Customer / Username */}
                             <td className="py-2.5 px-3 text-slate-700">
-                              <div className="font-semibold">{row['Customer Name'] || row['Customer Phone Number'] || '—'}</div>
-                              <div className="text-[10px] text-slate-400 font-mono">{row['Username'] || row['Email'] || ''}</div>
+                              <div className="font-semibold">{row['Owner Name'] || row['Customer Name'] || row['Owner Mobile Number'] || row['Customer Phone Number'] || '—'}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">{row['Username'] || row['Owner Email ID'] || row['Email'] || ''}</div>
                             </td>
 
                             {/* Actions */}
