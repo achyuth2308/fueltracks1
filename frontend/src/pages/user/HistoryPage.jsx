@@ -121,6 +121,8 @@ const HistoryPage = () => {
   };
   
   const filteredPoints = getFilteredPoints();
+  // Filter out all stopped points (parked and idle) only for the data table
+  const tableFilteredPoints = filteredPoints.filter(p => (p.speed || 0) > 5);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -150,8 +152,8 @@ const HistoryPage = () => {
 
   const indexOfLastRow = currentPage * rowsPerPage;
   const indexOfFirstRow = indexOfLastRow - rowsPerPage;
-  const currentRows = filteredPoints.slice(indexOfFirstRow, indexOfLastRow);
-  const totalPages = Math.ceil(filteredPoints.length / rowsPerPage) || 1;
+  const currentRows = tableFilteredPoints.slice(indexOfFirstRow, indexOfLastRow);
+  const totalPages = Math.ceil(tableFilteredPoints.length / rowsPerPage) || 1;
 
   // Date range defaults: Today
   const getTodayRange = () => {
@@ -607,24 +609,26 @@ const HistoryPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredPoints.length === 0 ? (
+                {tableFilteredPoints.length === 0 ? (
                   <tr>
                     <td colSpan="9" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>No data available for this period.</td>
                   </tr>
                 ) : (
                   currentRows.map((p, index) => {
-                    const idx = indexOfFirstRow + index;
-                    const prev = idx > 0 ? filteredPoints[idx - 1] : null;
+                    // Find the true original index in the main filteredPoints array
+                    // so clicking the row correctly highlights it on the Map/Playback
+                    const originalIndex = filteredPoints.indexOf(p);
+                    const prev = originalIndex > 0 ? filteredPoints[originalIndex - 1] : null;
                     const direction = getDirectionStr(p.direction !== undefined ? p.direction : p.course, prev?.lat, prev?.lng, p.lat, p.lng);
                     return (
                       <tr
-                        key={idx}
+                        key={originalIndex}
                         id={`row-time-${p.device_time}`}
                         onClick={() => {
-                          setCurrentPointIndex(idx);
+                          setCurrentPointIndex(originalIndex);
                         }}
                         style={{
-                          background: idx === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (idx % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
+                          background: originalIndex === currentPointIndex ? 'rgba(224, 242, 254, 0.8)' : (index % 2 === 0 ? 'transparent' : 'rgba(249, 250, 251, 0.4)'),
                           borderBottom: '1px solid rgba(229,231,235,0.5)',
                           cursor: 'pointer'
                         }}
