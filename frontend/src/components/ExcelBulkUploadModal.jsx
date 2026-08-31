@@ -175,7 +175,10 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
           serviceEngineerPhone: r['Service Mobile Number'] || r['Service Engineer Mobno'] || r['service engineer mobile number'] || '',
           salesman: r['Salesman'] || r['salesman'] || '',
           salesmanPhone: r['Salesman Mobile Number'] || r['Salesman Mobno'] || r['salesman mobile number'] || '',
-          group: r['Group'] || r['GROUP'] || r['Groups'] || '',
+          group: [
+            r['Existing Group'] || r['Group'] || r['Groups'] || '',
+            r['New Group (Auto-Create)'] || r['New Group'] || ''
+          ].filter(Boolean).join(','),
           oldGroups: r['OLD GROUPS'] || '',
           ownerName: r['Owner Name'] || r['Customer Name'] || r['Owner name'] || '',
           ownerPhone: r['Owner Mobile Number'] || r['Customer Mobile Number'] || r['Owner mobile number'] || '',

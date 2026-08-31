@@ -43,7 +43,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     { header: 'Owner Pancard Number', key: 'ownerPan', width: 22 },
     { header: 'Username', key: 'username', width: 20 },
     { header: 'Password', key: 'password', width: 20 },
-    { header: 'Group', key: 'group', width: 24 },
+    { header: 'Existing Group', key: 'existingGroup', width: 24 },
+    { header: 'New Group (Auto-Create)', key: 'newGroup', width: 28 },
     { header: 'Category', key: 'category', width: 20 }
   ];
 
@@ -164,8 +165,18 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
       error: 'Please select an ignition status from the dropdown list.'
     };
 
-    // Column AF: Category Dropdown
-    sheet.getCell(`AF${rowIdx}`).dataValidation = {
+    // Column AE: Existing Group Dropdown
+    sheet.getCell(`AE${rowIdx}`).dataValidation = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [`Dropdown_Options!$E$2:$E$${groupOptions.length + 1}`],
+      showErrorMessage: true,
+      errorTitle: 'Invalid Group',
+      error: 'Please select an existing group from the dropdown list. If you want to create a new one, leave this blank and use the New Group column.'
+    };
+
+    // Column AG: Category Dropdown
+    sheet.getCell(`AG${rowIdx}`).dataValidation = {
       type: 'list',
       allowBlank: true,
       formulae: [`Dropdown_Options!$B$2:$B$${categoryOptions.length + 1}`],
@@ -220,7 +231,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     { colName: 'Owner Pancard Number', hasDropdown: 'NO', req: 'NO', desc: '10-character PAN number.' },
     { colName: 'Username', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login username.' },
     { colName: 'Password', hasDropdown: 'NO', req: 'NO', desc: 'Customer account login password.' },
-    { colName: 'Group', hasDropdown: 'NO', req: 'NO', desc: 'Assigned monitoring groups (comma-separated).' },
+    { colName: 'Existing Group', hasDropdown: 'YES (Dropdown)', req: 'NO', desc: 'Select an already existing group.' },
+    { colName: 'New Group (Auto-Create)', hasDropdown: 'NO', req: 'NO', desc: 'Type names of new groups to auto-create (comma-separated).' },
     { colName: 'Category', hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'TG Mining, VLTD, VLTD + Mining, General.' }
   ];
 
