@@ -3,14 +3,25 @@ import { MapPin } from 'lucide-react';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 const LocationDisplay = ({ lat, lng }) => {
-  const [address, setAddress] = useState('Fetching...');
+  // Start with a generic non-intrusive loading indicator, not 'Fetching...'
+  const [address, setAddress] = useState('...');
   
   useEffect(() => {
     let mounted = true;
-    setAddress('Fetching...');
+    // Intentionally NOT setting state to 'Fetching...' here.
+    // This allows the component to retain the previous address while the new one is fetched.
     if (lat && lng) {
       getAddressFromCoordinates(lat, lng).then(addr => {
-        if (mounted) setAddress(addr);
+        if (mounted) {
+          const isErrorMsg = addr === 'Location unavailable' || addr === 'Unknown Location' || addr === 'Error fetching';
+          
+          if (!isErrorMsg) {
+            setAddress(addr);
+          } else {
+            // Only fall back to error text if we don't have a valid previous address
+            setAddress(prev => (prev && prev !== '...') ? prev : 'Location not found');
+          }
+        }
       });
     }
     return () => { mounted = false; };
