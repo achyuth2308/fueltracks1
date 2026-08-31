@@ -26,6 +26,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
 
   // Fetch initial alerts and preferences
   useEffect(() => {
+    if (user?.role === 'superadmin' || user?.role === 'dealer') {
+      return;
+    }
+    
     Promise.all([
       axiosInstance.get('/api/alerts/preferences').catch(err => {
         console.error('Failed to fetch preferences:', err);
@@ -67,6 +71,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       // If preferences aren't loaded yet, or user opted out, ignore it for live push/toast
       if (!preferences || preferences[data.alertType] === false) {
         return; 
+      }
+
+      // Prevent Superadmins and Dealers from getting flooded with live toasts for entire fleets
+      if (user?.role === 'superadmin' || user?.role === 'dealer') {
+        return;
       }
 
       setAlerts((prev) => [data, ...prev]); 
