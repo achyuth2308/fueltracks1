@@ -381,12 +381,12 @@ const VehiclesAdminPage = () => {
 
                         {/* 3. LicenceId */}
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
-                          {meta.licenceId || v.licence_no || '-'}
+                          {v.licenceId || meta.licenceId || v.licence_no || '-'}
                         </td>
 
                         {/* 4. Device Type */}
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
-                          {v.device_version || meta.deviceModel || '-'}
+                          {v.deviceType || v.device_version || meta.deviceModel || '-'}
                         </td>
 
                         {/* 5. Device ID(IMEI) */}

@@ -142,6 +142,7 @@ const VehicleModel = {
               v.category,
               o.name as org_name,
               d.licence_id as "licenceId",
+              d.device_type as "deviceType",
               STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
               JSON_AGG(DISTINCT jsonb_build_object('id', g.id, 'name', g.name)) FILTER (WHERE g.id IS NOT NULL) as groups,
               vls.lat, vls.lng, vls.speed as current_speed,
