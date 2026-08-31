@@ -193,6 +193,7 @@ const OnBoardDevicePage = () => {
         id: Date.now() + i,
         licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         deviceId: '',
+        vlttdSlno: '',
         deviceType: 'VOLTY',
         vehicleId: '',
         vehicleName: '',
@@ -573,6 +574,7 @@ const OnBoardDevicePage = () => {
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device ID(IMEI)</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>VLTD SLNO</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Type</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle Id</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>Action</th>
@@ -592,6 +594,13 @@ const OnBoardDevicePage = () => {
                             <input
                               type="text" placeholder="Enter Device ID" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
+                              style={{ ...inputStyle, padding: '8px 12px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
+                            <input
+                              type="text" placeholder="Enter VLTD SLNO" value={device.vlttdSlno}
+                              onChange={(e) => updateDevice(idx, 'vlttdSlno', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             />
                           </td>

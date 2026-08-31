@@ -100,7 +100,7 @@ const OnboardController = {
           licenceId: rawDeviceLicenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
           gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo,
-          iccid, vehicleVoltage, ignitionDetection, timezone
+          iccid, vehicleVoltage, ignitionDetection, timezone, vlttdSlno
         } = device;
 
         // Auto-generate licenceId if not provided
@@ -136,7 +136,8 @@ const OnboardController = {
           gpsSimNo2: gpsSimNo2 || '',
           iccid: iccid || '',
           vehicleVoltage: vehicleVoltage || '',
-          ignitionDetection: ignitionDetection || ''
+          ignitionDetection: ignitionDetection || '',
+          vlttdSlno: vlttdSlno || ''
         };
 
         const vehicleNameValue = vehicleName || `Vehicle ${deviceId}`;
