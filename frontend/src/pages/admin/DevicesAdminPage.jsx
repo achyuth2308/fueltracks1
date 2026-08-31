@@ -32,12 +32,12 @@ const DevicesAdminPage = () => {
           id: d.id,
           imei: d.device_id,
           type: d.device_type || 'GPS Tracker',
-          vehicle_name: d.vehicle_id || 'Unassigned',
+          vehicle_name: d.vehicle_name || 'Unassigned',
           org_name: d.org_name || '—',
           group_name: 'Unassigned',
           is_online: d.is_online || false,
           last_update: d.last_seen || null,
-          vehicle_id: d.vehicle_id,
+          vehicle_id: d.vehicle_uuid,
         }));
         setDevices(mappedDevices);
       }

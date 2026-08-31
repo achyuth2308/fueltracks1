@@ -2,7 +2,7 @@ const db = require('./config/db');
 
 async function main() {
   try {
-    const imeis = ['865006049210215', '865006049210216', '888888888888802'];
+    const imeis = ['888888888888889', '888888888888888'];
     
     // Find actual vehicle UUIDs from vehicles table using IMEI
     const vCheck = await db.query(`SELECT id FROM vehicles WHERE imei = ANY($1)`, [imeis]);

@@ -702,6 +702,8 @@ const AdminController = {
         SELECT 
           d.*, 
           o.name as org_name,
+          v.id as vehicle_uuid,
+          v.name as vehicle_name,
           vls.is_online,
           vls.last_seen
         FROM devices d
