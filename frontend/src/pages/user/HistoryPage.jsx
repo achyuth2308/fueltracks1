@@ -132,11 +132,23 @@ const HistoryPage = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (filteredPoints.length > 0 && currentPointIndex >= 0) {
-      const neededPage = Math.floor(currentPointIndex / rowsPerPage) + 1;
-      setCurrentPage(prev => prev !== neededPage ? neededPage : prev);
+    if (filteredPoints.length > 0 && currentPointIndex >= 0 && tableFilteredPoints.length > 0) {
+      const activeP = filteredPoints[currentPointIndex];
+      if (activeP) {
+        const activeTime = new Date(activeP.device_time).getTime();
+        let tableIndex = 0;
+        // Find the index of the active point (or closest prior point) in the table's filtered array
+        for (let i = tableFilteredPoints.length - 1; i >= 0; i--) {
+          if (new Date(tableFilteredPoints[i].device_time).getTime() <= activeTime) {
+            tableIndex = i;
+            break;
+          }
+        }
+        const neededPage = Math.floor(tableIndex / rowsPerPage) + 1;
+        setCurrentPage(prev => prev !== neededPage ? neededPage : prev);
+      }
     }
-  }, [currentPointIndex, filteredPoints.length, rowsPerPage]);
+  }, [currentPointIndex, filteredPoints, tableFilteredPoints, rowsPerPage]);
 
   // Auto-scroll the table to the active row during playback
   useEffect(() => {
