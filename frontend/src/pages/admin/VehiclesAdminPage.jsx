@@ -114,7 +114,7 @@ const VehiclesAdminPage = () => {
       meta.serviceEngineer?.toLowerCase().includes(q) ||
       meta.sensorNo?.toLowerCase().includes(q) ||
       meta.sim2?.toLowerCase().includes(q) ||
-      meta.iccid?.toLowerCase().includes(q) ||
+      meta.iccid?.toLowerCase().includes(q)
     );
   });
 
