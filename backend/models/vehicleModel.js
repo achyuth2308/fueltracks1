@@ -87,8 +87,8 @@ const VehicleModel = {
       } else {
         whereClause = 'WHERE v.is_active = TRUE';
       }
-    } else if (role === 'customer' || role === 'dealer') {
-      // See vehicles assigned to the user's groups ONLY
+    } else if (role === 'customer') {
+      // See vehicles assigned to the customer's groups ONLY
       params.push(userId);
       whereClause = `WHERE v.is_active = TRUE AND v.id IN (
         SELECT vg.vehicle_id 
@@ -96,6 +96,21 @@ const VehicleModel = {
         JOIN user_groups ug ON vg.group_id = ug.group_id
         WHERE ug.user_id = $${paramIndex++}
       )`;
+    } else {
+      // Dealer: See vehicles in own org + child orgs, or scoped to selected child org
+      if (filterOrgId && filterOrgId !== 'all') {
+        params.push(filterOrgId, orgId);
+        whereClause = `WHERE v.is_active = TRUE AND v.org_id = $${paramIndex++} AND (
+          v.org_id = $${paramIndex} OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $${paramIndex})
+        )`;
+        paramIndex++;
+      } else {
+        params.push(orgId);
+        whereClause = `WHERE v.is_active = TRUE AND (
+          v.org_id = $${paramIndex++}
+          OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
+        )`;
+      }
     }
 
     // Category filter (TG Mining, VLTD, VLTD + Mining, General, etc.)
@@ -307,7 +322,7 @@ const VehicleModel = {
    * Check if vehicle belongs to org (ownership check for RBAC)
    */
   async belongsToOrg(vehicleId, orgId, userId = null, role = null) {
-    if (role === 'customer' || role === 'dealer') {
+    if (role === 'customer' && userId) {
       const result = await db.query(
         `SELECT v.id FROM vehicles v
          WHERE v.id = $1 AND v.id IN (

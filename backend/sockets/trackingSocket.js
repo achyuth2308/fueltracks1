@@ -39,7 +39,7 @@ function init(io) {
     console.log(`[SOCKET] User connected: ${userId} (${role}) - Socket: ${socket.id}`);
 
     (async () => {
-      if (role === 'customer' || role === 'dealer') {
+      if (role === 'customer') {
         try {
           const result = await VehicleModel.findAll(orgId, role, { limit: 1000, userId });
           result.vehicles.forEach(v => {
@@ -90,7 +90,7 @@ function init(io) {
       if (!orgToJoin) return;
       
       // Customers cannot join full organization rooms (they rely on vehicle rooms)
-      if (role === 'customer' || role === 'dealer') {
+      if (role === 'customer') {
         return;
       }
 

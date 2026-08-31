@@ -28,7 +28,7 @@ const GroupModel = {
 
     if (role === 'superadmin') {
       whereClause = '';
-    } else if ((role === 'customer' || role === 'dealer') && userId) {
+    } else if (role === 'customer' && userId) {
       whereClause = `WHERE ug_filter.user_id = $1`;
       params.push(userId);
     } else {
@@ -38,7 +38,7 @@ const GroupModel = {
 
     // Single efficient query using LEFT JOINs + GROUP BY instead of 3 correlated subqueries per row
     let query;
-    if ((role === 'customer' || role === 'dealer') && userId) {
+    if (role === 'customer' && userId) {
       query = `
         SELECT
           g.*,
