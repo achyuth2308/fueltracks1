@@ -169,7 +169,7 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 v.category,
-                o.name, d.licence_id, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
+                o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
                 vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer
        ORDER BY v.name ASC NULLS LAST, v.created_at DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
