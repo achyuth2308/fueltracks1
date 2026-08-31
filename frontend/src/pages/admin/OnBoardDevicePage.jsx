@@ -535,7 +535,7 @@ const OnBoardDevicePage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Organization</label>
-                    {isSuperAdmin && (
+                    {(isSuperAdmin || isDealer) && (
                       <button
                         type="button"
                         onClick={() => setIsAddOrgOpen(true)}
@@ -894,9 +894,15 @@ const OnBoardDevicePage = () => {
           isOpen={isAddGroupOpen}
           onClose={() => setIsAddGroupOpen(false)}
           orgs={orgs}
-          onSave={() => {
-            setIsAddGroupOpen(false);
-            adminApi.getGroups?.().then(r => setGroups(r.data || []));
+          onSave={async (groupData) => {
+            try {
+              await adminApi.createGroup(groupData);
+              setIsAddGroupOpen(false);
+              const r = await adminApi.getGroups?.();
+              setGroups(r?.data || []);
+            } catch (err) {
+              throw err;
+            }
           }}
         />
       )}
@@ -907,9 +913,15 @@ const OnBoardDevicePage = () => {
           isOpen={isAddUserOpen}
           onClose={() => setIsAddUserOpen(false)}
           orgs={orgs}
-          onSave={() => {
-            setIsAddUserOpen(false);
-            adminApi.getUsers?.().then(r => setUsers(r.data || []));
+          onSave={async (userData) => {
+            try {
+              await adminApi.createUser(userData);
+              setIsAddUserOpen(false);
+              const r = await adminApi.getUsers?.();
+              setUsers(r?.data || []);
+            } catch (err) {
+              throw err;
+            }
           }}
         />
       )}
