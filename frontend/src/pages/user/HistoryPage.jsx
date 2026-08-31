@@ -90,6 +90,7 @@ const HistoryPage = () => {
   const [currentPointIndex, setCurrentPointIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Slow');
+  const stopWatchTimeRef = useRef(0); // Tracks real-world ms spent watching a parked point
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -278,7 +279,31 @@ const HistoryPage = () => {
             clearInterval(timer);
             return prev;
           }
-          return prev + 1;
+          
+          let nextIndex = prev + 1;
+          const nextPoint = filteredPoints[nextIndex];
+          
+          // If the vehicle is stopped, track how long the user has been watching this stop in real-time
+          if (nextPoint && (nextPoint.speed || 0) <= 5) {
+            stopWatchTimeRef.current += speedMs;
+            
+            // If they've watched it sit still for 10 seconds (10000 ms), skip to the end of the stop!
+            if (stopWatchTimeRef.current >= 10000) {
+              let skipIndex = nextIndex;
+              while (skipIndex < filteredPoints.length && (filteredPoints[skipIndex].speed || 0) <= 5) {
+                skipIndex++;
+              }
+              if (skipIndex < filteredPoints.length) {
+                nextIndex = skipIndex;
+              }
+              stopWatchTimeRef.current = 0; // reset after skipping
+            }
+          } else {
+            // Vehicle is moving, reset the parking watch timer
+            stopWatchTimeRef.current = 0;
+          }
+          
+          return nextIndex;
         });
       }, speedMs);
     }
