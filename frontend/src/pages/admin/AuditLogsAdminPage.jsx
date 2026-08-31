@@ -83,6 +83,27 @@ const StatCard = ({ label, value, icon: Icon, color, bg }) => (
 
 // Detail drawer — shows full audit record info
 const DetailDrawer = ({ log, onClose }) => {
+  const [ipLocation, setIpLocation] = useState(null);
+
+  useEffect(() => {
+    if (log?.ip_address && log.ip_address !== '127.0.0.1' && log.ip_address !== '::1') {
+      fetch(`https://ipapi.co/${log.ip_address}/json/`)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.city) {
+            setIpLocation(`${data.city}, ${data.region}, ${data.country_name}`);
+          } else {
+             setIpLocation('Local / Unknown');
+          }
+        })
+        .catch(() => setIpLocation('Unknown'));
+    } else if (log?.ip_address) {
+      setIpLocation('Local Network');
+    } else {
+      setIpLocation(null);
+    }
+  }, [log]);
+
   if (!log) return null;
   const formatDataValue = (val) => {
     if (val === null || val === undefined || val === '') return <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>None</span>;
@@ -169,6 +190,12 @@ const DetailDrawer = ({ log, onClose }) => {
                 <div>
                   <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>IP Address</div>
                   <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.ip_address || '—'}</div>
+                  {ipLocation && (
+                    <div style={{ fontSize: '11px', color: '#0EA5E9', marginTop: '4px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                      {ipLocation}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
