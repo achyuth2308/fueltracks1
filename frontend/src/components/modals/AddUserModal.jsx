@@ -97,6 +97,14 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
     try {
       await onSave(payload);
+      // If role is dealer, also update the device limits for the selected org
+      if (role === 'dealer' && orgId) {
+        try {
+          await adminApi.setDeviceLimits(orgId, deviceLimits);
+        } catch (limitErr) {
+          console.warn('Device limits update failed (non-critical):', limitErr.message);
+        }
+      }
       onClose();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save user details');
@@ -272,7 +280,32 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             )}
           </div>
 
-
+          {/* Device Limits — only shown when creating a NEW Dealer role */}
+          {role === 'dealer' && !editingUser && (
+            <div style={{ marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <Cpu size={14} color="#f97316" />
+                <label style={{ fontSize: '13px', fontWeight: 700, color: '#3B82F6' }}>
+                  Organization Device Allowances (Quota) :
+                </label>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 20px', padding: '12px', background: '#EEF5F8', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
+                  <div key={tier}>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                      {tier} <span style={{ color: '#94A3B8', fontWeight: 'normal' }}>(No. of Devices)</span>
+                    </label>
+                    <input
+                      type="number" min="0"
+                      value={deviceLimits[tier]}
+                      onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
+                      style={{ width: '100%', padding: '6px 10px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div style={{ marginTop: '4px' }}>
             <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#3B82F6', marginBottom: '6px' }}>
