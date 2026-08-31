@@ -312,8 +312,8 @@ const VehiclesAdminPage = () => {
                     <th style={{ padding: '14px 16px' }}>Vehicle Voltage</th>
                     <th style={{ padding: '14px 16px' }}>Ignition ON Status</th>
                     <th style={{ padding: '14px 16px' }}>Sensor Number</th>
-                    <th style={{ padding: '14px 16px' }}>Service Engineer Number</th>
-                    <th style={{ padding: '14px 16px' }}>Service Mobile Number</th>
+                    <th style={{ padding: '14px 16px' }}>Service Engineer Name</th>
+                    <th style={{ padding: '14px 16px' }}>Service Engineer Mobile Number</th>
                     <th style={{ padding: '14px 16px' }}>Salesman</th>
                     <th style={{ padding: '14px 16px' }}>Salesman Mobile Number</th>
                     <th style={{ padding: '14px 16px' }}>Installation Date</th>
