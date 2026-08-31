@@ -11,7 +11,6 @@ import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
-import BulkAssignGroupsModal from '../../components/BulkAssignGroupsModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const StatusDot = ({ online }) => (
@@ -49,10 +48,7 @@ const VehiclesAdminPage = () => {
   // Details Panel State
   const [viewingVehicle, setViewingVehicle] = useState(null);
 
-  // Selection & Modals
-  const [selectedVehicleIds, setSelectedVehicleIds] = useState([]);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
-  const [isBulkGroupModalOpen, setIsBulkGroupModalOpen] = useState(false);
 
   const fetchVehicles = async () => {
     setLoading(true);
@@ -91,27 +87,11 @@ const VehiclesAdminPage = () => {
         const res = await vehicleApi.deleteVehicle(id);
         if (res.success) {
           if (viewingVehicle?.id === id) setViewingVehicle(null);
-          setSelectedVehicleIds(prev => prev.filter(vId => vId !== id));
           fetchVehicles();
         }
       } catch (err) {
         alert(err.response?.data?.error || 'Delete failed.');
       }
-    }
-  };
-
-  const toggleSelectVehicle = (id, e) => {
-    if (e) e.stopPropagation();
-    setSelectedVehicleIds(prev =>
-      prev.includes(id) ? prev.filter(vId => vId !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedVehicleIds.length === filtered.length) {
-      setSelectedVehicleIds([]);
-    } else {
-      setSelectedVehicleIds(filtered.map(v => v.id));
     }
   };
 
@@ -135,11 +115,8 @@ const VehiclesAdminPage = () => {
       meta.sensorNo?.toLowerCase().includes(q) ||
       meta.sim2?.toLowerCase().includes(q) ||
       meta.iccid?.toLowerCase().includes(q) ||
-      meta.username?.toLowerCase().includes(q)
     );
   });
-
-  const selectedVehiclesList = vehicles.filter(v => selectedVehicleIds.includes(v.id));
 
   // Category counts
   const categoryCounts = vehicles.reduce((acc, v) => {
@@ -284,29 +261,7 @@ const VehiclesAdminPage = () => {
               <option value="all">All Groups</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
-          )}
         </div>
-
-        {/* Selection Actions */}
-        {selectedVehicleIds.length > 0 && (
-          <div className="flex items-center gap-3 bg-orange-50 px-4 py-2 rounded-xl border border-orange-200">
-            <span className="text-xs font-bold text-orange-950">
-              {selectedVehicleIds.length} vehicle{selectedVehicleIds.length !== 1 ? 's' : ''} selected
-            </span>
-            <button
-              onClick={() => setIsBulkGroupModalOpen(true)}
-              className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
-            >
-              <Layers size={14} /> Bulk Assign Groups
-            </button>
-            <button
-              onClick={() => setSelectedVehicleIds([])}
-              className="text-xs text-slate-500 hover:text-slate-800 font-semibold cursor-pointer underline"
-            >
-              Deselect
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Main Content Layout */}
@@ -338,14 +293,6 @@ const VehiclesAdminPage = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 10 }}>
                   <tr style={{ borderBottom: '1px solid #E2E8F0', fontSize: '11px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700, letterSpacing: '0.05em' }}>
-                    <th style={{ padding: '14px 12px', width: '40px', textAlign: 'center' }}>
-                      <input
-                        type="checkbox"
-                        checked={selectedVehicleIds.length === filtered.length && filtered.length > 0}
-                        onChange={toggleSelectAll}
-                        className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                      />
-                    </th>
                     <th style={{ padding: '14px 12px', width: '50px', textAlign: 'center' }}>Sl.No</th>
                     <th style={{ padding: '14px 16px', textAlign: 'center' }}>Action</th>
                     <th style={{ padding: '14px 16px' }}>LicenceId</th>
@@ -384,7 +331,6 @@ const VehiclesAdminPage = () => {
                 </thead>
                 <tbody>
                   {filtered.map((v, idx) => {
-                    const isSelected = selectedVehicleIds.includes(v.id);
                     const meta = v.metadata || {};
 
                     return (
@@ -393,23 +339,13 @@ const VehiclesAdminPage = () => {
                         onClick={() => setViewingVehicle(v)}
                         style={{
                           borderBottom: '1px solid #F1F5F9', cursor: 'pointer',
-                          background: isSelected ? '#fff7ed' : (viewingVehicle?.id === v.id ? '#f0f9ff' : 'transparent'),
+                          background: viewingVehicle?.id === v.id ? '#f0f9ff' : 'transparent',
                           transition: 'background 0.2s',
                           whiteSpace: 'nowrap'
                         }}
-                        onMouseEnter={e => { if (viewingVehicle?.id !== v.id && !isSelected) e.currentTarget.style.background = '#F8FAFC'; }}
-                        onMouseLeave={e => { if (viewingVehicle?.id !== v.id && !isSelected) e.currentTarget.style.background = 'transparent'; }}
+                        onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#F8FAFC'; }}
+                        onMouseLeave={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = 'transparent'; }}
                       >
-                        {/* Checkbox */}
-                        <td style={{ padding: '14px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => toggleSelectVehicle(v.id, e)}
-                            className="rounded border-slate-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
-                          />
-                        </td>
-
                         {/* 1. Sl.No */}
                         <td style={{ padding: '14px 12px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
                           {idx + 1}
@@ -787,29 +723,10 @@ const VehiclesAdminPage = () => {
         <ExcelBulkUploadModal
           isOpen={isExcelModalOpen}
           onClose={() => setIsExcelModalOpen(false)}
-          onSuccess={() => {
-            setIsExcelModalOpen(false);
-            fetchVehicles();
-          }}
+          onSuccess={fetchVehicles}
           currentOrgId={user?.org_id}
         />
       )}
-
-      {/* Bulk Assign Groups Modal */}
-      {isBulkGroupModalOpen && (
-        <BulkAssignGroupsModal
-          isOpen={isBulkGroupModalOpen}
-          onClose={() => setIsBulkGroupModalOpen(false)}
-          selectedVehicles={selectedVehiclesList}
-          groups={groups}
-          onSuccess={() => {
-            setIsBulkGroupModalOpen(false);
-            setSelectedVehicleIds([]);
-            fetchVehicles();
-          }}
-        />
-      )}
-
     </div>
   );
 };
