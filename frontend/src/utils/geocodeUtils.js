@@ -3,13 +3,13 @@ import axiosInstance from '../api/axios';
 // In-memory cache to prevent spamming
 const addressCache = new Map();
 
-export const getAddressFromCoordinates = async (lat, lng) => {
+export const getAddressFromCoordinates = async (lat, lng, forceRefresh = false) => {
   if (!lat || !lng) return 'Unknown Location';
   
   // Aggressive caching: 3 decimal places is ~110m resolution
   const cacheKey = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`;
   
-  if (addressCache.has(cacheKey)) {
+  if (!forceRefresh && addressCache.has(cacheKey)) {
     return addressCache.get(cacheKey);
   }
   

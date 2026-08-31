@@ -17,7 +17,7 @@ const AddressCell = ({ lat, lng }) => {
     if (!lat || !lng) return;
     setLoading(true);
     try {
-      const addr = await getAddressFromCoordinates(lat, lng);
+      const addr = await getAddressFromCoordinates(lat, lng, true); // true forces a cache bypass
       setAddress(addr);
     } catch (err) {
       setAddress('Error fetching');
