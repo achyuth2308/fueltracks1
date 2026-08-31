@@ -324,20 +324,6 @@ const OnBoardDevicePage = () => {
         {step === 1 && (
           <div style={{ maxWidth: '600px', margin: '0 auto' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4">
-                <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
-                <select
-                  className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none bg-white text-gray-900"
-                  value={licenceType}
-                  onChange={e => setLicenceType(e.target.value)}
-                >
-                  <option value="Starter">Starter</option>
-                  <option value="Basic">Basic</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Premium">Premium</option>
-                </select>
-              </div>
-
               {/* Quota Banner - only for dealers */}
               {isDealer && (
                 <div style={{ background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px' }}>
@@ -366,6 +352,20 @@ const OnBoardDevicePage = () => {
                   )}
                 </div>
               )}
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4">
+                <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
+                <select
+                  className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none bg-white text-gray-900"
+                  value={licenceType}
+                  onChange={e => setLicenceType(e.target.value)}
+                >
+                  <option value="Starter">Starter</option>
+                  <option value="Basic">Basic</option>
+                  <option value="Advanced">Advanced</option>
+                  <option value="Premium">Premium</option>
+                </select>
+              </div>
 
               <div className="flex flex-col border-b border-slate-100 pb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between">
