@@ -38,9 +38,23 @@ function init(io) {
     const { userId, role, orgId } = socket.user;
     console.log(`[SOCKET] User connected: ${userId} (${role}) - Socket: ${socket.id}`);
 
-    // Automatically join default room for organization fleet updates
-    socket.join(`org:${orgId}`);
-    console.log(`[SOCKET] Socket ${socket.id} automatically joined room: org:${orgId}`);
+    (async () => {
+      if (role === 'customer') {
+        try {
+          const result = await VehicleModel.findAll(orgId, role, { limit: 1000, userId });
+          result.vehicles.forEach(v => {
+            socket.join(`vehicle:${v.id}`);
+          });
+          console.log(`[SOCKET] Socket ${socket.id} (customer) joined ${result.vehicles.length} vehicle rooms.`);
+        } catch (err) {
+          console.error('[SOCKET] Error joining customer vehicle rooms:', err.message);
+        }
+      } else {
+        // Automatically join default room for organization fleet updates
+        socket.join(`org:${orgId}`);
+        console.log(`[SOCKET] Socket ${socket.id} automatically joined room: org:${orgId}`);
+      }
+    })();
 
     // Join vehicle detail room (for individual live tracking page)
     socket.on('join:vehicle', async ({ vehicleId }) => {
@@ -70,11 +84,15 @@ function init(io) {
       console.log(`[SOCKET] Socket ${socket.id} left room: vehicle:${vehicleId}`);
     });
 
-    // Join organization room (specifically for switching views in Superadmin panel)
     // Join organization room (specifically for switching views in Superadmin panel or frontend fleet)
     socket.on('join:org', ({ targetOrgId, orgId: clientOrgId }) => {
       const orgToJoin = targetOrgId || clientOrgId;
       if (!orgToJoin) return;
+      
+      // Customers cannot join full organization rooms (they rely on vehicle rooms)
+      if (role === 'customer') {
+        return;
+      }
 
       // Only superadmin can join other orgs
       if (role !== 'superadmin' && orgToJoin !== orgId) {
