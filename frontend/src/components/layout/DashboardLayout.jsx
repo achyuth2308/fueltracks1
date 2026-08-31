@@ -6,9 +6,17 @@ import { useAuth } from '../../hooks/useAuth';
 
 const DashboardLayout = ({ vehicles = [] }) => {
   const { isAuthenticated, loading } = useAuth();
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const location = useLocation();
   const isHistoryPage = location.pathname.endsWith('/history');
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setSidebarOpen(window.innerWidth > 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   if (loading) {
     return (
@@ -54,15 +62,15 @@ const DashboardLayout = ({ vehicles = [] }) => {
       overflow: 'hidden',
     }}>
       <Topbar
-        onMenuClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
         vehicles={vehicles}
       />
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {!isHistoryPage && (
           <Sidebar
-            isOpen={mobileSidebarOpen}
-            toggleMobileSidebar={setMobileSidebarOpen}
+            isOpen={sidebarOpen}
+            toggleMobileSidebar={setSidebarOpen}
           />
         )}
 

@@ -87,8 +87,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           zIndex: 50,
           overflow: 'hidden'
         }}
-        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[240px] md:ml-0'
-          } w-[240px]`}
+        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[240px]'} w-[240px]`}
       >
         {/* User Profile Header */}
         <div
