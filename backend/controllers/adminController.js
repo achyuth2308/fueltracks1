@@ -686,7 +686,7 @@ const AdminController = {
   // ============================================================
   async getDashboardStats(req, res, next) {
     try {
-      const stats = await GpsModel.getDashboardStats(req.user.orgId, req.user.role);
+      const stats = await GpsModel.getDashboardStats(req.user.orgId, req.user.role, req.user.userId);
       res.status(200).json({
         success: true,
         data: stats

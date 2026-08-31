@@ -387,7 +387,7 @@ const GpsModel = {
   async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType, role, userId } = {}) {
     // 1. Try Redis cache for default fetch
     const redisKey = `org:alerts:${orgId}`;
-    if (page === 1 && !alertType && limit <= 50 && role !== 'customer') {
+    if (page === 1 && !alertType && limit <= 50 && role !== 'customer' && role !== 'dealer') {
       try {
         const cached = await redis.lrange(redisKey, 0, limit - 1);
         if (cached && cached.length > 0) {
@@ -407,7 +407,7 @@ const GpsModel = {
     
     // Add user filter
     let userFilter = '';
-    if (role === 'customer' && userId) {
+    if ((role === 'customer' || role === 'dealer') && userId) {
       params.push(userId);
       userFilter = ` AND EXISTS (SELECT 1 FROM vehicle_groups vg JOIN user_groups ug ON vg.group_id = ug.group_id WHERE vg.vehicle_id = v.id AND ug.user_id = $${params.length})`;
     }
@@ -453,7 +453,7 @@ const GpsModel = {
     );
 
     // 2. Populate Redis cache on miss
-    if (page === 1 && !alertType && result.rows.length > 0 && role !== 'customer') {
+    if (page === 1 && !alertType && result.rows.length > 0 && role !== 'customer' && role !== 'dealer') {
       try {
         const pipeline = redis.pipeline();
         pipeline.del(redisKey);
@@ -642,7 +642,7 @@ const GpsModel = {
            OR COALESCE((p.preferences->$2)::text, 'true') != 'false'
          )
          AND (
-           u.role != 'customer'
+           u.role != 'customer' AND u.role != 'dealer'
            OR EXISTS (
              SELECT 1
              FROM user_groups ug
@@ -658,7 +658,7 @@ const GpsModel = {
   /**
    * Get dashboard stats for an org
    */
-  async getDashboardStats(orgId, role) {
+  async getDashboardStats(orgId, role, userId = null) {
     let params = [];
     let orgWhere = '';
 
@@ -680,6 +680,20 @@ const GpsModel = {
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
         LEFT JOIN users u ON u.org_id = o.id
       `);
+    } else if (role === 'customer' || role === 'dealer') {
+      params.push(userId);
+      result = await db.query(`
+        SELECT
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
+          0 AS organizations_count,
+          0 AS users_count
+        FROM vehicles v
+        JOIN vehicle_groups vg ON v.id = vg.vehicle_id
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        WHERE ug.user_id = $1
+      `, params);
     } else {
       result = await db.query(`
         SELECT
