@@ -563,57 +563,9 @@ const OnBoardDevicePage = () => {
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
             </div>
 
-            {/* Middle Toggle */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'upload' ? '#f97316' : '#475569' }}>
-                <input
-                  type="radio"
-                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
-                  checked={deviceEntryMode === 'upload'}
-                  onChange={() => setDeviceEntryMode('upload')}
-                />
-                Bulk Upload via Excel
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: deviceEntryMode === 'details' ? '#f97316' : '#475569' }}>
-                <input
-                  type="radio"
-                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
-                  checked={deviceEntryMode === 'details'}
-                  onChange={() => setDeviceEntryMode('details')}
-                />
-                Manual Entry
-              </label>
-            </div>
-
-            {/* Upload Devices View */}
-            {deviceEntryMode === 'upload' && (
-              <div style={{ padding: '32px', background: '#EEF5F8', borderRadius: '12px', border: '1px dashed #FFBE98', textAlign: 'center', marginBottom: '40px' }}>
-                <Upload size={32} color="#f97316" style={{ marginBottom: '16px' }} />
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Upload Device Excel File</h3>
-                <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '24px' }}>Download our template, fill it out, and upload it here.</p>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4">
-                  <button onClick={handleDownloadTemplate} style={{ padding: '10px 20px', background: '#FFFFFF', color: '#111827', fontSize: '13px', fontWeight: 600, border: '1px solid #E2E8F0', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-                    Download Template
-                  </button>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <div style={{ padding: '10px 16px', border: '1px solid #CBD5E1', borderRight: 'none', borderRadius: '8px 0 0 8px', fontSize: '13px', color: '#94A3B8', width: '200px', background: '#FFF', textAlign: 'left', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                      {selectedFile ? selectedFile.name : 'Choose a File'}
-                    </div>
-                    <button onClick={() => fileInputRef.current && fileInputRef.current.click()} style={{ padding: '10px 20px', background: '#F8FAFC', color: '#475569', fontSize: '13px', fontWeight: 600, border: '1px solid #CBD5E1', borderRadius: '0 8px 8px 0', cursor: 'pointer' }}>
-                      Browse
-                    </button>
-                    <input type="file" accept=".xlsx, .xls" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} />
-                  </div>
-                  <button onClick={handleImportExcel} style={{ padding: '10px 24px', background: '#f97316', color: '#FFF', fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '8px', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
-                    Import Excel
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Device Table */}
-            {deviceEntryMode === 'details' && devices.length > 0 && (
+
+            {devices.length > 0 && (
               <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', marginBottom: '40px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
