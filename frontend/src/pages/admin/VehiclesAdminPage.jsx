@@ -386,7 +386,7 @@ const VehiclesAdminPage = () => {
 
                         {/* 4. Device Type */}
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
-                          {v.model || meta.deviceModel || 'AIS140'}
+                          {v.device_version || meta.deviceModel || '-'}
                         </td>
 
                         {/* 5. Device ID(IMEI) */}
@@ -421,7 +421,7 @@ const VehiclesAdminPage = () => {
 
                         {/* 11. Vehicle Type */}
                         <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>
-                          {meta.vehicleTypeSelect || v.vehicle_type || 'Truck'}
+                          {v.model || meta.vehicleTypeSelect || '-'}
                         </td>
 
                         {/* 12. Chassis Number */}
