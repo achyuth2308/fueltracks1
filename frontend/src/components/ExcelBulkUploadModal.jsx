@@ -154,9 +154,9 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
         return {
           imei: r._imei || r['Device ID(IMEI)'] || '',
-          vehicleNumber: r._vehicleNo || r['Registration Number'] || r['Registration No'] || r['Vehicle Id'] || '',
-          vehicleName: r['Vehicle Name'] || r._vehicleNo,
-          vehicleId: r['Vehicle Id'] || '',
+          registrationNo: r['Registration Number'] || r['Registration No'] || r._vehicleNo || '',
+          vehicleName: r['Vehicle Name'] || r._vehicleNo || '',
+          vehicleId: r['Vehicle Id'] || r._vehicleNo || '',
           vehicleModel: r['Vehicle Model'] || '',
           vehicleTypeSelect: r['Vehicle Type'] || '',
           deviceType: cleanDeviceType,
