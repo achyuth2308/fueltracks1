@@ -476,6 +476,7 @@ const OnBoardDevicePage = () => {
                   <input
                     type="text" placeholder="Enter Username"
                     style={inputStyle}
+                    autoComplete="new-password"
                     value={newUser.username}
                     onChange={e => setNewUser({ ...newUser, username: e.target.value })}
                   />
@@ -485,6 +486,7 @@ const OnBoardDevicePage = () => {
                   <input
                     type="password" placeholder="Enter Password"
                     style={inputStyle}
+                    autoComplete="new-password"
                     value={newUser.password}
                     onChange={e => setNewUser({ ...newUser, password: e.target.value })}
                   />

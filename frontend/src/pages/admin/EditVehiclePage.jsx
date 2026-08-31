@@ -18,7 +18,7 @@ const labelStyle = {
   display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '8px'
 };
 
-const InputField = ({ label, type = "text", value, onChange, disabled, placeholder, onFocus, onBlur, focused }) => (
+const InputField = ({ label, type = "text", value, onChange, disabled, placeholder, onFocus, onBlur, focused, autoComplete }) => (
   <div>
     <label style={labelStyle}>{label}</label>
     <input
@@ -29,6 +29,7 @@ const InputField = ({ label, type = "text", value, onChange, disabled, placehold
       placeholder={placeholder}
       onFocus={onFocus}
       onBlur={onBlur}
+      autoComplete={autoComplete}
       style={{
         ...inputBaseStyle,
         background: disabled ? '#F1F5F9' : (focused ? '#FFFFFF' : '#F8FAFC'),
@@ -645,8 +646,8 @@ const EditVehiclePage = () => {
             <InputField label="Owner Location" value={form.metadata.rtoLocation || ''} onChange={e => updateMeta('rtoLocation', e.target.value)} placeholder="e.g. Hyderabad RTO" focused={focusedField === 'oLoc'} onFocus={() => setFocusedField('oLoc')} onBlur={() => setFocusedField(null)} />
             <InputField label="Owner Aadhar Number" value={form.metadata.aadharNo || ''} onChange={e => updateMeta('aadharNo', e.target.value)} placeholder="12-digit Aadhar KYC" focused={focusedField === 'adh'} onFocus={() => setFocusedField('adh')} onBlur={() => setFocusedField(null)} />
             <InputField label="Owner PAN Number" value={form.metadata.panNo || ''} onChange={e => updateMeta('panNo', e.target.value)} placeholder="10-digit PAN (ABCDE1234F)" focused={focusedField === 'pan'} onFocus={() => setFocusedField('pan')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Username" value={form.metadata.username || ''} onChange={e => updateMeta('username', e.target.value)} placeholder="Username" focused={focusedField === 'uname'} onFocus={() => setFocusedField('uname')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Password" type="password" value={form.metadata.password || ''} onChange={e => updateMeta('password', e.target.value)} placeholder="Password" focused={focusedField === 'pwd'} onFocus={() => setFocusedField('pwd')} onBlur={() => setFocusedField(null)} />
+            <InputField label="Username" value={form.metadata.username || ''} onChange={e => updateMeta('username', e.target.value)} placeholder="Username" focused={focusedField === 'uname'} onFocus={() => setFocusedField('uname')} onBlur={() => setFocusedField(null)} autoComplete="new-password" />
+            <InputField label="Password" type="password" value={form.metadata.password || ''} onChange={e => updateMeta('password', e.target.value)} placeholder="Password" focused={focusedField === 'pwd'} onFocus={() => setFocusedField('pwd')} onBlur={() => setFocusedField(null)} autoComplete="new-password" />
           </div>
         </SectionCard>
 
