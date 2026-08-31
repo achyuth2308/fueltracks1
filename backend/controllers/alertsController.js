@@ -13,12 +13,12 @@ const GpsModel = require('../models/gpsModel');
  */
 async function getAlerts(req, res, next) {
   try {
-    const { orgId } = req.user;
+    const { orgId, role, id: userId } = req.user;
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 200);
     const alertType = req.query.alertType || null;
 
-    const result = await GpsModel.getAlertsForOrg(orgId, { page, limit, alertType });
+    const result = await GpsModel.getAlertsForOrg(orgId, { page, limit, alertType, role, userId });
     res.json({ success: true, ...result });
   } catch (err) {
     next(err);

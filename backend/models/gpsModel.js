@@ -384,10 +384,10 @@ const GpsModel = {
   /**
    * Get paginated alerts for an org (user-facing history feed)
    */
-  async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType } = {}) {
+  async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType, role, userId } = {}) {
     // 1. Try Redis cache for default fetch
     const redisKey = `org:alerts:${orgId}`;
-    if (page === 1 && !alertType && limit <= 50) {
+    if (page === 1 && !alertType && limit <= 50 && role !== 'user') {
       try {
         const cached = await redis.lrange(redisKey, 0, limit - 1);
         if (cached && cached.length > 0) {
@@ -404,6 +404,14 @@ const GpsModel = {
     const offset = (page - 1) * limit;
     const params = [orgId];
     let typeFilter = '';
+    
+    // Add user filter
+    let userFilter = '';
+    if (role === 'user' && userId) {
+      params.push(userId);
+      userFilter = ` AND EXISTS (SELECT 1 FROM vehicle_groups vg JOIN user_groups ug ON vg.group_id = ug.group_id WHERE vg.vehicle_id = v.id AND ug.user_id = $${params.length})`;
+    }
+
     if (alertType) {
       const typeStr = alertType.toLowerCase();
       if (typeStr === 'geofence') {
@@ -425,7 +433,7 @@ const GpsModel = {
     const countResult = await db.query(
       `SELECT COUNT(*) FROM alerts a
        JOIN vehicles v ON a.vehicle_id = v.id
-       WHERE v.org_id = $1 ${typeFilter}`,
+       WHERE v.org_id = $1 ${userFilter} ${typeFilter}`,
       params
     );
     const total = parseInt(countResult.rows[0].count);
@@ -438,14 +446,14 @@ const GpsModel = {
               COALESCE(a.is_read, FALSE) as "isRead"
        FROM alerts a
        JOIN vehicles v ON a.vehicle_id = v.id
-       WHERE v.org_id = $1 ${typeFilter}
+       WHERE v.org_id = $1 ${userFilter} ${typeFilter}
        ORDER BY a.server_time DESC
        LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params
     );
 
     // 2. Populate Redis cache on miss
-    if (page === 1 && !alertType && result.rows.length > 0) {
+    if (page === 1 && !alertType && result.rows.length > 0 && role !== 'user') {
       try {
         const pipeline = redis.pipeline();
         pipeline.del(redisKey);
