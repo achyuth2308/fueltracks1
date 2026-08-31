@@ -261,6 +261,7 @@ const VehiclesAdminPage = () => {
               <option value="all">All Groups</option>
               {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
             </select>
+          )}
         </div>
       </div>
 
