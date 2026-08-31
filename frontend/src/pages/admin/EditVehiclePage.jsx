@@ -374,7 +374,7 @@ const EditVehiclePage = () => {
             <InputField label="Vehicle Model" value={form.metadata.vehicleModel || ''} onChange={e => updateMeta('vehicleModel', e.target.value)} placeholder="e.g. Tata Prima 3518" focused={focusedField === 'vModel'} onFocus={() => setFocusedField('vModel')} onBlur={() => setFocusedField(null)} />
             
             <SelectField
-              label="Device Model"
+              label="Device Type"
               value={form.deviceVersion}
               onChange={e => { updateField('deviceVersion', e.target.value); updateMeta('deviceModel', e.target.value); }}
               options={DEVICE_TYPES}
