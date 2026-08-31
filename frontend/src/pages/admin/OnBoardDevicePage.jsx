@@ -210,8 +210,8 @@ const OnBoardDevicePage = () => {
         ticketId: '',
         sensorNo: '',
         iccid: '',
-        vehicleVoltage: '12V',
-        timezone: 'UTC+05:30',
+        vehicleVoltage: '',
+        timezone: 'IST',
         ignitionDetection: 'ENGINE ON STATUS WITH IGNITION'
       });
     }
@@ -767,24 +767,23 @@ const OnBoardDevicePage = () => {
                                 </div>
                                 <div>
                                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Voltage</label>
-                                  <select
-                                    value={device.vehicleVoltage || '12V'}
+                                  <input
+                                    type="text" placeholder="e.g. 12V" value={device.vehicleVoltage || ''}
                                     onChange={(e) => updateDevice(idx, 'vehicleVoltage', e.target.value)}
                                     style={{ ...inputStyle, padding: '10px 14px' }}
-                                  >
-                                    <option value="12V">12V</option>
-                                    <option value="24V">24V</option>
-                                    <option value="36V">36V</option>
-                                    <option value="48V">48V</option>
-                                  </select>
+                                  />
                                 </div>
                                 <div>
                                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Timezone</label>
-                                  <input
-                                    type="text" placeholder="UTC+05:30" value={device.timezone || 'UTC+05:30'}
+                                  <select
+                                    value={device.timezone || 'IST'}
                                     onChange={(e) => updateDevice(idx, 'timezone', e.target.value)}
                                     style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
+                                  >
+                                    <option value="IST">IST</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="Asia/Kolkata">Asia/Kolkata</option>
+                                  </select>
                                 </div>
                                 <div>
                                   <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Ignition Detection</label>
