@@ -572,7 +572,7 @@ const OnBoardDevicePage = () => {
                     <tr style={{ background: '#F8FAFC', color: '#475569' }}>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>VLTD SLNO</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device ID(IMEI)</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Type</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle Id</th>
                       <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>Action</th>
@@ -590,7 +590,7 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
                             <input
-                              type="text" placeholder="Enter VLTD SLNO" value={device.deviceId}
+                              type="text" placeholder="Enter Device ID" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             />
