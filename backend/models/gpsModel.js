@@ -387,7 +387,7 @@ const GpsModel = {
   async getAlertsForOrg(orgId, { page = 1, limit = 50, alertType, role, userId } = {}) {
     // 1. Try Redis cache for default fetch
     const redisKey = `org:alerts:${orgId}`;
-    if (page === 1 && !alertType && limit <= 50 && role !== 'user') {
+    if (page === 1 && !alertType && limit <= 50 && role !== 'customer') {
       try {
         const cached = await redis.lrange(redisKey, 0, limit - 1);
         if (cached && cached.length > 0) {
@@ -407,7 +407,7 @@ const GpsModel = {
     
     // Add user filter
     let userFilter = '';
-    if (role === 'user' && userId) {
+    if (role === 'customer' && userId) {
       params.push(userId);
       userFilter = ` AND EXISTS (SELECT 1 FROM vehicle_groups vg JOIN user_groups ug ON vg.group_id = ug.group_id WHERE vg.vehicle_id = v.id AND ug.user_id = $${params.length})`;
     }
@@ -453,7 +453,7 @@ const GpsModel = {
     );
 
     // 2. Populate Redis cache on miss
-    if (page === 1 && !alertType && result.rows.length > 0 && role !== 'user') {
+    if (page === 1 && !alertType && result.rows.length > 0 && role !== 'customer') {
       try {
         const pipeline = redis.pipeline();
         pipeline.del(redisKey);
