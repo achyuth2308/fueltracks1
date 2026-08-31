@@ -446,7 +446,7 @@ const TrackingPage = ({ setAppVehicles }) => {
           {[
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },
             { type: 'idle', label: 'Idle', count: metrics.idle, color: '#eab308' },
-            { type: 'parked', label: 'Parked', count: metrics.parked, color: '#f97316' },
+            { type: 'parked', label: 'Parked', count: metrics.parked, color: '#64748B' },
             { type: 'offline', label: 'Offline', count: metrics.offline, color: '#6b7280' },
           ].map(pill => {
             const isActive = statusFilter === pill.type;
