@@ -1034,6 +1034,11 @@ option {
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
   border-bottom: 1px solid #e2e8f0 !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.pastel-table th:last-child {
+  border-right: none !important;
 }
 
 /* Like gradient alternating colors */
@@ -1055,6 +1060,11 @@ option {
 .pastel-table td {
   padding: 16px 20px !important;
   transition: background 0.2s !important;
+  border-right: 1px solid #e2e8f0 !important;
+}
+
+.pastel-table td:last-child {
+  border-right: none !important;
 }
 
 /* Subtle background for the entire column */

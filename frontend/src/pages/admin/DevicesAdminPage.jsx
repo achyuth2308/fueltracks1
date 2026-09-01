@@ -73,7 +73,7 @@ const DevicesAdminPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="pastel-page-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
@@ -167,16 +167,14 @@ const DevicesAdminPage = () => {
             </div>
           ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map((h, i) => (
+                    {['Sl.No', 'Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map((h, i) => (
                       <th key={h} style={{ 
                         padding: '16px 20px', 
                         fontSize: '12px', 
                         fontWeight: 700, 
-                        color: i % 2 === 0 ? '#1e40af' : '#4c1d95', 
-                        background: i % 2 === 0 ? '#dbeafe' : '#ede9fe',
                         textTransform: 'uppercase', 
                         letterSpacing: '0.05em' 
                       }}>
@@ -188,7 +186,7 @@ const DevicesAdminPage = () => {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ padding: '100px', textAlign: 'center' }}>
+                      <td colSpan="6" style={{ padding: '100px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
                           <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
                             <Server size={40} color="#94a3b8" />
@@ -198,7 +196,7 @@ const DevicesAdminPage = () => {
                         </div>
                       </td>
                     </tr>
-                  ) : filtered.map((d) => (
+                  ) : filtered.map((d, idx) => (
                     <tr
                       key={d.id}
                       style={{
@@ -209,6 +207,9 @@ const DevicesAdminPage = () => {
                       onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
+                      <td style={{ padding: '18px 20px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
+                        {idx + 1}
+                      </td>
                       <td style={{ padding: '18px 20px' }}>
                         <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{d.imei}</div>
                       </td>
