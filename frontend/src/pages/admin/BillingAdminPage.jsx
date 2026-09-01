@@ -94,7 +94,7 @@ const BillingAdminPage = () => {
   const expiredCount = licenses.filter(l => l.status === 'Expired').length;
 
   return (
-    <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="pastel-page-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
@@ -191,7 +191,7 @@ const BillingAdminPage = () => {
           ) : activeTab === 'licenses' ? (
             /* TAB 1: VEHICLE LICENSES & EXPIRY MANAGEMENT */
             <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {[
@@ -283,7 +283,7 @@ const BillingAdminPage = () => {
           ) : (
             /* TAB 2: TRANSACTION HISTORY */
             <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {[

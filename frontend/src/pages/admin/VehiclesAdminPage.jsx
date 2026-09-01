@@ -126,7 +126,7 @@ const VehiclesAdminPage = () => {
   }, {});
 
   return (
-    <div style={{ background: '#EEF5F8', minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
+    <div className="pastel-page-bg" style={{ minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
@@ -291,7 +291,7 @@ const VehiclesAdminPage = () => {
             </div>
           ) : (
             <div style={{ overflow: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#FAFAFA', zIndex: 10 }}>
                   <tr style={{ borderBottom: '1px solid #E2E8F0', fontSize: '11px', textTransform: 'uppercase', color: '#64748B', fontWeight: 700, letterSpacing: '0.05em' }}>
                     <th style={{ padding: '14px 12px', width: '50px', textAlign: 'center' }}>Sl.No</th>

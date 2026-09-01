@@ -1008,3 +1008,54 @@ option {
 .report-table th, .report-table td {
   border: 1px solid #E2E8F0;
 }
+/* ============================================================
+   PASTEL PROFESSIONAL THEME CLASSES
+   ============================================================ */
+.pastel-page-bg {
+  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important;
+}
+
+.pastel-card {
+  background: #FFFFFF !important;
+  border-radius: 16px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.03) !important;
+}
+
+.pastel-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pastel-table th {
+  padding: 16px 20px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Like gradient alternating colors */
+.pastel-table th:nth-child(odd) {
+  background: linear-gradient(to bottom right, #dbeafe, #eff6ff) !important;
+  color: #1e40af !important;
+}
+
+.pastel-table th:nth-child(even) {
+  background: linear-gradient(to bottom right, #ede9fe, #f5f3ff) !important;
+  color: #4c1d95 !important;
+}
+
+.pastel-table tr {
+  border-bottom: 1px solid #f1f5f9 !important;
+  transition: background 0.2s !important;
+}
+
+.pastel-table tr:hover {
+  background: #f8fafc !important;
+}
+
+.pastel-table td {
+  padding: 16px 20px !important;
+}
