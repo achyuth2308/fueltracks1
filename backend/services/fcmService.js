@@ -65,7 +65,6 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
   try {
     const message = {
       tokens,
-      notification: { title, body },
       data: Object.assign(
         { title, body },
         Object.fromEntries(
@@ -73,13 +72,7 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
         )
       ),
       android: { 
-        priority: 'high',
-        notification: {
-          channelId: 'fueltracks_alerts_v4',
-          sound: 'default',
-          icon: 'ic_notification',
-          color: '#4F6BFF'
-        }
+        priority: 'high'
       },
       apns: {
         payload: {

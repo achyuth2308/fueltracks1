@@ -551,6 +551,7 @@ async function start(io) {
               if (!alreadyFired) {
                 alertsToTrigger.push({
                   type: 'overspeed',
+                  speed: evalSpeed,
                   text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than ${overspeedDurationLimitMin} minutes.`
                 });
                 await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins so they aren't spammed continuously
@@ -649,6 +650,7 @@ async function start(io) {
             imei,
             alertType: triggered.type,
             alertText: triggered.text,
+            speed: triggered.speed,
             lat: evalLat,
             lng: evalLng,
             deviceTime: deviceTime || new Date().toISOString()

@@ -123,16 +123,28 @@ async function start(io) {
       try {
         const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, vehicleId, alertType.toLowerCase());
         if (fcmTokens.length > 0) {
-          const bodyText = alertText || `${vehicle.plate} triggered a ${alertType} alert.`;
-          const enhancedBody = `${bodyText}\n\nTime: ${timeStr}, ${dateStr}\nLoc: ${address}\nMaps: https://maps.google.com/?q=${lat},${lng}`;
+          const typeUpper = alertType.toUpperCase().replace(/_/g, ' ');
+          const shortAddress = address.split(',')[0].substring(0, 15) + '...';
+          
+          let fcmTitle = `${typeUpper}-${vehicle.plate}`;
+          let fcmBody = '';
+          
+          if (alertType.toLowerCase() === 'overspeed') {
+             const spd = alertPayload.speed ? Math.round(alertPayload.speed) : 0;
+             fcmBody = `${typeUpper} - ${spd} Km/h - ${vehicle.plate} ${dateStr} (${timeStr}) ${shortAddress}`;
+          } else {
+             fcmBody = `${typeUpper} - ${vehicle.plate} ${dateStr} (${timeStr}) ${shortAddress}`;
+          }
           
           await fcmService.sendMulticast(fcmTokens, {
-            title: `${alertType.replace(/_/g, ' ').toUpperCase()} — ${vehicle.name}`,
-            body: enhancedBody,
+            title: fcmTitle,
+            body: fcmBody,
             data: {
               vehicleId: String(vehicleId),
               alertType,
               alertId: String(alert.id),
+              lat: String(lat),
+              lng: String(lng)
             },
           });
         }
