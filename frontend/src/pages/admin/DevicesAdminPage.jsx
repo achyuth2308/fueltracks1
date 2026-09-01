@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck,
-  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Cpu
+  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download
 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import * as api from '../../api/adminApi';
@@ -73,13 +73,13 @@ const DevicesAdminPage = () => {
   };
 
   return (
-    <div className="colorful-mesh-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '32px', background: 'var(--bg-base)', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '-0.02em', textShadow: '0 2px 10px rgba(0,0,0,0.2)' }}>Device Inventory</h1>
-          <p style={{ fontSize: '15px', color: 'rgba(255, 255, 255, 0.85)', marginTop: '4px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
+          <h1 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.02em' }}>Device Inventory</h1>
+          <p style={{ fontSize: '14px', color: '#94A3B8', marginTop: '4px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
         </div>
 
         {/* Action Buttons */}
@@ -123,51 +123,52 @@ const DevicesAdminPage = () => {
       <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
 
         {/* List Card */}
-        <div className="glass-card-colorful" style={{
-          borderRadius: '20px', display: 'flex', flexDirection: 'column',
+        <div style={{
+          background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.2)', display: 'flex', flexDirection: 'column',
           flex: '100%', transition: 'all 0.3s ease', overflow: 'hidden'
         }}>
           {/* Search Bar */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.2)' }}>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-5 border-b" style={{ borderColor: 'var(--border)' }}>
             <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-              <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.7)' }} size={16} />
+              <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} size={16} />
               <input
                 type="text"
                 placeholder="Search IMEI, Vehicle, or Model..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="glass-input-colorful"
                 style={{
                   width: '100%', padding: '10px 14px 10px 38px',
-                  borderRadius: '12px',
-                  fontSize: '14px', outline: 'none', boxSizing: 'border-box'
+                  borderRadius: '10px', border: '1px solid var(--border-bright)',
+                  background: 'var(--bg-elevated)',
+                  fontSize: '14px', outline: 'none', color: 'var(--text-primary)', boxSizing: 'border-box'
                 }}
               />
             </div>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '14px', fontWeight: 600 }}>
-              <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total: <span style={{ color: '#FFFFFF' }}>{devices.length}</span></span>
-              <span style={{ color: 'rgba(255,255,255,0.8)' }}>Online: <span style={{ color: '#6ee7b7' }}>{devices.filter(d => d.is_online).length}</span></span>
+            <div style={{ display: 'flex', gap: '16px', fontSize: '13px', fontWeight: 600 }}>
+              <span style={{ color: '#94A3B8' }}>Total: <span style={{ color: 'var(--text-primary)' }}>{devices.length}</span></span>
+              <span style={{ color: '#94A3B8' }}>Online: <span style={{ color: '#10B981' }}>{devices.filter(d => d.is_online).length}</span></span>
             </div>
           </div>
 
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#FFFFFF" className="animate-spin" />
-              <span style={{ fontSize: '15px', color: 'rgba(255,255,255,0.8)', marginTop: '12px' }}>Loading inventory...</span>
+              <Loader2 size={32} color="#f97316" className="animate-spin" />
+              <span style={{ fontSize: '14px', color: '#94A3B8', marginTop: '12px' }}>Loading inventory...</span>
             </div>
           ) : error ? (
             <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
-              <AlertTriangle size={32} color="#fca5a5" style={{ margin: '0 auto 12px' }} />
-              <div style={{ fontSize: '16px', fontWeight: 600, color: '#FFFFFF' }}>Failed to Load Records</div>
-              <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', marginTop: '4px' }}>{error}</div>
+              <AlertTriangle size={32} color="#EF4444" style={{ margin: '0 auto 12px' }} />
+              <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text-primary)' }}>Failed to Load Records</div>
+              <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>{error}</div>
             </div>
           ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: 'rgba(0,0,0,0.15)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <tr style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
                     {['Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.9)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
                       </th>
                     ))}
@@ -177,10 +178,10 @@ const DevicesAdminPage = () => {
                   {filtered.length === 0 ? (
                     <tr>
                       <td colSpan="5" style={{ padding: '80px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
-                          <Server size={48} color="rgba(255,255,255,0.5)" style={{ marginBottom: '16px' }} />
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF' }}>No devices found</div>
-                          <div style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '4px' }}>Awaiting device configuration.</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                          <Server size={48} color="#64748b" style={{ marginBottom: '16px' }} />
+                          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-primary)' }}>No devices found</div>
+                          <div style={{ fontSize: '14px', color: '#94A3B8', marginTop: '4px' }}>Awaiting device configuration.</div>
                         </div>
                       </td>
                     </tr>
@@ -188,43 +189,35 @@ const DevicesAdminPage = () => {
                     <tr
                       key={d.id}
                       style={{
-                        borderBottom: '1px solid rgba(255,255,255,0.08)', cursor: 'default',
+                        borderBottom: '1px solid var(--border)', cursor: 'default',
                         background: 'transparent',
                         transition: 'background 0.2s'
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--bg-card-hover)'; }}
                       onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                     >
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'monospace' }}>{d.imei}</div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'monospace' }}>{d.imei}</div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.1)', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 600, color: '#FFFFFF' }}>
-                          <Cpu size={12} />
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#94A3B8', fontWeight: 500 }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'var(--bg-elevated)', border: '1px solid var(--border)', padding: '4px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          <Server size={12} color="#f97316" />
                           {d.type}
                         </div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Truck size={16} color="#FFFFFF" />
-                          </div>
-                          <div>
-                            <div style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>{d.vehicle_name}</div>
-                            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>{d.org_name}</div>
-                          </div>
-                        </div>
+                      <td style={{ padding: '16px 20px', fontSize: '13px', color: 'var(--text-primary)', fontWeight: 600 }}>
+                        {d.vehicle_name || 'Unassigned'}
                       </td>
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600, color: d.is_online ? '#6ee7b7' : 'rgba(255,255,255,0.5)' }}>
-                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.is_online ? '#10B981' : 'rgba(255,255,255,0.3)', boxShadow: d.is_online ? '0 0 8px #10B981' : 'none' }}></div>
-                          {d.is_online ? 'Online' : 'Offline'}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: d.is_online ? '#10B981' : '#64748b', boxShadow: d.is_online ? '0 0 8px rgba(16,185,129,0.5)' : 'none' }} />
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: d.is_online ? '#10B981' : '#94A3B8' }}>
+                            {d.is_online ? 'Online' : 'Offline'}
+                          </span>
                         </div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
-                          {d.last_update ? new Date(d.last_update).toLocaleTimeString() : 'Never'}
-                        </div>
+                      <td style={{ padding: '16px 20px', fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>
+                        {d.last_update ? new Date(d.last_update).toLocaleTimeString() : 'Never'}
                       </td>
                     </tr>
                   ))}

@@ -1008,29 +1008,3 @@ option {
 .report-table th, .report-table td {
   border: 1px solid #E2E8F0;
 }
-@keyframes colorMesh {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-.colorful-mesh-bg {
-  background: linear-gradient(-45deg, #FF3366, #FF9933, #33CC99, #3399FF, #9933FF);
-  background-size: 400% 400%;
-  animation: colorMesh 15s ease infinite;
-}
-.glass-card-colorful {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
-}
-.glass-input-colorful {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: #fff;
-}
-.glass-input-colorful::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-}
-
