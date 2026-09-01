@@ -407,7 +407,7 @@ const VehicleDetailPage = () => {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><User size={14} /> Driver</div>
+              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><User size={14} /> Owner Name</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
                 {vehicle.driver_name || '—'}
               </div>
