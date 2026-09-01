@@ -1049,13 +1049,28 @@ option {
 
 .pastel-table tr {
   border-bottom: 1px solid #f1f5f9 !important;
-  transition: background 0.2s !important;
-}
-
-.pastel-table tr:hover {
-  background: #f8fafc !important;
+  transition: all 0.2s !important;
 }
 
 .pastel-table td {
   padding: 16px 20px !important;
+  transition: background 0.2s !important;
+}
+
+/* Subtle background for the entire column */
+.pastel-table td:nth-child(odd) {
+  background: rgba(219, 234, 254, 0.25) !important; /* Soft blue tint */
+}
+
+.pastel-table td:nth-child(even) {
+  background: rgba(237, 233, 254, 0.25) !important; /* Soft purple tint */
+}
+
+/* Hover effects */
+.pastel-table tr:hover td:nth-child(odd) {
+  background: rgba(219, 234, 254, 0.5) !important;
+}
+
+.pastel-table tr:hover td:nth-child(even) {
+  background: rgba(237, 233, 254, 0.5) !important;
 }
