@@ -73,41 +73,44 @@ function App() {
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
 
-              {/* Admin Protected Routes (Strictly Superadmin/Dealer) */}
-              <Route path="admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><Outlet /></ProtectedRoute>}>
-                {/* Admin roster management grids */}
-                <Route path="organizations" element={<OrgsAdminPage />} />
-                <Route path="users" element={<UsersAdminPage />} />
-                <Route path="groups" element={<GroupsAdminPage />} />
-                <Route path="vehicles" element={<VehiclesAdminPage />} />
-                <Route path="vehicles/add" element={<EditVehiclePage />} />
-                <Route path="vehicles/new" element={<EditVehiclePage />} />
-                <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
-                <Route path="vehicles/migration/:id" element={<MigrationPage />} />
-                <Route path="devices" element={<DevicesAdminPage />} />
-                <Route path="billing" element={<BillingAdminPage />} />
+              {/* Admin Protected Routes */}
+              <Route path="admin">
+                {/* Strictly Superadmin/Dealer */}
+                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><Outlet /></ProtectedRoute>}>
+                  {/* Admin roster management grids */}
+                  <Route path="organizations" element={<OrgsAdminPage />} />
+                  <Route path="users" element={<UsersAdminPage />} />
+                  <Route path="groups" element={<GroupsAdminPage />} />
+                  <Route path="vehicles" element={<VehiclesAdminPage />} />
+                  <Route path="vehicles/add" element={<EditVehiclePage />} />
+                  <Route path="vehicles/new" element={<EditVehiclePage />} />
+                  <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
+                  <Route path="vehicles/migration/:id" element={<MigrationPage />} />
+                  <Route path="devices" element={<DevicesAdminPage />} />
+                  <Route path="billing" element={<BillingAdminPage />} />
 
-                <Route path="profile" element={<OrganizationProfilePage />} />
-                <Route path="audit-logs" element={<AuditLogsAdminPage />} />
-                <Route path="settings" element={<SettingsAdminPage />} />
-              </Route>
+                  <Route path="profile" element={<OrganizationProfilePage />} />
+                  <Route path="audit-logs" element={<AuditLogsAdminPage />} />
+                  <Route path="settings" element={<SettingsAdminPage />} />
+                </Route>
 
-              {/* Shared Protected Routes (All authenticated users including customers) */}
-              <Route path="admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']}><Outlet /></ProtectedRoute>}>
-                {/* System and Integrations */}
-                <Route path="fuel" element={<FuelAdminPage />} />
-                <Route path="alerts" element={<AlertsAdminPage />} />
-                <Route path="geofences" element={<GeofencesAdminPage />} />
-                <Route path="reports" element={<ReportsAdminPage />}>
-                  <Route path="trip" element={<TripReportPage />} />
-                  <Route path="distance" element={<DailyDistanceReportPage />} />
-                  <Route path="route" element={<RouteHistoryReportPage />} />
-                  <Route path="overspeeding" element={<OverspeedingReportPage />} />
-                  <Route path="stoppage" element={<StoppageReportPage />} />
-                  <Route path="idle" element={<IdleReportPage />} />
-                  <Route path="consolidated" element={<ConsolidatedReportPage />} />
-                  <Route path="individual" element={<IndividualReportPage />} />
-                  <Route path="manual-trips" element={<ManualTripsReportPage />} />
+                {/* Shared Protected Routes (All authenticated users including customers) */}
+                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']}><Outlet /></ProtectedRoute>}>
+                  {/* System and Integrations */}
+                  <Route path="fuel" element={<FuelAdminPage />} />
+                  <Route path="alerts" element={<AlertsAdminPage />} />
+                  <Route path="geofences" element={<GeofencesAdminPage />} />
+                  <Route path="reports" element={<ReportsAdminPage />}>
+                    <Route path="trip" element={<TripReportPage />} />
+                    <Route path="distance" element={<DailyDistanceReportPage />} />
+                    <Route path="route" element={<RouteHistoryReportPage />} />
+                    <Route path="overspeeding" element={<OverspeedingReportPage />} />
+                    <Route path="stoppage" element={<StoppageReportPage />} />
+                    <Route path="idle" element={<IdleReportPage />} />
+                    <Route path="consolidated" element={<ConsolidatedReportPage />} />
+                    <Route path="individual" element={<IndividualReportPage />} />
+                    <Route path="manual-trips" element={<ManualTripsReportPage />} />
+                  </Route>
                 </Route>
               </Route>
 
