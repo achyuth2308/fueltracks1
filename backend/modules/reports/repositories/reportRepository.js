@@ -329,7 +329,7 @@ class ReportRepository {
           SELECT *,
               ${HAVERSINE_SEGMENT_KM} AS segment_km,
               COALESCE(fuel - prev_fuel, 0) AS fuel_diff,
-              GREATEST(5.0, LEAST(30.0, COALESCE((metadata->>'tankSize')::numeric, 100) * 0.05)) AS fuel_threshold
+              GREATEST(5.0, LEAST(30.0, COALESCE(NULLIF(metadata->>'tankSize', '')::numeric, 100) * 0.05)) AS fuel_threshold
           FROM raw
       ),
       aggregated AS (
