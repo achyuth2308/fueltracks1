@@ -91,7 +91,7 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
-        const data = XLSX.utils.sheet_to_json(ws, { raw: false });
+        const data = XLSX.utils.sheet_to_json(ws, { raw: true });
 
         if (!data || data.length === 0) {
           alert('Uploaded Excel sheet is empty.');
