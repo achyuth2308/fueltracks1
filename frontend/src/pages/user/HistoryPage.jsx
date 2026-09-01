@@ -243,8 +243,29 @@ const HistoryPage = () => {
         // Ensure chronological
         const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
         
+        // Static Drift Filter: Removes GPS starburst clusters when parked
+        const driftFiltered = [];
+        let lastValid = null;
+        for (const p of sorted) {
+          if (!lastValid) {
+            driftFiltered.push(p);
+            lastValid = p;
+            continue;
+          }
+          // A vehicle is considered "moving" if speed > 3 km/h or ignition is ON.
+          const isMoving = p.speed > 3 || p.ignition;
+          const wasMoving = lastValid.speed > 3 || lastValid.ignition;
+          
+          // We keep moving points, AND the first stopped point (so we know where it parked),
+          // but we drop all subsequent stopped points to prevent GPS starburst drift.
+          if (isMoving || wasMoving) {
+            driftFiltered.push(p);
+            lastValid = p;
+          }
+        }
+
         let cumulativeDist = 0;
-        const withDist = sorted.map((p, idx, arr) => {
+        const withDist = driftFiltered.map((p, idx, arr) => {
           if (idx > 0) {
             const segDist = calculateDistance(
               parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng),
