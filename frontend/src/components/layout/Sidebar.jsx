@@ -44,7 +44,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer'] },
         { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
-        { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
         { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
       ],
