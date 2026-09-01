@@ -44,3 +44,14 @@ export const formatDirection = (course) => {
 };
 
 
+
+export const expandScientificNotation = (val) => {
+  if (typeof val === 'string' && val.toUpperCase().includes('E+')) {
+    const num = Number(val);
+    if (!isNaN(num)) {
+      // Use BigInt if possible to prevent floating point e-notation on very large numbers
+      try { return BigInt(num).toString(); } catch (e) { return num.toString(); }
+    }
+  }
+  return val;
+};

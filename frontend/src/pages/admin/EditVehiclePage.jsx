@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
+import { expandScientificNotation } from '../../utils/formatUtils';
 
 const inputBaseStyle = {
   width: '100%', padding: '12px 16px', borderRadius: '10px',
@@ -190,14 +191,19 @@ const EditVehiclePage = () => {
             driverPhone: v.driver_phone || meta.ownerPhone || '',
             category: v.category || 'General',
             serverName: v.server_name || '',
-            gpsSimNo: v.gps_sim_no || meta.sim1 || '',
+            gpsSimNo: expandScientificNotation(v.gps_sim_no || meta.sim1 || ''),
             deviceVersion: v.device_version || meta.deviceModel || 'VOLTY',
             timezone: v.timezone || meta.timezone || 'IST',
             apn: v.apn || '',
             orgId: v.org_id || '',
             licenceIssuedDate: v.licence_issued_date ? new Date(v.licence_issued_date).toISOString().split('T')[0] : '',
             licenceExpireDate: v.licence_expire_date ? new Date(v.licence_expire_date).toISOString().split('T')[0] : '',
-            metadata: { ...form.metadata, ...meta }
+            metadata: { 
+              ...meta,
+              sim2: expandScientificNotation(meta.sim2 || ''),
+              iccid: expandScientificNotation(meta.iccid || ''),
+              vltdSlno: expandScientificNotation(meta.vltdSlno || '')
+            }
           });
           if (v.groups && Array.isArray(v.groups)) {
             setSelectedGroupIds(v.groups.map(g => g.id));
