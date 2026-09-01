@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import { io } from 'socket.io-client';
 import { AuthContext } from './AuthContext';
 
@@ -51,33 +51,33 @@ export const SocketProvider = ({ children }) => {
     }
   }, [isAuthenticated]);
 
-  const joinVehicleRoom = (vehicleId) => {
+  const joinVehicleRoom = useCallback((vehicleId) => {
     if (socket && connected) {
       console.log(`[SOCKET] Requesting join for vehicle:${vehicleId}`);
       socket.emit('join:vehicle', { vehicleId });
     }
-  };
+  }, [socket, connected]);
 
-  const leaveVehicleRoom = (vehicleId) => {
+  const leaveVehicleRoom = useCallback((vehicleId) => {
     if (socket && connected) {
       console.log(`[SOCKET] Requesting leave for vehicle:${vehicleId}`);
       socket.emit('leave:vehicle', { vehicleId });
     }
-  };
+  }, [socket, connected]);
 
-  const joinOrgRoom = (targetOrgId) => {
+  const joinOrgRoom = useCallback((targetOrgId) => {
     if (socket && connected) {
       console.log(`[SOCKET] Requesting join for org:${targetOrgId}`);
       socket.emit('join:org', { targetOrgId });
     }
-  };
+  }, [socket, connected]);
 
-  const leaveOrgRoom = (targetOrgId) => {
+  const leaveOrgRoom = useCallback((targetOrgId) => {
     if (socket && connected) {
       console.log(`[SOCKET] Requesting leave for org:${targetOrgId}`);
       socket.emit('leave:org', { targetOrgId });
     }
-  };
+  }, [socket, connected]);
 
   return (
     <SocketContext.Provider

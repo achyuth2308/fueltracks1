@@ -49,10 +49,10 @@ const server = http.createServer(app);
 
 const isDev = env.NODE_ENV !== 'production';
 
-// General API limiter — 10,000 requests in dev, 200 in prod per 15 mins per IP
+// General API limiter - 10,000 requests in dev, 5,000 in prod per 15 mins per IP
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 200,
+  max: isDev ? 10000 : 5000,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -62,10 +62,10 @@ const apiLimiter = rateLimit({
   },
 });
 
-// Strict limiter for auth endpoints — 1,000 in dev, 20 in prod per 15 mins
+// Strict limiter for auth endpoints - 1,000 in dev, 200 in prod per 15 mins
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 1000 : 20,
+  max: isDev ? 1000 : 200,
   standardHeaders: true,
   legacyHeaders: false,
   message: {
