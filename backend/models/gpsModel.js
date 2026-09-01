@@ -649,6 +649,9 @@ const GpsModel = {
              JOIN vehicle_groups vg ON ug.group_id = vg.group_id
              WHERE ug.user_id = u.id AND vg.vehicle_id = $3
            )
+           OR NOT EXISTS (
+             SELECT 1 FROM user_groups WHERE user_id = u.id
+           )
          )`,
       [orgId, prefKey, vehicleId]
     );
