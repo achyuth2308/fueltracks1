@@ -32,9 +32,9 @@ export const getVehicleStatus = (vehicle = {}) => {
 };
 
 export const STATUS_CONFIG = {
-  running: { color: '#16a34a', label: 'Running', pulse: true },
-  idle: { color: '#eab308', label: 'Idle', pulse: false },
-  parked: { color: '#f97316', label: 'Parked', pulse: false },
+  running: { color: '#10b981', label: 'Running', pulse: true },
+  idle: { color: '#f59e0b', label: 'Idle', pulse: false },
+  parked: { color: '#64748B', label: 'Parked', pulse: false },
   offline: { color: '#ef4444', label: 'Offline', pulse: false },
 };
 
