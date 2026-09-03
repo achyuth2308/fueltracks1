@@ -636,7 +636,16 @@ const GpsModel = {
        FROM user_fcm_tokens t
        JOIN users u ON t.user_id = u.id
        LEFT JOIN user_alert_preferences p ON p.user_id = u.id
-       WHERE (u.org_id = $1 OR u.role = 'superadmin')
+       WHERE (
+           u.org_id = $1 
+           OR u.role = 'superadmin'
+           OR EXISTS (
+             SELECT 1
+             FROM user_groups ug
+             JOIN vehicle_groups vg ON ug.group_id = vg.group_id
+             WHERE ug.user_id = u.id AND vg.vehicle_id = $3
+           )
+         )
          AND (
            p.preferences IS NULL
            OR COALESCE((p.preferences->$2)::text, 'true') != 'false'

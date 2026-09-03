@@ -205,17 +205,17 @@ const VehicleModel = {
   /**
    * Create a new vehicle (IMEI is required!)
    */
-  async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category }) {
+  async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining }) {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
 
       // Insert vehicle
       const result = await client.query(
-        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata, category)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata, category, is_sand_mining)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING *`,
-        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}, category || 'General']
+        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}, category || 'General', isSandMining || false]
       );
       const vehicle = result.rows[0];
 
@@ -239,7 +239,7 @@ const VehicleModel = {
   /**
    * Update vehicle
    */
-  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category }) {
+  async update(vehicleId, { name, plate, model, driverName, driverPhone, isActive, orgId, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -248,6 +248,7 @@ const VehicleModel = {
     if (plate !== undefined) { fields.push(`plate = $${paramIndex++}`); values.push(plate); }
     if (model !== undefined) { fields.push(`model = $${paramIndex++}`); values.push(model); }
     if (driverName !== undefined) { fields.push(`driver_name = $${paramIndex++}`); values.push(driverName); }
+    if (isSandMining !== undefined) { fields.push(`is_sand_mining = $${paramIndex++}`); values.push(isSandMining); }
     if (driverPhone !== undefined) { fields.push(`driver_phone = $${paramIndex++}`); values.push(driverPhone); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
     if (orgId !== undefined) { fields.push(`org_id = $${paramIndex++}`); values.push(orgId); }

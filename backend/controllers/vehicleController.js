@@ -101,7 +101,7 @@ const VehicleController = {
    */
   async createVehicle(req, res, next) {
     try {
-      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category } = req.body;
+      const { imei, name, plate, model, driverName, driverPhone, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining } = req.body;
 
       if (!imei || !/^\d{15}$/.test(imei)) {
         return res.status(400).json({
@@ -151,8 +151,14 @@ const VehicleController = {
         licenceIssuedDate,
         licenceExpireDate,
         metadata,
-        category: category || 'General'
+        category: category || 'General',
+        isSandMining: isSandMining === true
       });
+
+      // Sync to Redis
+      if (isSandMining === true) {
+        await redis.sadd('volty:mining_imeis', imei);
+      }
 
       // Assign to groups if provided
       if (groupIds && Array.isArray(groupIds)) {
@@ -198,7 +204,7 @@ const VehicleController = {
   async updateVehicle(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category } = req.body;
+      const { name, plate, model, driverName, driverPhone, isActive, orgId, groupIds, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining } = req.body;
 
       if (!name || name.trim() === '') {
         return res.status(400).json({
@@ -290,8 +296,18 @@ const VehicleController = {
         licenceIssuedDate,
         licenceExpireDate,
         metadata: finalMetadata,
-        category
+        category,
+        isSandMining
       });
+
+      // Sync to Redis
+      if (isSandMining !== undefined) {
+        if (isSandMining) {
+          await redis.sadd('volty:mining_imeis', oldVehicle.imei);
+        } else {
+          await redis.srem('volty:mining_imeis', oldVehicle.imei);
+        }
+      }
 
       // Update group assignments if provided
       if (groupIds && Array.isArray(groupIds)) {

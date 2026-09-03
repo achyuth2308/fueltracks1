@@ -147,7 +147,7 @@ const EditVehiclePage = () => {
   // Form State
   const [form, setForm] = useState({
     imei: '', name: '', plate: '', model: 'Truck', make: '', driverName: '', driverPhone: '',
-    category: 'General',
+    category: 'General', isSandMining: false,
     serverName: '', gpsSimNo: '', deviceVersion: 'VOLTY', timezone: 'IST', apn: '',
     licenceIssuedDate: '', licenceExpireDate: '', orgId: '',
     metadata: {
@@ -190,6 +190,7 @@ const EditVehiclePage = () => {
             driverName: v.driver_name || meta.ownerName || '',
             driverPhone: v.driver_phone || meta.ownerPhone || '',
             category: v.category || 'General',
+            isSandMining: v.is_sand_mining || false,
             serverName: v.server_name || '',
             gpsSimNo: expandScientificNotation(v.gps_sim_no || meta.sim1 || ''),
             deviceVersion: v.device_version || meta.deviceModel || 'VOLTY',
@@ -260,6 +261,7 @@ const EditVehiclePage = () => {
         apn: form.apn,
         licenceIssuedDate: form.licenceIssuedDate,
         licenceExpireDate: form.licenceExpireDate,
+        isSandMining: form.isSandMining,
         metadata: {
           ...form.metadata,
           sim1: form.gpsSimNo,
@@ -489,6 +491,15 @@ const EditVehiclePage = () => {
               onFocus={() => setFocusedField('cat')}
               onBlur={() => setFocusedField(null)}
             />
+
+            {/* Sand Mining Filter Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Enable Sand Mining</span>
+                <span style={{ fontSize: '11px', color: '#64748B' }}>Forward live data to Voltysoft server</span>
+              </div>
+              <ToggleButton active={form.isSandMining ? 'YES' : 'NO'} onChange={(val) => updateField('isSandMining', val === 'YES')} />
+            </div>
           </div>
         </SectionCard>
 

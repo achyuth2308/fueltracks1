@@ -126,14 +126,19 @@ async function start(io) {
           const typeUpper = alertType.toUpperCase().replace(/_/g, ' ');
           const shortAddress = address.split(',')[0].substring(0, 15) + '...';
           
-          let fcmTitle = `${typeUpper}-${vehicle.plate}`;
+          const vehicleDisplay = vehicle.name || vehicle.plate || 'Unknown Vehicle';
+          let fcmTitle = `${typeUpper}-${vehicleDisplay}`;
           let fcmBody = '';
           
           if (alertType.toLowerCase() === 'overspeed') {
-             const spd = alertPayload.speed ? Math.round(alertPayload.speed) : 0;
-             fcmBody = `${typeUpper} - ${spd} Km/h - ${vehicle.plate} ${dateStr} (${timeStr}) ${shortAddress}`;
+             // alertText usually contains the speed info e.g. "Overspeeding at 75 km/h"
+             // Or we can parse data.alertPayload if it exists in the message
+             const payload = data.alertPayload || {};
+             const spd = payload.speed ? Math.round(payload.speed) : 0;
+             const spdStr = spd > 0 ? ` - ${spd} Km/h` : '';
+             fcmBody = `${typeUpper}${spdStr} - ${vehicleDisplay} ${dateStr} (${timeStr}) ${shortAddress}`;
           } else {
-             fcmBody = `${typeUpper} - ${vehicle.plate} ${dateStr} (${timeStr}) ${shortAddress}`;
+             fcmBody = `${typeUpper} - ${vehicleDisplay} ${dateStr} (${timeStr}) ${shortAddress}`;
           }
           
           await fcmService.sendMulticast(fcmTokens, {

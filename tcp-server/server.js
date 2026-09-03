@@ -25,6 +25,7 @@ const protocolStats = {
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
+const voltyRelay = require('./voltyRelay');
 
 const BSTPL_PORT    = process.env.TCP_PORT || 5000;
 const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
@@ -387,6 +388,14 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
 
     if (parsed.imei) {
       publisher.publishRawMessage(parsed).catch(err => console.error('[RAW-LOG] Publish failed:', err.message));
+      
+      // RELAY TO VOLTYSOFT
+      // Only forward if the vehicle is explicitly marked for Sand Mining
+      publisher.sismember('volty:mining_imeis', parsed.imei).then(isMining => {
+        if (isMining === 1) {
+          voltyRelay.forwardToVoltysoft(parsed.imei, raw);
+        }
+      }).catch(err => console.error('[TCP RELAY] Redis check failed:', err.message));
     }
 
     // Process based on packet type

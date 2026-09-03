@@ -84,6 +84,7 @@ CREATE TABLE vehicles (
   licence_expire_date DATE,
   is_active   BOOLEAN DEFAULT TRUE,
   metadata    JSONB DEFAULT '{}'::jsonb,
+  is_sand_mining BOOLEAN DEFAULT false,
   created_at  TIMESTAMP DEFAULT NOW(),
   updated_at  TIMESTAMP DEFAULT NOW()
 );
