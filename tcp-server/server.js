@@ -391,7 +391,7 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       
       // RELAY TO VOLTYSOFT
       // Only forward if the vehicle is explicitly marked for Sand Mining
-      publisher.sismember('volty:mining_imeis', parsed.imei).then(isMining => {
+      publisher.getClient().sismember('volty:mining_imeis', parsed.imei).then(isMining => {
         if (isMining === 1) {
           voltyRelay.forwardToVoltysoft(parsed.imei, raw);
         }

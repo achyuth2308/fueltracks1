@@ -259,4 +259,4 @@ async function close() {
   }
 }
 
-module.exports = { init, publishLocation, publishHeartbeat, publishAlert, publishRawMessage, close };
+module.exports = { init, publishLocation, publishHeartbeat, publishAlert, publishRawMessage, close, getClient: () => publisher };
