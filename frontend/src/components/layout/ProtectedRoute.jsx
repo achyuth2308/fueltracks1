@@ -1,10 +1,10 @@
 import React, { useContext } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
 import { AuthContext } from '../../context/AuthContext';
 
 /**
  * A wrapper for routes that require specific roles.
- * Usage: <Route path="/admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><AdminPage /></ProtectedRoute>} />
+ * Usage: <Route path="/admin" element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']} />} />
  */
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, isAuthenticated, loading } = useContext(AuthContext);
@@ -26,7 +26,7 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return children;
+  return children ? children : <Outlet />;
 };
 
 export default ProtectedRoute;

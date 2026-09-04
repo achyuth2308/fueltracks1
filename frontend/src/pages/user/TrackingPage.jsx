@@ -107,7 +107,13 @@ const TrackingPage = ({ setAppVehicles }) => {
 
   useEffect(() => {
     if (vehicles && setAppVehicles) {
-      setAppVehicles(vehicles);
+      setAppVehicles(prev => {
+        if (!prev || prev.length !== vehicles.length) return vehicles;
+        const prevOnline = prev.filter(v => v.is_online).length;
+        const currOnline = vehicles.filter(v => v.is_online).length;
+        if (prevOnline !== currOnline) return vehicles;
+        return prev;
+      });
     }
   }, [vehicles, setAppVehicles]);
 

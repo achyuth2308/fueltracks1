@@ -42,7 +42,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Geofences & Routes', path: '/admin/geofences', icon: ShieldAlert, roles: ['customer'] },
         { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer'] },
-        { name: 'Reports', path: '/admin/reports', icon: FileText, roles: ['customer'] },
+        { name: 'Reports', path: '/admin/reports/trip', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
@@ -149,6 +149,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                     customIsActive = location.pathname === itemPathBase && location.search.includes(itemSearch);
                   } else if (item.path === '/admin/audit-logs') {
                     customIsActive = location.pathname === item.path && !location.search.includes('archived=true');
+                  } else if (item.name === 'Reports') {
+                    customIsActive = location.pathname.startsWith('/admin/reports');
                   } else {
                     customIsActive = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path + '/'));
                   }

@@ -76,7 +76,7 @@ function App() {
               {/* Admin Protected Routes */}
               <Route path="admin">
                 {/* Strictly Superadmin/Dealer */}
-                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']}><Outlet /></ProtectedRoute>}>
+                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']} />}>
                   {/* Admin roster management grids */}
                   <Route path="organizations" element={<OrgsAdminPage />} />
                   <Route path="users" element={<UsersAdminPage />} />
@@ -95,12 +95,14 @@ function App() {
                 </Route>
 
                 {/* Shared Protected Routes (All authenticated users including customers) */}
-                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']}><Outlet /></ProtectedRoute>}>
+                <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']} />}>
                   {/* System and Integrations */}
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<GeofencesAdminPage />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
+                    <Route index element={<Navigate to="trip" replace />} />
+                    <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
                     <Route path="distance" element={<DailyDistanceReportPage />} />
                     <Route path="route" element={<RouteHistoryReportPage />} />

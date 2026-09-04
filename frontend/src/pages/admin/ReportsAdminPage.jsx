@@ -49,12 +49,24 @@ const MetricCard = ({ label, value, color, icon: Icon, bg }) => (
   </div>
 );
 
+const TH = ({ children, align = 'left' }) => (
+  <th style={{ padding: '16px 20px', fontSize: '10px', fontWeight: 800, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #F1F5F9', textAlign: align, background: '#F8FAFC' }}>
+    {children}
+  </th>
+);
+
+const TD = ({ children, align = 'left', style = {} }) => (
+  <td style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', color: '#334155', fontSize: '13px', textAlign: align, fontWeight: 500, ...style }}>
+    {children}
+  </td>
+);
+
 const ReportsAdminPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
   const { vehicles, loading, error, refetch } = useVehicles();
-  const activeTab = location.pathname === '/admin/reports' ? 'dashboard' : 'other-reports';
+  const activeTab = location.pathname === '/admin/reports/dashboard' ? 'dashboard' : 'other-reports';
   const [searchQuery, setSearchQuery] = useState('');
 
   const metrics = useMemo(() => {
@@ -99,23 +111,11 @@ const ReportsAdminPage = () => {
     letterSpacing: '0.02em'
   });
 
-  const TH = ({ children, align = 'left' }) => (
-    <th style={{ padding: '16px 20px', fontSize: '10px', fontWeight: 800, color: '#111827', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid #F1F5F9', textAlign: align, background: '#F8FAFC' }}>
-      {children}
-    </th>
-  );
-
-  const TD = ({ children, align = 'left', style = {} }) => (
-    <td style={{ padding: '14px 20px', borderBottom: '1px solid #F1F5F9', color: '#334155', fontSize: '13px', textAlign: align, fontWeight: 500, ...style }}>
-      {children}
-    </td>
-  );
-
   return (
     <div style={{ padding: '0', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 32px' }}>
-        <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports')}>Fleet Dashboard</button>
+        <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports/dashboard')}>Fleet Dashboard</button>
         <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/trip')}>Analytics & Reports</button>
       </div>
 
