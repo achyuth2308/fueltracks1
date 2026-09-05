@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
 import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
@@ -375,15 +378,8 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 // ── Dynamic Vehicle Markers Layer ──────────────────────────────────────
 const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
   const map = useMap();
-  const [zoom, setZoom] = useState(map.getZoom());
 
-  useEffect(() => {
-    const onZoom = () => setZoom(map.getZoom());
-    map.on('zoomend', onZoom);
-    return () => { map.off('zoomend', onZoom); };
-  }, [map]);
-
-  // ── Step 1: resolve / validate every vehicle's coordinates ──────────
+  // Step 1: resolve / validate every vehicle's coordinates
   const resolved = vehicles.map((vehicle, idx) => {
     let finalLat = parseFloat(vehicle.lat);
     let finalLng = parseFloat(vehicle.lng);
@@ -396,61 +392,39 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
       finalLat = 17.3411 + (idx * 0.003);
       finalLng = 78.5317 + (idx * 0.003);
     }
-    return { vehicle, finalLat, finalLng, hasValidCoords, origIdx: idx, _clusterRank: 0 };
+    return { vehicle, finalLat, finalLng, hasValidCoords };
   });
 
-  // ── Step 2: Screen-space visual height spread ──────────────────────
-  const PIXEL_THRESHOLD = 30; // 30px visual overlap grouping
-  const visited = new Set();
+  // Step 2: Render Markers inside ClusterGroup
+  return (
+    <MarkerClusterGroup
+      chunkedLoading
+      maxClusterRadius={40}
+      showCoverageOnHover={false}
+      spiderfyOnMaxZoom={true}
+    >
+      {resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords }) => {
+        const safeVehicle = {
+          ...vehicle,
+          lat: finalLat,
+          lng: finalLng,
+          _noGps: !hasValidCoords
+        };
+        const isSelected = allSelected.some(sv => sv.id === safeVehicle.id);
+        const zOffset = isSelected ? 10000 : 0;
 
-  resolved.forEach((item, i) => {
-    if (visited.has(i)) return;
-    const itemPoint = map.latLngToLayerPoint([item.finalLat, item.finalLng]);
-    const cluster = [i];
-
-    resolved.forEach((other, j) => {
-      if (j === i || visited.has(j)) return;
-      const otherPoint = map.latLngToLayerPoint([other.finalLat, other.finalLng]);
-      const dx = itemPoint.x - otherPoint.x;
-      const dy = itemPoint.y - otherPoint.y;
-      if (dx * dx + dy * dy < PIXEL_THRESHOLD * PIXEL_THRESHOLD) {
-        cluster.push(j);
-      }
-    });
-
-    if (cluster.length > 1) {
-      cluster.forEach((ci, rank) => {
-        visited.add(ci);
-        resolved[ci]._clusterRank = rank; // rank > 0 makes the pin taller
-      });
-    } else {
-      visited.add(i);
-    }
-  });
-
-  // ── Step 3: Render Markers ──────────────────────────────────────────
-  return resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords, _clusterRank }) => {
-    const safeVehicle = {
-      ...vehicle,
-      lat: finalLat,
-      lng: finalLng,
-      _noGps: !hasValidCoords,
-      _clusterRank: _clusterRank
-    };
-    const isSelected = allSelected.some(sv => sv.id === safeVehicle.id);
-    // Displaced pins get a higher z-index so they always appear above. Selected pins get massive boost.
-    const zOffset = ((_clusterRank || 0) * 200) + (isSelected ? 10000 : 0);
-
-    return (
-      <VehicleMarker
-        key={safeVehicle.id}
-        vehicle={safeVehicle}
-        isSelected={isSelected}
-        onMarkerClick={onMarkerClick}
-        zIndexOffset={zOffset}
-      />
-    );
-  });
+        return (
+          <VehicleMarker
+            key={safeVehicle.id}
+            vehicle={safeVehicle}
+            isSelected={isSelected}
+            onMarkerClick={onMarkerClick}
+            zIndexOffset={zOffset}
+          />
+        );
+      })}
+    </MarkerClusterGroup>
+  );
 };
 
 // Auto-resize map when container dimensions change

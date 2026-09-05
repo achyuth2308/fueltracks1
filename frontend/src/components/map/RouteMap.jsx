@@ -36,17 +36,26 @@ const FitBoundsToRoute = ({ points }) => {
 };
 
 // Recenter Map dynamically if follow mode is active
-const RecenterMap = ({ activePoint, follow }) => {
+const RecenterMap = ({ activePoint, follow, playbackSpeed }) => {
   const map = useMap();
   useEffect(() => {
     if (follow && activePoint && activePoint.lat && activePoint.lng) {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
         const currentZoom = map.getZoom();
         const targetZoom = currentZoom < 16 ? 16 : currentZoom;
-        map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: false });
+        
+        let durationSec = 0.4;
+        if (playbackSpeed === 'Slow') durationSec = 1.5;
+        if (playbackSpeed === 'Fast') durationSec = 0.08;
+
+        if (currentZoom !== targetZoom) {
+          map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: true, duration: durationSec });
+        } else {
+          map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
+        }
       }
     }
-  }, [activePoint, follow, map]);
+  }, [activePoint, follow, map, playbackSpeed]);
   return null;
 };
 
@@ -728,7 +737,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         </LayersControl>
 
         <FitBoundsToRoute points={points} />
-        {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} />}
+        {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} playbackSpeed={playbackSpeed} />}
         <MapResizer />
 
 

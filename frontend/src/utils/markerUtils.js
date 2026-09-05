@@ -99,25 +99,20 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   ${vehicleSvgContent}
 </svg>`;
 
-  const stemHeight = clusterRank * 24;
-  const totalHeight = 40 + stemHeight;
-
   const svgHtml = `
-    <div style="position:relative;width:40px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
+    <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
       <div class="pin-interactive" style="width:40px;height:40px;position:relative;z-index:1;">
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:52px; height:52px; border-radius:50%; background-color:${color}; opacity:0.15; border: 2px solid ${color}; z-index:-1; pointer-events:none; ${cfg.pulse ? 'animation: pulse-ring 2s infinite;' : ''}"></div>
         ${finalSvg}
         ${status === 'running' && speed > 0 && !overrideOptions.hideSpeed ? `<div style="position:absolute;top:-10px;left:0;width:40px;text-align:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${speed}</div>` : ''}
       </div>
-      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-4px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
     </div>`;
 
   return L.divIcon({
     html: svgHtml,
     className: 'custom-marker-icon animated-marker',
-    iconSize: [40, totalHeight],
-    iconAnchor: [20, clusterRank > 0 ? totalHeight : 20],
-    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -20],
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
   });
 };
 
