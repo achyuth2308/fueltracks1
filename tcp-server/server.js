@@ -22,7 +22,8 @@ const protocolStats = {
   'PT06':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'PN02':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+    'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -37,6 +38,7 @@ const PN02_PORT     = process.env.PN02_TCP_PORT || 5008;
 const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
 const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 const FMB920_PORT   = parseInt(process.env.FMB920_TCP_PORT) || 5005;
+const EC08_PORT     = process.env.EC08_TCP_PORT || 5007;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -54,6 +56,8 @@ const {
   parseCodec8Packet,
   buildCodec12Command
 } = require('./parser/fmb920Parser');
+
+const { parseEC08Buffer, buildLoginAck: buildEc08LoginAck, buildHeartbeatAck: buildEc08HeartbeatAck, buildAlarmAck: buildEc08AlarmAck, buildOnlineCommand: buildEc08OnlineCommand } = require('./parser/ec08Parser');
 
 // Isolated PT06 server handler
 const { initPt06Server } = require('./pt06ServerHandler');
@@ -218,6 +222,7 @@ const voltyServer = createProtocolServer(
 
 // Start the FMB920 Server on Port 5005
 const fmb920Server = startFmb920Server(FMB920_PORT);
+const ec08Server = startEc08Server(EC08_PORT);
 
 // Start Pt06 Server
 const pt06Server = initPt06Server(PT06_PORT, protocolStats, connectedDevices, publisher);
@@ -1367,7 +1372,11 @@ async function dispatchCommand(imei, action, proto, socket, overrideCommand = nu
     const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
     rawRepresentation = `[CONCOX 0x80] ${relayStr}`;
     sendBuffer = buildOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
-  } else if (proto === 'FMB920') {
+  } else if (proto === 'EC08') {
+      const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
+      rawRepresentation = `[EC08 0x80] ${relayStr}`;
+      sendBuffer = buildEc08OnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
+    } else if (proto === 'FMB920') {
     // FMB920 uses Codec 12 for remote commands
     const relayStr = isImmobilize ? 'setdigout 1' : 'setdigout 0';
     rawRepresentation = `[FMB920 Codec 12] ${relayStr}`;
@@ -1642,6 +1651,7 @@ const healthServer = http.createServer((req, res) => {
       concoxConnections:   protocolStats['CONCOX'].connections,
       voltyConnections:    protocolStats['VOLTY'].connections,
       fmb920Connections:   protocolStats['FMB920'].connections,
+      ec08Connections:     protocolStats['EC08'].connections,
       stats: protocolStats
     }));
   } else {
@@ -1666,6 +1676,7 @@ function shutdown() {
   ais140V2Server.close();
   voltyServer.close();
   fmb920Server.close();
+  ec08Server.close();
   pt06Server.close();
   pn02Server.close();
   healthServer.close();
@@ -1692,4 +1703,160 @@ process.on('unhandledRejection', (reason) => {
 });
 
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, pt06Server, pn02Server, healthServer };
+/**
+ * Initialize EC08 Protocol Server
+ */
+function startEc08Server(port) {
+  const server = require('net').createServer((sock) => {
+    const cId = `${sock.remoteAddress}:${sock.remotePort}`;
+    let sessionImei = null;
+    const protocolName = 'EC08';
+
+    protocolStats[protocolName].connections++;
+    protocolStats[protocolName].totalConnectionAttempts++;
+
+    console.log(`[TCP - EC08] Connection established from ${cId}`);
+
+    let dataBuffer = Buffer.alloc(0);
+
+    sock.on('data', async (data) => {
+      dataBuffer = Buffer.concat([dataBuffer, data]);
+
+      try {
+        const { packets, remainder } = parseEC08Buffer(dataBuffer, sessionImei);
+        dataBuffer = remainder;
+
+        for (const packet of packets) {
+          if (packet.imei) {
+            sessionImei = packet.imei;
+          }
+
+          switch (packet.packetType) {
+            case 'EC08_LOGIN': {
+              const ack = buildEc08LoginAck(packet.serialNumber, packet.rawPacketType);
+              sock.write(ack);
+              console.log(`[TCP - EC08] Login from ${sessionImei}`);
+              connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_HEARTBEAT': {
+              const ack = buildEc08HeartbeatAck(packet.serialNumber, packet.rawPacketType);
+              sock.write(ack);
+              console.log(`[TCP - EC08] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
+
+              if (sessionImei) {
+                connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+                await publisher.publishHeartbeat(
+                  sessionImei, 
+                  packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100, 
+                  packet.gsmStrength || 100, 
+                  packet.terminalInfo?.accOn ?? false,
+                  packet.timestamp || new Date().toISOString()
+                );
+              }
+              
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_LOCATION':
+            case 'EC08_ALARM': {
+              if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
+                const ack = buildEc08AlarmAck(packet.serialNumber, packet.rawPacketType);
+                sock.write(ack);
+                console.log(`[TCP - EC08] Alarm (${packet.alarmInfo.text}) from ${sessionImei || 'unknown'}`);
+              } else {
+                console.log(`[TCP - EC08] Location from ${sessionImei || 'unknown'}`);
+              }
+
+              if (sessionImei) {
+                const devInfo = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName };
+                devInfo.lat = packet.lat;
+                devInfo.lng = packet.lng;
+                devInfo.lastPacket = new Date();
+                connectedDevices.set(sessionImei, devInfo);
+
+                const parsedObj = {
+                  imei: sessionImei,
+                  lat: packet.lat,
+                  lng: packet.lng,
+                  speed: packet.speed || 0,
+                  direction: packet.course || 0,
+                  ignition: packet.terminalInfo?.accOn ?? (packet.speed > 0),
+                  voltage: packet.voltage || 12.0,
+                  battery: packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100,
+                  gsmSignal: packet.gsmStrength || 100,
+                  satellites: packet.satellites || 8,
+                  odometer: packet.odometer || 0,
+                  deviceTime: packet.timestamp || new Date().toISOString(),
+                  isLive: true,
+                  packetType: packet.packetType
+                };
+                
+                await publisher.publishLocation(parsedObj);
+
+                if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
+                  await publisher.publishAlert({
+                    imei: sessionImei,
+                    alertType: packet.alarmInfo.type,
+                    alertText: packet.alarmInfo.text,
+                    lat: packet.lat,
+                    lng: packet.lng,
+                    deviceTime: packet.timestamp || new Date().toISOString(),
+                    packetType: packet.packetType
+                  });
+                }
+              }
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_COMMAND_RESPONSE':
+            case 'EC08_ONLINE_COMMAND':
+            case 'EC08_TIME_CHECK':
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+
+            default:
+              console.warn(`[TCP - EC08] Unhandled packet type: ${packet.packetType}`);
+              break;
+          }
+        }
+      } catch (err) {
+        console.error(`[TCP - EC08] Processing error from ${cId}:`, err.message);
+      }
+    });
+
+    sock.on('error', (err) => {
+      console.warn(`[TCP - EC08] Socket error from ${cId}:`, err.message);
+    });
+
+    sock.on('close', () => {
+      protocolStats[protocolName].connections = Math.max(0, protocolStats[protocolName].connections - 1);
+      console.log(`[TCP - EC08] Connection closed: ${cId}`);
+      if (sessionImei) {
+        const device = connectedDevices.get(sessionImei);
+        if (device && device.clientId === cId) {
+          connectedDevices.delete(sessionImei);
+        }
+      }
+    });
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`============================================================`);
+    console.log(`  [TCP - EC08] Server started successfully`);
+    console.log(`  Listening on port: ${port}`);
+    console.log(`  Protocol: EC08 Binary (GT06)`);
+    console.log(`============================================================`);
+  });
+
+  return server;
+}
+
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, healthServer };

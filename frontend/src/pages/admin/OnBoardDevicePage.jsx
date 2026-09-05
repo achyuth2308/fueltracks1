@@ -616,6 +616,9 @@ const OnBoardDevicePage = () => {
                               <option value="CONCOX">CONCOX (5002)</option>
                               <option value="AIS140 V2">AIS140 V2 (5003)</option>
                               <option value="FMB 920">FMB 920 (5005)</option>
+                              <option value="EC08">EC08 (5007)</option>
+                              <option value="BSTPL">BSTPL (5000)</option>
+                              <option value="AIS140">AIS140 (5001)</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>

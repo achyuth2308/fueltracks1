@@ -124,7 +124,7 @@ const VEHICLE_TYPES = [
 
 const DEVICE_TYPES = [
   'VOLTY (5004)', 'CONCOX (5002)', 'AIS140 V2 (5003)',
-  'FMB 920 (5005)', 'BSTPL (5000)', 'AIS140 (5001)'
+  'FMB 920 (5005)', 'BSTPL (5000)', 'AIS140 (5001)', 'EC08 (5007)'
 ];
 
 const TELECOM_OPERATORS = ['Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
