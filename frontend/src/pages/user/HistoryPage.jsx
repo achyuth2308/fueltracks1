@@ -514,17 +514,18 @@ const HistoryPage = () => {
         )}
         
         <div style={{ position: 'absolute', inset: 0 }}>
-          <RouteMap
-            points={points}
-            activePoint={activePoint}
-            vehicle={vehicle}
-            vehicleName={vehicle?.name || 'Vehicle'}
-            vehicleLastKnownPosition={
-              vehicle && vehicle.lat != null && vehicle.lng != null
-                ? { lat: vehicle.lat, lng: vehicle.lng }
-                : null
-            }
-          />
+            <RouteMap
+              points={points}
+              activePoint={activePoint}
+              vehicle={vehicle}
+              vehicleName={vehicle?.name || 'Vehicle'}
+              playbackSpeed={playbackSpeed}
+              vehicleLastKnownPosition={
+                vehicle && vehicle.lat != null && vehicle.lng != null
+                  ? { lat: vehicle.lat, lng: vehicle.lng }
+                  : null
+              }
+            />
         </div>
 
         {/* Right Panel Toggle Button (On Map) */}

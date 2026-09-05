@@ -74,6 +74,113 @@ const MapResizer = () => {
   return null;
 };
 
+const AnimatedPlaybackMarker = ({ activePoint, validCurrentIndex, validPoints, createVehicleIcon, activeMarkerRef, playbackSpeed }) => {
+  const markerRef = useRef(null);
+
+  useEffect(() => {
+    if (activeMarkerRef) {
+      activeMarkerRef.current = markerRef.current;
+    }
+  }, [activeMarkerRef]);
+
+  const transitionDuration = React.useMemo(() => {
+    switch (playbackSpeed) {
+      case 'Slow': return '1.5s';
+      case 'Fast': return '0.08s';
+      case 'Normal':
+      default: return '0.4s';
+    }
+  }, [playbackSpeed]);
+
+  const isValid = activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng);
+
+  let heading = 0;
+  if (isValid && validCurrentIndex > 0) {
+    const prev = validPoints[validCurrentIndex - 1];
+    if (prev && prev.lat && prev.lng) {
+      const lat1 = prev.lat * Math.PI / 180;
+      const lat2 = activePoint.lat * Math.PI / 180;
+      const dLon = (activePoint.lng - prev.lng) * Math.PI / 180;
+      
+      // Calculate true trajectory if points are physically different
+      if (Math.abs(activePoint.lat - prev.lat) > 0.00001 || Math.abs(activePoint.lng - prev.lng) > 0.00001) {
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+      } else {
+        heading = activePoint.direction !== undefined ? activePoint.direction : (activePoint.course || 0);
+      }
+    }
+  } else if (isValid) {
+    heading = activePoint.direction !== undefined ? activePoint.direction : (activePoint.course || 0);
+  }
+
+  const speed = isValid && activePoint.speed ? activePoint.speed : 0;
+  const ignition = isValid && activePoint.ignition ? activePoint.ignition : false;
+
+  const initialIcon = React.useMemo(() => {
+    return createVehicleIcon(heading, speed, ignition);
+  }, []);
+
+  React.useEffect(() => {
+    if (markerRef.current && markerRef.current._icon && isValid) {
+      const newIcon = createVehicleIcon(heading, speed, ignition);
+      markerRef.current._icon.innerHTML = newIcon.options.html;
+      markerRef.current._icon.style.transition = `transform ${transitionDuration} linear`;
+    }
+  }, [heading, speed, ignition, createVehicleIcon, transitionDuration, isValid]);
+
+  if (!isValid) return null;
+
+  return (
+    <Marker
+      position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
+      icon={initialIcon}
+      zIndexOffset={1000}
+      ref={markerRef}
+    >
+      <Popup className="premium-popup modern-hover-card" autoPan={false}>
+        <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
+          <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
+            <tbody>
+              <tr>
+                <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
+                <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(activePoint.device_time)}</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
+                <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(activePoint.speed || 0)} km/h</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
+                <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
+                <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Voltage</td>
+                <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.voltage !== undefined && activePoint.voltage !== null ? Number(activePoint.voltage).toFixed(1) : '-'} V</td>
+              </tr>
+              <tr>
+                <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
+                <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>
+                  {Math.round((validPoints[0]?.odometer || activePoint.odometer || 0) + (activePoint.cDist || 0))} km
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
+            <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
 // Map speed to a gradient color
 const getSpeedColor = (speed) => {
   if (speed > 65) return '#ef4444'; // red-500
@@ -96,7 +203,7 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 'Normal' }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [snapToRoads, setSnapToRoads] = useState(false);
@@ -871,70 +978,14 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         ))}
 
         {/* Active Animated Playback Marker */}
-        {(() => {
-          if (!activePoint || !activePoint.lat || !activePoint.lng || !isValidCoord(activePoint.lat, activePoint.lng)) return null;
-
-          let heading = activePoint.direction !== undefined ? activePoint.direction : (activePoint.course || 0);
-          if (activePoint.direction === undefined && !activePoint.course && validCurrentIndex > 0) {
-            const prev = validPoints[validCurrentIndex - 1];
-            if (prev && prev.lat && prev.lng) {
-              const lat1 = prev.lat * Math.PI / 180;
-              const lat2 = activePoint.lat * Math.PI / 180;
-              const dLon = (activePoint.lng - prev.lng) * Math.PI / 180;
-              const y = Math.sin(dLon) * Math.cos(lat2);
-              const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-              heading = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-            }
-          }
-
-          return (
-            <Marker
-              position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-              icon={createVehicleIcon(heading, activePoint.speed || 0, activePoint.ignition)}
-              zIndexOffset={1000}
-              ref={activeMarkerRef}
-            >
-              <Popup className="premium-popup modern-hover-card" autoPan={false}>
-                <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
-                  <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
-                    <tbody>
-                      <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>LocTime</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{formatLocalTime(activePoint.device_time)}</td>
-                      </tr>
-                      <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Speed</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{Math.round(activePoint.speed || 0)} km/h</td>
-                      </tr>
-                      <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
-                      </tr>
-                      <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.fuel !== undefined && activePoint.fuel !== null ? Number(activePoint.fuel).toFixed(2) : '0.00'} L</td>
-                      </tr>
-                      <tr>
-                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Voltage</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.voltage !== undefined && activePoint.voltage !== null ? Number(activePoint.voltage).toFixed(1) : '-'} V</td>
-                      </tr>
-                      <tr>
-                        <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
-                        <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>
-                          {Math.round((validPoints[0]?.odometer || activePoint.odometer || 0) + (activePoint.cDist || 0))} km
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#f8fafc', padding: '4px', borderRadius: '4px' }}>
-                    <LocationDisplay lat={activePoint.lat} lng={activePoint.lng} />
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })()}
+        <AnimatedPlaybackMarker
+          activePoint={activePoint}
+          validCurrentIndex={validCurrentIndex}
+          validPoints={validPoints}
+          createVehicleIcon={createVehicleIcon}
+          activeMarkerRef={activeMarkerRef}
+          playbackSpeed={playbackSpeed}
+        />
 
 
       </MapContainer>
