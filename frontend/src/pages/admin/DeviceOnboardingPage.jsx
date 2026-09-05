@@ -479,6 +479,8 @@ const DeviceOnboardingPage = () => {
                             <option value="Teltonika">Teltonika</option>
                             <option value="Coban">Coban</option>
                             <option value="EC08">EC08</option>
+                            <option value="PT06">PT06</option>
+                            <option value="PN02">PN02</option>
                             <option value="Other">Other</option>
                           </select>
                         </td>

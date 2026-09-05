@@ -616,7 +616,9 @@ const OnBoardDevicePage = () => {
                               <option value="CONCOX">CONCOX (5002)</option>
                               <option value="AIS140 V2">AIS140 V2 (5003)</option>
                               <option value="FMB 920">FMB 920 (5005)</option>
+                              <option value="PT06">PT06 (5006)</option>
                               <option value="EC08">EC08 (5007)</option>
+                              <option value="PN02">PN02 (5008)</option>
                               <option value="BSTPL">BSTPL (5000)</option>
                               <option value="AIS140">AIS140 (5001)</option>
                             </select>

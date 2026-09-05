@@ -85,10 +85,12 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   // Device types with port numbers as requested by user
   const deviceTypeOptions = [
     'VOLTY (5004)',
-    'AS140 (5001)',
     'CONCOX (5002)',
     'AIS140 V2 (5003)',
     'FMB 920 (5005)',
+    'PT06 (5006)',
+    'EC08 (5007)',
+    'PN02 (5008)',
     'BSTPL (5000)',
     'AIS140 (5001)'
   ];
