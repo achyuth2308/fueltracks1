@@ -155,9 +155,11 @@ const VehicleController = {
         isSandMining: isSandMining === true
       });
 
-      // Sync to Redis
+      // Sync Sand Mining state to Redis
       if (isSandMining === true) {
-        await redis.sadd('volty:mining_imeis', imei);
+        await redis.sadd('sand:mining_imeis', imei);
+        // Store vehicle metadata for government bridge
+        await redis.hset(`sand:vehicle:${imei}`, 'vehicleNo', plate || '', 'vehicleId', name || imei);
       }
 
       // Assign to groups if provided
@@ -300,12 +302,17 @@ const VehicleController = {
         isSandMining
       });
 
-      // Sync to Redis
+      // Sync Sand Mining state to Redis
       if (isSandMining !== undefined) {
         if (isSandMining) {
-          await redis.sadd('volty:mining_imeis', oldVehicle.imei);
+          await redis.sadd('sand:mining_imeis', oldVehicle.imei);
+          // Store vehicle metadata for government bridge
+          const vehiclePlate = plate || oldVehicle.plate || '';
+          const vehicleName = name || oldVehicle.name || oldVehicle.imei;
+          await redis.hset(`sand:vehicle:${oldVehicle.imei}`, 'vehicleNo', vehiclePlate, 'vehicleId', vehicleName);
         } else {
-          await redis.srem('volty:mining_imeis', oldVehicle.imei);
+          await redis.srem('sand:mining_imeis', oldVehicle.imei);
+          await redis.del(`sand:vehicle:${oldVehicle.imei}`);
         }
       }
 

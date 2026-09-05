@@ -19,6 +19,7 @@ const protocolStats = {
   'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'PT06':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
@@ -29,7 +30,8 @@ const voltyRelay = require('./voltyRelay');
 
 const BSTPL_PORT    = process.env.TCP_PORT || 5000;
 const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
-const CONCOX_PORT   = parseInt(process.env.CONCOX_TCP_PORT) || 5002;
+const CONCOX_PORT   = process.env.CONCOX_TCP_PORT || 5002;
+const PT06_PORT     = process.env.PT06_TCP_PORT || 5006;
 const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
 const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 const FMB920_PORT   = parseInt(process.env.FMB920_TCP_PORT) || 5005;
@@ -51,6 +53,9 @@ const {
   buildCodec12Command
 } = require('./parser/fmb920Parser');
 
+// Isolated PT06 server handler
+const { initPt06Server } = require('./pt06ServerHandler');
+
 // Track connected devices
 const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
 let totalPacketsReceived = 0;
@@ -66,6 +71,11 @@ let totalPacketsInvalid = 0;
 // ============================================================
 const commandAdapters = {
   CONCOX: {
+    // Binary — handled separately via buildOnlineCommand(); sentinel value
+    immobilize: () => '__CONCOX_BINARY__',
+    mobilize:   () => '__CONCOX_BINARY__',
+  },
+  PT06: {
     // Binary — handled separately via buildOnlineCommand(); sentinel value
     immobilize: () => '__CONCOX_BINARY__',
     mobilize:   () => '__CONCOX_BINARY__',
@@ -198,6 +208,9 @@ const voltyServer = createProtocolServer(
 
 // Start the FMB920 Server on Port 5005
 const fmb920Server = startFmb920Server(FMB920_PORT);
+
+// Start the isolated PT06 Server on Port 5006
+const pt06Server = initPt06Server(PT06_PORT, protocolStats, connectedDevices, publisher);
 
 /**
  * Factory to create a TCP server for a specific protocol configuration
@@ -1640,6 +1653,7 @@ function shutdown() {
   ais140V2Server.close();
   voltyServer.close();
   fmb920Server.close();
+  pt06Server.close();
   healthServer.close();
   setTimeout(() => process.exit(0), 1000);
 }
@@ -1664,4 +1678,4 @@ process.on('unhandledRejection', (reason) => {
 });
 
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, pt06Server, healthServer };

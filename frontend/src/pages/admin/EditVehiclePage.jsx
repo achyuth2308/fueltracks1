@@ -496,7 +496,7 @@ const EditVehiclePage = () => {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
               <div style={{ display: 'flex', flexDirection: 'column' }}>
                 <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Enable Sand Mining</span>
-                <span style={{ fontSize: '11px', color: '#64748B' }}>Forward live data to Voltysoft server</span>
+                <span style={{ fontSize: '11px', color: '#64748B' }}>Forward live data to TG Mining Government server</span>
               </div>
               <ToggleButton active={form.isSandMining ? 'YES' : 'NO'} onChange={(val) => updateField('isSandMining', val === 'YES')} />
             </div>
