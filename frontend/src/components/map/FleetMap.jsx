@@ -598,6 +598,9 @@ const FleetMap = ({
           .premium-popup .leaflet-popup-content {
             margin: 14px 18px !important;
           }
+          .leaflet-container {
+            background: transparent !important;
+          }
           /* Optionally hide the tip */
           .premium-popup .leaflet-popup-tip-container {
             display: none !important;

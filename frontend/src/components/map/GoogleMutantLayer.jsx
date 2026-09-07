@@ -16,6 +16,12 @@ export default function GoogleMutantLayer({ apiKey, type = 'roadmap' }) {
       window.L = window.L || L;
     }
 
+    // Force the leaflet container to be transparent so Google Maps (which is rendered underneath) is visible
+    const container = map.getContainer();
+    const originalBg = container.style.backgroundColor || '';
+    container.style.backgroundColor = 'transparent';
+
+
     // 2. Dynamically import the googlemutant plugin so it doesn't crash on module load
     import('leaflet.gridlayer.googlemutant').then(() => {
       if (!isMounted) return;
@@ -68,6 +74,7 @@ export default function GoogleMutantLayer({ apiKey, type = 'roadmap' }) {
       if (layer && map.hasLayer(layer)) {
         map.removeLayer(layer);
       }
+      container.style.backgroundColor = originalBg;
     };
   }, [map, apiKey, type]);
 
