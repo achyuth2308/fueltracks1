@@ -11,6 +11,7 @@ import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
+import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
 
 
 
@@ -537,15 +538,22 @@ const FleetMap = ({
         <ResizeMap />
 
         {/* Dynamic Tile Layer based on mapType */}
-        <TileLayer
-          attribution={mapType === 'osm' ? '&copy; OpenStreetMap contributors' : '&copy; Google Maps'}
-          url={mapType === 'osm'
-            ? "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            : mapType === 'satellite'
-              ? `https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}${apiKey ? '&key=' + apiKey : ''}`
-              : `https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}${apiKey ? '&key=' + apiKey : ''}`
-          }
-        />
+        {mapType === 'osm' ? (
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        ) : apiKey ? (
+          <ReactLeafletGoogleLayer 
+            apiKey={apiKey} 
+            type={mapType === 'satellite' ? 'satellite' : 'roadmap'} 
+          />
+        ) : (
+          <TileLayer
+            attribution='&copy; OpenStreetMap contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+        )}
 
         {/* Radius Circle for Nearby Mode */}
         {isNearbyActive && effectiveSelected && effectiveSelected.lat && effectiveSelected.lng && (

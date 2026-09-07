@@ -7,6 +7,8 @@ import { formatSpeed } from '../../utils/formatUtils';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff, MapPin, Route, Loader2 } from 'lucide-react';
 import LocationDisplay from '../ui/LocationDisplay';
+import { useProfile } from '../../modules/profile/hooks/useProfile';
+import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
 
 const { BaseLayer } = LayersControl;
 
@@ -108,6 +110,11 @@ const formatDuration = (ms) => {
 const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
+  const [showEvents, setShowEvents] = useState(true);
+  
+  const { profile } = useProfile();
+  const apiKey = profile?.api_key || '';
+
   const [snapToRoads, setSnapToRoads] = useState(false);
   const [snappedSegments, setSnappedSegments] = useState([]);
   const [isSnapping, setIsSnapping] = useState(false);
@@ -609,18 +616,32 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
             />
           </BaseLayer>
-          <BaseLayer name="Google Maps">
-            <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-            />
-          </BaseLayer>
-          <BaseLayer name="Google Satellite">
-            <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-            />
-          </BaseLayer>
+          {apiKey && (
+            <>
+              <BaseLayer name="Google Maps">
+                <ReactLeafletGoogleLayer apiKey={apiKey} type="roadmap" />
+              </BaseLayer>
+              <BaseLayer name="Google Satellite">
+                <ReactLeafletGoogleLayer apiKey={apiKey} type="satellite" />
+              </BaseLayer>
+            </>
+          )}
+          {!apiKey && (
+            <>
+              <BaseLayer name="Google Maps (Need Key)">
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </BaseLayer>
+              <BaseLayer name="Google Satellite (Need Key)">
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </BaseLayer>
+            </>
+          )}
           <BaseLayer name="Satellite">
             <TileLayer
               attribution='&copy; Esri'

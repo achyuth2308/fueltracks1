@@ -47,6 +47,8 @@ const ResizeMap = () => {
 };
 
 import { createPinIcon } from '../../utils/markerUtils';
+import { useProfile } from '../../modules/profile/hooks/useProfile';
+import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
   const location = useLocation();
@@ -56,6 +58,9 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   const [speed, setSpeed] = useState(initialSpeed || 0);
   const [direction, setDirection] = useState(vehicle?.current_direction || 0);
   const isOnline = vehicle?.is_online !== false;
+
+  const { profile } = useProfile();
+  const apiKey = profile?.api_key || '';
 
   // Track coordinates history (max 10 points for the path trail)
   useEffect(() => {
@@ -128,18 +133,32 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </BaseLayer>
-          <BaseLayer name="Google Maps">
-            <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
-            />
-          </BaseLayer>
-          <BaseLayer name="Google Satellite">
-            <TileLayer
-              attribution='&copy; Google Maps'
-              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
-            />
-          </BaseLayer>
+          {apiKey && (
+            <>
+              <BaseLayer name="Google Maps">
+                <ReactLeafletGoogleLayer apiKey={apiKey} type="roadmap" />
+              </BaseLayer>
+              <BaseLayer name="Google Satellite">
+                <ReactLeafletGoogleLayer apiKey={apiKey} type="satellite" />
+              </BaseLayer>
+            </>
+          )}
+          {!apiKey && (
+            <>
+              <BaseLayer name="Google Maps (Need Key)">
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </BaseLayer>
+              <BaseLayer name="Google Satellite (Need Key)">
+                <TileLayer
+                  attribution='&copy; OpenStreetMap'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+              </BaseLayer>
+            </>
+          )}
         </LayersControl>
 
         {coords.length > 0 && <FitBoundsToTrail coords={coords} />}
