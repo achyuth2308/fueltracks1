@@ -22,8 +22,8 @@ export default function GoogleMutantLayer({ apiKey, type = 'roadmap' }) {
     container.style.backgroundColor = 'transparent';
 
 
-    // 2. Dynamically import the googlemutant plugin so it doesn't crash on module load
-    import('leaflet.gridlayer.googlemutant').then(() => {
+    // 2. Dynamically import the local patched googlemutant plugin so it doesn't crash on module load
+    import('./Leaflet.GoogleMutant.js').then(() => {
       if (!isMounted) return;
 
       const scriptId = 'google-maps-api-script';
