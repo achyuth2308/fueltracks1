@@ -6,6 +6,9 @@
 // - Port 5002: Concox V5/VL149/GT800 (binary protocol)
 // - Port 5003: AIS140 V2 (MODEL NO:1819001A) (uses * or $ delimiter)
 // - Port 5005: Teltonika FMB920 (binary protocol)
+// - Port 5007: EC08 Binary (GT06 protocol)
+// - Port 5008: PN02 Binary
+// - Port 5009: V5 4G (VL149 binary protocol)
 // ============================================================
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -23,7 +26,8 @@ const protocolStats = {
   'PN02':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-    'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+    'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+    'V54G':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -39,6 +43,7 @@ const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
 const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 const FMB920_PORT   = parseInt(process.env.FMB920_TCP_PORT) || 5005;
 const EC08_PORT     = process.env.EC08_TCP_PORT || 5007;
+const V54G_PORT     = process.env.V5_4G_TCP_PORT || 5009;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -58,6 +63,7 @@ const {
 } = require('./parser/fmb920Parser');
 
 const { parseEC08Buffer, buildLoginAck: buildEc08LoginAck, buildHeartbeatAck: buildEc08HeartbeatAck, buildAlarmAck: buildEc08AlarmAck, buildOnlineCommand: buildEc08OnlineCommand } = require('./parser/ec08Parser');
+const { parseV54GBuffer, buildLoginAck: buildV54gLoginAck, buildHeartbeatAck: buildV54gHeartbeatAck, buildAlarmAck: buildV54gAlarmAck, buildOnlineCommand: buildV54gOnlineCommand } = require('./parser/v54gParser');
 
 // Isolated PT06 server handler
 const { initPt06Server } = require('./pt06ServerHandler');
@@ -98,6 +104,10 @@ const commandAdapters = {
     // Binary — handled separately via buildCodec12Command(); sentinel value
     immobilize: () => '__FMB920_BINARY_IMMOBILIZE__',
     mobilize:   () => '__FMB920_BINARY_MOBILIZE__',
+  },
+  V54G: {
+    immobilize: () => '__CONCOX_BINARY__',
+    mobilize:   () => '__CONCOX_BINARY__',
   },
   'BSTPL-17': {
     immobilize: () => '$SET,RL,1#\r\n',
@@ -223,6 +233,7 @@ const voltyServer = createProtocolServer(
 // Start the FMB920 Server on Port 5005
 const fmb920Server = startFmb920Server(FMB920_PORT);
 const ec08Server = startEc08Server(EC08_PORT);
+const v54gServer = startV54GServer(V54G_PORT);
 
 // Start Pt06 Server
 const pt06Server = initPt06Server(PT06_PORT, protocolStats, connectedDevices, publisher);
@@ -1373,10 +1384,22 @@ async function dispatchCommand(imei, action, proto, socket, overrideCommand = nu
     rawRepresentation = `[CONCOX 0x80] ${relayStr}`;
     sendBuffer = buildOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
   } else if (proto === 'EC08') {
-      const relayStr = isImmobilize ? 'RELAY,1#' : 'RELAY,0#';
+    if (action === 'IMMOBILIZE' || action === 'MOBILIZE') {
+      const relayStr = action === 'IMMOBILIZE' ? 'Relay,1#' : 'Relay,0#';
       rawRepresentation = `[EC08 0x80] ${relayStr}`;
       sendBuffer = buildEc08OnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
-    } else if (proto === 'FMB920') {
+    } else {
+      throw new Error(`Action ${action} not implemented for EC08 protocol via unified adapter`);
+    }
+  } else if (proto === 'V54G') {
+    if (action === 'IMMOBILIZE' || action === 'MOBILIZE') {
+      const relayStr = action === 'IMMOBILIZE' ? 'Relay,1#' : 'Relay,0#';
+      rawRepresentation = `[V54G 0x80] ${relayStr}`;
+      sendBuffer = buildV54gOnlineCommand(relayStr, Math.floor(Math.random() * 65535) + 1, 0);
+    } else {
+      throw new Error(`Action ${action} not implemented for V54G protocol via unified adapter`);
+    }
+  } else if (proto === 'FMB920') {
     // FMB920 uses Codec 12 for remote commands
     const relayStr = isImmobilize ? 'setdigout 1' : 'setdigout 0';
     rawRepresentation = `[FMB920 Codec 12] ${relayStr}`;
@@ -1652,6 +1675,7 @@ const healthServer = http.createServer((req, res) => {
       voltyConnections:    protocolStats['VOLTY'].connections,
       fmb920Connections:   protocolStats['FMB920'].connections,
       ec08Connections:     protocolStats['EC08'].connections,
+      v54gConnections:     protocolStats['V54G'].connections,
       stats: protocolStats
     }));
   } else {
@@ -1859,4 +1883,160 @@ function startEc08Server(port) {
   return server;
 }
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, healthServer };
+/**
+ * Initialize V5 4G Protocol Server
+ */
+function startV54GServer(port) {
+  const server = require('net').createServer((sock) => {
+    const cId = `${sock.remoteAddress}:${sock.remotePort}`;
+    let sessionImei = null;
+    const protocolName = 'V54G';
+
+    protocolStats[protocolName].connections++;
+    protocolStats[protocolName].totalConnectionAttempts++;
+
+    console.log(`[TCP - V54G] Connection established from ${cId}`);
+
+    let dataBuffer = Buffer.alloc(0);
+
+    sock.on('data', async (data) => {
+      dataBuffer = Buffer.concat([dataBuffer, data]);
+
+      try {
+        const { packets, remainder } = parseV54GBuffer(dataBuffer, sessionImei);
+        dataBuffer = remainder;
+
+        for (const packet of packets) {
+          if (packet.imei) {
+            sessionImei = packet.imei;
+          }
+
+          switch (packet.packetType) {
+            case 'EC08_LOGIN': {
+              const ack = buildV54gLoginAck(packet.serialNumber, packet.rawPacketType);
+              sock.write(ack);
+              console.log(`[TCP - V54G] Login from ${sessionImei}`);
+              connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_HEARTBEAT': {
+              const ack = buildV54gHeartbeatAck(packet.serialNumber, packet.rawPacketType);
+              sock.write(ack);
+              console.log(`[TCP - V54G] Heartbeat from ${sessionImei || 'unknown'} (batt: ${packet.battPercent}%, gsm: ${packet.gsmStrength}%)`);
+
+              if (sessionImei) {
+                connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+                await publisher.publishHeartbeat(
+                  sessionImei, 
+                  packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100, 
+                  packet.gsmStrength || 100, 
+                  packet.terminalInfo?.accOn ?? false,
+                  packet.timestamp || new Date().toISOString()
+                );
+              }
+              
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_LOCATION':
+            case 'EC08_ALARM': {
+              if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
+                const ack = buildV54gAlarmAck(packet.serialNumber, packet.rawPacketType);
+                sock.write(ack);
+                console.log(`[TCP - V54G] Alarm (${packet.alarmInfo.text}) from ${sessionImei || 'unknown'}`);
+              } else {
+                console.log(`[TCP - V54G] Location from ${sessionImei || 'unknown'}`);
+              }
+
+              if (sessionImei) {
+                const devInfo = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName };
+                devInfo.lat = packet.lat;
+                devInfo.lng = packet.lng;
+                devInfo.lastPacket = new Date();
+                connectedDevices.set(sessionImei, devInfo);
+
+                const parsedObj = {
+                  imei: sessionImei,
+                  lat: packet.lat,
+                  lng: packet.lng,
+                  speed: packet.speed || 0,
+                  direction: packet.direction || 0,
+                  ignition: packet.ignition,
+                  voltage: packet.voltage || 12.0,
+                  battery: packet.battery !== null && packet.battery !== undefined ? packet.battery : 100,
+                  gsmSignal: packet.gsmSignal || 100,
+                  satellites: packet.satellites || 8,
+                  odometer: packet.odometer || 0,
+                  deviceTime: packet.deviceTime || new Date().toISOString(),
+                  isLive: true,
+                  packetType: packet.packetType
+                };
+                
+                await publisher.publishLocation(parsedObj);
+
+                if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
+                  await publisher.publishAlert({
+                    imei: sessionImei,
+                    alertType: packet.alarmInfo.type,
+                    alertText: packet.alarmInfo.text,
+                    lat: packet.lat,
+                    lng: packet.lng,
+                    deviceTime: packet.deviceTime || new Date().toISOString(),
+                    packetType: packet.packetType
+                  });
+                }
+              }
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+            }
+
+            case 'EC08_COMMAND_RESPONSE':
+            case 'EC08_ONLINE_COMMAND':
+            case 'EC08_TIME_CHECK':
+              if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+              totalPacketsParsed++;
+              break;
+
+            default:
+              console.warn(`[TCP - V54G] Unhandled packet type: ${packet.packetType}`);
+              break;
+          }
+        }
+      } catch (err) {
+        console.error(`[TCP - V54G] Processing error from ${cId}:`, err.message);
+      }
+    });
+
+    sock.on('error', (err) => {
+      console.warn(`[TCP - V54G] Socket error from ${cId}:`, err.message);
+    });
+
+    sock.on('close', () => {
+      protocolStats[protocolName].connections = Math.max(0, protocolStats[protocolName].connections - 1);
+      console.log(`[TCP - V54G] Connection closed: ${cId}`);
+      if (sessionImei) {
+        const device = connectedDevices.get(sessionImei);
+        if (device && device.clientId === cId) {
+          connectedDevices.delete(sessionImei);
+        }
+      }
+    });
+  });
+
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`============================================================`);
+    console.log(`  [TCP - V54G] Server started successfully`);
+    console.log(`  Listening on port: ${port}`);
+    console.log(`  Protocol: V5 4G Binary (VL149)`);
+    console.log(`============================================================`);
+  });
+
+  return server;
+}
+
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, v54gServer, healthServer };
