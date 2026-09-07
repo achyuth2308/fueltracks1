@@ -91,6 +91,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     'PT06 (5006)',
     'EC08 (5007)',
     'PN02 (5008)',
+    'V5 4G (5009)',
     'BSTPL (5000)',
     'AIS140 (5001)'
   ];
