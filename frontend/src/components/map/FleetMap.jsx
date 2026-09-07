@@ -11,7 +11,7 @@ import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
+import GoogleMutantLayer from './GoogleMutantLayer';
 
 
 
@@ -544,7 +544,7 @@ const FleetMap = ({
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
         ) : apiKey ? (
-          <ReactLeafletGoogleLayer 
+          <GoogleMutantLayer 
             apiKey={apiKey} 
             type={mapType === 'satellite' ? 'satellite' : 'roadmap'} 
           />

@@ -48,7 +48,7 @@ const ResizeMap = () => {
 
 import { createPinIcon } from '../../utils/markerUtils';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
+import GoogleMutantLayer from './GoogleMutantLayer';
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
   const location = useLocation();
@@ -136,11 +136,13 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
           {apiKey && (
             <>
               <BaseLayer name="Google Maps">
-                <ReactLeafletGoogleLayer apiKey={apiKey} type="roadmap" />
+                <GoogleMutantLayer apiKey={apiKey} type="roadmap" />
               </BaseLayer>
               <BaseLayer name="Google Satellite">
-                <ReactLeafletGoogleLayer apiKey={apiKey} type="satellite" />
-              </BaseLayer>
+                <GoogleMutantLayer 
+          apiKey={apiKey} 
+          type="satellite" 
+        />   </BaseLayer>
             </>
           )}
           {!apiKey && (

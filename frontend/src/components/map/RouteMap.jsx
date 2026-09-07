@@ -8,7 +8,7 @@ import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff, MapPin, Route, Loader2 } from 'lucide-react';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import ReactLeafletGoogleLayer from 'react-leaflet-google-layer';
+import GoogleMutantLayer from './GoogleMutantLayer';
 
 const { BaseLayer } = LayersControl;
 
@@ -619,10 +619,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           {apiKey && (
             <>
               <BaseLayer name="Google Maps">
-                <ReactLeafletGoogleLayer apiKey={apiKey} type="roadmap" />
+                <GoogleMutantLayer apiKey={apiKey} type="roadmap" />
               </BaseLayer>
               <BaseLayer name="Google Satellite">
-                <ReactLeafletGoogleLayer apiKey={apiKey} type="satellite" />
+                <GoogleMutantLayer apiKey={apiKey} type="satellite" />
               </BaseLayer>
             </>
           )}
