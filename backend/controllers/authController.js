@@ -10,6 +10,7 @@ const UserModel = require('../models/userModel');
 const env = require('../config/env');
 const AuditService = require('../services/auditService');
 const sendgridService = require('../services/sendgrid.service');
+const profileService = require('../modules/profile/services/profileService');
 
 const AuthController = {
   /**
@@ -101,6 +102,19 @@ const AuthController = {
         });
       } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
 
+      // Fetch org profile for map config
+      let mapProvider = null;
+      let apiKey = null;
+      try {
+        if (user.org_id) {
+          const orgProfileData = await profileService.getProfile(user.org_id);
+          mapProvider = orgProfileData?.profile?.map_provider;
+          apiKey = orgProfileData?.profile?.api_key;
+        }
+      } catch (e) {
+        console.error('[AuthController] Failed to fetch profile for map config', e.message);
+      }
+
       res.status(200).json({
         success: true,
         data: {
@@ -113,7 +127,9 @@ const AuthController = {
             orgName: user.org_name,
             orgType: user.org_type,
             name: user.name,
-            phone: user.phone
+            phone: user.phone,
+            mapProvider: mapProvider,
+            apiKey: apiKey
           }
         },
         message: 'Login successful'
@@ -166,6 +182,19 @@ const AuthController = {
         });
       }
 
+      // Fetch org profile for map config
+      let mapProvider = null;
+      let apiKey = null;
+      try {
+        if (user.org_id) {
+          const orgProfileData = await profileService.getProfile(user.org_id);
+          mapProvider = orgProfileData?.profile?.map_provider;
+          apiKey = orgProfileData?.profile?.api_key;
+        }
+      } catch (e) {
+        console.error('[AuthController] Failed to fetch profile for map config', e.message);
+      }
+
       res.status(200).json({
         success: true,
         data: {
@@ -179,7 +208,9 @@ const AuthController = {
             name: user.name,
             phone: user.phone,
             isActive: user.is_active,
-            createdAt: user.created_at
+            createdAt: user.created_at,
+            mapProvider: mapProvider,
+            apiKey: apiKey
           }
         }
       });
