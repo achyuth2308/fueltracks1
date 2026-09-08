@@ -309,6 +309,38 @@ const VehicleModel = {
       [newImei, vehicleId]
     );
 
+    if (oldImei && oldImei !== newImei) {
+      // Fetch the old device record
+      const oldDevice = await db.query(`SELECT * FROM devices WHERE device_id = $1`, [oldImei]);
+      
+      if (oldDevice.rows.length > 0) {
+        const d = oldDevice.rows[0];
+        
+        // Insert NEW device record, preserving licence, org, etc., and linking to the vehicle
+        await db.query(
+          `INSERT INTO devices 
+            (org_id, device_id, device_type, licence_id, vehicle_id, assigned_user_id, assigned_group_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT (device_id) DO UPDATE SET
+             org_id = EXCLUDED.org_id,
+             device_type = EXCLUDED.device_type,
+             licence_id = EXCLUDED.licence_id,
+             vehicle_id = EXCLUDED.vehicle_id,
+             assigned_user_id = EXCLUDED.assigned_user_id,
+             assigned_group_id = EXCLUDED.assigned_group_id`,
+          [d.org_id, newImei, d.device_type, d.licence_id, vehicleId, d.assigned_user_id, d.assigned_group_id]
+        );
+        
+        // Mark OLD device as unassigned and stripped of licence
+        await db.query(
+          `UPDATE devices 
+           SET vehicle_id = NULL, licence_id = NULL, assigned_user_id = NULL, assigned_group_id = NULL
+           WHERE device_id = $1`,
+          [oldImei]
+        );
+      }
+    }
+
     // Invalidate cache for both the old IMEI (now stale) and the new IMEI
     // (may exist from a previous registration of the same device).
     const keysToDelete = [oldImei, newImei].filter(Boolean).map(i => `vehicle:imei:${i}`);

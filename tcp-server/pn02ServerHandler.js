@@ -90,6 +90,8 @@ function initPn02Server(port, protocolStats, connectedDevices, publisher) {
           const ack = buildPn02Ack(packet.rawPacketType, packet.serialNumber, currentImei);
           sock.write(ack);
           if (protocolStats['PN02']) protocolStats['PN02'].lastSuccessfulPacketAt = new Date().toISOString();
+          
+          await publisher.publishHeartbeat(currentImei, null, null, null, new Date(), null, 'PN02_LOGIN');
         } 
         else if (packet.packetType === 'PN02_HEARTBEAT' || packet.packetType === 'PN02_ALARM') {
           // Heartbeat and Alarms require ACK
@@ -98,10 +100,45 @@ function initPn02Server(port, protocolStats, connectedDevices, publisher) {
             const ack = buildPn02Ack(packet.rawPacketType, packet.serialNumber, currentImei);
             sock.write(ack);
           }
+          
+          if (packet.packetType === 'PN02_HEARTBEAT') {
+            await publisher.publishHeartbeat(currentImei, null, null, null, new Date(), null, 'PN02_HEARTBEAT');
+          } else if (packet.packetType === 'PN02_ALARM') {
+            await publisher.publishLocation({
+              imei: currentImei,
+              lat: packet.latitude,
+              lng: packet.longitude,
+              speed: packet.speed,
+              direction: packet.course,
+              deviceTime: packet.timestamp,
+              isLive: true,
+              packetType: 'PN02_ALARM'
+            });
+            await publisher.publishAlert({
+              imei: currentImei,
+              alertType: packet.alarmType,
+              alertText: packet.alarmText,
+              lat: packet.latitude,
+              lng: packet.longitude,
+              deviceTime: packet.timestamp,
+              packetType: 'PN02_ALARM'
+            });
+          }
         }
         else if (packet.packetType === 'PN02_POSITION') {
           // Normal position messages do NOT require ACK per protocol spec
           if (protocolStats['PN02']) protocolStats['PN02'].lastSuccessfulPacketAt = new Date().toISOString();
+          
+          await publisher.publishLocation({
+            imei: currentImei,
+            lat: packet.latitude,
+            lng: packet.longitude,
+            speed: packet.speed,
+            direction: packet.course,
+            deviceTime: packet.timestamp,
+            isLive: true,
+            packetType: 'PN02_POSITION'
+          });
         }
 
       } catch (e) {
