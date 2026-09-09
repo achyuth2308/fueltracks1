@@ -1,21 +1,52 @@
-import { TileLayer } from 'react-leaflet';
+import { createLayerComponent } from '@react-leaflet/core';
+import L from 'leaflet';
+import 'leaflet.gridlayer.googlemutant';
 
-export default function GoogleMutantLayer({ type = 'roadmap' }) {
-  // Map Google Maps types to their unofficial tile endpoints
-  // m = roadmap, s = satellite, y = hybrid, p = terrain
-  let lyrs = 'm';
-  if (type === 'satellite') lyrs = 's';
-  else if (type === 'hybrid') lyrs = 'y';
-  else if (type === 'terrain') lyrs = 'p';
+const createGoogleLayer = (props, context) => {
+  const group = L.layerGroup();
+  
+  const initMutant = () => {
+    // Determine type: 'roadmap', 'satellite', 'terrain' or 'hybrid'
+    const type = props.type || 'roadmap';
+    const mutant = L.gridLayer.googleMutant({ type });
+    group.addLayer(mutant);
+  };
 
-  return (
-    <TileLayer
-      url={`https://mt1.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}&scale=2`}
-      attribution="&copy; Google Maps"
-      maxZoom={20}
-      subdomains={['mt0', 'mt1', 'mt2', 'mt3']}
-      tileSize={512}
-      zoomOffset={-1}
-    />
-  );
-}
+  if (!window.google) {
+    if (!document.getElementById('google-maps-script') && props.apiKey) {
+      const script = document.createElement('script');
+      script.id = 'google-maps-script';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${props.apiKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = initMutant;
+      document.head.appendChild(script);
+    } else {
+      // Script is loading or no API key, wait for google
+      const checkInterval = setInterval(() => {
+        if (window.google) {
+          clearInterval(checkInterval);
+          initMutant();
+        }
+      }, 100);
+      
+      // Stop checking after 10 seconds to avoid infinite loop if it fails
+      setTimeout(() => clearInterval(checkInterval), 10000);
+    }
+  } else {
+    initMutant();
+  }
+  
+  return { instance: group, context };
+};
+
+const updateGoogleLayer = (instance, props, prevProps) => {
+  // Handle type changes if necessary (clearing layers and re-adding)
+  if (props.type !== prevProps.type && window.google) {
+    instance.clearLayers();
+    const mutant = L.gridLayer.googleMutant({ type: props.type || 'roadmap' });
+    instance.addLayer(mutant);
+  }
+};
+
+export default createLayerComponent(createGoogleLayer, updateGoogleLayer);
