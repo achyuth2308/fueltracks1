@@ -1772,13 +1772,25 @@ function startEc08Server(port) {
 
               if (sessionImei) {
                 connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+                // Fix: terminalInfo uses 'acc' (not 'accOn') — wrong key caused ignition=false always
+                const hbIgnition = packet.terminalInfo?.acc ?? false;
                 await publisher.publishHeartbeat(
                   sessionImei, 
                   packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100, 
                   packet.gsmStrength || 100, 
-                  packet.terminalInfo?.accOn ?? false,
+                  hbIgnition,
                   packet.timestamp || new Date().toISOString()
                 );
+                // Publish raw so Sensor Logs page shows heartbeat entries
+                publisher.publishRawMessage({
+                  imei: sessionImei,
+                  packetType: 'EC08_HEARTBEAT',
+                  ignition: hbIgnition,
+                  battery: packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100,
+                  deviceTime: packet.timestamp || new Date().toISOString(),
+                  isLive: true,
+                  parsed: true,
+                }).catch(err => console.error('[EC08] Raw heartbeat log failed:', err.message));
               }
               
               if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
@@ -1803,24 +1815,35 @@ function startEc08Server(port) {
                 devInfo.lastPacket = new Date();
                 connectedDevices.set(sessionImei, devInfo);
 
+                // Fix: use 'acc' (not 'accOn') for ignition; fall back to speed>0 only if terminalInfo absent
+                const locIgnition = packet.terminalInfo != null ? (packet.terminalInfo.acc ?? false) : (packet.speed > 0);
                 const parsedObj = {
                   imei: sessionImei,
                   lat: packet.lat,
                   lng: packet.lng,
                   speed: packet.speed || 0,
-                  direction: packet.course || 0,
-                  ignition: packet.terminalInfo?.accOn ?? (packet.speed > 0),
+                  direction: packet.direction || packet.course || 0,
+                  ignition: locIgnition,
                   voltage: packet.voltage || 12.0,
                   battery: packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100,
                   gsmSignal: packet.gsmStrength || 100,
                   satellites: packet.satellites || 8,
                   odometer: packet.odometer || 0,
-                  deviceTime: packet.timestamp || new Date().toISOString(),
+                  deviceTime: packet.deviceTime || packet.timestamp || new Date().toISOString(),
                   isLive: true,
                   packetType: packet.packetType
                 };
                 
                 await publisher.publishLocation(parsedObj);
+
+                // Publish raw so Sensor Logs page shows location/alarm entries
+                publisher.publishRawMessage({
+                  ...parsedObj,
+                  gpsValid: packet.gpsValid || 'A',
+                  alertType: packet.alarmInfo?.type || null,
+                  alertText: packet.alarmInfo?.text || null,
+                  parsed: true,
+                }).catch(err => console.error('[EC08] Raw location log failed:', err.message));
 
                 if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
                   await publisher.publishAlert({
@@ -1829,7 +1852,7 @@ function startEc08Server(port) {
                     alertText: packet.alarmInfo.text,
                     lat: packet.lat,
                     lng: packet.lng,
-                    deviceTime: packet.timestamp || new Date().toISOString(),
+                    deviceTime: packet.deviceTime || packet.timestamp || new Date().toISOString(),
                     packetType: packet.packetType
                   });
                 }
@@ -1928,13 +1951,24 @@ function startV54GServer(port) {
 
               if (sessionImei) {
                 connectedDevices.set(sessionImei, { socket: sock, clientId: cId, protocolName, lastPacket: new Date() });
+                // Fix: terminalInfo uses 'acc' (not 'accOn')
+                const hbIgnitionV54g = packet.terminalInfo?.acc ?? false;
                 await publisher.publishHeartbeat(
                   sessionImei, 
                   packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100, 
                   packet.gsmStrength || 100, 
-                  packet.terminalInfo?.accOn ?? false,
+                  hbIgnitionV54g,
                   packet.timestamp || new Date().toISOString()
                 );
+                publisher.publishRawMessage({
+                  imei: sessionImei,
+                  packetType: 'EC08_HEARTBEAT',
+                  ignition: hbIgnitionV54g,
+                  battery: packet.battPercent !== null && packet.battPercent !== undefined ? packet.battPercent : 100,
+                  deviceTime: packet.timestamp || new Date().toISOString(),
+                  isLive: true,
+                  parsed: true,
+                }).catch(err => console.error('[V54G] Raw heartbeat log failed:', err.message));
               }
               
               if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
@@ -1959,13 +1993,15 @@ function startV54GServer(port) {
                 devInfo.lastPacket = new Date();
                 connectedDevices.set(sessionImei, devInfo);
 
+                // Fix: use 'acc' (not 'accOn'); fall back to packet.ignition which location parser sets correctly
+                const locIgnitionV54g = packet.terminalInfo != null ? (packet.terminalInfo.acc ?? false) : (packet.ignition ?? (packet.speed > 0));
                 const parsedObj = {
                   imei: sessionImei,
                   lat: packet.lat,
                   lng: packet.lng,
                   speed: packet.speed || 0,
                   direction: packet.direction || 0,
-                  ignition: packet.ignition,
+                  ignition: locIgnitionV54g,
                   voltage: packet.voltage || 12.0,
                   battery: packet.battery !== null && packet.battery !== undefined ? packet.battery : 100,
                   gsmSignal: packet.gsmSignal || 100,
@@ -1977,6 +2013,15 @@ function startV54GServer(port) {
                 };
                 
                 await publisher.publishLocation(parsedObj);
+
+                // Publish raw so Sensor Logs page shows entries
+                publisher.publishRawMessage({
+                  ...parsedObj,
+                  gpsValid: packet.gpsValid || 'A',
+                  alertType: packet.alarmInfo?.type || null,
+                  alertText: packet.alarmInfo?.text || null,
+                  parsed: true,
+                }).catch(err => console.error('[V54G] Raw location log failed:', err.message));
 
                 if (packet.packetType === 'EC08_ALARM' && packet.alarmInfo) {
                   await publisher.publishAlert({
