@@ -12,7 +12,11 @@ export const AuthProvider = ({ children }) => {
 
   const fetchCurrentUser = useCallback(async () => {
     try {
-      const response = await authApi.getMe();
+      // Timeout: if the API doesn't respond in 8s, give up and redirect to login
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Auth check timed out')), 8000)
+      );
+      const response = await Promise.race([authApi.getMe(), timeout]);
       if (response.success && response.data.user) {
         setUser(response.data.user);
       } else {
