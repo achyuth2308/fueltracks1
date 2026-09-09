@@ -7,6 +7,9 @@ import L from 'leaflet';
 
 let mutantLoaded = false;
 
+// Ensure window.L is available for the plugin to register itself
+window.L = window.L || L;
+
 async function loadGoogleMutant() {
   if (mutantLoaded || L.GridLayer?.GoogleMutant) {
     mutantLoaded = true;
@@ -24,43 +27,45 @@ const createGoogleLayer = (props, context) => {
   const group = L.layerGroup();
 
   const initMutant = () => {
-    try {
-      const type = props.type || 'roadmap';
-      if (L.gridLayer && L.gridLayer.googleMutant) {
-        const mutant = L.gridLayer.googleMutant({ type });
-        group.addLayer(mutant);
+    loadGoogleMutant().then(() => {
+      try {
+        const type = props.type || 'roadmap';
+        if (L.gridLayer && L.gridLayer.googleMutant) {
+          const mutant = L.gridLayer.googleMutant({ type });
+          group.clearLayers();
+          group.addLayer(mutant);
+        }
+      } catch (e) {
+        console.warn('[GoogleMutantLayer] Could not init Google mutant layer:', e);
       }
-    } catch (e) {
-      console.warn('[GoogleMutantLayer] Could not init Google mutant layer:', e);
-    }
+    });
   };
 
-  // Load the plugin dynamically then initialize
-  loadGoogleMutant().then(() => {
-    if (!window.google) {
-      if (!document.getElementById('google-maps-script') && props.apiKey) {
-        const script = document.createElement('script');
-        script.id = 'google-maps-script';
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${props.apiKey}`;
-        script.async = true;
-        script.defer = true;
-        script.onload = initMutant;
-        document.head.appendChild(script);
-      } else {
-        // Script is already loading or no API key, poll for google
-        const checkInterval = setInterval(() => {
-          if (window.google) {
-            clearInterval(checkInterval);
-            initMutant();
-          }
-        }, 200);
-        // Stop checking after 15 seconds
-        setTimeout(() => clearInterval(checkInterval), 15000);
-      }
+  if (!window.google || !window.google.maps) {
+    if (!document.getElementById('google-maps-script') && props.apiKey) {
+      const script = document.createElement('script');
+      script.id = 'google-maps-script';
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${props.apiKey}`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        // Double check just in case
+        if (window.google) initMutant();
+      };
+      document.head.appendChild(script);
     } else {
-      initMutant();
+      // Script is already loading, poll for it
+      const checkInterval = setInterval(() => {
+        if (window.google && window.google.maps) {
+          clearInterval(checkInterval);
+          initMutant();
+        }
+      }, 200);
+      setTimeout(() => clearInterval(checkInterval), 15000);
     }
-  });
+  } else {
+    initMutant();
+  }
 
   return { instance: group, context };
 };
