@@ -237,8 +237,8 @@ const HistoryPage = () => {
             return { ...p, lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
           });
 
-          // Ensure chronological
-          const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+          // Ensure chronological (string comparison is safe for ISO dates and much faster)
+          const sorted = [...processedPoints].sort((a, b) => a.device_time.localeCompare(b.device_time));
           
           // Static Drift Filter: Removes GPS starburst clusters when parked
           const driftFiltered = [];
