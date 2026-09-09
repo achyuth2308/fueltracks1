@@ -10,6 +10,23 @@ import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
+const formatLastComm = (isoString) => {
+  if (!isoString) return 'Never';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return 'Never';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const formattedHours = String(hours).padStart(2, '0');
+  return `${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${ampm}`;
+};
+
 const DevicesAdminPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -231,7 +248,7 @@ const DevicesAdminPage = () => {
                         </div>
                       </td>
                       <td style={{ padding: '18px 20px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-                        {d.last_update ? new Date(d.last_update).toLocaleTimeString() : 'Never'}
+                        {formatLastComm(d.last_update)}
                       </td>
                     </tr>
                   ))}
