@@ -5,21 +5,19 @@ import L from 'leaflet';
 // to avoid top-level import errors that could crash the entire app bundle.
 // The plugin registers itself on window.L and the imported L instance.
 
-let mutantLoaded = false;
-
-// Ensure window.L is available for the plugin to register itself
-window.L = window.L || L;
+let MutantClass = null;
 
 async function loadGoogleMutant() {
-  if (mutantLoaded || L.GridLayer?.GoogleMutant) {
-    mutantLoaded = true;
-    return;
+  if (MutantClass) {
+    return MutantClass;
   }
   try {
-    await import('leaflet.gridlayer.googlemutant');
-    mutantLoaded = true;
+    const module = await import('leaflet.gridlayer.googlemutant');
+    MutantClass = module.default;
+    return MutantClass;
   } catch (e) {
     console.warn('[GoogleMutantLayer] Failed to load googlemutant plugin:', e);
+    return null;
   }
 }
 
@@ -27,10 +25,15 @@ const createGoogleLayer = (props, context) => {
   const group = L.layerGroup();
 
   const initMutant = () => {
-    loadGoogleMutant().then(() => {
+    loadGoogleMutant().then((Mutant) => {
       try {
         const type = props.type || 'roadmap';
-        if (L.gridLayer && L.gridLayer.googleMutant) {
+        if (Mutant) {
+          const mutant = new Mutant({ type });
+          group.clearLayers();
+          group.addLayer(mutant);
+        } else if (L.gridLayer && L.gridLayer.googleMutant) {
+          // Fallback just in case
           const mutant = L.gridLayer.googleMutant({ type });
           group.clearLayers();
           group.addLayer(mutant);
@@ -74,7 +77,10 @@ const updateGoogleLayer = (instance, props, prevProps) => {
   if (props.type !== prevProps.type && window.google) {
     instance.clearLayers();
     try {
-      if (L.gridLayer && L.gridLayer.googleMutant) {
+      if (MutantClass) {
+        const mutant = new MutantClass({ type: props.type || 'roadmap' });
+        instance.addLayer(mutant);
+      } else if (L.gridLayer && L.gridLayer.googleMutant) {
         const mutant = L.gridLayer.googleMutant({ type: props.type || 'roadmap' });
         instance.addLayer(mutant);
       }
