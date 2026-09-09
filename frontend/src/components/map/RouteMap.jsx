@@ -610,12 +610,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </BaseLayer>
-          <BaseLayer name="Dark Mode (Premium)">
-            <TileLayer
-              attribution='&copy; <a href="https://carto.com/">CartoDB</a>'
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            />
-          </BaseLayer>
+
           {apiKey && (
             <>
               <BaseLayer name="Google Maps">
