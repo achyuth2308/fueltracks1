@@ -166,21 +166,15 @@ function parseGpsBlock(buf, offset) {
   const courseHigh = buf[offset + 10];
   const courseLow  = buf[offset + 11];
 
-  const gpsValid   = !!(courseHigh & 0x40);              // bit6 of high byte
-  const isWest     = !!(courseHigh & 0x20);              // bit5
-  const isNorth    = !!(courseHigh & 0x10);              // bit4
+  const gpsValid   = !!(courseHigh & 0x10);              // bit4 of high byte
+  const isWest     = !!(courseHigh & 0x08);              // bit3
+  const isNorth    = !!(courseHigh & 0x04);              // bit2
   const heading    = ((courseHigh & 0x03) << 8) | courseLow; // 10-bit course
 
   let lat = rawLat / 1800000;
   let lng = rawLng / 1800000;
 
   if (!isNorth) lat = -lat;
-
-  // FIX: Cheap clones zero out hemisphere bits when GPS is lost, putting vehicles in the Indian Ocean.
-  // If coordinates are in the Indian Ocean directly south of India, flip latitude back to North.
-  if (lat < 0 && lat > -40 && lng > 65 && lng < 95) {
-    lat = Math.abs(lat);
-  }
   if (isWest)   lng = -lng;
 
   lat = parseFloat(lat.toFixed(7));
@@ -210,12 +204,14 @@ function parseGpsBlock(buf, offset) {
  * @returns {object}
  */
 function parseTerminalInfo(byte) {
+  const alarmEnum = (byte >> 3) & 0x07;
   return {
-    oilCutOff:   !!(byte & 0x01),
-    gpsTracking: !!(byte & 0x02),
-    charging:    !!(byte & 0x04),
-    acc:         !!(byte & 0x08),  // ACC / ignition
-    armed:       !!(byte & 0x10),
+    oilCutOff:   !!(byte & 0x80), // bit 7
+    gpsTracking: !!(byte & 0x40), // bit 6
+    alarmEnum:   alarmEnum,       // bits 5-3
+    charging:    !!(byte & 0x04), // bit 2
+    acc:         !!(byte & 0x02), // bit 1 (ACC / ignition)
+    activated:   !!(byte & 0x01), // bit 0
   };
 }
 
@@ -228,13 +224,19 @@ function parseTerminalInfo(byte) {
  * Information Content: 8 bytes IMEI + 2 bytes model + 2 bytes TZ/lang
  */
 function parseLogin(info, serialNumber) {
-  if (info.length < 12) {
-    throw new Error(`EC08 Login: info too short (${info.length} bytes, expected 12)`);
+  if (info.length < 8) {
+    throw new Error(`EC08 Login: info too short (${info.length} bytes, expected at least 8)`);
   }
 
   const imei = decodeImei(info.slice(0, 8));
-  const modelCode = info.readUInt16BE(8);
-  const tzLang    = info.readUInt16BE(10);
+  
+  let modelCode = null;
+  let tzLang = null;
+  
+  if (info.length >= 12) {
+    modelCode = info.readUInt16BE(8);
+    tzLang    = info.readUInt16BE(10);
+  }
 
   if (!/^\d{14,16}$/.test(imei)) {
     throw new Error(`EC08 Login: invalid IMEI decoded: '${imei}'`);
@@ -318,8 +320,8 @@ function parseHeartbeat(info, serialNumber, imei, rawPacketType = 0x13) {
  *   [29]   Mileage: 4 bytes (absent on some "06 series" devices)
  */
 function parseLocation(info, serialNumber, imei, rawPacketType = 0x12) {
-  if (info.length < 29) {
-    throw new Error(`EC08 Location: info too short (${info.length} bytes, expected 29+)`);
+  if (info.length < 26) {
+    throw new Error(`EC08 Location: info too short (${info.length} bytes, expected 26+)`);
   }
 
   const deviceTime = parseDateTime(info, 0);
@@ -332,10 +334,17 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x12) {
   const lac    = info.readUInt16BE(21);
   const cellId = (info[23] << 16) | (info[24] << 8) | info[25];
 
-  const acc            = info[26];
-  const dataUploadMode = info[27];
-  const reUploadFlag   = info[28];
-  const isBuffered     = reUploadFlag === 0x01;  // 0x00=live, 0x01=re-upload (historical)
+  let acc = null;
+  let dataUploadMode = null;
+  let isBuffered = false;
+  let reUploadFlag = null;
+
+  if (info.length >= 29) {
+    acc            = info[26];
+    dataUploadMode = info[27];
+    reUploadFlag   = info[28];
+    isBuffered     = reUploadFlag === 0x01;  // 0x00=live, 0x01=re-upload (historical)
+  }
 
   // Mileage: 4 bytes — may be absent on "06 series" devices, guard gracefully
   let odometer = null;

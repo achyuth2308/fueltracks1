@@ -107,7 +107,7 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1 }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [showEvents, setShowEvents] = useState(true);

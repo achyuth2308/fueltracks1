@@ -126,12 +126,6 @@ const HistoryPage = () => {
   const tableFilteredPoints = filteredPoints.filter(p => (p.speed || 0) > 5);
 
   useEffect(() => {
-    setCurrentPage(1);
-    setCurrentPointIndex(0);
-    setIsPlaying(false);
-  }, [activeTab]);
-
-  useEffect(() => {
     if (filteredPoints.length > 0 && currentPointIndex >= 0 && tableFilteredPoints.length > 0) {
       const activeP = filteredPoints[currentPointIndex];
       if (activeP) {
@@ -204,8 +198,8 @@ const HistoryPage = () => {
           vehicleApi.getVehicles({ limit: 1000 })
         ]);
 
-        if (groupsRes?.success) setAllGroups(groupsRes.data);
-        if (vehiclesRes?.success) setAllVehicles(vehiclesRes.data);
+        if (groupsRes?.success) setAllGroups(groupsRes.data || []);
+        if (vehiclesRes?.success) setAllVehicles(vehiclesRes.data || []);
 
       } catch (err) {
         console.error('Failed to fetch initial data:', err);
@@ -229,58 +223,62 @@ const HistoryPage = () => {
         startDate: new Date(overrideStart || startDate).toISOString(),
         endDate: new Date(overrideEnd || endDate).toISOString()
       });
-      if (routeRes.success) {
-        const processedPoints = routeRes.data.filter(p => {
-          const lat = parseFloat(p.lat);
-          const lng = parseFloat(p.lng);
-          // Filter out invalid coordinates (e.g., 0,0 or out of bounds)
-          // Using India's bounding box as defined in RouteMap
-          return !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
-        }).map(p => {
-          return { ...p, lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
-        });
+      if (routeRes?.success) {
+        if (!routeRes.data || routeRes.data.length === 0) {
+          setPoints([]);
+        } else {
+          const processedPoints = routeRes.data.filter(p => {
+            const lat = parseFloat(p.lat);
+            const lng = parseFloat(p.lng);
+            // Filter out invalid coordinates (e.g., 0,0 or out of bounds)
+            // Using India's bounding box as defined in RouteMap
+            return !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
+          }).map(p => {
+            return { ...p, lat: parseFloat(p.lat), lng: parseFloat(p.lng) };
+          });
 
-        // Ensure chronological
-        const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
-        
-        // Static Drift Filter: Removes GPS starburst clusters when parked
-        const driftFiltered = [];
-        let lastValid = null;
-        for (const p of sorted) {
-          if (!lastValid) {
-            driftFiltered.push(p);
-            lastValid = p;
-            continue;
-          }
-          // A vehicle is considered "moving" if speed > 3 km/h or ignition is ON.
-          const isMoving = p.speed > 3 || p.ignition;
-          const wasMoving = lastValid.speed > 3 || lastValid.ignition;
+          // Ensure chronological
+          const sorted = [...processedPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
           
-          // We keep moving points, AND the first stopped point (so we know where it parked),
-          // but we drop all subsequent stopped points to prevent GPS starburst drift.
-          if (isMoving || wasMoving) {
-            driftFiltered.push(p);
-            lastValid = p;
-          }
-        }
-
-        let cumulativeDist = 0;
-        const withDist = driftFiltered.map((p, idx, arr) => {
-          if (idx > 0) {
-            const segDist = calculateDistance(
-              parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng),
-              parseFloat(p.lat), parseFloat(p.lng)
-            );
-            // Only accumulate real movement (> 10m). Filters GPS jitter while parked.
-            // Also cap single-segment jumps at 5km to reject teleport glitches.
-            if (segDist > 0.01 && segDist < 5) {
-              cumulativeDist += segDist;
+          // Static Drift Filter: Removes GPS starburst clusters when parked
+          const driftFiltered = [];
+          let lastValid = null;
+          for (const p of sorted) {
+            if (!lastValid) {
+              driftFiltered.push(p);
+              lastValid = p;
+              continue;
+            }
+            // A vehicle is considered "moving" if speed > 3 km/h or ignition is ON.
+            const isMoving = p.speed > 3 || p.ignition;
+            const wasMoving = lastValid.speed > 3 || lastValid.ignition;
+            
+            // We keep moving points, AND the first stopped point (so we know where it parked),
+            // but we drop all subsequent stopped points to prevent GPS starburst drift.
+            if (isMoving || wasMoving) {
+              driftFiltered.push(p);
+              lastValid = p;
             }
           }
-          return { ...p, cDist: parseFloat(cumulativeDist.toFixed(3)) };
-        });
 
-        setPoints(withDist);
+          let cumulativeDist = 0;
+          const withDist = driftFiltered.map((p, idx, arr) => {
+            if (idx > 0) {
+              const segDist = calculateDistance(
+                parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng),
+                parseFloat(p.lat), parseFloat(p.lng)
+              );
+              // Only accumulate real movement (> 10m). Filters GPS jitter while parked.
+              // Also cap single-segment jumps at 5km to reject teleport glitches.
+              if (segDist > 0.01 && segDist < 5) {
+                cumulativeDist += segDist;
+              }
+            }
+            return { ...p, cDist: parseFloat(cumulativeDist.toFixed(3)) };
+          });
+
+          setPoints(withDist);
+        }
       }
     } catch (err) {
       console.error('Failed to load history logs:', err);
@@ -519,6 +517,7 @@ const HistoryPage = () => {
             activePoint={activePoint}
             vehicle={vehicle}
             vehicleName={vehicle?.name || 'Vehicle'}
+            playbackSpeed={playbackSpeed}
             vehicleLastKnownPosition={
               vehicle && vehicle.lat != null && vehicle.lng != null
                 ? { lat: vehicle.lat, lng: vehicle.lng }
@@ -631,7 +630,7 @@ const HistoryPage = () => {
             {tabs.map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
                 style={{
                   padding: '6px 4px',
                   background: activeTab === tab ? '#FFFFFF' : 'transparent',
