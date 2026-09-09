@@ -118,7 +118,7 @@ const OnBoardDevicePage = () => {
           id: Date.now() + idx,
           licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
           deviceId: String(row['VLTD SLNO'] || row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
-          deviceType: String(row['Device Type (VOLTY/AIS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
+          deviceType: String(row['Device Type'] || row['Device Type (VOLTY/AIS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
           vehicleId: String(row['Vehicle Id'] || '').trim(),
           vehicleName: String(row['Vehicle Name'] || '').trim(),
           registrationNo: String(row['Registration No'] || '').trim(),

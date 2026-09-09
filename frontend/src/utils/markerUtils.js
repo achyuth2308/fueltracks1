@@ -38,49 +38,52 @@ export const STATUS_CONFIG = {
   offline: { color: '#ef4444', label: 'Offline', pulse: false },
 };
 
+// Ultra-bright high-contrast white vehicle SVGs
 export const getVehicleSvgContent = (type, color) => {
   switch (type) {
     case 'bike':
-      return `
-        <rect x="6" y="5" width="12" height="2" rx="1" fill="${color}" stroke="#ffffff" stroke-width="1" />
-        <rect x="11" y="2" width="2" height="6" rx="1" fill="#333" />
-        <rect x="9" y="6" width="6" height="14" rx="3" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <rect x="11" y="18" width="2" height="5" rx="1" fill="#333" />
-        <rect x="10" y="5" width="4" height="2" rx="1" fill="#ffffff" opacity="0.9" />`;
+      return '<path d="M3 11.5L6.5 5H11.5L13.5 8H17" stroke="#ffffff" stroke-width="2.2" fill="none" stroke-linecap="round"/>' +
+        '<path d="M6.5 5H11" stroke="#ffffff" stroke-width="2.8" stroke-linecap="round"/>' +
+        '<circle cx="3.5" cy="11.5" r="2.5" stroke="#ffffff" stroke-width="2" fill="none"/>' +
+        '<circle cx="14.5" cy="11.5" r="2.5" stroke="#ffffff" stroke-width="2" fill="none"/>' +
+        '<circle cx="3.5" cy="11.5" r="1" fill="#ffffff"/>' +
+        '<circle cx="14.5" cy="11.5" r="1" fill="#ffffff"/>';
     case 'bus':
-      return `
-        <rect x="4.5" y="2" width="15" height="20" rx="2.5" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <path d="M5.5 4C5.5 3.4 6 3 6.5 3H17.5C18 3 18.5 3.4 18.5 4V6H5.5V4Z" fill="#ffffff" opacity="0.9" />
-        <rect x="6" y="20.5" width="12" height="1" rx="0.5" fill="#ffffff" opacity="0.9" />
-        <rect x="9.5" y="8" width="5" height="3" rx="1" fill="#ffffff" opacity="0.35" />
-        <rect x="9.5" y="14" width="5" height="3" rx="1" fill="#ffffff" opacity="0.35" />`;
+      return '<rect x="1.5" y="5" width="17" height="8.5" rx="2" fill="#ffffff"/>' +
+        '<rect x="3.2" y="6.5" width="2.8" height="2.2" rx="0.5" fill="' + color + '"/>' +
+        '<rect x="7" y="6.5" width="2.8" height="2.2" rx="0.5" fill="' + color + '"/>' +
+        '<rect x="10.8" y="6.5" width="2.8" height="2.2" rx="0.5" fill="' + color + '"/>' +
+        '<rect x="14.6" y="6.5" width="2.4" height="2.2" rx="0.5" fill="' + color + '"/>' +
+        '<circle cx="4.8" cy="14" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="4.8" cy="14" r="0.7" fill="' + color + '"/>' +
+        '<circle cx="15.2" cy="14" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="15.2" cy="14" r="0.7" fill="' + color + '"/>';
     case 'van':
-      return `
-        <rect x="3.5" y="4" width="2" height="3" rx="1" fill="${color}" />
-        <rect x="18.5" y="4" width="2" height="3" rx="1" fill="${color}" />
-        <path d="M5.5 4C5.5 3 6.5 2 7.5 2H16.5C17.5 2 18.5 3 18.5 4V7H5.5V4Z" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <rect x="6.5" y="3.5" width="11" height="3" rx="1" fill="#ffffff" opacity="0.9" />
-        <rect x="4.5" y="7" width="15" height="15" rx="2" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <rect x="6" y="9" width="12" height="11" rx="1" fill="#ffffff" opacity="0.25" />`;
+      return '<path d="M1.5 6C1.5 5 2.5 4.2 3.5 4.2H12.5L16.5 7.8V12.5H1.5V6Z" fill="#ffffff"/>' +
+        '<path d="M10.8 5.5H12.8L15 7.8H10.8V5.5Z" fill="' + color + '"/>' +
+        '<circle cx="4.8" cy="13" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="4.8" cy="13" r="0.7" fill="' + color + '"/>' +
+        '<circle cx="14" cy="13" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="14" cy="13" r="0.7" fill="' + color + '"/>';
     case 'lorry':
-      return `
-        <path d="M7 2.5C7 1.7 7.7 1 8.5 1H15.5C16.3 1 17 1.7 17 2.5V5H7V2.5Z" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <rect x="8" y="2.5" width="8" height="2" rx="0.5" fill="#ffffff" opacity="0.9" />
-        <rect x="5.5" y="2.5" width="1.5" height="2.5" rx="0.5" fill="${color}" />
-        <rect x="17" y="2.5" width="1.5" height="2.5" rx="0.5" fill="${color}" />
-        <rect x="5" y="6" width="14" height="17" rx="1.5" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <line x1="8" y1="6" x2="8" y2="23" stroke="#ffffff" stroke-width="1" opacity="0.4" />
-        <line x1="12" y1="6" x2="12" y2="23" stroke="#ffffff" stroke-width="1" opacity="0.4" />
-        <line x1="16" y1="6" x2="16" y2="23" stroke="#ffffff" stroke-width="1" opacity="0.4" />`;
+      return '<path d="M1.5 10.2C1.5 8.2 3.2 6.5 5.5 6.5H11.5V13.8H1.5V10.2Z" fill="#ffffff"/>' +
+        '<path d="M12 7.2H15.2L18.2 10.2V13.8H12V7.2Z" fill="#ffffff"/>' +
+        '<path d="M13.2 8.2H15.2L16.5 10.2H13.2V8.2Z" fill="' + color + '"/>' +
+        '<circle cx="4.8" cy="14.2" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="4.8" cy="14.2" r="0.7" fill="' + color + '"/>' +
+        '<circle cx="9" cy="14.2" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="9" cy="14.2" r="0.7" fill="' + color + '"/>' +
+        '<circle cx="15.2" cy="14.2" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="15.2" cy="14.2" r="0.7" fill="' + color + '"/>';
     case 'car':
     default:
-      return `
-        <rect x="3.5" y="8" width="2" height="3.5" rx="1" fill="${color}" />
-        <rect x="18.5" y="8" width="2" height="3.5" rx="1" fill="${color}" />
-        <rect x="5" y="2.5" width="14" height="19" rx="4.5" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
-        <path d="M6.5 8L7.5 6H16.5L17.5 8V10.5H6.5V8Z" fill="#ffffff" opacity="0.9" />
-        <path d="M7 16H17L16 18H8L7 16Z" fill="#ffffff" opacity="0.9" />
-        <rect x="7.5" y="11.5" width="9" height="4" rx="1" fill="#ffffff" opacity="0.3" />`;
+      return '<path d="M1.5 10.2C1.5 9 2.5 8 3.8 8H6L8.5 5.2C8.8 4.8 9.3 4.5 9.8 4.5H13C13.7 4.5 14.3 4.9 14.6 5.5L16.2 8H17.5C18.8 8 19.8 9 19.8 10.2V12.8H1.5V10.2Z" fill="#ffffff"/>' +
+        '<path d="M6.8 8H9.2L7.8 6.2H6L6.8 8Z" fill="' + color + '"/>' +
+        '<path d="M10.5 6.2H13.5L14.7 8H10.5V6.2Z" fill="' + color + '"/>' +
+        '<circle cx="4.8" cy="13.2" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="4.8" cy="13.2" r="0.7" fill="' + color + '"/>' +
+        '<circle cx="15.5" cy="13.2" r="1.8" fill="#ffffff"/>' +
+        '<circle cx="15.5" cy="13.2" r="0.7" fill="' + color + '"/>';
   }
 };
 
@@ -88,65 +91,51 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   const status = overrideOptions.status || getVehicleStatus(vehicle);
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
   const color = overrideOptions.color || cfg.color;
-  const course = overrideOptions.course !== undefined ? overrideOptions.course : (vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0);
   const speed = overrideOptions.speed !== undefined ? overrideOptions.speed : Math.round(vehicle.current_speed || 0);
   const type = overrideOptions.type || getVehicleType(vehicle);
 
+  const stemHeight = clusterRank * 14;
+  const iconHeight = 32;
+  const totalHeight = iconHeight + stemHeight;
+
   const vehicleSvgContent = getVehicleSvgContent(type, color);
 
-  const finalSvg = `
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" style="transform: rotate(${course}deg); filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));">
-  ${vehicleSvgContent}
-</svg>`;
+  // Teardrop Pin with crisp white stroke & bright drop shadow on inner vehicle icon
+  const pinSvg = '<svg width="26" height="32" viewBox="0 0 26 32" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 2px 5px rgba(0,0,0,0.4)); overflow: visible;">' +
+    '<path d="M13 0C5.82 0 0 5.82 0 13C0 21.5 13 32 13 32C13 32 26 21.5 26 13C26 5.82 20.18 0 13 0Z" fill="' + color + '" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<g transform="translate(6, 6) scale(0.72)" style="filter: drop-shadow(0px 1px 1.5px rgba(0,0,0,0.3));">' +
+    vehicleSvgContent +
+    '</g>' +
+    '</svg>';
 
-  const svgHtml = `
-    <div style="position:relative;width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
-      <div class="pin-interactive" style="width:40px;height:40px;position:relative;z-index:1;">
-        ${finalSvg}
-        ${status === 'running' && speed > 0 && !overrideOptions.hideSpeed ? `<div style="position:absolute;top:-10px;left:0;width:40px;text-align:center;font-size:11px;font-weight:800;color:white;text-shadow:0 1px 3px rgba(0,0,0,0.8);">${speed}</div>` : ''}
-      </div>
-    </div>`;
+  const pulseCircle = (status === 'running' && cfg.pulse)
+    ? '<div style="position:absolute; top:13px; left:13px; transform:translate(-50%, -50%); width:32px; height:32px; border-radius:50%; background-color:' + color + '; opacity:0.3; pointer-events:none; z-index:-1; animation: pulse-ring 2s infinite;"></div>'
+    : '';
+
+  const speedBadge = (status === 'running' && speed > 0 && !overrideOptions.hideSpeed)
+    ? '<div style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:' + color + ';color:white;font-size:9px;font-weight:800;padding:1px 5px;border-radius:8px;border:1px solid white;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,0.3);z-index:2;">' + speed + ' km/h</div>'
+    : '';
+
+  const stemLine = (clusterRank > 0)
+    ? '<div style="width:2px;height:' + stemHeight + 'px;background-color:' + color + ';margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>'
+    : '';
+
+  const svgHtml = '<div style="position:relative;width:26px;height:' + totalHeight + 'px;display:flex;flex-direction:column;align-items:center;">' +
+    '<div class="pin-interactive" style="width:26px;height:32px;position:relative;z-index:1;">' +
+    pulseCircle +
+    pinSvg +
+    speedBadge +
+    '</div>' +
+    stemLine +
+    '</div>';
 
   return L.divIcon({
     html: svgHtml,
     className: 'custom-marker-icon animated-marker',
-    iconSize: [40, 40],
-    iconAnchor: [20, 20],
-    popupAnchor: [0, -20],
+    iconSize: [26, totalHeight],
+    iconAnchor: [13, clusterRank > 0 ? totalHeight : 32],
+    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -32],
   });
 };
 
-export const createTeardropIcon = (vehicle, noGps = false, clusterRank = 0) => {
-  const status = getVehicleStatus(vehicle);
-  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.offline;
-  const color = cfg.color;
-
-  const stemHeight = clusterRank * 20;
-  const iconHeight = 40;
-  const totalHeight = iconHeight + stemHeight;
-
-  // Modern Teardrop SVG Pin
-  const pinSvg = `
-    <svg width="32" height="40" viewBox="0 0 28 36" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0px 3px 4px rgba(0,0,0,0.4));">
-      <path d="M14 0C6.268 0 0 6.268 0 14C0 24.5 14 36 14 36C14 36 28 24.5 28 14C28 6.268 21.732 0 14 0Z" fill="${color}" stroke="#ffffff" stroke-width="2"/>
-      <circle cx="14" cy="14" r="6" fill="#ffffff" opacity="0.9"/>
-    </svg>
-  `;
-
-  const svgHtml = `
-    <div style="position:relative;width:32px;height:${totalHeight}px;display:flex;flex-direction:column;align-items:center;">
-      <div style="width:32px;height:40px;position:relative;z-index:1;">
-        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); width:44px; height:44px; border-radius:50%; background-color:${color}; opacity:0.15; border: 2px solid ${color}; z-index:-1; pointer-events:none; ${cfg.pulse ? 'animation: pulse-ring 2s infinite;' : ''}"></div>
-        ${pinSvg}
-      </div>
-      ${clusterRank > 0 ? `<div style="width:2px;height:${stemHeight}px;background-color:${color};margin-top:-4px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>` : ''}
-    </div>`;
-
-  return L.divIcon({
-    html: svgHtml,
-    className: 'custom-teardrop-icon animated-marker',
-    iconSize: [32, totalHeight],
-    iconAnchor: [16, clusterRank > 0 ? totalHeight : 40],
-    popupAnchor: [0, clusterRank > 0 ? -totalHeight : -40],
-  });
-};
+export const createTeardropIcon = createPinIcon;

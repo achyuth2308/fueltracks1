@@ -123,9 +123,16 @@ const VEHICLE_TYPES = [
 ];
 
 const DEVICE_TYPES = [
-  'VOLTY (5004)', 'CONCOX (5002)', 'AIS140 V2 (5003)',
-  'FMB 920 (5005)', 'BSTPL (5000)', 'AIS140 (5001)',
-  'PT06 (5006)', 'EC08 (5007)', 'PN02 (5008)', 'V5 4G (5009)'
+  { value: 'VOLTY', label: 'VOLTY (5004)' },
+  { value: 'CONCOX', label: 'CONCOX (5002)' },
+  { value: 'AIS140 V2', label: 'AIS140 V2 (5003)' },
+  { value: 'FMB 920', label: 'FMB 920 (5005)' },
+  { value: 'BSTPL', label: 'BSTPL (5000)' },
+  { value: 'AIS140', label: 'AIS140 (5001)' },
+  { value: 'PT06', label: 'PT06 (5006)' },
+  { value: 'EC08', label: 'EC08 (5007)' },
+  { value: 'PN02', label: 'PN02 (5008)' },
+  { value: 'V5 4G', label: 'V5 4G (5009)' }
 ];
 
 const TELECOM_OPERATORS = ['Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
