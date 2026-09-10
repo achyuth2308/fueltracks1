@@ -91,8 +91,8 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name || !orgId) {
-      setError('Group Name and Organization are required.');
+    if (!name) {
+      setError('Group Name is required.');
       return;
     }
 
