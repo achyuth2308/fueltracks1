@@ -469,15 +469,17 @@ const EditVehiclePage = () => {
 
             <InputField label="Installation Date" type="date" value={form.metadata.installationDate || form.metadata.installedDate || ''} onChange={e => updateMeta('installationDate', e.target.value)} focused={focusedField === 'instDate'} onFocus={() => setFocusedField('instDate')} onBlur={() => setFocusedField(null)} />
             
-            <SelectField
-              label="Organization Name"
-              value={form.orgId}
-              onChange={e => updateField('orgId', e.target.value)}
-              options={orgs.map(o => ({ value: o.id, label: o.name }))}
-              focused={focusedField === 'org'}
-              onFocus={() => setFocusedField('org')}
-              onBlur={() => setFocusedField(null)}
-            />
+            {orgs && orgs.length > 0 && (
+              <SelectField
+                label="Organization Name"
+                value={form.orgId}
+                onChange={e => updateField('orgId', e.target.value)}
+                options={orgs.map(o => ({ value: o.id, label: o.name }))}
+                focused={focusedField === 'org'}
+                onFocus={() => setFocusedField('org')}
+                onBlur={() => setFocusedField(null)}
+              />
+            )}
 
             <InputField label="Licence" value={form.metadata.licenceId || form.metadata.licenceNo || ''} onChange={e => updateMeta('licenceId', e.target.value)} placeholder="e.g. DL-12345" focused={focusedField === 'lic'} onFocus={() => setFocusedField('lic')} onBlur={() => setFocusedField(null)} />
             <InputField label="Onboard Date" type="date" value={form.metadata.onboardingDate || form.metadata.onboardDate || ''} onChange={e => updateMeta('onboardingDate', e.target.value)} focused={focusedField === 'onboardDate'} onFocus={() => setFocusedField('onboardDate')} onBlur={() => setFocusedField(null)} />

@@ -207,19 +207,21 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               />
             </div>
 
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Organization<span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <select
-                required value={orgId} onChange={(e) => setOrgId(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-              >
-                {orgs.map(org => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </select>
-            </div>
+            {orgs && orgs.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  Organization<span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <select
+                  required value={orgId} onChange={(e) => setOrgId(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                >
+                  {orgs.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Role<span style={{ color: '#EF4444' }}>*</span>
