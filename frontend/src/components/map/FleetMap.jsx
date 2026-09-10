@@ -396,14 +396,9 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
     return { vehicle, finalLat, finalLng, hasValidCoords };
   });
 
-  // Step 2: Render Markers inside ClusterGroup
+  // Step 2: Render individual markers directly without clustering
   return (
-    <MarkerClusterGroup
-      chunkedLoading
-      maxClusterRadius={40}
-      showCoverageOnHover={false}
-      spiderfyOnMaxZoom={true}
-    >
+    <>
       {resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords }) => {
         const safeVehicle = {
           ...vehicle,
@@ -424,7 +419,7 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
           />
         );
       })}
-    </MarkerClusterGroup>
+    </>
   );
 };
 
