@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Tooltip, Polyline, Popup, useMap, Circle, LayerGroup } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -396,9 +396,9 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
     return { vehicle, finalLat, finalLng, hasValidCoords };
   });
 
-  // Step 2: Render individual markers directly without clustering
+  // Step 2: Render individual markers directly without clustering (using LayerGroup for stable context)
   return (
-    <>
+    <LayerGroup>
       {resolved.map(({ vehicle, finalLat, finalLng, hasValidCoords }) => {
         const safeVehicle = {
           ...vehicle,
@@ -419,7 +419,7 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
           />
         );
       })}
-    </>
+    </LayerGroup>
   );
 };
 
