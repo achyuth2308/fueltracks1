@@ -20,7 +20,7 @@ const VehicleController = {
     try {
       const { page, limit, search, groupId, category, orgId } = req.query;
       const parsedPage = parseInt(page) || 1;
-      const parsedLimit = parseInt(limit) || 100;
+      const parsedLimit = parseInt(limit) || 10000;
 
       // If groupId is provided, ensure user has access to it
       if (groupId && req.user.role !== 'superadmin') {
