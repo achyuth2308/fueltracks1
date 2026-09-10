@@ -12,18 +12,13 @@ const OrgModel = {
     const result = await db.query(
       `SELECT o.*,
               p.name as parent_name,
-              COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS vehicle_count,
-              COUNT(DISTINCT CASE WHEN u.is_active = TRUE THEN u.id END) AS user_count,
-              COUNT(DISTINCT g.id) AS groups_count,
-              COUNT(DISTINCT d.id) AS devices_count
+              (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
+              (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
+              (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
+              (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
        FROM organizations o
        LEFT JOIN organizations p ON o.parent_id = p.id
-       LEFT JOIN vehicles v ON v.org_id = o.id
-       LEFT JOIN users u ON u.org_id = o.id
-       LEFT JOIN groups g ON g.org_id = o.id
-       LEFT JOIN devices d ON d.org_id = o.id
-       WHERE o.id = $1
-       GROUP BY o.id, p.name`,
+       WHERE o.id = $1`,
       [orgId]
     );
     return result.rows[0] || null;
@@ -43,22 +38,17 @@ const OrgModel = {
       params.push(orgId);
     }
 
-    // Single query with LEFT JOINs instead of 4 correlated subqueries per row
+    // Single query with subqueries instead of left joins to prevent cartesian explosion
     const query = `
       SELECT o.*,
              p.name as parent_name,
-             COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS vehicle_count,
-             COUNT(DISTINCT CASE WHEN u.is_active = TRUE THEN u.id END) AS user_count,
-             COUNT(DISTINCT g.id) AS groups_count,
-             COUNT(DISTINCT d.id) AS devices_count
+             (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
+             (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
+             (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
+             (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
       FROM organizations o
       LEFT JOIN organizations p ON o.parent_id = p.id
-      LEFT JOIN vehicles v ON v.org_id = o.id
-      LEFT JOIN users u ON u.org_id = o.id
-      LEFT JOIN groups g ON g.org_id = o.id
-      LEFT JOIN devices d ON d.org_id = o.id
       ${whereClause}
-      GROUP BY o.id, p.name
       ORDER BY o.type, o.name
     `;
 
