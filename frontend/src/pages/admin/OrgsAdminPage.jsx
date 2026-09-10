@@ -282,184 +282,57 @@ const OrgsAdminPage = () => {
               <button onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={20} /></button>
             </div>
 
-            {/* Modal Body with Sidebar Tabs */}
-            <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-              {/* Sidebar Tabs */}
-              <div style={{ width: '220px', borderRight: '1px solid #E2E8F0', background: '#EEF5F8', padding: '16px' }}>
-                {tabs.map(tab => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    style={{
-                      width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
-                      padding: '12px 14px', borderRadius: '10px',
-                      background: activeTab === tab.id ? '#f0f9ff' : 'transparent',
-                      color: activeTab === tab.id ? '#f97316' : '#64748B',
-                      border: 'none', cursor: 'pointer', textAlign: 'left',
-                      fontSize: '13px', fontWeight: activeTab === tab.id ? 700 : 500,
-                      marginBottom: '4px', transition: 'all 0.2s'
-                    }}
-                  >
-                    <tab.icon size={16} />
-                    {tab.label}
-                  </button>
-                ))}
+            {/* Modal Body */}
+            <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {modalError && (
+                <div style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>
+                  {modalError}
+                </div>
+              )}
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Organization Name *</label>
+                <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
               </div>
 
-              {/* Tab Content */}
-              <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
-                {modalError && (
-                  <div style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '20px' }}>
-                    {modalError}
-                  </div>
-                )}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={isAllUsersSelected}
+                      onChange={handleSelectAllUsers}
+                      style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
+                    />
+                    Select all Users
+                  </label>
+                  <input 
+                    type="text"
+                    placeholder="Search..."
+                    value={userSearchQuery}
+                    onChange={e => setUserSearchQuery(e.target.value)}
+                    style={{ width: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid #CBD5E1', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
+                  />
+                </div>
 
-                {activeTab === 'general' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Organization Name *</label>
-                      <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                <div style={{ overflowY: 'auto', flex: 1, maxHeight: '300px', paddingRight: '4px' }}>
+                  {filteredUsers.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '12px', color: '#94A3B8', fontSize: '13px' }}>
+                      No users found.
                     </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Tenant Type</label>
-                        <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
-                          <option value="customer">Customer</option>
-                          <option value="dealer">Dealer</option>
-                          <option value="super">Platform Super</option>
-                        </select>
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Status</label>
-                        <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
-                          <option value="Active">Active</option>
-                          <option value="Suspended">Suspended</option>
-                        </select>
-                      </div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Contact Person</label>
-                        <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Mobile Number</label>
-                        <input type="text" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                      </div>
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Email</label>
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#475569' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={isAllUsersSelected}
-                            onChange={handleSelectAllUsers}
-                            style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
-                          />
-                          Select all Users
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                      {filteredUsers.map((u) => (
+                        <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000', background: assignedUserIds.includes(u.id) ? '#FFF7ED' : '#FFFFFF', transition: 'background 0.2s' }}>
+                          <input type="checkbox" checked={assignedUserIds.includes(u.id)} onChange={() => handleUserCheckboxChange(u.id)} style={{ accentColor: '#f97316', cursor: 'pointer' }} />
+                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
+                            {u.name || u.email} {u.org_name ? <span style={{ color: '#64748B', fontWeight: 400 }}>({u.org_name})</span> : ''}
+                          </span>
                         </label>
-                        <input 
-                          type="text"
-                          placeholder="Search..."
-                          value={userSearchQuery}
-                          onChange={e => setUserSearchQuery(e.target.value)}
-                          style={{ width: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid #CBD5E1', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
-                        />
-                      </div>
-
-                      <div style={{ overflowY: 'auto', maxHeight: '160px', paddingRight: '4px' }}>
-                        {filteredUsers.length === 0 ? (
-                          <div style={{ textAlign: 'center', padding: '12px', color: '#94A3B8', fontSize: '13px' }}>
-                            No users found.
-                          </div>
-                        ) : (
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-                            {filteredUsers.map((u) => (
-                              <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000', background: assignedUserIds.includes(u.id) ? '#FFF7ED' : '#FFFFFF', transition: 'background 0.2s' }}>
-                                <input type="checkbox" checked={assignedUserIds.includes(u.id)} onChange={() => handleUserCheckboxChange(u.id)} style={{ accentColor: '#f97316', cursor: 'pointer' }} />
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
-                                  {u.name || u.email} {u.org_name ? <span style={{ color: '#64748B', fontWeight: 400 }}>({u.org_name})</span> : ''}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      ))}
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Address</label>
-                      <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', height: '60px', resize: 'none', boxSizing: 'border-box', color: '#111827' }} />
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'alerts' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Alert Policies</h3>
-                    {['Parking Alert', 'Idle Alert', 'Overspeed Alert', 'SOS Alert', 'Harsh Braking Alert', 'Power Disconnect Alert', 'Ignition ON Alert', 'Ignition OFF Alert', 'Route Deviation Alert', 'Tamper Alert', 'Low Battery Alert'].map(item => (
-                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" defaultChecked style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
-                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-
-
-                {activeTab === 'geofence' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Geofence Configuration</h3>
-                    {['Geofence Enabled', 'Entry Alert', 'Exit Alert', 'Geofence Immobilizer'].map(item => (
-                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
-                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
-                {activeTab === 'fuel' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Fuel Monitoring Status</h3>
-                    <div style={{ background: '#EEF5F8', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Fuel Sensors Connected:</span>
-                        <span style={{ fontSize: '13px', color: '#111827', fontWeight: 800 }}>—</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Fuel Enabled Vehicles:</span>
-                        <span style={{ fontSize: '13px', color: '#111827', fontWeight: 800 }}>—</span>
-                      </div>
-                    </div>
-                    {['Fuel Monitoring Enabled', 'Fuel Fill Alert', 'Fuel Theft Alert', 'Low Fuel Alert', 'Fuel Reports Enabled', 'Fuel Sensor Enabled'].map(item => (
-                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" disabled style={{ width: '16px', height: '16px', accentColor: '#f97316', opacity: 0.5 }} />
-                        <span style={{ fontSize: '14px', color: '#94A3B8', fontWeight: 500 }}>{item} (Disabled)</span>
-                      </label>
-                    ))}
-                    <div style={{ marginTop: '12px', fontSize: '12px', color: '#64748B', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <Radio size={14} color="#f97316" />
-                      Module ready for hardware integration.
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'advanced' && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#111827', marginBottom: '8px' }}>Advanced Settings</h3>
-                    {['RFID Enabled', 'Temperature Sensor Enabled', 'Camera Enabled', 'Debug Mode'].map(item => (
-                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
-                        <input type="checkbox" style={{ width: '16px', height: '16px', accentColor: '#f97316' }} />
-                        <span style={{ fontSize: '14px', color: '#475569', fontWeight: 500 }}>{item}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
 
