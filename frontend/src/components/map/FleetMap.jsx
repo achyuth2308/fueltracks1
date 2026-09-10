@@ -11,7 +11,6 @@ import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import GoogleMutantLayer from './GoogleMutantLayer';
 
 
 
@@ -538,15 +537,19 @@ const FleetMap = ({
             attribution='&copy; OpenStreetMap contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-        ) : apiKey ? (
-          <GoogleMutantLayer 
-            apiKey={apiKey} 
-            type={mapType === 'satellite' ? 'satellite' : 'roadmap'} 
+        ) : mapType === 'satellite' ? (
+          <TileLayer
+            attribution='&copy; Google'
+            url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+            maxNativeZoom={20}
+            maxZoom={22}
           />
         ) : (
           <TileLayer
-            attribution='&copy; OpenStreetMap contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; Google'
+            url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+            maxNativeZoom={20}
+            maxZoom={22}
           />
         )}
 

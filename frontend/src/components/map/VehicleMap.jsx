@@ -48,7 +48,7 @@ const ResizeMap = () => {
 
 import { createPinIcon } from '../../utils/markerUtils';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import GoogleMutantLayer from './GoogleMutantLayer';
+// removed GoogleMutantLayer
 
 const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnition, initialSpeed }) => {
   const location = useLocation();
@@ -133,34 +133,22 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
           </BaseLayer>
-          {apiKey && (
-            <>
-              <BaseLayer name="Google Maps">
-                <GoogleMutantLayer apiKey={apiKey} type="roadmap" />
-              </BaseLayer>
-              <BaseLayer name="Google Satellite">
-                <GoogleMutantLayer 
-          apiKey={apiKey} 
-          type="satellite" 
-        />   </BaseLayer>
-            </>
-          )}
-          {!apiKey && (
-            <>
-              <BaseLayer name="Google Maps (Need Key)">
-                <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </BaseLayer>
-              <BaseLayer name="Google Satellite (Need Key)">
-                <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </BaseLayer>
-            </>
-          )}
+          <BaseLayer name="Google Maps">
+            <TileLayer
+              attribution='&copy; Google'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          </BaseLayer>
+          <BaseLayer name="Google Satellite">
+            <TileLayer
+              attribution='&copy; Google'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          </BaseLayer>
         </LayersControl>
 
         {coords.length > 0 && <FitBoundsToTrail coords={coords} />}

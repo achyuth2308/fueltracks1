@@ -8,7 +8,7 @@ import { formatLocalTime } from '../../utils/dateUtils';
 import { Eye, EyeOff, MapPin, Route, Loader2 } from 'lucide-react';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
-import GoogleMutantLayer from './GoogleMutantLayer';
+// removed GoogleMutantLayer
 
 const { BaseLayer } = LayersControl;
 
@@ -611,32 +611,22 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             />
           </BaseLayer>
 
-          {apiKey && (
-            <>
-              <BaseLayer name="Google Maps">
-                <GoogleMutantLayer apiKey={apiKey} type="roadmap" />
-              </BaseLayer>
-              <BaseLayer name="Google Satellite">
-                <GoogleMutantLayer apiKey={apiKey} type="satellite" />
-              </BaseLayer>
-            </>
-          )}
-          {!apiKey && (
-            <>
-              <BaseLayer name="Google Maps (Need Key)">
-                <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </BaseLayer>
-              <BaseLayer name="Google Satellite (Need Key)">
-                <TileLayer
-                  attribution='&copy; OpenStreetMap'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-              </BaseLayer>
-            </>
-          )}
+          <BaseLayer name="Google Maps">
+            <TileLayer
+              attribution='&copy; Google'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          </BaseLayer>
+          <BaseLayer name="Google Satellite">
+            <TileLayer
+              attribution='&copy; Google'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          </BaseLayer>
           <BaseLayer name="Satellite">
             <TileLayer
               attribution='&copy; Esri'
