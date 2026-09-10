@@ -30,25 +30,29 @@ const OrgsAdminPage = () => {
   const [status, setStatus] = useState('Active');
   const [type, setType] = useState('customer');
   const [parentId, setParentId] = useState('');
+  const [assignedUserIds, setAssignedUserIds] = useState([]);
 
+  const [allUsers, setAllUsers] = useState([]);
   const [modalError, setModalError] = useState(null);
 
-  const fetchOrgs = async () => {
+  const fetchOrgsAndUsers = async () => {
     setLoading(true);
     try {
-      const response = await adminApi.getOrgs();
-      if (response.success) {
-        setOrgs(response.data);
-      }
+      const [orgRes, userRes] = await Promise.all([
+        adminApi.getOrgs(),
+        adminApi.getUsers()
+      ]);
+      if (orgRes.success) setOrgs(orgRes.data);
+      if (userRes.success) setAllUsers(userRes.data);
     } catch (err) {
-      setError('Failed to fetch organization records.');
+      setError('Failed to fetch records.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrgs();
+    fetchOrgsAndUsers();
   }, []);
 
   const handleOpenModal = (org = null) => {
@@ -65,6 +69,7 @@ const OrgsAdminPage = () => {
       setContactPerson(org.contact_person || '');
       setEmail(org.email || '');
       setStatus(org.is_active === false ? 'Suspended' : 'Active');
+      setAssignedUserIds(allUsers.filter(u => u.org_id === org.id).map(u => u.id));
     } else {
       setName('');
       setPhone('');
@@ -74,6 +79,7 @@ const OrgsAdminPage = () => {
       setContactPerson('');
       setEmail('');
       setStatus('Active');
+      setAssignedUserIds([]);
     }
     setModalOpen(true);
   };
@@ -85,11 +91,8 @@ const OrgsAdminPage = () => {
       return;
     }
 
-    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active' };
+    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active', assignedUserIds };
     if (parentId) payload.parentId = parentId;
-
-    // In a real app we'd pass all the tab settings to the API, 
-    // but we can't change backend API. We send what it accepts.
 
     try {
       if (editingOrg) {
@@ -98,7 +101,7 @@ const OrgsAdminPage = () => {
         await adminApi.createOrg(payload);
       }
       setModalOpen(false);
-      fetchOrgs();
+      fetchOrgsAndUsers();
     } catch (err) {
       setModalError(err.response?.data?.error || 'Failed to save organization records.');
     }
@@ -112,7 +115,7 @@ const OrgsAdminPage = () => {
     if (window.confirm('Are you sure you want to completely delete this organization?')) {
       try {
         const response = await adminApi.deleteOrg(org.id);
-        if (response.success) fetchOrgs();
+        if (response.success) fetchOrgsAndUsers();
       } catch (err) {
         alert(err.response?.data?.error || 'Failed to delete organization.');
       }
@@ -318,6 +321,20 @@ const OrgsAdminPage = () => {
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Email</label>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Assign Users (Optional)</label>
+                      <select 
+                        multiple 
+                        value={assignedUserIds} 
+                        onChange={e => setAssignedUserIds(Array.from(e.target.selectedOptions, option => option.value))} 
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827', minHeight: '80px' }}
+                      >
+                        {allUsers.map(u => (
+                          <option key={u.id} value={u.id}>{u.name || u.email} {u.org_name ? `(${u.org_name})` : ''}</option>
+                        ))}
+                      </select>
+                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Hold Ctrl (or Cmd) to select multiple users. These users will be moved to this organization.</div>
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Address</label>

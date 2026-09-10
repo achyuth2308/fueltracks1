@@ -66,7 +66,7 @@ const AdminController = {
 
   async createOrg(req, res, next) {
     try {
-      const { name, type, parentId, address, phone, contactPerson, email } = req.body;
+      const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds } = req.body;
 
       if (!name || !type) {
         return res.status(400).json({
@@ -100,6 +100,15 @@ const AdminController = {
         email
       });
 
+      // Handle user assignments
+      if (assignedUserIds && Array.isArray(assignedUserIds)) {
+        for (const uid of assignedUserIds) {
+          try {
+            await UserModel.update(uid, { orgId: newOrg.id });
+          } catch (e) { console.error('[ASSIGN_USER_ERROR]', e.message); }
+        }
+      }
+
       res.status(201).json({
         success: true,
         data: newOrg,
@@ -124,7 +133,7 @@ const AdminController = {
   async updateOrg(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, address, phone, isActive, contactPerson, email } = req.body;
+      const { name, type, address, phone, isActive, contactPerson, email, assignedUserIds } = req.body;
 
       // Fetch old org
       const oldOrg = await OrgModel.findById(id);
@@ -164,6 +173,15 @@ const AdminController = {
         data: updated,
         message: 'Organization updated successfully.'
       });
+
+      // Handle user assignments
+      if (assignedUserIds && Array.isArray(assignedUserIds)) {
+        for (const uid of assignedUserIds) {
+          try {
+            await UserModel.update(uid, { orgId: id });
+          } catch (e) { console.error('[ASSIGN_USER_ERROR]', e.message); }
+        }
+      }
 
       const newData = {
         name: updated.name !== undefined ? updated.name : name,
