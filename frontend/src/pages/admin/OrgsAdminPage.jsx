@@ -31,6 +31,7 @@ const OrgsAdminPage = () => {
   const [type, setType] = useState('customer');
   const [parentId, setParentId] = useState('');
   const [assignedUserIds, setAssignedUserIds] = useState([]);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
 
   const [allUsers, setAllUsers] = useState([]);
   const [modalError, setModalError] = useState(null);
@@ -129,6 +130,34 @@ const OrgsAdminPage = () => {
     { id: 'fuel', label: 'Fuel Monitor', icon: Fuel },
     { id: 'advanced', label: 'Advanced', icon: Settings },
   ];
+
+  const filteredUsers = allUsers.filter(u => {
+    if (!userSearchQuery) return true;
+    const searchLower = userSearchQuery.toLowerCase();
+    return (u.name?.toLowerCase().includes(searchLower) || u.email?.toLowerCase().includes(searchLower) || u.org_name?.toLowerCase().includes(searchLower));
+  });
+
+  const isAllUsersSelected = filteredUsers.length > 0 && filteredUsers.every(u => assignedUserIds.includes(u.id));
+
+  const handleSelectAllUsers = (e) => {
+    if (e.target.checked) {
+      const newIds = new Set(assignedUserIds);
+      filteredUsers.forEach(u => newIds.add(u.id));
+      setAssignedUserIds(Array.from(newIds));
+    } else {
+      const newIds = new Set(assignedUserIds);
+      filteredUsers.forEach(u => newIds.delete(u.id));
+      setAssignedUserIds(Array.from(newIds));
+    }
+  };
+
+  const handleUserCheckboxChange = (id) => {
+    if (assignedUserIds.includes(id)) {
+      setAssignedUserIds(assignedUserIds.filter(userId => userId !== id));
+    } else {
+      setAssignedUserIds([...assignedUserIds, id]);
+    }
+  };
 
   return (
     <div className="pastel-page-bg" style={{ padding: '32px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -322,19 +351,44 @@ const OrgsAdminPage = () => {
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Email</label>
                       <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
                     </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Assign Users (Optional)</label>
-                      <select 
-                        multiple 
-                        value={assignedUserIds} 
-                        onChange={e => setAssignedUserIds(Array.from(e.target.selectedOptions, option => option.value))} 
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827', minHeight: '80px' }}
-                      >
-                        {allUsers.map(u => (
-                          <option key={u.id} value={u.id}>{u.name || u.email} {u.org_name ? `(${u.org_name})` : ''}</option>
-                        ))}
-                      </select>
-                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>Hold Ctrl (or Cmd) to select multiple users. These users will be moved to this organization.</div>
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isAllUsersSelected}
+                            onChange={handleSelectAllUsers}
+                            style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
+                          />
+                          Select all Users
+                        </label>
+                        <input 
+                          type="text"
+                          placeholder="Search..."
+                          value={userSearchQuery}
+                          onChange={e => setUserSearchQuery(e.target.value)}
+                          style={{ width: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid #CBD5E1', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
+                        />
+                      </div>
+
+                      <div style={{ overflowY: 'auto', maxHeight: '160px', paddingRight: '4px' }}>
+                        {filteredUsers.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '12px', color: '#94A3B8', fontSize: '13px' }}>
+                            No users found.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
+                            {filteredUsers.map((u) => (
+                              <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000', background: assignedUserIds.includes(u.id) ? '#FFF7ED' : '#FFFFFF', transition: 'background 0.2s' }}>
+                                <input type="checkbox" checked={assignedUserIds.includes(u.id)} onChange={() => handleUserCheckboxChange(u.id)} style={{ accentColor: '#f97316', cursor: 'pointer' }} />
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
+                                  {u.name || u.email} {u.org_name ? <span style={{ color: '#64748B', fontWeight: 400 }}>({u.org_name})</span> : ''}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Address</label>
