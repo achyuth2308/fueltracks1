@@ -73,18 +73,16 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
 
   return (
     <>
-      {/* Mobile Backdrop Removed for Push Effect */}
-
       <aside
         style={{
-          background: '#2E4867', // Live Color
+          background: '#2E4867',
           borderRight: '1px solid #475569',
           boxShadow: '4px 0 24px rgba(249,115,22,0.05)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
           flexShrink: 0,
-          zIndex: 50,
+          zIndex: 10000,
           overflow: 'hidden'
         }}
         className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[240px]'} w-[240px]`}
@@ -119,8 +117,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             )}
           </div>
         </div>
-
-        {/* Expand Button (collapsed state) Removed */}
 
         {/* Navigation */}
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 12px' }}>
@@ -159,49 +155,35 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                     <NavLink
                       key={item.path}
                       to={item.path}
-                      onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
-                      className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
-                      style={() => ({
+                      onClick={(e) => {
+                        if (toggleMobileSidebar) toggleMobileSidebar(false);
+                        navigate(item.path);
+                      }}
+                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${
+                        customIsActive ? 'bg-[#475569] text-white font-semibold' : 'text-[#ccfbf1] font-medium hover:bg-[#475569]/80 hover:text-white'
+                      }`}
+                      style={{
                         display: 'flex',
                         alignItems: 'center',
-                        fontWeight: customIsActive ? 600 : 500,
-                        color: customIsActive ? '#ffffff' : '#ccfbf1',
                         textDecoration: 'none',
                         justifyContent: collapsed ? 'center' : 'flex-start',
-                        background: customIsActive ? '#475569' : 'transparent',
                         transition: 'all 0.2s ease',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         position: 'relative'
-                      })}
-                      onMouseEnter={e => {
-                        if (!e.currentTarget.style.background.includes('172a45')) {
-                          e.currentTarget.style.color = '#ffffff';
-                          e.currentTarget.style.background = '#475569';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!e.currentTarget.style.background.includes('172a45')) {
-                          e.currentTarget.style.color = customIsActive ? '#ffffff' : '#ccfbf1';
-                          e.currentTarget.style.background = customIsActive ? '#475569' : 'transparent';
-                        }
                       }}
                     >
-                      {() => (
-                        <>
-                          {customIsActive && !collapsed && (
-                            <div style={{
-                              position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
-                              background: '#ffffff', borderRadius: '0 4px 4px 0'
-                            }} />
-                          )}
-                          <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
-                            <Icon className="w-full h-full" />
-                          </div>
-                          {!collapsed && (
-                            <span style={{ flex: 1 }}>{item.name}</span>
-                          )}
-                        </>
+                      {customIsActive && !collapsed && (
+                        <div style={{
+                          position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
+                          background: '#ffffff', borderRadius: '0 4px 4px 0'
+                        }} />
+                      )}
+                      <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
+                        <Icon className="w-full h-full" />
+                      </div>
+                      {!collapsed && (
+                        <span style={{ flex: 1 }}>{item.name}</span>
                       )}
                     </NavLink>
                   );
@@ -219,7 +201,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           {hasAdminSession && (
             <button
               onClick={handleRestoreAdmin}
-              className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-1 md:mb-2 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
+              className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-1 md:mb-2 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] hover:bg-[#64748b]"
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -233,12 +215,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 transition: 'all 0.2s',
                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = '#64748b';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = '#475569';
-              }}
             >
               <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
                 <ShieldAlert className="w-full h-full" />
@@ -248,7 +224,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           )}
           <button
             onClick={handleLogout}
-            className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px]"
+            className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] hover:bg-[#ea580c] hover:text-white"
             style={{
               display: 'flex', alignItems: 'center',
               width: '100%',
@@ -260,8 +236,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
               fontWeight: 600,
               transition: 'all 0.2s',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; e.currentTarget.style.color = '#ffffff'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#f1f5f9'; }}
           >
             <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
               <LogOut className="w-full h-full" />

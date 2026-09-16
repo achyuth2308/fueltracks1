@@ -12,6 +12,9 @@ const OrgModel = {
     const result = await db.query(
       `SELECT o.*,
               p.name as parent_name,
+              (SELECT name FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_name,
+              (SELECT phone FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_phone,
+              (SELECT email FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_email,
               (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
               (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
               (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
@@ -42,6 +45,9 @@ const OrgModel = {
     const query = `
       SELECT o.*,
              p.name as parent_name,
+             (SELECT name FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_name,
+             (SELECT phone FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_phone,
+             (SELECT email FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_email,
              (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
              (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
              (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,

@@ -63,12 +63,12 @@ const OrgsAdminPage = () => {
 
     if (org) {
       setName(org.name || '');
-      setPhone(org.phone || '');
+      setPhone(org.phone || org.primary_user_phone || '');
       setAddress(org.address || '');
       setType(org.type || 'customer');
       setParentId(org.parent_id || '');
-      setContactPerson(org.contact_person || '');
-      setEmail(org.email || '');
+      setContactPerson(org.contact_person || org.primary_user_name || '');
+      setEmail(org.email || org.primary_user_email || '');
       setStatus(org.is_active === false ? 'Suspended' : 'Active');
       setAssignedUserIds(allUsers.filter(u => u.org_id === org.id).map(u => u.id));
     } else {
@@ -89,6 +89,10 @@ const OrgsAdminPage = () => {
     e.preventDefault();
     if (!name) {
       setModalError('Organization name is required.');
+      return;
+    }
+    if (!assignedUserIds || assignedUserIds.length === 0) {
+      setModalError('At least one user must be assigned to the organization.');
       return;
     }
 
@@ -224,13 +228,21 @@ const OrgsAdminPage = () => {
                 ) : orgs.filter(org => org.type !== 'super').map((org) => (
                   <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '16px 20px' }}>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{org.name}</div>
+                      <div 
+                        onClick={() => handleOpenModal(org)} 
+                        style={{ fontSize: '14px', fontWeight: 700, color: '#111827', cursor: 'pointer', transition: 'color 0.15s' }}
+                        onMouseEnter={e => e.currentTarget.style.color = '#f97316'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#111827'}
+                        title="Click to edit organization"
+                      >
+                        {org.name}
+                      </div>
                       <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px', textTransform: 'capitalize' }}>{org.type}</div>
                     </td>
                     <td style={{ padding: '16px 20px' }}>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{org.contact_person || '—'}</div>
-                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{org.phone || '—'}</div>
-                      {org.email && <div style={{ fontSize: '12px', color: '#6B7280' }}>{org.email}</div>}
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{org.contact_person || org.primary_user_name || '—'}</div>
+                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{org.phone || org.primary_user_phone || '—'}</div>
+                      {(org.email || org.primary_user_email) && <div style={{ fontSize: '12px', color: '#6B7280' }}>{org.email || org.primary_user_email}</div>}
                     </td>
                     <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.user_count || 0}</td>
                     <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.groups_count || 0}</td>
@@ -247,9 +259,11 @@ const OrgsAdminPage = () => {
                     </td>
                     <td style={{ padding: '16px 20px' }}>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleOpenModal(org)} style={{ padding: '6px', background: '#F8FAFC', border: 'none', borderRadius: '6px', color: '#64748B', cursor: 'pointer' }}><Edit size={16} /></button>
+                        <button onClick={() => handleOpenModal(org)} title="Edit Organization" style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '6px', color: '#f97316', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
+                          <Edit size={14} /> Edit
+                        </button>
                         {org.type !== 'super' && org.id !== user?.orgId && (
-                          <button onClick={() => handleDelete(org)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+                          <button onClick={() => handleDelete(org)} title="Delete Organization" style={{ padding: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
                       </div>
                     </td>
@@ -259,87 +273,234 @@ const OrgsAdminPage = () => {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Enhanced Modal */}
+      </div>      {/* Enhanced Modal */}
       {modalOpen && (
         <div style={{
-          position: 'fixed', inset: 0, zIndex: 100,
-          background: 'rgba(17,24,39,0.4)', backdropFilter: 'blur(4px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(17,24,39,0.5)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+          padding: '75px 16px 24px 16px', overflowY: 'auto'
         }}>
           <div style={{
-            background: '#FFFFFF', borderRadius: '20px', width: '100%', maxWidth: '800px',
-            maxHeight: '90vh', display: 'flex', flexDirection: 'column',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-            overflow: 'hidden'
+            background: '#FFFFFF', borderRadius: '16px', width: '100%', maxWidth: '720px',
+            maxHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            overflow: 'hidden', margin: '0 auto'
           }}>
             {/* Modal Header */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-4 sm:px-6 border-b border-slate-200">
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>
+            <div className="flex flex-row justify-between items-center gap-4 px-5 py-3 border-b border-slate-200 shrink-0">
+              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>
                 {editingOrg ? 'Configure Organization' : 'Create Organization'}
               </h2>
-              <button onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={() => setModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px' }}><X size={18} /></button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ flex: 1, padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {modalError && (
-                <div style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '8px', fontSize: '13px', fontWeight: 500, marginBottom: '8px' }}>
-                  {modalError}
-                </div>
-              )}
-
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '8px' }}>Organization Name *</label>
-                <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+            {/* Modal Body with Sidebar Tabs */}
+            <div style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+              {/* Sidebar Tabs */}
+              <div style={{ width: '180px', borderRight: '1px solid #E2E8F0', background: '#EEF5F8', padding: '10px', flexShrink: 0, overflowY: 'auto' }}>
+                {tabs.map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '8px 10px', borderRadius: '8px',
+                      background: activeTab === tab.id ? '#f0f9ff' : 'transparent',
+                      color: activeTab === tab.id ? '#f97316' : '#64748B',
+                      border: 'none', cursor: 'pointer', textAlign: 'left',
+                      fontSize: '12px', fontWeight: activeTab === tab.id ? 700 : 500,
+                      marginBottom: '2px', transition: 'all 0.2s'
+                    }}
+                  >
+                    <tab.icon size={15} />
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#475569' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isAllUsersSelected}
-                      onChange={handleSelectAllUsers}
-                      style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
-                    />
-                    Select all Users
-                  </label>
-                  <input 
-                    type="text"
-                    placeholder="Search..."
-                    value={userSearchQuery}
-                    onChange={e => setUserSearchQuery(e.target.value)}
-                    style={{ width: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid #CBD5E1', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
-                  />
-                </div>
+              {/* Tab Content */}
+              <div style={{ flex: 1, minHeight: 0, padding: '16px 20px', overflowY: 'auto' }}>
+                {modalError && (
+                  <div style={{ padding: '8px 12px', background: '#FEF2F2', color: '#DC2626', borderRadius: '6px', fontSize: '12px', fontWeight: 500, marginBottom: '12px' }}>
+                    {modalError}
+                  </div>
+                )}
 
-                <div style={{ overflowY: 'auto', flex: 1, maxHeight: '300px', paddingRight: '4px' }}>
-                  {filteredUsers.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '12px', color: '#94A3B8', fontSize: '13px' }}>
-                      No users found.
+                {activeTab === 'general' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {/* Row 1: Org Name + Tenant Type */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ flex: 2 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Organization Name *</label>
+                        <input type="text" value={name} onChange={e => setName(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Tenant Type</label>
+                        <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
+                          <option value="customer">Customer</option>
+                          <option value="dealer">Dealer</option>
+                          <option value="super">Platform Super</option>
+                        </select>
+                      </div>
                     </div>
-                  ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '8px' }}>
-                      {filteredUsers.map((u) => (
-                        <label key={u.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000', background: assignedUserIds.includes(u.id) ? '#FFF7ED' : '#FFFFFF', transition: 'background 0.2s' }}>
-                          <input type="checkbox" checked={assignedUserIds.includes(u.id)} onChange={() => handleUserCheckboxChange(u.id)} style={{ accentColor: '#f97316', cursor: 'pointer' }} />
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
-                            {u.name || u.email} {u.org_name ? <span style={{ color: '#64748B', fontWeight: 400 }}>({u.org_name})</span> : ''}
-                          </span>
-                        </label>
-                      ))}
+
+                    {/* Row 2: Status + Email */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Status</label>
+                        <select value={status} onChange={e => setStatus(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
+                          <option value="Active">Active</option>
+                          <option value="Suspended">Suspended</option>
+                        </select>
+                      </div>
+                      <div style={{ flex: 2 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Email</label>
+                        <input type="email" value={email} onChange={e => setEmail(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
                     </div>
-                  )}
-                </div>
+
+                    {/* Row 3: Contact Person + Mobile Number */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Contact Person</label>
+                        <input type="text" value={contactPerson} onChange={e => setContactPerson(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Mobile Number</label>
+                        <input type="text" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                    </div>
+
+                    {/* Row 4: Assign Users + Address */}
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Assign Users *</label>
+                        <div style={{
+                          border: '1px solid #CBD5E1', borderRadius: '6px',
+                          background: '#FFFFFF', height: '65px', overflowY: 'auto',
+                          padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px',
+                          boxSizing: 'border-box'
+                        }}>
+                          {allUsers.length === 0 ? (
+                            <div style={{ fontSize: '11px', color: '#94A3B8', padding: '4px' }}>No users available</div>
+                          ) : (
+                            allUsers.map(u => {
+                              const isSelected = assignedUserIds.includes(u.id);
+                              return (
+                                <label
+                                  key={u.id}
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    padding: '3px 6px', borderRadius: '4px', cursor: 'pointer',
+                                    background: isSelected ? '#EFF6FF' : 'transparent',
+                                    transition: 'background 0.15s'
+                                  }}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setAssignedUserIds([...assignedUserIds, u.id]);
+                                      } else {
+                                        setAssignedUserIds(assignedUserIds.filter(id => id !== u.id));
+                                      }
+                                    }}
+                                    style={{ width: '13px', height: '13px', accentColor: '#f97316', cursor: 'pointer' }}
+                                  />
+                                  <span style={{ fontSize: '11px', color: isSelected ? '#1E40AF' : '#334155', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {u.name || u.email} {u.org_name ? `(${u.org_name})` : ''}
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                        <div style={{ fontSize: '10px', color: assignedUserIds.length === 0 ? '#EF4444' : '#64748B', marginTop: '2px', fontWeight: 500 }}>
+                          {assignedUserIds.length > 0 ? `✓ ${assignedUserIds.length} user(s) assigned` : 'Click checkbox to select user'}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Address</label>
+                        <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', height: '55px', resize: 'none', boxSizing: 'border-box', color: '#111827' }} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'alerts' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Alert Policies</h3>
+                    {['Parking Alert', 'Idle Alert', 'Overspeed Alert', 'SOS Alert', 'Harsh Braking Alert', 'Power Disconnect Alert', 'Ignition ON Alert', 'Ignition OFF Alert', 'Route Deviation Alert', 'Tamper Alert', 'Low Battery Alert'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input type="checkbox" defaultChecked style={{ width: '14px', height: '14px', accentColor: '#f97316' }} />
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'geofence' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Geofence Configuration</h3>
+                    {['Geofence Enabled', 'Entry Alert', 'Exit Alert', 'Geofence Immobilizer'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input type="checkbox" style={{ width: '14px', height: '14px', accentColor: '#f97316' }} />
+                        <span style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{item}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {activeTab === 'fuel' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Fuel Monitoring Status</h3>
+                    <div style={{ background: '#EEF5F8', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', marginBottom: '4px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                        <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Fuel Sensors Connected:</span>
+                        <span style={{ fontSize: '12px', color: '#111827', fontWeight: 800 }}>—</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Fuel Enabled Vehicles:</span>
+                        <span style={{ fontSize: '12px', color: '#111827', fontWeight: 800 }}>—</span>
+                      </div>
+                    </div>
+                    {['Fuel Monitoring Enabled', 'Fuel Fill Alert', 'Fuel Theft Alert', 'Low Fuel Alert', 'Fuel Reports Enabled', 'Fuel Sensor Enabled'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <input type="checkbox" disabled style={{ width: '14px', height: '14px', accentColor: '#f97316', opacity: 0.5 }} />
+                        <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>{item} (Disabled)</span>
+                      </label>
+                    ))}
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748B', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <Radio size={13} color="#f97316" />
+                      Module ready for hardware integration.
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === 'advanced' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', marginBottom: '4px' }}>Advanced Settings</h3>
+                    {['RFID Enabled', 'Temperature Sensor Enabled', 'Camera Enabled', 'Debug Mode'].map(item => (
+                      <label key={item} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'not-allowed' }}>
+                        <input type="checkbox" disabled style={{ width: '14px', height: '14px', accentColor: '#f97316', opacity: 0.5 }} />
+                        <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 500 }}>{item} (Disabled)</span>
+                      </label>
+                    ))}
+                    <div style={{ marginTop: '8px', fontSize: '11px', color: '#64748B', display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <Radio size={13} color="#f97316" />
+                      Advanced hardware module planned for next phase release.
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '20px 24px', borderTop: '1px solid #E2E8F0', background: '#FAFAF9', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button onClick={() => setModalOpen(false)} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#64748B', background: 'transparent', border: '1px solid #CBD5E1', cursor: 'pointer' }}>Cancel</button>
-              <button onClick={handleSubmit} style={{ padding: '10px 20px', borderRadius: '10px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>Save Configuration</button>
+            <div style={{ padding: '10px 20px', borderTop: '1px solid #E2E8F0', background: '#FAFAF9', display: 'flex', justifyContent: 'flex-end', gap: '10px', shrink: 0 }}>
+              <button onClick={() => setModalOpen(false)} style={{ padding: '6px 14px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#64748B', background: 'transparent', border: '1px solid #CBD5E1', cursor: 'pointer' }}>Cancel</button>
+              <button onClick={handleSubmit} style={{ padding: '6px 16px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>Save Configuration</button>
             </div>
           </div>
         </div>

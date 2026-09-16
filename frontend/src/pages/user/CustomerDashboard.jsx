@@ -79,7 +79,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     if (selectedVehicle && selectedVehicle.id !== dismissedToastId) {
       setDismissedToastId(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle]);
 
   // Sync vehicles up to App level
@@ -123,16 +123,16 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const nearbyVehicles = useMemo(() => {
     if (!isNearbyActive || !currentSelected) return [];
-    
+
     return vehicles.filter(v => {
       if (v.id === currentSelected.id) return false;
       if (!v.lat || !v.lng || !currentSelected.lat || !currentSelected.lng) return false;
-      
+
       const dist = getDistance(
         parseFloat(currentSelected.lat), parseFloat(currentSelected.lng),
         parseFloat(v.lat), parseFloat(v.lng)
       );
-      
+
       if (dist <= nearbyRadius) {
         v._distance = dist;
         return true;
@@ -389,52 +389,52 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           zIndex: 1000,
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
         }}>
-        {/* Header */}
-        <div style={{ padding: '16px', borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '32px', height: '32px', borderRadius: '50%',
-                  background: '#f97316', color: '#fff',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '12px', fontWeight: 700
-                }}>
-                  {user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
-                </div>
-                <div>
-                  <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', margin: 0 }}>
-                    {user?.name ? `${user.name.split(' ')[0]}'s Vehicles` : 'Vehicles'}
-                  </h2>
-                  <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
-                    {filtered.length} of {vehicles.length} shown
-                  </span>
+          {/* Header */}
+          <div style={{ padding: '16px', borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{
+                    width: '32px', height: '32px', borderRadius: '50%',
+                    background: '#f97316', color: '#fff',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '12px', fontWeight: 700
+                  }}>
+                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
+                  </div>
+                  <div>
+                    <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', margin: 0 }}>
+                      {user?.name ? `${user.name.split(' ')[0]}'s Vehicles` : 'Vehicles'}
+                    </h2>
+                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
+                      {filtered.length} of {vehicles.length} shown
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-            <button
-              onClick={() => refetch()}
-              style={{
-                background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#6b7280',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px',
-                borderRadius: '8px', transition: 'all 0.2s', marginTop: '2px'
-              }}
-              title="Refresh"
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'; e.currentTarget.style.color = '#374151'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'; e.currentTarget.style.color = '#6b7280'; }}
-            >
-              <RefreshCw size={14} />
-            </button>
-          </div>
-          {statusFilter && (
-            <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setStatusFilter(null)}
-                style={{ fontSize: '10px', color: '#f97316', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
-              >Clear Filter</button>
+                onClick={() => refetch()}
+                style={{
+                  background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#6b7280',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px',
+                  borderRadius: '8px', transition: 'all 0.2s', marginTop: '2px'
+                }}
+                title="Refresh"
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'; e.currentTarget.style.color = '#374151'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'; e.currentTarget.style.color = '#6b7280'; }}
+              >
+                <RefreshCw size={14} />
+              </button>
             </div>
-          )}
-        </div>
+            {statusFilter && (
+              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setStatusFilter(null)}
+                  style={{ fontSize: '10px', color: '#f97316', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
+                >Clear Filter</button>
+              </div>
+            )}
+          </div>
 
           <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
             {loading ? (
@@ -477,13 +477,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       transform: hoveredVehicleId === v.id ? 'scale(1.02)' : 'scale(1)',
                       boxShadow: hoveredVehicleId === v.id ? '0 8px 16px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.02)'
                     }}
-                    onMouseEnter={e => { 
+                    onMouseEnter={e => {
                       setHoveredVehicleId(v.id);
                       const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
                       const itemRect = e.currentTarget.getBoundingClientRect();
                       setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
                     }}
-                    onMouseLeave={e => { 
+                    onMouseLeave={e => {
                       setHoveredVehicleId(null);
                     }}
                   >
@@ -526,7 +526,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             nearbyRadius={nearbyRadius}
             followSelected={true}
           />
-          
+
           {/* ── Nearby Mode Controls ── */}
           {currentSelected && (
             <div style={{
@@ -552,20 +552,20 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                   <span style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937' }}>Nearby Vehicles</span>
                 </div>
                 <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                  <input 
-                    type="checkbox" 
-                    checked={isNearbyActive} 
+                  <input
+                    type="checkbox"
+                    checked={isNearbyActive}
                     onChange={(e) => setIsNearbyActive(e.target.checked)}
                     style={{ width: '16px', height: '16px', cursor: 'pointer', accentColor: '#3b82f6' }}
                   />
                 </label>
               </div>
-              
+
               {isNearbyActive && (
                 <>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: '1px solid rgba(0,0,0,0.1)', paddingTop: '8px', marginTop: '4px' }}>
                     <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 600 }}>Radius:</span>
-                    <select 
+                    <select
                       value={nearbyRadius}
                       onChange={(e) => setNearbyRadius(Number(e.target.value))}
                       style={{ fontSize: '12px', padding: '4px 8px', borderRadius: '6px', border: '1px solid #d1d5db', outline: 'none', background: '#fff' }}
@@ -577,7 +577,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       <option value={50}>50 km</option>
                     </select>
                   </div>
-                  
+
                   <div className="tracking-scroll" style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px', paddingRight: '4px' }}>
                     {nearbyVehicles.length === 0 ? (
                       <div style={{ fontSize: '11px', color: '#6b7280', textAlign: 'center', padding: '12px 0' }}>
@@ -585,7 +585,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       </div>
                     ) : (
                       nearbyVehicles.map(v => (
-                        <div 
+                        <div
                           key={v.id}
                           onClick={() => setSelectedVehicle(v)}
                           style={{
