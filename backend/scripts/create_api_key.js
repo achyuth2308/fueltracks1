@@ -57,15 +57,16 @@ async function main() {
     const org = orgRes.rows[0];
 
     // 2. Generate a cryptographically secure raw key
-    const rawKey  = 'ftkn_' + crypto.randomBytes(32).toString('hex');
-    const keyHash = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const rawKey    = 'ftkn_' + crypto.randomBytes(32).toString('hex');
+    const keyHash   = crypto.createHash('sha256').update(rawKey).digest('hex');
+    const keyPrefix = rawKey.substring(0, 12); // e.g. "ftkn_a1b2c3"
 
     // 3. Insert into api_keys table
     const result = await db.query(
-      `INSERT INTO api_keys (org_id, key_hash, label, group_id, is_active)
-       VALUES ($1, $2, $3, $4, TRUE)
+      `INSERT INTO api_keys (org_id, key_hash, key_prefix, name, group_id, is_active)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
        RETURNING id, created_at`,
-      [org.id, keyHash, label, groupId]
+      [org.id, keyHash, keyPrefix, label, groupId]
     );
 
     const keyRecord = result.rows[0];
