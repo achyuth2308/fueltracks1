@@ -1,5 +1,5 @@
 // ============================================================
-// PUBLIC API ROUTES — FuelTracks v2
+// PUBLIC API ROUTES — FuelTracks v3
 // Third-party client integration endpoints
 // Base path: /api/v1
 // Auth: X-API-Key header
@@ -8,6 +8,10 @@
 //  v2 — Civil Supply integration:
 //       POST /api/v1/location/history  (new)
 //       GET  /api/v1/vehicles          (new)
+//  v3 — Cement OMS integration:
+//       POST   /api/v1/webhooks        (new) — register push endpoint
+//       GET    /api/v1/webhooks        (new) — list registered webhooks
+//       DELETE /api/v1/webhooks/:id    (new) — remove a webhook
 // ============================================================
 
 const express = require('express');
@@ -20,6 +24,9 @@ const {
   getHistory,
   postHistory,
   getVehicleList,
+  registerWebhook,
+  listWebhooks,
+  deleteWebhook,
 } = require('../controllers/publicApiController');
 
 // Apply API key auth to ALL routes in this router
@@ -98,5 +105,32 @@ router.get('/location/history', getHistory);
  */
 router.post('/location/history', postHistory);
 
+// ──────────────────────────────────────────────────────────────
+// WEBHOOK MANAGEMENT  [NEW in v3 — Cement OMS Integration]
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/webhooks
+ * Register an endpoint URL to receive real-time GPS push events.
+ * Body: { "url": "https://...", "secret": "optional_hmac_secret", "label": "optional_label" }
+ * FuelTracks will POST a { event, timestamp, data } payload to this URL on every GPS packet.
+ * Max 5 webhooks per org.
+ */
+router.post('/webhooks', registerWebhook);
+
+/**
+ * GET /api/v1/webhooks
+ * List all webhook registrations for your organization.
+ */
+router.get('/webhooks', listWebhooks);
+
+/**
+ * DELETE /api/v1/webhooks/:id
+ * Remove a registered webhook by its UUID.
+ * FuelTracks will immediately stop sending GPS events to that URL.
+ */
+router.delete('/webhooks/:id', deleteWebhook);
+
 
 module.exports = router;
+
