@@ -28,6 +28,7 @@ const alertsRoutes = require('./routes/alertsRoutes');
 const tripRoutes = require('./modules/trips/routes/tripRoutes');
 const tripController = require('./modules/trips/controllers/tripController');
 const miningRegistrationRoutes = require('./routes/miningRegistrationRoutes');
+const MiningRegistrationController = require('./controllers/miningRegistrationController');
 const path = require('path');
 const publicApiRoutes = require('./routes/publicApiRoutes');
 const geocodeRoutes = require('./routes/geocodeRoutes');
@@ -361,6 +362,9 @@ async function bootstrap() {
       CREATE INDEX IF NOT EXISTS idx_mining_reg_created_at ON mining_registrations(created_at DESC);
     `);
     console.log('[BOOT] Database tables & migrations verified');
+
+    // Auto-sync any unprovisioned Google Form registrations into live devices and vehicles
+    await MiningRegistrationController.syncUnprovisionedRegistrations();
 
     // 1. Initialize Socket.io room handlers
     trackingSocket.init(io);
