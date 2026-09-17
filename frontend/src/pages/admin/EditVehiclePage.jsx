@@ -137,6 +137,19 @@ const DEVICE_TYPES = [
 
 const TELECOM_OPERATORS = ['Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
 
+// Normalize any stored device version string to match DEVICE_TYPES option values
+// e.g. "VOLTY (5004)" → "VOLTY", "FMB 920 (5005)" → "FMB 920"
+const normalizeDeviceVersion = (raw) => {
+  if (!raw) return 'VOLTY';
+  // Exact match first
+  const exact = DEVICE_TYPES.find(d => d.value === raw);
+  if (exact) return exact.value;
+  // Partial match: check if any value is contained in raw string
+  const partial = DEVICE_TYPES.find(d => raw.toUpperCase().startsWith(d.value.toUpperCase()));
+  if (partial) return partial.value;
+  return raw;
+};
+
 const EditVehiclePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -201,7 +214,7 @@ const EditVehiclePage = () => {
             isSandMining: v.is_sand_mining || false,
             serverName: v.server_name || '',
             gpsSimNo: expandScientificNotation(v.gps_sim_no || meta.sim1 || ''),
-            deviceVersion: v.device_version || meta.deviceModel || 'VOLTY',
+            deviceVersion: normalizeDeviceVersion(v.device_version || meta.deviceModel),
             timezone: v.timezone || meta.timezone || 'IST',
             apn: v.apn || '',
             orgId: v.org_id || '',

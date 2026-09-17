@@ -225,6 +225,23 @@ const AdminController = {
         }
       }
 
+      // Safety guard: never allow deletion of an org that hosts superadmin users
+      const orgToDelete = await OrgModel.findById(id);
+      if (!orgToDelete) {
+        return res.status(404).json({
+          success: false,
+          error: 'Organization not found.',
+          code: 'ORG_NOT_FOUND'
+        });
+      }
+      if (parseInt(orgToDelete.superadmin_count) > 0) {
+        return res.status(403).json({
+          success: false,
+          error: 'This organization hosts superadmin accounts and cannot be deleted. Reassign superadmin users first.',
+          code: 'PROTECTED_ORG'
+        });
+      }
+
       const deleted = await OrgModel.delete(id);
       if (!deleted) {
         return res.status(404).json({
@@ -252,6 +269,7 @@ const AdminController = {
       next(err);
     }
   },
+
 
   // ============================================================
   // USERS

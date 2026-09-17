@@ -332,6 +332,15 @@ const VehicleController = {
         isSandMining
       });
 
+      // Sync device_type in devices table to match the updated deviceVersion
+      // (The vehicle list reads device_type from the devices table via JOIN)
+      if (deviceVersion !== undefined && oldVehicle.imei) {
+        await db.query(
+          `UPDATE devices SET device_type = $1 WHERE device_id = $2`,
+          [deviceVersion, oldVehicle.imei]
+        );
+      }
+
       // Sync Sand Mining state to Redis
       if (isSandMining !== undefined) {
         if (isSandMining) {

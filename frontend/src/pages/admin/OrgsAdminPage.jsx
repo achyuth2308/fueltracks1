@@ -91,12 +91,8 @@ const OrgsAdminPage = () => {
       setModalError('Organization name is required.');
       return;
     }
-    if (!assignedUserIds || assignedUserIds.length === 0) {
-      setModalError('At least one user must be assigned to the organization.');
-      return;
-    }
 
-    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active', assignedUserIds };
+    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active' };
     if (parentId) payload.parentId = parentId;
 
     try {
@@ -262,7 +258,7 @@ const OrgsAdminPage = () => {
                         <button onClick={() => handleOpenModal(org)} title="Edit Organization" style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '6px', color: '#f97316', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
                           <Edit size={14} /> Edit
                         </button>
-                        {org.type !== 'super' && org.id !== user?.orgId && (
+                        {org.type !== 'super' && parseInt(org.superadmin_count) === 0 && (
                           <button onClick={() => handleDelete(org)} title="Delete Organization" style={{ padding: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
                       </div>
@@ -372,55 +368,8 @@ const OrgsAdminPage = () => {
                       </div>
                     </div>
 
-                    {/* Row 4: Assign Users + Address */}
+                    {/* Row 4: Address */}
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Assign Users *</label>
-                        <div style={{
-                          border: '1px solid #CBD5E1', borderRadius: '6px',
-                          background: '#FFFFFF', height: '65px', overflowY: 'auto',
-                          padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px',
-                          boxSizing: 'border-box'
-                        }}>
-                          {allUsers.length === 0 ? (
-                            <div style={{ fontSize: '11px', color: '#94A3B8', padding: '4px' }}>No users available</div>
-                          ) : (
-                            allUsers.map(u => {
-                              const isSelected = assignedUserIds.includes(u.id);
-                              return (
-                                <label
-                                  key={u.id}
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    padding: '3px 6px', borderRadius: '4px', cursor: 'pointer',
-                                    background: isSelected ? '#EFF6FF' : 'transparent',
-                                    transition: 'background 0.15s'
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setAssignedUserIds([...assignedUserIds, u.id]);
-                                      } else {
-                                        setAssignedUserIds(assignedUserIds.filter(id => id !== u.id));
-                                      }
-                                    }}
-                                    style={{ width: '13px', height: '13px', accentColor: '#f97316', cursor: 'pointer' }}
-                                  />
-                                  <span style={{ fontSize: '11px', color: isSelected ? '#1E40AF' : '#334155', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {u.name || u.email} {u.org_name ? `(${u.org_name})` : ''}
-                                  </span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-                        <div style={{ fontSize: '10px', color: assignedUserIds.length === 0 ? '#EF4444' : '#64748B', marginTop: '2px', fontWeight: 500 }}>
-                          {assignedUserIds.length > 0 ? `✓ ${assignedUserIds.length} user(s) assigned` : 'Click checkbox to select user'}
-                        </div>
-                      </div>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Address</label>
                         <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', height: '55px', resize: 'none', boxSizing: 'border-box', color: '#111827' }} />

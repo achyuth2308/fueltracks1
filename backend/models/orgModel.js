@@ -18,7 +18,8 @@ const OrgModel = {
               (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
               (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
               (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
-              (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
+              (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count,
+              (SELECT COUNT(id) FROM users WHERE org_id = o.id AND role = 'superadmin') AS superadmin_count
        FROM organizations o
        LEFT JOIN organizations p ON o.parent_id = p.id
        WHERE o.id = $1`,
@@ -51,7 +52,8 @@ const OrgModel = {
              (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
              (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
              (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
-             (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
+             (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count,
+             (SELECT COUNT(id) FROM users WHERE org_id = o.id AND role = 'superadmin') AS superadmin_count
       FROM organizations o
       LEFT JOIN organizations p ON o.parent_id = p.id
       ${whereClause}
