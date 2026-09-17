@@ -39,7 +39,16 @@ const OrgModel = {
                  SELECT id AS d_id FROM devices WHERE org_id = o.id
                  UNION
                  SELECT d.id AS d_id FROM devices d
-                 JOIN vehicles v ON d.vehicle_id = v.id::text
+                 JOIN users u ON d.assigned_user_id = u.id
+                 WHERE u.org_id = o.id AND u.is_active = TRUE
+                 UNION
+                 SELECT d.id AS d_id FROM devices d
+                 JOIN user_groups ug ON d.assigned_group_id = ug.group_id
+                 JOIN users u ON ug.user_id = u.id
+                 WHERE u.org_id = o.id AND u.is_active = TRUE
+                 UNION
+                 SELECT d.id AS d_id FROM devices d
+                 JOIN vehicles v ON (d.device_id = v.imei OR d.vehicle_id = v.id::text)
                  JOIN vehicle_groups vg ON vg.vehicle_id = v.id
                  JOIN user_groups ug ON vg.group_id = ug.group_id
                  JOIN users u ON ug.user_id = u.id
@@ -95,7 +104,16 @@ const OrgModel = {
                 SELECT id AS d_id FROM devices WHERE org_id = o.id
                 UNION
                 SELECT d.id AS d_id FROM devices d
-                JOIN vehicles v ON d.vehicle_id = v.id::text
+                JOIN users u ON d.assigned_user_id = u.id
+                WHERE u.org_id = o.id AND u.is_active = TRUE
+                UNION
+                SELECT d.id AS d_id FROM devices d
+                JOIN user_groups ug ON d.assigned_group_id = ug.group_id
+                JOIN users u ON ug.user_id = u.id
+                WHERE u.org_id = o.id AND u.is_active = TRUE
+                UNION
+                SELECT d.id AS d_id FROM devices d
+                JOIN vehicles v ON (d.device_id = v.imei OR d.vehicle_id = v.id::text)
                 JOIN vehicle_groups vg ON vg.vehicle_id = v.id
                 JOIN user_groups ug ON vg.group_id = ug.group_id
                 JOIN users u ON ug.user_id = u.id
