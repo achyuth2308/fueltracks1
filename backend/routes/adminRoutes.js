@@ -19,6 +19,7 @@ router.use(authenticate);
 // ============================================================
 router.get('/orgs', authorize('superadmin', 'dealer'), AdminController.getAllOrgs);
 router.get('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.getOrgById);
+router.get('/orgs/:id/resources', authorize('superadmin', 'dealer'), AdminController.getOrgResources);
 router.post('/orgs', authorize('superadmin', 'dealer'), AdminController.createOrg);
 router.put('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.updateOrg);
 router.delete('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.deleteOrg);

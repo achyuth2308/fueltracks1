@@ -64,6 +64,19 @@ const AdminController = {
     }
   },
 
+  async getOrgResources(req, res, next) {
+    try {
+      const { id } = req.params;
+      const resources = await OrgModel.getOrgResources(id);
+      res.status(200).json({
+        success: true,
+        data: resources
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async createOrg(req, res, next) {
     try {
       const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds } = req.body;
