@@ -5,12 +5,13 @@ import {
   Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye,
   Server, MapPin, CheckCircle, ChevronRight, X, Building2, Users2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
-  Filter, Tag
+  Filter, Tag, Globe
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const StatusDot = ({ online }) => (
@@ -49,6 +50,7 @@ const VehiclesAdminPage = () => {
   const [viewingVehicle, setViewingVehicle] = useState(null);
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   const fetchVehicles = async () => {
     setLoading(true);
@@ -75,8 +77,8 @@ const VehiclesAdminPage = () => {
 
   useEffect(() => {
     if (isSuperAdmin || user?.role === 'dealer') {
-      adminApi.getOrgs().then(res => { if (res.success) setOrgs(res.data); }).catch(() => {});
-      adminApi.getGroups().then(res => { if (res.success) setGroups(res.data); }).catch(() => {});
+      adminApi.getOrgs().then(res => { if (res.success) setOrgs(res.data); }).catch(() => { });
+      adminApi.getGroups().then(res => { if (res.success) setGroups(res.data); }).catch(() => { });
     }
   }, [user, isSuperAdmin]);
 
@@ -127,7 +129,7 @@ const VehiclesAdminPage = () => {
 
   return (
     <div className="pastel-page-bg" style={{ minHeight: '100%', padding: '32px', boxSizing: 'border-box' }}>
-      
+
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -145,6 +147,18 @@ const VehiclesAdminPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setIsGoogleFormModalOpen(true)}
+            style={{
+              padding: '10px 18px', borderRadius: '12px', background: '#FFFFFF',
+              border: '1px solid #CBD5E1', color: '#1E293B', fontSize: '13px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+            }}
+          >
+            <Globe size={16} color="#f97316" /> Google Form Link
+          </button>
+
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.org_name || 'FuelTracks')}
             style={{
@@ -193,16 +207,14 @@ const VehiclesAdminPage = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                isSelected
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isSelected
                   ? 'bg-slate-900 text-white shadow-xs'
                   : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-              }`}
+                }`}
             >
               <span>{cat}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
-                isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
-              }`}>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
+                }`}>
                 {count}
               </span>
             </button>
@@ -267,7 +279,7 @@ const VehiclesAdminPage = () => {
 
       {/* Main Content Layout */}
       <div style={{ display: 'flex', gap: '24px', alignItems: 'stretch' }}>
-        
+
         {/* Table Container */}
         <div style={{
           flex: 1, background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
@@ -546,12 +558,11 @@ const VehiclesAdminPage = () => {
 
                         {/* 34. Category Badge */}
                         <td style={{ padding: '14px 16px' }}>
-                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${
-                            v.category === 'TG Mining' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
-                            v.category === 'VLTD' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
-                            v.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
-                            'bg-slate-100 text-slate-700 border border-slate-200'
-                          }`}>
+                          <span className={`px-2.5 py-1 rounded-md text-[11px] font-bold ${v.category === 'TG Mining' ? 'bg-amber-100 text-amber-900 border border-amber-200' :
+                              v.category === 'VLTD' ? 'bg-blue-100 text-blue-900 border border-blue-200' :
+                                v.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900 border border-purple-200' :
+                                  'bg-slate-100 text-slate-700 border border-slate-200'
+                            }`}>
                             {v.category || 'General'}
                           </span>
                         </td>
@@ -598,12 +609,11 @@ const VehiclesAdminPage = () => {
 
               <div className="flex items-center gap-2 mb-1">
                 <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>{viewingVehicle.name}</h2>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                  viewingVehicle.category === 'TG Mining' ? 'bg-amber-100 text-amber-900' :
-                  viewingVehicle.category === 'VLTD' ? 'bg-blue-100 text-blue-900' :
-                  viewingVehicle.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900' :
-                  'bg-slate-100 text-slate-700'
-                }`}>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${viewingVehicle.category === 'TG Mining' ? 'bg-amber-100 text-amber-900' :
+                    viewingVehicle.category === 'VLTD' ? 'bg-blue-100 text-blue-900' :
+                      viewingVehicle.category === 'VLTD + Mining' ? 'bg-purple-100 text-purple-900' :
+                        'bg-slate-100 text-slate-700'
+                  }`}>
                   {viewingVehicle.category || 'General'}
                 </span>
               </div>
@@ -728,6 +738,12 @@ const VehiclesAdminPage = () => {
           currentOrgId={user?.org_id}
         />
       )}
+
+      {/* Google Form Link & Integration Modal */}
+      <GoogleFormModal
+        isOpen={isGoogleFormModalOpen}
+        onClose={() => setIsGoogleFormModalOpen(false)}
+      />
     </div>
   );
 };

@@ -168,6 +168,112 @@ const EmailService = {
       throw new Error('Failed to send archival status email.');
     }
   },
+
+  /**
+   * Send Mining / Vehicle Registration Confirmation Email
+   */
+  async sendMiningRegistrationConfirmation(toEmail, registration) {
+    if (!toEmail) return false;
+
+    const formattedAadhar = registration.aadhar_number 
+      ? `XXXX-XXXX-${registration.aadhar_number.slice(-4)}`
+      : 'N/A';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Vehicle / Mining Registration Confirmation</title>
+</head>
+<body style="margin:0;padding:0;background:#f0f9ff;font-family:'Segoe UI',Arial,sans-serif;color:#1e293b;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f0f9ff;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,0.08);border:1px solid #e0f2fe;">
+          <!-- Header -->
+          <tr>
+            <td style="background:linear-gradient(135deg,#1e293b 0%,#334155 100%);padding:32px 40px;text-align:center;">
+              <div style="font-size:26px;font-weight:900;color:#f97316;letter-spacing:-0.5px;">FuelTracks</div>
+              <div style="font-size:12px;color:#94a3b8;margin-top:4px;letter-spacing:2px;text-transform:uppercase;">Vehicle & Device Registration</div>
+            </td>
+          </tr>
+          <!-- Body -->
+          <tr>
+            <td style="padding:32px 40px;">
+              <div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:16px;margin-bottom:24px;text-align:center;">
+                <h2 style="color:#065f46;margin:0 0 4px;font-size:18px;">Registration Submitted Successfully</h2>
+                <p style="color:#047857;margin:0;font-size:13px;">Reference ID: <strong>${registration.id || 'N/A'}</strong></p>
+              </div>
+
+              <p style="font-size:14px;color:#475569;margin-bottom:20px;">
+                Thank you. Here is a copy of your vehicle & mining registration responses submitted via FuelTracks:
+              </p>
+
+              <!-- Basic Info Table -->
+              <h3 style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #f1f5f9;padding-bottom:6px;margin-top:20px;">1. Basic Information</h3>
+              <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;color:#334155;">
+                <tr><td width="40%" style="color:#64748b;"><strong>Submitted By:</strong></td><td>${toEmail}</td></tr>
+                <tr><td style="color:#64748b;"><strong>ASM / TSL Phone:</strong></td><td>${registration.asm_tsl_phone || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Device Model:</strong></td><td>${registration.device_model || 'N/A'}</td></tr>
+              </table>
+
+              <!-- Mining Registration Details -->
+              <h3 style="font-size:14px;color:#0f172a;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #f1f5f9;padding-bottom:6px;margin-top:24px;">2. Mining Registration Details</h3>
+              <table width="100%" cellpadding="6" cellspacing="0" style="font-size:13px;color:#334155;">
+                <tr><td width="40%" style="color:#64748b;"><strong>Vehicle Number:</strong></td><td><strong>${registration.vehicle_number || 'N/A'}</strong></td></tr>
+                <tr><td style="color:#64748b;"><strong>IMEI Number:</strong></td><td>${registration.imei_number || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Engine Number:</strong></td><td>${registration.engine_number || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Chassis Number:</strong></td><td>${registration.chassis_number || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Manufacturing Year:</strong></td><td>${registration.manufacturing_year || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Manufacturer:</strong></td><td>${registration.vehicle_manufacturer || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Customer Name:</strong></td><td>${registration.customer_name || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Customer Phone:</strong></td><td>${registration.customer_phone || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>FO Address:</strong></td><td>${registration.fo_address || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Aadhar Number:</strong></td><td>${formattedAadhar}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Installer Name:</strong></td><td>${registration.installer_name || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Request Type:</strong></td><td>${registration.request_type || 'N/A'}</td></tr>
+                <tr><td style="color:#64748b;"><strong>Status:</strong></td><td><span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-weight:bold;">${registration.status || 'PENDING'}</span></td></tr>
+              </table>
+
+              <div style="margin-top:32px;padding-top:16px;border-top:1px solid #e2e8f0;text-align:center;font-size:12px;color:#94a3b8;">
+                This is an automated notification from FuelTracks. Please contact your operations manager or dealer if you have any questions.
+              </div>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    if (!env.BREVO_API_KEY || env.BREVO_API_KEY === 'YOUR_BREVO_API_KEY_HERE' || env.BREVO_API_KEY === 'your_brevo_api_key_here') {
+      console.warn('[EmailService] BREVO_API_KEY is not configured. Skipping registration confirmation email.');
+      console.log(`[EmailService - DEV MODE] Registration confirmation prepared for: ${toEmail}`);
+      return true;
+    }
+
+    try {
+      const brevo = getBrevoClient();
+      const result = await brevo.transactionalEmails.sendTransacEmail({
+        subject: `FuelTracks: Vehicle Registration Confirmation [${registration.vehicle_number}]`,
+        htmlContent,
+        sender: {
+          name: 'FuelTracks Operations',
+          email: env.BREVO_SENDER_EMAIL || 'info@fueltracks.in',
+        },
+        to: [{ email: toEmail }],
+      });
+      console.log('[EmailService] Registration confirmation sent to:', toEmail, '| messageId:', result?.messageId || 'N/A');
+      return true;
+    } catch (error) {
+      console.error('[EmailService] Failed to send registration confirmation to', toEmail, ':', error?.message);
+      // Non-blocking for registration completion
+      return false;
+    }
+  },
 };
 
 module.exports = EmailService;

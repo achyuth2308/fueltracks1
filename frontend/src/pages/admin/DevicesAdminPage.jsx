@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck,
-  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download
+  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Globe
 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import * as api from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 
 const formatLastComm = (isoString) => {
@@ -39,6 +40,7 @@ const DevicesAdminPage = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   const fetchDevices = async () => {
     setLoading(true);
@@ -101,6 +103,15 @@ const DevicesAdminPage = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-2.5">
+          <button
+            onClick={() => setIsGoogleFormModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-orange-50 border border-slate-300 rounded-xl shadow-xs transition-all cursor-pointer"
+            title="Share Google Form link with technicians/dealers for automatic admin sync"
+          >
+            <Globe size={14} className="text-orange-500" />
+            <span>Google Form Link</span>
+          </button>
+
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm transition-all cursor-pointer"
@@ -271,6 +282,12 @@ const DevicesAdminPage = () => {
         availableOrgs={orgs}
         currentOrgId={user?.orgId}
         isSuperAdmin={isSuperAdmin}
+      />
+
+      {/* Google Form Link & Integration Modal */}
+      <GoogleFormModal
+        isOpen={isGoogleFormModalOpen}
+        onClose={() => setIsGoogleFormModalOpen(false)}
       />
 
     </div>

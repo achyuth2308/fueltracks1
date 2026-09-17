@@ -45,6 +45,7 @@ import AdminRenewalsPage from './pages/admin/AdminRenewalsPage';
 import CustomerRenewalsPage from './pages/user/CustomerRenewalsPage';
 import AlertsPage from './pages/user/AlertsPage';
 import TripManagerPage from './pages/user/TripManagerPage';
+import MiningRegistrationsAdminPage from './pages/admin/MiningRegistrationsAdminPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -92,6 +93,7 @@ function App() {
                   <Route path="profile" element={<OrganizationProfilePage />} />
                   <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                   <Route path="settings" element={<SettingsAdminPage />} />
+                  <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
                 </Route>
 
                 {/* Shared Protected Routes (All authenticated users including customers) */}

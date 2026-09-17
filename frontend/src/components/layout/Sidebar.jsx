@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   RefreshCw,
   Bell,
+  FileCheck,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -34,6 +35,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
+        { name: 'Registrations', path: '/admin/mining-registrations', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
         { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer'] },
@@ -159,9 +161,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         if (toggleMobileSidebar) toggleMobileSidebar(false);
                         navigate(item.path);
                       }}
-                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${
-                        customIsActive ? 'bg-[#475569] text-white font-semibold' : 'text-[#ccfbf1] font-medium hover:bg-[#475569]/80 hover:text-white'
-                      }`}
+                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${customIsActive ? 'bg-[#475569] text-white font-semibold' : 'text-[#ccfbf1] font-medium hover:bg-[#475569]/80 hover:text-white'
+                        }`}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import GoogleFormModal from '../../components/GoogleFormModal';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
@@ -27,6 +28,7 @@ const OnBoardDevicePage = () => {
   // Step management
   const [step, setStep] = useState(1);
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   // Pre-table state (Step 1)
   const [licenceType, setLicenceType] = useState('Starter');
@@ -304,7 +306,13 @@ const OnBoardDevicePage = () => {
             Download our pre-formatted Excel template with dropdowns, fill in your hardware data, and onboard in 1 click.
           </p>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center flex-wrap gap-3 shrink-0">
+          <button
+            onClick={() => setIsGoogleFormModalOpen(true)}
+            className="px-4 py-2.5 bg-white text-slate-800 hover:bg-orange-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer border border-white/40"
+          >
+            <Globe size={15} className="text-orange-500" /> Google Form Link
+          </button>
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
             className="px-4 py-2.5 bg-white text-orange-700 hover:bg-orange-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
@@ -932,6 +940,12 @@ const OnBoardDevicePage = () => {
           }}
         />
       )}
+
+      {/* Google Form Link & Integration Modal */}
+      <GoogleFormModal
+        isOpen={isGoogleFormModalOpen}
+        onClose={() => setIsGoogleFormModalOpen(false)}
+      />
     </div>
   );
 };
