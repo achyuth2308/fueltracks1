@@ -8,6 +8,9 @@ const OrgModel = {
   /**
    * Find org by ID
    */
+  /**
+   * Find org by ID
+   */
   async findById(orgId) {
     const result = await db.query(
       `SELECT o.*,
@@ -15,10 +18,34 @@ const OrgModel = {
               (SELECT name FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_name,
               (SELECT phone FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_phone,
               (SELECT email FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_email,
-              (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
-              (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
-              (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
-              (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
+              (SELECT COUNT(DISTINCT v_id)::int FROM (
+                 SELECT id AS v_id FROM vehicles WHERE org_id = o.id AND is_active = TRUE
+                 UNION
+                 SELECT vg.vehicle_id AS v_id FROM vehicle_groups vg
+                 JOIN user_groups ug ON vg.group_id = ug.group_id
+                 JOIN users u ON ug.user_id = u.id
+                 JOIN vehicles v ON vg.vehicle_id = v.id
+                 WHERE u.org_id = o.id AND u.is_active = TRUE AND v.is_active = TRUE
+               ) sub_v) AS vehicle_count,
+              (SELECT COUNT(id)::int FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
+              (SELECT COUNT(DISTINCT g_id)::int FROM (
+                 SELECT id AS g_id FROM groups WHERE org_id = o.id
+                 UNION
+                 SELECT ug.group_id AS g_id FROM user_groups ug
+                 JOIN users u ON ug.user_id = u.id
+                 WHERE u.org_id = o.id AND u.is_active = TRUE
+               ) sub_g) AS groups_count,
+              (SELECT COUNT(DISTINCT d_id)::int FROM (
+                 SELECT id AS d_id FROM devices WHERE org_id = o.id
+                 UNION
+                 SELECT d.id AS d_id FROM devices d
+                 JOIN vehicles v ON d.vehicle_id = v.id::text
+                 JOIN vehicle_groups vg ON vg.vehicle_id = v.id
+                 JOIN user_groups ug ON vg.group_id = ug.group_id
+                 JOIN users u ON ug.user_id = u.id
+                 WHERE u.org_id = o.id AND u.is_active = TRUE AND v.is_active = TRUE
+               ) sub_d) AS devices_count,
+              (SELECT COUNT(id)::int FROM users WHERE org_id = o.id AND role = 'superadmin') AS superadmin_count
        FROM organizations o
        LEFT JOIN organizations p ON o.parent_id = p.id
        WHERE o.id = $1`,
@@ -41,17 +68,40 @@ const OrgModel = {
       params.push(orgId);
     }
 
-    // Single query with subqueries instead of left joins to prevent cartesian explosion
     const query = `
       SELECT o.*,
              p.name as parent_name,
              (SELECT name FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_name,
              (SELECT phone FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_phone,
              (SELECT email FROM users WHERE org_id = o.id ORDER BY created_at ASC LIMIT 1) AS primary_user_email,
-             (SELECT COUNT(id) FROM vehicles WHERE org_id = o.id AND is_active = TRUE) AS vehicle_count,
-             (SELECT COUNT(id) FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
-             (SELECT COUNT(id) FROM groups WHERE org_id = o.id) AS groups_count,
-             (SELECT COUNT(id) FROM devices WHERE org_id = o.id) AS devices_count
+             (SELECT COUNT(DISTINCT v_id)::int FROM (
+                SELECT id AS v_id FROM vehicles WHERE org_id = o.id AND is_active = TRUE
+                UNION
+                SELECT vg.vehicle_id AS v_id FROM vehicle_groups vg
+                JOIN user_groups ug ON vg.group_id = ug.group_id
+                JOIN users u ON ug.user_id = u.id
+                JOIN vehicles v ON vg.vehicle_id = v.id
+                WHERE u.org_id = o.id AND u.is_active = TRUE AND v.is_active = TRUE
+              ) sub_v) AS vehicle_count,
+             (SELECT COUNT(id)::int FROM users WHERE org_id = o.id AND is_active = TRUE) AS user_count,
+             (SELECT COUNT(DISTINCT g_id)::int FROM (
+                SELECT id AS g_id FROM groups WHERE org_id = o.id
+                UNION
+                SELECT ug.group_id AS g_id FROM user_groups ug
+                JOIN users u ON ug.user_id = u.id
+                WHERE u.org_id = o.id AND u.is_active = TRUE
+              ) sub_g) AS groups_count,
+             (SELECT COUNT(DISTINCT d_id)::int FROM (
+                SELECT id AS d_id FROM devices WHERE org_id = o.id
+                UNION
+                SELECT d.id AS d_id FROM devices d
+                JOIN vehicles v ON d.vehicle_id = v.id::text
+                JOIN vehicle_groups vg ON vg.vehicle_id = v.id
+                JOIN user_groups ug ON vg.group_id = ug.group_id
+                JOIN users u ON ug.user_id = u.id
+                WHERE u.org_id = o.id AND u.is_active = TRUE AND v.is_active = TRUE
+              ) sub_d) AS devices_count,
+             (SELECT COUNT(id)::int FROM users WHERE org_id = o.id AND role = 'superadmin') AS superadmin_count
       FROM organizations o
       LEFT JOIN organizations p ON o.parent_id = p.id
       ${whereClause}
@@ -60,6 +110,43 @@ const OrgModel = {
 
     const result = await db.query(query, params);
     return result.rows;
+  },
+
+  /**
+   * Get complete user -> attached groups -> attached vehicles structure for an organization
+   */
+  async getOrgResources(orgId) {
+    const usersRes = await db.query(
+      `SELECT u.id, u.name, u.email, u.role, u.phone, u.is_active, u.created_at
+       FROM users u
+       WHERE u.org_id = $1
+       ORDER BY u.name`,
+      [orgId]
+    );
+    const users = usersRes.rows;
+    for (const u of users) {
+      const groupsRes = await db.query(
+        `SELECT g.id, g.name, g.description
+         FROM user_groups ug
+         JOIN groups g ON ug.group_id = g.id
+         WHERE ug.user_id = $1
+         ORDER BY g.name`,
+        [u.id]
+      );
+      u.groups = groupsRes.rows;
+      for (const g of u.groups) {
+        const vehRes = await db.query(
+          `SELECT v.id, v.name, v.imei, v.plate, v.model, v.driver_name, v.driver_phone
+           FROM vehicle_groups vg
+           JOIN vehicles v ON vg.vehicle_id = v.id
+           WHERE vg.group_id = $1 AND v.is_active = TRUE
+           ORDER BY v.name`,
+          [g.id]
+        );
+        g.vehicles = vehRes.rows;
+      }
+    }
+    return users;
   },
 
 

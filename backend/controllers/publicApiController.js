@@ -9,6 +9,10 @@
 //       • Added postHistory  (POST /api/v1/location/history)
 //       • Added getVehicleList (GET /api/v1/vehicles)
 //       • All new endpoints respect optional group_id scoping on the API key
+//  v3 — Cement OMS integration (webhook self-registration):
+//       • Added registerWebhook  (POST /api/v1/webhooks)
+//       • Added listWebhooks     (GET  /api/v1/webhooks)
+//       • Added deleteWebhook    (DELETE /api/v1/webhooks/:id)
 // ============================================================
 
 const db = require('../config/db');
@@ -517,4 +521,174 @@ async function getVehicleList(req, res, next) {
   }
 }
 
-module.exports = { getLiveLocation, postLiveLocation, getHistory, postHistory, getVehicleList };
+// ─── POST /api/v1/webhooks ──────────────────────────────────
+// Register a webhook URL to receive real-time GPS push events.
+// The API key's org + group scope is automatically applied.
+async function registerWebhook(req, res, next) {
+  try {
+    const { orgId, groupId } = req.apiOrg;
+    const { url, secret, label } = req.body || {};
+
+    if (!url || typeof url !== 'string' || url.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        error: '"url" is required — the HTTPS endpoint FuelTracks will POST GPS events to.',
+        code: 'MISSING_WEBHOOK_URL',
+      });
+    }
+
+    // Validate URL format
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url.trim());
+    } catch {
+      return res.status(400).json({
+        success: false,
+        error: '"url" must be a valid URL (e.g., https://your-oms.com/webhooks/fueltracks).',
+        code: 'INVALID_WEBHOOK_URL',
+      });
+    }
+
+    if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Webhook URL must use http or https.',
+        code: 'INVALID_WEBHOOK_PROTOCOL',
+      });
+    }
+
+    // Check limit: max 5 webhooks per org
+    const countRes = await db.query(
+      'SELECT COUNT(*) FROM webhook_subscriptions WHERE org_id = $1 AND is_active = TRUE',
+      [orgId]
+    );
+    if (parseInt(countRes.rows[0].count) >= 5) {
+      return res.status(400).json({
+        success: false,
+        error: 'Maximum 5 active webhooks per organization. Delete an existing webhook to add a new one.',
+        code: 'WEBHOOK_LIMIT_REACHED',
+      });
+    }
+
+    const result = await db.query(
+      `INSERT INTO webhook_subscriptions (org_id, group_id, url, secret, label, is_active)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
+       RETURNING id, url, label, group_id, created_at`,
+      [orgId, groupId || null, parsedUrl.toString(), secret || null, label || null]
+    );
+
+    const sub = result.rows[0];
+
+    return res.status(201).json({
+      success: true,
+      message: 'Webhook registered. FuelTracks will POST GPS updates to your URL for every GPS packet received.',
+      webhook: {
+        id:         sub.id,
+        url:        sub.url,
+        label:      sub.label || null,
+        scoped_to_group: sub.group_id || null,
+        created_at: sub.created_at,
+      },
+      payload_format: {
+        event:     'gps.update',
+        timestamp: 'IST datetime string',
+        data: {
+          vehicleRegistrationNumber: 'string | null',
+          imei:                      'string',
+          latitude:                  'number',
+          longitude:                 'number',
+          speed:                     'number (km/h)',
+          ignitionOn:                'boolean',
+          vehicleState:              'Moving | Idle | Stopped | Offline',
+          dateTime:                  'IST datetime string',
+          bearing:                   'number (degrees)',
+          gpsFix:                    'boolean',
+          gpsSignalQuality:          'excellent | good | fair | poor | none',
+          accuracy:                  'number (metres) | null',
+        },
+      },
+      note: secret
+        ? 'We will include an X-FuelTracks-Signature header (sha256=<hmac>) so you can verify authenticity.'
+        : 'Tip: pass a "secret" string to enable HMAC-SHA256 payload signing for security.',
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── GET /api/v1/webhooks ────────────────────────────────────
+// List all active webhooks registered under this API key's org.
+async function listWebhooks(req, res, next) {
+  try {
+    const { orgId } = req.apiOrg;
+
+    const result = await db.query(
+      `SELECT id, url, label, group_id, is_active, created_at, updated_at
+       FROM webhook_subscriptions
+       WHERE org_id = $1
+       ORDER BY created_at ASC`,
+      [orgId]
+    );
+
+    const webhooks = result.rows.map((w) => ({
+      id:              w.id,
+      url:             w.url,
+      label:           w.label || null,
+      is_active:       w.is_active,
+      scoped_to_group: w.group_id || null,
+      created_at:      w.created_at,
+      updated_at:      w.updated_at,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: webhooks.length,
+      webhooks,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ─── DELETE /api/v1/webhooks/:id ────────────────────────────
+// Deactivate and remove a registered webhook.
+// Only allowed if the webhook belongs to the API key's org.
+async function deleteWebhook(req, res, next) {
+  try {
+    const { orgId } = req.apiOrg;
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Webhook ID is required in the URL path.',
+        code: 'MISSING_WEBHOOK_ID',
+      });
+    }
+
+    const result = await db.query(
+      `DELETE FROM webhook_subscriptions
+       WHERE id = $1 AND org_id = $2
+       RETURNING id, url`,
+      [id, orgId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: 'Webhook not found or does not belong to your organization.',
+        code: 'WEBHOOK_NOT_FOUND',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Webhook deleted. FuelTracks will no longer push GPS events to ${result.rows[0].url}.`,
+      deleted_id: result.rows[0].id,
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { getLiveLocation, postLiveLocation, getHistory, postHistory, getVehicleList, registerWebhook, listWebhooks, deleteWebhook };

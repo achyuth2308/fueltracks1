@@ -135,6 +135,21 @@ const VehicleController = {
         });
       }
 
+      // Check if Registration Number / Plate already exists
+      if (plate && plate.trim()) {
+        const existingPlate = await db.query(
+          `SELECT id FROM vehicles WHERE UPPER(TRIM(plate)) = UPPER(TRIM($1)) OR UPPER(TRIM(name)) = UPPER(TRIM($1))`,
+          [plate.trim()]
+        );
+        if (existingPlate.rows.length > 0) {
+          return res.status(409).json({
+            success: false,
+            error: `A vehicle with Registration Number "${plate.trim()}" is already registered.`,
+            code: 'PLATE_ALREADY_EXISTS'
+          });
+        }
+      }
+
       const newVehicle = await VehicleModel.create({
         orgId: targetOrgId,
         imei,
@@ -247,6 +262,21 @@ const VehicleController = {
           code: 'VEHICLE_NOT_FOUND'
         });
       }
+      // Check if Registration Number / Plate is changed to an existing plate on another vehicle
+      if (plate && plate.trim()) {
+        const existingPlate = await db.query(
+          `SELECT id FROM vehicles WHERE (UPPER(TRIM(plate)) = UPPER(TRIM($1)) OR UPPER(TRIM(name)) = UPPER(TRIM($1))) AND id != $2`,
+          [plate.trim(), id]
+        );
+        if (existingPlate.rows.length > 0) {
+          return res.status(409).json({
+            success: false,
+            error: `A vehicle with Registration Number "${plate.trim()}" is already registered.`,
+            code: 'PLATE_ALREADY_EXISTS'
+          });
+        }
+      }
+
       const oldGroups = await VehicleModel.getGroups(id);
       const oldGroupIds = oldGroups.map(g => g.id);
       const oldGroupNames = await GroupModel.getNamesByIds(oldGroupIds);
@@ -301,6 +331,15 @@ const VehicleController = {
         category,
         isSandMining
       });
+
+      // Sync device_type in devices table to match the updated deviceVersion
+      // (The vehicle list reads device_type from the devices table via JOIN)
+      if (deviceVersion !== undefined && oldVehicle.imei) {
+        await db.query(
+          `UPDATE devices SET device_type = $1 WHERE device_id = $2`,
+          [deviceVersion, oldVehicle.imei]
+        );
+      }
 
       // Sync Sand Mining state to Redis
       if (isSandMining !== undefined) {

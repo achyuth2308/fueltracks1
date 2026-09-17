@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
-import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio, Users, Truck, ChevronRight } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -33,6 +33,10 @@ const OrgsAdminPage = () => {
   const [assignedUserIds, setAssignedUserIds] = useState([]);
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
+  // Resources state (User -> Groups -> Vehicles hierarchy)
+  const [orgResources, setOrgResources] = useState([]);
+  const [resourcesLoading, setResourcesLoading] = useState(false);
+
   const [allUsers, setAllUsers] = useState([]);
   const [modalError, setModalError] = useState(null);
 
@@ -56,10 +60,11 @@ const OrgsAdminPage = () => {
     fetchOrgsAndUsers();
   }, []);
 
-  const handleOpenModal = (org = null) => {
+  const handleOpenModal = async (org = null) => {
     setEditingOrg(org);
     setActiveTab('general');
     setModalError(null);
+    setOrgResources([]);
 
     if (org) {
       setName(org.name || '');
@@ -71,6 +76,18 @@ const OrgsAdminPage = () => {
       setEmail(org.email || org.primary_user_email || '');
       setStatus(org.is_active === false ? 'Suspended' : 'Active');
       setAssignedUserIds(allUsers.filter(u => u.org_id === org.id).map(u => u.id));
+
+      setResourcesLoading(true);
+      try {
+        const res = await adminApi.getOrgResources(org.id);
+        if (res.success) {
+          setOrgResources(res.data);
+        }
+      } catch (err) {
+        console.error('Failed to load org resources:', err);
+      } finally {
+        setResourcesLoading(false);
+      }
     } else {
       setName('');
       setPhone('');
@@ -91,12 +108,8 @@ const OrgsAdminPage = () => {
       setModalError('Organization name is required.');
       return;
     }
-    if (!assignedUserIds || assignedUserIds.length === 0) {
-      setModalError('At least one user must be assigned to the organization.');
-      return;
-    }
 
-    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active', assignedUserIds };
+    const payload = { name, type, address, phone, contactPerson, email, isActive: status === 'Active' };
     if (parentId) payload.parentId = parentId;
 
     try {
@@ -129,6 +142,7 @@ const OrgsAdminPage = () => {
 
   const tabs = [
     { id: 'general', label: 'General', icon: Building2 },
+    { id: 'users', label: 'Users & Access', icon: Users },
     { id: 'alerts', label: 'Alert Policies', icon: Shield },
     { id: 'geofence', label: 'Geofences', icon: MapPin },
     { id: 'fuel', label: 'Fuel Monitor', icon: Fuel },
@@ -262,7 +276,7 @@ const OrgsAdminPage = () => {
                         <button onClick={() => handleOpenModal(org)} title="Edit Organization" style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '6px', color: '#f97316', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
                           <Edit size={14} /> Edit
                         </button>
-                        {org.type !== 'super' && org.id !== user?.orgId && (
+                        {org.type !== 'super' && parseInt(org.superadmin_count) === 0 && (
                           <button onClick={() => handleDelete(org)} title="Delete Organization" style={{ padding: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
                       </div>
@@ -372,60 +386,102 @@ const OrgsAdminPage = () => {
                       </div>
                     </div>
 
-                    {/* Row 4: Assign Users + Address */}
+                    {/* Row 4: Address */}
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <div style={{ flex: 1 }}>
-                        <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Assign Users *</label>
-                        <div style={{
-                          border: '1px solid #CBD5E1', borderRadius: '6px',
-                          background: '#FFFFFF', height: '65px', overflowY: 'auto',
-                          padding: '4px', display: 'flex', flexDirection: 'column', gap: '2px',
-                          boxSizing: 'border-box'
-                        }}>
-                          {allUsers.length === 0 ? (
-                            <div style={{ fontSize: '11px', color: '#94A3B8', padding: '4px' }}>No users available</div>
-                          ) : (
-                            allUsers.map(u => {
-                              const isSelected = assignedUserIds.includes(u.id);
-                              return (
-                                <label
-                                  key={u.id}
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: '6px',
-                                    padding: '3px 6px', borderRadius: '4px', cursor: 'pointer',
-                                    background: isSelected ? '#EFF6FF' : 'transparent',
-                                    transition: 'background 0.15s'
-                                  }}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      if (e.target.checked) {
-                                        setAssignedUserIds([...assignedUserIds, u.id]);
-                                      } else {
-                                        setAssignedUserIds(assignedUserIds.filter(id => id !== u.id));
-                                      }
-                                    }}
-                                    style={{ width: '13px', height: '13px', accentColor: '#f97316', cursor: 'pointer' }}
-                                  />
-                                  <span style={{ fontSize: '11px', color: isSelected ? '#1E40AF' : '#334155', fontWeight: isSelected ? 600 : 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {u.name || u.email} {u.org_name ? `(${u.org_name})` : ''}
-                                  </span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-                        <div style={{ fontSize: '10px', color: assignedUserIds.length === 0 ? '#EF4444' : '#64748B', marginTop: '2px', fontWeight: 500 }}>
-                          {assignedUserIds.length > 0 ? `✓ ${assignedUserIds.length} user(s) assigned` : 'Click checkbox to select user'}
-                        </div>
-                      </div>
                       <div style={{ flex: 1 }}>
                         <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>Address</label>
                         <textarea value={address} onChange={e => setAddress(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', height: '55px', resize: 'none', boxSizing: 'border-box', color: '#111827' }} />
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {activeTab === 'users' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>Users & Attached Access</h3>
+                        <p style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>Users assigned to this organization, their attached groups, and group vehicles.</p>
+                      </div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', background: '#FFF7ED', color: '#f97316', borderRadius: '12px', border: '1px solid #FFEDD5' }}>
+                        {orgResources.length} Users
+                      </span>
+                    </div>
+
+                    {resourcesLoading ? (
+                      <div style={{ padding: '30px', textAlign: 'center' }}>
+                        <Loader2 size={24} color="#f97316" className="animate-spin" style={{ margin: '0 auto 8px' }} />
+                        <span style={{ fontSize: '12px', color: '#64748B' }}>Loading user and vehicle hierarchy...</span>
+                      </div>
+                    ) : orgResources.length === 0 ? (
+                      <div style={{ padding: '24px', textAlign: 'center', background: '#F8FAFC', borderRadius: '10px', border: '1px dashed #CBD5E1' }}>
+                        <Users size={28} color="#94A3B8" style={{ margin: '0 auto 8px' }} />
+                        <div style={{ fontSize: '13px', fontWeight: 600, color: '#475569' }}>No users assigned</div>
+                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Assign users to this organization in Users Management to grant access.</div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {orgResources.map((u) => (
+                          <div key={u.id} style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+                            {/* User Header */}
+                            <div style={{ padding: '10px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#FFF7ED', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', border: '1px solid #FFEDD5' }}>
+                                  {u.name ? u.name.charAt(0).toUpperCase() : u.email.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#111827' }}>{u.name || 'Unnamed User'}</div>
+                                  <div style={{ fontSize: '11px', color: '#64748B' }}>{u.email} {u.phone ? `• ${u.phone}` : ''}</div>
+                                </div>
+                              </div>
+                              <span style={{ fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', padding: '2px 8px', borderRadius: '4px', background: u.role === 'superadmin' ? '#FEE2E2' : u.role === 'dealer' ? '#FEF3C7' : '#E0F2FE', color: u.role === 'superadmin' ? '#DC2626' : u.role === 'dealer' ? '#D97706' : '#0369A1' }}>
+                                {u.role}
+                              </span>
+                            </div>
+
+                            {/* Groups & Vehicles */}
+                            <div style={{ padding: '10px 12px' }}>
+                              {!u.groups || u.groups.length === 0 ? (
+                                <div style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>No groups attached to this user.</div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                  {u.groups.map(g => (
+                                    <div key={g.id} style={{ background: '#F1F5F9', borderRadius: '8px', padding: '8px 10px' }}>
+                                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#f97316' }}></span>
+                                          Group: {g.name}
+                                        </div>
+                                        <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600 }}>
+                                          {g.vehicles?.length || 0} Vehicles
+                                        </span>
+                                      </div>
+
+                                      {/* Vehicles list inside group */}
+                                      {!g.vehicles || g.vehicles.length === 0 ? (
+                                        <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px' }}>No vehicles attached to this group.</div>
+                                      ) : (
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '6px', marginTop: '6px' }}>
+                                          {g.vehicles.map(v => (
+                                            <div key={v.id} style={{ background: '#FFFFFF', padding: '6px 8px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                              <Truck size={14} color="#f97316" style={{ shrink: 0 }} />
+                                              <div style={{ overflow: 'hidden' }}>
+                                                <div style={{ fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.name}</div>
+                                                <div style={{ color: '#64748B', fontSize: '10px' }}>IMEI: {v.imei}</div>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

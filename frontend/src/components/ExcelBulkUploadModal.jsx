@@ -34,6 +34,7 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
   const validateRows = (rows) => {
     const seenImeis = new Set();
     const seenPlates = new Set();
+    const seenIccids = new Set();
 
     return rows.map((row, index) => {
       const errors = [];
@@ -61,6 +62,16 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         errors.push(`Duplicate Vehicle Id in file (${vehicleNo})`);
       } else {
         seenPlates.add(vehicleNo.toUpperCase());
+      }
+
+      // ICCID Validation
+      const iccid = String(row['ICCID'] || row.iccid || '').trim();
+      if (iccid) {
+        if (seenIccids.has(iccid)) {
+          errors.push(`Duplicate ICCID in file (${iccid})`);
+        } else {
+          seenIccids.add(iccid);
+        }
       }
 
       return {

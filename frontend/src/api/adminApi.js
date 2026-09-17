@@ -11,6 +11,11 @@ export const getOrgById = async (id) => {
   return response.data;
 };
 
+export const getOrgResources = async (id) => {
+  const response = await axiosInstance.get(`/api/admin/orgs/${id}/resources`);
+  return response.data;
+};
+
 export const createOrg = async (data) => {
   const response = await axiosInstance.post('/api/admin/orgs', data);
   return response.data;

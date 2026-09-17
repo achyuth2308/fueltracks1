@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye,
   Server, MapPin, CheckCircle, ChevronRight, X, Building2, Users2,
@@ -32,6 +32,7 @@ const CATEGORIES = ['All', 'TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
 const VehiclesAdminPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const isSuperAdmin = user?.role === 'superadmin';
 
   const [vehicles, setVehicles] = useState([]);
@@ -74,6 +75,11 @@ const VehiclesAdminPage = () => {
   useEffect(() => {
     fetchVehicles();
   }, [selectedCategory, selectedOrgId, selectedGroupId]);
+
+  // Re-fetch whenever we navigate back to this page (location.key changes on each navigation)
+  useEffect(() => {
+    fetchVehicles();
+  }, [location.key]);
 
   useEffect(() => {
     if (isSuperAdmin || user?.role === 'dealer') {
