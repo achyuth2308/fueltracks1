@@ -368,7 +368,7 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x12) {
     satellites:     gps.satellites,
     gpsValid:       finalGpsValid,
     rawCourse:      gps.rawCourse,
-    ignition:       acc === 0x01,
+    ignition:       null,
     isLive:         !isBuffered,
     odometer,
     fuel:           null,       // not reported in EC08 location packets

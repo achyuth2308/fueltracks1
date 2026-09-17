@@ -377,7 +377,7 @@ function parseLocation(info, serialNumber, imei, rawPacketType = 0x12) {
     satellites:     gps.satellites,
     gpsValid:       finalGpsValid,
     rawCourse:      gps.rawCourse,
-    ignition:       acc === 0x01,
+    ignition:       null, // Clone devices (like EC33 4G) send fake 0x00 here; rely on Heartbeat/Alarm Terminal Info
     isLive:         !isBuffered,
     odometer,
     fuel:           null,       // not reported in EC08 location packets
