@@ -54,7 +54,6 @@ async function runMigrations() {
       { name: 'Forgot Password Migration', file: 'forgot_password_migration.sql' },
       { name: 'Category & Onboarding Migration', file: 'category_and_onboarding_migration.sql' },
       { name: 'Sand Mining Migration', file: 'sand_mining_migration.sql' },
-      { name: 'Onboarding Submissions Migration', file: 'onboarding_submissions_migration.sql' },
       { name: 'Mining Registrations Migration', file: 'mining_registrations_migration.sql' },
     ];
 
