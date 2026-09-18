@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Route as RouteIcon } from 'lucide-react';
+import axiosInstance from '../../api/axios';
 import {
   LayoutDashboard,
   Briefcase,
@@ -19,6 +20,8 @@ import {
   RefreshCw,
   Bell,
   FileCheck,
+  Sparkles,
+  Palette,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -27,6 +30,28 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [brandProfile, setBrandProfile] = useState(null);
+
+  useEffect(() => {
+    const loadProfile = () => {
+      axiosInstance.get('/api/profile').then(res => {
+        if (res.data?.success && res.data.profile) {
+          setBrandProfile(res.data.profile);
+        }
+      }).catch(() => {});
+    };
+    loadProfile();
+
+    const handleProfileUpdated = (e) => {
+      if (e.detail) {
+        setBrandProfile(e.detail);
+      } else {
+        loadProfile();
+      }
+    };
+    window.addEventListener('profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('profile-updated', handleProfileUpdated);
+  }, [user]);
 
   const navGroups = [
     {
@@ -49,6 +74,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
         { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
+        { name: 'Dealer White-Label', path: '/admin/dealer-profile', icon: Sparkles, roles: ['superadmin', 'dealer'] },
       ],
     },
   ];
@@ -77,9 +103,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     <>
       <aside
         style={{
-          background: '#2E4867',
-          borderRight: '1px solid #475569',
-          boxShadow: '4px 0 24px rgba(249,115,22,0.05)',
+          background: brandProfile?.secondary_color || '#2E4867',
+          borderRight: '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: '4px 0 24px rgba(0,0,0,0.1)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -93,17 +119,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         <div
           className="p-3 md:p-6 pb-4"
           style={{
-            borderBottom: '1px solid #475569',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex', flexDirection: 'column', gap: '12px',
             alignItems: collapsed ? 'center' : 'flex-start',
           }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-              background: '#2E4867', color: 'white',
+              background: brandProfile?.primary_color || '#0284C7', color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '14px', fontWeight: 700,
-              boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
+              boxShadow: `0 4px 12px ${brandProfile?.primary_color ? brandProfile.primary_color + '40' : 'rgba(2,132,199,0.3)'}`,
             }}>
               {initials}
             </div>
@@ -112,7 +138,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'Administrator'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#f1f5f9', textTransform: 'capitalize' }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'capitalize' }}>
                   {roleLabel}
                 </div>
               </div>
@@ -132,7 +158,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                     className="text-[9px] md:text-[11px] px-2 pb-1 md:px-3 md:pb-2"
                     style={{
                       fontWeight: 700, letterSpacing: '0.12em',
-                      textTransform: 'uppercase', color: '#99f6e4',
+                      textTransform: 'uppercase', color: brandProfile?.primary_color || '#99f6e4',
                     }}>
                     {group.label}
                   </div>
@@ -161,7 +187,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         if (toggleMobileSidebar) toggleMobileSidebar(false);
                         navigate(item.path);
                       }}
-                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${customIsActive ? 'bg-[#475569] text-white font-semibold' : 'text-[#ccfbf1] font-medium hover:bg-[#475569]/80 hover:text-white'
+                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${customIsActive ? 'text-white font-semibold shadow-xs' : 'text-slate-200 font-medium hover:text-white'
                         }`}
                       style={{
                         display: 'flex',
@@ -171,13 +197,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         transition: 'all 0.2s ease',
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
-                        position: 'relative'
+                        position: 'relative',
+                        backgroundColor: customIsActive ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
+                      }}
+                      onMouseEnter={(e) => {
+                        if (!customIsActive) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!customIsActive) e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
                       {customIsActive && !collapsed && (
                         <div style={{
                           position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
-                          background: '#ffffff', borderRadius: '0 4px 4px 0'
+                          background: brandProfile?.primary_color || '#0284C7', borderRadius: '0 4px 4px 0'
                         }} />
                       )}
                       <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">

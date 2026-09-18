@@ -38,6 +38,7 @@ import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
+import DealerProfilePage from './modules/profile/DealerProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
@@ -91,6 +92,7 @@ function App() {
                   <Route path="billing" element={<BillingAdminPage />} />
 
                   <Route path="profile" element={<OrganizationProfilePage />} />
+                  <Route path="dealer-profile" element={<DealerProfilePage />} />
                   <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                   <Route path="settings" element={<SettingsAdminPage />} />
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />

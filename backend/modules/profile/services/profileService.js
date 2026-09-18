@@ -88,14 +88,17 @@ class ProfileService {
     const orgRow = orgRes.rows[0];
     const limits = orgRow?.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
 
-    // Fetch actual used counts per tier (based on device licenceId prefixes)
+    // Fetch actual used counts per tier (based on device licenceId prefixes for this org or its child orgs)
     const usedResult = await db.query(
       `SELECT
          COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') AS "Starter",
          COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') AS "Basic",
          COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') AS "Advanced",
-         COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium"
-       FROM devices WHERE org_id = $1`, [organizationId]
+         COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium",
+         COUNT(*) AS "TotalUsed"
+       FROM devices 
+       WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`, 
+      [organizationId]
     );
 
     const used = {
@@ -107,7 +110,9 @@ class ProfileService {
 
     // Calculate total allocated and used devices across all tiers
     const totalAllocated = Object.values(limits).reduce((sum, val) => sum + parseInt(val || 0, 10), 0);
-    const totalUsed = Object.values(used).reduce((sum, val) => sum + val, 0);
+    const calculatedTierUsed = Object.values(used).reduce((sum, val) => sum + val, 0);
+    const dbTotalUsed = parseInt(usedResult.rows[0]?.TotalUsed || 0, 10);
+    const totalUsed = Math.max(calculatedTierUsed, dbTotalUsed);
 
     // Determine the active tier (the one with non-zero limit, or default to Basic)
     let activeTier = 'Basic';
@@ -127,11 +132,43 @@ class ProfileService {
       usedTiers: used
     };
 
-    return { profile: mainProfile, license };
+    // Also fetch dealer stats if it's a dealer organization
+    const dealerStats = await profileRepository.getDealerStats(organizationId);
+
+    return { profile: mainProfile, license, dealerStats };
+  }
+
+  async getAllDealers() {
+    return await profileRepository.getAllDealers();
+  }
+
+  async getPublicBranding(identifier) {
+    return await profileRepository.getPublicBranding(identifier);
   }
 
   async updateProfile(organizationId, updateData, user) {
     const oldProfile = await profileRepository.getProfile(organizationId);
+
+    // Validate and sanitize subdomain if provided
+    if (updateData.subdomain !== undefined) {
+      if (updateData.subdomain) {
+        const sanitized = String(updateData.subdomain).toLowerCase().trim().replace(/[^a-z0-9-]/g, '');
+        if (sanitized.length < 3) {
+          throw new Error('Subdomain must be at least 3 characters long (letters, numbers, hyphens only).');
+        }
+        // Verify subdomain uniqueness across other organizations
+        const duplicateCheck = await db.query(
+          'SELECT organization_id FROM organization_profiles WHERE LOWER(subdomain) = $1 AND organization_id != $2',
+          [sanitized, organizationId]
+        );
+        if (duplicateCheck.rows.length > 0) {
+          throw new Error(`Subdomain '${sanitized}' is already in use by another dealership. Please choose a unique subdomain slug.`);
+        }
+        updateData.subdomain = sanitized;
+      } else {
+        updateData.subdomain = null;
+      }
+    }
 
     if (updateData.api_key) {
       updateData.encrypted_api_key = this.encrypt(updateData.api_key);
@@ -145,8 +182,8 @@ class ProfileService {
       audit_type: 'organization',
       entity_type: 'Profile',
       entity_id: organizationId,
-      entity_name: 'Organization Profile',
-      action: 'Profile Updated',
+      entity_name: newProfile?.brand_name || oldProfile?.org_name || 'Organization Profile',
+      action: 'Profile & White-Labeling Updated',
       old_data: oldProfile,
       new_data: newProfile,
       performed_by_id: user.userId,
@@ -174,8 +211,8 @@ class ProfileService {
       audit_type: 'organization',
       entity_type: 'Profile',
       entity_id: organizationId,
-      entity_name: 'Organization Profile',
-      action: 'Logo Updated',
+      entity_name: newProfile?.brand_name || oldProfile?.org_name || 'Organization Profile',
+      action: `${fieldName} Asset Updated`,
       old_data: oldProfile,
       new_data: newProfile,
       performed_by_id: user.userId,
@@ -190,33 +227,66 @@ class ProfileService {
     return newProfile;
   }
 
-  async changePassword(userId, currentPassword, newPassword, userContext) {
-    const res = await db.query('SELECT password FROM users WHERE id = $1', [userId]);
-    const user = res.rows[0];
-    if (!user) throw new Error('User not found');
+  async changePassword({ targetOrgId, targetUserId, currentPassword, newPassword, userContext }) {
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+      throw new Error('New password must be at least 8 characters long');
+    }
 
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) throw new Error('Incorrect current password');
+    let user = null;
+    const isSuperAdmin = userContext.role === 'superadmin';
+
+    // If Super Admin is managing a specific dealer org, find that dealer's primary admin user
+    if (isSuperAdmin && targetOrgId && targetOrgId !== userContext.orgId) {
+      const res = await db.query(
+        'SELECT id, name, email, password FROM users WHERE org_id = $1 AND role = \'dealer\' ORDER BY created_at ASC LIMIT 1',
+        [targetOrgId]
+      );
+      if (res.rows.length === 0) {
+        // Fallback: any user in that org
+        const fallback = await db.query('SELECT id, name, email, password FROM users WHERE org_id = $1 ORDER BY created_at ASC LIMIT 1', [targetOrgId]);
+        user = fallback.rows[0];
+      } else {
+        user = res.rows[0];
+      }
+    } else if (targetUserId) {
+      const res = await db.query('SELECT id, name, email, password FROM users WHERE id = $1', [targetUserId]);
+      user = res.rows[0];
+    } else {
+      const res = await db.query('SELECT id, name, email, password FROM users WHERE id = $1', [userContext.userId]);
+      user = res.rows[0];
+    }
+
+    if (!user) throw new Error('Target user account not found');
+
+    // Only require and check current password if a non-superadmin user is changing their own personal password
+    const isSelfChange = user.id === userContext.userId;
+    if (isSelfChange && !isSuperAdmin) {
+      if (!currentPassword) throw new Error('Current password is required');
+      if (user.password) {
+        const isMatch = await bcrypt.compare(String(currentPassword), String(user.password));
+        if (!isMatch) throw new Error('Incorrect current password');
+      }
+    }
 
     const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    const hashedPassword = await bcrypt.hash(String(newPassword), salt);
 
-    await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, userId]);
+    await db.query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, user.id]);
 
     // Audit Log
     await profileRepository.createAuditLog({
       audit_type: 'user',
       entity_type: 'User',
-      entity_id: userId,
-      entity_name: 'User Password',
-      action: 'Password Changed',
+      entity_id: user.id,
+      entity_name: `Dealer User (${user.email})`,
+      action: isSuperAdmin && !isSelfChange ? 'Dealer Password Reset by Superadmin' : 'Password Changed',
       old_data: null,
       new_data: null,
       performed_by_id: userContext.userId,
       performed_by_name: userContext.name || 'Admin',
       performed_by_email: userContext.email,
       performed_by_role: userContext.role,
-      org_id: userContext.orgId,
+      org_id: targetOrgId || userContext.orgId,
       ip_address: userContext.ip || '0.0.0.0',
       user_agent: userContext.userAgent || 'Unknown'
     });

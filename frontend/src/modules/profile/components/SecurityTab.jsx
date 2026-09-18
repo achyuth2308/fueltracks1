@@ -1,59 +1,70 @@
 import React, { useState } from 'react';
 import { formatLocalTime } from '../../../utils/dateUtils';
-import { Save, Loader2, ShieldCheck, Clock, Monitor, KeyRound, AlertTriangle } from 'lucide-react';
+import { 
+  Save, Loader2, ShieldCheck, Clock, Monitor, KeyRound, 
+  AlertTriangle, Sparkles, Eye, EyeOff, CheckCircle2, User, Mail
+} from 'lucide-react';
 import { useAuth } from '../../../hooks/useAuth';
 
-const InputField = ({ label, name, type = 'text', required, placeholder, value, onChange }) => (
-  <div className="flex flex-col mb-5">
-    <label className="text-[14px] font-medium !text-black mb-[8px]">
-      {label} {required && <span className="text-red-500">*</span>}
+const InputField = ({ label, name, type = 'text', required, placeholder, value, onChange, showToggle, onToggleShow, helperText, primaryColor = '#0284C7' }) => (
+  <div className="flex flex-col mb-4">
+    <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between">
+      <span>{label} {required && <span className="text-red-500">*</span>}</span>
+      {helperText && <span className="text-[11px] font-bold text-slate-500">{helperText}</span>}
     </label>
-    <input
-      type={type}
-      name={name}
-      value={value || ''}
-      onChange={onChange}
-      required={required}
-      placeholder={placeholder}
-      className="h-[48px] w-full px-4 bg-white border border-[#E5E7EB] rounded-[10px] text-[15px] font-medium !text-black focus:outline-none focus:border-[#EF4444] focus:ring-4 focus:ring-red-500/10 hover:border-[#D1D5DB] transition-all"
-    />
-  </div>
-);
-
-const SectionHeader = ({ icon: Icon, title, description, tint = 'bg-red-50', iconColor = 'text-red-600' }) => (
-  <div className={`mb-5 pb-4 border-b border-[#E5E7EB] ${tint} -mx-[24px] px-[24px] -mt-[24px] pt-[24px] rounded-t-[14px]`}>
-    <div className="flex items-center gap-3 mb-1">
-      <div className={`p-2.5 bg-white rounded-xl shadow-sm flex items-center justify-center`}>
-        <Icon className={`w-[22px] h-[22px] ${iconColor}`} />
-      </div>
-      <h3 className="text-[20px] font-semibold !text-black m-0">{title}</h3>
+    <div className="relative">
+      <input
+        type={type}
+        name={name}
+        value={value || ''}
+        onChange={onChange}
+        required={required}
+        placeholder={placeholder}
+        className="h-12 w-full px-4 pr-11 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
+      />
+      {showToggle && (
+        <button
+          type="button"
+          onClick={onToggleShow}
+          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800 focus:outline-none p-1"
+        >
+          {type === 'password' ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+        </button>
+      )}
     </div>
-    <p className="text-[14px] !text-black m-0 pl-[52px]">{description}</p>
   </div>
 );
 
-const SecurityTab = ({ onChangePassword }) => {
+const SecurityTab = ({ onChangePassword, profile, isSuperAdmin = false }) => {
   const { user } = useAuth();
+  const isManagingOtherAccount = isSuperAdmin || user?.role === 'superadmin';
+
   const [formData, setFormData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isDirty, setIsDirty] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setIsDirty(true);
+    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleReset = () => {
-    setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    setError('');
-    setSuccess('');
-    setIsDirty(false);
+  const handleGeneratePassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
+    let generated = '';
+    for (let i = 0; i < 12; i++) {
+      generated += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setFormData(prev => ({
+      ...prev,
+      newPassword: generated,
+      confirmPassword: generated
+    }));
+    setShowPassword(true);
   };
 
   const handleSubmit = async (e) => {
@@ -74,16 +85,25 @@ const SecurityTab = ({ onChangePassword }) => {
       return;
     }
 
-    const res = await onChangePassword({
-      currentPassword: formData.currentPassword,
+    const payload = {
       newPassword: formData.newPassword
-    });
+    };
+
+    // Only include currentPassword if not superadmin managing an account
+    if (!isManagingOtherAccount) {
+      payload.currentPassword = formData.currentPassword;
+    }
+
+    const res = await onChangePassword(payload);
 
     if (res.success) {
-      setSuccess('Password updated successfully! Please use this password on your next login.');
+      setSuccess(
+        isManagingOtherAccount 
+          ? 'Dealer account password updated successfully! The dealer can now sign in with this new password.' 
+          : 'Password updated successfully! Please use this password on your next login.'
+      );
       setFormData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setIsDirty(false);
-      setTimeout(() => setSuccess(''), 5000);
+      setTimeout(() => setSuccess(''), 6000);
     } else {
       setError(res.error || 'Failed to update password');
     }
@@ -91,98 +111,177 @@ const SecurityTab = ({ onChangePassword }) => {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-[20px] items-start w-full relative pb-[100px]">
-
-      {/* Main Content Area (~68% of the remaining 80% page space) */}
-      <div className="w-full lg:w-[68%]">
-
+    <div className="flex flex-col lg:flex-row gap-8 items-start w-full relative pb-28">
+      {/* Main Content Area */}
+      <div className="w-full lg:w-[65%] flex flex-col gap-6">
         {/* Alerts */}
-        {error && <div className="p-4 bg-red-50 border border-red-100 text-red-700 rounded-[14px] text-[14px] mb-[20px] shadow-sm font-medium">{error}</div>}
-        {success && <div className="p-4 bg-[#ECFDF5] border border-green-200 text-[#16A34A] rounded-[14px] text-[14px] mb-[20px] shadow-sm font-medium">{success}</div>}
+        {error && (
+          <div className="p-4 bg-red-50/90 border border-red-200 text-red-700 rounded-2xl text-xs font-semibold shadow-sm flex items-center gap-3">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></div>
+            <span>{error}</span>
+          </div>
+        )}
+        {success && (
+          <div className="p-4 bg-emerald-50/90 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold shadow-sm flex items-center gap-3">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            <span>{success}</span>
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-[20px]">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+          <div className="bg-white p-7 rounded-3xl border border-slate-200/90 shadow-sm">
+            <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-100">
+              <div className="flex items-center gap-3.5">
+                <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-xs">
+                  <KeyRound className="w-5 h-5 stroke-[2.2]" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black uppercase tracking-wide m-0" style={{ color: '#0F172A' }}>
+                    {isManagingOtherAccount ? 'Provision Workspace Sign-In Password' : 'Change Your Password'}
+                  </h3>
+                  <p className="text-xs text-slate-600 font-semibold m-0 mt-0.5">
+                    {isManagingOtherAccount 
+                      ? 'Directly set or reset authentication credentials for this managed workspace' 
+                      : 'Update your personal credentials securely'}
+                  </p>
+                </div>
+              </div>
 
-          <div className="bg-[#FFFFFF] p-[24px] pt-0 rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow">
-            <SectionHeader icon={KeyRound} title="Change Password" description="Update your authentication credentials securely." />
+              {isManagingOtherAccount && (
+                <button
+                  type="button"
+                  onClick={handleGeneratePassword}
+                  className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-black rounded-2xl flex items-center gap-1.5 transition-colors border border-emerald-200 shadow-xs"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Auto-Generate</span>
+                </button>
+              )}
+            </div>
 
-            <div className="max-w-md mt-[24px]">
-              <InputField
-                label="Current Password"
-                name="currentPassword"
-                type="password"
-                required
-                value={formData.currentPassword}
-                onChange={handleChange}
-              />
+            {/* Super Admin Direct Reset Banner */}
+            {isManagingOtherAccount && (
+              <div className="p-4.5 bg-blue-50/80 border border-blue-200/80 text-blue-900 rounded-2xl text-xs mb-6 flex items-start gap-3">
+                <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong className="font-bold block mb-0.5">Super Admin Direct Credential Management:</strong>
+                  You do not need to supply the previous password. Setting a new password will instantly take effect across all portal login endpoints.
+                </div>
+              </div>
+            )}
+
+            <div className="max-w-md space-y-3">
+              {/* Only show Current Password if user is updating their own account and NOT Super Admin managing a workspace */}
+              {!isManagingOtherAccount && (
+                <InputField
+                  label="Current Master Password"
+                  name="currentPassword"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  placeholder="Enter current password"
+                  value={formData.currentPassword}
+                  onChange={handleChange}
+                  showToggle
+                  onToggleShow={() => setShowPassword(!showPassword)}
+                />
+              )}
+
               <InputField
                 label="New Password"
                 name="newPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
+                placeholder="Minimum 8 characters"
                 value={formData.newPassword}
                 onChange={handleChange}
+                showToggle
+                onToggleShow={() => setShowPassword(!showPassword)}
+                helperText="Min 8 chars"
               />
+
               <InputField
                 label="Confirm New Password"
                 name="confirmPassword"
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
+                placeholder="Re-type new password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
+                showToggle
+                onToggleShow={() => setShowPassword(!showPassword)}
               />
             </div>
 
-            <div className="p-4 bg-red-50 border border-red-200 rounded-[10px] mt-4 flex items-start gap-3 shadow-sm">
-              <AlertTriangle className="w-[20px] h-[20px] text-red-600 shrink-0 mt-0.5" />
-              <p className="text-[14px] font-medium text-red-800 leading-relaxed m-0">
-                For security reasons, any password change will generate an audit record. Make sure to use a strong password containing letters, numbers, and symbols.
+            <div className="p-4 bg-amber-50/80 border border-amber-200/80 rounded-2xl mt-6 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs font-semibold text-amber-900 leading-relaxed m-0">
+                All credential changes are securely timestamped and recorded in the system compliance Audit Trail.
               </p>
             </div>
           </div>
 
-          {/* Natural Actions */}
-          <div className="flex justify-end gap-3 mt-4">
-
+          {/* Submit Action */}
+          <div className="flex justify-end">
             <button
               type="submit"
-              disabled={loading || !formData.currentPassword || !formData.newPassword || !formData.confirmPassword}
-              className="px-6 h-[48px] flex items-center justify-center text-[15px] font-semibold text-white bg-gradient-to-r from-red-600 to-red-500 rounded-[10px] shadow-[0_4px_12px_rgba(239,68,68,0.3)] hover:shadow-[0_6px_16px_rgba(239,68,68,0.4)] transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:hover:translate-y-0"
+              disabled={loading || !formData.newPassword || !formData.confirmPassword || (!isManagingOtherAccount && !formData.currentPassword)}
+              style={{ backgroundColor: profile?.primary_color || '#0284C7' }}
+              className="px-8 h-12 flex items-center justify-center text-xs font-extrabold text-white rounded-2xl shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-[20px] h-[20px] mr-2 animate-spin" /> : <Save className="w-[20px] h-[20px] mr-2" />}
-              Update Password
+              {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+              {isManagingOtherAccount ? 'Save Workspace Password' : 'Update My Password'}
             </button>
           </div>
         </form>
       </div>
 
-      {/* Right Information Panel (~32% of the remaining 80% page space) */}
-      <div className="w-full lg:w-[32%] flex-shrink-0">
-        <div className="bg-[#FFFFFF] p-[24px] rounded-[14px] border border-[#E5E7EB] shadow-[0_6px_18px_rgba(15,23,42,0.05)] hover:shadow-[0_8px_24px_rgba(15,23,42,0.08)] transition-shadow sticky top-[24px]">
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-red-50 -mx-[24px] px-[24px] -mt-[24px] pt-[20px] bg-red-50 rounded-t-[14px]">
-            <div className="p-1.5 bg-white rounded-lg shadow-sm border border-red-100">
-              <ShieldCheck className="w-[18px] h-[18px] text-red-600" />
+      {/* Right Information Panel */}
+      <div className="w-full lg:w-[35%] flex flex-col gap-6 sticky top-8">
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/90 shadow-lg">
+          <div className="flex items-center gap-3 pb-4 mb-5 border-b border-slate-100">
+            <div className="p-2.5 bg-slate-900 text-white rounded-xl shadow-xs">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <h3 className="text-[16px] font-semibold !text-black m-0">Session Information</h3>
+            <h4 className="text-sm font-extrabold text-slate-900 m-0" style={{ color: '#0F172A' }}>Account Identity</h4>
           </div>
 
-          <div className="space-y-4 mt-[16px]">
-            <div className="flex items-start gap-3 pb-4 border-b border-[#E5E7EB]">
-              <div className="p-2 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg mt-0.5">
-                <Clock className="w-4 h-4 text-[#6B7280]" />
+          <div className="space-y-4 text-xs font-medium">
+            <div className="flex items-start gap-3.5 pb-4 border-b border-slate-100">
+              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl">
+                <User className="w-4 h-4 text-slate-600" />
               </div>
               <div>
-                <h4 className="text-[13px] font-semibold !text-black uppercase tracking-wider">Account Created</h4>
-                <p className="text-[16px] font-bold !text-black mt-1">{user?.createdAt ? formatLocalTime(user.createdAt) : 'N/A'}</p>
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Target Workspace</span>
+                <span className="text-sm font-black text-slate-900 block mt-0.5">
+                  {profile?.brand_name || profile?.org_name || profile?.name || 'Workspace Account'}
+                </span>
+                <span className="text-slate-500 block text-[11px] mt-0.5">
+                  Contact: {profile?.contact_person || 'Workspace Administrator'}
+                </span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg mt-0.5">
-                <Monitor className="w-4 h-4 text-[#6B7280]" />
+            <div className="flex items-start gap-3.5 pb-4 border-b border-slate-100">
+              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl">
+                <Mail className="w-4 h-4 text-slate-600" />
               </div>
               <div>
-                <h4 className="text-[13px] font-semibold !text-black uppercase tracking-wider">Current Role</h4>
-                <p className="text-[16px] font-bold !text-black mt-1 capitalize">{user?.role || 'Unknown'}</p>
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Login Email</span>
+                <span className="text-xs font-bold text-slate-800 block mt-0.5">
+                  {profile?.email || user?.email || 'N/A'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3.5">
+              <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-xl">
+                <Monitor className="w-4 h-4 text-slate-600" />
+              </div>
+              <div>
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Account Role</span>
+                <span className="text-xs font-black uppercase block mt-0.5" style={{ color: profile?.primary_color || '#0284C7' }}>
+                  {isManagingOtherAccount ? 'Managed Workspace' : (user?.role || 'Customer')}
+                </span>
               </div>
             </div>
           </div>
