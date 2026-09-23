@@ -111,6 +111,7 @@ export const useVehicles = (initialParams = {}) => {
                 current_satellites: data.satellites !== undefined && data.satellites !== null ? data.satellites : vehicle.current_satellites,
                 current_gsm_signal: data.gsmSignal !== undefined && data.gsmSignal !== null ? data.gsmSignal : vehicle.current_gsm_signal,
                 is_online: isOnlineStatus,
+                today_distance: data.today_distance !== undefined ? data.today_distance : vehicle.today_distance,
                 last_seen: data.deviceTime || new Date().toISOString(),
               };
           }

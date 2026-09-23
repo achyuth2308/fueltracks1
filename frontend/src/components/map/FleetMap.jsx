@@ -336,7 +336,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicle.name}</span>
 
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{Math.round(vehicle.today_distance || 0)} kms</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{(Number(vehicle.today_distance) || 0).toFixed(2)} kms</span>
 
             {getNoDataDuration(vehicle.last_seen) && status === 'offline' && (
               <>

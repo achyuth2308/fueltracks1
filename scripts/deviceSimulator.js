@@ -81,6 +81,16 @@ function nudge(val, range = 0.0003) {
 
 const BSTPL_DEVICES = [
   {
+    imei: '865006049210215', // Truck Alpha
+    lat: 17.3871, // Hyderabad
+    lng: 78.4917,
+    speed: 45,
+    fuel: 82.5,
+    ignition: 1,
+    osrmRoute: null,
+    osrmIndex: 0,
+  },
+  {
     imei: '865006049210220',
     lat: 17.207174,
     lng: 78.314323,
@@ -91,7 +101,7 @@ const BSTPL_DEVICES = [
     stageCounter: 0,
   },
   {
-    imei: '865006049210216',
+    imei: '865006049210216', // Truck Beta
     lat: 17.3871, // Hyderabad
     lng: 78.4917,
     speed: 55,
@@ -141,12 +151,12 @@ function haversineDist(lat1, lon1, lat2, lon2) {
 }
 
 function updateBstplState(d) {
-  if (d.imei === '865006049210216') {
+  if (d.imei === '865006049210216' || d.imei === '865006049210215') {
     if (d.osrmRoute && d.osrmRoute.length > 0) {
       if (d.osrmIndex === undefined) d.osrmIndex = 0;
       if (d.osrmProgress === undefined) d.osrmProgress = 0; // meters traveled towards next point
 
-      d.speed = Math.round(75 + Math.random() * 10); // ~80 km/h
+      d.speed = Math.round(65 + Math.random() * 15); // ~65-80 km/h
       const distanceToTravel = (d.speed * 1000) / 3600 * 10; // meters to travel in 10s
 
       let remaining = distanceToTravel;
@@ -181,6 +191,13 @@ function updateBstplState(d) {
         d.osrmProgress = 0;
       }
 
+      d.ignition = 1;
+      d.fuel = Math.max(10, parseFloat((d.fuel - 0.02).toFixed(2)));
+    } else {
+      // Fallback nudge
+      d.lat = nudge(d.lat, 0.001);
+      d.lng = nudge(d.lng, 0.001);
+      d.speed = 50;
       d.ignition = 1;
     }
     return;
@@ -224,19 +241,31 @@ function makeBstplPacket(d) {
 function startBstplSimulator() {
   log('BSTPL', `Starting — targeting ${TCP_HOST}:${PORTS.BSTPL}`);
 
-  // Fetch real-world highway route for Truck Beta (Hyd -> Vja)
+  // Fetch real-world highway route for Truck Alpha and Beta (Hyd -> Vja)
   fetch('http://router.project-osrm.org/route/v1/driving/78.4917,17.3871;80.6321,16.5151?overview=full&geometries=geojson', { headers: { 'User-Agent': 'FuelTracksSimulator/1.0' } })
     .then(r => r.json())
     .then(data => {
+      const truckAlpha = BSTPL_DEVICES.find(d => d.imei === '865006049210215');
       const truckBeta = BSTPL_DEVICES.find(d => d.imei === '865006049210216');
-      if (truckBeta && data.routes && data.routes.length > 0) {
-        truckBeta.osrmRoute = data.routes[0].geometry.coordinates; // Array of [lng, lat]
-        log('BSTPL', `${C.ok}Loaded OSRM real-road route for Truck Beta (${truckBeta.osrmRoute.length} points)${C.reset}`);
+      if (data.routes && data.routes.length > 0) {
+        const routeCoords = data.routes[0].geometry.coordinates; // Array of [lng, lat]
+        if (truckAlpha) {
+          truckAlpha.osrmRoute = routeCoords;
+          log('BSTPL', `${C.ok}Loaded OSRM real-road route for Truck Alpha (${routeCoords.length} points)${C.reset}`);
+        }
+        if (truckBeta) {
+          truckBeta.osrmRoute = routeCoords;
+          log('BSTPL', `${C.ok}Loaded OSRM real-road route for Truck Beta (${routeCoords.length} points)${C.reset}`);
+        }
       }
     })
     .catch(err => log('BSTPL', `Failed to load OSRM route: ${err.message}`));
 
-  BSTPL_DEVICES.forEach((device) => {
+  const devicesToRun = (FILTER === 'truck-alpha' || FILTER === 'alpha')
+    ? BSTPL_DEVICES.filter(d => d.imei === '865006049210215')
+    : BSTPL_DEVICES;
+
+  devicesToRun.forEach((device) => {
     const client = new net.Socket();
     let intervalId = null;
 
@@ -1467,7 +1496,7 @@ console.log(`${C.bold}║  ${C.ok}FMB920     ${C.reset}${C.bold}→  port ${PORT
 console.log(`${C.bold}╚══════════════════════════════════════════════════════╝${C.reset}`);
 console.log('');
 
-if (!FILTER || FILTER === 'bstpl') startBstplSimulator();
+if (!FILTER || FILTER === 'bstpl' || FILTER === 'truck-alpha' || FILTER === 'alpha') startBstplSimulator();
 if (!FILTER || FILTER === 'ais140') startAis140Simulator();
 if (!FILTER || FILTER === 'concox') startConcoxSimulator();
 if (!FILTER || FILTER === 'ais140v2') startAis140V2Simulator();
