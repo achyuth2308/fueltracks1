@@ -17,10 +17,10 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
     if (isOpen) {
       if (editingGroup) {
         setName(editingGroup.name || '');
-        setOrgId(editingGroup.org_id || (orgs.length > 0 ? orgs[0].id : ''));
+        setOrgId(editingGroup.org_id || '');
       } else {
         setName('');
-        setOrgId(orgs.length > 0 ? orgs[0].id : '');
+        setOrgId('');
       }
       setError(null);
     }
@@ -154,7 +154,24 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
               />
             </div>
 
-
+            <div style={{ flex: 1 }}>
+              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+                Organization *
+              </label>
+              <select
+                required
+                value={orgId}
+                onChange={(e) => setOrgId(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer' }}
+              >
+                <option value="" disabled>Select Organization</option>
+                {orgs.map((org) => (
+                  <option key={org.id} value={org.id}>
+                    {org.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           
           {/* Controls Bar: Select All + Search */}

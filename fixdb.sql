@@ -1,0 +1,1 @@
+UPDATE devices SET device_id = '865947080013812' WHERE device_id = '865947080002518';

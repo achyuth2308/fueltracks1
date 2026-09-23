@@ -19,6 +19,8 @@ const {
 const {
   parseAis140V2Packet,
   isV2LoginPacket,
+  parseVamoGeneralPacket,
+  parseVamoHealthPacket,
 } = require('./ais140V2Parser');
 const { parseVoltyPacket } = require('./voltyParser');
 
@@ -30,8 +32,29 @@ const { parseVoltyPacket } = require('./voltyParser');
 function parsePacket(raw) {
   const trimmed = raw.trim();
 
-  // ---- VOLTY PROTOCOL (Identified by VLT1 / Volty vendor signature or Volty headers) ----
-  if (trimmed.includes('VLT1') || trimmed.includes('Volty') || trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD') || trimmed.startsWith('$VLT')) {
+  // ---- VAMO PROTOCOL — must be checked BEFORE Volty because VAMO also uses $PVT/$HEL headers ----
+  // VAMO devices are AIS140 V2 variant that transmit $PVT,VAMO,... and $HEL,VAMO,...
+  // They must NOT be routed to the Volty parser.
+  if (trimmed.startsWith('$PVT,VAMO') || trimmed.startsWith('$PVT,vamo')) {
+    try {
+      const vamoParsed = parseVamoGeneralPacket(trimmed);
+      if (vamoParsed) return vamoParsed;
+    } catch (e) {
+      console.warn(`[PARSER - VAMO] Error parsing VAMO PVT packet: ${e.message}`);
+    }
+  }
+  if (trimmed.startsWith('$HEL,VAMO') || trimmed.startsWith('$HEL,vamo')) {
+    try {
+      const vamoHealth = parseVamoHealthPacket(trimmed);
+      if (vamoHealth) return vamoHealth;
+    } catch (e) {
+      console.warn(`[PARSER - VAMO] Error parsing VAMO HEL packet: ${e.message}`);
+    }
+  }
+
+  // ---- VOLTY PROTOCOL (VLT1/Volty signature only — VAMO excluded above) ----
+  if (trimmed.includes('VLT1') || trimmed.includes('Volty') || trimmed.startsWith('$VLT') ||
+      ((trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD')) && !trimmed.includes(',VAMO,'))) {
     try {
       const voltyParsed = parseVoltyPacket(trimmed);
       if (voltyParsed) return voltyParsed;

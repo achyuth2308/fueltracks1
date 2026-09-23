@@ -16,6 +16,8 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const net = require('net');
 const http = require('http');
 const { parsePacket } = require('./parser');
+const { isV2LoginPacket } = require('./parser/ais140V2Parser');
+
 
 const protocolStats = {
   'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
@@ -207,16 +209,20 @@ const concoxServer = createConcoxServer(CONCOX_PORT);
 // V2 uses '*' as a packet terminator for general packets, and '$' for login packets.
 // We use '*' as the primary stream delimiter; the login packet fallback is handled
 // inside processPacket via the isV2LoginPacket() heuristic.
+// VAMO devices (AIS140 V2 variant) connect to this port and send $PVT,VAMO / $HEL,VAMO packets.
 const ais140V2Server = createProtocolServer(
   AIS140V2_PORT,
   '*',
   'AIS140V2',
   // AIS140 V2 valid first-field headers:
-  //   '$,'     = general/health/emergency/OTA/diagnosis (e.g. $,10 / $,101 / $,EPB)
-  //   'ACTVR'  = activation response
-  //   'HCHKR'  = health check response
-  //   '$'      = dollar-delimited login packet (matched by prefix)
-  ['$,', 'ACTVR', 'HCHKR', '$']
+  //   '$,'         = general/health/emergency/OTA/diagnosis (e.g. $,10 / $,101 / $,EPB)
+  //   'ACTVR'      = activation response
+  //   'HCHKR'      = health check response
+  //   'IS_V2_LOGIN' = sentinel: handled by isV2LoginPacket() check — accepts $VehicleReg$IMEI$...
+  //                  but REJECTS $PVT,VLT1 / $HEL,VLT1 (Volty devices on wrong port)
+  //   '$PVT,VAMO'  = VAMO general packet — multi-field pattern, rejects $PVT,VLT1
+  //   '$HEL,VAMO'  = VAMO health packet  — multi-field pattern, rejects $HEL,VLT1
+  ['$,', 'ACTVR', 'HCHKR', 'IS_V2_LOGIN', '$PVT,VAMO', '$HEL,VAMO']
 );
 
 // Start the Volty Server on Port 5004
@@ -367,11 +373,20 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
 async function processPacket(raw, socket, clientId, protocolName, allowedHeaders, getSessionImei, setSessionImei) {
   try {
     // Check if packet header is allowed on this port.
-    // For AIS140 V2 we use prefix matching instead of exact match because the
-    // general packet header is '$,' (which varies) and the login packet begins
-    // with '$' followed by vehicle reg no (also variable).
+    // Supports three matching modes:
+    //   1. Multi-field entry (contains comma): match raw packet prefix exactly.
+    //      e.g. '$PVT,VAMO' accepts '$PVT,VAMO,...' but rejects '$PVT,VLT1,...'
+    //   2. 'IS_V2_LOGIN' sentinel: uses isV2LoginPacket() logic — accepts the
+    //      AIS140 V2 dollar-delimited login format ($VehicleReg$IMEI$...) but
+    //      correctly rejects Volty/VAMO $PVT and $HEL packets.
+    //   3. Single-field entry (no comma, not IS_V2_LOGIN): match first comma field.
+    //      e.g. '$,' matches '$,10,...'  |  'ACTVR' matches 'ACTVR,...'
     const header = raw.split(',')[0].trim();
-    const headerAllowed = allowedHeaders.some(allowed => header.startsWith(allowed));
+    const headerAllowed = allowedHeaders.some(allowed => {
+      if (allowed === 'IS_V2_LOGIN') return isV2LoginPacket(raw);
+      if (allowed.includes(','))     return raw.trimStart().startsWith(allowed);
+      return header.startsWith(allowed);
+    });
 
     // Parse the packet
     const parsed = parsePacket(raw);

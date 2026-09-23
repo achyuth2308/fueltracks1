@@ -158,6 +158,9 @@ app.use('/api/mining-registrations', miningRegistrationRoutes);
 app.use('/api/v1', publicApiRoutes);
 app.use('/api/geocode', geocodeRoutes);
 
+const sclenRoutes = require('./routes/sclenRoutes');
+app.use('/api', sclenRoutes); // Mounts /api/GET_INFORMATION_BY_RTO
+
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

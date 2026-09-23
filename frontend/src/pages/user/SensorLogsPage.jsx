@@ -28,6 +28,13 @@ const SensorLogsPage = () => {
     socket.emit('join:vehicle', { vehicleId: id });
 
     const handleRaw = (data) => {
+      // Guard: only accept events for THIS vehicle.
+      // Without this filter, if the user has visited multiple vehicle pages
+      // in the same session, the socket may still be receiving raw:update
+      // events from previously-joined rooms, causing other vehicles' packets
+      // to bleed into this page's sensor log.
+      if (data.vehicleId && data.vehicleId !== id) return;
+
       setMessages(prev => {
         // Prepend new log and keep max 100 items for performance
         return [data, ...prev].slice(0, 100);

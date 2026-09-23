@@ -1,0 +1,1 @@
+SELECT raw FROM raw_packets WHERE imei='860657056471598' ORDER BY device_time DESC LIMIT 5;

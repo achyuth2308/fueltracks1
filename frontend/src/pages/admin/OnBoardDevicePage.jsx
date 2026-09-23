@@ -505,13 +505,6 @@ const OnBoardDevicePage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select User</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddUserOpen(true)}
-                      className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Plus size={12} /> Add User
-                    </button>
                   </div>
                   <select
                     style={inputStyle}
@@ -525,13 +518,6 @@ const OnBoardDevicePage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Group</label>
-                    <button
-                      type="button"
-                      onClick={() => setIsAddGroupOpen(true)}
-                      className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      <Plus size={12} /> Add Group
-                    </button>
                   </div>
                   <select
                     style={inputStyle}
@@ -545,15 +531,6 @@ const OnBoardDevicePage = () => {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Organization</label>
-                    {(isSuperAdmin || isDealer) && (
-                      <button
-                        type="button"
-                        onClick={() => setIsAddOrgOpen(true)}
-                        className="text-xs text-orange-600 font-bold hover:underline cursor-pointer flex items-center gap-0.5"
-                      >
-                        <Plus size={12} /> Add Org
-                      </button>
-                    )}
                   </div>
                   <select
                     style={inputStyle}

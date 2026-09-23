@@ -159,12 +159,20 @@ const OnboardController = {
       // ── End quota enforcement ───────────────────────────────────
 
       for (const device of devices) {
-        const {
+        let {
           licenceId: rawDeviceLicenceId, deviceId, deviceType, vehicleId,
           vehicleName, registrationNo, vehicleModel, vehicleTypeSelect,
           gpsSimNo, gpsSimNo2, odoDistance, serviceEngineer, salesman, serviceEngineerMob, salesmanMob, ticketId, sensorNo,
           iccid, vehicleVoltage, ignitionDetection, timezone, vlttdSlno
         } = device;
+
+        deviceId = String(deviceId || '').trim();
+        registrationNo = String(registrationNo || '').trim();
+        vehicleId = String(vehicleId || '').trim();
+        iccid = String(iccid || '').trim();
+        vehicleName = vehicleName ? String(vehicleName).trim() : `Vehicle ${deviceId}`;
+        gpsSimNo = String(gpsSimNo || '').trim();
+        gpsSimNo2 = String(gpsSimNo2 || '').trim();
 
         // Auto-generate licenceId if not provided
         const licenceId = rawDeviceLicenceId || `ST${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;

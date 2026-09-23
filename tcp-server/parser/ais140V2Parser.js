@@ -537,6 +537,147 @@ function parseAis140V2ActivationPacket(raw) {
 }
 
 // ============================================================
+// 7. VAMO GENERAL PACKET  ($PVT,VAMO,...)
+// VAMO devices (AIS140 V2 variant) send $PVT as their packet header
+// and VAMO as the vendor ID. The field layout is identical to the
+// AIS140 V2 General packet ($,10,...) shifted by one column:
+//   parts[0]='$PVT'  parts[1]='VAMO'  parts[2]=Firmware
+//   parts[3]=PacketTypeCode  parts[4]=AlertID  parts[5]=L/H
+//   parts[6]=IMEI  parts[7]=VehicleNo  parts[8]=GPSFix
+//   parts[9]=Date(DDMMYYYY)  parts[10]=Time(HHMMSS)
+//   parts[11]=Lat  parts[12]=LatDir  parts[13]=Lng  parts[14]=LngDir
+//   parts[15]=Speed  parts[16]=Heading  parts[17]=Satellites
+//   parts[18]=Altitude  parts[19]=PDOP  parts[20]=HDOP
+//   parts[21]=NetworkOp  parts[22]=Ignition  parts[23]=MainPower
+//   parts[24]=MainsVoltage  parts[25]=InternalBattery  parts[26]=SOS
+//   parts[27]=GSMSignal  parts[28]=MCC  parts[29]=MNC  parts[30]=LAC  parts[31]=CellId
+// ============================================================
+function parseVamoGeneralPacket(raw) {
+  const cleaned = cleanPacket(raw);
+  const parts   = cleaned.split(',');
+
+  // parts[0]='$PVT'  parts[1]='VAMO'
+  const vendorId      = (parts[1] || 'VAMO').trim();
+  const firmwareVer   = (parts[2] || '').trim();
+  const pktTypeCode   = (parts[3] || 'NR').trim();
+  const alertIdRaw    = (parts[4] || '01').trim();
+  const packetStatus  = (parts[5] || 'L').trim();  // L = Live, H = History
+  const imei          = (parts[6] || '').trim();
+  const vehicleRegNo  = (parts[7] || '').trim();
+  const gpsFix        = (parts[8] || '0').trim();  // 1 = fixed, 0 = not fixed
+  const dateStr       = (parts[9] || '').trim();   // DDMMYYYY
+  const timeStr       = (parts[10] || '').trim();  // HHMMSS
+  const rawLat        = (parts[11] || '0').trim();
+  const latDir        = (parts[12] || 'N').trim();
+  const rawLng        = (parts[13] || '0').trim();
+  const lngDir        = (parts[14] || 'E').trim();
+  const speed         = (parts[15] || '0').trim();
+  const heading       = (parts[16] || '0').trim();
+  const satellites    = (parts[17] || '0').trim();
+  const altitude      = (parts[18] || '0').trim();
+  const pdop          = (parts[19] || '0').trim();
+  const hdop          = (parts[20] || '0').trim();
+  const networkOp     = (parts[21] || '').trim();
+  const ignition      = (parts[22] || '0').trim();
+  const mainsPower    = (parts[23] || '0').trim();
+  const mainsVoltage  = (parts[24] || '0').trim();
+  const internalBatt  = (parts[25] || '0').trim();
+  const sos           = (parts[26] || '0').trim();
+  const gsmSignal     = (parts[27] || '0').trim();
+  const mcc           = (parts[28] || '').trim();
+  const mnc           = (parts[29] || '').trim();
+  const lac           = (parts[30] || '').trim();
+  const cellId        = (parts[31] || '').trim();
+
+  const lat        = convertCoords(rawLat, latDir);
+  const lng        = convertCoords(rawLng, lngDir);
+  const deviceTime = parseV2Time(dateStr, timeStr);
+  const isLive     = packetStatus !== 'H' && packetStatus !== 'A';
+
+  const alertConfig = ALERT_MAP[alertIdRaw] || ALERT_MAP[String(parseInt(alertIdRaw, 10))] || null;
+
+  const internalBattFloat = parseFloat(internalBatt) || 0;
+  const batteryPercent    = Math.min(100, Math.max(0, Math.round(((internalBattFloat - 3.0) / 1.2) * 100))) || 100;
+
+  const hasExternalPower = parseFloat(mainsVoltage) > 5.0 && mainsPower !== '0';
+  const isIgnition       = hasExternalPower ? (ignition === '1') : false;
+
+  console.log(`[PARSER - VAMO] IMEI ${imei}: gpsFix=${gpsFix}, lat=${lat}, lng=${lng}, speed=${speed}, ign=${isIgnition}`);
+
+  return {
+    packetType:      'AIS140V2_GENERAL',
+    subType:         packetStatus === 'H' ? 'HISTORY' : 'NORMAL',
+    imei,
+    vehicleRegNo,
+    firmwareVer,
+    vendorId,
+    pktTypeCode,
+    pktTypeText:     PACKET_TYPE_MAP[pktTypeCode] || pktTypeCode,
+    alertId:         alertIdRaw,
+    alertText:       alertConfig ? alertConfig.text : null,
+    alertType:       alertConfig ? alertConfig.type : null,
+    gpsValid:        gpsFix === '1' ? 'A' : 'V',
+    lat,
+    lng,
+    speed:           parseFloat(speed) || 0,
+    direction:       parseFloat(heading) || 0,
+    satellites:      parseInt(satellites) || 0,
+    altitude:        parseFloat(altitude) || 0,
+    pdop:            parseFloat(pdop) || 0,
+    hdop:            parseFloat(hdop) || 0,
+    networkOperator: networkOp,
+    ignition:        isIgnition,
+    mainsPower:      hasExternalPower,
+    voltage:         parseFloat(mainsVoltage) || 0,
+    internalBattery: internalBattFloat,
+    battery:         batteryPercent,
+    sos:             sos === '1',
+    gsmSignal:       parseInt(gsmSignal) || 0,
+    mcc,
+    mnc,
+    lac,
+    cellId,
+    digitalInput:    '0000',
+    digitalOutput:   '00',
+    frameNo:         0,
+    odometer:        0,
+    isLive,
+    deviceTime,
+    rawPacket:       raw,
+  };
+}
+
+// ============================================================
+// 8. VAMO HEALTH PACKET  ($HEL,VAMO,...)
+// Format: $HEL,VAMO,Firmware,HP,AlertId,L,IMEI,VehicleNo,GPSFix,...
+// We treat it as a health/heartbeat — same as AIS140V2_HEALTH
+// ============================================================
+function parseVamoHealthPacket(raw) {
+  const cleaned = cleanPacket(raw);
+  const parts   = cleaned.split(',');
+
+  // Best effort: extract IMEI (14-16 digit number)
+  const imei = parts.find(p => /^\d{14,16}$/.test(p.trim())) || '';
+  const vendorId = (parts[1] || 'VAMO').trim();
+  const firmwareVer = (parts[2] || '').trim();
+
+  // Some $HEL packets carry location too — attempt to parse
+  const dateStr = (parts[9] || '').trim();
+  const timeStr = (parts[10] || '').trim();
+  const deviceTime = (dateStr && timeStr) ? parseV2Time(dateStr, timeStr) : new Date().toISOString();
+
+  return {
+    packetType:    'AIS140V2_HEALTH',
+    imei,
+    vendorId,
+    firmwareVer,
+    batteryPercent: 100,
+    rawPacket:      raw,
+    deviceTime,
+  };
+}
+
+// ============================================================
 // MAIN ROUTER — called by index.js
 // ============================================================
 
@@ -608,5 +749,7 @@ module.exports = {
   parseAis140V2DiagnosisPacket,
   parseAis140V2OtaPacket,
   parseAis140V2ActivationPacket,
+  parseVamoGeneralPacket,
+  parseVamoHealthPacket,
   isV2LoginPacket,
 };

@@ -234,6 +234,22 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Quick Nav */}
+          <div style={{ display: 'flex', gap: '4px', marginRight: '16px', paddingRight: '16px', borderRight: '1px solid #e5e7eb', overflowX: 'auto' }}>
+            <button onClick={() => window.location.href = '/dashboard'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <Activity size={14} /> Dashboard
+            </button>
+            <button onClick={() => window.location.href = '/tracking'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <Navigation size={14} /> Live Tracking
+            </button>
+            <button onClick={() => window.location.href = '/admin/geofences'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <MapPin size={14} /> Geofences
+            </button>
+            <button onClick={() => window.location.href = '/renewals'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
+              <RefreshCw size={14} /> Renewals
+            </button>
+          </div>
+
           {/* Status filter pills */}
           {['running', 'idle', 'parked', 'offline'].map(s => (
             <StatusPill

@@ -1,0 +1,1 @@
+SELECT * FROM vehicles WHERE imei = '352312096157725';

@@ -117,7 +117,7 @@ const GroupModel = {
   /**
    * Update group
    */
-  async update(groupId, { name, description, isActive }) {
+  async update(groupId, { name, description, isActive, orgId }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -125,6 +125,7 @@ const GroupModel = {
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
     if (description !== undefined) { fields.push(`description = $${paramIndex++}`); values.push(description); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
+    if (orgId !== undefined) { fields.push(`org_id = $${paramIndex++}`); values.push(orgId); }
 
     if (fields.length === 0) return null;
 

@@ -158,6 +158,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                       key={item.path}
                       to={item.path}
                       onClick={(e) => {
+                        const currentPath = window.location.pathname;
+                        if (currentPath === '/dashboard' || currentPath === '/tracking') {
+                          e.preventDefault();
+                          window.location.href = item.path;
+                          return;
+                        }
                         if (toggleMobileSidebar) toggleMobileSidebar(false);
                         navigate(item.path);
                       }}

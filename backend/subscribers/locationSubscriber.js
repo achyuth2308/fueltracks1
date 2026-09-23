@@ -146,6 +146,7 @@ async function start(io) {
           if (vehicle) {
             io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
               id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              vehicleId: vehicle.id,
               received_at: new Date().toISOString(),
               device_time: data.deviceTime,
               odometer: data.odometer,
