@@ -252,7 +252,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             </div>
             <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.today_distance || 0).toLocaleString()}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{(Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
             </div>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>

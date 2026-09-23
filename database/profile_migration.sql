@@ -39,6 +39,21 @@ CREATE TABLE IF NOT EXISTS organization_profiles (
   whatsapp_enabled BOOLEAN DEFAULT FALSE,
   push_enabled BOOLEAN DEFAULT FALSE,
   
+  -- White-Labeling & Dealership Fields
+  brand_name VARCHAR(255),
+  brand_tagline VARCHAR(255),
+  primary_color VARCHAR(50) DEFAULT '#FF6A00',
+  secondary_color VARCHAR(50) DEFAULT '#2E4867',
+  footer_text TEXT,
+  support_email VARCHAR(255),
+  support_phone VARCHAR(100),
+  pan_number VARCHAR(50),
+  is_whitelabel_enabled BOOLEAN DEFAULT TRUE,
+  subdomain VARCHAR(100),
+  company_name VARCHAR(255),
+  designation VARCHAR(100),
+  whatsapp_number VARCHAR(100),
+
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );

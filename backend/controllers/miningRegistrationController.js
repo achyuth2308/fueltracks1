@@ -161,7 +161,196 @@ function validateRegistrationPayload(body, files = {}) {
   return errors;
 }
 
+const bcrypt = require('bcryptjs');
+const db = require('../config/db');
+const AuditService = require('../services/auditService');
+
+/**
+ * Helper: Map form device model to system device type
+ */
+function normalizeDeviceType(modelStr) {
+  const m = String(modelStr || '').toUpperCase();
+  if (m.includes('AIS140V2') || m.includes('AIS 140 V2')) return 'AIS140V2';
+  if (m.includes('AIS140') || m.includes('AIS 140') || m.includes('VAMOSYS') || m.includes('ROADPOINT')) return 'AIS140';
+  if (m.includes('CONCOX')) return 'CONCOX';
+  if (m.includes('FMB') || m.includes('920')) return 'FMB 920';
+  if (m.includes('BSTPL')) return 'BSTPL';
+  return 'VOLTY';
+}
+
+/**
+ * Auto-provisions Customer User, Device in `devices` table, and Vehicle in `vehicles` table
+ */
+async function autoProvisionDeviceAndVehicle(reg) {
+  const client = await db.getClient();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Determine Target Org
+    let targetOrgId = reg.org_id;
+    if (!targetOrgId) {
+      const orgRes = await client.query(`SELECT id FROM organizations ORDER BY id ASC LIMIT 1`);
+      targetOrgId = orgRes.rows[0]?.id || 1;
+    }
+
+    // 2. Determine or Create Customer User
+    let targetUserId = reg.user_id;
+    if (!targetUserId) {
+      const cleanPhone = String(reg.customer_phone || '').trim();
+      const cleanEmail = String(reg.submitted_by_email || '').trim().toLowerCase();
+
+      // Check if user already exists by phone or email
+      let userRes = await client.query(
+        `SELECT id FROM users WHERE (phone = $1 AND phone != '') OR (email = $2 AND email != '') LIMIT 1`,
+        [cleanPhone, cleanEmail]
+      );
+
+      if (userRes.rows.length > 0) {
+        targetUserId = userRes.rows[0].id;
+      } else {
+        // Create new customer account
+        const customerName = reg.customer_name || 'Customer';
+        const finalEmail = cleanEmail.includes('@') ? cleanEmail : `customer_${cleanPhone || Date.now()}@fueltracks.in`;
+        const baseUsername = (cleanPhone || customerName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'user').slice(0, 20);
+        const finalUsername = `${baseUsername}_${Math.floor(100 + Math.random() * 900)}`;
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash('Welcome@123', salt);
+
+        const newUserRes = await client.query(
+          `INSERT INTO users (org_id, email, password, role, name, phone, username, location, aadhar)
+           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7, $8)
+           ON CONFLICT (email) DO UPDATE SET name = EXCLUDED.name, phone = EXCLUDED.phone
+           RETURNING id`,
+          [targetOrgId, finalEmail, hashedPassword, customerName, cleanPhone, finalUsername, reg.fo_address || '', reg.aadhar_number || '']
+        );
+        targetUserId = newUserRes.rows[0]?.id || null;
+      }
+    }
+
+    // 3. Normalize Device Model / Type
+    const deviceType = normalizeDeviceType(reg.device_model);
+    const imei = String(reg.imei_number || '').trim() || `DEV_${reg.vehicle_number}`;
+    const licenceId = `ST${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+
+    // 4. Upsert into `devices` table
+    await client.query(
+      `INSERT INTO devices 
+        (org_id, device_id, device_type, licence_id, vehicle_id, assigned_user_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (device_id) DO UPDATE SET
+         org_id = EXCLUDED.org_id,
+         device_type = EXCLUDED.device_type,
+         licence_id = COALESCE(devices.licence_id, EXCLUDED.licence_id),
+         vehicle_id = EXCLUDED.vehicle_id,
+         assigned_user_id = COALESCE(devices.assigned_user_id, EXCLUDED.assigned_user_id)`,
+      [targetOrgId, imei, deviceType, licenceId, reg.vehicle_number, targetUserId]
+    );
+
+    // 5. Upsert into `vehicles` table
+    const vehicleMetadata = {
+      vehicleId: reg.vehicle_number,
+      licenceNo: reg.vehicle_number,
+      engineNumber: reg.engine_number || '',
+      chassisNumber: reg.chassis_number || '',
+      manufacturingYear: reg.manufacturing_year || '',
+      make: reg.vehicle_manufacturer || '',
+      customerName: reg.customer_name || '',
+      customerPhone: reg.customer_phone || '',
+      asmTslPhone: reg.asm_tsl_phone || '',
+      installerName: reg.installer_name || '',
+      requestType: reg.request_type || '',
+      foAddress: reg.fo_address || '',
+      aadharNumber: reg.aadhar_number || '',
+      vehicleNumberPhotoUrl: reg.vehicle_number_photo_url || '',
+      rcCopyPhotoUrl: reg.rc_copy_photo_url || '',
+      aadharCopyPhotoUrl: reg.aadhar_copy_photo_url || '',
+      onboardSource: 'Google Form',
+      serviceEngineer: reg.installer_name || '',
+      serviceEngineerMob: reg.asm_tsl_phone || ''
+    };
+
+    const issuedDate = new Date();
+    const expireDate = new Date();
+    expireDate.setFullYear(expireDate.getFullYear() + 1);
+
+    await client.query(
+      `INSERT INTO vehicles 
+        (org_id, imei, name, plate, model, metadata, licence_issued_date, licence_expire_date, is_active, timezone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, 'UTC+05:30')
+       ON CONFLICT (imei) DO UPDATE SET
+         org_id = EXCLUDED.org_id,
+         name = EXCLUDED.name,
+         plate = EXCLUDED.plate,
+         model = EXCLUDED.model,
+         metadata = vehicles.metadata || EXCLUDED.metadata,
+         licence_issued_date = COALESCE(vehicles.licence_issued_date, EXCLUDED.licence_issued_date),
+         licence_expire_date = COALESCE(vehicles.licence_expire_date, EXCLUDED.licence_expire_date),
+         is_active = TRUE`,
+      [targetOrgId, imei, reg.vehicle_number, reg.vehicle_number, reg.vehicle_manufacturer || deviceType, vehicleMetadata, issuedDate, expireDate]
+    );
+
+    // 6. Ensure vehicle_latest_state exists
+    const vehResult = await client.query(`SELECT id FROM vehicles WHERE imei = $1`, [imei]);
+    if (vehResult.rows.length > 0) {
+      const vId = vehResult.rows[0].id;
+      await client.query(
+        `INSERT INTO vehicle_latest_state (vehicle_id, is_online)
+         VALUES ($1, FALSE) ON CONFLICT DO NOTHING`,
+        [vId]
+      );
+    }
+
+    // 7. Update mining_registrations with resolved targetOrgId & targetUserId, and status = 'APPROVED'
+    await client.query(
+      `UPDATE mining_registrations 
+       SET status = 'APPROVED', org_id = COALESCE(org_id, $1), user_id = COALESCE(user_id, $2),
+           admin_notes = COALESCE(admin_notes, 'Auto-provisioned into Devices & Vehicles on Google Form submission')
+       WHERE id = $3`,
+      [targetOrgId, targetUserId, reg.id]
+    );
+
+    await client.query('COMMIT');
+    console.log(`[AutoProvision] Successfully provisioned Device (IMEI: ${imei}) and Vehicle (${reg.vehicle_number}) into live system.`);
+    return { success: true, targetOrgId, targetUserId, imei, vehicleNumber: reg.vehicle_number };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[AutoProvision] Error auto-provisioning device/vehicle:', err);
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 const MiningRegistrationController = {
+  autoProvisionDeviceAndVehicle,
+
+  /**
+   * Sync all unprovisioned mining registrations into live devices & vehicles on server start
+   */
+  async syncUnprovisionedRegistrations() {
+    try {
+      const result = await db.query(
+        `SELECT * FROM mining_registrations 
+         WHERE vehicle_number NOT IN (SELECT plate FROM vehicles WHERE plate IS NOT NULL)
+            OR (imei_number IS NOT NULL AND imei_number != '' AND imei_number NOT IN (SELECT imei FROM vehicles))`
+      );
+      if (result.rows.length > 0) {
+        console.log(`[AutoProvision] Found ${result.rows.length} unprovisioned Google Form registrations. Auto-provisioning now...`);
+        for (const reg of result.rows) {
+          try {
+            await autoProvisionDeviceAndVehicle(reg);
+          } catch (itemErr) {
+            console.error(`[AutoProvision] Failed to sync registration ID ${reg.id} (${reg.vehicle_number}):`, itemErr.message);
+          }
+        }
+        console.log(`[AutoProvision] Finished syncing registrations.`);
+      }
+    } catch (err) {
+      console.error('[AutoProvision] syncUnprovisionedRegistrations error:', err.message);
+    }
+  },
+
   /**
    * Middleware for handling multipart uploads
    */
@@ -256,6 +445,13 @@ const MiningRegistrationController = {
       };
 
       const record = await MiningRegistrationModel.create(registrationData);
+
+      // Auto-provision device and vehicle
+      try {
+        await autoProvisionDeviceAndVehicle(record);
+      } catch (provErr) {
+        console.error('[MiningRegistrationController] Auto-provision warning:', provErr.message);
+      }
 
       // Trigger email copy asynchronously if requested
       if (registrationData.send_email_copy) {
@@ -377,6 +573,15 @@ const MiningRegistrationController = {
       }
 
       const updated = await MiningRegistrationModel.updateStatus(id, status, admin_notes);
+
+      // If approved, ensure device and vehicle are provisioned
+      if (status === 'APPROVED') {
+        try {
+          await autoProvisionDeviceAndVehicle(existing);
+        } catch (provErr) {
+          console.error('[MiningRegistrationController] Error auto-provisioning on approve:', provErr.message);
+        }
+      }
 
       return res.json({
         success: true,
@@ -513,7 +718,7 @@ const MiningRegistrationController = {
 
   /**
    * Google Form & Google Apps Script Webhook receiver
-   * Automatically ingests responses submitted to Google Forms
+   * Automatically ingests responses submitted to Google Forms AND directly provisions Device & Vehicle into live system
    */
   async handleGoogleFormWebhook(req, res) {
     try {
@@ -596,6 +801,15 @@ const MiningRegistrationController = {
       const record = await MiningRegistrationModel.create(registrationData);
       console.log('[GoogleFormWebhook] Successfully created registration from Google Form:', record.id, record.vehicle_number);
 
+      // DIRECTLY ONBOARD INTO LIVE DEVICES AND VEHICLES TABLES
+      let provisionResult = null;
+      try {
+        provisionResult = await autoProvisionDeviceAndVehicle(record);
+        console.log('[GoogleFormWebhook] Direct device & vehicle provisioning successful for:', record.vehicle_number);
+      } catch (provErr) {
+        console.error('[GoogleFormWebhook] Warning: Auto-provisioning failed:', provErr.message);
+      }
+
       // Trigger email copy asynchronously
       if (submitted_by_email && submitted_by_email.includes('@')) {
         EmailService.sendMiningRegistrationConfirmation(submitted_by_email, record).catch(err => {
@@ -605,8 +819,9 @@ const MiningRegistrationController = {
 
       return res.status(201).json({
         success: true,
-        message: 'Google Form submission ingested successfully into FuelTracks Admin Panel!',
-        data: record
+        message: 'Google Form submission received and device/vehicle automatically added to live system!',
+        data: record,
+        provision: provisionResult
       });
     } catch (err) {
       console.error('[GoogleFormWebhook] Ingestion error:', err);

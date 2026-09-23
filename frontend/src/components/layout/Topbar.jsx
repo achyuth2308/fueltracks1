@@ -5,16 +5,43 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
 import axiosInstance from '../../api/axios';
+import { applyBrowserBranding } from '../../utils/branding';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user } = useAuth();
   const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
   const [time, setTime] = useState(new Date());
+  const [brandProfile, setBrandProfile] = useState(null);
 
   const [alerts, setAlerts] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [latestToast, setLatestToast] = useState(null);
+
+  useEffect(() => {
+    const loadProfile = () => {
+      axiosInstance.get('/api/profile').then(res => {
+        if (res.data?.success && res.data.profile) {
+          setBrandProfile(res.data.profile);
+          applyBrowserBranding(res.data.profile);
+        }
+      }).catch(() => {});
+    };
+
+    loadProfile();
+
+    const handleProfileUpdated = (e) => {
+      if (e.detail) {
+        setBrandProfile(e.detail);
+        applyBrowserBranding(e.detail);
+      } else {
+        loadProfile();
+      }
+    };
+
+    window.addEventListener('profile-updated', handleProfileUpdated);
+    return () => window.removeEventListener('profile-updated', handleProfileUpdated);
+  }, [user]);
 
   useEffect(() => {
     if (connected && user && (user.org_id || user.orgId)) {
@@ -162,10 +189,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      background: '#223A57',
-      borderBottom: '1px solid #475569',
+      background: brandProfile?.secondary_color || '#223A57',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
       flexShrink: 0,
       zIndex: 9999,
+      transition: 'background-color 0.3s ease',
     }}>
       {/* Left: logo + org */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -187,42 +215,58 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           <Menu size={24} />
         </button>
 
-        {/* Logo */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginRight: '24px' }}>
+        {/* Logo & Brand Identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
             width: '36px', height: '36px',
             borderRadius: '8px',
             overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: brandProfile?.logo_url ? 'white' : 'transparent',
             boxShadow: '0 4px 10px rgba(249,115,22,0.3)',
+            padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
-            <img src="/fuelimage.png" alt="FuelTracks" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img 
+              src={brandProfile?.logo_url || '/fuelimage.png'} 
+              alt={brandProfile?.brand_name || user?.orgName || 'FuelTracks'} 
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              onError={(e) => { e.currentTarget.src = '/fuelimage.png'; }}
+            />
           </div>
           <div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
-              FuelTracks
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+              {brandProfile?.brand_name || user?.orgName || (user?.role === 'superadmin' ? 'FuelTracks' : 'Telematics')}
             </div>
-            <div style={{ fontSize: '9px', fontWeight: 600, color: '#f97316', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              Enterprise
-            </div>
+            {brandProfile?.brand_tagline ? (
+              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#f97316', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {brandProfile.brand_tagline.slice(0, 28)}
+              </div>
+            ) : (
+              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#f97316', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                {user?.role === 'superadmin' ? 'Enterprise Admin' : 'Telematics Portal'}
+              </div>
+            )}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
-          <div style={{
-            width: '5px', height: '5px', borderRadius: '50%',
-            background: '#f97316',
-            boxShadow: '0 0 6px rgba(249,115,22,0.5)',
-          }} />
-          <span
-            className="hidden sm:block"
-            style={{
-              fontSize: '12px', fontWeight: 600, color: '#f1f5f9',
-              maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-            {user?.orgName || 'Platform Workspace'}
-          </span>
-        </div>
+        {/* Superadmin Workspace Indicator */}
+        {user?.role === 'superadmin' && user?.orgName && user.orgName !== 'FuelTracks' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginLeft: '16px' }}>
+            <div style={{
+              width: '5px', height: '5px', borderRadius: '50%',
+              background: '#f97316',
+              boxShadow: '0 0 6px rgba(249,115,22,0.5)',
+            }} />
+            <span
+              className="hidden sm:block"
+              style={{
+                fontSize: '12px', fontWeight: 600, color: '#93c5fd',
+                maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+              {user.orgName}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Right: stats + clock + socket */}
@@ -329,8 +373,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           display: 'flex', alignItems: 'center', gap: '5px',
           padding: '4px 10px',
           borderRadius: '99px',
-          background: connected ? '#f97316' : '#475569',
-          border: `1px solid ${connected ? '#7ea0b6' : '#3b82f6'}`,
+          background: connected ? (brandProfile?.primary_color || '#f97316') : '#475569',
+          border: `1px solid ${connected ? (brandProfile?.primary_color || '#7ea0b6') : '#3b82f6'}`,
         }}>
           {connected
             ? <Wifi size={12} color="#ffffff" />

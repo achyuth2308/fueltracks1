@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Ensure upload directory exists
-const uploadDir = path.join(__dirname, '../../../../backend/uploads/profile');
+const uploadDir = path.join(__dirname, '../../../uploads/profile');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -24,11 +24,11 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/svg+xml'];
-  if (allowedMimes.includes(file.mimetype)) {
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/jpg', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
+  if (allowedMimes.includes(file.mimetype) || file.originalname.endsWith('.ico')) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only JPEG, PNG, JPG, and SVG are allowed.'));
+    cb(new Error('Invalid file type. Only JPEG, PNG, JPG, SVG, and ICO are allowed.'));
   }
 };
 
@@ -38,8 +38,14 @@ const upload = multer({
   fileFilter: fileFilter 
 });
 
-// Apply auth middleware to all profile routes
+// Public branding endpoint (no auth needed)
+router.get('/public/:identifier', (req, res, next) => profileController.getPublicBranding(req, res, next));
+
+// Apply auth middleware to all remaining profile routes
 router.use(authenticate);
+
+// Dealers list (for superadmin switcher)
+router.get('/dealers', (req, res, next) => profileController.getAllDealers(req, res, next));
 
 // Profile data
 router.get('/', (req, res, next) => profileController.getProfile(req, res, next));

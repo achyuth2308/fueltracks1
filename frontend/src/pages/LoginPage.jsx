@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye, Car, Package, Clock, Gauge, Activity, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
+import axiosInstance from '../api/axios';
+import { applyBrowserBranding } from '../utils/branding';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#f97316' },
@@ -12,12 +14,35 @@ const DEMO_ACCOUNTS = [
 
 const LoginPage = () => {
   const { login, isAuthenticated, user, error: authError } = useAuth();
+  const [searchParams] = useSearchParams();
+  const [dealerBranding, setDealerBranding] = useState(null);
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    // Check if dealer query parameter or custom host subdomain is present
+    let dealerParam = searchParams.get('dealer') || searchParams.get('org');
+
+    if (!dealerParam && typeof window !== 'undefined' && window.location.hostname) {
+      const parts = window.location.hostname.split('.');
+      if (parts.length > 2 && !['www', 'app', 'localhost', 'dev'].includes(parts[0])) {
+        dealerParam = parts[0];
+      }
+    }
+
+    if (dealerParam) {
+      axiosInstance.get(`/api/profile/public/${dealerParam}`).then(res => {
+        if (res.data?.success && res.data.data) {
+          setDealerBranding(res.data.data);
+          applyBrowserBranding(res.data.data);
+        }
+      }).catch(() => {});
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -91,54 +116,84 @@ const LoginPage = () => {
               WELCOME TO
             </span>
             <img
-              src="/logo_vertical.png"
-              alt="FuelTracks"
-              style={{ width: '190px', height: 'auto', objectFit: 'contain' }}
+              src={dealerBranding?.logo_url || '/logo_vertical.png'}
+              alt={dealerBranding?.brand_name || 'FuelTracks'}
+              style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
               className="drop-shadow-xs transition-transform duration-300 my-1"
+              onError={(e) => { e.currentTarget.src = '/logo_vertical.png'; }}
             />
           </motion.div>
 
           {/* Center Content Section */}
           <div className="my-2">
-            {/* LIVE GPS • TELEMATICS • FLEET OPERATIONS Pill Badge */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
-              className="inline-flex items-center gap-2 mb-3.5"
-            >
-              <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.16em] px-3.5 py-1.5 rounded-full bg-gradient-to-r from-sky-50/90 via-emerald-50/80 to-indigo-50/90 border border-slate-200/80 shadow-2xs backdrop-blur-md flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></span>
-                <span className="text-sky-700">LIVE GPS</span>
-                <span className="text-slate-400 font-normal">&bull;</span>
-                <span className="text-emerald-700">TELEMATICS</span>
-                <span className="text-slate-400 font-normal">&bull;</span>
-                <span className="text-indigo-700">FLEET OPERATIONS</span>
-              </span>
-            </motion.div>
+            {dealerBranding?.login_background_url ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="my-3 rounded-2xl overflow-hidden border border-slate-200 shadow-md relative group max-w-lg"
+              >
+                <img 
+                  src={dealerBranding.login_background_url} 
+                  alt="Dealership Banner" 
+                  className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/30 to-transparent flex flex-col justify-end p-5 text-white">
+                  <div className="text-lg font-bold">{dealerBranding.brand_name || 'Dealer Portal'}</div>
+                  <div className="text-xs text-slate-200">{dealerBranding.brand_tagline || 'Advanced Fleet Telematics'}</div>
+                </div>
+              </motion.div>
+            ) : (
+              <>
+                {/* LIVE GPS • TELEMATICS • FLEET OPERATIONS Pill Badge */}
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.1, ease: 'easeOut' }}
+                  className="inline-flex items-center gap-2 mb-3.5"
+                >
+                  <span className="text-[10px] sm:text-[11px] font-extrabold uppercase tracking-[0.16em] px-3.5 py-1.5 rounded-full bg-gradient-to-r from-sky-50/90 via-emerald-50/80 to-indigo-50/90 border border-slate-200/80 shadow-2xs backdrop-blur-md flex items-center gap-2">
+                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.6)] animate-pulse"></span>
+                    <span className="text-sky-700">LIVE GPS</span>
+                    <span className="text-slate-400 font-normal">&bull;</span>
+                    <span className="text-emerald-700">TELEMATICS</span>
+                    <span className="text-slate-400 font-normal">&bull;</span>
+                    <span className="text-indigo-700">FLEET OPERATIONS</span>
+                  </span>
+                </motion.div>
 
-            {/* Bold Heading (2 lines with brand blue accent) */}
-            <motion.h1
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2, ease: 'easeOut' }}
-              className="text-2xl lg:text-3xl xl:text-4xl font-[850] text-[#1b3644] tracking-tight leading-[1.18] mb-3.5"
-            >
-              Real-Time Fleet Tracking &amp;<br />
-              <span className="bg-gradient-to-r from-[#0284c7] via-[#00A3E0] to-[#0369a1] bg-clip-text text-transparent">
-                Telematics Platform
-              </span>
-            </motion.h1>
+                {/* Bold Heading (2 lines with brand blue accent) */}
+                <motion.h1
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.2, ease: 'easeOut' }}
+                  className="text-2xl lg:text-3xl xl:text-4xl font-[850] text-[#1b3644] tracking-tight leading-[1.18] mb-3.5"
+                >
+                  {dealerBranding?.brand_name ? (
+                    <>
+                      Welcome to <span style={{ color: dealerBranding.primary_color || '#FF6A00' }}>{dealerBranding.brand_name}</span>
+                    </>
+                  ) : (
+                    <>
+                      Real-Time Fleet Tracking &amp;<br />
+                      <span className="bg-gradient-to-r from-[#0284c7] via-[#00A3E0] to-[#0369a1] bg-clip-text text-transparent">
+                        Telematics Platform
+                      </span>
+                    </>
+                  )}
+                </motion.h1>
 
-            {/* Medium Readable Subtext */}
-            <motion.p
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.3, ease: 'easeOut' }}
-              className="text-slate-600 text-sm lg:text-base leading-relaxed max-w-lg mb-6 font-normal"
-            >
-              Monitor your fleet in real-time, optimize operations, improve efficiency and drive your business forward.
-            </motion.p>
+                {/* Medium Readable Subtext */}
+                <motion.p
+                  initial={{ opacity: 0, y: 14 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.3, ease: 'easeOut' }}
+                  className="text-slate-600 text-sm lg:text-base leading-relaxed max-w-lg mb-6 font-normal"
+                >
+                  {dealerBranding?.brand_tagline || 'Monitor your fleet in real-time, optimize operations, improve efficiency and drive your business forward.'}
+                </motion.p>
+              </>
+            )}
 
             {/* Stat Cards Row - Compact, Lightweight, Colorful Icons */}
             <div className="grid grid-cols-3 gap-3 max-w-md">
