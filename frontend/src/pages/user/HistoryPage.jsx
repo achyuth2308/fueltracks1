@@ -518,6 +518,7 @@ const HistoryPage = () => {
             vehicle={vehicle}
             vehicleName={vehicle?.name || 'Vehicle'}
             playbackSpeed={playbackSpeed}
+            isPlaying={isPlaying}
             vehicleLastKnownPosition={
               vehicle && vehicle.lat != null && vehicle.lng != null
                 ? { lat: vehicle.lat, lng: vehicle.lng }

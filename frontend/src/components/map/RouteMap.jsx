@@ -107,7 +107,7 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1 }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1, isPlaying = false }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
@@ -595,7 +595,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       <style>
         {`
           .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker {
-             transition: transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear !important;
+             transition: ${isPlaying ? `transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear` : 'none'} !important;
           }
         `}
       </style>
