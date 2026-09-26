@@ -144,6 +144,12 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
 
+  const mapVehicles = useMemo(() => {
+    if (currentSelected) {
+      return isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected];
+    }
+    return filtered;
+  }, [currentSelected, isNearbyActive, nearbyVehicles, filtered]);
 
   return (
     <div style={{
@@ -547,7 +553,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Right: Map + optional vehicle detail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <FleetMap
-            vehicles={filtered}
+            vehicles={mapVehicles}
             selectedVehicles={currentSelected ? [currentSelected] : []}
             onMarkerClick={(v) => setSelectedVehicle(v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
