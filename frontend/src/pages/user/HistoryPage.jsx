@@ -28,9 +28,9 @@ const AddressCell = ({ lat, lng }) => {
   if (!address) {
     return (
       <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', textAlign: 'center' }}>
-         <button onClick={fetchAddress} style={{ cursor: 'pointer', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '4px', color: '#0284C7', fontSize: '9px', fontWeight: 600, padding: '2px 6px' }}>
-           {loading ? '...' : 'Get Address'}
-         </button>
+        <button onClick={fetchAddress} style={{ cursor: 'pointer', background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '4px', color: '#0284C7', fontSize: '9px', fontWeight: 600, padding: '2px 6px' }}>
+          {loading ? '...' : 'Get Address'}
+        </button>
       </td>
     );
   }
@@ -40,13 +40,13 @@ const AddressCell = ({ lat, lng }) => {
 
 // Calculate distance between two coordinates in kilometers using Haversine formula
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; 
+  const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 };
 
@@ -80,7 +80,7 @@ const HistoryPage = () => {
   const [allGroups, setAllGroups] = useState([]);
   const [allVehicles, setAllVehicles] = useState([]);
   const [selectedGroupId, setSelectedGroupId] = useState('');
-  
+
   const [points, setPoints] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -106,21 +106,21 @@ const HistoryPage = () => {
   const getFilteredPoints = () => {
     // Base: Only show actual travel points (ignition ON AND speed > 8kmph) for accurate trips
     const travelPoints = points.filter(p => p.ignition && p.speed > 8);
-    
+
     if (activeTab === 'All') return points;
     if (activeTab === 'Movement') return travelPoints;
     if (activeTab === 'OverSpeed') return travelPoints.filter(p => p.speed > 60);
-    
+
     // Non-travel tabs need to bypass the strict >8kmph base rule
     const ignitionOn = points.filter(p => p.ignition);
     if (activeTab === 'Parked') return points.filter(p => p.speed <= 5 && !p.ignition); // Parked intentionally keeps ignition OFF
     if (activeTab === 'Idle') return ignitionOn.filter(p => p.speed <= 5);
     if (activeTab === 'Ignition') return ignitionOn;
     if (activeTab === 'Stoppage') return ignitionOn.filter(p => p.speed <= 2);
-    
+
     return travelPoints;
   };
-  
+
   const filteredPoints = getFilteredPoints();
   // Filter out all stopped points (parked and idle) only for the data table
   const tableFilteredPoints = filteredPoints.filter(p => (p.speed || 0) > 5);
@@ -239,7 +239,7 @@ const HistoryPage = () => {
 
           // Ensure chronological (string comparison is safe for ISO dates and much faster)
           const sorted = [...processedPoints].sort((a, b) => a.device_time.localeCompare(b.device_time));
-          
+
           // Static Drift Filter: Removes GPS starburst clusters when parked
           const driftFiltered = [];
           let lastValid = null;
@@ -252,7 +252,7 @@ const HistoryPage = () => {
             // A vehicle is considered "moving" if speed > 3 km/h or ignition is ON.
             const isMoving = p.speed > 3 || p.ignition;
             const wasMoving = lastValid.speed > 3 || lastValid.ignition;
-            
+
             // We keep moving points, AND the first stopped point (so we know where it parked),
             // but we drop all subsequent stopped points to prevent GPS starburst drift.
             if (isMoving || wasMoving) {
@@ -265,7 +265,7 @@ const HistoryPage = () => {
           const withDist = driftFiltered.map((p, idx, arr) => {
             if (idx > 0) {
               const segDist = calculateDistance(
-                parseFloat(arr[idx-1].lat), parseFloat(arr[idx-1].lng),
+                parseFloat(arr[idx - 1].lat), parseFloat(arr[idx - 1].lng),
                 parseFloat(p.lat), parseFloat(p.lng)
               );
               // Only accumulate real movement (> 10m). Filters GPS jitter while parked.
@@ -310,14 +310,14 @@ const HistoryPage = () => {
             clearInterval(timer);
             return prev;
           }
-          
+
           let nextIndex = prev + 1;
           const nextPoint = filteredPoints[nextIndex];
-          
+
           // If the vehicle is stopped, track how long the user has been watching this stop in real-time
           if (nextPoint && (nextPoint.speed || 0) <= 5) {
             stopWatchTimeRef.current += speedMs;
-            
+
             // If they've watched it sit still for 10 seconds (10000 ms), skip to the end of the stop!
             if (stopWatchTimeRef.current >= 10000) {
               let skipIndex = nextIndex;
@@ -333,7 +333,7 @@ const HistoryPage = () => {
             // Vehicle is moving, reset the parking watch timer
             stopWatchTimeRef.current = 0;
           }
-          
+
           return nextIndex;
         });
       }, speedMs);
@@ -365,7 +365,7 @@ const HistoryPage = () => {
       start = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 0, 0, 0);
       end = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59);
     }
-    
+
     const startStr = toLocalISO(start);
     const endStr = toLocalISO(end);
     setStartDate(startStr);
@@ -413,7 +413,7 @@ const HistoryPage = () => {
   // --- Draw Semi-Circle Gauges ---
   const renderSemiCircle = (value, max, label, unit, colorRanges) => {
     const percentage = Math.min(Math.max(value / max, 0), 1);
-    
+
     // Determine color based on ranges (e.g. [{max: 33, color: 'green'}, {max: 66, color: 'yellow'}, {max: 100, color: 'red'}])
     let strokeColor = '#22c55e'; // default green
     for (let range of colorRanges) {
@@ -431,27 +431,27 @@ const HistoryPage = () => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '160px', padding: '8px' }}>
         <div style={{ fontSize: '14px', fontWeight: 700, color: '#475569', marginBottom: '16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-        
+
         <div style={{ position: 'relative', width: '120px', height: '65px' }}>
           {/* Background Track */}
           <svg width="120" height="60" viewBox="0 0 100 50" style={{ position: 'absolute', top: 0, left: 0 }}>
             <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#E2E8F0" strokeWidth="10" strokeLinecap="round" />
           </svg>
-          
+
           {/* Value Track */}
           <svg width="120" height="60" viewBox="0 0 100 50" style={{ position: 'absolute', top: 0, left: 0 }}>
-            <path 
-              d="M 10 50 A 40 40 0 0 1 90 50" 
-              fill="none" 
-              stroke={strokeColor} 
-              strokeWidth="10" 
-              strokeLinecap="round" 
-              strokeDasharray={circumference} 
-              strokeDashoffset={strokeDashoffset} 
-              style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.6s ease' }} 
+            <path
+              d="M 10 50 A 40 40 0 0 1 90 50"
+              fill="none"
+              stroke={strokeColor}
+              strokeWidth="10"
+              strokeLinecap="round"
+              strokeDasharray={circumference}
+              strokeDashoffset={strokeDashoffset}
+              style={{ transition: 'stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1), stroke 0.6s ease' }}
             />
           </svg>
-          
+
           {/* Text in the center of the arch */}
           <div style={{ position: 'absolute', bottom: '-4px', left: 0, right: 0, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
@@ -510,7 +510,7 @@ const HistoryPage = () => {
             <span style={{ fontSize: '15px', fontWeight: 600, color: '#1F2937' }}>Loading route history...</span>
           </div>
         )}
-        
+
         <div style={{ position: 'absolute', inset: 0 }}>
           <RouteMap
             points={points}
@@ -557,18 +557,18 @@ const HistoryPage = () => {
       </div>
 
       {/* ═══════════ RIGHT PANEL: CONTROLS & TABLE ═══════════ */}
-      <div style={{ 
+      <div style={{
         position: 'absolute', right: 0, top: 0, zIndex: 1000,
         height: '80%',
-        width: isRightPanelOpen ? '570px' : '0px', 
-        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)', 
+        width: isRightPanelOpen ? '570px' : '0px',
+        transition: 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         background: '#FFFFFF',
-        borderLeft: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
-        borderBottom: isRightPanelOpen ? '1px solid #D1D5DB' : 'none', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        boxShadow: isRightPanelOpen ? '-2px 2px 10px rgba(0,0,0,0.1)' : 'none', 
-        overflow: 'hidden' 
+        borderLeft: isRightPanelOpen ? '1px solid #D1D5DB' : 'none',
+        borderBottom: isRightPanelOpen ? '1px solid #D1D5DB' : 'none',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: isRightPanelOpen ? '-2px 2px 10px rgba(0,0,0,0.1)' : 'none',
+        overflow: 'hidden'
       }}>
         <div style={{ width: '570px', display: 'flex', flexDirection: 'column', height: '100%' }}>
 
@@ -577,9 +577,9 @@ const HistoryPage = () => {
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Group</span>
-                <select 
-                  value={selectedGroupId} 
-                  onChange={(e) => setSelectedGroupId(e.target.value)} 
+                <select
+                  value={selectedGroupId}
+                  onChange={(e) => setSelectedGroupId(e.target.value)}
                   style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '120px', color: '#000000', background: '#FFFFFF' }}
                 >
                   <option value="">All Groups</option>
@@ -590,9 +590,9 @@ const HistoryPage = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span style={{ fontSize: '10px', fontWeight: 600, color: '#374151' }}>Vehicle Name</span>
-                <select 
-                  value={id || ''} 
-                  onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)} 
+                <select
+                  value={id || ''}
+                  onChange={(e) => navigate(`/vehicles/${e.target.value}/history`)}
                   style={{ padding: '4px', border: '1px solid #D1D5DB', borderRadius: '2px', fontSize: '10px', width: '140px', color: '#000000', background: '#FFFFFF' }}
                 >
                   {displayedVehicles.length === 0 && <option value={id}>{vehicle?.name || 'Select Vehicle'}</option>}
@@ -616,7 +616,7 @@ const HistoryPage = () => {
               <button onClick={() => fetchRouteHistory()} disabled={loading} style={{ background: '#22c55e', color: '#fff', border: 'none', padding: '4px 12px', borderRadius: '2px', fontWeight: 600, fontSize: '10px', cursor: 'pointer' }}>Plot</button>
               <button style={{ background: '#F3F4F6', border: '1px solid #D1D5DB', padding: '4px', borderRadius: '2px', cursor: 'pointer', color: '#0369a1', display: 'flex' }}><Info size={12} /></button>
             </div>
-            
+
             {/* Quick Range Buttons (Legacy Neon Colors) */}
             <div style={{ display: 'flex', gap: '4px' }}>
               <button onClick={() => setQuickRange('6h')} style={{ flex: 1, padding: '4px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '2px', fontSize: '10px', fontWeight: 600, cursor: 'pointer' }}>6 Hours</button>
@@ -716,7 +716,7 @@ const HistoryPage = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', borderTop: '1px solid rgba(209,213,219,0.5)' }}>
@@ -747,7 +747,7 @@ const HistoryPage = () => {
               </div>
             </div>
             <button onClick={handleExportCSV} style={{ padding: '8px 24px', background: '#FFFFFF', border: '1px solid #D1D5DB', borderRadius: '4px', fontSize: '13px', fontWeight: 700, color: '#000000', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Routes <Download size={14}/>
+              Routes <Download size={14} />
             </button>
           </div>
 
