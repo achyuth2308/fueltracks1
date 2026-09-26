@@ -57,6 +57,61 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const [nearbyRadius, setNearbyRadius] = useState(5);
+  const [liveRouteMetrics, setLiveRouteMetrics] = useState({});
+
+  const handleRouteFetched = (points) => {
+    if (!points || points.length === 0) {
+      setLiveRouteMetrics({});
+      return;
+    }
+    
+    // Exact logic from HistoryPage
+    const sorted = [...points].sort((a, b) => (a.device_time || '').localeCompare(b.device_time || ''));
+    const driftFiltered = [];
+    let lastValid = null;
+    sorted.forEach((p, idx) => {
+      if (idx === 0) {
+        driftFiltered.push(p);
+        lastValid = p;
+        return;
+      }
+      const isMoving = p.speed > 3 || p.ignition;
+      const wasMoving = lastValid.speed > 3 || lastValid.ignition;
+      if (isMoving || wasMoving) {
+        driftFiltered.push(p);
+        lastValid = p;
+      }
+    });
+
+    // Haversine distance function
+    const calculateDistance = (lat1, lon1, lat2, lon2) => {
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    };
+
+    let cumulativeDist = 0;
+    driftFiltered.forEach((p, idx, arr) => {
+      if (idx > 0) {
+        const segDist = calculateDistance(parseFloat(arr[idx - 1].lat), parseFloat(arr[idx - 1].lng), parseFloat(p.lat), parseFloat(p.lng));
+        if (segDist > 0.01 && segDist < 5) {
+          cumulativeDist += segDist;
+        }
+      }
+    });
+
+    const finalDist = cumulativeDist;
+    const startOdo = parseFloat(sorted[0].odometer || 0);
+    const finalOdo = startOdo + finalDist;
+
+    setLiveRouteMetrics({
+      cDist: finalDist,
+      dynamicOdo: finalOdo
+    });
+  };
 
   useEffect(() => {
     if (hoveredVehicle) {
@@ -144,12 +199,6 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
 
-  const mapVehicles = useMemo(() => {
-    if (currentSelected) {
-      return isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected];
-    }
-    return filtered;
-  }, [currentSelected, isNearbyActive, nearbyVehicles, filtered]);
 
   return (
     <div style={{
@@ -367,11 +416,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.3)' }}>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Compass size={12} color="#3b82f6" /> Odo (kms)</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.id === currentSelected?.id && liveRouteMetrics.dynamicOdo !== undefined ? Math.round(liveRouteMetrics.dynamicOdo).toLocaleString() : Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
             </div>
             <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{(Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.id === currentSelected?.id && liveRouteMetrics.cDist !== undefined ? liveRouteMetrics.cDist.toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
             </div>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>
@@ -553,7 +602,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Right: Map + optional vehicle detail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <FleetMap
-            vehicles={mapVehicles}
+            vehicles={filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
             onMarkerClick={(v) => setSelectedVehicle(v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
@@ -561,6 +610,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             nearbyRadius={nearbyRadius}
             followSelected={true}
             showRoute={!!currentSelected}
+            onRouteFetched={handleRouteFetched}
           />
 
           {/* ── Nearby Mode Controls ── */}

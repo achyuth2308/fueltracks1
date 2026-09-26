@@ -32,7 +32,7 @@ const getExpiryWarning = (expireDateStr) => {
 };
 
 // ── Live Route Plotting & Following for Selected Vehicle ─────────────
-const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false }) => {
+const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false, onRouteFetched }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
   const [liveTrail, setLiveTrail] = useState([]);
@@ -91,8 +91,10 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
             return !isNaN(la) && !isNaN(lo) && la > 6.5 && la < 37.5 && lo > 68.0 && lo < 98.0;
           });
           setRoutePoints(validPoints);
+          if (onRouteFetched) onRouteFetched(validPoints);
         } else {
           setRoutePoints([]);
+          if (onRouteFetched) onRouteFetched([]);
         }
       } catch (err) {
         console.error('Failed to fetch route:', err);
@@ -595,7 +597,8 @@ const FleetMap = ({
   showRoute = false,
   followSelected = false,
   nearbyRadius = null,
-  isNearbyActive = false
+  isNearbyActive = false,
+  onRouteFetched
 }) => {
   const location = useLocation();
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
@@ -715,6 +718,7 @@ const FleetMap = ({
           vehicles={vehicles}
           showRoute={showRoute || !!effectiveSelected}
           followSelected={followSelected}
+          onRouteFetched={onRouteFetched}
         />
 
         {/* Vehicle Markers — Dynamic screen-space clustering */}

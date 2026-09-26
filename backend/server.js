@@ -146,7 +146,7 @@ const emailRoutes = require('./routes/emailExample.routes');
 app.get('/api/backfill-odo', async (req, res) => {
   const db = require('./config/db');
   try {
-    const result = await db.query(`SELECT vehicle_id FROM vehicle_latest_state WHERE today_start_odometer IS NULL`);
+    const result = await db.query(`SELECT vehicle_id FROM vehicle_latest_state`);
     for (let row of result.rows) {
       const pts = await db.query(`SELECT odometer FROM gps_points WHERE vehicle_id = $1 AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date ORDER BY device_time ASC LIMIT 1`, [row.vehicle_id]);
       const startOdo = pts.rows.length > 0 ? parseFloat(pts.rows[0].odometer || 0) : 0;

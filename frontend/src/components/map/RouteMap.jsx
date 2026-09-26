@@ -45,7 +45,7 @@ const RecenterMap = ({ activePoint, follow, playbackSpeed }) => {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
         const currentZoom = map.getZoom();
         const targetZoom = currentZoom < 16 ? 16 : currentZoom;
-        
+
         let durationSec = 0.4;
         if (playbackSpeed === 'Slow') durationSec = 1.5;
         if (playbackSpeed === 'Fast') durationSec = 0.08;
@@ -111,7 +111,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
-  
+
   const { profile } = useProfile();
   const apiKey = profile?.api_key || '';
 
@@ -199,7 +199,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       // it means the device truly lost signal (tunnel, parking garage, power off).
       // Break the polyline here so we don't draw a straight line across the gap.
       const vehicleWasStoppedBefore = (prev.speed || 0) <= 5;
-      const vehicleIsStoppedAfter  = (p.speed || 0) <= 5;
+      const vehicleIsStoppedAfter = (p.speed || 0) <= 5;
       const isGenuineSignalGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN && vehicleWasStoppedBefore;
 
       // Also break for large gaps while moving (e.g. the vehicle drove through a dead zone)
@@ -244,7 +244,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       // 1. Physically impossible teleports (> 150 km/h for jumps > 200m)
       // This catches the aggressive 195 km/h LBS drifts that draw straight lines across the map.
       if (impliedSpeedKmph > 150 && dist > 0.2) continue;
-      
+
       // 2. Doppler Mismatch (Catch slower drifts where device claims to be stopped/slow)
       // E.g., jumping 500m at 80 km/h while device reports 0-10 km/h
       const reportedSpeed = p.speed || 0;
@@ -327,8 +327,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                     const latLng = [c[1], c[0]];
                     // Prevent pushing exact consecutive duplicates at overlapping seams
                     if (currentSnappedSegment.length > 0) {
-                       const last = currentSnappedSegment[currentSnappedSegment.length - 1];
-                       if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                      const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                      if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
                     }
                     currentSnappedSegment.push(latLng);
                   }
@@ -338,8 +338,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                 const fallbackPoints = chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
                 for (const latLng of fallbackPoints) {
                   if (currentSnappedSegment.length > 0) {
-                     const last = currentSnappedSegment[currentSnappedSegment.length - 1];
-                     if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                    const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                    if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
                   }
                   currentSnappedSegment.push(latLng);
                 }
@@ -349,8 +349,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               const fallbackPoints = chunk.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
               for (const latLng of fallbackPoints) {
                 if (currentSnappedSegment.length > 0) {
-                   const last = currentSnappedSegment[currentSnappedSegment.length - 1];
-                   if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
+                  const last = currentSnappedSegment[currentSnappedSegment.length - 1];
+                  if (last[0] === latLng[0] && last[1] === latLng[1]) continue;
                 }
                 currentSnappedSegment.push(latLng);
               }
@@ -593,9 +593,6 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       <style>
         {`
-          .leaflet-top.leaflet-left {
-            top: 80px !important;
-          }
           .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker,
           .leaflet-popup-pane .history-playback-popup {
              transition: ${isPlaying ? `transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear` : 'none'} !important;
@@ -729,7 +726,6 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                   position={[parseFloat(p.lat), parseFloat(p.lng)]}
                   icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [16, 16], iconAnchor: [8, 8] })}
                   interactive={true}
-                  zIndexOffset={-500}
                 >
                   <Popup className="premium-popup modern-hover-card">
                     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
@@ -962,6 +958,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       </MapContainer>
     </div>
   );
+};
+
+export default RouteMap;
 };
 
 export default RouteMap;
