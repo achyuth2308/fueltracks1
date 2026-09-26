@@ -195,37 +195,27 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
       // Only pan if it's an update to the SAME vehicle.
       if (!isNewVehicle) {
-        map.setView([lat, lng], map.getZoom(), { animate: true, duration: 1.0 });
+        map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
       }
 
-      // Delay drawing the trail by the exact duration of the marker animation (2000ms).
-      // This prevents the trail from snapping ahead of the vehicle while it's still gliding.
-      const delay = isNewVehicle ? 0 : 2000;
+      // Append the live point to the route trail so it follows the vehicle instantly
+      setRoutePoints(prev => {
+        const base = isNewVehicle ? [] : prev;
+        const last = base[base.length - 1];
+        if (!last || last.lat !== lat || last.lng !== lng) {
+          return [...base, { lat, lng }];
+        }
+        return base;
+      });
 
-      timeoutId = setTimeout(() => {
-        // Append the live point to the route trail so it follows the vehicle
-        setRoutePoints(prev => {
-          const base = isNewVehicle ? [] : prev;
-          const last = base[base.length - 1];
-          if (!last || last.lat !== lat || last.lng !== lng) {
-            return [...base, { lat, lng }];
-          }
-          return base;
-        });
-
-        // Keep a trail of the last 10 points for the dashed line
-        setLiveTrail(prev => {
-          const base = isNewVehicle ? [] : prev;
-          const nextList = [...base, [lat, lng]];
-          if (nextList.length > 10) nextList.shift();
-          return nextList;
-        });
-      }, delay);
+      // Keep a trail of the last 10 points for the dashed line
+      setLiveTrail(prev => {
+        const base = isNewVehicle ? [] : prev;
+        const nextList = [...base, [lat, lng]];
+        if (nextList.length > 10) nextList.shift();
+        return nextList;
+      });
     }
-    
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles, map, followSelected]);
 
   const positions = routePoints.length > 0 ? routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]) : [];
@@ -352,17 +342,19 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       animFrameRef.current = null;
     }
 
-    const fromLat = prev.lat;
-    const fromLng = prev.lng;
-    // Match GPS update interval — gives truly continuous gliding motion
-    const DURATION = 2000;
+    const currentLatLng = marker.getLatLng();
+    const fromLat = currentLatLng ? currentLatLng.lat : prev.lat;
+    const fromLng = currentLatLng ? currentLatLng.lng : prev.lng;
+    
+    // Use a brisk 800ms duration so the marker swiftly keeps up with the trail
+    const DURATION = 800;
     const startTime = performance.now();
 
     const animate = (now) => {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / DURATION, 1);
-      // Ease-in-out cubic: accelerates then decelerates smoothly
-      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      // Linear or slight ease-out is better for continuous GPS updates so it doesn't stop/start abruptly
+      const ease = t;
 
       const lat = fromLat + (targetLat - fromLat) * ease;
       const lng = fromLng + (targetLng - fromLng) * ease;
