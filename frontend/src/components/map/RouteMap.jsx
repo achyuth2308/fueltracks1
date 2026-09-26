@@ -961,6 +961,3 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 };
 
 export default RouteMap;
-};
-
-export default RouteMap;
