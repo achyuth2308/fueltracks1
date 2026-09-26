@@ -454,31 +454,26 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   const pastPoints = validPoints.slice(0, (validCurrentIndex === -1 ? 0 : validCurrentIndex) + 1);
   const pastSegments = React.useMemo(() => splitIntoSegments(pastPoints), [pastPoints]);
 
-  // Create custom rotated navigation arrow/car icon
-  const createVehicleIcon = (direction = 0, speed = 0, ignition = false) => {
-    let currentStatus = 'offline';
-    if (ignition && speed > 3) {
-      currentStatus = 'running';
-    } else if (ignition) {
-      currentStatus = 'idle';
-    } else {
-      currentStatus = 'parked';
-    }
+  // Memoize the icon so react-leaflet doesn't destroy and recreate the DOM node on every frame
+  const currentStatus = React.useMemo(() => {
+    if (!activePoint) return 'offline';
+    if (activePoint.ignition && activePoint.speed > 3) return 'running';
+    if (activePoint.ignition) return 'idle';
+    return 'parked';
+  }, [activePoint]);
 
-    // Use the shared marker logic for both moving and stopped
+  const activeVehicleIcon = React.useMemo(() => {
     return createPinIcon(
       vehicle || {}, // fallback to empty object if no vehicle provided
       false, // noGps
       0, // clusterRank
       {
-        course: direction,
-        speed: speed,
         status: currentStatus,
         hideSpeed: true, // Don't show speed bubble over the car in history map
         className: 'history-playback-marker'
       }
     );
-  };
+  }, [vehicle, currentStatus]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
@@ -599,7 +594,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       <style>
         {`
-          .history-playback-marker {
+          .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker {
              transition: transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear !important;
           }
         `}
@@ -913,7 +908,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           return (
             <Marker
               position={[parseFloat(activePoint.lat), parseFloat(activePoint.lng)]}
-              icon={createVehicleIcon(heading, activePoint.speed || 0, activePoint.ignition)}
+              icon={activeVehicleIcon}
               zIndexOffset={1000}
               ref={activeMarkerRef}
             >
