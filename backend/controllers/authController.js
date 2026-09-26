@@ -174,45 +174,63 @@ const AuthController = {
 
   /**
    * Get current authenticated user details
-   * FAST PATH: Serves all fields directly from the verified JWT payload.
-   * Zero DB queries — cannot timeout or cause a logout under DB load.
-   * Map provider config is fetched asynchronously (non-blocking) so a
-   * slow DB never blocks this endpoint.
+   * FAST PATH: Serves fields from the JWT payload (no DB).
+   * FALLBACK: If the token pre-dates the email/name fields (old tokens),
+   *           does a single DB query to fill them in.
+   * Map config is always fetched (it's on the API pool so it's fine).
    */
   async getMe(req, res, next) {
     try {
-      // All essential fields come from the JWT — no DB call needed
       const jwtUser = req.user;
+      let name = jwtUser.name;
+      let email = jwtUser.email;
+      let orgName = jwtUser.orgName;
+      let phone = jwtUser.phone;
 
-      // Respond immediately with JWT data (cannot fail due to DB load)
-      const responseData = {
+      // Old tokens don't carry name/email — do a single DB lookup for those users
+      if (!email) {
+        try {
+          const user = await UserModel.findById(jwtUser.userId);
+          if (user) {
+            name = user.name;
+            email = user.email;
+            orgName = user.org_name;
+            phone = user.phone;
+          }
+        } catch (dbErr) {
+          // Non-fatal — serve what we have from the JWT
+          console.warn('[AUTH] getMe DB fallback failed (old token):', dbErr.message);
+        }
+      }
+
+      // Fetch map config from org profile
+      let mapProvider = null;
+      let apiKey = null;
+      if (jwtUser.orgId) {
+        try {
+          const orgProfileData = await profileService.getProfile(jwtUser.orgId);
+          mapProvider = orgProfileData?.profile?.map_provider || null;
+          apiKey = orgProfileData?.profile?.api_key || null;
+        } catch (e) { /* non-critical */ }
+      }
+
+      res.status(200).json({
         success: true,
         data: {
           user: {
             id: jwtUser.userId,
-            email: jwtUser.email,
+            email,
             role: jwtUser.role,
             orgId: jwtUser.orgId,
-            orgName: jwtUser.orgName,
+            orgName,
             orgType: jwtUser.orgType,
-            name: jwtUser.name,
-            phone: jwtUser.phone,
-            mapProvider: null,
-            apiKey: null
+            name,
+            phone,
+            mapProvider,
+            apiKey
           }
         }
-      };
-
-      // Fetch map config in background — if DB is slow, we still respond instantly
-      // The frontend caches this and handles null gracefully
-      if (jwtUser.orgId) {
-        profileService.getProfile(jwtUser.orgId).then(orgProfileData => {
-          // We've already sent the response — the frontend will get map config
-          // on the next /me call once DB has recovered
-        }).catch(() => {}); // Silently ignore — non-critical
-      }
-
-      res.status(200).json(responseData);
+      });
     } catch (err) {
       next(err);
     }

@@ -28,11 +28,16 @@ function authenticate(req, res, next) {
     const decoded = jwt.verify(token, env.JWT_SECRET);
     req.user = {
       userId: decoded.userId,
-      id: decoded.userId, // fallback
+      id: decoded.userId,       // fallback alias
       role: decoded.role,
       orgId: decoded.orgId,
-      org_id: decoded.orgId, // fallback
+      org_id: decoded.orgId,    // fallback alias
       orgType: decoded.orgType,
+      // Extended fields — present in tokens issued after v2 upgrade
+      name: decoded.name || null,
+      email: decoded.email || null,
+      orgName: decoded.orgName || null,
+      phone: decoded.phone || null,
     };
     next();
   } catch (err) {
