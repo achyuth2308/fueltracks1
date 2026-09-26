@@ -472,7 +472,7 @@ const DeviceOnboardingPage = () => {
                           >
                             <option value="">Select Model...</option>
                             <option value="BSTPL">BSTPL (5000)</option>
-                            <option value="BSTPL17IS">BSTPL17IS (5010)</option>
+                            <option value="BSTPL-17IS">BSTPL-17IS (5010)</option>
                             <option value="V5">V5</option>
                             <option value="Concox">Concox</option>
                             <option value="AIS140 V2">AIS140 V2</option>

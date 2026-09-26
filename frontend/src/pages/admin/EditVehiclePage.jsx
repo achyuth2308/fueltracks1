@@ -128,7 +128,7 @@ const DEVICE_TYPES = [
   { value: 'AIS140 V2', label: 'AIS140 V2 (5003)' },
   { value: 'FMB 920', label: 'FMB 920 (5005)' },
   { value: 'BSTPL', label: 'BSTPL (5000)' },
-  { value: 'BSTPL17IS', label: 'BSTPL17IS (5010)' },
+  { value: 'BSTPL-17IS', label: 'BSTPL-17IS (5010)' },
   { value: 'AIS140', label: 'AIS140 (5001)' },
   { value: 'PT06', label: 'PT06 (5006)' },
   { value: 'EC08', label: 'EC08 (5007)' },

@@ -105,7 +105,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
 
   const deviceTypeOptions = [
     'VOLTY (5004)', 'CONCOX (5002)', 'AIS140 V2 (5003)', 'FMB 920 (5005)',
-    'PT06 (5006)', 'EC08 (5007)', 'PN02 (5008)', 'V5 4G (5009)', 'BSTPL (5000)', 'BSTPL17IS (5010)', 'AIS140 (5001)'
+    'PT06 (5006)', 'EC08 (5007)', 'PN02 (5008)', 'V5 4G (5009)', 'BSTPL (5000)', 'BSTPL-17IS (5010)', 'AIS140 (5001)'
   ];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
   const vehicleTypeOptions = [

@@ -174,6 +174,7 @@ function normalizeDeviceType(modelStr) {
   if (m.includes('AIS140') || m.includes('AIS 140') || m.includes('VAMOSYS') || m.includes('ROADPOINT')) return 'AIS140';
   if (m.includes('CONCOX')) return 'CONCOX';
   if (m.includes('FMB') || m.includes('920')) return 'FMB 920';
+  if (m.includes('BSTPL17IS') || m.includes('BSTPL-17IS')) return 'BSTPL-17IS';
   if (m.includes('BSTPL')) return 'BSTPL';
   return 'VOLTY';
 }
