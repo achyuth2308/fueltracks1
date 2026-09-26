@@ -43,8 +43,9 @@ async function start(io) {
         return;
       }
 
-      // Filter to only allow requested alerts (Overspeed, Geofence, Ignition, Parking, etc.)
-      const allowedAlerts = ['overspeed', 'geofence', 'geofence_enter', 'geofence_exit', 'ignition_on', 'ignition_off', 'stoppage', 'parking', 'safety_park', 'trip_started', 'trip_ended', 'route_deviation', 'excessive_idle', 'sos', 'battery', 'harsh_driving', 'harsh_braking', 'harsh_acceleration', 'box_open', 'general', 'power_cut', 'crash', 'tow', 'panic', 'theft', 'theft_alarm', 'tamper', 'moving', 'start_moving', 'stopped', 'idle'];
+      // Filter to only allow actionable alerts — routine 'general' (Location Update / Location Update History)
+      // packets are dropped because they fire on every GPS ping while moving and create alert noise.
+      const allowedAlerts = ['overspeed', 'geofence', 'geofence_enter', 'geofence_exit', 'ignition_on', 'ignition_off', 'stoppage', 'parking', 'safety_park', 'trip_started', 'trip_ended', 'route_deviation', 'excessive_idle', 'sos', 'battery', 'harsh_driving', 'harsh_braking', 'harsh_acceleration', 'box_open', 'power_cut', 'crash', 'tow', 'panic', 'theft', 'theft_alarm', 'tamper', 'moving', 'start_moving', 'stopped', 'idle'];
       if (!allowedAlerts.includes(alertType.toLowerCase())) {
         return; // Drop unwanted alerts silently
       }
