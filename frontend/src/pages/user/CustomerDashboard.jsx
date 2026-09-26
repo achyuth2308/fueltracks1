@@ -10,6 +10,7 @@ import { formatSpeed, formatVoltage, formatDirection } from '../../utils/formatU
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
+import { getVehicleStatus } from '../../utils/markerUtils';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle || !vehicle.licence_expire_date) return null;
