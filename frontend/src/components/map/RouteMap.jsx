@@ -726,6 +726,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                   position={[parseFloat(p.lat), parseFloat(p.lng)]}
                   icon={L.divIcon({ html: arrowHtml, className: '', iconSize: [16, 16], iconAnchor: [8, 8] })}
                   interactive={true}
+                  zIndexOffset={-500}
                 >
                   <Popup className="premium-popup modern-hover-card">
                     <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
