@@ -581,7 +581,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             nearbyRadius={nearbyRadius}
             followSelected={true}
             showRoute={!!currentSelected}
-            onRouteFetched={handleRouteFetched}
+            liveRouteMetrics={liveRouteMetrics}
           />
 
           {/* ── Nearby Mode Controls ── */}

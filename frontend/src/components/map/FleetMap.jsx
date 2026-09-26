@@ -482,7 +482,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicle.name}</span>
 
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{(Number(vehicle.today_distance) || 0).toFixed(2)} kms</span>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>
+              {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
+            </span>
 
             {getNoDataDuration(vehicle.last_seen) && status === 'offline' && (
               <>
@@ -523,7 +525,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
 // ── Dynamic Vehicle Markers Layer ──────────────────────────────────────
 
-const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
+const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick, liveRouteMetrics }) => {
   const map = useMap();
 
   // Step 1: resolve / validate every vehicle's coordinates
@@ -558,6 +560,7 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
             isSelected={isSelected}
             onMarkerClick={onMarkerClick}
             zIndexOffset={zOffset}
+            liveRouteMetrics={liveRouteMetrics}
           />
         );
       })}
@@ -598,6 +601,7 @@ const FleetMap = ({
   followSelected = false,
   nearbyRadius = null,
   isNearbyActive = false,
+  liveRouteMetrics = {},
   onRouteFetched
 }) => {
   const location = useLocation();
@@ -726,6 +730,7 @@ const FleetMap = ({
           vehicles={vehicles}
           allSelected={allSelected}
           onMarkerClick={onMarkerClick}
+          liveRouteMetrics={liveRouteMetrics}
         />
       </MapContainer>
 
