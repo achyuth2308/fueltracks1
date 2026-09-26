@@ -187,34 +187,45 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     let lng = parseFloat(latestTarget.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
+    let timeoutId;
+
     if (hasValidCoords) {
       const isNewVehicle = prevVehicleIdRef.current !== targetId;
       prevVehicleIdRef.current = targetId;
 
       // Only pan if it's an update to the SAME vehicle.
-      // If it's a new vehicle, Effect 1 already did a flyTo. Calling setView here overrides the smooth flight with a harsh drag.
       if (!isNewVehicle) {
         map.setView([lat, lng], map.getZoom(), { animate: true, duration: 1.0 });
       }
 
-      // Append the live point to the route trail so it follows the vehicle
-      setRoutePoints(prev => {
-        const base = isNewVehicle ? [] : prev;
-        const last = base[base.length - 1];
-        if (!last || last.lat !== lat || last.lng !== lng) {
-          return [...base, { lat, lng }];
-        }
-        return base;
-      });
+      // Delay drawing the trail by the exact duration of the marker animation (2000ms).
+      // This prevents the trail from snapping ahead of the vehicle while it's still gliding.
+      const delay = isNewVehicle ? 0 : 2000;
 
-      // Keep a trail of the last 10 points for the dashed line
-      setLiveTrail(prev => {
-        const base = isNewVehicle ? [] : prev;
-        const nextList = [...base, [lat, lng]];
-        if (nextList.length > 10) nextList.shift();
-        return nextList;
-      });
+      timeoutId = setTimeout(() => {
+        // Append the live point to the route trail so it follows the vehicle
+        setRoutePoints(prev => {
+          const base = isNewVehicle ? [] : prev;
+          const last = base[base.length - 1];
+          if (!last || last.lat !== lat || last.lng !== lng) {
+            return [...base, { lat, lng }];
+          }
+          return base;
+        });
+
+        // Keep a trail of the last 10 points for the dashed line
+        setLiveTrail(prev => {
+          const base = isNewVehicle ? [] : prev;
+          const nextList = [...base, [lat, lng]];
+          if (nextList.length > 10) nextList.shift();
+          return nextList;
+        });
+      }, delay);
     }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles, map, followSelected]);
 
   const positions = routePoints.length > 0 ? routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]) : [];
