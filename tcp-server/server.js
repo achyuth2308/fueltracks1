@@ -21,6 +21,7 @@ const { isV2LoginPacket } = require('./parser/ais140V2Parser');
 
 const protocolStats = {
   'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'BSTPL17IS': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
@@ -28,24 +29,25 @@ const protocolStats = {
   'PN02':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-    'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-    'V54G':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'V54G':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
 const publisher = require('./publisher');
 const voltyRelay = require('./voltyRelay');
 
-const BSTPL_PORT    = process.env.TCP_PORT || 5000;
-const AIS140_PORT   = process.env.AIS140_TCP_PORT || 5001;
-const CONCOX_PORT   = process.env.CONCOX_TCP_PORT || 5002;
-const PT06_PORT     = process.env.PT06_TCP_PORT || 5006;
-const PN02_PORT     = process.env.PN02_TCP_PORT || 5008;
-const AIS140V2_PORT = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
-const VOLTY_PORT    = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
-const FMB920_PORT   = parseInt(process.env.FMB920_TCP_PORT) || 5005;
-const EC08_PORT     = process.env.EC08_TCP_PORT || 5007;
-const V54G_PORT     = process.env.V5_4G_TCP_PORT || 5009;
+const BSTPL_PORT       = process.env.TCP_PORT || 5000;
+const BSTPL17IS_PORT   = parseInt(process.env.BSTPL17IS_TCP_PORT) || 5010;
+const AIS140_PORT      = process.env.AIS140_TCP_PORT || 5001;
+const CONCOX_PORT      = process.env.CONCOX_TCP_PORT || 5002;
+const PT06_PORT        = process.env.PT06_TCP_PORT || 5006;
+const PN02_PORT        = process.env.PN02_TCP_PORT || 5008;
+const AIS140V2_PORT    = parseInt(process.env.AIS140V2_TCP_PORT) || 5003;
+const VOLTY_PORT       = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
+const FMB920_PORT      = parseInt(process.env.FMB920_TCP_PORT) || 5005;
+const EC08_PORT        = process.env.EC08_TCP_PORT || 5007;
+const V54G_PORT        = process.env.V5_4G_TCP_PORT || 5009;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -112,6 +114,10 @@ const commandAdapters = {
     mobilize:   () => '__CONCOX_BINARY__',
   },
   'BSTPL-17': {
+    immobilize: () => '$SET,RL,1#\r\n',
+    mobilize:   () => '$SET,RL,0#\r\n',
+  },
+  BSTPL17IS: {
     immobilize: () => '$SET,RL,1#\r\n',
     mobilize:   () => '$SET,RL,0#\r\n',
   },
@@ -186,12 +192,20 @@ publisher.init();
 let commandSubscriber = null;
 startCommandSubscriber();
 
-// Start the BSTPL-17 Server on Port 5000
+// Start the BSTPL-17 Server on Port 5000 (legacy $10/$11)
 const bstplServer = createProtocolServer(
   BSTPL_PORT,
   '#',
   'BSTPL-17',
   ['$10', '$11']
+);
+
+// Start the BSTPL17IS Server on Port 5010 (BSTPL$1..BSTPL$9, BSTPL$A, BSTPL$B)
+const bstpl17isServer = createProtocolServer(
+  BSTPL17IS_PORT,
+  '#',
+  'BSTPL17IS',
+  ['BSTPL$']
 );
 
 // Start the AIS140 V1 Server on Port 5001
@@ -285,8 +299,11 @@ function createProtocolServer(port, delimiter, protocolName, allowedHeaders) {
         let packet = buffer.substring(0, endIndex + 1);
         buffer = buffer.substring(endIndex + 1);
 
-        // Find the start of the packet ($ for standard protocols, or ACTVR/HCHKR for AIS140V2)
-        let startIndex = packet.lastIndexOf('$');
+        // Find the start of the packet ($ for standard protocols, BSTPL$ for BSTPL17IS, or ACTVR/HCHKR for AIS140V2)
+        let startIndex = packet.indexOf('BSTPL$');
+        if (startIndex === -1) {
+          startIndex = packet.lastIndexOf('$');
+        }
         if (startIndex === -1) {
           const actvrIdx = packet.indexOf('ACTVR');
           const hchkrIdx = packet.indexOf('HCHKR');
@@ -533,6 +550,48 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
       }
       totalPacketsParsed++;
       console.log(`[TCP - ${protocolName}] Alert from ${parsed.imei}: ${parsed.alertType} - ${parsed.alertText}`);
+
+    } else if (parsed.packetType && parsed.packetType.startsWith('BSTPL$')) {
+      const validation = validateNormalPacket(parsed);
+      if (!validation.valid) {
+        totalPacketsInvalid++;
+        console.warn(`[TCP - ${protocolName}] Invalid BSTPL17IS packet from ${parsed.imei || 'unknown'}: ${validation.reason}`);
+        return;
+      }
+
+      const fLat = parseFloat(parsed.lat);
+      const fLng = parseFloat(parsed.lng);
+      const isZeroCoords = (isNaN(fLat) || isNaN(fLng) || (fLat === 0 && fLng === 0));
+      const isInvalidGpsFlag = parsed.gpsValid === 'V';
+
+      connectedDevices.set(parsed.imei, {
+        socket,
+        clientId,
+        protocolName,
+        lastPacket: new Date(),
+        lat: isZeroCoords ? undefined : parsed.lat,
+        lng: isZeroCoords ? undefined : parsed.lng,
+      });
+
+      if (isZeroCoords || isInvalidGpsFlag) {
+        console.log(`[TCP - ${protocolName}] IMEI ${parsed.imei}: GPS fix not yet acquired (0,0) or marked Invalid (V). Publishing heartbeat only.`);
+        await publisher.publishHeartbeat(
+          parsed.imei, parsed.battery, parsed.gsmSignal,
+          parsed.ignition, parsed.deviceTime, parsed.rawPacket, parsed.packetType
+        );
+      } else {
+        await publisher.publishLocation(parsed);
+      }
+
+      if (parsed.alertType || parsed.packetType !== 'BSTPL$1') {
+        await publisher.publishAlert(parsed);
+        console.log(`[TCP - ${protocolName}] BSTPL17IS Alert from ${parsed.imei}: ${parsed.alertType || parsed.packetType} - ${parsed.alertText || 'Alert'}`);
+      }
+
+      if (typeof protocolName !== 'undefined' && protocolStats[protocolName]) {
+        protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
+      }
+      totalPacketsParsed++;
 
     } else if (parsed.packetType === '$EPB') {
       const validation = validateAis140EmergencyPacket(parsed);

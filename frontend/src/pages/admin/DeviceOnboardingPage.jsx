@@ -471,7 +471,8 @@ const DeviceOnboardingPage = () => {
                             style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', background: '#FFF', color: '#111827', boxSizing: 'border-box' }}
                           >
                             <option value="">Select Model...</option>
-                            <option value="BSTPL">BSTPL</option>
+                            <option value="BSTPL">BSTPL (5000)</option>
+                            <option value="BSTPL17IS">BSTPL17IS (5010)</option>
                             <option value="V5">V5</option>
                             <option value="Concox">Concox</option>
                             <option value="AIS140 V2">AIS140 V2</option>

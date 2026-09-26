@@ -14,8 +14,8 @@ function validateNormalPacket(parsed) {
     return { valid: false, reason: `Unknown GPS fix status: ${parsed.gpsValid}` };
   }
 
-  // IMEI must be present and 15 digits
-  if (!parsed.imei || !/^\d{15}$/.test(parsed.imei)) {
+  // IMEI / Device ID must be present (alphanumeric 4-20 chars)
+  if (!parsed.imei || !/^[A-Za-z0-9]{4,20}$/.test(parsed.imei)) {
     return { valid: false, reason: `Invalid IMEI: ${parsed.imei}` };
   }
 
@@ -43,10 +43,10 @@ function validateNormalPacket(parsed) {
 }
 
 /**
- * Validate a parsed alert ($11) packet
+ * Validate a parsed alert ($11 / BSTPL17IS) packet
  */
 function validateAlertPacket(parsed) {
-  if (!parsed.imei || !/^\d{15}$/.test(parsed.imei)) {
+  if (!parsed.imei || !/^[A-Za-z0-9]{4,20}$/.test(parsed.imei)) {
     return { valid: false, reason: `Invalid IMEI: ${parsed.imei}` };
   }
 

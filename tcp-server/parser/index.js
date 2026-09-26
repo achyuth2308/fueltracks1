@@ -9,6 +9,7 @@
 
 const { parseNormalPacket } = require('./normalParser');
 const { parseAlertPacket } = require('./alertParser');
+const { parseBstpl17IsPacket } = require('./bstpl17isParser');
 const {
   parseAis140NormalPacket,
   parseAis140AlertPacket,
@@ -63,12 +64,15 @@ function parsePacket(raw) {
     }
   }
 
-  // ---- BSTPL-17 ----
+  // ---- BSTPL-17 / BSTPL17IS ----
   if (trimmed.startsWith('$10')) {
     return parseNormalPacket(trimmed);
   }
   if (trimmed.startsWith('$11')) {
     return parseAlertPacket(trimmed);
+  }
+  if (trimmed.startsWith('BSTPL$')) {
+    return parseBstpl17IsPacket(trimmed);
   }
 
   // ---- AIS140 V1 ----
