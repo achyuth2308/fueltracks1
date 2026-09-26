@@ -198,24 +198,34 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
         map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
       }
 
-      // Append the live point to the route trail so it follows the vehicle instantly
-      setRoutePoints(prev => {
-        const base = isNewVehicle ? [] : prev;
-        const last = base[base.length - 1];
-        if (!last || last.lat !== lat || last.lng !== lng) {
-          return [...base, { lat, lng }];
-        }
-        return base;
-      });
+      // Delay drawing the permanent trail by the exact duration of the marker animation (800ms).
+      // While it's delayed, the VehicleMarker draws a temporary animated "pouring" line.
+      const delay = isNewVehicle ? 0 : 800;
 
-      // Keep a trail of the last 10 points for the dashed line
-      setLiveTrail(prev => {
-        const base = isNewVehicle ? [] : prev;
-        const nextList = [...base, [lat, lng]];
-        if (nextList.length > 10) nextList.shift();
-        return nextList;
-      });
+      timeoutId = setTimeout(() => {
+        // Append the live point to the route trail
+        setRoutePoints(prev => {
+          const base = isNewVehicle ? [] : prev;
+          const last = base[base.length - 1];
+          if (!last || last.lat !== lat || last.lng !== lng) {
+            return [...base, { lat, lng }];
+          }
+          return base;
+        });
+
+        // Keep a trail of the last 10 points for the dashed line
+        setLiveTrail(prev => {
+          const base = isNewVehicle ? [] : prev;
+          const nextList = [...base, [lat, lng]];
+          if (nextList.length > 10) nextList.shift();
+          return nextList;
+        });
+      }, delay);
     }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles, map, followSelected]);
 
   const positions = routePoints.length > 0 ? routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]) : [];
@@ -349,6 +359,8 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
     // Use a brisk 800ms duration so the marker swiftly keeps up with the trail
     const DURATION = 800;
     const startTime = performance.now();
+    
+    let pouringLine = null;
 
     const animate = (now) => {
       const elapsed = now - startTime;
@@ -362,12 +374,27 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       if (marker && marker.setLatLng) {
         marker.setLatLng([lat, lng]);
       }
+      
+      // Draw the "pouring" trail behind the vehicle while it animates
+      if (map) {
+        if (!pouringLine) {
+          // Inner bright line
+          pouringLine = L.polyline([[fromLat, fromLng], [lat, lng]], { color: "#38BDF8", weight: 3, opacity: 1 }).addTo(map);
+        } else {
+          pouringLine.setLatLngs([[fromLat, fromLng], [lat, lng]]);
+        }
+      }
 
       if (t < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
         animFrameRef.current = null;
         prevLatLngRef.current = { lat: targetLat, lng: targetLng };
+        // Clean up the temporary pouring line (the permanent route line takes over now)
+        if (pouringLine) {
+          pouringLine.remove();
+          pouringLine = null;
+        }
       }
     };
 
@@ -378,6 +405,10 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       if (animFrameRef.current) {
         cancelAnimationFrame(animFrameRef.current);
         animFrameRef.current = null;
+      }
+      if (pouringLine) {
+        pouringLine.remove();
+        pouringLine = null;
       }
     };
   }, [newLat, newLng]);
