@@ -383,8 +383,8 @@ const HistoryPage = () => {
         p.speed || 0,
         'Address not resolved',
         'N/A',
-        '0',
-        p.odometer || 0,
+        p.cDist !== undefined ? p.cDist.toFixed(2) : '0.00',
+        Math.round((points[0]?.odometer || p.odometer || 0) + (p.cDist || 0)),
         p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00',
         p.ignition ? 'ON' : 'OFF'
       ];
@@ -702,7 +702,9 @@ const HistoryPage = () => {
                           <a href={`https://www.google.com/maps?q=${p.lat},${p.lng}`} target="_blank" rel="noreferrer" style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}><LinkIcon size={10} /> Link</a>
                         </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.cDist !== undefined ? p.cDist.toFixed(2) : '0.00'}</td>
-                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.odometer ? Math.round(p.odometer) : '-'}</td>
+                        <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>
+                          {Math.round((points[0]?.odometer || p.odometer || 0) + (p.cDist || 0))}
+                        </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
                         <td style={{ padding: '4px' }}>
                           <span style={{ color: p.ignition ? '#10B981' : '#9CA3AF', fontWeight: 700 }}>{p.ignition ? 'ON' : 'OFF'}</span>
