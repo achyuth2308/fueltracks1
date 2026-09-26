@@ -283,7 +283,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       </div>
 
       {/* ── Hover Tooltip Card ── */}
-      {hoveredVehicle && (
+      {hoveredVehicle && (!currentSelected || hoveredVehicle.id !== currentSelected.id) && (
         <div style={{
           position: 'absolute',
           top: `${hoverPosY}px`,
