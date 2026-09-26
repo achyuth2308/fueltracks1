@@ -299,11 +299,16 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const noGps = !!vehicle._noGps;
   const newLat = parseFloat(vehicle.lat);
   const newLng = parseFloat(vehicle.lng);
-  const position = [newLat, newLng];
   const warning = getExpiryWarning(vehicle.licence_expire_date);
   const clusterRank = vehicle._clusterRank || 0;
   const speed = Math.round(vehicle.current_speed || 0);
   const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
+
+  // ── KEY FIX: freeze the position prop at MOUNT TIME ──────────────────
+  // react-leaflet watches position prop and calls marker.setLatLng() immediately
+  // when it changes, which TELEPORTS the marker and breaks smooth animation.
+  // By freezing this ref, only our rAF interpolation moves the marker.
+  const initialPositionRef = useRef([newLat, newLng]);
 
   // Animate marker from old position to new position using rAF interpolation
   useEffect(() => {
@@ -338,14 +343,15 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
     const fromLat = prev.lat;
     const fromLng = prev.lng;
-    const DURATION = 1500; // ms — matches GPS update interval
+    // Match GPS update interval — gives truly continuous gliding motion
+    const DURATION = 2000;
     const startTime = performance.now();
 
     const animate = (now) => {
       const elapsed = now - startTime;
       const t = Math.min(elapsed / DURATION, 1);
-      // Ease-out cubic for a smooth deceleration (like Rapido)
-      const ease = 1 - Math.pow(1 - t, 3);
+      // Ease-in-out cubic: accelerates then decelerates smoothly
+      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 
       const lat = fromLat + (targetLat - fromLat) * ease;
       const lng = fromLng + (targetLng - fromLng) * ease;
@@ -402,7 +408,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 
   return (
     <Marker
-      position={position}
+      position={initialPositionRef.current}  // ← frozen at mount; rAF handles all movement
       icon={initialIcon}
       ref={markerRef}
       zIndexOffset={zIndexOffset}
