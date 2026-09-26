@@ -190,7 +190,8 @@ const GpsModel = {
       `SELECT lat, lng, speed, fuel, ignition, odometer, direction, battery, voltage, device_time
        FROM gps_points
        WHERE vehicle_id = $1 ${dateFilter}
-       ORDER BY device_time ASC`,
+       ORDER BY device_time ASC
+       LIMIT 20000`, // Hard limit to prevent Node.js Out-Of-Memory crashes
       params
     );
 
