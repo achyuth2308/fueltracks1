@@ -9,6 +9,7 @@ import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
+import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle) return null;
@@ -51,13 +52,7 @@ const TrackingPage = ({ setAppVehicles }) => {
 
   const fetchTodayMetrics = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.fueltracks.in'}/api/vehicles/today-metrics`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      const json = await res.json();
+      const json = await vehicleApi.getTodayMetrics();
       if (json.success) {
         setLiveRouteMetrics(json.data);
       }

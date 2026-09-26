@@ -59,7 +59,7 @@ const VehicleController = {
       const result = await db.query(`
         SELECT vehicle_id, lat, lng, speed, ignition, odometer, device_time 
         FROM gps_points 
-        WHERE device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date 
+        WHERE device_time >= ((NOW() AT TIME ZONE 'Asia/Kolkata')::date::timestamp AT TIME ZONE 'Asia/Kolkata')
         ORDER BY vehicle_id, device_time ASC
       `);
 
@@ -78,6 +78,12 @@ const VehicleController = {
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c;
       };
+
+      const vehiclesRes = await db.query('SELECT id, metadata FROM vehicles');
+      const vehicleMap = {};
+      vehiclesRes.rows.forEach(v => {
+        vehicleMap[v.id] = v.metadata || {};
+      });
 
       for (const [vid, points] of Object.entries(grouped)) {
         const sorted = points.sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
@@ -109,9 +115,20 @@ const VehicleController = {
         });
 
         const startOdo = parseFloat(sorted[0].odometer || 0);
+        const currentRawOdo = startOdo + cumulativeDist;
+        
+        const metadata = vehicleMap[vid] || {};
+        const baseline = parseFloat(metadata.odometerReading) || 0;
+        const snapshot = parseFloat(metadata.odometerSnapshot) || 0;
+        
+        let finalOdo = currentRawOdo;
+        if (baseline > 0) {
+          finalOdo = baseline + Math.max(0, currentRawOdo - snapshot);
+        }
+
         metrics[vid] = {
           cDist: cumulativeDist,
-          dynamicOdo: startOdo + cumulativeDist
+          dynamicOdo: finalOdo
         };
       }
       res.json({ success: true, data: metrics });
