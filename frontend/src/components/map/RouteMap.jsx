@@ -593,6 +593,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       <style>
         {`
+          .leaflet-top.leaflet-left {
+            top: 80px !important;
+          }
           .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker,
           .leaflet-popup-pane .history-playback-popup {
              transition: ${isPlaying ? `transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear` : 'none'} !important;
