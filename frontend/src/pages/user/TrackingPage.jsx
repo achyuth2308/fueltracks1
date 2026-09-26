@@ -47,6 +47,31 @@ const TrackingPage = ({ setAppVehicles }) => {
   const [isNearbyActive, setIsNearbyActive] = useState(false);
   const [nearbyRadius, setNearbyRadius] = useState(10); // in km
 
+  const [liveRouteMetrics, setLiveRouteMetrics] = useState({});
+
+  const fetchTodayMetrics = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.fueltracks.in'}/api/vehicles/today-metrics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setLiveRouteMetrics(json.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch today metrics', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayMetrics();
+    const interval = setInterval(fetchTodayMetrics, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
   const nearbyVehiclesList = useMemo(() => {
     if (!isNearbyActive || selectedVehicles.length !== 1 || !vehicles.length) return [];
     const target = vehicles.find(v => String(v.id) === String(selectedVehicles[0]));
@@ -248,11 +273,13 @@ const TrackingPage = ({ setAppVehicles }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.3)' }}>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Compass size={12} color="#3b82f6" /> Odo (kms)</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo || hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
             </div>
             <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{(Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>
+                {liveRouteMetrics[hoveredVehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[hoveredVehicle.id].cDist).toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km
+              </div>
             </div>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>
@@ -442,6 +469,7 @@ const TrackingPage = ({ setAppVehicles }) => {
           followSelected={true}
           nearbyRadius={nearbyRadius}
           isNearbyActive={isNearbyActive}
+          liveRouteMetrics={liveRouteMetrics}
         />
 
         {/* ── Floating Status Pills (top-right of map) ── */}
@@ -793,7 +821,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                   {[
                     { label: 'Speed', value: formatSpeed(currentSelectedVehicle.current_speed), icon: Activity, color: '#4d6076' },
                     ...(currentSelectedVehicles.length === 1 ? [
-                      { label: 'Odometer', value: formatOdometer(currentSelectedVehicle.current_odometer), icon: Compass, color: '#4d6076' },
+                      { label: 'Odometer', value: formatOdometer(liveRouteMetrics[currentSelectedVehicle.id]?.dynamicOdo || currentSelectedVehicle.current_odometer), icon: Compass, color: '#4d6076' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10b981' : '#6b7280' },
                       { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#f59e0b' },
                       { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage || currentSelectedVehicle.metadata?.batteryVoltage), icon: Cpu, color: '#8b5cf6' }
