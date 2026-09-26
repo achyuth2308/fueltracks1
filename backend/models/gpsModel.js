@@ -90,7 +90,7 @@ const GpsModel = {
           -- Same day but invalid prev coords — keep existing
           WHEN vehicle_latest_state.lat IS NULL OR vehicle_latest_state.lng IS NULL
             THEN COALESCE(vehicle_latest_state.today_distance, 0)
-          -- Same day — add distance only if plausible (>10m and <5km per update)
+          -- Same day — add distance only if plausible (>10m and <5km per update) AND vehicle is actually moving (speed > 3 km/h)
           ELSE ROUND((COALESCE(vehicle_latest_state.today_distance, 0) + GREATEST(0,
             CASE WHEN (
               6371 * acos(least(1.0,
@@ -98,6 +98,7 @@ const GpsModel = {
                 cos(radians($3) - radians(vehicle_latest_state.lng)) +
                 sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
               )) BETWEEN 0.01 AND 5
+              AND $4 > 3
             )
             THEN 6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
