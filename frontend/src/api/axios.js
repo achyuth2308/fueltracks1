@@ -35,17 +35,21 @@ export const adminApi = {
   onboardDevices: (payload) => axiosInstance.post('/api/admin/onboard/devices', payload).then(res => res.data)
 };
 
-// Response interceptor: handle 401
+// Response interceptor: ONLY redirect to login on a genuine 401 from a live server.
+// Network errors / timeouts / server crashes must NOT log the user out.
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    // error.response is null on network errors (server down, timeout, connection reset).
+    // Only act on a real HTTP 401 from the server.
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
-      // Redirect to login if window is available
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';
       }
     }
+    // All other errors (500, network, timeout) are returned to the caller
+    // so individual pages can handle them gracefully (e.g. show "Failed to load").
     return Promise.reject(error);
   }
 );

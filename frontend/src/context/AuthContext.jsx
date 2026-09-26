@@ -1,8 +1,45 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useState, useEffect, useCallback } from 'react';
 import * as authApi from '../api/authApi';
 import { impersonateUser } from '../api/adminApi';
 
 export const AuthContext = createContext(null);
+
+/**
+ * Decode JWT payload CLIENT-SIDE with no network call.
+ * The server verifies the signature on every API request anyway.
+ * This gives us instant session restoration with zero latency.
+ */
+function decodeJwtPayload(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    if (!base64Url) return null;
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function userFromToken(token) {
+  const payload = decodeJwtPayload(token);
+  if (!payload) return null;
+  if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+  return {
+    id: payload.userId,
+    role: payload.role,
+    orgId: payload.orgId,
+    orgType: payload.orgType,
+    name: payload.name || null,
+    email: payload.email || null,
+    orgName: payload.orgName || null,
+    phone: payload.phone || null,
+    mapProvider: null,
+    apiKey: null,
+  };
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -10,37 +47,42 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [hasAdminSession, setHasAdminSession] = useState(!!localStorage.getItem('adminToken'));
 
-  const fetchCurrentUser = useCallback(async () => {
+  /**
+   * Background refresh of map config. NEVER causes logout.
+   * Server restarts / OOM / DB timeouts are silently ignored.
+   */
+  const refreshMapConfig = useCallback(async () => {
     try {
-      // Timeout: if the API doesn't respond in 8s, give up and redirect to login
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Auth check timed out')), 8000)
-      );
-      const response = await Promise.race([authApi.getMe(), timeout]);
-      if (response.success && response.data.user) {
-        setUser(response.data.user);
-      } else {
-        localStorage.removeItem('token');
-        setUser(null);
+      const response = await authApi.getMe();
+      if (response?.success && response?.data?.user) {
+        setUser(prev => prev ? {
+          ...prev,
+          mapProvider: response.data.user.mapProvider,
+          apiKey: response.data.user.apiKey,
+          name: prev.name || response.data.user.name,
+          email: prev.email || response.data.user.email,
+          orgName: prev.orgName || response.data.user.orgName,
+        } : prev);
       }
-    } catch (err) {
-      console.error('Failed to restore auth session:', err);
-      localStorage.removeItem('token');
-      setUser(null);
-    } finally {
-      setLoading(false);
+    } catch {
+      // Intentionally swallowed - transient errors must never log the user out
     }
   }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     setHasAdminSession(!!localStorage.getItem('adminToken'));
-    if (token) {
-      fetchCurrentUser();
-    } else {
+    if (!token) { setLoading(false); return; }
+    const restoredUser = userFromToken(token);
+    if (!restoredUser) {
+      localStorage.removeItem('token');
       setLoading(false);
+      return;
     }
-  }, [fetchCurrentUser]);
+    setUser(restoredUser);
+    setLoading(false);
+    refreshMapConfig();
+  }, [refreshMapConfig]);
 
   const login = async (identifier, password) => {
     setLoading(true);
@@ -49,21 +91,18 @@ export const AuthProvider = ({ children }) => {
       const response = await authApi.login(identifier, password);
       if (response.success && response.data.accessToken) {
         localStorage.setItem('token', response.data.accessToken);
-        setUser(response.data.user);
+        const fromToken = userFromToken(response.data.accessToken);
+        setUser({ ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id });
         return { success: true };
       } else {
         let errMsg = response.error || 'Login failed';
-        if (typeof errMsg === 'object') {
-          errMsg = errMsg.message || JSON.stringify(errMsg);
-        }
+        if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
         setError(errMsg);
         return { success: false, error: errMsg };
       }
     } catch (err) {
       let errMsg = err.response?.data?.error || err.message || 'An error occurred during login';
-      if (typeof errMsg === 'object') {
-        errMsg = errMsg.message || JSON.stringify(errMsg);
-      }
+      if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
       setError(errMsg);
       return { success: false, error: errMsg };
     } finally {
@@ -72,18 +111,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = async () => {
-    setLoading(true);
-    try {
-      await authApi.logout();
-    } catch (err) {
-      console.error('Logout error:', err);
-    } finally {
-      localStorage.removeItem('token');
-      localStorage.removeItem('adminToken');
-      setHasAdminSession(false);
-      setUser(null);
-      setLoading(false);
-    }
+    try { await authApi.logout(); } catch { }
+    localStorage.removeItem('token');
+    localStorage.removeItem('adminToken');
+    setHasAdminSession(false);
+    setUser(null);
   };
 
   const impersonate = async (userId) => {
@@ -98,21 +130,18 @@ export const AuthProvider = ({ children }) => {
           setHasAdminSession(true);
         }
         localStorage.setItem('token', response.data.accessToken);
-        setUser(response.data.user);
+        const fromToken = userFromToken(response.data.accessToken);
+        setUser({ ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id });
         return { success: true };
       } else {
         let errMsg = response.error || 'Impersonation failed';
-        if (typeof errMsg === 'object') {
-          errMsg = errMsg.message || JSON.stringify(errMsg);
-        }
+        if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
         setError(errMsg);
         return { success: false, error: errMsg };
       }
     } catch (err) {
-      let errMsg = err.response?.data?.error || err.message || 'An error occurred during impersonation';
-      if (typeof errMsg === 'object') {
-        errMsg = errMsg.message || JSON.stringify(errMsg);
-      }
+      let errMsg = err.response?.data?.error || err.message || 'Impersonation error';
+      if (typeof errMsg === 'object') errMsg = errMsg.message || JSON.stringify(errMsg);
       setError(errMsg);
       return { success: false, error: errMsg };
     } finally {
@@ -123,44 +152,23 @@ export const AuthProvider = ({ children }) => {
   const restoreAdmin = async () => {
     const adminToken = localStorage.getItem('adminToken');
     if (!adminToken) return { success: false, error: 'No admin session found' };
-
-    setLoading(true);
-    setError(null);
     try {
       localStorage.setItem('token', adminToken);
       localStorage.removeItem('adminToken');
       setHasAdminSession(false);
-      await fetchCurrentUser();
-      return { success: true };
+      const restoredUser = userFromToken(adminToken);
+      if (restoredUser) { setUser(restoredUser); refreshMapConfig(); return { success: true }; }
+      return { success: false, error: 'Invalid admin token' };
     } catch (err) {
-      let errMsg = err.response?.data?.error || err.message || 'An error occurred during session restore';
-      if (typeof errMsg === 'object') {
-        errMsg = errMsg.message || JSON.stringify(errMsg);
-      }
-      setError(errMsg);
-      return { success: false, error: errMsg };
-    } finally {
-      setLoading(false);
+      return { success: false, error: err.message };
     }
   };
 
-  const isAuthenticated = !!user;
-
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        error,
-        login,
-        logout,
-        impersonate,
-        restoreAdmin,
-        hasAdminSession,
-        isAuthenticated,
-        refreshUser: fetchCurrentUser,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user, loading, error, login, logout, impersonate,
+      restoreAdmin, hasAdminSession, isAuthenticated: !!user, refreshUser: refreshMapConfig,
+    }}>
       {children}
     </AuthContext.Provider>
   );
