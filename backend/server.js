@@ -256,6 +256,10 @@ async function bootstrap() {
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS immobilizer_updated_at TIMESTAMP;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS battery SMALLINT;
 
+      -- Today distance tracking (resets each day at midnight IST)
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance NUMERIC(10,3) DEFAULT 0;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance_date DATE;
+
       -- User-defined trips table
       CREATE TABLE IF NOT EXISTS trips (
         id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

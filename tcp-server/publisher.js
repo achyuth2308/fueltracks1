@@ -86,12 +86,12 @@ async function publishLocation(parsed) {
       // Ignore JSON parse error on stale cache
     }
 
-    // No valid cached coords either — drop the packet entirely.
-    // NEVER fabricate or guess coordinates; that corrupts production data.
-    if (!restored) {
-      console.warn(`[REDIS] Dropping packet for ${imei}: invalid GPS fix (${lat},${lng}) and no valid cached location`);
-      return;
-    }
+      // No valid cached coords either.
+      // STILL publish with null coords so ignition/voltage/status is updated.
+      // Never fabricate coordinates — leave lat/lng null.
+      lat = null;
+      lng = null;
+      console.warn(`[REDIS] No GPS fix and no cached location for ${imei} — publishing status-only.`);
   }
 
   const payload = JSON.stringify({
@@ -228,7 +228,7 @@ async function publishRawMessage(parsed) {
     rawPayload = JSON.stringify({
       imei: parsed.imei,
       packetType: parsed.packetType,
-      rawHex: parsed.rawPacket || parsed.rawString || null,
+      rawHex: parsed.rawHex || parsed.rawPacket || parsed.rawString || null,
       rawString: parsed.rawString || parsed.rawPacket || null,
       deviceTime: parsed.deviceTime || new Date().toISOString(),
       odometer: parsed.odometer !== undefined && parsed.odometer !== null ? parsed.odometer : null,

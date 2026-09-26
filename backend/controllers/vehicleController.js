@@ -674,6 +674,14 @@ const VehicleController = {
         }
       }
 
+      // Quick memory cache to prevent frontend DDoS loops from crashing the server
+      if (!global.routeCache) global.routeCache = new Map();
+      const cacheKey = `${id}_${startDate}_${endDate}`;
+      const cached = global.routeCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp < 10000)) { // 10 seconds cache
+        return res.status(200).json(cached.data);
+      }
+
       let points = [];
       const reqStart = new Date(startDate);
       const cutoff = new Date();
@@ -708,11 +716,16 @@ const VehicleController = {
       const MAX_ROUTE_POINTS = parseInt(process.env.MAX_ROUTE_POINTS) || 10000;
       const isTruncated = points && points.length >= MAX_ROUTE_POINTS;
 
-      res.status(200).json({
+      const responseData = {
         success: true,
         data: points,
         warning: isTruncated ? 'Results truncated due to safety limit. Please select a smaller date range.' : undefined
-      });
+      };
+
+      if (!global.routeCache) global.routeCache = new Map();
+      global.routeCache.set(cacheKey, { timestamp: Date.now(), data: responseData });
+
+      res.status(200).json(responseData);
     } catch (err) {
       next(err);
     }

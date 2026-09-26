@@ -49,28 +49,74 @@ const GpsModel = {
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,
                              ignition, voltage, odometer, satellites, gsmSignal, battery }) {
-    await db.query(
+    // Read previous lat/lng and today_distance_date to compute incremental distance.
+    // RETURNING today_distance so the caller can include it in the socket emit payload,
+    // which fixes the "covered distance always 0.00 km" issue in the mobile app.
+    const result = await db.query(
       `INSERT INTO vehicle_latest_state
         (vehicle_id, lat, lng, speed, direction, fuel, ignition, voltage,
-         odometer, satellites, gsm_signal, battery, is_online, last_seen)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE,NOW())
+         odometer, satellites, gsm_signal, battery, is_online, last_seen,
+         today_distance, today_distance_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,TRUE,NOW(), 0,
+               (NOW() AT TIME ZONE 'Asia/Kolkata')::date)
        ON CONFLICT (vehicle_id) DO UPDATE SET
-        lat = COALESCE($2, vehicle_latest_state.lat), 
-        lng = COALESCE($3, vehicle_latest_state.lng), 
+        lat = COALESCE($2, vehicle_latest_state.lat),
+        lng = COALESCE($3, vehicle_latest_state.lng),
         speed = COALESCE($4, vehicle_latest_state.speed),
-        direction = COALESCE($5, vehicle_latest_state.direction), 
-        fuel = COALESCE($6, vehicle_latest_state.fuel), 
+        direction = COALESCE($5, vehicle_latest_state.direction),
+        fuel = COALESCE($6, vehicle_latest_state.fuel),
         ignition = COALESCE($7, vehicle_latest_state.ignition),
-        voltage = COALESCE($8, vehicle_latest_state.voltage), 
-        odometer = COALESCE($9, vehicle_latest_state.odometer), 
-        satellites = COALESCE($10, vehicle_latest_state.satellites), 
+        voltage = COALESCE($8, vehicle_latest_state.voltage),
+        odometer = COALESCE($9, vehicle_latest_state.odometer),
+        satellites = COALESCE($10, vehicle_latest_state.satellites),
         gsm_signal = COALESCE($11, vehicle_latest_state.gsm_signal),
         battery = COALESCE($12, vehicle_latest_state.battery),
-        is_online = TRUE, last_seen = NOW()`,
+        is_online = TRUE, last_seen = NOW(),
+        today_distance_date = CASE
+          WHEN vehicle_latest_state.today_distance_date IS DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+          THEN (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+          ELSE vehicle_latest_state.today_distance_date
+        END,
+        today_distance = CASE
+          -- New day — reset distance to the current leg
+          WHEN vehicle_latest_state.today_distance_date IS DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+            THEN ROUND(GREATEST(0, (
+              6371 * acos(least(1.0,
+                cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
+                cos(radians($3) - radians(vehicle_latest_state.lng)) +
+                sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
+              ))
+            ))::numeric, 3)
+          -- Same day but invalid prev coords — keep existing
+          WHEN vehicle_latest_state.lat IS NULL OR vehicle_latest_state.lng IS NULL
+            THEN COALESCE(vehicle_latest_state.today_distance, 0)
+          -- Same day — add distance only if plausible (>10m and <5km per update)
+          ELSE ROUND((COALESCE(vehicle_latest_state.today_distance, 0) + GREATEST(0,
+            CASE WHEN (
+              6371 * acos(least(1.0,
+                cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
+                cos(radians($3) - radians(vehicle_latest_state.lng)) +
+                sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
+              )) BETWEEN 0.01 AND 5
+            )
+            THEN 6371 * acos(least(1.0,
+                cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
+                cos(radians($3) - radians(vehicle_latest_state.lng)) +
+                sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
+              ))
+            ELSE 0
+            END
+          ))::numeric, 3)
+        END
+       RETURNING today_distance`,
       [vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
        odometer, satellites, gsmSignal, battery]
     );
+    // Return the updated today_distance so it can be emitted via socket
+    return parseFloat(result.rows[0]?.today_distance ?? 0);
   },
+
+
 
   /**
    * Get GPS history for a vehicle (paginated)

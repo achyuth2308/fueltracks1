@@ -541,6 +541,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             isNearbyActive={isNearbyActive}
             nearbyRadius={nearbyRadius}
             followSelected={true}
+            showRoute={!!currentSelected}
           />
 
           {/* ── Nearby Mode Controls ── */}

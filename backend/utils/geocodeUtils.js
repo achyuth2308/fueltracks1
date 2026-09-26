@@ -28,8 +28,9 @@ async function getAddress(lat, lng) {
     // Fast timeout (2000ms) to ensure good performance
     const response = await axios.get(url, { timeout: 2000 });
     
-    if (response.data && response.data.address && response.data.address.Match_addr) {
-      const address = response.data.address.Match_addr;
+    if (response.data && response.data.address) {
+      const addressData = response.data.address;
+      const address = addressData.LongLabel || addressData.Match_addr;
       
       // Manage cache size
       if (cache.size >= CACHE_MAX_SIZE) {

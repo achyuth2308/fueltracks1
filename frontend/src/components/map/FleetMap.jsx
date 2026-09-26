@@ -69,7 +69,9 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
   // 1. Fetch today's route line
   useEffect(() => {
-    if (!showRoute || !selectedVehicle?.id) {
+    const targetVehicleId = selectedVehicle?.id || (selectedVehicles && selectedVehicles[0]?.id);
+
+    if (!showRoute || !targetVehicleId) {
       setRoutePoints([]);
       return;
     }
@@ -80,7 +82,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
         const today = new Date();
         const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).toISOString();
         const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
-        const res = await getVehicleRoute(selectedVehicle.id, { startDate: start, endDate: end });
+        const res = await getVehicleRoute(targetVehicleId, { startDate: start, endDate: end });
 
         if (res.success && res.data.length > 0) {
           const validPoints = res.data.filter(p => {
@@ -98,7 +100,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     };
 
     fetchRoute();
-  }, [selectedVehicle?.id, selectedVehicles, showRoute]);
+  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, showRoute]);
 
   // 1. Zoom to selected vehicle
   useEffect(() => {
@@ -109,14 +111,8 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     let lng = parseFloat(targetVehicle.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
-    if (!hasValidCoords && vehicles && vehicles.length > 0) {
-      const idx = vehicles.findIndex(v => v.id === targetVehicle.id);
-      lat = 17.3411 + (Math.max(0, idx) * 0.003);
-      lng = 78.5317 + (Math.max(0, idx) * 0.003);
-    }
-
-    if (!isNaN(lat) && !isNaN(lng)) {
-      map.setView([lat, lng], 16, { animate: true, duration: 1 });
+    if (hasValidCoords) {
+      map.flyTo([lat, lng], 16, { duration: 1.2 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id]);
@@ -176,7 +172,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
       if (t1) clearTimeout(t1);
       if (t2) clearTimeout(t2);
     };
-  }, [selectedVehicle, selectedVehicles, vehicles, map, followSelected]);
+  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles?.length, map, followSelected]);
 
   // 3. Smoothly pan to follow vehicle as it moves in real time
   useEffect(() => {
@@ -191,18 +187,15 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     let lng = parseFloat(latestTarget.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
-    if (!hasValidCoords && vehicles && vehicles.length > 0) {
-      const idx = vehicles.findIndex(v => v.id === targetId);
-      lat = 17.3411 + (Math.max(0, idx) * 0.003);
-      lng = 78.5317 + (Math.max(0, idx) * 0.003);
-    }
-
-    if (!isNaN(lat) && !isNaN(lng)) {
-      // Smoothly pan camera to vehicle's new position - matching the exact behavior of VehicleMap.jsx
-      map.setView([lat, lng], map.getZoom(), { animate: true, duration: 1.0 });
-      
+    if (hasValidCoords) {
       const isNewVehicle = prevVehicleIdRef.current !== targetId;
       prevVehicleIdRef.current = targetId;
+
+      // Only pan if it's an update to the SAME vehicle.
+      // If it's a new vehicle, Effect 1 already did a flyTo. Calling setView here overrides the smooth flight with a harsh drag.
+      if (!isNewVehicle) {
+        map.setView([lat, lng], map.getZoom(), { animate: true, duration: 1.0 });
+      }
 
       // Append the live point to the route trail so it follows the vehicle
       setRoutePoints(prev => {
@@ -222,10 +215,39 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
         return nextList;
       });
     }
-  }, [selectedVehicle, selectedVehicles, map, followSelected, vehicles]);
+  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles, map, followSelected]);
 
   const positions = routePoints.length > 0 ? routePoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]) : [];
   const segments = splitIntoSegments(positions);
+  const startPoint = positions[0] || null;
+
+  const startFlagIcon = L.divIcon({
+    html: `<div style="
+      display:flex;align-items:center;gap:4px;
+      background:#16a34a;color:#fff;
+      font-size:10px;font-weight:800;
+      padding:3px 7px 3px 5px;
+      border-radius:6px;
+      border:2px solid #fff;
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);
+      white-space:nowrap;
+      line-height:1.2;
+      font-family:system-ui,sans-serif;
+    ">
+      <span style="font-size:13px;line-height:1;">🚩</span>
+      <span>Start</span>
+    </div>
+    <div style="
+      width:2px;height:8px;
+      background:#16a34a;
+      margin-left:10px;
+      box-shadow:0 1px 3px rgba(0,0,0,0.2);
+    "></div>`,
+    className: '',
+    iconSize: [60, 36],
+    iconAnchor: [2, 36],
+    popupAnchor: [30, -36],
+  });
 
   return (
     <>
@@ -235,7 +257,16 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
           <Polyline positions={seg} color="#38BDF8" weight={2} opacity={1} />
         </React.Fragment>
       ))}
-      
+
+      {/* Start Flag at first route point */}
+      {startPoint && (
+        <Marker position={startPoint} icon={startFlagIcon} zIndexOffset={5000}>
+          <Tooltip permanent={false} direction="top" offset={[28, -36]}>
+            <span style={{ fontSize: '11px', fontWeight: 700 }}>Trip Start</span>
+          </Tooltip>
+        </Marker>
+      )}
+
       {/* Live Trail Polyline (like VehicleMap) */}
       {liveTrail.length > 1 && (
         <Polyline
@@ -250,6 +281,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
   );
 };
 
+
 import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon, createTeardropIcon } from '../../utils/markerUtils';
 
 const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
@@ -257,10 +289,95 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   const navigate = useNavigate();
   const map = useMap();
 
+  // ── Smooth position animation (Rapido-style) ─────────────────────────
+  const animFrameRef = useRef(null);
+  const prevLatLngRef = useRef(null);
+  const isMountedRef = useRef(false);
+
+  const status = getVehicleStatus(vehicle);
+  const cfg = STATUS_CONFIG[status];
+  const noGps = !!vehicle._noGps;
+  const newLat = parseFloat(vehicle.lat);
+  const newLng = parseFloat(vehicle.lng);
+  const position = [newLat, newLng];
+  const warning = getExpiryWarning(vehicle.licence_expire_date);
+  const clusterRank = vehicle._clusterRank || 0;
+  const speed = Math.round(vehicle.current_speed || 0);
+  const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
+
+  // Animate marker from old position to new position using rAF interpolation
+  useEffect(() => {
+    const marker = markerRef.current;
+    if (!marker) return;
+
+    const targetLat = newLat;
+    const targetLng = newLng;
+
+    // First mount — place instantly, no animation
+    if (!isMountedRef.current) {
+      isMountedRef.current = true;
+      prevLatLngRef.current = { lat: targetLat, lng: targetLng };
+      marker.setLatLng([targetLat, targetLng]);
+      return;
+    }
+
+    const prev = prevLatLngRef.current;
+    if (!prev) {
+      prevLatLngRef.current = { lat: targetLat, lng: targetLng };
+      return;
+    }
+
+    // No change — skip animation
+    if (prev.lat === targetLat && prev.lng === targetLng) return;
+
+    // Cancel any running animation
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+
+    const fromLat = prev.lat;
+    const fromLng = prev.lng;
+    const DURATION = 1500; // ms — matches GPS update interval
+    const startTime = performance.now();
+
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const t = Math.min(elapsed / DURATION, 1);
+      // Ease-out cubic for a smooth deceleration (like Rapido)
+      const ease = 1 - Math.pow(1 - t, 3);
+
+      const lat = fromLat + (targetLat - fromLat) * ease;
+      const lng = fromLng + (targetLng - fromLng) * ease;
+
+      if (marker && marker.setLatLng) {
+        marker.setLatLng([lat, lng]);
+      }
+
+      if (t < 1) {
+        animFrameRef.current = requestAnimationFrame(animate);
+      } else {
+        animFrameRef.current = null;
+        prevLatLngRef.current = { lat: targetLat, lng: targetLng };
+      }
+    };
+
+    animFrameRef.current = requestAnimationFrame(animate);
+    prevLatLngRef.current = { lat: targetLat, lng: targetLng };
+
+    return () => {
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
+      }
+    };
+  }, [newLat, newLng]);
+
+  // Open/close popup on selection
   useEffect(() => {
     if (isSelected && markerRef.current) {
       try {
-        map.closePopup(); // Forcefully close any stuck popups
+        map.closePopup();
         markerRef.current.openPopup();
       } catch (e) {
         console.error("Popup open error:", e);
@@ -269,16 +386,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
       markerRef.current.closePopup();
     }
   }, [isSelected, map]);
-
-  const status = getVehicleStatus(vehicle);
-  const cfg = STATUS_CONFIG[status];
-  const noGps = !!vehicle._noGps;
-  const position = [parseFloat(vehicle.lat), parseFloat(vehicle.lng)];
-  const warning = getExpiryWarning(vehicle.licence_expire_date);
-  const clusterRank = vehicle._clusterRank || 0;
-
-  const speed = Math.round(vehicle.current_speed || 0);
-  const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
 
   // Memoize the initial icon so react-leaflet never destroys the DOM node during position updates
   const initialIcon = useMemo(() => {
@@ -289,8 +396,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
   useEffect(() => {
     if (markerRef.current && markerRef.current._icon) {
       const newIcon = createPinIcon(vehicle, noGps, clusterRank, { speed, course, status });
-      // Update the innerHTML of the Leaflet divIcon container.
-      // This preserves the outer DOM node, keeping CSS transitions intact!
       markerRef.current._icon.innerHTML = newIcon.options.html;
     }
   }, [speed, course, status, noGps, clusterRank, vehicle]);
@@ -329,7 +434,6 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
             </div>
           )}
 
-          {/* Stats list */}
           {/* Stats list */}
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '12px', rowGap: '6px', marginBottom: '8px' }}>
             <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
@@ -376,6 +480,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 })
 };
 
 // ── Dynamic Vehicle Markers Layer ──────────────────────────────────────
+
 const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
   const map = useMap();
 
@@ -388,12 +493,8 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick }) => {
       && finalLat > 6 && finalLat < 38
       && finalLng > 68 && finalLng < 98;
 
-    if (!hasValidCoords) {
-      finalLat = 17.3411 + (idx * 0.003);
-      finalLng = 78.5317 + (idx * 0.003);
-    }
     return { vehicle, finalLat, finalLng, hasValidCoords };
-  });
+  }).filter(v => v.hasValidCoords);
 
   // Step 2: Render individual markers directly without clustering (using LayerGroup for stable context)
   return (
@@ -525,9 +626,9 @@ const FleetMap = ({
         zoom={10}
         className="w-full h-full"
         zoomControl={false}
-        zoomAnimation={true}
-        fadeAnimation={true}
-        markerZoomAnimation={true}
+        zoomAnimation={false}
+        fadeAnimation={false}
+        markerZoomAnimation={false}
       >
         <ResizeMap />
 
@@ -572,7 +673,7 @@ const FleetMap = ({
         <VehicleRouteAndFit
           selectedVehicle={effectiveSelected}
           vehicles={vehicles}
-          showRoute={showRoute}
+          showRoute={showRoute || !!effectiveSelected}
           followSelected={followSelected}
         />
 
@@ -609,6 +710,7 @@ const FleetMap = ({
             pointer-events: none !important;
             background: transparent !important;
             border: none !important;
+            transition: transform 1.5s linear !important; /* Smooth gliding animation */
           }
           .custom-marker-icon .pin-interactive {
             pointer-events: auto !important;

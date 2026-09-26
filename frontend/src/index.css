@@ -1084,13 +1084,27 @@ option {
 .pastel-table tr:hover td:nth-child(even) {
   background: rgba(237, 233, 254, 0.5) !important;
 }
-/* ---------- Premium Leaflet Marker Cluster Overrides ---------- */
-.leaflet-cluster-anim .leaflet-marker-icon, .leaflet-cluster-anim .leaflet-marker-shadow {
-  transition: transform 0.3s ease-out, opacity 0.3s ease-in;
+
+/* ===== KILL all Leaflet marker animations - markers MUST be fixed at GPS coordinates ===== */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-zoom-animated,
+.custom-marker-icon,
+.animated-marker,
+.leaflet-marker-pane .leaflet-marker-icon {
+  transition: none !important;
+  animation: none !important;
 }
+.leaflet-cluster-anim .leaflet-marker-icon,
+.leaflet-cluster-anim .leaflet-marker-shadow {
+  transition: none !important;
+}
+/* =================================================================================== */
+
 .marker-cluster {
   background: transparent !important;
 }
+
 .marker-cluster div {
   background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
   color: #ffffff !important;

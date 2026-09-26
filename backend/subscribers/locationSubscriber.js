@@ -13,7 +13,7 @@ const RouteModel = require('../models/routeModel');
 const db = require('../config/db');
 const env = require('../config/env');
 const webhookService = require('../services/webhookService'); // Civil Supply webhook push
-
+const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
 let subscriber = null;
 
 // ============================================================
@@ -189,9 +189,19 @@ async function start(io) {
       let finalIgnition = ignition;
 
       if (engineOnPref === 'Voltage+Ignition') {
-        finalIgnition = ignition === true && voltage >= batteryThresh;
+        // If voltage is null/unavailable (e.g. PN02 boot packet with 0xFF bytes),
+        // fall back to ignition signal alone rather than blocking it
+        if (voltage != null && !isNaN(voltage)) {
+          finalIgnition = ignition === true && voltage >= batteryThresh;
+        } else {
+          finalIgnition = ignition === true;
+        }
       } else if (engineOnPref === 'Voltage') {
-        finalIgnition = voltage >= batteryThresh;
+        if (voltage != null && !isNaN(voltage)) {
+          finalIgnition = voltage >= batteryThresh;
+        } else {
+          finalIgnition = ignition === true; // Fallback when voltage unavailable
+        }
       } else if (engineOnPref === 'Digital Input 1') {
         finalIgnition = data.din1 === true;
       } else {
@@ -379,12 +389,14 @@ async function start(io) {
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
       // If the device lost GPS fix and sends a 0 coordinate, don't overwrite the last known valid location!
       // ONLY update latest state if the packet is LIVE, to prevent historical jumps.
+      // todayDistanceKm is populated from the DB upsert RETURNING value and added to the socket payload.
+      let todayDistanceKm = 0;
       if (isLive) {
         // Only write lat/lng to latest state if it's within India — same bbox guard as GPS history
         const validLat = hasValidGps ? fLat : null;
         const validLng = hasValidGps ? fLng : null;
         
-        await GpsModel.updateLatestState({
+        todayDistanceKm = await GpsModel.updateLatestState({
           vehicleId, 
           lat: validLat, 
           lng: validLng, 
@@ -676,7 +688,9 @@ async function start(io) {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
           lat: emitLat, lng: emitLng, speed, direction, fuel, ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
-          satellites, gsmSignal, battery, deviceTime, isOnline: true
+          satellites, gsmSignal, battery, deviceTime, isOnline: true,
+          // today_distance included so the mobile app can display live covered distance
+          today_distance: todayDistanceKm ?? 0
         };
         io.to(`vehicle:${vehicleId}`).emit('location:update', payload);
         io.to(`org:${orgId}`).emit('fleet:update', payload);
@@ -688,6 +702,9 @@ async function start(io) {
           webhookService.dispatch(vehicle, {
             lat, lng, speed, direction, voltage, battery, satellites,
             ignition: finalIgnition, deviceTime
+          });
+          sclenPushService.pushToCoromandel(vehicle, {
+            lat, lng, deviceTime
           });
         }
       }

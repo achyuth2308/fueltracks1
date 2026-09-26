@@ -110,6 +110,9 @@ function initPn02Server(port, protocolStats, connectedDevices, publisher) {
               lng: packet.longitude,
               speed: packet.speed,
               direction: packet.course,
+              ignition: packet.ignition,
+              voltage: packet.voltage,
+              gpsValid: packet.gpsValid,
               deviceTime: packet.timestamp,
               isLive: true,
               packetType: 'PN02_ALARM'
@@ -135,6 +138,9 @@ function initPn02Server(port, protocolStats, connectedDevices, publisher) {
             lng: packet.longitude,
             speed: packet.speed,
             direction: packet.course,
+            ignition: packet.ignition,
+            voltage: packet.voltage,
+            gpsValid: packet.gpsValid,
             deviceTime: packet.timestamp,
             isLive: true,
             packetType: 'PN02_POSITION'

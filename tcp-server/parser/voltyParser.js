@@ -64,10 +64,15 @@ function parseVoltyPacket(raw) {
 
   // Look for the 14-16 digit numeric IMEI anywhere in the first few fields of the header
   let imeiIndex = -1;
+  let extractedImei = null;
   for (let i = 1; i < Math.min(parts.length, 10); i++) {
-    if (parts[i] && parts[i].length >= 14 && /^\d+$/.test(parts[i].trim())) {
-      imeiIndex = i;
-      break;
+    if (parts[i]) {
+      const match = parts[i].match(/(\d{14,16})/);
+      if (match) {
+        imeiIndex = i;
+        extractedImei = match[1];
+        break;
+      }
     }
   }
 
@@ -95,7 +100,7 @@ function parseVoltyPacket(raw) {
     throw new Error('Could not find IMEI in Volty packet');
   }
 
-  const imei = parts[imeiIndex];
+  const imei = extractedImei;
   
   // Safe extraction helper
   const safeGet = (index) => parts[imeiIndex + index] ? parts[imeiIndex + index].trim() : '';

@@ -4,6 +4,10 @@
 // PioneerX 101 2G (PN02) BINARY PROTOCOL PARSER
 // Framing: 0x25 0x25
 // Total length: Bytes 3-4 (inclusive of header)
+//
+// Byte offsets verified against:
+//   - PioneerX 101 2G PN02.xlsx (Protocol Spec)
+//   - Live device hex: 252514005900...
 // ============================================================
 
 const PN02_ALARM_MAP = {
@@ -94,7 +98,9 @@ function decodeFrame(frame, fallbackImei) {
     imei: imei || fallbackImei,
     serialNumber,
     rawPacketType: msgType,
+    rawHex: frame.toString('hex')
   };
+  console.log('[RAW_HEX_DUMP]', frame.toString('hex'));
 
   if (msgType === 0x01) {
     return { ...basePacket, packetType: 'PN02_LOGIN' };
@@ -104,55 +110,109 @@ function decodeFrame(frame, fallbackImei) {
   }
   if (msgType === 0x13 || msgType === 0x14) {
     const isAlarm = (msgType === 0x14);
-    
-    // Position payload starts at byte index 15.
-    // Date/time is at index 52..57
     if (frame.length < 72) return { ...basePacket, packetType: 'PN02_POSITION_TRUNCATED' };
 
-    const yy = frame[52];
-    const mm = frame[53];
-    const dd = frame[54];
-    const hh = frame[55];
-    const min = frame[56];
-    const ss = frame[57];
+    // Digital I/O Status (bytes 30-31) ─────────────────────────────────────
+    // Bit15=0: External power connected. Bit14=1: ACC/Ignition ON
+    const digitalIoStatus = frame.readUInt16BE(30);
+    const accBit = ((digitalIoStatus >> 14) & 1) === 1;         // direct ACC wire signal
+    const externalPowerConnected = ((digitalIoStatus >> 15) & 1) === 0; // Bit15=0 means connected
+
+    // Ignition Reason is in Byte25 Bits3-0:
+    //   0 = unconfigured (factory default — no explicit ACC method set)
+    //   5 = external voltage, 6 = vibration, 7 = ACC signal
+    //   8 = ext voltage+vibration, 9 = vibration+ACC
+    const ignitionReason = frame[25] & 0x0F;
+    // Smart ignition: if unconfigured (0) OR using external voltage (5/8),
+    // use power connection status as the ignition state
+    let ignition;
+    if (ignitionReason === 0 || ignitionReason === 5 || ignitionReason === 8) {
+      // Power-based ignition: connected = ON, disconnected = OFF
+      ignition = externalPowerConnected;
+    } else {
+      // ACC-wire or vibration based — trust the DIO bit directly
+      ignition = accBit;
+    }
+
+    // ── 3 Analog Inputs (bytes 34-39) ────────────────────────────────────────
+    // Analog0=Yellow wire (Ain0), Analog1=Green wire (Ain1)
+    // Raw 16-bit value, divide by 100 for voltage
+    const analog0Raw = frame.readUInt16BE(34);
+    const analog1Raw = frame.readUInt16BE(36);
+    const analog2Raw = frame.readUInt16BE(38);
+    const analog0 = analog0Raw / 100.0;
+    const analog1 = analog1Raw / 100.0;
+    const analog2 = analog2Raw / 100.0;
+
+    // ── Alarm Type (byte 44) ──────────────────────────────────────────────────
+    let alarmType = null;
+    let alarmText = null;
+    if (isAlarm && frame.length > 44) {
+      const alarmCode = frame[44];
+      // 0xFF = startup/boot event, not a real alarm
+      if (alarmCode !== 0xFF) {
+        const mapped = PN02_ALARM_MAP[alarmCode];
+        if (mapped) {
+          alarmType = mapped.type;
+          alarmText = mapped.text;
+        } else {
+          alarmType = 'general';
+          alarmText = `Unknown Alarm (0x${alarmCode.toString(16)})`;
+        }
+      }
+    }
+
+    // ── Built-in Battery % (byte 46) ─────────────────────────────────────────
+    const builtInBatteryPct = frame.length > 46 ? frame[46] : null;
+
+    // ── Date / Time (bytes 47-52) ─────────────────────────────────────────────
+    // Confirmed from live packet: frame[47]=yy, [48]=mm, [49]=dd, [50]=hh, [51]=min, [52]=ss
+    const yy  = frame[47];
+    const mm  = frame[48];
+    const dd  = frame[49];
+    const hh  = frame[50];
+    const min = frame[51];
+    const ss  = frame[52];
     const timestamp = new Date(Date.UTC(2000 + yy, mm - 1, dd, hh, min, ss));
 
-    // Coordinates (Float32LE)
-    // 0xFF 0xFF 0xFF 0xFF means no GPS fix
-    const altBuf = frame.slice(58, 62);
-    const lngBuf = frame.slice(62, 66);
-    const latBuf = frame.slice(66, 70);
+    // ── Coordinates Float32LE (bytes 53-68) ──────────────────────────────────
+    // 0xFFFFFFFF = no GPS fix
+    const altBuf = frame.slice(53, 57);
+    const lngBuf = frame.slice(57, 61);
+    const latBuf = frame.slice(61, 65);
 
-    let altitude = 0, longitude = 0, latitude = 0;
-    let gpsValid = true;
-
+    let altitude = 0, longitude = 0, latitude = 0, gpsValid = true;
     if (latBuf[0] === 0xFF && latBuf[1] === 0xFF && latBuf[2] === 0xFF && latBuf[3] === 0xFF) {
       gpsValid = false;
     } else {
-      altitude = altBuf.readFloatLE(0);
+      altitude  = altBuf.readFloatLE(0);
       longitude = lngBuf.readFloatLE(0);
-      latitude = latBuf.readFloatLE(0);
+      latitude  = latBuf.readFloatLE(0);
     }
 
-    const speedKmh = parseBCD(frame.slice(70, 72)) / 10.0;
-    
-    // Direction
-    let direction = parseBCD(frame.slice(72, 74));
-    if (isNaN(direction)) direction = frame.readUInt16BE(72);
+    // ── Speed (bytes 65-66) BCD ×0.1 = km/h ─────────────────────────────────
+    const speedKmh = frame.length > 66 ? parseBCD(frame.slice(65, 67)) / 10.0 : 0;
 
-    let alarmType = null;
-    let alarmText = null;
+    // ── Direction (bytes 67-68) ───────────────────────────────────────────────
+    let direction = 0;
+    if (frame.length > 68) {
+      direction = parseBCD(frame.slice(67, 69));
+      if (isNaN(direction)) direction = frame.readUInt16BE(67);
+    }
 
-    if (isAlarm && frame.length > 45) {
-      const alarmCode = frame[45]; // Byte 46 is Alarm Type
-      const mapped = PN02_ALARM_MAP[alarmCode];
-      if (mapped) {
-        alarmType = mapped.type;
-        alarmText = mapped.text;
-      } else {
-        alarmType = 'general';
-        alarmText = `Unknown Alarm (0x${alarmCode.toString(16)})`;
-      }
+    // ── Internal Battery Voltage (bytes 69-70) BCD e.g. 0x0410 = 4.10V ──────
+    let internalBatteryV = null;
+    if (frame.length > 70 && !(frame[69] === 0xFF && frame[70] === 0xFF)) {
+      const intBatParsed = parseBCD(frame.slice(69, 71));
+      if (!isNaN(intBatParsed)) internalBatteryV = intBatParsed / 100.0;
+    }
+
+    // ── External Power Supply Voltage (bytes 71-72) BCD e.g. 0x1210 = 12.10V ─
+    // This is the 12V/24V car battery voltage — maps to "Battery Volts" in dashboard
+    let externalPowerV = null;
+    if (frame.length > 72 && !(frame[71] === 0xFF && frame[72] === 0xFF)) {
+      const extPwrParsed = parseBCD(frame.slice(71, 73));
+      if (!isNaN(extPwrParsed)) externalPowerV = extPwrParsed / 100.0;
     }
 
     return {
@@ -165,6 +225,15 @@ function decodeFrame(frame, fallbackImei) {
       altitude,
       speed: speedKmh,
       course: direction,
+      ignition,
+      externalPowerConnected,
+      voltage: externalPowerV,            // External 12V/24V → "Battery Volts" on dashboard
+      internalBattery: internalBatteryV,  // Device internal backup battery
+      builtInBatteryPct,
+      fuel: analog0,
+      analog0,
+      analog1,
+      analog2,
       alarmType,
       alarmText
     };

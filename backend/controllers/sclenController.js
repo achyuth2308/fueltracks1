@@ -40,8 +40,12 @@ async function getInformationByRTO(req, res, next) {
          vls.lng,
          vls.last_seen AS device_time
        FROM vehicles v
+       JOIN organizations o ON v.org_id = o.id
+       LEFT JOIN vehicle_groups vg ON vg.vehicle_id = v.id
+       LEFT JOIN groups g ON g.id = vg.group_id
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
-       WHERE UPPER(v.plate) = $1 OR UPPER(v.name) = $1
+       WHERE (UPPER(v.plate) = $1 OR UPPER(v.name) = $1)
+         AND (o.name ILIKE '%sathyadeva%' OR g.name ILIKE '%sathyadeva%')
        LIMIT 1`,
       [regNo]
     );
