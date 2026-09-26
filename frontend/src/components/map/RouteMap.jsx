@@ -474,7 +474,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         course: direction,
         speed: speed,
         status: currentStatus,
-        hideSpeed: true // Don't show speed bubble over the car in history map
+        hideSpeed: true, // Don't show speed bubble over the car in history map
+        className: 'history-playback-marker'
       }
     );
   };
@@ -596,6 +597,13 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         </div>
       )}
 
+      <style>
+        {`
+          .history-playback-marker {
+             transition: transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear !important;
+          }
+        `}
+      </style>
       <MapContainer
         key={location.pathname}
         center={center}

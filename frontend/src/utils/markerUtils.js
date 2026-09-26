@@ -156,7 +156,7 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
 
   return L.divIcon({
     html: svgHtml,
-    className: 'custom-marker-icon animated-marker',
+    className: `custom-marker-icon animated-marker ${overrideOptions.className || ''}`,
     iconSize: [26, totalHeight],
     iconAnchor: [13, clusterRank > 0 ? totalHeight : 32],
     popupAnchor: [0, clusterRank > 0 ? -totalHeight : -32],
