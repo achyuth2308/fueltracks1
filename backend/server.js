@@ -142,6 +142,22 @@ app.use('/api/auth/reset-password', authLimiter);
 
 const emailRoutes = require('./routes/emailExample.routes');
 
+// Temporarily added backfill endpoint for today_start_odometer
+app.get('/api/backfill-odo', async (req, res) => {
+  const db = require('./config/db');
+  try {
+    const result = await db.query(`SELECT vehicle_id FROM vehicle_latest_state WHERE today_start_odometer IS NULL`);
+    for (let row of result.rows) {
+      const pts = await db.query(`SELECT odometer FROM gps_points WHERE vehicle_id = $1 AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date ORDER BY device_time ASC LIMIT 1`, [row.vehicle_id]);
+      const startOdo = pts.rows.length > 0 ? parseFloat(pts.rows[0].odometer || 0) : 0;
+      await db.query(`UPDATE vehicle_latest_state SET today_start_odometer = $1 WHERE vehicle_id = $2`, [startOdo, row.vehicle_id]);
+    }
+    res.json({ success: true, count: result.rows.length, message: "Backfill complete!" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/admin', adminRoutes);
