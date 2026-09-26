@@ -59,59 +59,30 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const [nearbyRadius, setNearbyRadius] = useState(5);
   const [liveRouteMetrics, setLiveRouteMetrics] = useState({});
 
-  const handleRouteFetched = (points) => {
-    if (!points || points.length === 0) {
-      setLiveRouteMetrics({});
-      return;
-    }
-    
-    // Exact logic from HistoryPage
-    const sorted = [...points].sort((a, b) => (a.device_time || '').localeCompare(b.device_time || ''));
-    const driftFiltered = [];
-    let lastValid = null;
-    sorted.forEach((p, idx) => {
-      if (idx === 0) {
-        driftFiltered.push(p);
-        lastValid = p;
-        return;
-      }
-      const isMoving = p.speed > 3 || p.ignition;
-      const wasMoving = lastValid.speed > 3 || lastValid.ignition;
-      if (isMoving || wasMoving) {
-        driftFiltered.push(p);
-        lastValid = p;
-      }
-    });
-
-    // Haversine distance function
-    const calculateDistance = (lat1, lon1, lat2, lon2) => {
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    };
-
-    let cumulativeDist = 0;
-    driftFiltered.forEach((p, idx, arr) => {
-      if (idx > 0) {
-        const segDist = calculateDistance(parseFloat(arr[idx - 1].lat), parseFloat(arr[idx - 1].lng), parseFloat(p.lat), parseFloat(p.lng));
-        if (segDist > 0.01 && segDist < 5) {
-          cumulativeDist += segDist;
+  const fetchTodayMetrics = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.fueltracks.in'}/api/vehicles/today-metrics`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
         }
+      });
+      const json = await res.json();
+      if (json.success) {
+        setLiveRouteMetrics(json.data);
       }
-    });
-
-    const finalDist = cumulativeDist;
-    const startOdo = parseFloat(sorted[0].odometer || 0);
-    const finalOdo = startOdo + finalDist;
-
-    setLiveRouteMetrics({
-      cDist: finalDist,
-      dynamicOdo: finalOdo
-    });
+    } catch (err) {
+      console.error('Failed to fetch today metrics', err);
+    }
   };
+
+  useEffect(() => {
+    fetchTodayMetrics();
+    const interval = setInterval(fetchTodayMetrics, 60000); // refresh every minute
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleRouteFetched = () => {}; // No-op, we don't need this anymore since we fetch all metrics at once
 
   useEffect(() => {
     if (hoveredVehicle) {
@@ -416,11 +387,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.3)' }}>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Compass size={12} color="#3b82f6" /> Odo (kms)</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.id === currentSelected?.id && liveRouteMetrics.dynamicOdo !== undefined ? Math.round(liveRouteMetrics.dynamicOdo).toLocaleString() : Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{liveRouteMetrics[hoveredVehicle.id] !== undefined ? Math.round(liveRouteMetrics[hoveredVehicle.id].dynamicOdo).toLocaleString() : Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
             </div>
             <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.id === currentSelected?.id && liveRouteMetrics.cDist !== undefined ? liveRouteMetrics.cDist.toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{liveRouteMetrics[hoveredVehicle.id] !== undefined ? liveRouteMetrics[hoveredVehicle.id].cDist.toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
             </div>
             <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
               <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>

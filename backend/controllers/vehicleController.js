@@ -54,6 +54,72 @@ const VehicleController = {
     }
   },
 
+  async getTodayMetrics(req, res, next) {
+    try {
+      const result = await db.query(`
+        SELECT vehicle_id, lat, lng, speed, ignition, odometer, device_time 
+        FROM gps_points 
+        WHERE device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date 
+        ORDER BY vehicle_id, device_time ASC
+      `);
+
+      const metrics = {};
+      const grouped = result.rows.reduce((acc, row) => {
+        acc[row.vehicle_id] = acc[row.vehicle_id] || [];
+        acc[row.vehicle_id].push(row);
+        return acc;
+      }, {});
+
+      const calculateDistance = (lat1, lon1, lat2, lon2) => {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      };
+
+      for (const [vid, points] of Object.entries(grouped)) {
+        const sorted = points.sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+        const driftFiltered = [];
+        let lastValid = null;
+        
+        sorted.forEach((p, idx) => {
+          if (idx === 0) {
+            driftFiltered.push(p);
+            lastValid = p;
+            return;
+          }
+          const isMoving = parseFloat(p.speed) > 3 || p.ignition;
+          const wasMoving = parseFloat(lastValid.speed) > 3 || lastValid.ignition;
+          if (isMoving || wasMoving) {
+            driftFiltered.push(p);
+            lastValid = p;
+          }
+        });
+
+        let cumulativeDist = 0;
+        driftFiltered.forEach((p, idx, arr) => {
+          if (idx > 0) {
+            const segDist = calculateDistance(parseFloat(arr[idx - 1].lat), parseFloat(arr[idx - 1].lng), parseFloat(p.lat), parseFloat(p.lng));
+            if (segDist > 0.01 && segDist < 5) {
+              cumulativeDist += segDist;
+            }
+          }
+        });
+
+        const startOdo = parseFloat(sorted[0].odometer || 0);
+        metrics[vid] = {
+          cDist: cumulativeDist,
+          dynamicOdo: startOdo + cumulativeDist
+        };
+      }
+      res.json({ success: true, data: metrics });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   /**
    * Get single vehicle details + latest state
    */

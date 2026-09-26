@@ -15,6 +15,7 @@ router.use(authenticate);
 
 // CRUD
 router.get('/', VehicleController.getAllVehicles);
+router.get('/today-metrics', VehicleController.getTodayMetrics);
 router.get('/:id', VehicleController.getVehicleById);
 router.post('/', authorize('superadmin', 'dealer'), VehicleController.createVehicle);
 router.put('/:id', authorize('superadmin', 'dealer'), VehicleController.updateVehicle);
