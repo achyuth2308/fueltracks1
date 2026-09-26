@@ -69,14 +69,14 @@ CREATE TABLE groups (
 CREATE TABLE vehicles (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   org_id      UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-  imei        VARCHAR(20) UNIQUE NOT NULL,  -- Device IMEI from packets
+  imei        VARCHAR(50) UNIQUE NOT NULL,  -- Device IMEI from packets
   name        VARCHAR(100),                 -- Friendly name e.g. "Truck #42"
-  plate       VARCHAR(20),                  -- License plate
+  plate       VARCHAR(100),                  -- License plate
   model       VARCHAR(100),                 -- Vehicle model
   driver_name VARCHAR(100),
-  driver_phone VARCHAR(20),
+  driver_phone VARCHAR(50),
   server_name VARCHAR(100),
-  gps_sim_no  VARCHAR(20),
+  gps_sim_no  VARCHAR(50),
   device_version VARCHAR(50),
   timezone    VARCHAR(50),
   apn         VARCHAR(100),
