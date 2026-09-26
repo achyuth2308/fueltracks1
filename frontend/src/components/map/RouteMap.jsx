@@ -120,10 +120,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   const [isSnapping, setIsSnapping] = useState(false);
   const activeMarkerRef = useRef(null);
 
-  // Removed the useEffect that forces openPopup() on activePoint change
-  // so the user can clearly see the marker moving without the card blocking it.
-
-  // Always start at India (Hyderabad). FitBoundsToRoute will zoom to actual points.
+  useEffect(() => {
+    if (activeMarkerRef.current) {
+      activeMarkerRef.current.openPopup();
+    }
+  }, [activePoint]);
   const defaultCenter = [17.3411, 78.5317];
   const center = defaultCenter;
 
@@ -448,7 +449,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     p => activePoint && p.device_time === activePoint.device_time
   );
 
-  const pastPoints = validPoints.slice(0, (validCurrentIndex === -1 ? 0 : validCurrentIndex) + 1);
+  const pastPoints = validPoints.slice(0, (validCurrentIndex === -1 ? 0 : validCurrentIndex));
   const pastSegments = React.useMemo(() => splitIntoSegments(pastPoints), [pastPoints]);
 
   // Memoize the icon so react-leaflet doesn't destroy and recreate the DOM node on every frame
@@ -467,7 +468,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       {
         status: currentStatus,
         hideSpeed: true, // Don't show speed bubble over the car in history map
-        className: 'history-playback-marker'
+        className: 'history-playback-marker',
+        popupAnchor: [0, -50]
       }
     );
   }, [vehicle, currentStatus]);
@@ -591,7 +593,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       <style>
         {`
-          .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker {
+          .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker,
+          .leaflet-popup-pane .history-playback-popup {
              transition: ${isPlaying ? `transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear` : 'none'} !important;
           }
         `}
@@ -909,7 +912,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               zIndexOffset={1000}
               ref={activeMarkerRef}
             >
-              <Popup className="premium-popup modern-hover-card" autoPan={false}>
+              <Popup className="premium-popup modern-hover-card history-playback-popup" autoPan={false}>
                 <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>
                   <div style={{ fontWeight: 700, color: '#1e293b', borderBottom: '1px solid #e2e8f0', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px' }}>Current Position</div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
