@@ -53,8 +53,8 @@ const VehicleModel = {
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                ELSE COALESCE(vls.odometer, 0)
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
               END as current_odometer,
               vls.direction as current_direction,
               vls.satellites as current_satellites,
@@ -168,8 +168,8 @@ const VehicleModel = {
               vls.last_seen, vls.direction as current_direction,
               CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, COALESCE(vls.odometer, 0) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                ELSE COALESCE(vls.odometer, 0)
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
               END as current_odometer,
               COALESCE(vls.today_distance, 0) as today_distance
        FROM vehicles v

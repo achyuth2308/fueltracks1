@@ -259,6 +259,7 @@ async function bootstrap() {
       -- Today distance tracking (resets each day at midnight IST)
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance NUMERIC(10,3) DEFAULT 0;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance_date DATE;
+      ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_start_odometer NUMERIC(15,3);
 
       -- User-defined trips table
       CREATE TABLE IF NOT EXISTS trips (
