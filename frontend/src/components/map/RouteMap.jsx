@@ -120,11 +120,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   const [isSnapping, setIsSnapping] = useState(false);
   const activeMarkerRef = useRef(null);
 
-  useEffect(() => {
-    if (activeMarkerRef.current) {
-      activeMarkerRef.current.openPopup();
-    }
-  }, [activePoint]);
+  // Removed the useEffect that forces openPopup() on activePoint change
+  // so the user can clearly see the marker moving without the card blocking it.
 
   // Always start at India (Hyderabad). FitBoundsToRoute will zoom to actual points.
   const defaultCenter = [17.3411, 78.5317];
