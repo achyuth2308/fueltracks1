@@ -389,27 +389,37 @@ async function start(io) {
       // 5. Update denormalized latest-state table (per-packet, needed for dashboard accuracy)
       // If the device lost GPS fix and sends a 0 coordinate, don't overwrite the last known valid location!
       // ONLY update latest state if the packet is LIVE, to prevent historical jumps.
-      // todayDistanceKm is populated from the DB upsert RETURNING value and added to the socket payload.
       let todayDistanceKm = 0;
       if (isLive) {
         // Only write lat/lng to latest state if it's within India — same bbox guard as GPS history
         const validLat = hasValidGps ? fLat : null;
         const validLng = hasValidGps ? fLng : null;
-        
-        todayDistanceKm = await GpsModel.updateLatestState({
-          vehicleId, 
-          lat: validLat, 
-          lng: validLng, 
-          speed: speed != null ? Math.round(speed) : null, 
-          direction: direction != null ? Math.round(direction) : null, 
-          fuel: finalFuelLiters, 
-          ignition: finalIgnition, 
+
+        await GpsModel.updateLatestState({
+          vehicleId,
+          lat: validLat,
+          lng: validLng,
+          speed: speed != null ? Math.round(speed) : null,
+          direction: direction != null ? Math.round(direction) : null,
+          fuel: finalFuelLiters,
+          ignition: finalIgnition,
           voltage,
-          odometer: finalOdometer != null ? Math.round(finalOdometer) : null, 
-          satellites: satellites != null ? Math.round(satellites) : null, 
+          odometer: finalOdometer != null ? Math.round(finalOdometer) : null,
+          satellites: satellites != null ? Math.round(satellites) : null,
           gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null,
           battery: battery != null ? Math.round(battery) : null
         });
+
+        // CRITICAL FIX: Recompute today_distance from gps_points using the same
+        // drift-filter + Haversine algorithm as the History page. This guarantees
+        // Dashboard "Today Distance" == History "Total Dist" for the same day.
+        // The call also writes the result back to vehicle_latest_state.
+        try {
+          todayDistanceKm = await GpsModel.getTodayDistanceFromHistory(vehicleId);
+        } catch (distErr) {
+          // Non-fatal: fall back to the incremental value already in the table
+          console.warn(`[SUBSCRIBER] getTodayDistanceFromHistory failed for ${imei}:`, distErr.message);
+        }
       }
 
       // 5b. Active Trip Distance Accumulation

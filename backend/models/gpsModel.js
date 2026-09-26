@@ -83,26 +83,22 @@ const GpsModel = {
           ELSE vehicle_latest_state.today_start_odometer
         END,
         today_distance = CASE
-          -- New day — reset distance to the current leg
+          -- New day — reset counter; the accurate value will be written
+          -- by getTodayDistanceFromHistory() called from locationSubscriber
           WHEN vehicle_latest_state.today_distance_date IS DISTINCT FROM (NOW() AT TIME ZONE 'Asia/Kolkata')::date
-            THEN ROUND(GREATEST(0, (
-              6371 * acos(least(1.0,
-                cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
-                cos(radians($3) - radians(vehicle_latest_state.lng)) +
-                sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
-              ))
-            ))::numeric, 3)
-          -- Same day but invalid prev coords — keep existing
+            THEN 0
+          -- Same day but no previous coords — keep existing
           WHEN vehicle_latest_state.lat IS NULL OR vehicle_latest_state.lng IS NULL
             THEN COALESCE(vehicle_latest_state.today_distance, 0)
-          -- Same day — add distance only if plausible (>10m and <5km per update) AND vehicle is actually moving (speed > 3 km/h OR ignition ON)
+          -- Same day — add incremental distance only when moving (speed > 3 OR ignition ON)
+          -- Segment must be >10 m and <10 km (raised from 5 km to capture longer update intervals)
           ELSE ROUND((COALESCE(vehicle_latest_state.today_distance, 0) + GREATEST(0,
             CASE WHEN (
               6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
                 cos(radians($3) - radians(vehicle_latest_state.lng)) +
                 sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
-              )) BETWEEN 0.01 AND 5
+              )) BETWEEN 0.01 AND 10
               AND ($4 > 3 OR $7 = TRUE)
             )
             THEN 6371 * acos(least(1.0,
@@ -198,6 +194,90 @@ const GpsModel = {
     );
 
     return result.rows;
+  },
+
+  /**
+   * Compute today's travel distance for a vehicle from gps_points using
+   * the SAME algorithm as the History page (drift filter + Haversine segments
+   * >10m and <10km). Writes the result back to vehicle_latest_state so that
+   * the Dashboard "Today Distance" matches the History "Total Dist" exactly.
+   *
+   * Called from locationSubscriber on every LIVE packet.
+   *
+   * @param {number} vehicleId
+   * @returns {number} today_distance in km (3 decimal places)
+   */
+  async getTodayDistanceFromHistory(vehicleId) {
+    // Fetch all of today's points (IST midnight → now) ordered chronologically
+    const result = await db.query(
+      `SELECT lat, lng, speed, ignition
+       FROM gps_points
+       WHERE vehicle_id = $1
+         AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+         AND device_time <= NOW()
+         AND lat IS NOT NULL AND lng IS NOT NULL
+         AND lat != 0 AND lng != 0
+         AND lat BETWEEN 6.0 AND 38.0
+         AND lng BETWEEN 65.0 AND 100.0
+       ORDER BY device_time ASC`,
+      [vehicleId]
+    );
+
+    const rows = result.rows;
+    if (rows.length < 2) return 0;
+
+    // --- Drift Filter (same as HistoryPage.jsx lines 244-262) ---
+    // Keep a point if it or its predecessor is "moving" (speed > 3 OR ignition ON).
+    // This collapses GPS starburst clusters when the vehicle is parked.
+    const driftFiltered = [];
+    let lastValid = null;
+    for (const p of rows) {
+      if (!lastValid) {
+        driftFiltered.push(p);
+        lastValid = p;
+        continue;
+      }
+      const isMoving   = parseFloat(p.speed) > 3 || p.ignition;
+      const wasMoving  = parseFloat(lastValid.speed) > 3 || lastValid.ignition;
+      if (isMoving || wasMoving) {
+        driftFiltered.push(p);
+        lastValid = p;
+      }
+    }
+
+    // --- Haversine accumulation (same as HistoryPage.jsx lines 264-278) ---
+    // Segments < 10 m are GPS jitter, segments > 10 km are teleport glitches.
+    let totalKm = 0;
+    for (let i = 1; i < driftFiltered.length; i++) {
+      const prev = driftFiltered[i - 1];
+      const curr = driftFiltered[i];
+      const lat1 = parseFloat(prev.lat), lon1 = parseFloat(prev.lng);
+      const lat2 = parseFloat(curr.lat), lon2 = parseFloat(curr.lng);
+
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+      if (segDist > 0.01 && segDist < 10) {
+        totalKm += segDist;
+      }
+    }
+
+    const finalKm = parseFloat(totalKm.toFixed(3));
+
+    // Write back to vehicle_latest_state so dashboard reads the correct value
+    await db.query(
+      `UPDATE vehicle_latest_state
+       SET today_distance = $2
+       WHERE vehicle_id = $1`,
+      [vehicleId, finalKm]
+    );
+
+    return finalKm;
   },
 
   /**
