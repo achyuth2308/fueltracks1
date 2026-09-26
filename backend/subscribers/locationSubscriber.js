@@ -395,7 +395,7 @@ async function start(io) {
         const validLat = hasValidGps ? fLat : null;
         const validLng = hasValidGps ? fLng : null;
 
-        await GpsModel.updateLatestState({
+        const updateResult = await GpsModel.updateLatestState({
           vehicleId,
           lat: validLat,
           lng: validLng,
@@ -410,15 +410,24 @@ async function start(io) {
           battery: battery != null ? Math.round(battery) : null
         });
 
-        // CRITICAL FIX: Recompute today_distance from gps_points using the same
-        // drift-filter + Haversine algorithm as the History page. This guarantees
-        // Dashboard "Today Distance" == History "Total Dist" for the same day.
-        // The call also writes the result back to vehicle_latest_state.
-        try {
-          todayDistanceKm = await GpsModel.getTodayDistanceFromHistory(vehicleId);
-        } catch (distErr) {
-          // Non-fatal: fall back to the incremental value already in the table
-          console.warn(`[SUBSCRIBER] getTodayDistanceFromHistory failed for ${imei}:`, distErr.message);
+        // 5a. today_distance: use incremental value from updateLatestState for the
+        //     live dashboard. Only run the expensive full-history recompute at most
+        //     ONCE per 60 seconds per vehicle (throttled via Redis TTL key).
+        //     This avoids the "thundering herd" where 4000+ vehicles each trigger a
+        //     full gps_points table scan simultaneously after a deployment restart.
+        todayDistanceKm = updateResult ?? 0;
+
+        const throttleKey = `dist:throttle:${vehicleId}`;
+        const alreadyQueued = await redis.exists(throttleKey);
+        if (!alreadyQueued) {
+          // Arm the throttle — expires in 60s so next full recompute fires then
+          await redis.set(throttleKey, '1', 'EX', 60);
+          // Run the heavy full-history recompute in the background (non-blocking)
+          GpsModel.getTodayDistanceFromHistory(vehicleId).then(km => {
+            todayDistanceKm = km;
+          }).catch(distErr => {
+            console.warn(`[SUBSCRIBER] getTodayDistanceFromHistory failed for ${imei}:`, distErr.message);
+          });
         }
       }
 
