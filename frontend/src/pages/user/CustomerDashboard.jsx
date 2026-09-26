@@ -301,7 +301,19 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           gap: '8px',
           pointerEvents: 'none'
         }}>
-          {/* Header removed as requested */}
+          {/* Header to show which vehicle this card belongs to */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '8px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: '#1f2937' }}>
+              {hoveredVehicle.name}
+            </div>
+            <div style={{
+              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px',
+              background: getVehicleStatus(hoveredVehicle) === 'running' ? '#dcfce7' : '#f3f4f6',
+              color: getVehicleStatus(hoveredVehicle) === 'running' ? '#16a34a' : '#6b7280'
+            }}>
+              {getVehicleStatus(hoveredVehicle).toUpperCase()}
+            </div>
+          </div>
 
           {/* Expiry Warning */}
           {(() => {
