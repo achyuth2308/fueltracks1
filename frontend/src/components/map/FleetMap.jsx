@@ -297,7 +297,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
 import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon, createTeardropIcon } from '../../utils/markerUtils';
 
-const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0 }) => {
+const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, liveRouteMetrics = {} }) => {
   const markerRef = useRef(null);
   const navigate = useNavigate();
   const map = useMap();
