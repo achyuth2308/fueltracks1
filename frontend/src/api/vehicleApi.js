@@ -41,12 +41,14 @@ export const bulkAssignGroups = async (vehicleIds, groupIds, mode = 'replace') =
 };
 
 export const getVehicleHistory = async (id, params = {}) => {
-  const response = await axiosInstance.get(`/api/vehicles/${id}/history`, { params });
+  // History can return large payloads — use 60s timeout to prevent false logouts
+  const response = await axiosInstance.get(`/api/vehicles/${id}/history`, { params, timeout: 60000 });
   return response.data;
 };
 
 export const getVehicleRoute = async (id, params = {}) => {
-  const response = await axiosInstance.get(`/api/vehicles/${id}/route`, { params });
+  // Route data can be 300KB+ — use 60s timeout to prevent false logouts
+  const response = await axiosInstance.get(`/api/vehicles/${id}/route`, { params, timeout: 60000 });
   return response.data;
 };
 
