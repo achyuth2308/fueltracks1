@@ -11,6 +11,7 @@ const GpsModel = require('../models/gpsModel');
 const GeofenceModel = require('../models/geofenceModel');
 const RouteModel = require('../models/routeModel');
 const db = require('../config/db');
+const { gpsQuery } = require('../config/db'); // GPS writes use a separate isolated pool
 const env = require('../config/env');
 const webhookService = require('../services/webhookService'); // Civil Supply webhook push
 const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
@@ -26,7 +27,8 @@ let subscriber = null;
  */
 async function queueGpsPoint(point) {
   try {
-    await db.query(`
+    // Use the dedicated GPS pool — never blocks the API/login pool
+    await gpsQuery(`
       INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
          satellites, gsm_signal, battery, voltage, is_live, device_time)

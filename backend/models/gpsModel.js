@@ -3,6 +3,7 @@
 // ============================================================
 
 const db = require('../config/db');
+const { gpsQuery } = require('../config/db'); // GPS writes use dedicated isolated pool
 const { redis } = require('../config/redis');
 
 const GpsModel = {
@@ -12,7 +13,7 @@ const GpsModel = {
   async savePoint({ vehicleId, lat, lng, speed, direction, odometer, fuel,
                      ignition, satellites, gsmSignal, battery, voltage,
                      isLive, deviceTime }) {
-    const result = await db.query(
+    const result = await gpsQuery(
       `INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
          satellites, gsm_signal, battery, voltage, is_live, device_time)
@@ -52,7 +53,7 @@ const GpsModel = {
     // Read previous lat/lng and today_distance_date to compute incremental distance.
     // RETURNING today_distance so the caller can include it in the socket emit payload,
     // which fixes the "covered distance always 0.00 km" issue in the mobile app.
-    const result = await db.query(
+    const result = await gpsQuery(
       `INSERT INTO vehicle_latest_state
         (vehicle_id, lat, lng, speed, direction, fuel, ignition, voltage,
          odometer, satellites, gsm_signal, battery, is_online, last_seen,
@@ -209,7 +210,7 @@ const GpsModel = {
    */
   async getTodayDistanceFromHistory(vehicleId) {
     // Fetch all of today's points (IST midnight → now) ordered chronologically
-    const result = await db.query(
+    const result = await gpsQuery(
       `SELECT lat, lng, speed, ignition
        FROM gps_points
        WHERE vehicle_id = $1
@@ -270,7 +271,7 @@ const GpsModel = {
     const finalKm = parseFloat(totalKm.toFixed(3));
 
     // Write back to vehicle_latest_state so dashboard reads the correct value
-    await db.query(
+    await gpsQuery(
       `UPDATE vehicle_latest_state
        SET today_distance = $2
        WHERE vehicle_id = $1`,
