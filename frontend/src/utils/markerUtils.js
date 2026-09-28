@@ -122,8 +122,9 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
     ? '<div style="width:2px;height:' + stemHeight + 'px;background-color:' + color + ';margin-top:-2px;z-index:0;box-shadow: 1px 0 2px rgba(0,0,0,0.2);"></div>'
     : '';
 
-  // Vehicle plate label — shows registration number (or name) below the pin
-  const plateLabel = vehicle.plate || vehicle.name || '';
+  // Vehicle plate label — hidden by default to prevent clumsy/cluttered map markers
+  const showPlateLabel = !!overrideOptions.showPlateLabel;
+  const plateLabel = showPlateLabel ? (vehicle.plate || vehicle.name || '') : '';
   const plateLabelHtml = plateLabel
     ? '<div style="' +
         'position:absolute;' +
