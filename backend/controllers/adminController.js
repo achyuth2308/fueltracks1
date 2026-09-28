@@ -1328,6 +1328,52 @@ const AdminController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  // ============================================================
+  // GROUPS
+  // ============================================================
+  async getAllGroups(req, res, next) {
+    try {
+      const groups = await GroupModel.findAll(req.user.orgId, req.user.role, req.user.userId);
+      res.status(200).json({ success: true, data: groups });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createGroup(req, res, next) {
+    try {
+      const { name, description } = req.body;
+      if (!name) return res.status(400).json({ success: false, error: 'Group name is required.' });
+      const group = await GroupModel.create({ orgId: req.user.orgId, name, description });
+      res.status(201).json({ success: true, data: group, message: 'Group created successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateGroup(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, description, isActive } = req.body;
+      const updated = await GroupModel.update(id, { name, description, isActive });
+      if (!updated) return res.status(404).json({ success: false, error: 'Group not found.' });
+      res.status(200).json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteGroup(req, res, next) {
+    try {
+      const { id } = req.params;
+      const deleted = await GroupModel.delete(id);
+      if (!deleted) return res.status(404).json({ success: false, error: 'Group not found.' });
+      res.status(200).json({ success: true, message: 'Group deleted.' });
+    } catch (err) {
+      next(err);
+    }
   }
 };
 

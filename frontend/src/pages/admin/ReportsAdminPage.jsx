@@ -21,6 +21,7 @@ const formatDateTime = (isoString) => {
 const REPORT_TABS = [
   { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
+  { title: "Ignition", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
   { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
   { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },

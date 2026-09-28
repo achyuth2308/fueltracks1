@@ -25,6 +25,7 @@ export const getVehicleStatus = (vehicle = {}) => {
   const speed = parseFloat(vehicle.current_speed || vehicle.speed || 0);
   const ignition = !!vehicle.current_ignition;
 
+  if (!vehicle.last_seen) return 'unavailable';
   if (!isOnline) return 'offline';
   if (speed > 2.0) return 'running';
   if (ignition) return 'idle';
@@ -36,6 +37,7 @@ export const STATUS_CONFIG = {
   idle: { color: '#f59e0b', label: 'Idle', pulse: false },
   parked: { color: '#64748B', label: 'Parked', pulse: false },
   offline: { color: '#ef4444', label: 'Offline', pulse: false },
+  unavailable: { color: '#94a3b8', label: 'No Data', pulse: false },
 };
 
 // Ultra-bright high-contrast white vehicle SVGs

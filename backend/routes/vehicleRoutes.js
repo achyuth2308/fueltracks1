@@ -30,6 +30,7 @@ router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController
 router.get('/:id/history', VehicleController.getVehicleHistory);
 router.get('/:id/route', VehicleController.getVehicleRoute);
 router.get('/:id/report', VehicleController.getVehicleReport);
+router.get('/:id/ignition-report', VehicleController.getIgnitionReport);
 router.get('/:id/alerts', VehicleController.getVehicleAlerts);
 router.delete('/:id/alerts', VehicleController.clearVehicleAlerts);
 router.get('/:id/messages', VehicleController.getVehicleMessages);

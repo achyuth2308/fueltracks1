@@ -118,6 +118,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   const getStatus = (v) => {
+    if (!v.last_seen) return 'unavailable';
     if (!v.is_online) return 'offline';
     if ((v.current_speed || 0) > 2.0) return 'running';
     if (v.current_ignition) return 'idle';
@@ -125,7 +126,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   };
 
   const metrics = useMemo(() => {
-    const m = { running: 0, idle: 0, parked: 0, offline: 0 };
+    const m = { running: 0, idle: 0, parked: 0, offline: 0, unavailable: 0 };
     vehicles.forEach(v => m[getStatus(v)]++);
     return m;
   }, [vehicles]);
@@ -135,8 +136,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return vehicles.filter(v => getStatus(v) === statusFilter);
   }, [vehicles, statusFilter]);
 
-  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444' };
-  const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline' };
+  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unavailable: '#94a3b8' };
+  const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline', unavailable: 'No Data' };
 
   const currentSelected = useMemo(() => {
     if (!selectedVehicle) return null;
@@ -256,24 +257,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {/* Quick Nav */}
-          <div style={{ display: 'flex', gap: '4px', marginRight: '16px', paddingRight: '16px', borderRight: '1px solid #e5e7eb', overflowX: 'auto' }}>
-            <button onClick={() => window.location.href = '/dashboard'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-              <Activity size={14} /> Dashboard
-            </button>
-            <button onClick={() => window.location.href = '/tracking'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-              <Navigation size={14} /> Live Tracking
-            </button>
-            <button onClick={() => window.location.href = '/admin/geofences'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-              <MapPin size={14} /> Geofences
-            </button>
-            <button onClick={() => window.location.href = '/renewals'} style={{ padding: '6px 12px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-              <RefreshCw size={14} /> Renewals
-            </button>
-          </div>
 
           {/* Status filter pills */}
-          {['running', 'idle', 'parked', 'offline'].map(s => (
+          {['running', 'idle', 'parked', 'offline', 'unavailable'].map(s => (
             <StatusPill
               key={s} label={statusLabels[s]} count={metrics[s]}
               color={statusColors[s]} active={statusFilter === s}

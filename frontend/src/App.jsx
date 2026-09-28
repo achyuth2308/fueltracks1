@@ -37,6 +37,8 @@ import IdleReportPage from './pages/reports/IdleReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
+import IgnitionReportPage from './pages/reports/IgnitionReportPage';
+import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import DealerProfilePage from './modules/profile/DealerProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
@@ -116,6 +118,8 @@ function App() {
                     <Route path="consolidated" element={<ConsolidatedReportPage />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
+                    <Route path="ignition" element={<IgnitionReportPage />} />
+                    <Route path="activity" element={<VehicleActivityReportPage />} />
                   </Route>
                 </Route>
               </Route>

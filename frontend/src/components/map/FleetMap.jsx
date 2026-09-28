@@ -114,7 +114,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (hasValidCoords) {
-      map.flyTo([lat, lng], 16, { duration: 1.2 });
+      map.setView([lat, lng], 16, { animate: true, duration: 0.8 });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id]);

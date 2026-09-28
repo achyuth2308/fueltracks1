@@ -341,6 +341,115 @@ const GpsModel = {
   },
 
   /**
+   * Get ignition report (ON/OFF intervals and summaries)
+   */
+  async getIgnitionReport(vehicleId, { startDate, endDate }) {
+    const params = [vehicleId];
+    let dateFilter = '';
+    if (startDate) {
+      params.push(startDate.length === 10 ? `${startDate} 00:00:00` : startDate);
+      dateFilter += ` AND device_time >= $${params.length}`;
+    }
+    if (endDate) {
+      params.push(endDate.length === 10 ? `${endDate} 23:59:59` : endDate);
+      dateFilter += ` AND device_time <= $${params.length}`;
+    }
+
+    // Get all points to calculate intervals
+    const result = await db.query(
+      `SELECT lat, lng, speed, ignition, odometer, device_time
+       FROM gps_points
+       WHERE vehicle_id = $1 ${dateFilter}
+       ORDER BY device_time ASC`,
+      params
+    );
+
+    const points = result.rows;
+    const intervals = [];
+    let currentInterval = null;
+    let topSpeed = 0;
+    let topSpeedTime = null;
+    let totalDistance = 0;
+    let minOdo = null;
+    let maxOdo = null;
+
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const speed = parseFloat(p.speed || 0);
+      const isIgnitionOn = !!p.ignition;
+      const odo = parseFloat(p.odometer || 0);
+
+      // Track max speed
+      if (speed > topSpeed) {
+        topSpeed = speed;
+        topSpeedTime = p.device_time;
+      }
+
+      // Track odometer for distance
+      if (odo > 0) {
+        if (minOdo === null || odo < minOdo) minOdo = odo;
+        if (maxOdo === null || odo > maxOdo) maxOdo = odo;
+      }
+
+      if (!currentInterval) {
+        currentInterval = {
+          status: isIgnitionOn ? 'ON' : 'OFF',
+          startTime: p.device_time,
+          startLat: p.lat,
+          startLng: p.lng,
+          endTime: p.device_time
+        };
+      } else if (currentInterval.status !== (isIgnitionOn ? 'ON' : 'OFF')) {
+        // State changed
+        currentInterval.endTime = p.device_time;
+        currentInterval.durationMs = new Date(currentInterval.endTime).getTime() - new Date(currentInterval.startTime).getTime();
+        intervals.push(currentInterval);
+
+        // Start new interval
+        currentInterval = {
+          status: isIgnitionOn ? 'ON' : 'OFF',
+          startTime: p.device_time,
+          startLat: p.lat,
+          startLng: p.lng,
+          endTime: p.device_time
+        };
+      } else {
+        // Same state, just update end time
+        currentInterval.endTime = p.device_time;
+      }
+    }
+
+    // Push the last interval
+    if (currentInterval) {
+      currentInterval.durationMs = new Date(currentInterval.endTime).getTime() - new Date(currentInterval.startTime).getTime();
+      intervals.push(currentInterval);
+    }
+
+    if (minOdo !== null && maxOdo !== null) {
+      totalDistance = maxOdo - minOdo;
+    }
+
+    // Summarize
+    let totalRunningMs = 0;
+    let totalParkedMs = 0;
+    intervals.forEach(inv => {
+      if (inv.status === 'ON') totalRunningMs += inv.durationMs;
+      else totalParkedMs += inv.durationMs;
+    });
+
+    return {
+      intervals: intervals.reverse(), // latest first for table
+      summary: {
+        topSpeed,
+        topSpeedTime,
+        totalDistance: totalDistance.toFixed(2),
+        totalRunningMs,
+        totalParkedMs
+      }
+    };
+  },
+
+  /**
    * Save an alert
    */
   async saveAlert({ vehicleId, alertType, alertText, lat, lng, deviceTime }) {

@@ -38,7 +38,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         if (res.data?.success && res.data.profile) {
           setBrandProfile(res.data.profile);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     };
     loadProfile();
 

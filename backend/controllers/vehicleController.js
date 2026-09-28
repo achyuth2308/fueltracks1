@@ -846,6 +846,37 @@ const VehicleController = {
   },
 
   /**
+   * Get ignition report (ON/OFF intervals)
+   */
+  async getIgnitionReport(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { startDate, endDate } = req.query;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const report = await GpsModel.getIgnitionReport(id, { startDate, endDate });
+
+      res.status(200).json({
+        success: true,
+        data: report
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * Get alerts history
    */
   async getVehicleAlerts(req, res, next) {
