@@ -125,11 +125,13 @@ const UsersAdminPage = () => {
     }
   };
 
-  const filteredUsers = users.filter(u =>
-    u.role !== 'superadmin' &&
-    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredUsers = users.filter(u => {
+    if (u.role === 'superadmin') return false;
+    const s = searchQuery.toLowerCase();
+    const nameMatch = u.name ? u.name.toLowerCase().includes(s) : false;
+    const emailMatch = u.email ? u.email.toLowerCase().includes(s) : false;
+    return nameMatch || emailMatch;
+  });
 
   return (
     <div className="pastel-page-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>

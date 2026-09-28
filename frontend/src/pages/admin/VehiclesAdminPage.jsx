@@ -107,22 +107,22 @@ const VehiclesAdminPage = () => {
     const q = searchQuery.toLowerCase();
     const meta = v.metadata || {};
     return (
-      v.name?.toLowerCase().includes(q) ||
-      v.plate?.toLowerCase().includes(q) ||
-      v.imei?.toLowerCase().includes(q) ||
-      v.group_name?.toLowerCase().includes(q) ||
-      v.gps_sim_no?.toLowerCase().includes(q) ||
-      meta.vlttdSlno?.toLowerCase().includes(q) ||
-      meta.ownerName?.toLowerCase().includes(q) ||
-      meta.ownerPhone?.toLowerCase().includes(q) ||
-      meta.aadharNo?.toLowerCase().includes(q) ||
-      meta.panNo?.toLowerCase().includes(q) ||
-      meta.rtoLocation?.toLowerCase().includes(q) ||
-      meta.salesman?.toLowerCase().includes(q) ||
-      meta.serviceEngineer?.toLowerCase().includes(q) ||
-      meta.sensorNo?.toLowerCase().includes(q) ||
-      meta.sim2?.toLowerCase().includes(q) ||
-      meta.iccid?.toLowerCase().includes(q)
+      (v.name || '').toLowerCase().includes(q) ||
+      (v.plate || '').toLowerCase().includes(q) ||
+      (v.imei || '').toLowerCase().includes(q) ||
+      (v.group_name || '').toLowerCase().includes(q) ||
+      (v.gps_sim_no || '').toLowerCase().includes(q) ||
+      (meta.vlttdSlno || '').toLowerCase().includes(q) ||
+      (meta.ownerName || '').toLowerCase().includes(q) ||
+      (meta.ownerPhone || '').toLowerCase().includes(q) ||
+      (meta.aadharNo || '').toLowerCase().includes(q) ||
+      (meta.panNo || '').toLowerCase().includes(q) ||
+      (meta.rtoLocation || '').toLowerCase().includes(q) ||
+      (meta.salesman || '').toLowerCase().includes(q) ||
+      (meta.serviceEngineer || '').toLowerCase().includes(q) ||
+      (meta.sensorNo || '').toLowerCase().includes(q) ||
+      (meta.sim2 || '').toLowerCase().includes(q) ||
+      (meta.iccid || '').toLowerCase().includes(q)
     );
   });
 

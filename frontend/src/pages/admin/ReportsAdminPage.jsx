@@ -93,7 +93,7 @@ const ReportsAdminPage = () => {
   const filteredVehicles = useMemo(() => {
     if (!searchQuery) return vehicles;
     const q = searchQuery.toLowerCase();
-    return vehicles.filter(v => v.name?.toLowerCase().includes(q) || v.plate?.toLowerCase().includes(q));
+    return vehicles.filter(v => (v.name || '').toLowerCase().includes(q) || (v.plate || '').toLowerCase().includes(q));
   }, [vehicles, searchQuery]);
 
   const today = formatLocalDate(new Date());

@@ -152,7 +152,7 @@ const OrgsAdminPage = () => {
   const filteredUsers = allUsers.filter(u => {
     if (!userSearchQuery) return true;
     const searchLower = userSearchQuery.toLowerCase();
-    return (u.name?.toLowerCase().includes(searchLower) || u.email?.toLowerCase().includes(searchLower) || u.org_name?.toLowerCase().includes(searchLower));
+    return ((u.name || '').toLowerCase().includes(searchLower) || (u.email || '').toLowerCase().includes(searchLower) || (u.org_name || '').toLowerCase().includes(searchLower));
   });
 
   const isAllUsersSelected = filteredUsers.length > 0 && filteredUsers.every(u => assignedUserIds.includes(u.id));

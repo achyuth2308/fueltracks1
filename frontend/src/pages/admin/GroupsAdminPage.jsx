@@ -55,7 +55,7 @@ const GroupsAdminPage = () => {
   };
 
   const filteredGroups = groups.filter(g =>
-    g.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    (g.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (

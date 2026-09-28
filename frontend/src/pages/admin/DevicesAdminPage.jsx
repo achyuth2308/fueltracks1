@@ -72,9 +72,9 @@ const DevicesAdminPage = () => {
   }, []);
 
   const filtered = devices.filter(d =>
-    d.imei?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.vehicle_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.type?.toLowerCase().includes(searchQuery.toLowerCase())
+    (d.imei || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.vehicle_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.type || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handleDelete = async (id, e) => {
