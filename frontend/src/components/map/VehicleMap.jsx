@@ -12,10 +12,10 @@ const FitBoundsToTrail = ({ coords }) => {
 
   useEffect(() => {
     if (coords && coords.length > 0 && coords.length !== prevCoordsLength.current) {
+      const isInitial = prevCoordsLength.current === 0;
       prevCoordsLength.current = coords.length;
-      // Fly to the latest coordinate
       const latest = coords[coords.length - 1];
-      map.setView(latest, 15, { animate: true, duration: 1 });
+      map.setView(latest, 15, { animate: false });
     }
   }, [coords, map]);
 

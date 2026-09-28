@@ -38,6 +38,19 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
   const [liveTrail, setLiveTrail] = useState([]);
   const hasFitInitially = useRef(false);
   const prevVehicleIdRef = useRef(selectedVehicle?.id);
+  const userDraggedMapRef = useRef(false);
+
+  // Detect user map dragging so manual panning is allowed without live updates overriding it
+  useEffect(() => {
+    if (!map) return;
+    const handleDragStart = () => {
+      userDraggedMapRef.current = true;
+    };
+    map.on('dragstart', handleDragStart);
+    return () => {
+      map.off('dragstart', handleDragStart);
+    };
+  }, [map]);
 
   // Haversine distance in km
   const getDistance = (lat1, lon1, lat2, lon2) => {
@@ -104,17 +117,19 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     fetchRoute();
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, showRoute]);
 
-  // 1. Zoom to selected vehicle
+  // 1. Zoom to selected vehicle instantly without dragging across the screen
   useEffect(() => {
     const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
     if (!targetVehicle?.id) return;
+
+    userDraggedMapRef.current = false;
 
     let lat = parseFloat(targetVehicle.lat);
     let lng = parseFloat(targetVehicle.lng);
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (hasValidCoords) {
-      map.setView([lat, lng], 16, { animate: true, duration: 0.8 });
+      map.setView([lat, lng], 16, { animate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id]);
@@ -176,7 +191,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     };
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles?.length, map, followSelected]);
 
-  // 3. Smoothly pan to follow vehicle as it moves in real time
+  // 3. Pan to follow vehicle as it moves in real time (unless user manually dragged the map away)
   useEffect(() => {
     const targetId = selectedVehicle?.id || (selectedVehicles && selectedVehicles[0]?.id);
     if (!followSelected || !targetId) return;
@@ -195,9 +210,9 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
       const isNewVehicle = prevVehicleIdRef.current !== targetId;
       prevVehicleIdRef.current = targetId;
 
-      // Only pan if it's an update to the SAME vehicle.
-      if (!isNewVehicle) {
-        map.setView([lat, lng], map.getZoom(), { animate: true, duration: 0.8 });
+      // Only pan if it's an update to the SAME vehicle and the user hasn't manually moved the map
+      if (!isNewVehicle && !userDraggedMapRef.current) {
+        map.panTo([lat, lng], { animate: true, duration: 0.8 });
       }
 
       // Delay drawing the permanent trail by the exact duration of the marker animation (800ms).
@@ -759,7 +774,6 @@ const FleetMap = ({
             pointer-events: none !important;
             background: transparent !important;
             border: none !important;
-            transition: transform 1.5s linear !important; /* Smooth gliding animation */
           }
           .custom-marker-icon .pin-interactive {
             pointer-events: auto !important;
