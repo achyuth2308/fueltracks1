@@ -1,5 +1,6 @@
 export const formatSpeed = (speed) => {
-  return `${speed || 0} km/h`;
+  if (speed === null || speed === undefined) return 'N/A';
+  return `${Math.round(speed)} km/h`;
 };
 
 export const formatFuel = (fuel) => {

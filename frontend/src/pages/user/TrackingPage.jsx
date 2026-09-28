@@ -435,7 +435,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                         {v.name}
                       </div>
                       <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.7)' : '#9ca3af', marginTop: '1px' }}>
-                        {v.plate || v.name} • {formatSpeed(v.current_speed)}
+                        {v.plate || v.name} • {!v.last_seen ? 'N/A' : formatSpeed(v.current_speed)}
                       </div>
                     </div>
                     <span style={{
