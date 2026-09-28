@@ -50,7 +50,7 @@ const UsersAdminPage = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await adminApi.getUsers();
+      const response = await adminApi.getUsers({ t: Date.now() });
       if (response.success) {
         setUsers(response.data);
       }

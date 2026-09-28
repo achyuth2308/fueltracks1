@@ -38,8 +38,8 @@ export const deleteOrg = async (id) => {
 };
 
 // Users
-export const getUsers = async () => {
-  const response = await axiosInstance.get(`/api/admin/users`);
+export const getUsers = async (params = {}) => {
+  const response = await axiosInstance.get(`/api/admin/users`, { params });
   return response.data;
 };
 
