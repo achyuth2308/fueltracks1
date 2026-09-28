@@ -64,8 +64,8 @@ export const getUserVehicles = async (id) => {
 };
 
 // Groups
-export const getGroups = async () => {
-  const response = await axiosInstance.get(`/api/admin/groups`);
+export const getGroups = async (params = {}) => {
+  const response = await axiosInstance.get(`/api/admin/groups`, { params });
   return response.data;
 };
 
