@@ -158,11 +158,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
    *         corrupt GPS coordinates, NOT legitimate highway driving.
    * ─────────────────────────────────────────────────────────────────────────
    */
-  const GPS_GAP_THRESHOLD_MIN = 10;   // Break line if signal lost > 10 mins while parked
+  const GPS_GAP_THRESHOLD_MIN = 5;    // Break line and trigger Red Data Gap if signal lost > 5 mins
   const MAX_POSSIBLE_KMH = 500;       // Only reject physically impossible teleports (NOT highway speed)
 
-  const splitIntoSegments = (pts) => {
-    if (!pts || pts.length === 0) return [];
+  const splitIntoSegmentsAndGaps = (pts) => {
+    if (!pts || pts.length === 0) return { routeSegments: [], gapSegments: [] };
 
     // Step 1: Sort chronologically by device_time (puzzle-piece placement)
     const sorted = [...pts].sort((a, b) =>
@@ -170,6 +170,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     );
 
     const segs = [];
+    const gaps = [];
     let cur = [];
 
     for (let i = 0; i < sorted.length; i++) {
@@ -181,33 +182,45 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       }
 
       const prev = cur[cur.length - 1];
-      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const prevTimeMs = new Date(prev.device_time).getTime();
+      const currTimeMs = new Date(p.device_time).getTime();
+      const timeDiffMin = (currTimeMs - prevTimeMs) / 60000;
       const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
 
       // Step 3: Detect physically impossible GPS teleports (corrupt data)
-      // Only triggers at speeds that no vehicle can achieve (> 500 km/h)
       if (timeDiffMin > 0 && timeDiffMin < 5) {
         const impliedSpeedKmph = (dist / (timeDiffMin / 60));
         if (impliedSpeedKmph > MAX_POSSIBLE_KMH) {
-          // Skip this corrupt point entirely — don't break the line, don't add it
           continue;
         }
       }
 
-      // Step 2: Detect genuine GPS signal gap:
-      // If time gap > threshold AND vehicle was stopped/parked before the gap,
-      // it means the device truly lost signal (tunnel, parking garage, power off).
-      // Break the polyline here so we don't draw a straight line across the gap.
+      // Step 2: Detect genuine GPS signal gap (> 5 mins signal loss or jump)
       const vehicleWasStoppedBefore = (prev.speed || 0) <= 5;
-      const vehicleIsStoppedAfter = (p.speed || 0) <= 5;
-      const isGenuineSignalGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN && vehicleWasStoppedBefore;
+      const isGenuineSignalGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN;
 
-      // Also break for large gaps while moving (e.g. the vehicle drove through a dead zone)
-      // but only if the distance is suspiciously large relative to reported speed
-      const movingGap = timeDiffMin > GPS_GAP_THRESHOLD_MIN && !vehicleWasStoppedBefore && dist > 2.0;
-
-      if (isGenuineSignalGap || movingGap || timeDiffMin < 0) {
+      if (isGenuineSignalGap || timeDiffMin < 0) {
         if (cur.length > 0) segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
+
+        if (timeDiffMin > 0) {
+          gaps.push({
+            startPoint: prev,
+            endPoint: p,
+            startTime: prev.device_time,
+            endTime: p.device_time,
+            durationMs: currTimeMs - prevTimeMs,
+            distanceKm: dist,
+            positions: [
+              [parseFloat(prev.lat), parseFloat(prev.lng)],
+              [parseFloat(p.lat), parseFloat(p.lng)]
+            ],
+            midpoint: [
+              (parseFloat(prev.lat) + parseFloat(p.lat)) / 2,
+              (parseFloat(prev.lng) + parseFloat(p.lng)) / 2
+            ]
+          });
+        }
+
         cur = [p];
         continue;
       }
@@ -219,8 +232,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       segs.push(cur.map(pt => [parseFloat(pt.lat), parseFloat(pt.lng)]));
     }
 
-    return segs;
+    return { routeSegments: segs, gapSegments: gaps };
   };
+
+  const splitIntoSegments = (pts) => splitIntoSegmentsAndGaps(pts).routeSegments;
 
   // Valid points (only valid India coordinates, sorted chronologically, minimal safe filtering)
   const validPoints = React.useMemo(() => {
@@ -242,11 +257,9 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
       // 1. Physically impossible teleports (> 150 km/h for jumps > 200m)
-      // This catches the aggressive 195 km/h LBS drifts that draw straight lines across the map.
       if (impliedSpeedKmph > 150 && dist > 0.2) continue;
 
-      // 2. Doppler Mismatch (Catch slower drifts where device claims to be stopped/slow)
-      // E.g., jumping 500m at 80 km/h while device reports 0-10 km/h
+      // 2. Doppler Mismatch
       const reportedSpeed = p.speed || 0;
       if (impliedSpeedKmph > 80 && reportedSpeed < 20 && dist > 0.5) continue;
       filtered.push(p);
@@ -255,7 +268,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     return filtered;
   }, [points]);
 
-  const routeSegments = React.useMemo(() => splitIntoSegments(validPoints), [validPoints]);
+  const { routeSegments, gapSegments } = React.useMemo(() => splitIntoSegmentsAndGaps(validPoints), [validPoints]);
 
   useEffect(() => {
     let isMounted = true;
@@ -664,6 +677,102 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               lineCap="round"
               lineJoin="round"
             />
+          </React.Fragment>
+        ))}
+
+        {/* Data Gap Lines (Red Dashed Polylines & Alert Markers where data was not received) */}
+        {gapSegments.map((gap, idx) => (
+          <React.Fragment key={`gap-group-${idx}`}>
+            {/* Red shadow glow */}
+            <Polyline
+              positions={gap.positions}
+              color="#7f1d1d"
+              weight={6}
+              opacity={0.2}
+              lineCap="round"
+              lineJoin="round"
+            />
+            {/* Primary Red Dashed Line connecting the points across the gap */}
+            <Polyline
+              positions={gap.positions}
+              color="#ef4444"
+              weight={4}
+              dashArray="6, 8"
+              opacity={0.95}
+              lineCap="round"
+              lineJoin="round"
+            >
+              <Popup className="premium-popup modern-hover-card">
+                <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '220px', background: '#FFFFFF' }}>
+                  <div style={{ fontWeight: 700, color: '#ef4444', borderBottom: '1px solid #fee2e2', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    No Data Received
+                  </div>
+                  <div style={{ color: '#1e293b', fontWeight: 600, fontSize: '11.5px', marginBottom: '8px', lineHeight: '1.4' }}>
+                    No data from <span style={{ color: '#ef4444', fontWeight: 700 }}>{formatLocalTime(gap.startTime)}</span> to <span style={{ color: '#ef4444', fontWeight: 700 }}>{formatLocalTime(gap.endTime)}</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Gap Duration</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(gap.durationMs)}</td>
+                      </tr>
+                      {gap.distanceKm > 0.05 && (
+                        <tr>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Distance Jump</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#64748b' }}>{gap.distanceKm.toFixed(2)} km</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#fef2f2', padding: '6px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                    Signal lost / Device offline during this period
+                  </div>
+                </div>
+              </Popup>
+            </Polyline>
+
+            {/* Red Warning Marker at midpoint of data gap */}
+            <Marker
+              position={gap.midpoint}
+              icon={L.divIcon({
+                html: `<div style="background: #ef4444; border: 2px solid #FFFFFF; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(239,68,68,0.4); cursor: pointer;">
+                  <span style="color: white; font-size: 11px; font-weight: 900; line-height: 1;">!</span>
+                </div>`,
+                className: '',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              })}
+            >
+              <Popup className="premium-popup modern-hover-card">
+                <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '220px', background: '#FFFFFF' }}>
+                  <div style={{ fontWeight: 700, color: '#ef4444', borderBottom: '1px solid #fee2e2', paddingBottom: '6px', marginBottom: '8px', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    No Data Received
+                  </div>
+                  <div style={{ color: '#1e293b', fontWeight: 600, fontSize: '11.5px', marginBottom: '8px', lineHeight: '1.4' }}>
+                    No data from <span style={{ color: '#ef4444', fontWeight: 700 }}>{formatLocalTime(gap.startTime)}</span> to <span style={{ color: '#ef4444', fontWeight: 700 }}>{formatLocalTime(gap.endTime)}</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '8px' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Gap Duration</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(gap.durationMs)}</td>
+                      </tr>
+                      {gap.distanceKm > 0.05 && (
+                        <tr>
+                          <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Distance Jump</td>
+                          <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#64748b' }}>{gap.distanceKm.toFixed(2)} km</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                  <div style={{ textAlign: 'center', color: '#64748B', fontSize: '10.5px', background: '#fef2f2', padding: '6px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                    Signal lost / Device offline during this period
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
           </React.Fragment>
         ))}
 
