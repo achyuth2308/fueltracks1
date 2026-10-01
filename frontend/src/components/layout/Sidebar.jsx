@@ -82,7 +82,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const handleRestoreAdmin = async () => {
     const res = await restoreAdmin();
     if (res.success) {
-      navigate('/admin/users');
+      window.location.href = '/admin/users';
     } else {
       alert(res.error || 'Failed to restore admin session');
     }

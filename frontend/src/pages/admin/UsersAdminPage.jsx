@@ -50,12 +50,17 @@ const UsersAdminPage = () => {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const response = await adminApi.getUsers({ t: Date.now() });
-      if (response.success) {
+      const response = await adminApi.getUsers();
+      if (response?.success && Array.isArray(response.data)) {
         setUsers(response.data);
+      } else if (Array.isArray(response)) {
+        setUsers(response);
+      } else {
+        setUsers([]);
       }
     } catch (err) {
       setError('Failed to load user records.');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -64,8 +69,9 @@ const UsersAdminPage = () => {
   const fetchOrgs = async () => {
     try {
       const response = await adminApi.getOrgs();
-      if (response.success) setOrgs(response.data);
-    } catch (err) { }
+      if (response?.success && Array.isArray(response.data)) setOrgs(response.data);
+      else if (Array.isArray(response)) setOrgs(response);
+    } catch (err) { setOrgs([]); }
   };
 
   useEffect(() => {
@@ -79,7 +85,7 @@ const UsersAdminPage = () => {
     setVehiclesLoading(true);
     try {
       const res = await getUserVehicles(u.id);
-      if (res.success) setUserVehicles(res.data);
+      if (res?.success && Array.isArray(res.data)) setUserVehicles(res.data);
     } catch (e) {
       setUserVehicles([]);
     } finally {
@@ -125,12 +131,13 @@ const UsersAdminPage = () => {
     }
   };
 
-  const filteredUsers = users.filter(u => {
-    if (u.role === 'superadmin') return false;
-    const s = searchQuery.toLowerCase();
+  const filteredUsers = (Array.isArray(users) ? users : []).filter(u => {
+    if (!u || u.role === 'superadmin') return false;
+    const s = (searchQuery || '').toLowerCase();
     const nameMatch = u.name ? u.name.toLowerCase().includes(s) : false;
     const emailMatch = u.email ? u.email.toLowerCase().includes(s) : false;
-    return nameMatch || emailMatch;
+    const usernameMatch = u.username ? u.username.toLowerCase().includes(s) : false;
+    return nameMatch || emailMatch || usernameMatch;
   });
 
   return (
