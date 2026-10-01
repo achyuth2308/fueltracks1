@@ -5,6 +5,7 @@ const healthPacket = '$HEL,VLT1,M1.2.2,861329080867568,13,40,2,60,120,0001,01*';
 const emergencyPacket = '$PVT,VLT1,M1.2.2,EA,10,L,861329080867568,DL1PC5814,1,06082026,043020,17.345352,N,78.523826,E,0.26,306.22,10,492.527,1.4,1.4,AIRTEL,1,1,18.4,4.2,1,O,30,404,49,4e5d,e2d7,e2d8,4e5d,10,1979,4e5d,9,ef3e,4e5d,0,0000,0000,0,0001,00,000001,0051*';
 const epbPacket = '$EPB,VLT1,M1.2.2,861329080867568,DL1PC5814,1,06082026,043020,17.345352,N,78.523826,E,0.26,306.22,10,492.527,1.4,1.4,AIRTEL,1,1,18.4,4.2,1,O,30,404,49,4e5d,e2d7,e2d8,4e5d,10,1979,4e5d,9,ef3e,4e5d,0,0000,0000,0,0001,00,000001,0051*';
 const ocPacket = '$PVT,VLT1,M1.2.2,OC,12,<52.62.136.218#*';
+const govtEpbPacket = '$EPB,EMR,861329080867568,NM,06082026043020,A,17.345352,N,78.523826,E,492.5,25.1,120.5,G,DL1PC5814,0,0051*';
 
 console.log('--- TEST 1: Normal Packet ---');
 console.log(parsePacket(normalPacket));
@@ -20,3 +21,9 @@ console.log(parsePacket(epbPacket));
 
 console.log('--- TEST 5: OC Handshake Packet ---');
 console.log(parsePacket(ocPacket));
+
+console.log('--- TEST 6: Govt EPB Emergency Packet (via voltyParser directly) ---');
+const { parseVoltyPacket } = require('./parser/voltyParser');
+console.log(parseVoltyPacket(govtEpbPacket));
+
+

@@ -31,7 +31,24 @@ function convertCoords(raw, direction) {
 }
 
 function parseVoltyTime(dateStr, timeStr) {
-  if (!dateStr || dateStr.length < 6 || !timeStr || timeStr.length < 6) {
+  if (!dateStr) {
+    return new Date().toISOString();
+  }
+  // Support 14-character combined date-time string (DDMMYYYYhhmmss)
+  if (dateStr.length === 14 && (!timeStr || timeStr.length === 0)) {
+    const day = dateStr.substring(0, 2);
+    const month = dateStr.substring(2, 4);
+    const year = dateStr.substring(4, 8);
+    const hours = dateStr.substring(8, 10);
+    const minutes = dateStr.substring(10, 12);
+    const seconds = dateStr.substring(12, 14);
+
+    const isoString = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}Z`;
+    const date = new Date(isoString);
+    if (!isNaN(date.getTime())) return date.toISOString();
+  }
+
+  if (dateStr.length < 6 || !timeStr || timeStr.length < 6) {
     return new Date().toISOString();
   }
   // Date: DDMMYYYY or DDMMYY
@@ -61,6 +78,42 @@ function parseVoltyTime(dateStr, timeStr) {
 function parseVoltyPacket(raw) {
   const cleanRaw = raw.replace(/\*/g, '').trim();
   const parts = cleanRaw.split(',');
+
+  // Special Handling: Government Standard Emergency EPB Schema ($EPB,EMR,IMEI,NM/SP,DDMMYYYYhhmmss,A/V,Lat,N,Lng,E...)
+  if (parts[0] && parts[0].toUpperCase() === '$EPB' && (parts[1] === 'EMR' || parts[1] === 'SEM') && parts[2] && parts[2].length >= 14) {
+    const imei = parts[2].trim();
+    const isLive = parts[3] ? parts[3].trim().toUpperCase() !== 'SP' : true;
+    const deviceTime = parseVoltyTime(parts[4] ? parts[4].trim() : '', '');
+    const gpsValid = parts[5] && parts[5].trim().toUpperCase() === 'A' ? 'A' : 'V';
+    const lat = convertCoords(parts[6], parts[7]);
+    const lng = convertCoords(parts[8], parts[9]);
+    const altitude = parseFloat(parts[10]) || 0;
+    const rawSpeed = parseFloat(parts[11]) || 0;
+    const cleanSpeed = rawSpeed > 2.0 ? Math.round(rawSpeed) : 0;
+    const distance = parseFloat(parts[12]) || 0;
+
+    return {
+      packetType: 'VOLTY_NORMAL',
+      imei,
+      gpsValid,
+      lat,
+      lng,
+      speed: cleanSpeed,
+      odometer: distance,
+      direction: 0,
+      satellites: 0,
+      altitude,
+      gsmSignal: 0,
+      battery: 100,
+      ignition: true,
+      voltage: 0,
+      isLive,
+      deviceTime,
+      alertType: 'sos',
+      alertText: 'Emergency state ON',
+      rawPacket: raw
+    };
+  }
 
   // Look for the 14-16 digit numeric IMEI anywhere in the first few fields of the header
   let imeiIndex = -1;
@@ -133,12 +186,17 @@ function parseVoltyPacket(raw) {
   const speedStr = safeGet(9);
   const heading = safeGet(10);
   const satellites = safeGet(11);
+  const altitudeStr = safeGet(12);
+  const pdopStr = safeGet(13);
+  const hdopStr = safeGet(14);
   const ignition = safeGet(16);
   const mainPowerStatus = safeGet(17); // 1 = connected to vehicle battery, 0 = disconnected
   const inputV = safeGet(18);
   const internalV = safeGet(19);
   const emergencyStatus = safeGet(20);
   const gsmSignal = safeGet(22);
+  const digitalInputs = safeGet(35) || null;
+  const digitalOutputs = safeGet(36) || null;
 
   const rawSpeed = parseFloat(speedStr) || 0;
   // Filter GPS drift below 2.0 km/h
@@ -146,6 +204,9 @@ function parseVoltyPacket(raw) {
 
   const mainVoltage = parseFloat(inputV) || 0;
   const internalVoltage = parseFloat(internalV) || 0;
+  const altitude = parseFloat(altitudeStr) || 0;
+  const pdop = parseFloat(pdopStr) || null;
+  const hdop = parseFloat(hdopStr) || null;
 
   // If power is removed (voltage <= 5V or mainPowerStatus is '0'), vehicle ignition is definitely OFF
   const hasExternalPower = mainVoltage > 5.0 && mainPowerStatus !== '0';
@@ -160,25 +221,30 @@ function parseVoltyPacket(raw) {
 
   console.log(`[TCP - VOLTY - DEBUG] IMEI ${imei}: gpsFix=${gpsFix} (valid=${isGpsValid}), lat=${lat}, lng=${lng}, speed=${cleanSpeed}, ign=${isIgnition}, vIn=${mainVoltage}V, vBatt=${internalVoltage}V`);
 
-    const lOrH = imeiIndex >= 1 ? parts[imeiIndex - 1].trim().toUpperCase() : 'L';
-    const isLivePacket = lOrH !== 'H' && lOrH !== 'A'; // H/A = History/Archive
+  const lOrH = imeiIndex >= 1 ? parts[imeiIndex - 1].trim().toUpperCase() : 'L';
+  const isLivePacket = lOrH !== 'H' && lOrH !== 'A'; // H/A = History/Archive
 
-    const result = {
-      packetType: 'VOLTY_NORMAL',
-      imei,
-      gpsValid: isGpsValid ? 'A' : 'V',
-      lat,
-      lng,
-      speed: cleanSpeed,
-      odometer: 0, 
-      direction: Math.round(parseFloat(heading)) || 0,
-      satellites: parseInt(satellites) || 0,
-      gsmSignal: parseInt(gsmSignal) || 0,
-      battery: Math.round(Math.min(100, Math.max(0, (internalVoltage / 4.2) * 100))) || 100, 
-      ignition: isIgnition,
-      voltage: mainVoltage,
-      isLive: isLivePacket,
-      deviceTime,
+  const result = {
+    packetType: 'VOLTY_NORMAL',
+    imei,
+    gpsValid: isGpsValid ? 'A' : 'V',
+    lat,
+    lng,
+    speed: cleanSpeed,
+    odometer: 0, 
+    direction: Math.round(parseFloat(heading)) || 0,
+    satellites: parseInt(satellites) || 0,
+    altitude,
+    pdop,
+    hdop,
+    gsmSignal: parseInt(gsmSignal) || 0,
+    battery: Math.round(Math.min(100, Math.max(0, (internalVoltage / 4.2) * 100))) || 100, 
+    ignition: isIgnition,
+    voltage: mainVoltage,
+    digitalInputs,
+    digitalOutputs,
+    isLive: isLivePacket,
+    deviceTime,
     rawPacket: raw
   };
   
