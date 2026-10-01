@@ -60,7 +60,21 @@ const LoginPage = () => {
     setLoading(true); setError(null);
     const result = await login(identifier, password);
     setLoading(false);
-    if (!result.success) {
+    if (result.success) {
+      const token = localStorage.getItem('token');
+      let role = user?.role;
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          role = payload.role || role;
+        } catch (err) {}
+      }
+      if (role === 'customer') {
+        navigate('/tracking', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    } else {
       setError(result.error || 'Authentication failed. Check your credentials.');
     }
   };
