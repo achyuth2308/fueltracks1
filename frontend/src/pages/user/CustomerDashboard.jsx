@@ -210,8 +210,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <div style={{
             position: 'fixed',
             top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
@@ -219,88 +219,83 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             padding: '20px'
           }}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
               style={{
                 background: '#FFFFFF',
-                borderRadius: '16px',
-                padding: '28px 24px 24px 24px',
-                maxWidth: '420px',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                maxWidth: '460px',
                 width: '100%',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                textAlign: 'center',
-                position: 'relative',
-                border: '1px solid #FECACA'
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
+                border: '1px solid #DC2626'
               }}
             >
-              <button
-                onClick={() => setExpiredModalVehicle(null)}
-                style={{
-                  position: 'absolute',
-                  top: '14px', right: '14px',
-                  background: '#F1F5F9', border: 'none',
-                  width: '30px', height: '30px', borderRadius: '50%',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: '#64748B'
-                }}
-              >
-                <X size={16} />
-              </button>
-
+              {/* Red Header Bar */}
               <div style={{
-                width: '56px', height: '56px', borderRadius: '50%',
-                background: '#FEF2F2', border: '2px solid #FECACA',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                margin: '0 auto 16px'
+                background: '#DC2626',
+                color: '#FFFFFF',
+                padding: '12px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}>
-                <AlertTriangle size={28} color="#EF4444" />
-              </div>
-
-              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#991B1B', margin: '0 0 8px' }}>
-                License Expired
-              </h3>
-
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', marginBottom: '12px' }}>
-                Vehicle: <span style={{ color: '#DC2626' }}>{expiredModalVehicle.name}</span>
-              </div>
-
-              <p style={{ fontSize: '14px', color: '#B91C1C', lineHeight: '1.5', margin: '0 0 20px', fontWeight: 700, background: '#FEF2F2', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FECACA' }}>
-                Your license has expired. Please contact sales team or renew yourself
-              </p>
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button
-                  onClick={() => {
-                    setExpiredModalVehicle(null);
-                    navigate('/renewals');
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '10px 16px',
-                    background: '#DC2626',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
-                  }}
-                >
-                  Renew License
-                </button>
+                <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.2px' }}>
+                  Licence Expiry Message
+                </span>
                 <button
                   onClick={() => setExpiredModalVehicle(null)}
                   style={{
-                    padding: '10px 16px',
-                    background: '#F1F5F9',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '2px',
+                    borderRadius: '4px'
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Body Content */}
+              <div style={{ padding: '24px 20px', background: '#FFFFFF' }}>
+                <p style={{
+                  margin: 0,
+                  color: '#DC2626',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  lineHeight: '1.5'
+                }}>
+                  Your license has expired. Please contact sales team or renew yourself
+                </p>
+              </div>
+
+              {/* Footer Bar */}
+              <div style={{
+                padding: '12px 16px',
+                background: '#F8FAFC',
+                borderTop: '1px solid #E2E8F0',
+                display: 'flex',
+                justify: 'flex-end',
+                gap: '10px'
+              }}>
+                <button
+                  onClick={() => setExpiredModalVehicle(null)}
+                  style={{
+                    padding: '6px 18px',
+                    background: '#FFFFFF',
                     color: '#475569',
-                    border: '1px solid #E2E8F0',
-                    borderRadius: '8px',
-                    fontWeight: 700,
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '6px',
                     fontSize: '13px',
-                    cursor: 'pointer'
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                   }}
                 >
                   Close
