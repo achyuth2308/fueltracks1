@@ -382,58 +382,65 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="flex flex-col">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2">
-                  Brand / Portal Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="brand_name"
-                  required
-                  placeholder="e.g. Apex Telematics"
-                  value={formData.brand_name}
-                  onChange={handleChange}
-                  className="h-12 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
-                />
+            <div className="flex flex-col gap-5">
+              {/* Row 1: Brand Name & Tagline */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="flex flex-col">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2">
+                    Brand / Portal Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="brand_name"
+                    required
+                    placeholder="e.g. Apex Telematics"
+                    value={formData.brand_name}
+                    onChange={handleChange}
+                    className="h-11 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
+                  />
+                </div>
+
+                <div className="flex flex-col">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2">
+                    Portal Tagline / Slogan
+                  </label>
+                  <input
+                    type="text"
+                    name="brand_tagline"
+                    placeholder="e.g. Smart GPS Tracking & Fuel Intelligence"
+                    value={formData.brand_tagline}
+                    onChange={handleChange}
+                    className="h-11 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
+                  />
+                </div>
               </div>
 
+              {/* Row 2: Subdomain Slug (Full width block to prevent overlap) */}
               <div className="flex flex-col">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2">
-                  Portal Tagline / Slogan
-                </label>
-                <input
-                  type="text"
-                  name="brand_tagline"
-                  placeholder="e.g. Smart GPS Tracking & Fuel Intelligence"
-                  value={formData.brand_tagline}
-                  onChange={handleChange}
-                  className="h-12 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
-                />
-              </div>
-
-              <div className="flex flex-col">
-                <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2 flex items-center justify-between">
-                  <span>Portal Subdomain Slug</span>
-                  <span className="text-xs font-black text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-300">
-                    <Shield className="w-3.5 h-3.5 text-emerald-600" /> SSL Secured
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-800 m-0">
+                    Portal Subdomain Slug
+                  </label>
+                  <span className="text-[10px] font-black text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-300">
+                    <Shield className="w-3 h-3 text-emerald-600" /> SSL Secured
                   </span>
-                </label>
-                <div className="flex items-center">
+                </div>
+                <div className="flex items-center w-full">
                   <input
                     type="text"
                     name="subdomain"
                     placeholder="apextelematics"
                     value={formData.subdomain}
                     onChange={handleChange}
-                    className="h-12 px-4 bg-slate-50 border-2 border-r-0 border-slate-300 rounded-l-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all flex-1"
+                    className="h-11 px-4 bg-slate-50 border-2 border-r-0 border-slate-300 rounded-l-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all flex-1 min-w-0"
                   />
-                  <span className="h-12 px-4 bg-slate-100 border-2 border-slate-300 rounded-r-2xl text-xs font-black text-slate-800 flex items-center">
+                  <span className="h-11 px-4 bg-slate-100 border-2 border-slate-300 rounded-r-2xl text-xs font-black text-slate-800 flex items-center shrink-0 whitespace-nowrap">
                     .fueltracks.com
                   </span>
                 </div>
               </div>
 
+              {/* Row 3: Footer Copyright (Full width block) */}
               <div className="flex flex-col">
                 <label className="text-xs font-black uppercase tracking-wider text-slate-800 mb-2">
                   Portal Footer Copyright
@@ -444,7 +451,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                   placeholder="© 2026 Apex Telematics. All rights reserved."
                   value={formData.footer_text}
                   onChange={handleChange}
-                  className="h-12 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all"
+                  className="h-11 px-4 bg-slate-50 border-2 border-slate-300 rounded-2xl text-sm font-black text-slate-900 focus:bg-white focus:outline-none focus:ring-4 focus:ring-slate-500/15 transition-all w-full"
                 />
               </div>
             </div>
