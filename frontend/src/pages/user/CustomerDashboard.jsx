@@ -69,6 +69,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const [statusFilter, setStatusFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [dismissedToastId, setDismissedToastId] = useState(null);
+  const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
   const [hoveredVehicleAddress, setHoveredVehicleAddress] = useState(null);
@@ -202,6 +203,113 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
       background: '#f0f2f5', overflow: 'hidden', position: 'relative'
     }}>
+
+      {/* ── Middle Expired License Modal ── */}
+      <AnimatePresence>
+        {expiredModalVehicle && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            padding: '20px'
+          }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '28px 24px 24px 24px',
+                maxWidth: '420px',
+                width: '100%',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                textAlign: 'center',
+                position: 'relative',
+                border: '1px solid #FECACA'
+              }}
+            >
+              <button
+                onClick={() => setExpiredModalVehicle(null)}
+                style={{
+                  position: 'absolute',
+                  top: '14px', right: '14px',
+                  background: '#F1F5F9', border: 'none',
+                  width: '30px', height: '30px', borderRadius: '50%',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#64748B'
+                }}
+              >
+                <X size={16} />
+              </button>
+
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: '#FEF2F2', border: '2px solid #FECACA',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px'
+              }}>
+                <AlertTriangle size={28} color="#EF4444" />
+              </div>
+
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#991B1B', margin: '0 0 8px' }}>
+                License Expired
+              </h3>
+
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', marginBottom: '12px' }}>
+                Vehicle: <span style={{ color: '#DC2626' }}>{expiredModalVehicle.name}</span>
+              </div>
+
+              <p style={{ fontSize: '14px', color: '#B91C1C', lineHeight: '1.5', margin: '0 0 20px', fontWeight: 700, background: '#FEF2F2', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FECACA' }}>
+                Your license has expired. Please contact sales team.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setExpiredModalVehicle(null);
+                    navigate('/renewals');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    background: '#DC2626',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                  }}
+                >
+                  Renew License
+                </button>
+                <button
+                  onClick={() => setExpiredModalVehicle(null)}
+                  style={{
+                    padding: '10px 16px',
+                    background: '#F1F5F9',
+                    color: '#475569',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── Top Warning Toast ── */}
       <AnimatePresence>
@@ -559,19 +667,27 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               </div>
             ) : (
               filtered.map(v => {
+                const warning = getExpiryWarning(v);
+                const isExpired = warning && warning.type === 'expired';
                 const status = getStatus(v);
                 const isSelected = currentSelected?.id === v.id;
-                const sc = statusColors[status];
+                const sc = isExpired ? '#DC2626' : statusColors[status];
                 const isVan = (v.name || '').toLowerCase().includes('van');
                 return (
                   <div
                     key={v.id}
-                    onClick={() => setSelectedVehicle(prev => prev?.id === v.id ? null : v)}
-                    title={getExpiryWarning(v) ? getExpiryWarning(v).text : undefined}
+                    onClick={() => {
+                      if (isExpired) {
+                        setExpiredModalVehicle(v);
+                        return;
+                      }
+                      setSelectedVehicle(prev => prev?.id === v.id ? null : v);
+                    }}
+                    title={warning ? warning.text : undefined}
                     style={{
-                      background: isSelected ? '#F0F9FF' : '#FFFFFF',
-                      borderBottom: isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9',
-                      borderLeft: isSelected ? '4px solid #0EA5E9' : '4px solid transparent',
+                      background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
+                      borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
+                      borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
                       padding: '12px 14px',
                       cursor: 'pointer',
                       transition: 'background 0.15s ease',
@@ -585,11 +701,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
                       const itemRect = e.currentTarget.getBoundingClientRect();
                       setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
-                      if (!isSelected) e.currentTarget.style.background = '#F8FAFC';
+                      if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
+                      if (isExpired) e.currentTarget.style.background = '#FEE2E2';
                     }}
                     onMouseLeave={e => {
                       setHoveredVehicleId(null);
-                      if (!isSelected) e.currentTarget.style.background = '#FFFFFF';
+                      if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
+                      if (isExpired) e.currentTarget.style.background = '#FEF2F2';
                     }}
                   >
                     {/* Vehicle Icon Graphic */}
@@ -619,28 +737,28 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       )}
                     </div>
 
-                    {/* Middle Details */}
+                    {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {v.name}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {v.plate || v.name}
                       </div>
-                      <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                         <span>{formatSpeed(v.current_speed)}</span>
                         <span>·</span>
                         <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'No GPS data'}</span>
                       </div>
                     </div>
 
-                    {/* Right Status Dot & Arrow */}
+                    {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: sc }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sc }} />
-                        <span>{statusLabels[status]}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+                        <span>{isExpired ? 'EXPIRED' : statusLabels[status]}</span>
                       </div>
-                      <ChevronRight size={14} color="#94A3B8" />
+                      <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
                     </div>
                   </div>
                 );

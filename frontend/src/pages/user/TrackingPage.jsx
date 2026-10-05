@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle, Navigation } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
 import FleetMap from '../../components/map/FleetMap';
 import { formatSpeed, formatFuel, formatVoltage, formatOdometer, formatDirection } from '../../utils/formatUtils';
@@ -62,6 +63,7 @@ const TrackingPage = ({ setAppVehicles }) => {
   const { vehicles, groups, loading, error, refetch } = useVehicles();
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
@@ -195,6 +197,11 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [vehicles, statusFilter, searchQuery]);
 
   const handleVehicleSelect = (vehicle) => {
+    const warning = getExpiryWarning(vehicle);
+    if (warning && warning.type === 'expired') {
+      setExpiredModalVehicle(vehicle);
+      return;
+    }
     setSelectedVehicles(prev => {
       const isSelected = prev.some(v => v.id === vehicle.id);
       if (isSelected) {
@@ -232,6 +239,113 @@ const TrackingPage = ({ setAppVehicles }) => {
       position: 'relative',
       fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
     }}>
+
+      {/* ── Middle Expired License Modal ── */}
+      <AnimatePresence>
+        {expiredModalVehicle && (
+          <div style={{
+            position: 'fixed',
+            top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justify: 'center',
+            padding: '20px'
+          }}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                padding: '28px 24px 24px 24px',
+                maxWidth: '420px',
+                width: '100%',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                textAlign: 'center',
+                position: 'relative',
+                border: '1px solid #FECACA'
+              }}
+            >
+              <button
+                onClick={() => setExpiredModalVehicle(null)}
+                style={{
+                  position: 'absolute',
+                  top: '14px', right: '14px',
+                  background: '#F1F5F9', border: 'none',
+                  width: '30px', height: '30px', borderRadius: '50%',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#64748B'
+                }}
+              >
+                <X size={16} />
+              </button>
+
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%',
+                background: '#FEF2F2', border: '2px solid #FECACA',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 16px'
+              }}>
+                <AlertTriangle size={28} color="#EF4444" />
+              </div>
+
+              <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#991B1B', margin: '0 0 8px' }}>
+                License Expired
+              </h3>
+
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1E293B', marginBottom: '12px' }}>
+                Vehicle: <span style={{ color: '#DC2626' }}>{expiredModalVehicle.name}</span>
+              </div>
+
+              <p style={{ fontSize: '14px', color: '#B91C1C', lineHeight: '1.5', margin: '0 0 20px', fontWeight: 700, background: '#FEF2F2', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FECACA' }}>
+                Your license has expired. Please contact sales team.
+              </p>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                <button
+                  onClick={() => {
+                    setExpiredModalVehicle(null);
+                    navigate('/renewals');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '10px 16px',
+                    background: '#DC2626',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(220, 38, 38, 0.25)'
+                  }}
+                >
+                  Renew License
+                </button>
+                <button
+                  onClick={() => setExpiredModalVehicle(null)}
+                  style={{
+                    padding: '10px 16px',
+                    background: '#F1F5F9',
+                    color: '#475569',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* ── Hover Tooltip Card (Matching Reference Legacy Layout) ── */}
       {hoveredVehicle && (
@@ -469,23 +583,25 @@ const TrackingPage = ({ setAppVehicles }) => {
             </div>
           ) : (
             filteredVehicles.map(v => {
+              const warning = getExpiryWarning(v);
+              const isExpired = warning && warning.type === 'expired';
               const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
               const statusKey = getVehicleStatus(v);
               const statusColorsMap = { running: '#10B981', idle: '#F59E0B', parked: '#64748B', offline: '#EF4444', unavailable: '#94A3B8' };
               const statusLabelsMap = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline', unavailable: 'No Data' };
-              const sc = statusColorsMap[statusKey] || '#94A3B8';
-              const labelText = statusLabelsMap[statusKey] || 'No Data';
+              const sc = isExpired ? '#DC2626' : (statusColorsMap[statusKey] || '#94A3B8');
+              const labelText = isExpired ? 'EXPIRED' : (statusLabelsMap[statusKey] || 'No Data');
               const isVan = (v.name || '').toLowerCase().includes('van');
 
               return (
                 <div
                   key={v.id}
                   onClick={() => handleVehicleSelect(v)}
-                  title={getExpiryWarning(v) ? getExpiryWarning(v).text : undefined}
+                  title={warning ? warning.text : undefined}
                   style={{
-                    background: isSelected ? '#F0F9FF' : '#FFFFFF',
-                    borderBottom: isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9',
-                    borderLeft: isSelected ? '4px solid #0EA5E9' : '4px solid transparent',
+                    background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
+                    borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
+                    borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
                     padding: '12px 14px',
                     cursor: 'pointer',
                     transition: 'background 0.15s ease',
@@ -499,11 +615,13 @@ const TrackingPage = ({ setAppVehicles }) => {
                     const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
                     const itemRect = e.currentTarget.getBoundingClientRect();
                     setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
-                    if (!isSelected) e.currentTarget.style.background = '#F8FAFC';
+                    if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
+                    if (isExpired) e.currentTarget.style.background = '#FEE2E2';
                   }}
                   onMouseLeave={e => {
                     setHoveredVehicleId(null);
-                    if (!isSelected) e.currentTarget.style.background = '#FFFFFF';
+                    if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
+                    if (isExpired) e.currentTarget.style.background = '#FEF2F2';
                   }}
                 >
                   {/* Vehicle Graphic */}
@@ -517,44 +635,44 @@ const TrackingPage = ({ setAppVehicles }) => {
                   }}>
                     {isVan ? (
                       <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                        <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
-                        <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
-                        <circle cx="14" cy="27" r="4" fill="#334155"/>
-                        <circle cx="34" cy="27" r="4" fill="#334155"/>
-                        <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
+                        <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill={isExpired ? '#FEE2E2' : '#F1F5F9'} stroke={isExpired ? '#DC2626' : '#64748B'} strokeWidth="2"/>
+                        <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill={isExpired ? '#FCA5A5' : '#E2E8F0'} stroke={isExpired ? '#B91C1C' : '#475569'} strokeWidth="2"/>
+                        <circle cx="14" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
+                        <circle cx="34" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
+                        <rect x="10" y="14" width="8" height="5" rx="1" fill={isExpired ? '#EF4444' : '#94A3B8'}/>
                       </svg>
                     ) : (
                       <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                        <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
-                        <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                        <circle cx="12" cy="26" r="4" fill="#1E293B"/>
-                        <circle cx="34" cy="26" r="4" fill="#1E293B"/>
+                        <rect x="4" y="10" width="24" height="15" rx="2" fill={isExpired ? '#DC2626' : (isSelected ? '#0EA5E9' : '#0284C7')} stroke={isExpired ? '#991B1B' : '#0369A1'} strokeWidth="1.5"/>
+                        <path d="M28 13H36L42 19V25H28V13Z" fill={isExpired ? '#EF4444' : (isSelected ? '#38BDF8' : '#0EA5E9')} stroke={isExpired ? '#B91C1C' : '#0284C7'} strokeWidth="1.5"/>
+                        <circle cx="12" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
+                        <circle cx="34" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
                       </svg>
                     )}
                   </div>
 
-                  {/* Middle Details */}
+                  {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {v.name}
                     </div>
-                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {v.plate || v.name}
                     </div>
-                    <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
                       <span>{formatSpeed(v.current_speed)}</span>
                       <span>·</span>
                       <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'No GPS data'}</span>
                     </div>
                   </div>
 
-                  {/* Right Status Dot & Arrow */}
+                  {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: sc }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sc }} />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
                       <span>{labelText}</span>
                     </div>
-                    <ChevronRight size={14} color="#94A3B8" />
+                    <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
                   </div>
                 </div>
               );
