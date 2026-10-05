@@ -331,24 +331,31 @@ const DashboardPage = ({ setAppVehicles }) => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
                   <tr style={{ borderBottom: '2px solid #F1F5F9' }}>
-                    <th style={{ padding: '16px 20px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Vehicle Name</th>
-                    <th style={{ padding: '16px 20px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Registration No</th>
-                    <th style={{ padding: '16px 20px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Expiry Date</th>
-                    <th style={{ padding: '16px 20px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Status</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Vehicle Name</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Registration No</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Customer Name</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Mobile Number</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Expiry Date</th>
+                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {expiringVehicles.map(v => {
                     const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
                     const isExpired = status.isExpired;
+                    const customerName = v.metadata?.ownerName || v.metadata?.customerName || v.driver_name || v.org_name || '—';
+                    const mobileNumber = v.metadata?.ownerPhone || v.metadata?.customerPhone || v.driver_phone || '—';
+
                     return (
                       <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#111827', fontWeight: 500 }}>{v.name}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{v.plate || '-'}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(v.licence_expire_date)}</td>
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#111827', fontWeight: 600 }}>{v.name}</td>
+                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569' }}>{v.plate || '-'}</td>
+                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>{customerName}</td>
+                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569', fontFamily: 'monospace' }}>{mobileNumber}</td>
+                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(v.licence_expire_date)}</td>
+                        <td style={{ padding: '14px 18px' }}>
                           <span style={{
-                            padding: '6px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
+                            padding: '5px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
                             background: isExpired ? '#FEE2E2' : '#FEF3C7',
                             color: isExpired ? '#DC2626' : '#D97706'
                           }}>
