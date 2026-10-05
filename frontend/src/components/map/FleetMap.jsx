@@ -551,13 +551,11 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
             </tbody>
           </table>
 
-          {/* Action Links matching Image 2 */}
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
+          {/* Action Links */}
+          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
             <a href="/admin/reports" style={{ color: '#0284c7', textDecoration: 'none' }}>Reports</a>
             <a href={`/vehicles/${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>Track</a>
             <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#0284c7', textDecoration: 'none' }}>History</a>
-            <a href={`/tracking?multitrack=${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>MultiTrack</a>
-            <a href="/admin/geofences" style={{ color: '#0284c7', textDecoration: 'none' }}>Site</a>
           </div>
         </div>
       </Popup>
