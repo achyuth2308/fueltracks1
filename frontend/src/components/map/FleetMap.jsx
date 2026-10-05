@@ -31,6 +31,19 @@ const getExpiryWarning = (expireDateStr) => {
   return null;
 };
 
+const formatCardDateTime = (dateStr) => {
+  if (!dateStr) return '-';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const month = monthNames[d.getMonth()];
+  const year = String(d.getFullYear()).slice(-2);
+  const hours = String(d.getHours()).padStart(2, '0');
+  const mins = String(d.getMinutes()).padStart(2, '0');
+  return `${day}-${month}-${year} ${hours}:${mins}`;
+};
+
 // ── Live Route Plotting & Following for Selected Vehicle ─────────────
 const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false, onRouteFetched }) => {
   const map = useMap();
@@ -471,66 +484,80 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
       }}
     >
       <Popup
-        className="premium-popup"
-        closeButton={false}
+        className="legacy-style-popup"
+        closeButton={true}
         offset={[0, -5]}
         autoPan={false}
       >
-        <div style={{ minWidth: '240px', fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '12px', padding: '2px' }}>
+        <div style={{ minWidth: '240px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '11px', padding: '2px 0' }}>
           {/* No GPS notice */}
           {noGps && (
-            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ marginBottom: '6px', padding: '4px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600 }}>
               📍 No GPS location yet — placeholder position
             </div>
           )}
 
           {/* Expiry Warning */}
           {warning && (
-            <div style={{ marginBottom: '8px', padding: '6px 8px', borderRadius: '6px', background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`, color: warning.type === 'expired' ? '#EF4444' : '#F59E0B', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ marginBottom: '6px', padding: '4px 8px', borderRadius: '6px', background: warning.type === 'expired' ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${warning.type === 'expired' ? '#FECACA' : '#FDE68A'}`, color: warning.type === 'expired' ? '#EF4444' : '#F59E0B', fontSize: '11px', fontWeight: 700 }}>
               ⚠️ {warning.text}
             </div>
           )}
 
-          {/* Stats list */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: '12px', rowGap: '6px', marginBottom: '8px' }}>
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Name</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{vehicle.name}</span>
+          {/* Table Grid matching Image 2 */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
+            <tbody>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0', width: '105px' }}>Vehicle Name</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>- {vehicle.name}</td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Today Distance</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
+                </td>
+              </tr>
+              {getNoDataDuration(vehicle.last_seen) && status === 'offline' ? (
+                <>
+                  <tr>
+                    <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>No Data</td>
+                    <td style={{ color: '#ef4444', fontWeight: 700, padding: '2px 0' }}>- {getNoDataDuration(vehicle.last_seen)}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Reason</td>
+                    <td style={{ color: '#ef4444', fontWeight: 700, padding: '2px 0' }}>- Device Offline</td>
+                  </tr>
+                </>
+              ) : (
+                <tr>
+                  <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Moving</td>
+                  <td style={{ color: '#10b981', fontWeight: 700, padding: '2px 0' }}>- {status === 'running' ? 'Running' : status === 'idle' ? 'Idle' : 'Parked'}</td>
+                </tr>
+              )}
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>ACC Status</td>
+                <td style={{ color: vehicle.current_ignition ? '#16a34a' : '#ef4444', fontWeight: 700, padding: '2px 0' }}>
+                  - {vehicle.current_ignition ? 'ON' : 'OFF'}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Loc Time</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>- {formatCardDateTime(vehicle.last_seen)}</td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Comm Time</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>- {formatCardDateTime(vehicle.last_seen)}</td>
+              </tr>
+            </tbody>
+          </table>
 
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>Today Distance</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>
-              {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
-            </span>
-
-            {getNoDataDuration(vehicle.last_seen) && status === 'offline' && (
-              <>
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>No Data</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', textAlign: 'right' }}>{getNoDataDuration(vehicle.last_seen)}</span>
-
-                <span style={{ fontSize: '11px', color: '#6b7280' }}>Reason</span>
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#ef4444', textAlign: 'right' }}>Device Offline</span>
-              </>
-            )}
-
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>ACC Status</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: vehicle.current_ignition ? '#16a34a' : '#ef4444', textAlign: 'right' }}>{vehicle.current_ignition ? 'ON' : 'OFF'}</span>
-
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>Vehicle Battery</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).color, textAlign: 'right', whiteSpace: 'nowrap' }}>
-              {getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).value} ({getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition).status})
-            </span>
-
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>Loc Time</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
-
-            <span style={{ fontSize: '11px', color: '#6b7280' }}>Comm Time</span>
-            <span style={{ fontSize: '11px', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{formatLocalTime(vehicle.last_seen)}</span>
-          </div>
-
-          {/* Links */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #e5e7eb', paddingTop: '10px', paddingBottom: '4px', marginTop: '8px', fontSize: '10px', fontWeight: 700 }}>
-            <a href="/admin/reports" style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>Reports</a>
-            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>Track</a>
-            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#f97316', textDecoration: 'none', cursor: 'pointer' }}>History</a>
+          {/* Action Links matching Image 2 */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
+            <a href="/admin/reports" style={{ color: '#0284c7', textDecoration: 'none' }}>Reports</a>
+            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>Track</a>
+            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#0284c7', textDecoration: 'none' }}>History</a>
+            <a href={`/tracking?multitrack=${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>MultiTrack</a>
+            <a href="/admin/geofences" style={{ color: '#0284c7', textDecoration: 'none' }}>Site</a>
           </div>
         </div>
       </Popup>
@@ -751,22 +778,25 @@ const FleetMap = ({
 
       <style dangerouslySetInnerHTML={{
         __html: `
-          .premium-popup .leaflet-popup-content-wrapper {
-            border: none !important;
-            border-top: 10px solid #2E4867 !important;
+          .legacy-style-popup .leaflet-popup-content-wrapper {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            border-top: none !important;
             border-radius: 12px !important;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.2) !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
             padding: 0 !important;
           }
-          .premium-popup .leaflet-popup-content {
-            margin: 14px 18px !important;
+          .legacy-style-popup .leaflet-popup-content {
+            margin: 12px 14px !important;
           }
-          .leaflet-container {
-            background: transparent !important;
+          .legacy-style-popup .leaflet-popup-close-button {
+            top: 6px !important;
+            right: 8px !important;
+            color: #64748b !important;
+            font-size: 16px !important;
           }
-          /* Optionally hide the tip */
-          .premium-popup .leaflet-popup-tip-container {
-            display: none !important;
+          .legacy-style-popup .leaflet-popup-tip-container {
+            display: block !important;
           }
           
           /* Prevent Leaflet's rectangular bounding box from blocking hover events for overlapping markers */
