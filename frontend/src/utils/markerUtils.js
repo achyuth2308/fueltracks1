@@ -127,24 +127,24 @@ export const createPinIcon = (vehicle, noGps = false, clusterRank = 0, overrideO
   const plateLabel = showPlateLabel ? (vehicle.plate || vehicle.name || '') : '';
   const plateLabelHtml = plateLabel
     ? '<div style="' +
-        'position:absolute;' +
-        'top:' + (totalHeight + 2) + 'px;' +
-        'left:50%;' +
-        'transform:translateX(-50%);' +
-        'background:#ffffff;' +
-        'color:#1e293b;' +
-        'font-size:8.5px;' +
-        'font-weight:800;' +
-        'padding:1px 5px;' +
-        'border-radius:5px;' +
-        'border:1.5px solid ' + color + ';' +
-        'white-space:nowrap;' +
-        'box-shadow:0 1px 4px rgba(0,0,0,0.18);' +
-        'letter-spacing:0.3px;' +
-        'pointer-events:none;' +
-        'z-index:3;' +
-        'font-family:system-ui,sans-serif;' +
-      '">' + plateLabel + '</div>'
+    'position:absolute;' +
+    'top:' + (totalHeight + 2) + 'px;' +
+    'left:50%;' +
+    'transform:translateX(-50%);' +
+    'background:#ffffff;' +
+    'color:#1e293b;' +
+    'font-size:8.5px;' +
+    'font-weight:800;' +
+    'padding:1px 5px;' +
+    'border-radius:5px;' +
+    'border:1.5px solid ' + color + ';' +
+    'white-space:nowrap;' +
+    'box-shadow:0 1px 4px rgba(0,0,0,0.18);' +
+    'letter-spacing:0.3px;' +
+    'pointer-events:none;' +
+    'z-index:3;' +
+    'font-family:system-ui,sans-serif;' +
+    '">' + plateLabel + '</div>'
     : '';
 
   const svgHtml = '<div style="position:relative;width:26px;height:' + totalHeight + 'px;display:flex;flex-direction:column;align-items:center;">' +

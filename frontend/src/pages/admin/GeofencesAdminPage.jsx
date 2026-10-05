@@ -294,40 +294,39 @@ const GeofencesAdminPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: 'linear-gradient(to bottom, #f5efe4 0%, #f5efe4 50%, #f5efe4 50%, #f5efe4 100%)', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '20px 24px', background: '#f5efe4', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
-
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 shrink-0">
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Geofence & Route Settings</h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Define virtual boundaries and paths to trigger route-deviation and boundary alerts.</p>
+          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Geofence & Route Settings</h1>
+          <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px', margin: 0 }}>Define virtual boundaries and paths to trigger route-deviation and boundary alerts.</p>
         </div>
         <button
           onClick={() => handleOpenModal(activeTab === 'geofences' ? 'geofence' : 'route')}
           style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
+            display: 'flex', alignItems: 'center', gap: '6px',
             background: '#8ba0b5', color: '#FFFFFF',
-            padding: '10px 20px', borderRadius: '10px',
-            fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(139,160,181,0.2)',
+            padding: '8px 16px', borderRadius: '8px',
+            fontSize: '13px', fontWeight: 600, border: 'none',
+            cursor: 'pointer', boxShadow: '0 2px 6px rgba(139,160,181,0.2)',
             transition: 'all 0.2s ease'
           }}
         >
-          <Plus size={18} />
+          <Plus size={16} />
           <span>New {activeTab === 'geofences' ? 'Geofence' : 'Route'}</span>
         </button>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid #dfd0bf', paddingBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', borderBottom: '1px solid #dfd0bf', paddingBottom: '4px' }}>
         <button
           onClick={() => setActiveTab('geofences')}
           style={{
-            padding: '8px 16px', background: 'none', border: 'none',
-            fontSize: '15px', fontWeight: activeTab === 'geofences' ? 700 : 500,
+            padding: '6px 12px', background: 'none', border: 'none',
+            fontSize: '14px', fontWeight: activeTab === 'geofences' ? 700 : 500,
             color: activeTab === 'geofences' ? '#8ba0b5' : '#64748B',
-            borderBottom: activeTab === 'geofences' ? '3px solid #8ba0b5' : 'none',
+            borderBottom: activeTab === 'geofences' ? '2px solid #8ba0b5' : 'none',
             cursor: 'pointer'
           }}
         >
@@ -336,10 +335,10 @@ const GeofencesAdminPage = () => {
         <button
           onClick={() => setActiveTab('routes')}
           style={{
-            padding: '8px 16px', background: 'none', border: 'none',
-            fontSize: '15px', fontWeight: activeTab === 'routes' ? 700 : 500,
+            padding: '6px 12px', background: 'none', border: 'none',
+            fontSize: '14px', fontWeight: activeTab === 'routes' ? 700 : 500,
             color: activeTab === 'routes' ? '#8ba0b5' : '#64748B',
-            borderBottom: activeTab === 'routes' ? '3px solid #8ba0b5' : 'none',
+            borderBottom: activeTab === 'routes' ? '2px solid #8ba0b5' : 'none',
             cursor: 'pointer'
           }}
         >
@@ -348,11 +347,11 @@ const GeofencesAdminPage = () => {
       </div>
 
       {/* Roster lists */}
-      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', flex: 1, overflow: 'hidden' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', flex: 1, overflow: 'hidden' }}>
         {loading ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
-            <Loader2 size={32} color="#8ba0b5" className="animate-spin" />
-            <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading configurations...</span>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+            <Loader2 size={28} color="#8ba0b5" className="animate-spin" />
+            <span style={{ fontSize: '13px', color: '#6B7280', marginTop: '8px' }}>Loading configurations...</span>
           </div>
         ) : (
           <div>
@@ -362,29 +361,29 @@ const GeofencesAdminPage = () => {
                   <thead>
                     <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                       {['Name', 'Type', 'Center Coords / Boundary Count', 'Radius', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{h}</th>
+                        <th key={h} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {geofences.length === 0 ? (
                       <tr>
-                        <td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>No geofences created yet. Click "New Geofence" to add one.</td>
+                        <td colSpan="5" style={{ padding: '24px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>No geofences created yet. Click "New Geofence" to add one.</td>
                       </tr>
                     ) : geofences.map(geo => (
                       <tr key={geo.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '16px 20px', fontWeight: 700, color: '#111827' }}>{geo.name}</td>
-                        <td style={{ padding: '16px 20px', textTransform: 'capitalize', color: '#475569' }}>{geo.type}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111827', fontSize: '13px' }}>{geo.name}</td>
+                        <td style={{ padding: '12px 16px', textTransform: 'capitalize', color: '#475569', fontSize: '13px' }}>{geo.type}</td>
+                        <td style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>
                           {geo.type === 'circle' ? `${geo.center_lat}, ${geo.center_lng}` : `${geo.coordinates?.length || 0} polygon coordinates`}
                         </td>
-                        <td style={{ padding: '16px 20px', color: '#475569' }}>{geo.type === 'circle' ? `${geo.radius} meters` : '—'}</td>
-                        <td style={{ padding: '16px 20px', display: 'flex', gap: '8px' }}>
-                          <button onClick={() => handleOpenModal('geofence', geo)} style={{ padding: '6px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer' }}>
+                        <td style={{ padding: '12px 16px', color: '#475569', fontSize: '13px' }}>{geo.type === 'circle' ? `${geo.radius} meters` : '—'}</td>
+                        <td style={{ padding: '12px 16px', display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleOpenModal('geofence', geo)} style={{ padding: '4px 10px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                             Edit
                           </button>
-                          <button onClick={() => handleDeleteGeofence(geo.id)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
-                            <Trash2 size={16} />
+                          <button onClick={() => handleDeleteGeofence(geo.id)} style={{ padding: '4px 8px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>
@@ -398,26 +397,26 @@ const GeofencesAdminPage = () => {
                   <thead>
                     <tr style={{ background: '#f5efe4', borderBottom: '1px solid #E2E8F0' }}>
                       {['Name', 'Checkpoints Count', 'Allowed Tolerance', 'Actions'].map(h => (
-                        <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{h}</th>
+                        <th key={h} style={{ padding: '12px 16px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {routes.length === 0 ? (
                       <tr>
-                        <td colSpan="4" style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>No routes created yet. Click "New Route" to add one.</td>
+                        <td colSpan="4" style={{ padding: '24px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>No routes created yet. Click "New Route" to add one.</td>
                       </tr>
                     ) : routes.map(route => (
                       <tr key={route.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '16px 20px', fontWeight: 700, color: '#111827' }}>{route.name}</td>
-                        <td style={{ padding: '16px 20px', color: '#475569' }}>{route.coordinates?.length || 0} path points</td>
-                        <td style={{ padding: '16px 20px', color: '#475569' }}>{route.tolerance} meters</td>
-                        <td style={{ padding: '16px 20px', display: 'flex', gap: '8px' }}>
-                          <button onClick={() => handleOpenModal('route', route)} style={{ padding: '6px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer' }}>
+                        <td style={{ padding: '12px 16px', fontWeight: 700, color: '#111827', fontSize: '13px' }}>{route.name}</td>
+                        <td style={{ padding: '12px 16px', color: '#475569', fontSize: '13px' }}>{route.coordinates?.length || 0} path points</td>
+                        <td style={{ padding: '12px 16px', color: '#475569', fontSize: '13px' }}>{route.tolerance} meters</td>
+                        <td style={{ padding: '12px 16px', display: 'flex', gap: '8px' }}>
+                          <button onClick={() => handleOpenModal('route', route)} style={{ padding: '4px 10px', background: '#F0F9FF', border: 'none', borderRadius: '6px', color: '#0284C7', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
                             Edit
                           </button>
-                          <button onClick={() => handleDeleteRoute(route.id)} style={{ padding: '6px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
-                            <Trash2 size={16} />
+                          <button onClick={() => handleDeleteRoute(route.id)} style={{ padding: '4px 8px', background: '#FEF2F2', border: 'none', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}>
+                            <Trash2 size={14} />
                           </button>
                         </td>
                       </tr>

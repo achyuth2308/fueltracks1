@@ -79,10 +79,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     },
   ];
 
-  const handleRestoreAdmin = async () => {
+  const handleRestoreAdmin = async (e) => {
+    if (e) e.preventDefault();
     const res = await restoreAdmin();
     if (res.success) {
-      window.location.href = '/admin/users';
+      window.location.href = '/dashboard';
     } else {
       alert(res.error || 'Failed to restore admin session');
     }
@@ -103,7 +104,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     <>
       <aside
         style={{
-          background: brandProfile?.secondary_color || '#2E4867',
+          background: brandProfile?.secondary_color || '#1e1b4b',
           borderRight: '1px solid rgba(255, 255, 255, 0.1)',
           boxShadow: '4px 0 24px rgba(0,0,0,0.1)',
           display: 'flex',
@@ -113,32 +114,32 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           zIndex: 10000,
           overflow: 'hidden'
         }}
-        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[240px]'} w-[240px]`}
+        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[185px]'} w-[185px]`}
       >
         {/* User Profile Header */}
         <div
-          className="p-3 md:p-6 pb-4"
+          className="p-3 pb-3"
           style={{
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex', flexDirection: 'column', gap: '12px',
+            display: 'flex', flexDirection: 'column', gap: '10px',
             alignItems: collapsed ? 'center' : 'flex-start',
           }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              width: '40px', height: '40px', borderRadius: '50%', flexShrink: 0,
-              background: brandProfile?.primary_color || '#0284C7', color: 'white',
+              width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
+              background: brandProfile?.primary_color || '#6366f1', color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '14px', fontWeight: 700,
-              boxShadow: `0 4px 12px ${brandProfile?.primary_color ? brandProfile.primary_color + '40' : 'rgba(2,132,199,0.3)'}`,
+              fontSize: '13px', fontWeight: 700,
+              boxShadow: `0 4px 12px ${brandProfile?.primary_color ? brandProfile.primary_color + '40' : 'rgba(99,102,241,0.4)'}`,
             }}>
               {initials}
             </div>
             {!collapsed && (
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#ffffff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {user?.name || 'Administrator'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'capitalize' }}>
+                <div style={{ fontSize: '10px', color: '#94a3b8', textTransform: 'capitalize' }}>
                   {roleLabel}
                 </div>
               </div>
@@ -147,23 +148,23 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '16px 12px' }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '12px 8px' }}>
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(item => item.roles.includes(user?.role) || !user?.role);
             if (visibleItems.length === 0) return null;
             return (
-              <div key={group.label || 'top'} style={{ marginBottom: '16px' }}>
+              <div key={group.label || 'top'} style={{ marginBottom: '12px' }}>
                 {!collapsed && group.label && (
                   <div
-                    className="text-[9px] md:text-[11px] px-2 pb-1 md:px-3 md:pb-2"
+                    className="text-[9px] md:text-[10px] px-2 pb-1"
                     style={{
-                      fontWeight: 700, letterSpacing: '0.12em',
+                      fontWeight: 700, letterSpacing: '0.1em',
                       textTransform: 'uppercase', color: brandProfile?.primary_color || '#99f6e4',
                     }}>
                     {group.label}
                   </div>
                 )}
-                {collapsed && group.label && <div style={{ height: '12px' }} />}
+                {collapsed && group.label && <div style={{ height: '8px' }} />}
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
                   const [itemPathBase, itemSearch] = item.path.split('?');
@@ -193,7 +194,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         if (toggleMobileSidebar) toggleMobileSidebar(false);
                         navigate(item.path);
                       }}
-                      className={`text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-0.5 md:mb-1 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] ${customIsActive ? 'text-white font-semibold shadow-xs' : 'text-slate-200 font-medium hover:text-white'
+                      className={`text-[12px] md:text-[13px] px-2.5 py-2 mb-1 gap-2.5 rounded-[8px] ${customIsActive ? 'text-white font-semibold shadow-xs' : 'text-slate-200 font-medium hover:text-white'
                         }`}
                       style={{
                         display: 'flex',
@@ -215,11 +216,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                     >
                       {customIsActive && !collapsed && (
                         <div style={{
-                          position: 'absolute', left: 0, top: '20%', bottom: '20%', width: '4px',
-                          background: brandProfile?.primary_color || '#0284C7', borderRadius: '0 4px 4px 0'
+                          position: 'absolute', left: 0, top: '15%', bottom: '15%', width: '3px',
+                          background: brandProfile?.primary_color || '#a855f7', borderRadius: '0 3px 3px 0'
                         }} />
                       )}
-                      <div className="w-[16px] md:w-[18px] flex items-center justify-center shrink-0">
+                      <div className="w-[16px] flex items-center justify-center shrink-0">
                         <Icon className="w-full h-full" />
                       </div>
                       {!collapsed && (
@@ -234,7 +235,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         </nav>
 
         <div style={{
-          padding: '16px 12px',
+          padding: '12px 8px',
           borderTop: '1px solid #475569',
           flexShrink: 0,
         }}>

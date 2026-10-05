@@ -191,89 +191,69 @@ const MiningRegistrationsAdminPage = () => {
   const approvedCount = registrations.filter(r => r.status === 'APPROVED').length;
 
   return (
-    <div className="pastel-page-bg min-h-screen p-4 sm:p-8 flex flex-col box-sizing-border">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px', gap: '12px', background: '#f8fafc', boxSizing: 'border-box' }}>
+      {/* Top Header Bar */}
+      <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div className="flex items-center gap-2 text-xs font-extrabold text-orange-600 uppercase tracking-wider mb-1">
-            <Truck size={16} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+            <Truck size={14} />
             <span>Compliance & Hardware Onboarding</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
             Vehicle & Mining Registrations
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
+          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
             Review submissions, inspect compliance documents (RC, Aadhar, Plate), and approve vehicle telemetry.
           </p>
         </div>
 
-        <div className="flex items-center flex-wrap gap-3 shrink-0">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             onClick={() => setIsGoogleFormModalOpen(true)}
-            className="px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            style={{ padding: '6px 12px', background: '#ea580c', color: '#ffffff', borderRadius: '8px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}
             title="Get shareable Google Form link for technicians & dealers"
           >
-            <Globe size={15} /> Google Form Link
+            <Globe size={14} /> Google Form Link
           </button>
           <button
             onClick={handleExportCsv}
-            className="px-4 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+            style={{ padding: '6px 12px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', borderRadius: '8px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
           >
-            <Download size={15} /> Export CSV
+            <Download size={14} /> Export CSV
           </button>
           <button
             onClick={() => fetchRegistrations()}
-            className="p-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+            style={{ padding: '6px 10px', background: '#0f172a', color: '#ffffff', borderRadius: '8px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}
             title="Refresh List"
           >
-            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>
       </div>
 
-      {/* Overview Stats Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Total Submissions</span>
-          <p className="text-2xl font-black text-slate-900 mt-1">{pagination.total}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-amber-600 uppercase tracking-wider">Pending Action</span>
-          <p className="text-2xl font-black text-amber-600 mt-1">{pendingCount}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Approved Vehicles</span>
-          <p className="text-2xl font-black text-emerald-600 mt-1">{approvedCount}</p>
-        </div>
-        <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
-          <span className="text-xs font-bold text-sky-600 uppercase tracking-wider">Current Page</span>
-          <p className="text-2xl font-black text-slate-900 mt-1">{page} / {pagination.totalPages || 1}</p>
-        </div>
-      </div>
-
-      {/* Filters & Search Toolbar */}
-      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs mb-6 flex flex-col sm:flex-row items-center gap-3">
+      {/* Compact Filters & Toolbar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', background: '#ffffff', padding: '10px 14px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
         {/* Search */}
-        <div className="relative flex-1 w-full">
-          <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+        <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
+          <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
           <input
             type="text"
-            placeholder="Search by vehicle no, customer, phone, IMEI, installer, email..."
+            placeholder="Search by vehicle no, customer, phone, IMEI, installer..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+            style={{ width: '100%', padding: '6px 10px 6px 32px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', outline: 'none', color: '#0f172a', boxSizing: 'border-box' }}
           />
         </div>
 
-        {/* Status Filter */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* Dropdown Filters */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 outline-none bg-white"
+            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 700, color: '#334155', background: '#ffffff', outline: 'none' }}
           >
             <option value="ALL">All Statuses</option>
             <option value="PENDING">Pending</option>
@@ -282,14 +262,13 @@ const MiningRegistrationsAdminPage = () => {
             <option value="REJECTED">Rejected</option>
           </select>
 
-          {/* Request Type Filter */}
           <select
             value={requestTypeFilter}
             onChange={(e) => {
               setRequestTypeFilter(e.target.value);
               setPage(1);
             }}
-            className="w-full sm:w-auto px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 outline-none bg-white"
+            style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', fontWeight: 700, color: '#334155', background: '#ffffff', outline: 'none' }}
           >
             <option value="ALL">All Request Types</option>
             <option value="New Installation">New Installation</option>
@@ -299,94 +278,107 @@ const MiningRegistrationsAdminPage = () => {
             <option value="Device Transfer">Device Transfer</option>
           </select>
         </div>
+
+        {/* Inline Stats Pills */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+          <span style={{ color: '#475569', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+            Total: <strong style={{ color: '#0f172a', fontWeight: 700 }}>{pagination.total}</strong>
+          </span>
+          <span style={{ color: '#d97706', background: '#fffbeb', padding: '4px 8px', borderRadius: '6px', border: '1px solid #fde68a' }}>
+            Pending: <strong style={{ color: '#b45309', fontWeight: 700 }}>{pendingCount}</strong>
+          </span>
+          <span style={{ color: '#059669', background: '#ecfdf5', padding: '4px 8px', borderRadius: '6px', border: '1px solid #a7f3d0' }}>
+            Approved: <strong style={{ color: '#047857', fontWeight: 700 }}>{approvedCount}</strong>
+          </span>
+        </div>
       </div>
 
       {/* Main Table */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-md overflow-hidden flex-1 flex flex-col">
-        {loading ? (
-          <div className="p-16 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <Loader2 size={32} className="animate-spin text-orange-500" />
-            <p className="text-xs font-bold text-slate-500">Loading registrations...</p>
-          </div>
-        ) : error ? (
-          <div className="p-16 text-center text-rose-600">
-            <AlertTriangle size={32} className="mx-auto mb-2" />
-            <p className="font-bold text-sm">{error}</p>
-          </div>
-        ) : registrations.length === 0 ? (
-          <div className="p-16 text-center text-slate-400">
-            <Truck size={40} className="mx-auto mb-3 text-slate-300" />
-            <h3 className="font-bold text-slate-700 text-base">No registrations found</h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Try adjusting your search query or status filter.
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto flex-1">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-                  <th className="py-3.5 px-4">Vehicle No</th>
-                  <th className="py-3.5 px-4">Customer</th>
-                  <th className="py-3.5 px-4">Device Model</th>
-                  <th className="py-3.5 px-4">IMEI No</th>
-                  <th className="py-3.5 px-4">ASM / TSL Phone</th>
-                  <th className="py-3.5 px-4">Request Type</th>
-                  <th className="py-3.5 px-4">Submitted By</th>
-                  <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4">Date</th>
-                  <th className="py-3.5 px-4 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-xs font-medium text-slate-700">
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '40px' }}>
+          <Loader2 size={30} color="#ea580c" className="animate-spin" />
+          <span style={{ fontSize: '13px', color: '#64748b', marginTop: '12px' }}>Loading registrations...</span>
+        </div>
+      ) : error ? (
+        <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
+          <AlertTriangle size={32} color="#ef4444" style={{ margin: '0 auto 12px' }} />
+          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>Failed to Load Records</div>
+          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{error}</div>
+        </div>
+      ) : registrations.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+          <Truck size={36} color="#94a3b8" />
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '8px' }}>No registrations found</div>
+          <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>Try adjusting your search query or status filter.</div>
+        </div>
+      ) : (
+        <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#1e1b4b', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>VEHICLE NO</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>CUSTOMER</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DEVICE MODEL</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>IMEI NO</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASM / TSL PHONE</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>REQUEST TYPE</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>SUBMITTED BY</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>STATUS</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DATE</th>
+                <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', textAlign: 'center' }}>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody style={{ fontSize: '12px', color: '#1e293b' }}>
                 {registrations.map((item) => (
                   <tr
                     key={item.id}
                     onClick={() => handleOpenDetails(item)}
-                    className="hover:bg-orange-50/30 transition-colors cursor-pointer"
+                    style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s', cursor: 'pointer' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    <td className="py-3.5 px-4 font-mono font-bold text-slate-900">
+                    <td style={{ padding: '6px 12px', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', borderRight: '1px solid #e2e8f0' }}>
                       {item.vehicle_number}
                     </td>
-                    <td className="py-3.5 px-4">
-                      <div className="font-bold text-slate-800">{item.customer_name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">{item.customer_phone}</div>
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ fontWeight: 700, color: '#1e293b' }}>{item.customer_name}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>{item.customer_phone}</div>
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="font-semibold text-slate-800">{item.device_model}</span>
+                    <td style={{ padding: '6px 12px', fontWeight: 600, color: '#334155', borderRight: '1px solid #e2e8f0' }}>
+                      {item.device_model}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">
+                    <td style={{ padding: '6px 12px', fontFamily: 'monospace', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
                       {item.imei_number || '—'}
                     </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">
+                    <td style={{ padding: '6px 12px', fontFamily: 'monospace', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
                       {item.asm_tsl_phone}
                     </td>
-                    <td className="py-3.5 px-4">
-                      <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-bold">
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0' }}>
+                      <span style={{ padding: '2px 8px', borderRadius: '4px', background: '#f1f5f9', color: '#334155', fontSize: '11px', fontWeight: 700 }}>
                         {item.request_type}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-500 truncate max-w-[150px]" title={item.submitted_by_email}>
+                    <td style={{ padding: '6px 12px', color: '#64748b', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', borderRight: '1px solid #e2e8f0' }} title={item.submitted_by_email}>
                       {item.submitted_by_email}
                     </td>
-                    <td className="py-3.5 px-4">
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0' }}>
                       {getStatusBadge(item.status)}
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400 whitespace-nowrap">
+                    <td style={{ padding: '6px 12px', color: '#64748b', whiteSpace: 'nowrap', borderRight: '1px solid #e2e8f0' }}>
                       {item.created_at ? new Date(item.created_at).toLocaleDateString() : '—'}
                     </td>
-                    <td className="py-3.5 px-4 text-center" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-center gap-1.5">
+                    <td style={{ padding: '6px 12px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
                         <button
                           onClick={() => handleOpenDetails(item)}
-                          className="p-1.5 text-orange-600 hover:bg-orange-100 rounded-lg transition-colors cursor-pointer"
+                          style={{ padding: '4px', color: '#ea580c', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                           title="View Details & Documents"
                         >
                           <Eye size={15} />
                         </button>
                         <button
                           onClick={(e) => handleDelete(item.id, e)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          style={{ padding: '4px', color: '#94a3b8', borderRadius: '6px', border: 'none', background: 'transparent', cursor: 'pointer' }}
                           title="Delete Record"
                         >
                           <Trash2 size={15} />
@@ -427,7 +419,6 @@ const MiningRegistrationsAdminPage = () => {
             </button>
           </div>
         </div>
-      </div>
 
       {/* ============================================================== */}
       {/* RECORD DETAILS & COMPLIANCE MODAL */}

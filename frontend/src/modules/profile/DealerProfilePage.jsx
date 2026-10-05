@@ -244,11 +244,11 @@ const DealerProfilePage = () => {
             )}
 
             <div>
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white m-0 flex items-center gap-3">
-                  {activeTab === 'directory' ? 'Dealership White-Label Suite' : activeName}
-                </h1>
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white m-0 flex items-center gap-3" style={{ color: '#ffffff', whiteSpace: 'nowrap' }}>
+                {activeTab === 'directory' ? 'Dealership White-Label Suite' : activeName}
+              </h1>
 
+              <div className="flex flex-wrap items-center gap-2.5 mt-2">
                 <span
                   className="px-3 py-1 text-[11px] font-extrabold rounded-full border border-slate-700 bg-slate-800/80 text-white flex items-center gap-1.5 shadow-sm"
                 >

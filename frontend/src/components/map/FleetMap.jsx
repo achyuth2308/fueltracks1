@@ -171,11 +171,11 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
         }, 100);
         hasFitInitially.current = true;
       } else {
-        // Fallback only if we have vehicles but none have valid coords
+        // Fallback: Default to Hyderabad city area at zoom 13 if no vehicle coords
         t2 = setTimeout(() => {
           if (map && map.getContainer()) {
             try {
-              map.setView([22.5937, 78.9629], 5, { animate: false });
+              map.setView([17.3850, 78.4867], 13, { animate: false });
             } catch (e) {
               console.warn('Map fallback setView failed:', e.message);
             }
@@ -239,7 +239,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
         });
       }, delay);
     }
-    
+
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
     };
@@ -372,11 +372,11 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
     const currentLatLng = marker.getLatLng();
     const fromLat = currentLatLng ? currentLatLng.lat : prev.lat;
     const fromLng = currentLatLng ? currentLatLng.lng : prev.lng;
-    
+
     // Use a brisk 800ms duration so the marker swiftly keeps up with the trail
     const DURATION = 800;
     const startTime = performance.now();
-    
+
     let pouringLine = null;
 
     const animate = (now) => {
@@ -391,7 +391,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
       if (marker && marker.setLatLng) {
         marker.setLatLng([lat, lng]);
       }
-      
+
       // Draw the "pouring" trail behind the vehicle while it animates
       if (map) {
         if (!pouringLine) {
@@ -629,7 +629,7 @@ const FleetMap = ({
   const allSelected = selectedVehicles != null
     ? (Array.isArray(selectedVehicles) ? selectedVehicles : [selectedVehicles])
     : (selectedVehicle ? [selectedVehicle] : []);
-    
+
   const { profile } = useProfile();
   const apiKey = profile?.api_key || '';
 
@@ -637,8 +637,8 @@ const FleetMap = ({
 
 
 
-  // Default map center for Karmanghat, Hyderabad (FuelTracks Office)
-  const defaultCenter = [17.3411, 78.5317];
+  // Default map center for Hyderabad city (Miyapur / Kukatpally)
+  const defaultCenter = [17.3850, 78.4867];
   const mapCenter = effectiveSelected && effectiveSelected.lat && effectiveSelected.lng
     ? [parseFloat(effectiveSelected.lat), parseFloat(effectiveSelected.lng)]
     : vehicles.length > 0 && vehicles[0].lat && vehicles[0].lng
@@ -676,8 +676,8 @@ const FleetMap = ({
             cursor: 'pointer'
           }}
         >
-          <option value="osm">OSM</option>
-          <option value="google">Google Maps</option>
+          <option value="osm">OpenStreetMap Standard (OSM)</option>
+          <option value="google">Google Maps Roadmap</option>
           <option value="satellite">Satellite View</option>
         </select>
       </div>
@@ -685,7 +685,7 @@ const FleetMap = ({
       <MapContainer
         key={location.pathname}
         center={mapCenter}
-        zoom={10}
+        zoom={13}
         className="w-full h-full"
         zoomControl={false}
         zoomAnimation={false}

@@ -166,7 +166,7 @@ const BillingAdminPage = () => {
                 }}
               />
             </div>
-            
+
             {activeTab === 'licenses' && (
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
                 <span>Active: <span style={{ color: '#059669' }}>{activeCount}</span></span>
@@ -193,13 +193,13 @@ const BillingAdminPage = () => {
             <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
               <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                 <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#1e1b4b' }}>
                     {[
-                      'Licence ID', 'Vehicle ID', 'Vehicle Name', 
+                      'Licence ID', 'Vehicle ID', 'Vehicle Name',
                       'Device IMEI', 'Organization', 'Licence Issued', 'Licence Expiry',
                       'Plan Duration', 'Renewal Price', 'Status', 'Action'
                     ].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      <th key={h} style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {h}
                       </th>
                     ))}
@@ -249,10 +249,10 @@ const BillingAdminPage = () => {
                           <span
                             onClick={() => openSetAmountModal(l)}
                             title="Click to set renewal amount & duration"
-                            style={{ 
+                            style={{
                               padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, cursor: 'pointer',
-                              background: isExp ? '#FEE2E2' : isExpiring ? '#FEF3C7' : '#D1FAE5', 
-                              color: isExp ? '#DC2626' : isExpiring ? '#D97706' : '#059669', 
+                              background: isExp ? '#FEE2E2' : isExpiring ? '#FEF3C7' : '#D1FAE5',
+                              color: isExp ? '#DC2626' : isExpiring ? '#D97706' : '#059669',
                               border: `1px solid ${isExp ? '#FECACA' : isExpiring ? '#FDE68A' : '#A7F3D0'}`,
                               display: 'inline-flex', alignItems: 'center', gap: '6px'
                             }}
@@ -287,7 +287,7 @@ const BillingAdminPage = () => {
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {[
-                      'Transaction / Payment ID', 'Payment Time', 'Vehicle', 
+                      'Transaction / Payment ID', 'Payment Time', 'Vehicle',
                       'User Name & Email', 'Duration', 'Amount Paid', 'Status'
                     ].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -334,8 +334,8 @@ const BillingAdminPage = () => {
                         ₹{parseFloat(t.amount).toFixed(2)}
                       </td>
                       <td style={{ padding: '16px 20px' }}>
-                        <span style={{ 
-                          padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, 
+                        <span style={{
+                          padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 800,
                           background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0',
                           display: 'inline-flex', alignItems: 'center', gap: '4px'
                         }}>

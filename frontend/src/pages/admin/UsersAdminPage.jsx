@@ -30,20 +30,19 @@ const UsersAdminPage = () => {
 
   const handleImpersonate = async (targetUser, e) => {
     if (e) e.stopPropagation();
-    if (window.confirm(`Are you sure you want to switch login and view vehicles for ${targetUser.name || targetUser.email}?`)) {
-      setSwitchingUserId(targetUser.id);
-      try {
-        const res = await impersonate(targetUser.id);
-        if (res.success) {
-          navigate('/dashboard');
-        } else {
-          alert(res.error || 'Failed to switch session.');
-        }
-      } catch (err) {
-        alert('An error occurred during switching.');
-      } finally {
-        setSwitchingUserId(null);
+    setSwitchingUserId(targetUser.id);
+    try {
+      const res = await impersonate(targetUser.id);
+      if (res.success) {
+        window.location.href = '/dashboard';
+      } else {
+        alert(res.error || 'Failed to switch user session.');
       }
+    } catch (err) {
+      console.error('Error switching user session:', err);
+      alert('An error occurred during switching.');
+    } finally {
+      setSwitchingUserId(null);
     }
   };
 
@@ -208,7 +207,7 @@ const UsersAdminPage = () => {
             <div className="overflow-x-auto" style={{ overflowY: 'auto', flex: 1 }}>
               <table className="pastel-table" style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                  <tr style={{ background: '#1e1b4b' }}>
                     {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}

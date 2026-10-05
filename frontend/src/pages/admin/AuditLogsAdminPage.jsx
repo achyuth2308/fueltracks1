@@ -67,16 +67,29 @@ const formatDate = (iso) => {
 };
 
 const StatCard = ({ label, value, icon: Icon, color, bg }) => (
-  <div className="bg-white rounded-xl border border-slate-200 p-4 sm:p-5 flex items-center gap-4 shadow-sm w-full">
+  <div style={{
+    background: '#FFFFFF',
+    borderRadius: '10px',
+    border: `2px solid ${color}`,
+    boxShadow: `0 2px 8px ${color}1A`,
+    padding: '10px 14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    flex: 1,
+    minWidth: '160px',
+    transition: 'all 0.2s ease'
+  }}>
     <div style={{
-      width: '48px', height: '48px', borderRadius: '12px',
+      width: '38px', height: '38px', borderRadius: '8px',
       background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+      border: `1px solid ${color}30`
     }}>
-      <Icon size={22} color={color} />
+      <Icon size={18} color={color} />
     </div>
     <div>
-      <div style={{ fontSize: '28px', fontWeight: 800, color: '#111827', lineHeight: 1 }}>{value ?? '—'}</div>
-      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px', fontWeight: 500 }}>{label}</div>
+      <div style={{ fontSize: '20px', fontWeight: 800, color: '#0F172A', lineHeight: 1.1 }}>{value ?? '—'}</div>
+      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px', fontWeight: 600 }}>{label}</div>
     </div>
   </div>
 );
@@ -144,7 +157,7 @@ const DetailDrawer = ({ log, onClose }) => {
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          width: '500px', maxWidth: '95vw', height: '100vh',
+          width: '440px', maxWidth: '95vw', height: '100vh',
           background: '#FFFFFF', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
           display: 'flex', flexDirection: 'column', overflowY: 'auto',
           animation: 'slideInRight 0.25s ease',
@@ -152,47 +165,47 @@ const DetailDrawer = ({ log, onClose }) => {
       >
         {/* Drawer Header */}
         <div style={{
-          padding: '24px', borderBottom: '1px solid #E2E8F0',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0,
+          padding: '12px 16px', borderBottom: '1px solid #E2E8F0',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0,
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-              <ClipboardList size={20} color="#f97316" />
-              <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>Audit Detail</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ClipboardList size={18} color="#f97316" />
+              <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#111827', margin: 0 }}>Audit Detail</h2>
             </div>
-            <div style={{ fontSize: '12px', color: '#6B7280' }}>Full event record</div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>Full event record</div>
           </div>
-          <button onClick={onClose} style={{ background: '#F8FAFC', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', color: '#475569' }}>
-            <X size={16} />
+          <button onClick={onClose} style={{ background: '#F8FAFC', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer', color: '#475569' }}>
+            <X size={15} />
           </button>
         </div>
 
         {/* Content */}
-        <div style={{ padding: '24px', flex: 1, display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ padding: '14px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Type + Action row */}
-          <div style={{ display: 'flex', gap: '10px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
             <TypeBadge type={log.audit_type} />
             <ActionBadge action={log.action} />
           </div>
 
           {/* Info grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             {/* Event Context Card */}
-            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', gridColumn: '1 / -1' }}>
-              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', gridColumn: '1 / -1' }}>
+              <h3 style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', marginTop: 0, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 Event Context
               </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Date & Time</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{formatDate(log.created_at)}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>Date & Time</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>{formatDate(log.created_at)}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>IP Address</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.ip_address || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>IP Address</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>{log.ip_address || '—'}</div>
                   {ipLocation && (
-                    <div style={{ fontSize: '11px', color: '#0EA5E9', marginTop: '4px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    <div style={{ fontSize: '10px', color: '#0EA5E9', marginTop: '2px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                       {ipLocation}
                     </div>
                   )}
@@ -201,39 +214,39 @@ const DetailDrawer = ({ log, onClose }) => {
             </div>
 
             {/* Actor Card */}
-            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0 }}>
+            <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', marginTop: 0 }}>
                 Performed By
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>User</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.performed_by_name || '—'} ({log.performed_by_role || '—'})</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>User</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>{log.performed_by_name || '—'} ({log.performed_by_role || '—'})</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Email</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, wordBreak: 'break-all' }}>{log.performed_by_email || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>Email</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600, wordBreak: 'break-all' }}>{log.performed_by_email || '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Organization</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.org_name || log.org_id || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>Organization</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>{log.org_name || log.org_id || '—'}</div>
                 </div>
               </div>
             </div>
 
             {/* Entity Card */}
-            <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px', marginTop: 0 }}>
+            <div style={{ background: '#F8FAFC', padding: '10px 12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <h3 style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px', marginTop: 0 }}>
                 Target Entity
               </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Entity Type</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600, textTransform: 'capitalize' }}>{log.entity_type || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>Entity Type</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600, textTransform: 'capitalize' }}>{log.entity_type || '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#64748B', marginBottom: '4px' }}>Entity Identity</div>
-                  <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{log.entity_name || log.entity_id || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748B', marginBottom: '2px' }}>Entity Identity</div>
+                  <div style={{ fontSize: '12px', color: '#111827', fontWeight: 600 }}>{log.entity_name || log.entity_id || '—'}</div>
                 </div>
               </div>
             </div>
@@ -242,10 +255,10 @@ const DetailDrawer = ({ log, onClose }) => {
           {/* Old Data */}
           {log.old_data && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>Before (Old Data)</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#DC2626', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Before (Old Data)</div>
               <div style={{
-                background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: '10px',
-                padding: '14px'
+                background: '#FFF5F5', border: '1px solid #FED7D7', borderRadius: '8px',
+                padding: '10px 12px'
               }}>
                 {renderDataPairs(log.old_data)}
               </div>
@@ -255,10 +268,10 @@ const DetailDrawer = ({ log, onClose }) => {
           {/* New Data */}
           {log.new_data && (
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '8px' }}>After (New Data)</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>After (New Data)</div>
               <div style={{
-                background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: '10px',
-                padding: '14px'
+                background: '#F0FFF4', border: '1px solid #BBF7D0', borderRadius: '8px',
+                padding: '10px 12px'
               }}>
                 {renderDataPairs(log.new_data)}
               </div>
@@ -397,32 +410,31 @@ const AuditLogsAdminPage = () => {
   };
 
   return (
-    <div style={{
-      padding: '32px',
-      background: 'linear-gradient(to bottom, #f0f9ff 0%, #f0f9ff 180px, #f0f9ff 180px, #f0f9ff 100%)',
-      minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box',
+    <div className="pastel-page-bg" style={{
+      padding: '16px 20px',
+      height: '100%', display: 'flex', flexDirection: 'column', gap: '10px', boxSizing: 'border-box',
     }}>
       {/* Slide-in animation */}
       <style>{`@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`}</style>
 
       {/* ── Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 shrink-0">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {isArchived ? <Archive size={24} color="#f97316" /> : <ClipboardList size={24} color="#f97316" />} 
+          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {isArchived ? <Archive size={22} color="#f97316" /> : <ClipboardList size={22} color="#f97316" />} 
             {isArchived ? "Archived Audit Logs" : "Today's Audit Logs"}
           </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
+          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
             {isArchived 
               ? "Historical trail of configuration and business changes." 
               : "Today's trail of configuration and business changes."}
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={fetchLogs} style={{ ...inputStyle, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button onClick={fetchLogs} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF', fontSize: '12px', color: '#334155', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={14} /> Refresh
           </button>
-          <button onClick={exportCSV} style={{ padding: '9px 18px', borderRadius: '8px', border: 'none', background: '#f97316', color: '#FFF', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 4px 12px rgba(249,115,22,0.25)' }}>
+          <button onClick={exportCSV} style={{ padding: '6px 14px', borderRadius: '8px', border: 'none', background: '#f97316', color: '#FFF', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 8px rgba(249,115,22,0.25)' }}>
             <Download size={14} /> Export CSV
           </button>
         </div>
@@ -430,20 +442,20 @@ const AuditLogsAdminPage = () => {
 
       {/* ── Stat Cards ── */}
       {stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#f97316" bg="#f0f9ff" />
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <StatCard label="Total Events" value={Number(stats.total_logs).toLocaleString()} icon={ClipboardList} color="#f97316" bg="#EEF5F8" />
           <StatCard label="Today's Events" value={Number(stats.today_events).toLocaleString()} icon={Calendar} color="#6366F1" bg="#EEF2FF" />
           <StatCard label="Failed Logins" value={Number(stats.failed_logins).toLocaleString()} icon={LogIn} color="#DC2626" bg="#FEE2E2" />
           <StatCard label="Org Changes" value={Number(stats.org_changes).toLocaleString()} icon={Building2} color="#10B981" bg="#D1FAE5" />
         </div>
       )}
 
-      {/* ── Filters ── */}
-      <div className="bg-white rounded-xl border border-slate-200 p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-center shadow-sm flex-wrap">
-        <Filter size={16} color="#94A3B8" className="hidden sm:block" />
+      {/* ── Filters Bar ── */}
+      <div style={{ background: '#FFFFFF', padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+        <Filter size={15} color="#94A3B8" />
 
         {/* Audit Type */}
-        <select value={auditType} onChange={e => setAuditType(e.target.value)} style={inputStyle} className="w-full sm:w-auto">
+        <select value={auditType} onChange={e => setAuditType(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', color: '#0F172A', background: '#FFFFFF' }}>
           <option value="all">All Types</option>
           {Object.entries(TYPE_CONFIG).map(([k, v]) => (
             <option key={k} value={k}>{v.label}</option>
@@ -451,7 +463,7 @@ const AuditLogsAdminPage = () => {
         </select>
 
         {/* Action */}
-        <select value={action} onChange={e => setAction(e.target.value)} style={inputStyle} className="w-full sm:w-auto">
+        <select value={action} onChange={e => setAction(e.target.value)} style={{ padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', color: '#0F172A', background: '#FFFFFF' }}>
           <option value="all">All Actions</option>
           {['CREATED','UPDATED','DELETED','REGISTERED','ASSIGNED','REMOVED','LOGIN_SUCCESS','LOGIN_FAILED','LOGOUT'].map(a => (
             <option key={a} value={a}>{a.replace(/_/g, ' ')}</option>
@@ -462,19 +474,19 @@ const AuditLogsAdminPage = () => {
         {isArchived && (
           <>
             <CustomDatePicker max={yesterdayStr} value={startDate} onChange={e => setStartDate(e.target.value)} style={inputStyle} />
-            <span style={{ fontSize: '13px', color: '#94A3B8' }}>to</span>
+            <span style={{ fontSize: '12px', color: '#94A3B8' }}>to</span>
             <CustomDatePicker max={yesterdayStr} value={endDate} onChange={e => setEndDate(e.target.value)} style={inputStyle} />
           </>
         )}
 
         {/* Search */}
-        <div className="flex items-center gap-2 flex-1 min-w-[200px] bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 w-full sm:w-auto">
-          <Search size={14} color="#94A3B8" />
+        <div style={{ position: 'relative', flex: 1, minWidth: '220px', maxWidth: '320px' }}>
+          <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
           <input
             placeholder="Search entity, user, action..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '13px', color: '#111827', width: '100%' }}
+            style={{ width: '100%', padding: '6px 10px 6px 30px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '12px', outline: 'none', color: '#0F172A', boxSizing: 'border-box' }}
           />
         </div>
 
@@ -482,39 +494,38 @@ const AuditLogsAdminPage = () => {
         {(auditType !== 'all' || action !== 'all' || search || startDate || endDate) && (
           <button
             onClick={() => { setAuditType('all'); setAction('all'); setSearch(''); setStartDate(''); setEndDate(''); }}
-            style={{ padding: '9px 14px', borderRadius: '8px', border: '1px solid #E2E8F0', background: '#EEF5F8', color: '#64748B', fontSize: '13px', cursor: 'pointer', fontWeight: 600 }}
+            style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', background: '#F1F5F9', color: '#475569', fontSize: '11px', cursor: 'pointer', fontWeight: 700 }}
           >
             Clear
           </button>
         )}
       </div>
 
-      {/* ── Table ── */}
+      {/* ── Table Container ── */}
       <div style={{
-        background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.02)', flex: 1, overflow: 'hidden',
+        background: '#FFFFFF', display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'
       }}>
         {loading ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '300px', gap: '12px', color: '#6B7280' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '12px', color: '#6B7280' }}>
             <RefreshCw size={20} style={{ animation: 'spin 1s linear infinite' }} />
-            <span style={{ fontSize: '14px', fontWeight: 500 }}>Loading audit logs...</span>
+            <span style={{ fontSize: '13px', fontWeight: 500 }}>Loading audit logs...</span>
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           </div>
         ) : logs.length === 0 ? (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '300px', gap: '12px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#EEF5F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ClipboardList size={28} color="#D1D5DB" />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, gap: '12px' }}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '12px', background: '#EEF5F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <ClipboardList size={24} color="#D1D5DB" />
             </div>
             <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>No audit logs found</div>
             <div style={{ fontSize: '13px', color: '#6B7280' }}>Try adjusting your filters or perform some actions</div>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                <tr style={{ background: '#1e1b4b' }}>
                   {['Date & Time', 'Type', 'Action', 'Entity', 'Performed By', 'Old Data', 'New Data', ''].map(h => (
-                    <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '11px', fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>
+                    <th key={h} style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>
                       {h}
                     </th>
                   ))}
@@ -524,52 +535,52 @@ const AuditLogsAdminPage = () => {
                 {logs.map((log) => (
                   <tr
                     key={log.id}
-                    style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.15s' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                    style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f5f3ff'}
                     onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                   >
-                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 12px', whiteSpace: 'nowrap', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
+                      <div style={{ fontSize: '12px', color: '#0f172a', fontWeight: 700 }}>
                         {formatLocalDate(log.created_at)}
                       </div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>
                         {new Date(log.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                       </div>
                     </td>
-                    <td style={{ padding: '14px 16px' }}><TypeBadge type={log.audit_type} /></td>
-                    <td style={{ padding: '14px 16px' }}><ActionBadge action={log.action} /></td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{log.entity_name || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8' }}>{log.entity_type}</div>
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}><TypeBadge type={log.audit_type} /></td>
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}><ActionBadge action={log.action} /></td>
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{log.entity_name || '—'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{log.entity_type}</div>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{log.performed_by_name || '—'}</div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8' }}>{log.performed_by_email || log.performed_by_role || ''}</div>
+                    <td style={{ padding: '6px 12px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{log.performed_by_name || '—'}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b' }}>{log.performed_by_email || log.performed_by_role || ''}</div>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', color: '#6B7280', maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    <td style={{ padding: '6px 12px', fontSize: '11px', color: '#475569', maxWidth: '160px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                       {(() => {
-                        if (!log.old_data) return <span style={{ color: '#CBD5E1' }}>—</span>;
+                        if (!log.old_data) return <span style={{ color: '#94A3B8' }}>—</span>;
                         try {
                           const obj = typeof log.old_data === 'string' ? JSON.parse(log.old_data) : log.old_data;
-                          return Object.entries(obj).map(([k,v]) => <div key={k}><strong style={{ color: '#475569' }}>{k}</strong>: {String(v)}</div>);
+                          return Object.entries(obj).map(([k,v]) => <div key={k}><strong style={{ color: '#0f172a' }}>{k}</strong>: {String(v)}</div>);
                         } catch { return String(log.old_data); }
                       })()}
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: '12px', color: '#6B7280', maxWidth: '150px', whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                    <td style={{ padding: '6px 12px', fontSize: '11px', color: '#475569', maxWidth: '160px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle', whiteSpace: 'normal', wordBreak: 'break-word' }}>
                       {(() => {
-                        if (!log.new_data) return <span style={{ color: '#CBD5E1' }}>—</span>;
+                        if (!log.new_data) return <span style={{ color: '#94A3B8' }}>—</span>;
                         try {
                           const obj = typeof log.new_data === 'string' ? JSON.parse(log.new_data) : log.new_data;
-                          return Object.entries(obj).map(([k,v]) => <div key={k}><strong style={{ color: '#475569' }}>{k}</strong>: {String(v)}</div>);
+                          return Object.entries(obj).map(([k,v]) => <div key={k}><strong style={{ color: '#0f172a' }}>{k}</strong>: {String(v)}</div>);
                         } catch { return String(log.new_data); }
                       })()}
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
+                    <td style={{ padding: '6px 12px', verticalAlign: 'middle', textAlign: 'center' }}>
                       <button
                         onClick={() => setSelectedLog(log)}
-                        style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', background: '#EEF5F8', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#f97316'; e.currentTarget.style.borderColor = '#f97316'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#475569'; e.currentTarget.style.borderColor = '#E2E8F0'; }}
+                        style={{ padding: '4px 10px', borderRadius: '6px', border: '1px solid #C7D2FE', background: '#EEF2FF', color: '#4338CA', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px', transition: 'all 0.15s' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#C7D2FE'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#EEF2FF'; }}
                       >
                         <Eye size={12} /> View
                       </button>

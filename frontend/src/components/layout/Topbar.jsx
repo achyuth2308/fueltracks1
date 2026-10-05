@@ -189,8 +189,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      background: brandProfile?.secondary_color || '#223A57',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      background: brandProfile?.secondary_color || '#1e1b4b',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
       flexShrink: 0,
       zIndex: 9999,
       transition: 'background-color 0.3s ease',
@@ -223,7 +223,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: brandProfile?.logo_url ? 'white' : 'transparent',
-            boxShadow: '0 4px 10px rgba(249,115,22,0.3)',
+            boxShadow: '0 4px 10px rgba(99,102,241,0.3)',
             padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
             <img 
@@ -238,11 +238,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               {brandProfile?.brand_name || user?.orgName || (user?.role === 'superadmin' ? 'FuelTracks' : 'Telematics')}
             </div>
             {brandProfile?.brand_tagline ? (
-              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#f97316', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {brandProfile.brand_tagline.slice(0, 28)}
               </div>
             ) : (
-              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#f97316', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {user?.role === 'superadmin' ? 'Enterprise Admin' : 'Telematics Portal'}
               </div>
             )}

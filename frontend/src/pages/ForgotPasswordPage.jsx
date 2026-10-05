@@ -14,14 +14,14 @@ const ForgotPasswordPage = () => {
     e.preventDefault();
     if (!email) { setError('Please enter your email.'); return; }
     setLoading(true); setError(null);
-    
+
     try {
       const { data } = await axiosInstance.post('/api/auth/forgot-password', { email });
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to send request');
       }
-      
+
       setSuccess(true);
     } catch (err) {
       setError(err.message || 'An unexpected error occurred.');

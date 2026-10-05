@@ -7,25 +7,25 @@
 
 /* ---------- CSS Custom Properties ---------- */
 :root {
-  --primary: #64748b;
-  --primary-glow: rgba(249, 115, 22, 0.35);
-  --primary-soft: rgba(249, 115, 22, 0.1);
-  --bg-base: #0a0f1e;
-  --bg-surface: #0f1729;
-  --bg-card: #131d30;
-  --bg-card-hover: #162236;
-  --bg-elevated: #1a2640;
-  --border: rgba(255, 255, 255, 0.06);
-  --border-bright: rgba(255, 255, 255, 0.1);
-  --text-primary: #e2e8f0;
-  --text-secondary: #7c8db0;
-  --text-muted: #4a5568;
+  --primary: #6366f1;
+  --primary-glow: rgba(99, 102, 241, 0.35);
+  --primary-soft: rgba(99, 102, 241, 0.1);
+  --bg-base: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-elevated: #ffffff;
+  --border: rgba(99, 102, 241, 0.12);
+  --border-bright: rgba(99, 102, 241, 0.25);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
   --success: #10b981;
   --success-glow: rgba(16, 185, 129, 0.3);
   --warning: #f59e0b;
   --danger: #ef4444;
   --danger-glow: rgba(239, 68, 68, 0.3);
-  --sidebar-width: 240px;
+  --sidebar-width: 185px;
   --topbar-height: 56px;
   --radius-card: 12px;
   --radius-btn: 8px;
@@ -1012,7 +1012,7 @@ option {
    PASTEL PROFESSIONAL THEME CLASSES
    ============================================================ */
 .pastel-page-bg {
-  background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%) !important;
+  background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%) !important;
 }
 
 .pastel-card {
@@ -1042,47 +1042,35 @@ option {
 }
 
 /* Like gradient alternating colors */
-.pastel-table th:nth-child(odd) {
-  background: linear-gradient(to bottom right, #dbeafe, #eff6ff) !important;
-  color: #1e40af !important;
+.pastel-page-bg {
+  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
 }
 
-.pastel-table th:nth-child(even) {
-  background: linear-gradient(to bottom right, #ede9fe, #f5f3ff) !important;
-  color: #4c1d95 !important;
+.pastel-table th {
+  background: #1e1b4b !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
 }
 
 .pastel-table tr {
-  border-bottom: 1px solid #f1f5f9 !important;
+  border-bottom: 1px solid #e0e7ff !important;
   transition: all 0.2s !important;
 }
 
+.pastel-table tr:hover {
+  background: #f5f3ff !important;
+}
+
 .pastel-table td {
-  padding: 16px 20px !important;
+  padding: 10px 16px !important;
   transition: background 0.2s !important;
   border-right: 1px solid #e2e8f0 !important;
 }
 
-.pastel-table td:last-child {
+.pastel-table td:last-child,
+.pastel-table th:last-child {
   border-right: none !important;
-}
-
-/* Subtle background for the entire column */
-.pastel-table td:nth-child(odd) {
-  background: rgba(219, 234, 254, 0.25) !important; /* Soft blue tint */
-}
-
-.pastel-table td:nth-child(even) {
-  background: rgba(237, 233, 254, 0.25) !important; /* Soft purple tint */
-}
-
-/* Hover effects */
-.pastel-table tr:hover td:nth-child(odd) {
-  background: rgba(219, 234, 254, 0.5) !important;
-}
-
-.pastel-table tr:hover td:nth-child(even) {
-  background: rgba(237, 233, 254, 0.5) !important;
 }
 
 /* ===== KILL all Leaflet marker animations - markers MUST be fixed at GPS coordinates ===== */

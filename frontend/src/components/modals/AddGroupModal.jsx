@@ -181,14 +181,14 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
                 type="checkbox" 
                 checked={isAllSelected}
                 onChange={handleSelectAll}
-                style={{ width: '15px', height: '15px', accentColor: '#3B82F6', cursor: 'pointer' }}
+                style={{ width: '15px', height: '15px', accentColor: '#6366f1', cursor: 'pointer' }}
               />
-              Select all Vehicles
+              Select all Vehicles ({selectedVehicleIds.size} / {availableVehicles.length} selected)
             </label>
             
             <input 
               type="text"
-              placeholder="Search..."
+              placeholder="Search vehicles..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{ width: '260px', padding: '6px 12px', fontSize: '13px', border: '1px solid #94A3B8', borderRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
@@ -197,13 +197,13 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
 
           {/* Vehicle Checklist Grid */}
           <div style={{ marginTop: '4px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#3B82F6', marginBottom: '8px' }}>
-              Select the Vehicles:
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#6366f1', marginBottom: '8px' }}>
+              Select Vehicles:
             </label>
             <div style={{ overflowY: 'auto', flex: 1, paddingRight: '8px' }}>
               {vehiclesLoading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                  <Loader2 size={24} className="animate-spin" color="#3B82F6" />
+                  <Loader2 size={24} className="animate-spin" color="#6366f1" />
                 </div>
               ) : filteredVehicles.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px', color: '#94A3B8', fontSize: '14px' }}>
@@ -212,9 +212,9 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
               ) : (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '10px' }}>
                   {filteredVehicles.map((v) => (
-                    <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: '1px solid #E2E8F0', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000' }}>
-                      <input type="checkbox" checked={selectedVehicleIds.has(v.id)} onChange={() => handleCheckboxChange(v.id)} style={{ accentColor: '#3B82F6', cursor: 'pointer' }} />
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#000000', fontWeight: 600 }}>
+                    <label key={v.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 10px', border: selectedVehicleIds.has(v.id) ? '1px solid #818cf8' : '1px solid #E2E8F0', background: selectedVehicleIds.has(v.id) ? '#EEF2FF' : '#FFFFFF', borderRadius: '6px', cursor: 'pointer', fontSize: '12px', color: '#000000', transition: 'all 0.15s' }}>
+                      <input type="checkbox" checked={selectedVehicleIds.has(v.id)} onChange={() => handleCheckboxChange(v.id)} style={{ accentColor: '#6366f1', cursor: 'pointer' }} />
+                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: selectedVehicleIds.has(v.id) ? '#3730A3' : '#0F172A', fontWeight: 700 }}>
                         {v.name || v.metadata?.vehicleId || v.imei}
                       </span>
                     </label>

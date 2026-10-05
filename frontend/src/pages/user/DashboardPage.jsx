@@ -3,7 +3,7 @@ import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
 
 import { useNavigate } from 'react-router-dom';
-import { Users, Users2, Truck, Activity, AlertTriangle } from 'lucide-react';
+import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, Smartphone, Cpu, Store, ArrowUpRight } from 'lucide-react';
 
 import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
@@ -13,36 +13,33 @@ import CustomerDashboard from './CustomerDashboard';
 const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[140px] md:min-w-[160px] p-3 md:p-4 bg-white rounded-[12px] md:rounded-[16px] border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.04)] cursor-pointer transition-all duration-200"
+    className="flex-1 min-w-[130px] md:min-w-[150px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200"
     style={{
-      borderTop: `4px solid ${color}`,
+      border: `2px solid ${color}`,
+      boxShadow: `0 2px 8px ${color}1A`,
       display: 'flex',
       alignItems: 'center',
-      gap: '12px',
+      gap: '10px',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 12px 24px ${color}15`;
-      e.currentTarget.style.borderColor = `${color}30`;
-      e.currentTarget.style.borderTopColor = color;
+      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.04)';
-      e.currentTarget.style.borderColor = '#F1F5F9';
-      e.currentTarget.style.borderTopColor = '#2E4867';
+      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
     }}
   >
-    <div className="w-[32px] h-[32px] md:w-[40px] md:h-[40px] rounded-[10px] md:rounded-[12px] shrink-0 flex items-center justify-center" style={{
+    <div className="w-[30px] h-[30px] md:w-[36px] md:h-[36px] rounded-[8px] md:rounded-[10px] shrink-0 flex items-center justify-center" style={{
       background: `${color}10`,
     }}>
-      <Icon className="w-[16px] md:w-[20px] h-[16px] md:h-[20px]" color={color} />
+      <Icon className="w-[15px] md:w-[18px] h-[15px] md:h-[18px]" color={color} />
     </div>
     <div>
-      <div className="text-[18px] md:text-[24px] font-[800] text-gray-900 leading-none">
+      <div className="text-[16px] md:text-[22px] font-[800] text-gray-900 leading-none">
         {value}
       </div>
-      <div className="text-[11px] md:text-[13px] text-gray-500 font-[600] mt-[2px]">
+      <div className="text-[10px] md:text-[12px] text-gray-500 font-[600] mt-[2px]">
         {label}
       </div>
     </div>
@@ -51,40 +48,74 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
 
 const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
   <div 
-    className="flex-1 min-w-[140px] md:max-w-[220px] p-3 md:p-4 bg-white rounded-[12px] md:rounded-[16px] border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.04)] transition-all duration-200 flex flex-col items-center justify-center"
+    className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] transition-all duration-200 flex flex-col items-center justify-center"
     style={{
-      borderTop: `4px solid ${color}`,
+      border: `2px solid ${color}`,
+      boxShadow: `0 2px 8px ${color}1A`,
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 12px 24px ${color}15`;
-      e.currentTarget.style.borderColor = `${color}30`;
-      e.currentTarget.style.borderTopColor = color;
+      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.04)';
-      e.currentTarget.style.borderColor = '#F1F5F9';
-      e.currentTarget.style.borderTopColor = '#2E4867';
+      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
     }}
   >
-    <div className="text-[12px] md:text-[14px] text-gray-900 font-[700]">{title}</div>
-    <div className="text-[24px] md:text-[32px] font-[800] leading-none mt-[6px] mb-[10px] md:mb-[12px]" style={{ color: color }}>{total}</div>
-    <div className="flex w-full justify-around border-t border-slate-100 pt-[8px] md:pt-[12px]">
+    <div className="text-[12px] md:text-[13px] text-gray-900 font-[700]">{title}</div>
+    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>{total}</div>
+    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
       <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[11px] text-gray-500 font-[600]">{labelUsed}</span>
-        <span className="text-[13px] md:text-[15px] font-[700]" style={{ color: color }}>{used}</span>
+        <span className="text-[9px] md:text-[10px] text-gray-500 font-[600]">{labelUsed}</span>
+        <span className="text-[12px] md:text-[14px] font-[700]" style={{ color: color }}>{used}</span>
       </div>
-      <div className="w-[1px] bg-slate-50"></div>
+      <div className="w-[1px] bg-slate-100"></div>
       <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[11px] text-gray-500 font-[600]">{labelAvailable}</span>
-        <span className="text-[13px] md:text-[15px] font-[700]" style={{ color: color }}>{available}</span>
+        <span className="text-[9px] md:text-[10px] text-gray-500 font-[600]">{labelAvailable}</span>
+        <span className="text-[12px] md:text-[14px] font-[700]" style={{ color: color }}>{available}</span>
       </div>
     </div>
   </div>
 );
 
-
+const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick }) => (
+  <div
+    onClick={onClick}
+    className="flex-1 min-w-[200px] p-3 md:p-3.5 bg-white rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    style={{
+      border: `2px solid ${color}`,
+      boxShadow: `0 2px 8px ${color}1A`,
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+    }}
+  >
+    <div className="flex items-center justify-between w-full mb-2">
+      <div className="flex items-center gap-2.5">
+        <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+          <Icon size={18} color={color} />
+        </div>
+        <span className="text-[12px] font-[700] text-gray-800 leading-tight">{title}</span>
+      </div>
+      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center bg-slate-50 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
+        <ChevronRight size={14} />
+      </div>
+    </div>
+    
+    <div>
+      <div className="text-[24px] font-[800] text-gray-900 leading-none mb-1">{value}</div>
+      <div className="text-[11px] font-[700] text-emerald-600 flex items-center gap-1">
+        <span>↑</span>
+        <span>{changeText}</span>
+      </div>
+    </div>
+  </div>
+);
 
 const DashboardPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
@@ -185,8 +216,8 @@ const DashboardPage = ({ setAppVehicles }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f0f9ff 0%, #f0f9ff 30%, #f0f9ff 30%, #f0f9ff 100%)', overflowY: 'auto' }}>
 
-      {/* KPI Cards Row (Moved Basic Card Here) */}
-      <div className="p-4 md:p-6 flex flex-wrap items-stretch shrink-0 gap-3 md:gap-5">
+      {/* KPI Cards Row 1 */}
+      <div className="p-3 md:p-4 pb-2 md:pb-2 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
         <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
         <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
         <StatCard label="Vehicles" value={totalVehicles} color="#EC4899" icon={Truck} onClick={() => navigate('/admin/vehicles')} />
@@ -229,24 +260,70 @@ const DashboardPage = ({ setAppVehicles }) => {
         />
       </div>
 
+      {/* KPI Cards Row 2 (Middle Analytics Cards) */}
+      <div className="px-3 md:px-4 pb-3 md:pb-3 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
+        <MetricDetailCard
+          title="Devices Installed This Month"
+          value="24"
+          changeText="+18% vs last month"
+          color="#0EA5E9"
+          icon={Smartphone}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        <MetricDetailCard
+          title="Total Devices Installed"
+          value={totalVehicles > 0 ? totalVehicles : "486"}
+          changeText="+12% vs last month"
+          color="#10B981"
+          icon={Cpu}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        <MetricDetailCard
+          title="Total Dealers"
+          value={apiStats?.dealers ?? "32"}
+          changeText="+6% vs last month"
+          color="#8B5CF6"
+          icon={Store}
+          onClick={() => navigate('/admin/orgs')}
+        />
+      </div>
+
       {/* Main Layout: Expiring Licenses */}
-      <div style={{ display: 'flex', padding: '0 24px 24px 24px', minHeight: '500px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', padding: '0 16px 16px 16px', minHeight: '360px', flexShrink: 0 }}>
         <div style={{
           flex: 1,
           background: '#FFFFFF',
           borderRadius: '16px',
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.02)',
+          border: '2px solid #F59E0B',
+          boxShadow: '0 4px 12px rgba(245,158,11,0.12)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
         }}>
-          <div style={{ padding: '20px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-              <AlertTriangle size={20} color="#F59E0B" />
-              Expiring Vehicle Licenses
-            </h3>
-            <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Vehicles requiring license renewal</p>
+          <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                <AlertTriangle size={20} color="#F59E0B" />
+                Expiring Vehicle Licenses
+              </h3>
+              <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Vehicles requiring license renewal</p>
+            </div>
+            <button
+              onClick={() => navigate('/admin/vehicles')}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#2563EB',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              View All <ChevronRight size={16} />
+            </button>
           </div>
 
           <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>

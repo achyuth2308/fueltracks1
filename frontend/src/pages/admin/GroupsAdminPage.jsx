@@ -59,28 +59,26 @@ const GroupsAdminPage = () => {
   );
 
   return (
-    <div className="pastel-page-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="pastel-page-bg" style={{ padding: '16px 20px', height: '100%', display: 'flex', flexDirection: 'column', gap: '10px', boxSizing: 'border-box' }}>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Groups Management</h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Organize fleets into operational zones and assign user access.</p>
+          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Groups Management</h1>
+          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>Organize fleets into operational zones and assign user access.</p>
         </div>
         <button
           onClick={() => { setEditingGroup(null); setIsAddModalOpen(true); }}
           style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
+            display: 'flex', alignItems: 'center', gap: '6px',
             background: '#f97316', color: '#FFFFFF',
-            padding: '10px 20px', borderRadius: '10px',
-            fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)',
-            transition: 'all 0.2s ease'
+            padding: '6px 12px', borderRadius: '8px',
+            fontSize: '12px', fontWeight: 700, border: 'none',
+            cursor: 'pointer', boxShadow: '0 2px 8px rgba(249,115,22,0.25)',
+            transition: 'all 0.15s ease'
           }}
-          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.4)'; }}
-          onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.25)'; }}
         >
-          <Plus size={18} />
+          <Plus size={16} />
           <span>New Group</span>
         </button>
       </div>
@@ -93,36 +91,36 @@ const GroupsAdminPage = () => {
         editingGroup={editingGroup}
       />
 
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
+      {/* Search Bar */}
+      <div style={{ background: '#FFFFFF', padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+          <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={15} />
+          <input
+            type="text"
+            placeholder="Search groups..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', padding: '6px 10px 6px 32px',
+              borderRadius: '6px', border: '1px solid #CBD5E1',
+              fontSize: '12px', outline: 'none', color: '#0F172A', boxSizing: 'border-box'
+            }}
+          />
+        </div>
+      </div>
 
-        {/* Left Side: List */}
+      {/* Main Content Layout */}
+      <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
+
+        {/* Table Container - Direct View */}
         <div style={{
-          background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
-          flex: viewingGroup ? '1' : '100%', transition: 'all 0.3s ease', overflow: 'hidden'
+          background: '#FFFFFF', display: 'flex', flexDirection: 'column',
+          flex: viewingGroup ? '1' : '100%', overflow: 'hidden'
         }}>
-          {/* Search Bar */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
-              <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
-              <input
-                type="text"
-                placeholder="Search groups..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%', padding: '10px 14px 10px 38px',
-                  borderRadius: '10px', border: '1px solid #CBD5E1',
-                  fontSize: '14px', outline: 'none', color: '#111827', boxSizing: 'border-box'
-                }}
-              />
-            </div>
-          </div>
-
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
               <Loader2 size={32} color="#f97316" className="animate-spin" />
-              <span style={{ fontSize: '14px', color: '#6B7280', marginTop: '12px' }}>Loading groups...</span>
+              <span style={{ fontSize: '13px', color: '#6B7280', marginTop: '12px' }}>Loading groups...</span>
             </div>
           ) : error ? (
             <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
@@ -132,24 +130,24 @@ const GroupsAdminPage = () => {
             </div>
           ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table className="pastel-table" style={{ w: '100%', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['ID', 'Group Name', 'Vehicle Id', 'Vehicle Name', 'Vehicle Count', 'Action'].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                        {h}
-                      </th>
-                    ))}
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr style={{ background: '#1e1b4b' }}>
+                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '50px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ID</th>
+                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '220px', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>GROUP NAME</th>
+                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLES</th>
+                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '130px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>VEHICLE COUNT</th>
+                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '130px', textAlign: 'center' }}>ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredGroups.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ padding: '80px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
-                          <Users2 size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No groups available</div>
-                          <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Create groups to organize your fleet.</div>
+                      <td colSpan="5" style={{ padding: '60px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.6 }}>
+                          <Users2 size={40} color="#94A3B8" style={{ marginBottom: '12px' }} />
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>No groups available</div>
+                          <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>Create groups to organize your fleet.</div>
                         </div>
                       </td>
                     </tr>
@@ -157,43 +155,44 @@ const GroupsAdminPage = () => {
                     <tr
                       key={g.id}
                       style={{
-                        borderBottom: '1px solid #F1F5F9',
+                        borderBottom: '1px solid #e0e7ff',
                         background: 'transparent',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.15s'
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                      onMouseEnter={e => e.currentTarget.style.background = '#f5f3ff'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>
+                      <td style={{ padding: '8px 12px', fontSize: '12px', color: '#64748b', fontWeight: 700, textAlign: 'center', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                         {index + 1}
                       </td>
-                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{g.name}</div>
-                        {g.org_name && <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>Org: {g.org_name}</div>}
+                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{g.name}</div>
+                        {g.org_name && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', marginTop: '2px', fontWeight: 600 }}>
+                            <Building2 size={10} color="#64748b" /> {g.org_name}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {(g.vehicles || []).map((v, i) => (
-                            <div key={i} style={{ fontSize: '13px', fontWeight: 500, color: '#475569' }}>{v.vehicleId || '—'}</div>
-                          ))}
-                        </div>
+                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        {(!g.vehicles || g.vehicles.length === 0) ? (
+                          <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No vehicles assigned</span>
+                        ) : (
+                          <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: 600, lineHeight: 1.4 }}>
+                            {g.vehicles.map(v => v.name || v.vehicleId).filter(Boolean).join(', ')}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {(g.vehicles || []).map((v, i) => (
-                            <div key={i} style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{v.name || '—'}</div>
-                          ))}
-                        </div>
+                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#e0e7ff', color: '#3730a3', fontSize: '12px', fontWeight: 800 }}>
+                          {g.vehicle_count || (g.vehicles ? g.vehicles.length : 0)}
+                        </span>
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569', verticalAlign: 'top', textAlign: 'center' }}>
-                        {g.vehicle_count || 0}
-                      </td>
-                      <td style={{ padding: '16px 20px', verticalAlign: 'top' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#F1F5F9', border: 'none', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#E2E8F0'} onMouseLeave={e => e.currentTarget.style.background = '#F1F5F9'}>
+                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#C7D2FE'} onMouseLeave={e => e.currentTarget.style.background = '#EEF2FF'}>
                             Edit
                           </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '6px 12px', borderRadius: '6px', background: '#EF4444', border: 'none', color: '#FFFFFF', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#DC2626'} onMouseLeave={e => e.currentTarget.style.background = '#EF4444'}>
+                          <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'} onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}>
                             Delete
                           </button>
                         </div>

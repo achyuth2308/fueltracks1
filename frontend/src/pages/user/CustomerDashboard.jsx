@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight, Users2, X, AlertTriangle, User, Compass, Shield, Cpu } from 'lucide-react';
+import { Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight, Users2, X, AlertTriangle, User, Compass, Shield, Cpu, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useAuth } from '../../hooks/useAuth';
@@ -31,10 +31,11 @@ const StatusPill = ({ label, count, color, active, onClick }) => (
     style={{
       display: 'flex', alignItems: 'center', gap: '6px',
       padding: '6px 12px', borderRadius: '20px',
-      border: active ? `2px solid ${color}` : '1px solid #e5e7eb',
-      background: active ? `${color}15` : '#fff',
+      border: `2px solid ${color}`,
+      background: active ? `${color}18` : '#fff',
+      boxShadow: active ? `0 2px 8px ${color}25` : `0 1px 3px ${color}15`,
       cursor: 'pointer', fontSize: '12px', fontWeight: 700,
-      color: active ? color : '#6b7280',
+      color: active ? color : '#374151',
       transition: 'all 0.2s',
     }}
   >
@@ -50,6 +51,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const { vehicles, loading, error, refetch } = useVehicles();
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [dismissedToastId, setDismissedToastId] = useState(null);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
@@ -132,9 +134,20 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   }, [vehicles]);
 
   const filtered = useMemo(() => {
-    if (!statusFilter) return vehicles;
-    return vehicles.filter(v => getStatus(v) === statusFilter);
-  }, [vehicles, statusFilter]);
+    let result = vehicles;
+    if (statusFilter) {
+      result = result.filter(v => getStatus(v) === statusFilter);
+    }
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(v =>
+        (v.name || '').toLowerCase().includes(q) ||
+        (v.plate || '').toLowerCase().includes(q) ||
+        (v.driver_name || '').toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [vehicles, statusFilter, searchQuery]);
 
   const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unavailable: '#94a3b8' };
   const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline', unavailable: 'No Data' };
@@ -294,7 +307,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         <div style={{
           position: 'absolute',
           top: `${hoverPosY}px`,
-          left: '304px',
+          left: '320px',
           width: '260px',
           background: 'rgba(255, 255, 255, 0.4)',
           backdropFilter: 'blur(16px)',
@@ -408,86 +421,118 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       {/* ── Body: Vehicle List + Map ── */}
       <div className="tracking-container" style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
-        {/* Left Panel: Vehicle List */}
+        {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
         <div style={{
-          position: 'absolute',
-          top: '12px',
-          left: '12px',
-          maxHeight: 'calc(100% - 24px)',
-          width: '280px',
-          background: 'rgba(255, 255, 255, 0.25)',
-          backdropFilter: 'blur(24px)',
-          WebkitBackdropFilter: 'blur(24px)',
-          border: '1px solid rgba(255, 255, 255, 0.5)',
-          borderRadius: '24px',
+          width: '310px',
+          height: '100%',
+          background: '#FFFFFF',
+          borderRight: '1px solid #E2E8F0',
           display: 'flex',
           flexDirection: 'column',
-          zIndex: 1000,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)'
+          zIndex: 10,
+          flexShrink: 0
         }}>
-          {/* Header */}
-          <div style={{ padding: '16px', borderBottom: '1px solid rgba(0, 0, 0, 0.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
-                    background: '#f97316', color: '#fff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '12px', fontWeight: 700
-                  }}>
-                    {user?.name ? user.name.substring(0, 2).toUpperCase() : 'U'}
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#1f2937', margin: 0 }}>
-                      {user?.name ? `${user.name.split(' ')[0]}'s Vehicles` : 'Vehicles'}
-                    </h2>
-                    <span style={{ fontSize: '11px', color: '#6b7280', fontWeight: 500 }}>
-                      {filtered.length} of {vehicles.length} shown
-                    </span>
-                  </div>
+          {/* Header Section */}
+          <div style={{ padding: '14px 14px 10px 14px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+              <div>
+                <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+                  Fleet Vehicles
+                </h2>
+                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+                  {filtered.length} vehicles
                 </div>
               </div>
               <button
                 onClick={() => refetch()}
                 style={{
-                  background: 'rgba(255, 255, 255, 0.6)', border: '1px solid rgba(255, 255, 255, 0.8)', color: '#6b7280',
-                  cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '6px',
-                  borderRadius: '8px', transition: 'all 0.2s', marginTop: '2px'
+                  background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
+                  cursor: 'pointer', padding: '5px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
                 }}
                 title="Refresh"
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)'; e.currentTarget.style.color = '#374151'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.6)'; e.currentTarget.style.color = '#6b7280'; }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
               >
-                <RefreshCw size={14} />
+                <RefreshCw size={13} />
               </button>
             </div>
-            {statusFilter && (
-              <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setStatusFilter(null)}
-                  style={{ fontSize: '10px', color: '#f97316', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}
-                >Clear Filter</button>
-              </div>
-            )}
+
+            {/* Search vehicle input */}
+            <div style={{ position: 'relative', width: '100%', marginBottom: '8px' }}>
+              <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text"
+                placeholder="Search vehicle..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px 6px 30px',
+                  borderRadius: '8px',
+                  border: '1px solid #E2E8F0',
+                  background: '#F8FAFC',
+                  fontSize: '12px',
+                  outline: 'none',
+                  color: '#0F172A',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+
+            {/* Status Filter Badges */}
+            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
+              {[
+                { key: null, label: `All ${vehicles.length}` },
+                { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
+                { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
+                { key: 'offline', label: `Offline ${metrics.offline}`, color: '#EF4444' },
+              ].map(pill => {
+                const active = statusFilter === pill.key;
+                const isAllPill = pill.key === null;
+                return (
+                  <button
+                    key={pill.key || 'all'}
+                    onClick={() => setStatusFilter(pill.key)}
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '14px',
+                      border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
+                      background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
+                      color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
+                    {pill.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          {/* Vehicle List Items */}
+          <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '0', display: 'flex', flexDirection: 'column', flex: 1 }}>
             {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '8px', opacity: 0.5 }}>
-                <RefreshCw size={18} color="#f97316" className="animate-spin" />
-                <span style={{ fontSize: '12px', color: '#6b7280' }}>Loading...</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', gap: '8px', opacity: 0.7 }}>
+                <RefreshCw size={18} color="#0EA5E9" className="animate-spin" />
+                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Loading vehicles...</span>
               </div>
             ) : error ? (
-              <div style={{ padding: '20px', textAlign: 'center', opacity: 0.5 }}>
+              <div style={{ padding: '20px', textAlign: 'center' }}>
                 <AlertCircle size={24} color="#ef4444" style={{ margin: '0 auto 8px' }} />
-                <div style={{ fontSize: '12px', color: '#6b7280' }}>Failed to load vehicles</div>
+                <div style={{ fontSize: '12px', color: '#64748B' }}>Failed to load vehicles</div>
               </div>
             ) : filtered.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.4, padding: '20px', textAlign: 'center' }}>
-                <Truck size={28} color="#9ca3af" style={{ marginBottom: '8px' }} />
-                <span style={{ fontSize: '12px', color: '#6b7280', fontWeight: 500 }}>
-                  {vehicles.length === 0 ? 'No vehicles assigned to your groups' : 'No vehicles match the filter'}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px', textAlign: 'center' }}>
+                <Truck size={28} color="#94A3B8" style={{ marginBottom: '8px' }} />
+                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>
+                  {vehicles.length === 0 ? 'No vehicles assigned' : 'No vehicles match search'}
                 </span>
               </div>
             ) : (
@@ -495,54 +540,85 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 const status = getStatus(v);
                 const isSelected = currentSelected?.id === v.id;
                 const sc = statusColors[status];
+                const isVan = (v.name || '').toLowerCase().includes('van');
                 return (
                   <div
                     key={v.id}
                     onClick={() => setSelectedVehicle(prev => prev?.id === v.id ? null : v)}
                     title={getExpiryWarning(v) ? getExpiryWarning(v).text : undefined}
                     style={{
-                      background: isSelected ? 'linear-gradient(135deg, #4d6076, #6e859b)' : 'rgba(255, 255, 255, 0.85)',
-                      backdropFilter: isSelected ? 'none' : 'blur(4px)',
-                      border: `1px solid ${isSelected ? 'transparent' : 'rgba(255, 255, 255, 0.9)'}`,
-                      borderRadius: '16px',
-                      padding: '10px 12px',
+                      background: isSelected ? '#F0F9FF' : '#FFFFFF',
+                      borderBottom: isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9',
+                      borderLeft: isSelected ? '4px solid #0EA5E9' : '4px solid transparent',
+                      padding: '12px 14px',
                       cursor: 'pointer',
-                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                      position: 'relative',
-                      zIndex: hoveredVehicleId === v.id ? 10 : 1,
-                      transform: hoveredVehicleId === v.id ? 'scale(1.02)' : 'scale(1)',
-                      boxShadow: hoveredVehicleId === v.id ? '0 8px 16px rgba(0,0,0,0.1)' : '0 2px 4px rgba(0,0,0,0.02)'
+                      transition: 'background 0.15s ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px'
                     }}
                     onMouseEnter={e => {
                       setHoveredVehicleId(v.id);
                       const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
                       const itemRect = e.currentTarget.getBoundingClientRect();
                       setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+                      if (!isSelected) e.currentTarget.style.background = '#F8FAFC';
                     }}
                     onMouseLeave={e => {
                       setHoveredVehicleId(null);
+                      if (!isSelected) e.currentTarget.style.background = '#FFFFFF';
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: isSelected ? '#fff' : '#1f2937', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {v.name}
-                        </div>
-                        <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.7)' : '#9ca3af', marginTop: '2px' }}>
-                          {v.plate || v.name} · {!v.last_seen ? 'N/A' : formatSpeed(v.current_speed)}
-                        </div>
-                      </div>
-                      <span style={{
-                        fontSize: '10px', fontWeight: 700,
-                        color: isSelected ? '#fff' : sc,
-                        background: isSelected ? 'rgba(255,255,255,0.2)' : `${sc}15`,
-                        padding: '3px 8px', borderRadius: '6px', flexShrink: 0, marginLeft: '8px'
-                      }}>
-                        {statusLabels[status]}
-                      </span>
+                    {/* Vehicle Icon Graphic */}
+                    <div style={{
+                      width: '38px',
+                      height: '38px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0
+                    }}>
+                      {isVan ? (
+                        <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                          <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
+                          <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
+                          <circle cx="14" cy="27" r="4" fill="#334155"/>
+                          <circle cx="34" cy="27" r="4" fill="#334155"/>
+                          <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
+                        </svg>
+                      ) : (
+                        <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                          <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
+                          <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
+                          <circle cx="12" cy="26" r="4" fill="#1E293B"/>
+                          <circle cx="34" cy="26" r="4" fill="#1E293B"/>
+                        </svg>
+                      )}
                     </div>
-                    <div style={{ fontSize: '10px', color: isSelected ? 'rgba(255,255,255,0.55)' : '#9ca3af', marginTop: '4px' }}>
-                      {getRelativeTime(v.last_seen)}
+
+                    {/* Middle Details */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {v.name}
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {v.plate || v.name}
+                      </div>
+                      <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <span>{formatSpeed(v.current_speed)}</span>
+                        <span>·</span>
+                        <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'No GPS data'}</span>
+                      </div>
+                    </div>
+
+                    {/* Right Status Dot & Arrow */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: sc }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: sc }} />
+                        <span>{statusLabels[status]}</span>
+                      </div>
+                      <ChevronRight size={14} color="#94A3B8" />
                     </div>
                   </div>
                 );

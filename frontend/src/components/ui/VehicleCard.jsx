@@ -135,12 +135,12 @@ const VehicleCard = ({ vehicle, isActive, onClick, onDetailsClick }) => {
           <Clock size={11} color="#9ca3af" />
           <span style={{ fontSize: '10px', color: '#6b7280' }}>{getRelativeTime(vehicle.last_seen)}</span>
         </div>
-        
-        <div style={{ 
+
+        <div style={{
           display: 'flex', alignItems: 'center', gap: '4px',
-          opacity: isHovered || isActive ? 1 : 0, 
-          transition: 'opacity 0.2s', 
-          pointerEvents: isHovered || isActive ? 'auto' : 'none' 
+          opacity: isHovered || isActive ? 1 : 0,
+          transition: 'opacity 0.2s',
+          pointerEvents: isHovered || isActive ? 'auto' : 'none'
         }}>
           <button
             onClick={e => { e.stopPropagation(); onClick && onClick(e); }}

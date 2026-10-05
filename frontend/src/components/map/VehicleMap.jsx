@@ -127,7 +127,7 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
       >
         <ResizeMap />
         <LayersControl position="topleft">
-          <BaseLayer checked name="Modern Light">
+          <BaseLayer checked name="OpenStreetMap Standard (OSM)">
             <TileLayer
               attribution='&copy; OpenStreetMap contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

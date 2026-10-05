@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck,
-  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Globe
+  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Globe,
+  Clock, Trash2, Cpu
 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import * as api from '../../api/adminApi';
@@ -39,6 +40,7 @@ const DevicesAdminPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, ONLINE, OFFLINE, NEVER
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
@@ -67,15 +69,30 @@ const DevicesAdminPage = () => {
 
   useEffect(() => {
     fetchDevices();
-    api.getGroups?.().then(res => { if (res.success) setGroups(res.data); }).catch(() => {});
-    api.getOrgs?.().then(res => { if (res.success) setOrgs(res.data); }).catch(() => {});
+    api.getGroups?.().then(res => { if (res.success) setGroups(res.data); }).catch(() => { });
+    api.getOrgs?.().then(res => { if (res.success) setOrgs(res.data); }).catch(() => { });
   }, []);
 
-  const filtered = devices.filter(d =>
-    (d.imei || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (d.vehicle_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (d.type || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Counts breakdown
+  const totalCount = devices.length;
+  const onlineCount = devices.filter(d => d.is_online).length;
+  const offlineCount = devices.filter(d => !d.is_online && d.last_update).length;
+  const neverCount = devices.filter(d => !d.last_update).length;
+
+  const filtered = devices.filter(d => {
+    const matchesSearch =
+      (d.imei || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.vehicle_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.type || '').toLowerCase().includes(searchQuery.toLowerCase());
+
+    if (!matchesSearch) return false;
+
+    if (statusFilter === 'ONLINE') return d.is_online;
+    if (statusFilter === 'OFFLINE') return !d.is_online && d.last_update;
+    if (statusFilter === 'NEVER') return !d.last_update;
+
+    return true;
+  });
 
   const handleDelete = async (id, e) => {
     if (e) e.stopPropagation();
@@ -92,183 +109,237 @@ const DevicesAdminPage = () => {
   };
 
   return (
-    <div className="pastel-page-bg" style={{ padding: '32px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', background: '#f8fafc' }}>
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shrink-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 shrink-0">
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#1e293b', letterSpacing: '-0.02em' }}>Device Inventory</h1>
-          <p style={{ fontSize: '15px', color: '#64748b', marginTop: '4px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
+          <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Device Inventory</h1>
+          <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center flex-wrap gap-2.5">
+        <div className="flex items-center flex-wrap gap-2">
           <button
             onClick={() => setIsGoogleFormModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-800 bg-white hover:bg-orange-50 border border-slate-300 rounded-xl shadow-xs transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
             title="Share Google Form link with technicians/dealers for automatic admin sync"
           >
-            <Globe size={14} className="text-orange-500" />
+            <Globe size={14} className="text-blue-600" />
             <span>Google Form Link</span>
           </button>
 
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
             title="Download formatted Excel template for bulk onboarding"
           >
-            <Download size={14} className="text-slate-500" />
+            <Download size={14} className="text-slate-600" />
             <span>Excel Template</span>
           </button>
 
           <button
             onClick={() => setIsExcelModalOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 rounded-xl shadow-md shadow-slate-900/10 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded-lg shadow-sm transition-all cursor-pointer"
           >
-            <FileSpreadsheet size={15} className="text-orange-400" />
+            <FileSpreadsheet size={14} className="text-amber-400" />
             <span>Upload Excel</span>
           </button>
 
           <button
             onClick={() => navigate('/onBoardDevice')}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: '#f97316', color: '#FFFFFF',
-              padding: '10px 20px', borderRadius: '12px',
-              fontSize: '14px', fontWeight: 700, border: 'none',
-              cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
-            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 4px 12px rgba(249,115,22,0.2)'; }}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-sm transition-all cursor-pointer"
           >
-            <Plus size={18} />
+            <Plus size={16} />
             <span>Add Device</span>
           </button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '24px', flex: 1, minHeight: 0 }}>
-
-        {/* List Card */}
-        <div style={{
-          background: '#FFFFFF', borderRadius: '16px', border: '1px solid #e2e8f0',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.03)', display: 'flex', flexDirection: 'column',
-          flex: '100%', transition: 'all 0.3s ease', overflow: 'hidden'
-        }}>
-          {/* Search Bar */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 p-5 border-b" style={{ borderColor: '#e2e8f0' }}>
-            <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
-              <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={18} />
-              <input
-                type="text"
-                placeholder="Search IMEI, Vehicle, or Model..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%', padding: '12px 16px 12px 44px',
-                  borderRadius: '12px', border: '1px solid #cbd5e1',
-                  background: '#f8fafc',
-                  fontSize: '14px', outline: 'none', color: '#334155', boxSizing: 'border-box',
-                  transition: 'all 0.2s'
-                }}
-                onFocus={(e) => { e.target.style.background = '#ffffff'; e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)'; }}
-                onBlur={(e) => { e.target.style.background = '#f8fafc'; e.target.style.borderColor = '#cbd5e1'; e.target.style.boxShadow = 'none'; }}
-              />
-            </div>
-            <div style={{ display: 'flex', gap: '20px', fontSize: '14px', fontWeight: 600 }}>
-              <span style={{ color: '#64748b' }}>Total: <span style={{ color: '#1e293b' }}>{devices.length}</span></span>
-              <span style={{ color: '#64748b' }}>Online: <span style={{ color: '#10b981' }}>{devices.filter(d => d.is_online).length}</span></span>
-            </div>
-          </div>
-
-          {loading ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
-              <Loader2 size={32} color="#3b82f6" className="animate-spin" />
-              <span style={{ fontSize: '15px', color: '#64748b', marginTop: '16px' }}>Loading inventory...</span>
-            </div>
-          ) : error ? (
-            <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
-              <AlertTriangle size={36} color="#ef4444" style={{ margin: '0 auto 16px' }} />
-              <div style={{ fontSize: '16px', fontWeight: 600, color: '#1e293b' }}>Failed to Load Records</div>
-              <div style={{ fontSize: '14px', color: '#64748b', marginTop: '6px' }}>{error}</div>
-            </div>
-          ) : (
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid #e2e8f0' }}>
-                    {['Sl.No', 'Device IMEI', 'Type', 'Assigned Vehicle', 'Status', 'Last Comm'].map((h, i) => (
-                      <th key={h} style={{ 
-                        padding: '16px 20px', 
-                        fontSize: '12px', 
-                        fontWeight: 700, 
-                        textTransform: 'uppercase', 
-                        letterSpacing: '0.05em' 
-                      }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" style={{ padding: '100px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.8 }}>
-                          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '20px' }}>
-                            <Server size={40} color="#94a3b8" />
-                          </div>
-                          <div style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b' }}>No devices found</div>
-                          <div style={{ fontSize: '15px', color: '#64748b', marginTop: '6px' }}>Awaiting device configuration.</div>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : filtered.map((d, idx) => (
-                    <tr
-                      key={d.id}
-                      style={{
-                        borderBottom: '1px solid #f1f5f9', cursor: 'default',
-                        background: 'transparent',
-                        transition: 'background 0.2s'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
-                    >
-                      <td style={{ padding: '18px 20px', textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#64748B' }}>
-                        {idx + 1}
-                      </td>
-                      <td style={{ padding: '18px 20px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{d.imei}</div>
-                      </td>
-                      <td style={{ padding: '18px 20px', fontSize: '13px', color: '#475569', fontWeight: 500 }}>
-                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#f1f5f9', padding: '5px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-                          <Server size={12} color="#64748b" />
-                          {d.type}
-                        </div>
-                      </td>
-                      <td style={{ padding: '18px 20px', fontSize: '14px', color: '#0f172a', fontWeight: 600 }}>
-                        {d.vehicle_name || 'Unassigned'}
-                      </td>
-                      <td style={{ padding: '18px 20px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: d.is_online ? '#10b981' : '#cbd5e1', boxShadow: d.is_online ? '0 0 10px rgba(16,185,129,0.3)' : 'none' }} />
-                          <span style={{ fontSize: '13px', fontWeight: 600, color: d.is_online ? '#059669' : '#64748b' }}>
-                            {d.is_online ? 'Online' : 'Offline'}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '18px 20px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-                        {formatLastComm(d.last_update)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      {/* Search & Comprehensive Counters Toolbar */}
+      <div style={{
+        padding: '12px 0', marginBottom: '12px',
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '12px',
+      }}>
+        {/* Search Input */}
+        <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+          <Search style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} size={16} />
+          <input
+            type="text"
+            placeholder="Search IMEI, Vehicle, or Model..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%', padding: '8px 12px 8px 36px',
+              borderRadius: '8px', border: '1px solid #cbd5e1',
+              background: '#ffffff',
+              fontSize: '13px', outline: 'none', color: '#334155', boxSizing: 'border-box',
+              transition: 'all 0.2s'
+            }}
+            onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; }}
+            onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; }}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#94a3b8' }}
+            >
+              <X size={14} />
+            </button>
           )}
         </div>
+
+        {/* Counts & Status Filter Badges */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '16px', fontSize: '13px', fontWeight: 600 }}>
+          {/* Total */}
+          <span
+            onClick={() => setStatusFilter('ALL')}
+            style={{ cursor: 'pointer', color: '#475569', background: statusFilter === 'ALL' ? '#e2e8f0' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+          >
+            Total: <strong style={{ color: '#0f172a', fontWeight: 700 }}>{totalCount}</strong>
+          </span>
+
+          {/* Online */}
+          <span
+            onClick={() => setStatusFilter(statusFilter === 'ONLINE' ? 'ALL' : 'ONLINE')}
+            style={{ cursor: 'pointer', color: '#059669', background: statusFilter === 'ONLINE' ? '#ecfdf5' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #a7f3d0' }}
+          >
+            • Online: <strong style={{ color: '#10b981', fontWeight: 700 }}>{onlineCount}</strong>
+          </span>
+
+          {/* Offline */}
+          <span
+            onClick={() => setStatusFilter(statusFilter === 'OFFLINE' ? 'ALL' : 'OFFLINE')}
+            style={{ cursor: 'pointer', color: '#dc2626', background: statusFilter === 'OFFLINE' ? '#fef2f2' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fecaca' }}
+          >
+            • Offline: <strong style={{ color: '#ef4444', fontWeight: 700 }}>{offlineCount}</strong>
+          </span>
+
+          {/* Never Communicated */}
+          <span
+            onClick={() => setStatusFilter(statusFilter === 'NEVER' ? 'ALL' : 'NEVER')}
+            style={{ cursor: 'pointer', color: '#64748b', background: statusFilter === 'NEVER' ? '#e2e8f0' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+          >
+            • Never Communicated: <strong style={{ color: '#475569', fontWeight: 700 }}>{neverCount}</strong>
+          </span>
+        </div>
       </div>
+
+      {/* Direct Table View without Card Wrapper */}
+      {loading ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '40px' }}>
+          <Loader2 size={30} color="#3b82f6" className="animate-spin" />
+          <span style={{ fontSize: '13px', color: '#64748b', marginTop: '12px' }}>Loading inventory...</span>
+        </div>
+      ) : error ? (
+        <div style={{ padding: '40px', textAlign: 'center', flex: 1 }}>
+          <AlertTriangle size={32} color="#ef4444" style={{ margin: '0 auto 12px' }} />
+          <div style={{ fontSize: '15px', fontWeight: 600, color: '#1e293b' }}>Failed to Load Records</div>
+          <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{error}</div>
+        </div>
+      ) : (
+        <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ background: '#1e1b4b', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '60px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>SL.NO</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DEVICE IMEI</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>TYPE</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLE</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>STATUS</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em' }}>LAST COMMUNICATION</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '40px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
+                      <Server size={32} color="#94a3b8" />
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '8px' }}>No devices found</div>
+                    </div>
+                  </td>
+                </tr>
+              ) : filtered.map((d, idx) => {
+                let statusText = 'Offline';
+                let statusColor = '#64748b';
+                let dotColor = '#cbd5e1';
+
+                if (!d.last_update) {
+                  statusText = 'Never';
+                  statusColor = '#64748b';
+                  dotColor = '#cbd5e1';
+                } else if (d.is_online) {
+                  statusText = 'Online';
+                  statusColor = '#059669';
+                  dotColor = '#10b981';
+                } else {
+                  statusText = 'Offline';
+                  statusColor = '#dc2626';
+                  dotColor = '#ef4444';
+                }
+
+                return (
+                  <tr
+                    key={d.id}
+                    style={{
+                      borderBottom: '1px solid #e0e7ff',
+                      height: '38px',
+                      transition: 'background 0.15s'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                  >
+                    {/* Sl. No */}
+                    <td style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#64748b', borderRight: '1px solid #e2e8f0' }}>
+                      {idx + 1}
+                    </td>
+
+                    {/* Device IMEI */}
+                    <td style={{ padding: '8px 14px', fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
+                      {d.imei}
+                    </td>
+
+                    {/* Device Type */}
+                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase' }}>
+                        {d.type}
+                      </span>
+                    </td>
+
+                    {/* Assigned Vehicle */}
+                    <td style={{ padding: '8px 14px', fontSize: '13px', color: '#1e293b', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
+                      {d.vehicle_name || 'Unassigned'}
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '8px 14px', borderRight: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
+                        <span style={{ fontSize: '12px', fontWeight: 600, color: statusColor }}>
+                          {statusText}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Last Comm */}
+                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                      {formatLastComm(d.last_update)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Footer info bar */}
+      {!loading && !error && filtered.length > 0 && (
+        <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontWeight: 500, display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
+          <span>Showing 1 to {filtered.length} of {filtered.length} entries</span>
+        </div>
+      )}
 
       {/* Excel Upload Modal */}
       <ExcelBulkUploadModal
