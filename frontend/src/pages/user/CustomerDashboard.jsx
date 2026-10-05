@@ -345,14 +345,15 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             display: 'flex',
             justify: 'space-between',
             alignItems: 'center',
+            gap: '8px',
             borderBottom: '1px solid rgba(203, 213, 225, 0.8)',
             paddingBottom: '4px',
             color: '#64748b',
             fontSize: '11px',
             fontWeight: 600
           }}>
-            <span>{formatCardTimestamp(hoveredVehicle.last_seen)}</span>
-            <span style={{ color: '#0f172a', fontWeight: 800 }}>{hoveredVehicle.name}</span>
+            <span style={{ whiteSpace: 'nowrap', flexShrink: 0 }}>{formatCardTimestamp(hoveredVehicle.last_seen)}</span>
+            <span style={{ color: '#0f172a', fontWeight: 800, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{hoveredVehicle.name}</span>
           </div>
 
           {/* Expiry Warning if applicable */}
@@ -395,7 +396,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Max Speed (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {hoveredVehicle.max_speed || 60}
+                  {liveRouteMetrics[hoveredVehicle.id]?.maxSpeed !== undefined
+                    ? liveRouteMetrics[hoveredVehicle.id].maxSpeed
+                    : (hoveredVehicle.max_speed || (hoveredVehicle.current_speed ? Math.round(hoveredVehicle.current_speed) : 0))}
                 </td>
               </tr>
               <tr>
@@ -411,7 +414,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               <tr>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Dev Battery</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {hoveredVehicle.metadata?.devBattery || '68%'}
+                  {hoveredVehicle.metadata?.devBattery || hoveredVehicle.dev_battery || hoveredVehicle.device_battery
+                    ? `${hoveredVehicle.metadata?.devBattery || hoveredVehicle.dev_battery || hoveredVehicle.device_battery}%`
+                    : 'N/A'}
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Direction</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>

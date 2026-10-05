@@ -126,9 +126,16 @@ const VehicleController = {
           finalOdo = baseline + Math.max(0, currentRawOdo - snapshot);
         }
 
+        let maxSpeed = 0;
+        sorted.forEach(p => {
+          const sp = parseFloat(p.speed || 0);
+          if (sp > maxSpeed) maxSpeed = sp;
+        });
+
         metrics[vid] = {
           cDist: cumulativeDist,
-          dynamicOdo: finalOdo
+          dynamicOdo: finalOdo,
+          maxSpeed: Math.round(maxSpeed)
         };
       }
       res.json({ success: true, data: metrics });
