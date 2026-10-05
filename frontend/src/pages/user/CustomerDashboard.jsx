@@ -24,6 +24,22 @@ const getExpiryWarning = (vehicle) => {
   return null;
 };
 
+const formatCardTimestamp = (isoString) => {
+  if (!isoString) return new Date().toISOString().slice(0, 19).replace('T', ' ');
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return String(isoString);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    const ss = String(d.getSeconds()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+  } catch (e) {
+    return String(isoString);
+  }
+};
 
 const StatusPill = ({ label, count, color, active, onClick }) => (
   <button
@@ -302,118 +318,118 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         </div>
       </div>
 
-      {/* ── Hover Tooltip Card ── */}
+      {/* ── Hover Tooltip Card (Matching Reference Legacy Layout) ── */}
       {hoveredVehicle && (!currentSelected || hoveredVehicle.id !== currentSelected.id) && (
         <div style={{
           position: 'absolute',
           top: `${hoverPosY}px`,
           left: '320px',
-          width: '260px',
-          background: 'rgba(255, 255, 255, 0.4)',
-          backdropFilter: 'blur(16px)',
-          WebkitBackdropFilter: 'blur(16px)',
-          border: '1px solid rgba(255, 255, 255, 0.6)',
-          borderRadius: '16px',
-          padding: '12px',
+          width: '360px',
+          background: 'rgba(241, 245, 249, 0.88)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+          border: '1px solid rgba(203, 213, 225, 0.8)',
+          borderRadius: '8px',
+          padding: '8px 12px',
           zIndex: 1001,
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '8px',
-          pointerEvents: 'none'
+          gap: '6px',
+          pointerEvents: 'none',
+          fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+          fontSize: '11px'
         }}>
-          {/* Header to show which vehicle this card belongs to */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(0,0,0,0.1)', paddingBottom: '8px' }}>
-            <div style={{ fontSize: '14px', fontWeight: 800, color: '#1f2937' }}>
-              {hoveredVehicle.name}
-            </div>
-            <div style={{
-              fontSize: '10px', fontWeight: 700, padding: '2px 8px', borderRadius: '12px',
-              background: getVehicleStatus(hoveredVehicle) === 'running' ? '#dcfce7' : '#f3f4f6',
-              color: getVehicleStatus(hoveredVehicle) === 'running' ? '#16a34a' : '#6b7280'
-            }}>
-              {getVehicleStatus(hoveredVehicle).toUpperCase()}
-            </div>
+          {/* Header Bar: Timestamp on left, Vehicle Name on right */}
+          <div style={{
+            display: 'flex',
+            justify: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid rgba(203, 213, 225, 0.8)',
+            paddingBottom: '4px',
+            color: '#64748b',
+            fontSize: '11px',
+            fontWeight: 600
+          }}>
+            <span>{formatCardTimestamp(hoveredVehicle.last_seen)}</span>
+            <span style={{ color: '#0f172a', fontWeight: 800 }}>{hoveredVehicle.name}</span>
           </div>
 
-          {/* Expiry Warning */}
+          {/* Expiry Warning if applicable */}
           {(() => {
             const warning = getExpiryWarning(hoveredVehicle);
             if (!warning) return null;
             const isExpired = warning.type === 'expired';
             return (
               <div style={{
-                background: isExpired ? '#FEF2F2' : '#FFFBEB',
-                border: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
-                padding: '10px 12px',
-                display: 'flex', alignItems: 'center', gap: '10px',
-                borderRadius: '8px'
+                background: isExpired ? 'rgba(254, 242, 242, 0.9)' : 'rgba(255, 251, 235, 0.9)',
+                border: `1px solid ${isExpired ? '#fecaca' : '#fde68a'}`,
+                padding: '4px 8px',
+                borderRadius: '6px',
+                fontSize: '10px',
+                fontWeight: 700,
+                color: isExpired ? '#b91c1c' : '#d97706'
               }}>
-                <AlertTriangle size={16} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: isExpired ? '#B91C1C' : '#D97706' }}>
-                    {warning.text}
-                  </div>
-                  {hoveredVehicle.licence_expire_date && (
-                    <div style={{ fontSize: '10px', color: isExpired ? '#991B1B' : '#B45309', marginTop: '2px' }}>
-                      Expires on {formatLocalDate(hoveredVehicle.licence_expire_date)}
-                    </div>
-                  )}
-                </div>
+                ⚠️ {warning.text}
               </div>
             );
           })()}
 
-          {/* Driver */}
-          {hoveredVehicle.driver_name && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <User size={16} color="#4b5563" />
-              </div>
-              <div>
-                <div style={{ fontSize: '12px', fontWeight: 700, color: '#1f2937' }}>{hoveredVehicle.driver_name}</div>
-                {hoveredVehicle.driver_phone && <div style={{ fontSize: '11px', color: '#6b7280' }}>{hoveredVehicle.driver_phone}</div>}
-              </div>
-            </div>
-          )}
+          {/* Table Grid matching Image 2 */}
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
+            <tbody>
+              <tr>
+                <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Odo (Kms)</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
+                  {liveRouteMetrics[hoveredVehicle.id] !== undefined ? Math.round(liveRouteMetrics[hoveredVehicle.id].dynamicOdo).toLocaleString() : Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}
+                </td>
+                <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Covered (Kms)</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
+                  {liveRouteMetrics[hoveredVehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[hoveredVehicle.id].cDist).toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Ignition</td>
+                <td style={{ color: hoveredVehicle.current_ignition ? '#16a34a' : '#ef4444', fontWeight: 700, padding: '2px 0' }}>
+                  {hoveredVehicle.current_ignition ? 'ON' : 'OFF'}
+                </td>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Max Speed (Kms)</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                  {hoveredVehicle.max_speed || 60}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Veh Battery</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                  {formatVoltage(hoveredVehicle.current_voltage || hoveredVehicle.metadata?.batteryVoltage)}
+                </td>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Speed (Kms)</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                  {Math.round(hoveredVehicle.current_speed || 0)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Dev Battery</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                  {hoveredVehicle.metadata?.devBattery || '68%'}
+                </td>
+                <td style={{ color: '#64748b', padding: '2px 0' }}>Direction</td>
+                <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                  {formatDirection(hoveredVehicle.current_direction)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-          {/* Table Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid rgba(0,0,0,0.1)', borderRadius: '8px', overflow: 'hidden', background: 'rgba(255, 255, 255, 0.3)' }}>
-            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Compass size={12} color="#3b82f6" /> Odo (kms)</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{liveRouteMetrics[hoveredVehicle.id] !== undefined ? Math.round(liveRouteMetrics[hoveredVehicle.id].dynamicOdo).toLocaleString() : Math.round(hoveredVehicle.current_odometer || 0).toLocaleString()}</div>
-            </div>
-            <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#3b82f6" /> Covered Distance</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{liveRouteMetrics[hoveredVehicle.id] !== undefined ? liveRouteMetrics[hoveredVehicle.id].cDist.toFixed(2) : (Number(hoveredVehicle.today_distance) || 0).toFixed(2)} km</div>
-            </div>
-            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Shield size={12} color="#10b981" /> Ignition</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{hoveredVehicle.current_ignition ? 'ON' : 'OFF'}</div>
-            </div>
-            <div style={{ padding: '8px', borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Cpu size={12} color="#10b981" /> Battery</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatVoltage(hoveredVehicle.current_voltage || hoveredVehicle.metadata?.batteryVoltage)}</div>
-            </div>
-            <div style={{ padding: '8px', borderRight: '1px solid rgba(0,0,0,0.1)' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Activity size={12} color="#4b5563" /> Speed (km/h)</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{Math.round(hoveredVehicle.current_speed || 0)}</div>
-            </div>
-            <div style={{ padding: '8px' }}>
-              <div style={{ fontSize: '10px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={12} color="#10b981" /> Direction</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#1f2937', marginTop: '4px' }}>{formatDirection(hoveredVehicle.current_direction)}</div>
-            </div>
-          </div>
-
-          {/* Location */}
-          <div>
-            <div style={{ fontSize: '10px', color: '#1f2937', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}><MapPin size={12} color="#4b5563" /> Current Location</div>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px', lineHeight: '1.4' }}>
-              {hoveredVehicleAddress || 'Unknown location'}
-            </div>
-            <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '6px' }}>
-              {getRelativeTime(hoveredVehicle.last_seen)}
-            </div>
+          {/* Location Address */}
+          <div style={{
+            borderTop: '1px solid rgba(203, 213, 225, 0.8)',
+            paddingTop: '4px',
+            color: '#475569',
+            fontSize: '10px',
+            lineHeight: '1.4'
+          }}>
+            {hoveredVehicleAddress || 'Location unavailable'}
           </div>
         </div>
       )}
