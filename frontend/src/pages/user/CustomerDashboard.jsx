@@ -414,9 +414,10 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               <tr>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Dev Battery</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {hoveredVehicle.metadata?.devBattery || hoveredVehicle.dev_battery || hoveredVehicle.device_battery
-                    ? `${hoveredVehicle.metadata?.devBattery || hoveredVehicle.dev_battery || hoveredVehicle.device_battery}%`
-                    : 'N/A'}
+                  {(() => {
+                    const b = hoveredVehicle.current_battery ?? hoveredVehicle.battery ?? hoveredVehicle.metadata?.devBattery ?? hoveredVehicle.dev_battery ?? hoveredVehicle.device_battery;
+                    return b !== undefined && b !== null ? `${b}%` : 'N/A';
+                  })()}
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Direction</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
