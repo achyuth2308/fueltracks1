@@ -215,7 +215,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
-            justify: 'center',
+            justifyContent: 'center',
             padding: '20px'
           }}>
             <motion.div
@@ -266,7 +266,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               </div>
 
               <p style={{ fontSize: '14px', color: '#B91C1C', lineHeight: '1.5', margin: '0 0 20px', fontWeight: 700, background: '#FEF2F2', padding: '10px 14px', borderRadius: '8px', border: '1px solid #FECACA' }}>
-                Your license has expired. Please contact sales team.
+                Your license has expired. Please contact sales team or renew yourself
               </p>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -451,7 +451,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           {/* Header Bar: Timestamp on left, Vehicle Name on right */}
           <div style={{
             display: 'flex',
-            justify: 'space-between',
+            justifyContent: 'space-between',
             alignItems: 'center',
             gap: '8px',
             borderBottom: '1px solid rgba(203, 213, 225, 0.8)',
