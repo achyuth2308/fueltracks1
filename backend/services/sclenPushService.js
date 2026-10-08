@@ -5,8 +5,13 @@
 // ============================================================
 
 const axios = require('axios');
+const http = require('http');
 const db = require('../config/db');
 const { getAddress } = require('../utils/geocodeUtils');
+const { LRUCache } = require('lru-cache');
+
+// Agent to cap concurrent requests
+const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 20, maxFreeSockets: 5 });
 
 const COROMANDEL_ENDPOINT = 'http://115.112.241.148:7003/api/GET_INFORMATION_BY_RTO';
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -29,7 +34,7 @@ function formatSclenDate(utcDate) {
 }
 
 // In-memory cache for organization checks (to avoid DB hits on every single GPS packet)
-const orgCache = new Map();
+const orgCache = new LRUCache({ max: 5000, ttl: 5 * 60 * 1000 });
 
 async function isSathyadevaVehicle(vehicleId, orgId) {
   if (orgCache.has(vehicleId)) {
@@ -54,9 +59,6 @@ async function isSathyadevaVehicle(vehicleId, orgId) {
     
     // Cache the result for 5 minutes
     orgCache.set(vehicleId, isSathyadeva);
-    setTimeout(() => {
-      orgCache.delete(vehicleId);
-    }, 5 * 60 * 1000);
     
     return isSathyadeva;
   } catch (err) {
@@ -97,7 +99,7 @@ async function pushToCoromandel(vehicle, point) {
     };
 
     // 5. Fire-and-forget push to Coromandel
-    axios.post(COROMANDEL_ENDPOINT, payload, { timeout: 5000 })
+    axios.post(COROMANDEL_ENDPOINT, payload, { timeout: 5000, httpAgent })
       .then(response => {
         console.log(`[SCLEN PUSH] ✅ Successfully pushed location for ${regNo}`);
       })

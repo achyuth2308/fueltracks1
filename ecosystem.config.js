@@ -16,7 +16,7 @@ module.exports = {
       exec_mode: 'fork',
 
       // Cap heap to avoid OOM on t3.medium (4GB); Node will GC more aggressively before this
-      node_args: '--max-old-space-size=512',
+      node_args: '--max-old-space-size=512 --heapsnapshot-near-heap-limit=1 --diagnostic-dir=/home/fueltracks/snapshots',
 
       env_production: {
         NODE_ENV: 'production',
@@ -52,7 +52,7 @@ module.exports = {
       instances: 1,
       exec_mode: 'fork',
 
-      node_args: '--max-old-space-size=512',
+      node_args: '--max-old-space-size=512 --heapsnapshot-near-heap-limit=1 --diagnostic-dir=/home/fueltracks/snapshots',
 
       env_production: {
         NODE_ENV: 'production',

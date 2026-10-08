@@ -407,6 +407,22 @@ async function bootstrap() {
       console.log(`  Redis Cache: ${env.REDIS_HOST}:${env.REDIS_PORT}`);
       console.log(`  Rate limiting: enabled`);
       console.log('============================================================');
+      
+      // BN-2: Staggered try/catch geofence warmup that never blocks startup
+      const warmGeofenceCache = async () => {
+        try {
+          const GeofenceModel = require('./models/geofenceModel');
+          const vehicles = await db.query('SELECT id FROM vehicles WHERE is_active = TRUE');
+          for (const v of vehicles.rows) {
+            await GeofenceModel.findGeofencesForVehicle(v.id).catch(() => {});
+            await new Promise(r => setTimeout(r, 20)); // throttle
+          }
+          console.log(`[WARMUP] Geofence cache warmed for ${vehicles.rowCount} vehicles.`);
+        } catch (err) {
+          console.error('[WARMUP] Geofence warmup error:', err.message);
+        }
+      };
+      warmGeofenceCache();
     });
 
     // 4. Start Background Offline Checker
