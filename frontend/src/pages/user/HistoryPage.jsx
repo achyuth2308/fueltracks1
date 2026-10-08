@@ -104,21 +104,21 @@ const HistoryPage = () => {
   // NOTE: All tabs (including 'All') exclude ignition OFF records to reduce noise.
   // The map/playback still uses the full 'points' array for an accurate route line.
   const getFilteredPoints = () => {
-    // Base: Only show actual travel points (ignition ON AND speed > 8kmph) for accurate trips
-    const travelPoints = points.filter(p => p.ignition && p.speed > 8);
+    // Base: Movement points include any point where speed > 0 or ignition is ON
+    const travelPoints = points.filter(p => (p.speed && p.speed > 0) || p.ignition);
 
     if (activeTab === 'All') return points;
     if (activeTab === 'Movement') return travelPoints;
-    if (activeTab === 'OverSpeed') return travelPoints.filter(p => p.speed > 60);
+    if (activeTab === 'OverSpeed') return points.filter(p => p.speed > 60);
 
-    // Non-travel tabs need to bypass the strict >8kmph base rule
+    // Non-travel tabs filter specific statuses
     const ignitionOn = points.filter(p => p.ignition);
-    if (activeTab === 'Parked') return points.filter(p => p.speed <= 5 && !p.ignition); // Parked intentionally keeps ignition OFF
-    if (activeTab === 'Idle') return ignitionOn.filter(p => p.speed <= 5);
+    if (activeTab === 'Parked') return points.filter(p => (p.speed || 0) <= 3 && !p.ignition);
+    if (activeTab === 'Idle') return ignitionOn.filter(p => (p.speed || 0) <= 3);
     if (activeTab === 'Ignition') return ignitionOn;
-    if (activeTab === 'Stoppage') return ignitionOn.filter(p => p.speed <= 2);
+    if (activeTab === 'Stoppage') return points.filter(p => (p.speed || 0) <= 3);
 
-    return travelPoints;
+    return points;
   };
 
   const filteredPoints = getFilteredPoints();
@@ -240,7 +240,8 @@ const HistoryPage = () => {
           // Ensure chronological (string comparison is safe for ISO dates and much faster)
           const sorted = [...processedPoints].sort((a, b) => a.device_time.localeCompare(b.device_time));
 
-          // Static Drift Filter: Removes GPS starburst clusters when parked
+          // Smart Static Drift Filter: Preserves ALL trajectory points along the route,
+          // only skipping identical zero-movement duplicate points (< 5m distance & 0 speed) when parked.
           const driftFiltered = [];
           let lastValid = null;
           for (const p of sorted) {
@@ -249,13 +250,15 @@ const HistoryPage = () => {
               lastValid = p;
               continue;
             }
-            // A vehicle is considered "moving" if speed > 3 km/h or ignition is ON.
-            const isMoving = p.speed > 3 || p.ignition;
-            const wasMoving = lastValid.speed > 3 || lastValid.ignition;
+            const distKm = calculateDistance(lastValid.lat, lastValid.lng, p.lat, p.lng);
+            const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
 
-            // We keep moving points, AND the first stopped point (so we know where it parked),
-            // but we drop all subsequent stopped points to prevent GPS starburst drift.
-            if (isMoving || wasMoving) {
+            // Keep point if:
+            // 1) Vehicle moved >= 5 meters (0.005 km)
+            // 2) Vehicle speed > 0
+            // 3) Ignition is ON
+            // 4) More than 3 minutes passed (heartbeat while stationary)
+            if (distKm >= 0.005 || (p.speed && p.speed > 0) || p.ignition || timeDiffMin >= 3) {
               driftFiltered.push(p);
               lastValid = p;
             }
@@ -298,10 +301,10 @@ const HistoryPage = () => {
     let timer = null;
     if (isPlaying && filteredPoints.length > 0) {
       const speedMs = {
-        'Slow': 1000,
-        'Normal': 400,
-        'Fast': 80
-      }[playbackSpeed] || 400;
+        'Slow': 800,
+        'Normal': 350,
+        'Fast': 70
+      }[playbackSpeed] || 350;
 
       timer = setInterval(() => {
         setCurrentPointIndex((prev) => {
@@ -310,31 +313,7 @@ const HistoryPage = () => {
             clearInterval(timer);
             return prev;
           }
-
-          let nextIndex = prev + 1;
-          const nextPoint = filteredPoints[nextIndex];
-
-          // If the vehicle is stopped, track how long the user has been watching this stop in real-time
-          if (nextPoint && (nextPoint.speed || 0) <= 5) {
-            stopWatchTimeRef.current += speedMs;
-
-            // If they've watched it sit still for 10 seconds (10000 ms), skip to the end of the stop!
-            if (stopWatchTimeRef.current >= 10000) {
-              let skipIndex = nextIndex;
-              while (skipIndex < filteredPoints.length && (filteredPoints[skipIndex].speed || 0) <= 5) {
-                skipIndex++;
-              }
-              if (skipIndex < filteredPoints.length) {
-                nextIndex = skipIndex;
-              }
-              stopWatchTimeRef.current = 0; // reset after skipping
-            }
-          } else {
-            // Vehicle is moving, reset the parking watch timer
-            stopWatchTimeRef.current = 0;
-          }
-
-          return nextIndex;
+          return prev + 1;
         });
       }, speedMs);
     }

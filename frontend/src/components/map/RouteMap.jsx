@@ -256,12 +256,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       // Fix divide by zero for identical timestamps
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
-      // 1. Physically impossible teleports (> 150 km/h for jumps > 200m)
-      if (impliedSpeedKmph > 150 && dist > 0.2) continue;
-
-      // 2. Doppler Mismatch
-      const reportedSpeed = p.speed || 0;
-      if (impliedSpeedKmph > 80 && reportedSpeed < 20 && dist > 0.5) continue;
+      // Only drop physically impossible teleports (> 300 km/h over > 500m)
+      if (impliedSpeedKmph > 300 && dist > 0.5) continue;
       filtered.push(p);
     }
 
