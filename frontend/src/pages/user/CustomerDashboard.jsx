@@ -207,31 +207,23 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       {/* ── Middle Expired License Modal ── */}
       <AnimatePresence>
         {expiredModalVehicle && (
-          <div style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(15, 23, 42, 0.6)',
-            backdropFilter: 'blur(3px)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}>
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              style={{
-                background: '#FFFFFF',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                maxWidth: '460px',
-                width: '100%',
-                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.2)',
-                border: '1px solid #DC2626'
-              }}
-            >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, x: -10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.95, x: -10 }}
+            style={{
+              position: 'absolute',
+              top: `${hoverPosY}px`,
+              left: '315px',
+              zIndex: 10000,
+              width: '360px',
+              background: '#FFFFFF',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+              border: '1px solid #DC2626'
+            }}
+          >
               {/* Red Header Bar */}
               <div style={{
                 background: '#DC2626',
@@ -281,7 +273,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 background: '#F8FAFC',
                 borderTop: '1px solid #E2E8F0',
                 display: 'flex',
-                justify: 'flex-end',
+                justifyContent: 'flex-end',
                 gap: '10px'
               }}>
                 <button
@@ -302,9 +294,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 </button>
               </div>
             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
 
       {/* ── Top Warning Toast ── */}
       <AnimatePresence>
@@ -671,12 +662,18 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 return (
                   <div
                     key={v.id}
-                    onClick={() => {
-                      if (isExpired) {
-                        setExpiredModalVehicle(v);
-                        return;
+                    onClick={(e) => {
+                      if (e && e.currentTarget) {
+                        const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
+                        const itemRect = e.currentTarget.getBoundingClientRect();
+                        setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
                       }
                       setSelectedVehicle(prev => prev?.id === v.id ? null : v);
+                      if (isExpired) {
+                        setExpiredModalVehicle(prev => prev?.id === v.id ? null : v);
+                      } else {
+                        setExpiredModalVehicle(null);
+                      }
                     }}
                     title={warning ? warning.text : undefined}
                     style={{
