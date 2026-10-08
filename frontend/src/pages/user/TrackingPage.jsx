@@ -197,10 +197,13 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [vehicles, statusFilter, searchQuery]);
 
   const handleVehicleSelect = (vehicle, e) => {
-    if (e && e.currentTarget) {
-      const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
-      const itemRect = e.currentTarget.getBoundingClientRect();
-      setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+    if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
+      const container = e.currentTarget.closest('.tracking-container');
+      if (container) {
+        const containerRect = container.getBoundingClientRect();
+        const itemRect = e.currentTarget.getBoundingClientRect();
+        setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+      }
     }
     const warning = getExpiryWarning(vehicle);
     if (warning && warning.type === 'expired') {
@@ -604,9 +607,14 @@ const TrackingPage = ({ setAppVehicles }) => {
                   }}
                   onMouseEnter={e => {
                     setHoveredVehicleId(v.id);
-                    const containerRect = e.currentTarget.closest('.tracking-container')?.getBoundingClientRect() || { top: 0, height: 1000 };
-                    const itemRect = e.currentTarget.getBoundingClientRect();
-                    setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+                    if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
+                      const container = e.currentTarget.closest('.tracking-container');
+                      if (container) {
+                        const containerRect = container.getBoundingClientRect();
+                        const itemRect = e.currentTarget.getBoundingClientRect();
+                        setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+                      }
+                    }
                     if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
                     if (isExpired) e.currentTarget.style.background = '#FEE2E2';
                   }}
