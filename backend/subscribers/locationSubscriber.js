@@ -17,6 +17,36 @@ const webhookService = require('../services/webhookService'); // Civil Supply we
 const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
 let subscriber = null;
 
+// Bounded global queue for distance recomputes (concurrency 2, max 1000)
+const distQueue = [];
+let distQueueRunning = 0;
+const MAX_DIST_CONCURRENCY = 2;
+const MAX_DIST_QUEUE_LEN = 1000;
+
+function queueDistanceRecompute(vehicleId, imei) {
+  if (distQueue.length >= MAX_DIST_QUEUE_LEN) {
+    console.warn(`[SUBSCRIBER] distQueue full, dropping ${imei}`);
+    return;
+  }
+  distQueue.push({ vehicleId, imei });
+  processDistQueue();
+}
+
+async function processDistQueue() {
+  if (distQueueRunning >= MAX_DIST_CONCURRENCY || distQueue.length === 0) return;
+  distQueueRunning++;
+  const { vehicleId, imei } = distQueue.shift();
+  try {
+    await GpsModel.getTodayDistanceFromHistory(vehicleId);
+  } catch (err) {
+    console.warn(`[SUBSCRIBER] distQueue failed for ${imei}:`, err.message);
+  } finally {
+    distQueueRunning--;
+    processDistQueue();
+  }
+}
+
+
 // ============================================================
 // IMMEDIATE GPS WRITER
 // Writes GPS points immediately to PostgreSQL for real-time accuracy.
@@ -424,12 +454,8 @@ async function start(io) {
         if (!alreadyQueued) {
           // Arm the throttle — expires in 60s so next full recompute fires then
           await redis.set(throttleKey, '1', 'EX', 60);
-          // Run the heavy full-history recompute in the background (non-blocking)
-          GpsModel.getTodayDistanceFromHistory(vehicleId).then(km => {
-            todayDistanceKm = km;
-          }).catch(distErr => {
-            console.warn(`[SUBSCRIBER] getTodayDistanceFromHistory failed for ${imei}:`, distErr.message);
-          });
+          // Run the heavy full-history recompute in the background via queue
+          queueDistanceRecompute(vehicleId, imei);
         }
       }
 
