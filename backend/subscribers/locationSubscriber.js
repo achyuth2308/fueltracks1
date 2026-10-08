@@ -19,6 +19,7 @@ let subscriber = null;
 
 // Bounded global queue for distance recomputes (concurrency 2, max 1000)
 const distQueue = [];
+const distQueueSet = new Set();
 let distQueueRunning = 0;
 let distQueueDrops = 0;
 const MAX_DIST_CONCURRENCY = 2;
@@ -31,7 +32,7 @@ setInterval(() => {
 
 function queueDistanceRecompute(vehicleId, imei) {
   // Dedupe: don't add if already in queue
-  if (distQueue.some(item => item.vehicleId === vehicleId)) return;
+  if (distQueueSet.has(vehicleId)) return;
   
   if (distQueue.length >= MAX_DIST_QUEUE_LEN) {
     distQueueDrops++;
@@ -39,6 +40,7 @@ function queueDistanceRecompute(vehicleId, imei) {
     return;
   }
   distQueue.push({ vehicleId, imei });
+  distQueueSet.add(vehicleId);
   processDistQueue();
 }
 
@@ -46,6 +48,7 @@ async function processDistQueue() {
   if (distQueueRunning >= MAX_DIST_CONCURRENCY || distQueue.length === 0) return;
   distQueueRunning++;
   const { vehicleId, imei } = distQueue.shift();
+  distQueueSet.delete(vehicleId);
   try {
     await GpsModel.getTodayDistanceFromHistory(vehicleId);
   } catch (err) {
