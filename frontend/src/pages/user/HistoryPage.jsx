@@ -453,35 +453,38 @@ const HistoryPage = () => {
           onClick={() => navigate('/dashboard')}
           style={{
             position: 'absolute',
-            top: '24px',
-            left: '24px',
+            top: '16px',
+            left: '16px',
             zIndex: 1001,
-            width: '40px',
-            height: '40px',
-            borderRadius: '50%',
+            height: '34px',
+            padding: '0 12px',
+            borderRadius: '8px',
             background: '#FFFFFF',
             border: '1px solid #CBD5E1',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            gap: '6px',
             cursor: 'pointer',
             color: '#1E293B',
+            fontSize: '12px',
+            fontWeight: 700,
             transition: 'all 0.2s ease',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.2)';
+            e.currentTarget.style.transform = 'scale(1.02)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.18)';
             e.currentTarget.style.background = '#F8FAFC';
           }}
           onMouseLeave={e => {
             e.currentTarget.style.transform = 'scale(1)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
             e.currentTarget.style.background = '#FFFFFF';
           }}
           title="Back to Live Dashboard"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={16} />
+          Back
         </button>
         {loading && (
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)', zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -510,8 +513,8 @@ const HistoryPage = () => {
         <button
           onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
           style={{
-            position: 'absolute', top: '24px', right: isRightPanelOpen ? '586px' : '16px', zIndex: 1001,
-            width: '32px', height: '32px', borderRadius: '50%',
+            position: 'absolute', top: '16px', right: isRightPanelOpen ? '586px' : '16px', zIndex: 1001,
+            width: '34px', height: '34px', borderRadius: '50%',
             background: '#fff', border: '1px solid #CBD5E1', boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
             color: '#475569', transition: 'right 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
