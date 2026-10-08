@@ -99,8 +99,7 @@ const GpsModel = {
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
                 cos(radians($3) - radians(vehicle_latest_state.lng)) +
                 sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
-              )) BETWEEN 0.01 AND 10
-              AND ($4 > 3 OR $7 = TRUE)
+              )) BETWEEN 0.005 AND 10
             )
             THEN 6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
@@ -212,7 +211,7 @@ const GpsModel = {
   async getTodayDistanceFromHistory(vehicleId) {
     // Fetch all of today's points (IST midnight → now) ordered chronologically
     const result = await gpsQuery(
-      `SELECT lat, lng, speed, ignition
+      `SELECT lat, lng, speed, ignition, device_time
        FROM gps_points
        WHERE vehicle_id = $1
          AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date
@@ -228,9 +227,7 @@ const GpsModel = {
     const rows = result.rows;
     if (rows.length < 2) return 0;
 
-    // --- Drift Filter (same as HistoryPage.jsx lines 244-262) ---
-    // Keep a point if it or its predecessor is "moving" (speed > 3 OR ignition ON).
-    // This collapses GPS starburst clusters when the vehicle is parked.
+    // Smart Drift Filter (identical to HistoryPage.jsx)
     const driftFiltered = [];
     let lastValid = null;
     for (const p of rows) {
@@ -239,9 +236,18 @@ const GpsModel = {
         lastValid = p;
         continue;
       }
-      const isMoving   = parseFloat(p.speed) > 3 || p.ignition;
-      const wasMoving  = parseFloat(lastValid.speed) > 3 || lastValid.ignition;
-      if (isMoving || wasMoving) {
+      const lat1 = parseFloat(lastValid.lat), lon1 = parseFloat(lastValid.lng);
+      const lat2 = parseFloat(p.lat), lon2 = parseFloat(p.lng);
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
+
+      if (distKm >= 0.005 || (p.speed && parseFloat(p.speed) > 0) || p.ignition || timeDiffMin >= 3) {
         driftFiltered.push(p);
         lastValid = p;
       }
