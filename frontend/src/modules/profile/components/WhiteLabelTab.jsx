@@ -16,6 +16,13 @@ const PRESET_COLORS = [
   { name: 'Crimson Red', primary: '#DC2626', secondary: '#450A0A', desc: 'High-urgency emergency fleets' }
 ];
 
+const getFullImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.fueltracks.in';
+  return `${baseUrl}${url}`;
+};
+
 const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
   const initialData = {
     is_whitelabel_enabled: profile?.is_whitelabel_enabled !== false,
@@ -310,7 +317,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                   {/* Browser Tab Preview Chip */}
                   <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg border border-slate-200 shadow-2xs max-w-[150px] truncate">
                     {formData.favicon_url || formData.logo_url ? (
-                      <img src={formData.favicon_url || formData.logo_url} alt="Favicon" className="w-4 h-4 object-contain rounded-xs flex-shrink-0" />
+                      <img src={getFullImageUrl(formData.favicon_url || formData.logo_url)} alt="Favicon" className="w-4 h-4 object-contain rounded-xs flex-shrink-0" />
                     ) : (
                       <div
                         className="w-4 h-4 rounded-xs text-white flex items-center justify-center text-[8px] font-bold flex-shrink-0 shadow-2xs"
@@ -668,7 +675,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
               {/* Active Tab */}
               <div className="bg-slate-900 px-3 py-1.5 rounded-t-xl border-t border-l border-r border-slate-700 flex items-center gap-2 text-[11px] font-bold text-white shadow-xs max-w-[220px] truncate">
                 {formData.favicon_url || formData.logo_url ? (
-                  <img src={formData.favicon_url || formData.logo_url} alt="Favicon" className="w-3.5 h-3.5 object-contain rounded-xs flex-shrink-0" />
+                  <img src={getFullImageUrl(formData.favicon_url || formData.logo_url)} alt="Favicon" className="w-3.5 h-3.5 object-contain rounded-xs flex-shrink-0" />
                 ) : (
                   <div
                     className="w-3.5 h-3.5 rounded-xs text-white flex items-center justify-center text-[8px] font-bold flex-shrink-0"

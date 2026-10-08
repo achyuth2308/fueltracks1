@@ -4,7 +4,7 @@ import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye
 import { motion } from 'framer-motion';
 import { useAuth } from '../hooks/useAuth';
 import axiosInstance from '../api/axios';
-import { applyBrowserBranding } from '../utils/branding';
+import { applyBrowserBranding, getFullImageUrl } from '../utils/branding';
 
 const DEMO_ACCOUNTS = [
   { label: 'Super Admin', email: 'admin@fueltracks.in', color: '#f97316' },
@@ -35,12 +35,21 @@ const LoginPage = () => {
     }
 
     if (dealerParam) {
+      // Save to sessionStorage (tab-scoped, clears on tab close — safe for N dealers)
+      sessionStorage.setItem('activeDealerParam', dealerParam);
+      // Clear any old localStorage remnant from previous implementation
+      localStorage.removeItem('lastDealerParam');
       axiosInstance.get(`/api/profile/public/${dealerParam}`).then(res => {
         if (res.data?.success && res.data.data) {
           setDealerBranding(res.data.data);
           applyBrowserBranding(res.data.data);
         }
       }).catch(() => {});
+    } else {
+      // No dealer param in URL — clear branding and session context
+      sessionStorage.removeItem('activeDealerParam');
+      localStorage.removeItem('lastDealerParam');
+      setDealerBranding(null);
     }
   }, [searchParams]);
 
@@ -126,15 +135,20 @@ const LoginPage = () => {
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="flex flex-col items-start gap-2 pt-1 mb-4 xl:mb-5"
           >
-            <span className="text-xs sm:text-sm font-black italic uppercase tracking-[0.25em] bg-gradient-to-r from-pink-500 via-indigo-500 to-sky-500 bg-clip-text text-transparent drop-shadow-2xs">
-              WELCOME TO
+            <span 
+              className="text-xs sm:text-sm font-black italic uppercase tracking-[0.25em] drop-shadow-2xs"
+              style={dealerBranding?.primary_color 
+                ? { color: dealerBranding.primary_color } 
+                : { backgroundImage: 'linear-gradient(to right, #ec4899, #6366f1, #0ea5e9)', WebkitBackgroundClip: 'text', color: 'transparent' }}
+            >
+              WELCOME TO {dealerBranding ? dealerBranding.brand_name.toUpperCase() : ''}
             </span>
             <img
-              src={dealerBranding?.logo_url || '/logo_vertical.png'}
+              src={dealerBranding?.logo_url ? getFullImageUrl(dealerBranding.logo_url) : '/logo_vertical.png'}
               alt={dealerBranding?.brand_name || 'FuelTracks'}
               style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
               className="drop-shadow-xs transition-transform duration-300 my-1"
-              onError={(e) => { e.currentTarget.src = '/logo_vertical.png'; }}
+              onError={(e) => { if(!dealerBranding) e.currentTarget.src = '/logo_vertical.png'; }}
             />
           </motion.div>
 
@@ -148,7 +162,7 @@ const LoginPage = () => {
                 className="my-3 rounded-2xl overflow-hidden border border-slate-200 shadow-md relative group max-w-lg"
               >
                 <img 
-                  src={dealerBranding.login_background_url} 
+                  src={getFullImageUrl(dealerBranding.login_background_url)} 
                   alt="Dealership Banner" 
                   className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-105"
                 />

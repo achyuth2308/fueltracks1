@@ -36,3 +36,13 @@ export function applyBrowserBranding(profile) {
     document.documentElement.style.setProperty('--brand-topbar', profile.secondary_color);
   }
 }
+
+/**
+ * Utility to get full image URL from a relative path
+ */
+export const getFullImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('data:')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://api.fueltracks.in';
+  return `${baseUrl}${url}`;
+};

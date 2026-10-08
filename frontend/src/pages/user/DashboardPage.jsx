@@ -126,11 +126,6 @@ const DashboardPage = ({ setAppVehicles }) => {
   const [apiStats, setApiStats] = useState(null);
   const isDealer = user?.role === 'dealer';
 
-  // Customer role gets the map-based fleet dashboard
-  if (user?.role === 'customer') {
-    return <CustomerDashboard setAppVehicles={setAppVehicles} />;
-  }
-
   useEffect(() => {
     if (vehicles && setAppVehicles) {
       setAppVehicles(prev => {
@@ -144,12 +139,14 @@ const DashboardPage = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   useEffect(() => {
-    getDashboardStats()
-      .then(res => {
-        if (res.success) setApiStats(res.data);
-      })
-      .catch(err => console.error("Failed to fetch dashboard stats", err));
-  }, [vehicles]);
+    if (user?.role !== 'customer') {
+      getDashboardStats()
+        .then(res => {
+          if (res.success) setApiStats(res.data);
+        })
+        .catch(err => console.error("Failed to fetch dashboard stats", err));
+    }
+  }, [vehicles, user?.role]);
 
   useEffect(() => {
     if (isDealer) {
@@ -161,18 +158,24 @@ const DashboardPage = ({ setAppVehicles }) => {
     }
   }, [isDealer]);
 
+  // Customer role gets the map-based fleet dashboard
+  if (user?.role === 'customer') {
+    return <CustomerDashboard setAppVehicles={setAppVehicles} />;
+  }
+
   const onlineCount = vehicles.filter(v => v.is_online).length;
 
-  const totalUsers = apiStats?.users ?? '-';
-  const totalGroups = groups.length || '-';
-  const totalVehicles = apiStats?.total_vehicles ?? vehicles.length;
+  const totalUsers = (apiStats?.users != null && typeof apiStats.users !== 'object') ? apiStats.users : '-';
+  const totalGroups = (groups && Array.isArray(groups)) ? groups.length : '-';
+  const totalVehicles = (apiStats?.total_vehicles != null && typeof apiStats.total_vehicles !== 'object') ? apiStats.total_vehicles : (Array.isArray(vehicles) ? vehicles.length : '-');
 
   const getTierStats = (type) => {
     if (isDealer && quota) {
+      const getVal = (obj, key) => (obj && obj[key] != null && typeof obj[key] !== 'object') ? obj[key] : 0;
       return {
-        total: quota.limits?.[type] || 0,
-        used: quota.used?.[type] || 0,
-        available: quota.available?.[type] || 0,
+        total: getVal(quota.limits, type),
+        used: getVal(quota.used, type),
+        available: getVal(quota.available, type),
         labelUsed: 'Used',
         labelAvailable: 'Available'
       };
@@ -183,7 +186,7 @@ const DashboardPage = ({ setAppVehicles }) => {
 
       let typeVehicles = vehicles.filter(v => {
         if (v.metadata?.licenceType === type) return true;
-        if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
+        if (v.licenceId && String(v.licenceId).startsWith(prefix)) return true;
         return false;
       });
 
@@ -260,33 +263,6 @@ const DashboardPage = ({ setAppVehicles }) => {
         />
       </div>
 
-      {/* KPI Cards Row 2 (Middle Analytics Cards) */}
-      <div className="px-3 md:px-4 pb-3 md:pb-3 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
-        <MetricDetailCard
-          title="Devices Installed This Month"
-          value="24"
-          changeText="+18% vs last month"
-          color="#0EA5E9"
-          icon={Smartphone}
-          onClick={() => navigate('/admin/vehicles')}
-        />
-        <MetricDetailCard
-          title="Total Devices Installed"
-          value={totalVehicles > 0 ? totalVehicles : "486"}
-          changeText="+12% vs last month"
-          color="#10B981"
-          icon={Cpu}
-          onClick={() => navigate('/admin/vehicles')}
-        />
-        <MetricDetailCard
-          title="Total Dealers"
-          value={apiStats?.dealers ?? "32"}
-          changeText="+6% vs last month"
-          color="#8B5CF6"
-          icon={Store}
-          onClick={() => navigate('/admin/orgs')}
-        />
-      </div>
 
       {/* Main Layout: Expiring Licenses */}
       <div style={{ display: 'flex', padding: '0 16px 16px 16px', minHeight: '360px', flexShrink: 0 }}>

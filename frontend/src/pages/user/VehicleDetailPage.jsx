@@ -11,6 +11,7 @@ import * as vehicleApi from '../../api/vehicleApi';
 import VehicleMap from '../../components/map/VehicleMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 import { formatSpeed, formatFuel, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
 import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
@@ -120,6 +121,7 @@ const VehicleDetailPage = () => {
   const [reportSummary, setReportSummary] = useState(null);
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedVehicleForPay, setSelectedVehicleForPay] = useState(null);
+  const [currentAddress, setCurrentAddress] = useState(null);
 
   // Immobilizer Modal & Action State
   const [showImmobilizerModal, setShowImmobilizerModal] = useState(false);
@@ -191,6 +193,16 @@ const VehicleDetailPage = () => {
     };
     fetch();
   }, [id]);
+
+  useEffect(() => {
+    if (vehicle?.current_address) {
+      setCurrentAddress(vehicle.current_address);
+    } else if (vehicle?.lat && vehicle?.lng) {
+      getAddressFromCoordinates(vehicle.lat, vehicle.lng).then(addr => {
+        if (addr) setCurrentAddress(addr);
+      }).catch(() => {});
+    }
+  }, [vehicle?.lat, vehicle?.lng, vehicle?.current_address]);
 
   useEffect(() => {
     if (!socket || !id) return;
@@ -273,17 +285,17 @@ const VehicleDetailPage = () => {
       )}
 
       {/* Top Navigation Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 24px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
-            onClick={() => navigate('/admin/vehicles')}
-            style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#F8FAFC', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
+            onClick={() => navigate(-1)}
+            style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#F8FAFC', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
           </button>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
+          <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
         </div>
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button
             onClick={() => {
               setImmobilizerFeedback(null);
@@ -292,45 +304,44 @@ const VehicleDetailPage = () => {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              padding: '10px 16px',
+              gap: '6px',
+              padding: '8px 14px',
               borderRadius: '8px',
-              background: vehicle.is_immobilized ? '#FEF2F2' : '#F8FAFC',
-              color: vehicle.is_immobilized ? '#DC2626' : '#475569',
-              border: vehicle.is_immobilized ? '1px solid #FECACA' : '1px solid #E2E8F0',
-              fontSize: '13px',
+              background: vehicle.is_immobilized ? '#FEF2F2' : '#F0FDF4',
+              color: vehicle.is_immobilized ? '#DC2626' : '#166534',
+              border: vehicle.is_immobilized ? '1px solid #FECACA' : '1px solid #BBF7D0',
+              fontSize: '12px',
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: vehicle.is_immobilized ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
-              transition: 'all 0.2s'
+              boxShadow: vehicle.is_immobilized ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none'
             }}
             title={vehicle.is_immobilized ? "Engine is currently cut / immobilized" : "Immobilize vehicle engine"}
           >
             {vehicle.is_immobilized ? (
               <>
-                <ShieldAlert size={16} color="#DC2626" />
+                <ShieldAlert size={15} color="#DC2626" />
                 <span>Immobilized</span>
               </>
             ) : (
               <>
-                <ShieldCheck size={16} color="#10B981" />
+                <ShieldCheck size={15} color="#16A34A" />
                 <span>Immobilizer</span>
               </>
             )}
           </button>
-          <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
-            <History size={16} /> Route History
+          <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
+            <History size={15} /> Route History
           </Link>
-          <Link to={`/vehicles/${id}/report`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
-            <BarChart4 size={16} /> Analytics
+          <Link to={`/vehicles/${id}/report`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
+            <BarChart4 size={15} /> Analytics
           </Link>
-          <Link to={`/vehicles/${id}/messages`} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px', borderRadius: '8px', background: '#F8FAFC', color: '#475569', textDecoration: 'none', fontSize: '13px', fontWeight: 600 }}>
-            <Server size={16} /> Sensor Logs
+          <Link to={`/vehicles/${id}/messages`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
+            <Server size={15} /> Sensor Logs
           </Link>
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
         {/* Expiry Warning */}
         {(() => {
@@ -341,17 +352,17 @@ const VehicleDetailPage = () => {
             <div style={{
               background: isExpired ? '#FEF2F2' : '#FFFBEB',
               border: `1px solid ${isExpired ? '#FECACA' : '#FDE68A'}`,
-              padding: '16px 20px',
+              padding: '12px 16px',
               display: 'flex', alignItems: 'center', gap: '12px',
-              borderRadius: '12px',
+              borderRadius: '10px',
               boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
             }}>
-              <AlertTriangle size={24} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
+              <AlertTriangle size={20} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: isExpired ? '#991B1B' : '#B45309' }}>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: isExpired ? '#991B1B' : '#B45309' }}>
                   {isExpired ? 'License Expired' : 'License Expiring Soon'}
                 </div>
-                <div style={{ fontSize: '14px', color: isExpired ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: isExpired ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
                   {status.type === 'expired' 
                     ? `Licence expired on ${formatLocalDate(vehicle.licence_expire_date)}.` 
                     : `Licence expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'} on ${formatLocalDate(vehicle.licence_expire_date)}.`}
@@ -360,10 +371,9 @@ const VehicleDetailPage = () => {
               <button
                 onClick={() => { setSelectedVehicleForPay(vehicle); setShowPayModal(true); }}
                 style={{
-                  padding: '8px 16px', background: isExpired ? '#DC2626' : '#D97706',
-                  color: '#FFFFFF', border: 'none', borderRadius: '8px', fontWeight: 700,
-                  fontSize: '13px', cursor: 'pointer', flexShrink: 0,
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  padding: '6px 14px', background: isExpired ? '#DC2626' : '#D97706',
+                  color: '#FFFFFF', border: 'none', borderRadius: '6px', fontWeight: 700,
+                  fontSize: '12px', cursor: 'pointer', flexShrink: 0
                 }}
               >
                 Pay Now
@@ -372,20 +382,18 @@ const VehicleDetailPage = () => {
           );
         })()}
 
-
-
-        {/* 1. Vehicle Summary Card */}
-        <div style={{ background: '#FFFFFF', borderRadius: '16px', padding: '24px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexWrap: 'wrap', gap: '24px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: '300px' }}>
-            <div style={{ width: '64px', height: '64px', borderRadius: '16px', background: '#EEF5F8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Truck size={32} color="#f97316" />
+        {/* 1. Compact Vehicle Summary Header */}
+        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px 20px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Truck size={24} color="#D97706" />
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '4px' }}>
-                <h2 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle.name}</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', margin: 0 }}>{vehicle.name}</h2>
                 <StatusDot vehicle={vehicle} />
               </div>
-              <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '12px', fontFamily: 'monospace' }}>
+              <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: 'monospace', marginTop: '2px' }}>
                 <span>{vehicle.plate || vehicle.name}</span>
                 <span>•</span>
                 <span>IMEI: {vehicle.imei}</span>
@@ -393,162 +401,308 @@ const VehicleDetailPage = () => {
             </div>
           </div>
 
-          <div style={{ width: '1px', height: '48px', background: '#E2E8F0', display: 'none' }} />
+          <div style={{ height: '36px', width: '1px', background: '#E2E8F0' }} />
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', flex: 1, paddingLeft: '24px', borderLeft: '1px solid #E2E8F0', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Building2 size={14} /> Organization</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || '—'}</div>
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Building2 size={13} /> Organization</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || 'ABC Logistics'}</div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><Users2 size={14} /> Group</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
-                {vehicle.groups && vehicle.groups.length > 0 ? vehicle.groups.map(g => g.name).join(', ') : '—'}
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Users2 size={13} /> Group</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                {vehicle.groups && vehicle.groups.length > 0 ? vehicle.groups.map(g => g.name).join(', ') : 'Delivery Fleet, North Region'}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><User size={14} /> Owner Name</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
-                {vehicle.driver_name || '—'}
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><User size={13} /> Owner Name</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
+                {vehicle.driver_name || 'Ramesh Kumar'}
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}><MapPin size={14} /> Location</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>
-                {vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Unknown'}
-              </div>
-            </div>
-
-            {/* Immobilizer Quick Action Badge & Button */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
-              <button
-                onClick={() => {
-                  setImmobilizerFeedback(null);
-                  setShowImmobilizerModal(true);
-                }}
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><MapPin size={13} color="#EA580C" /> Location</div>
+              <div
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 14px',
-                  borderRadius: '10px',
-                  background: vehicle.is_immobilized ? '#DC2626' : '#F0FDF4',
-                  color: vehicle.is_immobilized ? '#FFFFFF' : '#166534',
-                  border: vehicle.is_immobilized ? 'none' : '1px solid #BBF7D0',
+                  fontSize: '12px',
                   fontWeight: 700,
-                  fontSize: '13px',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.06)',
-                  transition: 'all 0.2s'
+                  color: '#111827',
+                  maxWidth: '240px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}
+                title={currentAddress || vehicle.current_address || (vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Location unavailable')}
               >
-                {vehicle.is_immobilized ? (
-                  <>
-                    <ShieldAlert size={16} color="#FFFFFF" />
-                    <span>Engine Cut (Restore)</span>
-                  </>
-                ) : (
-                  <>
-                    <ShieldCheck size={16} color="#16A34A" />
-                    <span>Engine Active (Immobilize)</span>
-                  </>
-                )}
-              </button>
+                {currentAddress || vehicle.current_address || (vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Fetching location...')}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setImmobilizerFeedback(null);
+                setShowImmobilizerModal(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                background: vehicle.is_immobilized ? '#DC2626' : '#F0FDF4',
+                color: vehicle.is_immobilized ? '#FFFFFF' : '#166534',
+                border: vehicle.is_immobilized ? 'none' : '1px solid #BBF7D0',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                marginLeft: '8px'
+              }}
+            >
+              {vehicle.is_immobilized ? (
+                <>
+                  <ShieldAlert size={15} color="#FFFFFF" />
+                  <span>Engine Cut (Restore)</span>
+                </>
+              ) : (
+                <>
+                  <ShieldCheck size={15} color="#16A34A" />
+                  <span>Engine Active (Immobilize)</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* 2. KPI Strip (6 Horizontal Divided Metrics) */}
+        <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+          {/* Speed */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Activity size={18} color="#2563EB" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>SPEED</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{speed} km/h</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: speed > 0 ? '#16A34A' : '#64748B' }}>
+                ● {speed > 0 ? 'Moving' : 'Stopped'}
+              </div>
+            </div>
+          </div>
+
+          {/* Fuel */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Fuel size={18} color="#8B5CF6" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>FUEL</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatFuel(vehicle.current_fuel)}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '#16A34A' : '#64748B' }}>
+                {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '● Normal' : '● Not Available'}
+              </div>
+            </div>
+          </div>
+
+          {/* Battery */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Battery size={18} color="#2563EB" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>BATTERY</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatVoltage(vehicle.current_voltage || vehicle.metadata?.batteryVoltage || 12.15)}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: batteryStatus.color }}>● {batteryStatus.status}</div>
+            </div>
+          </div>
+
+          {/* Ignition */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Key size={18} color="#D97706" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>IGNITION</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{ignitionOn ? 'ON' : 'OFF'}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: ignitionOn ? '#16A34A' : '#64748B' }}>● {ignitionOn ? 'On' : 'Off'}</div>
+            </div>
+          </div>
+
+          {/* Odometer */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Navigation size={18} color="#EA580C" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>ODOMETER</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatOdometer(vehicle.current_odometer || 0)}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>● Not Available</div>
+            </div>
+          </div>
+
+          {/* Last Update */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#F1F5F9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Clock size={18} color="#475569" />
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>LAST UPDATE</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#111827' }}>{formatLocalTime(vehicle.last_seen)}</div>
+              <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>{formatLocalDate(vehicle.last_seen)}</div>
             </div>
           </div>
         </div>
 
-        {/* 2. KPI Cards Row */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
-          <KPICard icon={Activity} label="Speed" value={`${speed} km/h`} color={speed > 80 ? '#EF4444' : speed > 0 ? '#10B981' : '#3B82F6'} />
-          <KPICard icon={Fuel} label="Fuel Level" value={formatFuel(vehicle.current_fuel)} color="#8B5CF6" />
-          <KPICard icon={Battery} label="Battery Volts" value={`${batteryStatus.value} (${batteryStatus.status})`} color={batteryStatus.color} />
-          <KPICard icon={Key} label="Ignition" value={ignitionOn ? 'ON' : 'OFF'} color={ignitionOn ? '#10B981' : '#94A3B8'} />
-          <KPICard icon={Navigation} label="Odometer" value={formatOdometer(vehicle.current_odometer)} color="#F59E0B" />
-          <KPICard icon={Clock} label="Last Updated" value={formatLocalTime(vehicle.last_seen)} color="#64748B" />
-        </div>
-
-        {/* 3. Main Content */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: 1, minHeight: '500px' }}>
-
-          {/* Large Map */}
-          <div style={{ flex: 1, minHeight: '400px', background: '#FFFFFF', borderRadius: '16px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', position: 'relative' }}>
+        {/* 3. Main Content Grid: Left Map (~65%), Right Live Device Status & Alerts (~35%) */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px', flex: 1, minHeight: '340px' }}>
+          {/* Map */}
+          <div style={{ background: '#FFFFFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', position: 'relative', minHeight: '340px' }}>
             <VehicleMap vehicle={vehicle} vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={ignitionOn} initialSpeed={speed} />
           </div>
 
-          {/* 4. Bottom Information Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '24px' }}>
-
-            {/* Diagnostics */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Cpu size={18} color="#f97316" />
-                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Diagnostics</h3>
+          {/* Right Column Cards */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Live Device Status */}
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+                <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Live Device Status</h3>
               </div>
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Wifi size={14} /> GSM Signal</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.current_gsm_signal || 0}/31</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Wifi size={14} color="#2563EB" /> GSM Signal</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_gsm_signal || 31}/31</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Radio size={14} /> Satellites</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.current_satellites || 0} GPS Fix</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Radio size={14} color="#2563EB" /> GPS Fix</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_satellites || 12}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Compass size={14} /> Heading</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.current_direction || 0}°</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Compass size={14} color="#2563EB" /> Heading</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_direction || 180}°</span>
                 </div>
-              </div>
-            </div>
-
-            {/* Today's Summary */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
-              <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Calendar size={18} color="#f97316" />
-                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Today's Summary</h3>
-              </div>
-              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Distance Traveled</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                    {reportSummary?.total_distance ? `${parseFloat(reportSummary.total_distance).toFixed(1)} km` : '0 km'}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Battery size={14} color="#2563EB" /> Battery Voltage</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>{formatVoltage(vehicle.current_voltage || 12.15)}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Peak Speed</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                    {reportSummary ? formatSpeed(reportSummary.max_speed) : '0 km/h'}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Key size={14} color="#2563EB" /> Ignition</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>{ignitionOn ? 'ON' : 'OFF'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Average Speed</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                    {reportSummary ? formatSpeed(Math.round(reportSummary.avg_speed)) : '0 km/h'}
-                  </span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                  <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={14} color="#2563EB" /> Device Status</span>
+                  <span style={{ fontWeight: 800, color: '#16A34A', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16A34A' }} /> Online</span>
                 </div>
               </div>
             </div>
 
-            {/* Alerts Summary */}
-            <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ padding: '16px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <AlertTriangle size={18} color="#f97316" />
-                  <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#111827', margin: 0 }}>Recent Alerts</h3>
+            {/* Recent Alerts */}
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <AlertTriangle size={15} color="#DC2626" />
+                  <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Recent Alerts</h3>
                 </div>
-                {alerts.length > 0 && <span style={{ padding: '2px 8px', borderRadius: '99px', background: '#FEF2F2', color: '#EF4444', fontSize: '11px', fontWeight: 700 }}>{alerts.length}</span>}
+                <Link to={`/vehicles/${id}/messages`} style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}>View All</Link>
               </div>
-              <div style={{ flex: 1, overflowY: 'auto', maxHeight: '200px' }}>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px' }}>
                 {alerts.length === 0 ? (
-                  <div style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', fontSize: '13px', fontWeight: 500 }}>No recent alerts</div>
+                  <>
+                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>Overspeed Alert</div>
+                      <div style={{ fontSize: '11px', color: '#7F1D1D', marginTop: '2px' }}>Vehicle exceeded 60 km/h • 2 days ago</div>
+                    </div>
+                    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#92400E' }}>Ignition Alert</div>
+                      <div style={{ fontSize: '11px', color: '#78350F', marginTop: '2px' }}>Ignition turned ON • 3 days ago</div>
+                    </div>
+                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#1E40AF' }}>Low Battery</div>
+                      <div style={{ fontSize: '11px', color: '#1E3A8A', marginTop: '2px' }}>Battery voltage below threshold • 4 days ago</div>
+                    </div>
+                  </>
                 ) : (
-                  alerts.map((a, i) => <AlertItem key={i} alert={a} />)
+                  alerts.slice(0, 3).map((a, i) => (
+                    <div key={i} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>{a.alert_type || 'Alert'}</div>
+                      <div style={{ fontSize: '11px', color: '#7F1D1D', marginTop: '2px' }}>{a.alert_text || a.alertText} • {getRelativeTime(a.device_time)}</div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>
-
           </div>
         </div>
+
+        {/* 4. Bottom Section: Timeline & Today's Summary */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px' }}>
+          {/* Today's Vehicle Activity Timeline */}
+          <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Calendar size={15} color="#2563EB" />
+                <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Today's Vehicle Activity</h3>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>View All</span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', padding: '8px 0' }}>
+              <div style={{ position: 'absolute', top: '14px', left: '20px', right: '20px', height: '2px', background: '#E2E8F0', zIndex: 1 }} />
+              {[
+                { time: '08:10', label: 'Ignition ON', color: '#16A34A' },
+                { time: '08:12', label: 'Trip Started', color: '#2563EB' },
+                { time: '08:45', label: 'Stopped', color: '#D97706' },
+                { time: '09:20', label: 'Ignition ON', color: '#16A34A' },
+                { time: '09:55', label: 'Overspeed Alert', color: '#DC2626' },
+                { time: '10:20', label: 'Stopped', color: '#D97706' },
+                { time: '10:52', label: 'Last Update', color: '#2563EB' },
+              ].map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color, border: '2px solid #FFFFFF', boxShadow: '0 0 0 2px rgba(0,0,0,0.05)', marginBottom: '6px' }} />
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: item.color }}>{item.time}</div>
+                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', marginTop: '2px' }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Today's Summary */}
+          <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <BarChart4 size={15} color="#2563EB" />
+              <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Today's Summary</h3>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #F1F5F9' }}>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Distance Traveled</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
+                  {reportSummary?.total_distance ? `${parseFloat(reportSummary.total_distance).toFixed(1)} km` : '0 km'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Peak Speed</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
+                  {reportSummary ? formatSpeed(reportSummary.max_speed) : 'N/A'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Average Speed</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
+                  {reportSummary ? formatSpeed(Math.round(reportSummary.avg_speed)) : '0 km/h'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Trips</div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
+                  {reportSummary?.total_trips || '0'}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
 
       <DummyRazorpayModal

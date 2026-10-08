@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, Users2, X, Shuffle } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
@@ -30,19 +30,20 @@ const UsersAdminPage = () => {
 
   const handleImpersonate = async (targetUser, e) => {
     if (e) e.stopPropagation();
-    setSwitchingUserId(targetUser.id);
-    try {
-      const res = await impersonate(targetUser.id);
-      if (res.success) {
-        window.location.href = '/dashboard';
-      } else {
-        alert(res.error || 'Failed to switch user session.');
+    if (window.confirm(`Are you sure you want to switch login and view vehicles for ${targetUser.name || targetUser.email}?`)) {
+      setSwitchingUserId(targetUser.id);
+      try {
+        const res = await impersonate(targetUser.id);
+        if (res.success) {
+          window.location.href = '/dashboard';
+        } else {
+          console.error(res.error || 'Failed to switch session.');
+        }
+      } catch (err) {
+        console.error('An error occurred during switching.');
+      } finally {
+        setSwitchingUserId(null);
       }
-    } catch (err) {
-      console.error('Error switching user session:', err);
-      alert('An error occurred during switching.');
-    } finally {
-      setSwitchingUserId(null);
     }
   };
 
@@ -52,14 +53,12 @@ const UsersAdminPage = () => {
       const response = await adminApi.getUsers();
       if (response?.success && Array.isArray(response.data)) {
         setUsers(response.data);
-      } else if (Array.isArray(response)) {
-        setUsers(response);
       } else {
-        setUsers([]);
+        setError(response.error || 'Failed to load user records.');
       }
     } catch (err) {
-      setError('Failed to load user records.');
-      setUsers([]);
+      console.error("fetchUsers API error:", err);
+      setError(err.message || 'Failed to load user records.');
     } finally {
       setLoading(false);
     }
@@ -409,7 +408,7 @@ const UsersAdminPage = () => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users2 size={16} color="#64748B" /></div>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users size={16} color="#64748B" /></div>
                     <div>
                       <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Groups</div>
                       <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.group_names || '—'}</div>

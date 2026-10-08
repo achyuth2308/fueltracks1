@@ -246,22 +246,42 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     if (raw.length === 0) return [];
 
     const filtered = [raw[0]];
+    let consecutiveRejects = 0;
+    
     for (let i = 1; i < raw.length; i++) {
       const p = raw[i];
       const prev = filtered[filtered.length - 1];
 
       const dist = getDistance(prev.lat, prev.lng, p.lat, p.lng);
       const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
-
-      // Fix divide by zero for identical timestamps
       const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
 
-      // 1. Physically impossible teleports (> 150 km/h for jumps > 200m)
-      if (impliedSpeedKmph > 150 && dist > 0.2) continue;
+      const isImpossible = (impliedSpeedKmph > 150 && dist > 0.2) || (impliedSpeedKmph > 80 && (p.speed || 0) < 20 && dist > 0.5);
 
-      // 2. Doppler Mismatch
-      const reportedSpeed = p.speed || 0;
-      if (impliedSpeedKmph > 80 && reportedSpeed < 20 && dist > 0.5) continue;
+      if (isImpossible) {
+        if (filtered.length >= 2) {
+          const prevPrev = filtered[filtered.length - 2];
+          const distPrevPrev = getDistance(prevPrev.lat, prevPrev.lng, p.lat, p.lng);
+          const timeDiffPrevPrev = (new Date(p.device_time).getTime() - new Date(prevPrev.device_time).getTime()) / 60000;
+          const speedPrevPrev = timeDiffPrevPrev > 0 ? (distPrevPrev / (timeDiffPrevPrev / 60)) : (distPrevPrev > 0.05 ? Infinity : 0);
+          
+          if (speedPrevPrev < 150) {
+            filtered.pop();
+            filtered.push(p);
+            consecutiveRejects = 0;
+            continue;
+          }
+        }
+        
+        consecutiveRejects++;
+        if (consecutiveRejects > 3) {
+          filtered.push(p);
+          consecutiveRejects = 0;
+        }
+        continue;
+      }
+      
+      consecutiveRejects = 0;
       filtered.push(p);
     }
 
@@ -496,8 +516,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             onClick={() => setFollow(!follow)}
             style={{
               position: 'absolute',
-              top: '24px',
-              left: '180px',
+              top: '16px',
+              left: '72px',
               zIndex: 1000,
               background: follow ? '#0ea5e9' : '#ffffff',
               color: follow ? '#ffffff' : '#475569',
@@ -523,8 +543,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             disabled={isSnapping}
             style={{
               position: 'absolute',
-              top: '24px',
-              left: '350px',
+              top: '16px',
+              left: '235px',
               zIndex: 1000,
               background: snapToRoads ? '#10B981' : '#ffffff',
               color: snapToRoads ? '#ffffff' : '#475569',
@@ -606,6 +626,10 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
       <style>
         {`
+          .leaflet-top.leaflet-left {
+            margin-top: 55px !important;
+            margin-left: 6px !important;
+          }
           .leaflet-marker-pane .leaflet-marker-icon.history-playback-marker,
           .leaflet-popup-pane .history-playback-popup {
              transition: ${isPlaying ? `transform ${playbackSpeed === 'Slow' ? '1s' : playbackSpeed === 'Fast' ? '0.1s' : '0.4s'} linear` : 'none'} !important;

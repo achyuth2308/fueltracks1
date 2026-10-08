@@ -83,9 +83,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     if (e) e.preventDefault();
     const res = await restoreAdmin();
     if (res.success) {
-      window.location.href = '/dashboard';
+      window.location.href = '/admin/users';
     } else {
-      alert(res.error || 'Failed to restore admin session');
+      console.error(res.error || 'Failed to restore admin session');
     }
   };
 

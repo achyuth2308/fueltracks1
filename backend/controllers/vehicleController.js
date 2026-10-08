@@ -57,87 +57,25 @@ const VehicleController = {
   async getTodayMetrics(req, res, next) {
     try {
       const result = await db.query(`
-        SELECT vehicle_id, lat, lng, speed, ignition, odometer, device_time 
-        FROM gps_points 
-        WHERE device_time >= ((NOW() AT TIME ZONE 'Asia/Kolkata')::date::timestamp AT TIME ZONE 'Asia/Kolkata')
-        ORDER BY vehicle_id, device_time ASC
+        SELECT v.id as vehicle_id,
+               COALESCE(vls.today_distance, 0) as cdist,
+               CASE
+                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
+                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                 ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
+               END as dynamic_odo
+        FROM vehicles v
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `);
 
       const metrics = {};
-      const grouped = result.rows.reduce((acc, row) => {
-        acc[row.vehicle_id] = acc[row.vehicle_id] || [];
-        acc[row.vehicle_id].push(row);
-        return acc;
-      }, {});
-
-      const calculateDistance = (lat1, lon1, lat2, lon2) => {
-        const R = 6371;
-        const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
-      };
-
-      const vehiclesRes = await db.query('SELECT id, metadata FROM vehicles');
-      const vehicleMap = {};
-      vehiclesRes.rows.forEach(v => {
-        vehicleMap[v.id] = v.metadata || {};
+      result.rows.forEach(row => {
+        metrics[row.vehicle_id] = {
+          cDist: parseFloat(row.cdist || 0),
+          dynamicOdo: parseFloat(row.dynamic_odo || 0)
+        };
       });
 
-      for (const [vid, points] of Object.entries(grouped)) {
-        const sorted = points.sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
-        const driftFiltered = [];
-        let lastValid = null;
-        
-        sorted.forEach((p, idx) => {
-          if (idx === 0) {
-            driftFiltered.push(p);
-            lastValid = p;
-            return;
-          }
-          const isMoving = parseFloat(p.speed) > 3 || p.ignition;
-          const wasMoving = parseFloat(lastValid.speed) > 3 || lastValid.ignition;
-          if (isMoving || wasMoving) {
-            driftFiltered.push(p);
-            lastValid = p;
-          }
-        });
-
-        let cumulativeDist = 0;
-        driftFiltered.forEach((p, idx, arr) => {
-          if (idx > 0) {
-            const segDist = calculateDistance(parseFloat(arr[idx - 1].lat), parseFloat(arr[idx - 1].lng), parseFloat(p.lat), parseFloat(p.lng));
-            if (segDist > 0.01 && segDist < 5) {
-              cumulativeDist += segDist;
-            }
-          }
-        });
-
-        const startOdo = parseFloat(sorted[0].odometer || 0);
-        const currentRawOdo = startOdo + cumulativeDist;
-        
-        const metadata = vehicleMap[vid] || {};
-        const baseline = parseFloat(metadata.odometerReading) || 0;
-        const snapshot = parseFloat(metadata.odometerSnapshot) || 0;
-        
-        let finalOdo = currentRawOdo;
-        if (baseline > 0) {
-          finalOdo = baseline + Math.max(0, currentRawOdo - snapshot);
-        }
-
-        let maxSpeed = 0;
-        sorted.forEach(p => {
-          const sp = parseFloat(p.speed || 0);
-          if (sp > maxSpeed) maxSpeed = sp;
-        });
-
-        metrics[vid] = {
-          cDist: cumulativeDist,
-          dynamicOdo: finalOdo,
-          maxSpeed: Math.round(maxSpeed)
-        };
-      }
       res.json({ success: true, data: metrics });
     } catch (err) {
       next(err);
@@ -213,6 +151,18 @@ const VehicleController = {
       let targetOrgId = req.user.orgId;
       if (req.user.role === 'superadmin' && orgId) {
         targetOrgId = orgId;
+      } else if (orgId && orgId !== req.user.orgId) {
+        // Dealer assigning to a child organization
+        const checkOrg = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [orgId, req.user.orgId]);
+        if (checkOrg.rows.length > 0) {
+          targetOrgId = orgId;
+        } else {
+          return res.status(403).json({
+            success: false,
+            error: 'You can only assign vehicles to your own organization or your direct customers.',
+            code: 'FORBIDDEN'
+          });
+        }
       }
 
       // Check if IMEI already exists
@@ -336,11 +286,14 @@ const VehicleController = {
       // Prevent dealers changing org to something they don't own
       let targetOrgId = orgId;
       if (orgId && req.user.role !== 'superadmin' && orgId !== req.user.orgId) {
-        return res.status(403).json({
-          success: false,
-          error: 'Cannot reassign vehicle to another dealer organization.',
-          code: 'FORBIDDEN'
-        });
+        const checkOrg = await db.query('SELECT id FROM organizations WHERE id = $1 AND parent_id = $2', [orgId, req.user.orgId]);
+        if (checkOrg.rows.length === 0) {
+          return res.status(403).json({
+            success: false,
+            error: 'Cannot reassign vehicle to an organization you do not own.',
+            code: 'FORBIDDEN'
+          });
+        }
       }
 
       // Fetch old data for audit

@@ -120,7 +120,9 @@ app.set('io', io);
 // MIDDLEWARE STACK
 // ============================================================
 
-app.use(helmet()); // Secure HTTP headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+})); // Secure HTTP headers
 
 app.use(cors({
   origin: corsOriginHandler,
@@ -129,6 +131,15 @@ app.use(cors({
 
 app.use(express.json({ limit: '1mb' })); // JSON parser with body size limit
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP Logging
+
+// Apply global no-cache headers for API routes
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  next();
+});
 
 // Apply rate limiters
 app.use('/api', apiLimiter);
@@ -402,19 +413,28 @@ async function bootstrap() {
     setInterval(async () => {
       try {
         const result = await db.query(`
-          UPDATE vehicle_latest_state 
-          SET is_online = FALSE 
-          WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '15 minutes'
-          RETURNING vehicle_id;
+          WITH updated AS (
+            UPDATE vehicle_latest_state 
+            SET is_online = FALSE 
+            WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '15 minutes'
+            RETURNING vehicle_id
+          )
+          SELECT u.vehicle_id, v.org_id 
+          FROM updated u
+          JOIN vehicles v ON u.vehicle_id = v.id;
         `);
         if (result.rowCount > 0) {
           console.log(`[CRON] Marked ${result.rowCount} vehicles as OFFLINE due to inactivity.`);
           // Notify connected clients that these vehicles went offline
           result.rows.forEach(row => {
-            io.emit('fleet:update', {
+            const payload = {
               vehicleId: row.vehicle_id,
               is_online: false
-            });
+            };
+            if (row.org_id) {
+              io.to(`org:${row.org_id}`).emit('fleet:update', payload);
+            }
+            io.to(`vehicle:${row.vehicle_id}`).emit('fleet:update', payload);
           });
         }
       } catch (err) {

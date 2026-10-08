@@ -16,7 +16,7 @@ export const useVehicles = (initialParams = {}) => {
   const fetchVehicles = useCallback(async (currentParams = params) => {
     setLoading(true);
     try {
-      const response = await vehicleApi.getVehicles(currentParams);
+      const response = await vehicleApi.getVehicles({ ...currentParams, t: Date.now() });
       if (response.success) {
         const sanitizedData = (response.data || []).map(v => {
           if (!v.is_online) {

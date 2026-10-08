@@ -15,6 +15,13 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    
+    // Globally defeat stubborn browser caches for ALL GET requests
+    if (config.method === 'get') {
+      config.params = config.params || {};
+      config.params._t = Date.now();
+    }
+    
     return config;
   },
   (error) => {

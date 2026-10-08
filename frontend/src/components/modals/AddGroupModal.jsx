@@ -39,11 +39,17 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
           // Show all vehicles, do not filter by orgId
           setAvailableVehicles(res.data);
           
-          // If editing, we also need to know which vehicles belong to this group to check them initially
+          // If editing, pre-select only vehicles that are both in this group AND visible in the list
           if (editingGroup) {
             const groupVehiclesRes = await vehicleApi.getVehicles({ groupId: editingGroup.id });
             if (groupVehiclesRes.success) {
-              const groupVehicleIds = groupVehiclesRes.data.map(v => v.id);
+              // Build a set of all available vehicle IDs (active vehicles shown in the modal)
+              const allVehicleIds = new Set(res.data.map(v => v.id));
+              // Only pre-select vehicles that exist in the shown list — this prevents
+              // inactive/hidden vehicles from being silently re-submitted on every save
+              const groupVehicleIds = groupVehiclesRes.data
+                .map(v => v.id)
+                .filter(id => allVehicleIds.has(id));
               setSelectedVehicleIds(new Set(groupVehicleIds));
             }
           } else {

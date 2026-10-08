@@ -13,9 +13,16 @@
 //       • Added registerWebhook  (POST /api/v1/webhooks)
 //       • Added listWebhooks     (GET  /api/v1/webhooks)
 //       • Added deleteWebhook    (DELETE /api/v1/webhooks/:id)
+//  v4 — Civil Supplies pull-API optimisation:
+//       • getLiveLocation now caches in Redis (15s TTL) per org+group
+//       • Returns X-Cache: HIT/MISS and Cache-Control headers
+//       • Safe for 20s polling — only 1 DB query per 15s regardless of callers
 // ============================================================
 
-const db = require('../config/db');
+const db    = require('../config/db');
+const { redis } = require('../config/redis');  // v4: Redis cache for live-location polling
+
+const LIVE_CACHE_TTL = 15; // seconds — refresh DB at most once per 15s
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -56,11 +63,15 @@ function formatPoint(row, isHistory) {
   const speed = parseFloat(row.speed) || 0;
   const ignitionOn = row.ignition === true || row.ignition === 'true';
   
-  let vehicleState = 'Offline';
-  if (isOnline) {
-    if (speed > 0) vehicleState = 'Moving';
-    else if (ignitionOn) vehicleState = 'Idle';
-    else vehicleState = 'Stopped';
+  let vehicleState;
+  if (!isHistory && !isOnline) {
+    vehicleState = 'Offline';
+  } else if (speed > 0) {
+    vehicleState = 'Moving';
+  } else if (ignitionOn) {
+    vehicleState = 'Idle';
+  } else {
+    vehicleState = 'Stopped';
   }
 
   return {
@@ -91,31 +102,54 @@ function formatPoint(row, isHistory) {
  * IMPORTANT: pass `startIndex` as the number of params already in the array
  * so placeholder numbering is correct.
  */
-function buildGroupScope(groupId, currentParams) {
-  if (!groupId) return { clause: '', params: [] };
+function buildOrgScope(orgId, groupId, currentParams) {
   const idx = currentParams.length + 1;
-  return {
-    clause: `AND v.id IN (SELECT vehicle_id FROM vehicle_groups WHERE group_id = $${idx})`,
-    params: [groupId],
-  };
+  if (groupId) {
+    return {
+      clause: `v.id IN (SELECT vehicle_id FROM vehicle_groups WHERE group_id = $${idx})`,
+      params: [groupId]
+    };
+  } else {
+    return {
+      clause: `v.org_id = $${idx}`,
+      params: [orgId]
+    };
+  }
 }
 
 // ─── GET /api/v1/location/live ──────────────────────────────
 // (Unchanged from v1 — kept exactly as-is for backward compatibility)
+// ─── GET /api/v1/location/live ──────────────────────────────
+// v4: Added 15s Redis cache keyed by org+group+imei filter.
+// Cache miss → hits DB exactly as before. Cache hit → instant response, zero DB load.
+// Safe for Civil Supplies polling at 20s intervals.
 async function getLiveLocation(req, res, next) {
   try {
     const { orgId, groupId } = req.apiOrg;
     const { imei } = req.query;
 
+    // ── Redis cache key scoped to this exact org+group+imei combo ──
+    const cacheKey = `live:${orgId}:${groupId || 'all'}:${imei || 'all'}`;
+
+    try {
+      const cached = await redis.get(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        res.set('Cache-Control', `public, max-age=${LIVE_CACHE_TTL}`);
+        res.set('X-Cache', 'HIT');
+        return res.status(200).json(parsed);
+      }
+    } catch (_) { /* Redis down — fall through to DB silently */ }
+
     let whereImei = '';
-    const params = [orgId];
+    const params = [];
 
     if (imei) {
       params.push(imei.trim());
       whereImei = `AND v.imei = $${params.length}`;
     }
 
-    const scope = buildGroupScope(groupId, params);
+    const scope = buildOrgScope(orgId, groupId, params);
     params.push(...scope.params);
 
     const result = await db.query(
@@ -135,9 +169,8 @@ async function getLiveLocation(req, res, next) {
          vls.last_seen AS device_time
        FROM vehicles v
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
-       WHERE v.org_id = $1
+       WHERE ${scope.clause}
          ${whereImei}
-         ${scope.clause}
        ORDER BY v.plate ASC`,
       params
     );
@@ -151,12 +184,18 @@ async function getLiveLocation(req, res, next) {
     }
 
     const data = result.rows.map((row) => formatPoint(row, false));
-
-    return res.status(200).json({
+    const responseBody = {
       success: true,
       count: data.length,
       data,
-    });
+    };
+
+    // ── Write to Redis cache (non-blocking, never throws) ──
+    redis.set(cacheKey, JSON.stringify(responseBody), 'EX', LIVE_CACHE_TTL).catch(() => {});
+
+    res.set('Cache-Control', `public, max-age=${LIVE_CACHE_TTL}`);
+    res.set('X-Cache', 'MISS');
+    return res.status(200).json(responseBody);
   } catch (err) {
     next(err);
   }
@@ -204,7 +243,7 @@ async function postLiveLocation(req, res, next) {
     }
 
     // ── Build query — handles IMEI list, plate list, or both ─────────────────
-    const params = [orgId];
+    const params = [];
     const conditions = [];
 
     if (imeiList.length > 0) {
@@ -219,7 +258,7 @@ async function postLiveLocation(req, res, next) {
     }
 
     const vehicleWhere = conditions.length > 0 ? `AND (${conditions.join(' OR ')})` : '';
-    const scope = buildGroupScope(groupId, params);
+    const scope = buildOrgScope(orgId, groupId, params);
     params.push(...scope.params);
 
     const result = await db.query(
@@ -239,9 +278,8 @@ async function postLiveLocation(req, res, next) {
          vls.last_seen AS device_time
        FROM vehicles v
        JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
-       WHERE v.org_id = $1
+       WHERE ${scope.clause}
          ${vehicleWhere}
-         ${scope.clause}
        ORDER BY v.plate ASC`,
       params
     );
@@ -293,13 +331,13 @@ async function getHistory(req, res, next) {
     const parsedLimit = Math.min(1000, Math.max(1, parseInt(limit) || 500));
     const offset      = (parsedPage - 1) * parsedLimit;
 
-    const vehicleParams = [imei.trim(), orgId];
-    const vehicleScope  = buildGroupScope(groupId, vehicleParams);
+    const vehicleParams = [imei.trim()];
+    const vehicleScope  = buildOrgScope(orgId, groupId, vehicleParams);
     vehicleParams.push(...vehicleScope.params);
 
     const vehicleRes = await db.query(
       `SELECT v.id FROM vehicles v
-       WHERE v.imei = $1 AND v.org_id = $2 ${vehicleScope.clause}`,
+       WHERE v.imei = $1 AND ${vehicleScope.clause}`,
       vehicleParams
     );
 
@@ -408,16 +446,16 @@ async function postHistory(req, res, next) {
     // ── Resolve vehicle by IMEI or plate ─────────────────────
     let vehicleQuery, vehicleParams;
     if (imei) {
-      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE v.imei = $1 AND v.org_id = $2';
-      vehicleParams = [String(imei).trim(), orgId];
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE v.imei = $1';
+      vehicleParams = [String(imei).trim()];
     } else {
-      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE (UPPER(v.plate) = $1 OR UPPER(v.name) = $1) AND v.org_id = $2';
-      vehicleParams = [String(plate).trim().toUpperCase(), orgId];
+      vehicleQuery  = 'SELECT v.id, v.imei, v.plate, v.name FROM vehicles v WHERE (UPPER(v.plate) = $1 OR UPPER(v.name) = $1)';
+      vehicleParams = [String(plate).trim().toUpperCase()];
     }
 
-    const scope = buildGroupScope(groupId, vehicleParams);
+    const scope = buildOrgScope(orgId, groupId, vehicleParams);
     vehicleParams.push(...scope.params);
-    const vehicleRes = await db.query(`${vehicleQuery} ${scope.clause}`, vehicleParams);
+    const vehicleRes = await db.query(`${vehicleQuery} AND ${scope.clause}`, vehicleParams);
 
     if (vehicleRes.rows.length === 0) {
       return res.status(404).json({
@@ -491,19 +529,31 @@ async function getVehicleList(req, res, next) {
   try {
     const { orgId, groupId } = req.apiOrg;
 
-    const params = [orgId];
-    const scope  = buildGroupScope(groupId, params);
-    params.push(...scope.params);
+    let query;
+    let params;
 
-    const result = await db.query(
-      `SELECT v.imei, v.plate, v.name
-       FROM vehicles v
-       WHERE v.org_id = $1
-         AND v.is_active = TRUE
-         ${scope.clause}
-       ORDER BY v.plate ASC`,
-      params
-    );
+    if (groupId) {
+      // API key is group-scoped: vehicles in the group can span multiple orgs.
+      // Drop the org_id filter and rely ONLY on group membership.
+      query = `
+        SELECT v.imei, v.plate, v.name
+        FROM vehicles v
+        WHERE v.is_active = TRUE
+          AND v.id IN (SELECT vehicle_id FROM vehicle_groups WHERE group_id = $1)
+        ORDER BY v.plate ASC`;
+      params = [groupId];
+    } else {
+      // API key is org-scoped only: return all active vehicles in the org.
+      query = `
+        SELECT v.imei, v.plate, v.name
+        FROM vehicles v
+        WHERE v.org_id = $1
+          AND v.is_active = TRUE
+        ORDER BY v.plate ASC`;
+      params = [orgId];
+    }
+
+    const result = await db.query(query, params);
 
     const vehicles = result.rows.map((v) => ({
       vehicleRegistrationNumber: v.plate || null,
@@ -520,6 +570,7 @@ async function getVehicleList(req, res, next) {
     next(err);
   }
 }
+
 
 // ─── POST /api/v1/webhooks ──────────────────────────────────
 // Register a webhook URL to receive real-time GPS push events.

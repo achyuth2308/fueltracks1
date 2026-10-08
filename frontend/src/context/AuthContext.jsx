@@ -1,4 +1,4 @@
-﻿import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback } from 'react';
 import * as authApi from '../api/authApi';
 import { impersonateUser } from '../api/adminApi';
 
@@ -112,10 +112,21 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try { await authApi.logout(); } catch { }
+    // Read dealer context from sessionStorage (set when they logged in via a dealer link)
+    const activeDealerParam = sessionStorage.getItem('activeDealerParam');
     localStorage.removeItem('token');
     localStorage.removeItem('adminToken');
+    localStorage.removeItem('lastDealerParam'); // cleanup old key
+    sessionStorage.removeItem('activeDealerParam');
     setHasAdminSession(false);
     setUser(null);
+    if (activeDealerParam) {
+      // Redirect back to their specific dealer-branded login page
+      window.location.href = `/login?dealer=${activeDealerParam}`;
+    } else {
+      // Redirect to plain FuelTracks login
+      window.location.href = '/login';
+    }
   };
 
   const impersonate = async (userId) => {

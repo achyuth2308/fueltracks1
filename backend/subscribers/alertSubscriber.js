@@ -12,6 +12,36 @@ const NotificationService = require('../services/notificationService');
 const fcmService = require('../services/fcmService');
 const { getAddress } = require('../utils/geocodeUtils');
 
+// Concurrency limit for geocodes (BN-1 fix)
+const IN_FLIGHT_LIMIT = 5;
+let inFlightGeocodes = 0;
+const geocodeQueue = [];
+
+function processGeocodeQueue() {
+  if (inFlightGeocodes >= IN_FLIGHT_LIMIT || geocodeQueue.length === 0) return;
+  inFlightGeocodes++;
+  const { lat, lng, alertId, resolve } = geocodeQueue.shift();
+  
+  getAddress(lat, lng).then(async (addr) => {
+    if (alertId && addr && addr !== 'Unknown Location') {
+      await GpsModel.updateAlertAddress(alertId, addr);
+    }
+    resolve(addr);
+  }).catch(() => {
+    resolve('Unknown Location');
+  }).finally(() => {
+    inFlightGeocodes--;
+    processGeocodeQueue();
+  });
+}
+
+function queueGeocode(lat, lng, alertId) {
+  if (!lat || !lng) return Promise.resolve('Unknown Location');
+  return new Promise((resolve) => {
+    geocodeQueue.push({ lat, lng, alertId, resolve });
+    processGeocodeQueue();
+  });
+}
 
 let subscriber = null;
 
@@ -53,10 +83,7 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
-      let address = 'Unknown Location';
-      if (lat && lng) {
-        address = await getAddress(lat, lng);
-      }
+      let address = 'Location Pending'; // UI/FCM work with this placeholder
 
       const dateObj = new Date(deviceTime || Date.now());
       const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
@@ -71,6 +98,9 @@ async function start(io) {
         lng,
         deviceTime
       });
+
+      // Fire-and-forget geocode in background
+      queueGeocode(lat, lng, alert.id).catch(() => {});
 
       // Dispatch external notification (Email/WhatsApp) based on org preferences
       try {

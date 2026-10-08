@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
 import axiosInstance from '../../api/axios';
-import { applyBrowserBranding } from '../../utils/branding';
+import { applyBrowserBranding, getFullImageUrl } from '../../utils/branding';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user } = useAuth();
@@ -227,10 +227,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
             <img 
-              src={brandProfile?.logo_url || '/fuelimage.png'} 
+              src={brandProfile?.logo_url ? getFullImageUrl(brandProfile.logo_url) : '/fuelimage.png'} 
               alt={brandProfile?.brand_name || user?.orgName || 'FuelTracks'} 
               style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              onError={(e) => { e.currentTarget.src = '/fuelimage.png'; }}
+              onError={(e) => { if (!brandProfile) e.currentTarget.src = '/fuelimage.png'; }}
             />
           </div>
           <div>

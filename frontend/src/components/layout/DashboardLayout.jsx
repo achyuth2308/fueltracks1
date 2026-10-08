@@ -3,6 +3,7 @@ import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useAuth } from '../../hooks/useAuth';
+import ErrorBoundary from '../ErrorBoundary';
 
 const DashboardLayout = ({ vehicles = [] }) => {
   const { user, isAuthenticated, loading, restoreAdmin, hasAdminSession } = useAuth();
@@ -75,7 +76,9 @@ const DashboardLayout = ({ vehicles = [] }) => {
         )}
 
         <main style={{ flex: 1, overflowY: 'auto', background: '#EEF5F8', position: 'relative' }}>
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>
