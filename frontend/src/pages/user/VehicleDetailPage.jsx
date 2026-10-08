@@ -11,6 +11,7 @@ import * as vehicleApi from '../../api/vehicleApi';
 import VehicleMap from '../../components/map/VehicleMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 import { formatSpeed, formatFuel, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
 import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
@@ -120,6 +121,7 @@ const VehicleDetailPage = () => {
   const [reportSummary, setReportSummary] = useState(null);
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedVehicleForPay, setSelectedVehicleForPay] = useState(null);
+  const [currentAddress, setCurrentAddress] = useState(null);
 
   // Immobilizer Modal & Action State
   const [showImmobilizerModal, setShowImmobilizerModal] = useState(false);
@@ -191,6 +193,16 @@ const VehicleDetailPage = () => {
     };
     fetch();
   }, [id]);
+
+  useEffect(() => {
+    if (vehicle?.current_address) {
+      setCurrentAddress(vehicle.current_address);
+    } else if (vehicle?.lat && vehicle?.lng) {
+      getAddressFromCoordinates(vehicle.lat, vehicle.lng).then(addr => {
+        if (addr) setCurrentAddress(addr);
+      }).catch(() => {});
+    }
+  }, [vehicle?.lat, vehicle?.lng, vehicle?.current_address]);
 
   useEffect(() => {
     if (!socket || !id) return;
@@ -409,9 +421,20 @@ const VehicleDetailPage = () => {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><MapPin size={13} /> Location</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>
-                {vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : '17.2804, 78.7971'}
+              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><MapPin size={13} color="#EA580C" /> Location</div>
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  color: '#111827',
+                  maxWidth: '240px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}
+                title={currentAddress || vehicle.current_address || (vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Location unavailable')}
+              >
+                {currentAddress || vehicle.current_address || (vehicle.lat ? `${Number(vehicle.lat).toFixed(4)}, ${Number(vehicle.lng).toFixed(4)}` : 'Fetching location...')}
               </div>
             </div>
 
