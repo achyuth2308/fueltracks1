@@ -20,11 +20,21 @@ let subscriber = null;
 // Bounded global queue for distance recomputes (concurrency 2, max 1000)
 const distQueue = [];
 let distQueueRunning = 0;
+let distQueueDrops = 0;
 const MAX_DIST_CONCURRENCY = 2;
 const MAX_DIST_QUEUE_LEN = 1000;
 
+setInterval(() => {
+  console.log(`[DIST_QUEUE] Length: ${distQueue.length}, Running: ${distQueueRunning}, Drops (last min): ${distQueueDrops}`);
+  distQueueDrops = 0;
+}, 60000);
+
 function queueDistanceRecompute(vehicleId, imei) {
+  // Dedupe: don't add if already in queue
+  if (distQueue.some(item => item.vehicleId === vehicleId)) return;
+  
   if (distQueue.length >= MAX_DIST_QUEUE_LEN) {
+    distQueueDrops++;
     console.warn(`[SUBSCRIBER] distQueue full, dropping ${imei}`);
     return;
   }

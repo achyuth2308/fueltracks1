@@ -458,6 +458,12 @@ async function bootstrap() {
       }
     }, 60000); // Run every 60 seconds
 
+    // 4.5 Log DB Pool Stats
+    setInterval(() => {
+      console.log(`[POOL_STATS] API - Total: ${db.pool.totalCount}, Idle: ${db.pool.idleCount}, Waiting: ${db.pool.waitingCount}`);
+      console.log(`[POOL_STATS] GPS - Total: ${db.gpsPool.totalCount}, Idle: ${db.gpsPool.idleCount}, Waiting: ${db.gpsPool.waitingCount}`);
+    }, 60000); // Run every 60 seconds
+
     // 5b. Flush active trip stats from Redis → DB every 5 minutes (crash safety)
     setInterval(async () => {
       try {
