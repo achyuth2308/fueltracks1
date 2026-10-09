@@ -43,18 +43,12 @@ const RecenterMap = ({ activePoint, follow, playbackSpeed, isPlaying }) => {
   useEffect(() => {
     if (follow && isPlaying && activePoint && activePoint.lat && activePoint.lng) {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
-        const currentZoom = map.getZoom();
-        const targetZoom = currentZoom < 16 ? 16 : currentZoom;
-
         let durationSec = 0.4;
         if (playbackSpeed === 'Slow') durationSec = 0.8;
         if (playbackSpeed === 'Fast') durationSec = 0.08;
 
-        if (currentZoom !== targetZoom) {
-          map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: true, duration: durationSec });
-        } else {
-          map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
-        }
+        // Smoothly pan to center active vehicle without altering zoom level
+        map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
       }
     }
   }, [activePoint, follow, isPlaying, map, playbackSpeed]);
