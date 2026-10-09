@@ -125,6 +125,7 @@ const VehicleController = {
         if (baseline > 0) {
           finalOdo = baseline + Math.max(0, currentRawOdo - snapshot);
         }
+        finalOdo = Math.max(0, finalOdo);
 
         let maxSpeed = 0;
         sorted.forEach(p => {
@@ -134,7 +135,7 @@ const VehicleController = {
 
         metrics[vid] = {
           cDist: cumulativeDist,
-          dynamicOdo: finalOdo,
+          dynamicOdo: Math.max(0, finalOdo),
           maxSpeed: Math.round(maxSpeed)
         };
       }
