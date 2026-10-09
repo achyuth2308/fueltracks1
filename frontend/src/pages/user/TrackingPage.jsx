@@ -684,7 +684,7 @@ const TrackingPage = ({ setAppVehicles }) => {
       {/* ═══════════ MAP AREA (Full remaining width) ═══════════ */}
       <div style={{ flex: 1, height: '100%', position: 'relative', background: '#e5e7eb' }}>
         <FleetMap
-          vehicles={filteredVehicles}
+          vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehicles] : currentSelectedVehicles) : filteredVehicles}
           selectedVehicles={currentSelectedVehicles}
           onMarkerClick={handleVehicleSelect}
           onMultiTrackClick={handleMultiTrackClick}
