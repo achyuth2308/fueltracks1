@@ -17,8 +17,9 @@ export const useVehicles = (initialParams = {}) => {
     setLoading(true);
     try {
       const response = await vehicleApi.getVehicles(currentParams);
-      if (response.success) {
-        const sanitizedData = (response.data || []).map(v => {
+      const rawData = response?.data || (Array.isArray(response) ? response : []);
+      if (response?.success || Array.isArray(rawData)) {
+        const sanitizedData = (rawData || []).map(v => {
           if (!v.is_online) {
             return { ...v, current_ignition: false, current_speed: 0 };
           }
@@ -29,6 +30,8 @@ export const useVehicles = (initialParams = {}) => {
           setPagination(response.pagination);
         }
         setError(null);
+      } else {
+        setError('Failed to load vehicles');
       }
     } catch (err) {
       console.error('Failed to load vehicles:', err);

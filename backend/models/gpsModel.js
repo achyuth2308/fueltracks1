@@ -347,9 +347,23 @@ const GpsModel = {
   },
 
   /**
-   * Get ignition report (ON/OFF intervals and summaries)
+   * Get ignition report (ON/OFF events, intervals and summaries)
    */
   async getIgnitionReport(vehicleId, { startDate, endDate }) {
+    // 1. Fetch vehicle details & organization
+    const vehicleRes = await db.query(
+      `SELECT v.id, v.name, v.plate, v.metadata, o.name as org_name
+       FROM vehicles v
+       LEFT JOIN organizations o ON v.org_id = o.id
+       WHERE v.id = $1`,
+      [vehicleId]
+    );
+    const vehicle = vehicleRes.rows[0] || {};
+    const metadata = vehicle.metadata || {};
+
+    const engineOnDetection = metadata.engineOnStatus || metadata.engineOn || 'Voltage + Ignition ( 12.8 )';
+    const vehicleGroup = vehicle.org_name || 'Fleet';
+
     const params = [vehicleId];
     let dateFilter = '';
     if (startDate) {
@@ -361,7 +375,7 @@ const GpsModel = {
       dateFilter += ` AND device_time <= $${params.length}`;
     }
 
-    // Get all points to calculate intervals
+    // Get all points to calculate intervals & events
     const result = await db.query(
       `SELECT lat, lng, speed, ignition, odometer, device_time
        FROM gps_points
@@ -371,7 +385,9 @@ const GpsModel = {
     );
 
     const points = result.rows;
+    const events = [];
     const intervals = [];
+    let currentOnSession = null;
     let currentInterval = null;
     let topSpeed = 0;
     let topSpeedTime = null;
@@ -379,24 +395,95 @@ const GpsModel = {
     let minOdo = null;
     let maxOdo = null;
 
+    let prevStatus = null;
+    let totalRunningMs = 0;
+    let totalParkedMs = 0;
+
     for (let i = 0; i < points.length; i++) {
       const p = points[i];
       const speed = parseFloat(p.speed || 0);
       const isIgnitionOn = !!p.ignition;
       const odo = parseFloat(p.odometer || 0);
 
-      // Track max speed
       if (speed > topSpeed) {
         topSpeed = speed;
         topSpeedTime = p.device_time;
       }
 
-      // Track odometer for distance
       if (odo > 0) {
         if (minOdo === null || odo < minOdo) minOdo = odo;
         if (maxOdo === null || odo > maxOdo) maxOdo = odo;
       }
 
+      const status = isIgnitionOn ? 'ON' : 'OFF';
+
+      if (prevStatus === null || prevStatus !== status) {
+        if (status === 'ON') {
+          currentOnSession = {
+            startTime: p.device_time,
+            startLat: p.lat,
+            startLng: p.lng
+          };
+          events.push({
+            time: p.device_time,
+            status: 'ON',
+            durationMs: null,
+            lat: p.lat,
+            lng: p.lng
+          });
+        } else {
+          let durMs = 0;
+          if (currentOnSession) {
+            durMs = Math.max(0, new Date(p.device_time).getTime() - new Date(currentOnSession.startTime).getTime());
+            totalRunningMs += durMs;
+            intervals.push({
+              status: 'ON',
+              startTime: currentOnSession.startTime,
+              endTime: p.device_time,
+              durationMs: durMs,
+              startLat: currentOnSession.startLat,
+              startLng: currentOnSession.startLng,
+              endLat: p.lat,
+              endLng: p.lng
+            });
+          }
+          events.push({
+            time: p.device_time,
+            status: 'OFF',
+            durationMs: durMs,
+            lat: p.lat,
+            lng: p.lng
+          });
+          currentOnSession = null;
+        }
+        prevStatus = status;
+      }
+    }
+
+    if (currentOnSession && points.length > 0) {
+      const lastP = points[points.length - 1];
+      const durMs = Math.max(0, new Date(lastP.device_time).getTime() - new Date(currentOnSession.startTime).getTime());
+      totalRunningMs += durMs;
+      intervals.push({
+        status: 'ON',
+        startTime: currentOnSession.startTime,
+        endTime: lastP.device_time,
+        durationMs: durMs,
+        startLat: currentOnSession.startLat,
+        startLng: currentOnSession.startLng,
+        endLat: lastP.lat,
+        endLng: lastP.lng
+      });
+    }
+
+    if (minOdo !== null && maxOdo !== null) {
+      totalDistance = Math.max(0, maxOdo - minOdo);
+    }
+
+    // Also build backward compatible intervals array for existing code
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      const isIgnitionOn = !!p.ignition;
       if (!currentInterval) {
         currentInterval = {
           status: isIgnitionOn ? 'ON' : 'OFF',
@@ -406,12 +493,8 @@ const GpsModel = {
           endTime: p.device_time
         };
       } else if (currentInterval.status !== (isIgnitionOn ? 'ON' : 'OFF')) {
-        // State changed
         currentInterval.endTime = p.device_time;
         currentInterval.durationMs = new Date(currentInterval.endTime).getTime() - new Date(currentInterval.startTime).getTime();
-        intervals.push(currentInterval);
-
-        // Start new interval
         currentInterval = {
           status: isIgnitionOn ? 'ON' : 'OFF',
           startTime: p.device_time,
@@ -420,37 +503,27 @@ const GpsModel = {
           endTime: p.device_time
         };
       } else {
-        // Same state, just update end time
         currentInterval.endTime = p.device_time;
       }
     }
 
-    // Push the last interval
-    if (currentInterval) {
-      currentInterval.durationMs = new Date(currentInterval.endTime).getTime() - new Date(currentInterval.startTime).getTime();
-      intervals.push(currentInterval);
-    }
-
-    if (minOdo !== null && maxOdo !== null) {
-      totalDistance = maxOdo - minOdo;
-    }
-
-    // Summarize
-    let totalRunningMs = 0;
-    let totalParkedMs = 0;
-    intervals.forEach(inv => {
-      if (inv.status === 'ON') totalRunningMs += inv.durationMs;
-      else totalParkedMs += inv.durationMs;
-    });
-
     return {
-      intervals: intervals.reverse(), // latest first for table
+      vehicleInfo: {
+        id: vehicle.id,
+        name: vehicle.name || 'N/A',
+        plate: vehicle.plate || 'N/A',
+        vehicleGroup: vehicleGroup,
+        engineOnDetection: engineOnDetection
+      },
+      events: events,
+      intervals: intervals,
       summary: {
         topSpeed,
         topSpeedTime,
         totalDistance: totalDistance.toFixed(2),
         totalRunningMs,
-        totalParkedMs
+        totalParkedMs,
+        totalEvents: events.length
       }
     };
   },
