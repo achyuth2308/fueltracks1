@@ -21,7 +21,7 @@ const formatDateTime = (isoString) => {
 const REPORT_TABS = [
   { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
-  { title: "Ignition", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
+  { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
   { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
   { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },
@@ -122,7 +122,7 @@ const ReportsAdminPage = () => {
 
       {activeTab === 'other-reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div style={{ display: 'flex', gap: '12px', padding: '16px 32px', background: '#FFFFFF', borderBottom: '1px solid #bae6fd', overflowX: 'auto', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', padding: '16px 32px', background: '#FFFFFF', borderBottom: '1px solid #BAE6FD', overflowX: 'auto', flexWrap: 'wrap' }}>
             {REPORT_TABS.map(tab => {
               const isActive = location.pathname.startsWith(tab.path);
               const Icon = tab.icon;
@@ -131,21 +131,22 @@ const ReportsAdminPage = () => {
                   key={tab.path}
                   onClick={() => navigate(tab.path)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 16px',
-                    background: isActive ? tab.bg : '#F8FAFC',
-                    color: isActive ? tab.color : '#64748B',
-                    border: `1px solid ${isActive ? tab.color : '#E2E8F0'}`,
-                    borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px',
-                    transition: 'all 0.2s', whiteSpace: 'nowrap'
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px',
+                    background: isActive ? tab.color : tab.bg,
+                    color: isActive ? '#FFFFFF' : tab.color,
+                    border: `1.5px solid ${tab.color}`,
+                    borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px',
+                    boxShadow: isActive ? `0 4px 12px ${tab.color}44` : 'none',
+                    transition: 'all 0.2s ease', whiteSpace: 'nowrap'
                   }}
                 >
-                  <Icon size={18} />
+                  <Icon size={17} color={isActive ? '#FFFFFF' : tab.color} />
                   {tab.title}
                 </button>
               )
             })}
           </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '24px 32px', background: '#F8FAFC' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', background: '#F8FAFC' }}>
             <Outlet />
           </div>
         </div>

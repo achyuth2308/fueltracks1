@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { formatLocalTime } from '../../utils/dateUtils';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Search, Loader2, Zap, Download, FileText } from 'lucide-react';
+import { Loader2, Zap, FileSpreadsheet, FileText, Download, ExternalLink } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import * as vehicleApi from '../../api/vehicleApi';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 const formatDuration = (ms) => {
-  if (!ms || ms < 0) return '00:00:00';
+  if (ms === null || ms === undefined || ms <= 0) return '';
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
   const minutes = Math.floor((totalSeconds % 3600) / 60);
@@ -16,210 +14,334 @@ const formatDuration = (ms) => {
   return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 };
 
+const formatDateTime12 = (dateInput) => {
+  if (!dateInput) return '-';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  const strHours = String(hours ? hours : 12).padStart(2, '0');
+  return `${strHours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+};
+
+const formatHeaderTime12 = (dateStr, timeStr) => {
+  if (!dateStr) return '-';
+  const parts = dateStr.split('-');
+  if (parts.length < 3) return '-';
+  const [year, month, day] = parts;
+  let timePart = '12:00 AM';
+  if (timeStr) {
+    const [h, m] = timeStr.split(':');
+    let hours = parseInt(h, 10);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    const strHours = String(hours ? hours : 12).padStart(2, '0');
+    timePart = `${strHours}:${m} ${ampm}`;
+  }
+  return `${timePart} ${day}-${month}-${year}`;
+};
+
+const getTodayDateStr = () => new Date().toISOString().split('T')[0];
+
 const IgnitionReportPage = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [reportData, setReportData] = useState(null);
   const [vehicles, setVehicles] = useState([]);
+  const [reportData, setReportData] = useState(null);
+  const [addresses, setAddresses] = useState({});
+
   const [filters, setFilters] = useState({
     vehicleId: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
+    startDate: getTodayDateStr(),
+    startTime: '00:00',
+    endDate: getTodayDateStr(),
+    endTime: '23:59'
   });
-  
+
+  // Fetch Vehicles on mount safely
   useEffect(() => {
     vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => { 
-        if (res.success) {
-          setVehicles(res.data); 
-          if (res.data.length > 0 && !filters.vehicleId) {
-            setFilters(prev => ({...prev, vehicleId: res.data[0].id}));
-          }
+      .then(res => {
+        let vList = [];
+        if (Array.isArray(res)) vList = res;
+        else if (res && res.success && Array.isArray(res.data)) vList = res.data;
+        else if (res && Array.isArray(res.data)) vList = res.data;
+
+        if (vList.length > 0) {
+          setVehicles(vList);
+          setFilters(prev => ({
+            ...prev,
+            vehicleId: prev.vehicleId || vList[0].id
+          }));
         }
       })
       .catch(console.error);
   }, []);
 
-  const handleGenerate = async () => {
-    if (!filters.startDate || !filters.endDate || !filters.vehicleId) {
-      alert("Please select a vehicle and date range.");
+  const fetchReport = async (customFilters = null) => {
+    const activeFilters = customFilters || filters;
+    if (!activeFilters.vehicleId || !activeFilters.startDate || !activeFilters.endDate) {
+      alert("Please select a vehicle.");
       return;
     }
     setLoading(true);
     try {
-      const start = new Date(filters.startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999);
+      const startIso = `${activeFilters.startDate}T${activeFilters.startTime || '00:00'}:00`;
+      const endIso = `${activeFilters.endDate}T${activeFilters.endTime || '23:59'}:59`;
 
       const params = new URLSearchParams();
-      params.append('startDate', start.toISOString());
-      params.append('endDate', end.toISOString());
+      params.append('startDate', startIso);
+      params.append('endDate', endIso);
 
-      const res = await axiosInstance.get(`/api/vehicles/${filters.vehicleId}/ignition-report?${params.toString()}`);
+      const res = await axiosInstance.get(`/api/vehicles/${activeFilters.vehicleId}/ignition-report?${params.toString()}`);
       if (res.data.success) {
-        setReportData(res.data.data);
+        const data = res.data.data;
+        setReportData(data);
+
+        if (data.events && data.events.length > 0) {
+          const uniqueCoords = Array.from(
+            new Set(data.events.filter(e => e.lat && e.lng).map(e => `${e.lat},${e.lng}`))
+          );
+
+          const newAddresses = {};
+          await Promise.all(
+            uniqueCoords.map(async (coordKey) => {
+              const [lat, lng] = coordKey.split(',');
+              const addr = await getAddressFromCoordinates(parseFloat(lat), parseFloat(lng));
+              newAddresses[coordKey] = addr;
+            })
+          );
+
+          setAddresses(prev => ({ ...prev, ...newAddresses }));
+        }
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to generate report');
+      console.error('Report fetch error:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleQuickPreset = (preset) => {
+    const now = new Date();
+    let sDate = new Date();
+    let eDate = new Date();
+
+    if (preset === 'today') {
+      sDate = now;
+      eDate = now;
+    } else if (preset === 'yesterday') {
+      sDate.setDate(now.getDate() - 1);
+      eDate.setDate(now.getDate() - 1);
+    } else if (preset === 'thisWeek') {
+      const day = now.getDay();
+      const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+      sDate = new Date(now.setDate(diff));
+      eDate = new Date();
+    } else if (preset === 'lastWeek') {
+      const day = now.getDay();
+      const diff = now.getDate() - day - 6;
+      sDate = new Date(now.setDate(diff));
+      eDate = new Date(sDate);
+      eDate.setDate(sDate.getDate() + 6);
+    } else if (preset === 'thisMonth') {
+      sDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      eDate = new Date();
+    } else if (preset === 'lastMonth') {
+      sDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      eDate = new Date(now.getFullYear(), now.getMonth(), 0);
+    }
+
+    const sStr = sDate.toISOString().split('T')[0];
+    const eStr = eDate.toISOString().split('T')[0];
+
+    const updatedFilters = {
+      ...filters,
+      startDate: sStr,
+      startTime: '00:00',
+      endDate: eStr,
+      endTime: '23:59'
+    };
+    setFilters(updatedFilters);
+    fetchReport(updatedFilters);
+  };
+
   const selectedVehicleObj = vehicles.find(v => v.id === filters.vehicleId);
 
+  const getExportData = () => {
+    if (!reportData || !reportData.events) return [];
+    return reportData.events.map(ev => {
+      const coordKey = `${ev.lat},${ev.lng}`;
+      const addr = addresses[coordKey] || `${ev.lat?.toFixed(5)}, ${ev.lng?.toFixed(5)}`;
+      return {
+        'Date & Time': formatDateTime12(ev.time),
+        'Engine Status': ev.status,
+        'Duration': ev.status === 'OFF' ? formatDuration(ev.durationMs) : '',
+        'Address': addr,
+        'Latitude': ev.lat || '',
+        'Longitude': ev.lng || ''
+      };
+    });
+  };
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px' }}>
-        <button onClick={() => navigate('/admin/reports')} style={{ width: '40px', height: '40px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}>
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Zap size={24} color="#0284C7" /> Ignition Report
-          </h1>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', background: '#F8FAFC', fontFamily: "'Inter', sans-serif", color: '#0F172A', gap: '14px' }}>
+      
+      {/* Filters Control Bar */}
+      <div style={{ background: '#FFFFFF', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          
+          {/* Vehicle Dropdown */}
+          <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
+            <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', background: '#FFFFFF', color: '#0F172A', fontSize: '13px', fontWeight: 600 }}>
+              <option value="">Select Vehicle...</option>
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.name} ({v.plate || 'No Plate'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Start Date & Time */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
+            <input type="time" value={filters.startTime} onChange={e => setFilters({ ...filters, startTime: e.target.value })} style={{ padding: '7px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
+          </div>
+
+          <span style={{ color: '#94A3B8', fontSize: '13px' }}>to</span>
+
+          {/* End Date & Time */}
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
+            <input type="time" value={filters.endTime} onChange={e => setFilters({ ...filters, endTime: e.target.value })} style={{ padding: '7px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
+          </div>
+
+          {/* Submit Button */}
+          <button onClick={() => fetchReport()} disabled={loading} style={{ padding: '8px 20px', borderRadius: '4px', background: '#0284C7', color: '#FFFFFF', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            {loading ? <Loader2 size={15} className="animate-spin" /> : null}
+            Submit
+          </button>
+        </div>
+
+        {/* Quick Presets Bar */}
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: 'thisWeek', label: 'This Week' },
+            { id: 'lastWeek', label: 'Last Week' },
+            { id: 'thisMonth', label: 'This Month' },
+            { id: 'lastMonth', label: 'Last Month' }
+          ].map(p => (
+            <button key={p.id} onClick={() => handleQuickPreset(p.id)} style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'none' }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Filters Panel */}
-      <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', marginBottom: '16px', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Select Vehicle</label>
-          <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', background: '#EEF5F8', color: '#000000' }}>
-            <option value="">Select...</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} ({v.plate})</option>)}
-          </select>
-        </div>
-        <div style={{ width: '180px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Start Date</label>
-          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
-        </div>
-        <div style={{ width: '180px' }}>
-          <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>End Date</label>
-          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ width: '100%', padding: '10px 14px', borderRadius: '10px', border: '1px solid #CBD5E1', outline: 'none', boxSizing: 'border-box', color: '#000000' }} />
-        </div>
-        <button onClick={handleGenerate} disabled={loading} style={{ padding: '12px 24px', borderRadius: '10px', background: '#0284C7', color: '#FFF', border: 'none', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          {loading ? <Loader2 size={18} className="animate-spin" /> : <Search size={18} />}
-          Generate Report
-        </button>
-      </div>
+      {/* Main Content Area */}
+      {reportData && (
+        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          
+          {/* Top Export Actions */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button title="Export to Excel" onClick={() => exportToExcel(getExportData(), 'Engine_ON_Report')} disabled={!reportData.events?.length} style={{ padding: '5px 12px', borderRadius: '4px', background: '#22C55E', color: '#FFF', border: 'none', cursor: reportData.events?.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, opacity: reportData.events?.length ? 1 : 0.5 }}>
+              <FileSpreadsheet size={15} /> Excel
+            </button>
+            <button title="Export to CSV" onClick={() => exportToCSV(getExportData(), 'Engine_ON_Report')} disabled={!reportData.events?.length} style={{ padding: '5px 12px', borderRadius: '4px', background: '#10B981', color: '#FFF', border: 'none', cursor: reportData.events?.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, opacity: reportData.events?.length ? 1 : 0.5 }}>
+              <FileText size={15} /> CSV
+            </button>
+            <button title="Export to PDF" onClick={() => exportToPDF(['Date & Time', 'Engine Status', 'Duration', 'Address'], getExportData(), 'Engine ON Report', 'Engine_ON_Report')} disabled={!reportData.events?.length} style={{ padding: '5px 12px', borderRadius: '4px', background: '#EF4444', color: '#FFF', border: 'none', cursor: reportData.events?.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, opacity: reportData.events?.length ? 1 : 0.5 }}>
+              <Download size={15} /> PDF
+            </button>
+          </div>
 
-      {reportData && reportData.intervals.length === 0 && (
-        <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
-          <Zap size={40} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
-          <div style={{ fontSize: '16px', fontWeight: 600, marginBottom: '6px', color: '#64748B' }}>No ignition events found</div>
-          <div style={{ fontSize: '13px' }}>There is no GPS data for <strong>{selectedVehicleObj?.name}</strong> in the selected date range.</div>
-        </div>
-      )}
-
-      {reportData && reportData.intervals.length > 0 && (
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-          {/* Left Table Section */}
-          <div style={{ flex: 1, minWidth: '600px', background: '#FFF', borderRadius: '8px', border: '1px solid #E2E8F0', padding: '16px', overflowX: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Ignition Report</h2>
-              <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
-                From: {filters.startDate} - To: {filters.endDate}
-              </div>
-            </div>
-
-            {/* Sub-header info table */}
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px', border: '1px solid #E2E8F0', fontSize: '13px' }}>
+          {/* Summary Box */}
+          <div style={{ width: '100%', border: '1px solid #00A3AD', borderRadius: '2px', overflow: 'hidden', background: '#FFFFFF' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <tbody>
-                <tr>
-                  <td style={{ background: '#F8FAFC', padding: '10px', border: '1px solid #E2E8F0', fontWeight: 'bold', width: '20%' }}>Vehicle Group</td>
-                  <td style={{ padding: '10px', border: '1px solid #E2E8F0', width: '30%' }}>-</td>
-                  <td style={{ background: '#F8FAFC', padding: '10px', border: '1px solid #E2E8F0', fontWeight: 'bold', width: '20%' }}>Vehicle Name</td>
-                  <td style={{ padding: '10px', border: '1px solid #E2E8F0', width: '30%', fontWeight: 'bold' }}>{selectedVehicleObj?.name}</td>
+                <tr style={{ borderBottom: '1px solid #E0F2FE' }}>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', width: '20%', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Vehicle Group</td>
+                  <td style={{ padding: '8px 12px', width: '30%', fontWeight: 700, color: '#334155', borderRight: '1px solid #BAE6FD' }}>{reportData.vehicleInfo?.vehicleGroup || selectedVehicleObj?.org_name || 'Fleet Group'}</td>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', width: '20%', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Vehicle Name / Id</td>
+                  <td style={{ padding: '8px 12px', width: '30%', fontWeight: 700, color: '#334155' }}>{selectedVehicleObj?.name} / {selectedVehicleObj?.name}</td>
+                </tr>
+                <tr style={{ borderBottom: '1px solid #E0F2FE' }}>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Engine ON</td>
+                  <td style={{ padding: '8px 12px', color: '#334155', borderRight: '1px solid #BAE6FD' }}>{reportData.vehicleInfo?.engineOnDetection || 'Voltage + Ignition ( 12.8 )'}</td>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Total Duration</td>
+                  <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0F172A' }}>{formatDuration(reportData.summary?.totalRunningMs) || '00:00:00'}</td>
                 </tr>
                 <tr>
-                  <td style={{ background: '#F8FAFC', padding: '10px', border: '1px solid #E2E8F0', fontWeight: 'bold' }}>Reg No</td>
-                  <td style={{ padding: '10px', border: '1px solid #E2E8F0' }}>{selectedVehicleObj?.plate || '-'}</td>
-                  <td style={{ background: '#F8FAFC', padding: '10px', border: '1px solid #E2E8F0', fontWeight: 'bold' }}>Total Duration</td>
-                  <td style={{ padding: '10px', border: '1px solid #E2E8F0' }}>{formatDuration(reportData.summary.totalRunningMs + reportData.summary.totalParkedMs)}</td>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>From Date & Time</td>
+                  <td style={{ padding: '8px 12px', color: '#334155', borderRight: '1px solid #BAE6FD' }}>{formatHeaderTime12(filters.startDate, filters.startTime)}</td>
+                  <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>To Date & Time</td>
+                  <td style={{ padding: '8px 12px', color: '#334155' }}>{formatHeaderTime12(filters.endDate, filters.endTime)}</td>
                 </tr>
               </tbody>
             </table>
-
-            {/* Main Data Table */}
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: '#E2E8F0', color: '#334155' }}>
-                    <th style={{ padding: '10px', border: '1px solid #CBD5E1' }}>Date & Time</th>
-                    <th style={{ padding: '10px', border: '1px solid #CBD5E1' }}>Status</th>
-                    <th style={{ padding: '10px', border: '1px solid #CBD5E1' }}>Duration (HH:MM:SS)</th>
-                    <th style={{ padding: '10px', border: '1px solid #CBD5E1' }}>Nearest Location</th>
-                    <th style={{ padding: '10px', border: '1px solid #CBD5E1' }}>G-Map</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.intervals.map((inv, idx) => (
-                    <tr key={idx}>
-                      <td style={{ padding: '10px', border: '1px solid #E2E8F0' }}>{formatLocalTime(inv.startTime)}</td>
-                      <td style={{ padding: '10px', border: '1px solid #E2E8F0', fontWeight: 'bold', color: inv.status === 'ON' ? '#10B981' : '#64748B' }}>{inv.status}</td>
-                      <td style={{ padding: '10px', border: '1px solid #E2E8F0' }}>{formatDuration(inv.durationMs)}</td>
-                      <td style={{ padding: '10px', border: '1px solid #E2E8F0', textAlign: 'left' }}>
-                        {inv.startLat && inv.startLng ? `${inv.startLat.toFixed(5)}, ${inv.startLng.toFixed(5)}` : '-'}
-                      </td>
-                      <td style={{ padding: '10px', border: '1px solid #E2E8F0' }}>
-                        {inv.startLat && inv.startLng ? (
-                          <a href={`https://www.google.com/maps?q=${inv.startLat},${inv.startLng}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', textDecoration: 'underline' }}>Link</a>
-                        ) : '-'}
-                      </td>
-                    </tr>
-                  ))}
-                  {reportData.intervals.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '20px', color: '#94A3B8' }}>No ignition events found.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
 
-          {/* Right Summary Cards — minimal style */}
-          <div style={{ width: '220px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {/* Engine ON Events Main Data Table */}
+          <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '2px', background: '#FFFFFF' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'center' }}>
+              <thead>
+                <tr style={{ background: '#E6F0F5', color: '#334155', borderBottom: '1px solid #CBD5E1' }}>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '20%' }}>Date & Time</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '12%' }}>Engine Status</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '15%' }}>Duration</th>
+                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '43%' }}>Address</th>
+                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '10%' }}>G-Map</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.events && reportData.events.length > 0 ? (
+                  reportData.events.map((ev, idx) => {
+                    const coordKey = `${ev.lat},${ev.lng}`;
+                    const addressText = addresses[coordKey] || (ev.lat && ev.lng ? 'Loading address...' : '-');
+                    const durationText = ev.status === 'OFF' ? formatDuration(ev.durationMs) : '';
 
-            {/* Top Speed */}
-            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px', borderLeft: '4px solid #10B981' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Top Speed</div>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: '#10B981', lineHeight: 1 }}>
-                {reportData.summary.topSpeed} <span style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8' }}>km/h</span>
-              </div>
-              {reportData.summary.topSpeedTime && (
-                <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>{formatLocalTime(reportData.summary.topSpeedTime)}</div>
-              )}
-            </div>
-
-            {/* Total Distance */}
-            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px', borderLeft: '4px solid #0284C7' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Total Distance</div>
-              <div style={{ fontSize: '26px', fontWeight: 800, color: '#0284C7', lineHeight: 1 }}>
-                {reportData.summary.totalDistance} <span style={{ fontSize: '13px', fontWeight: 600, color: '#94A3B8' }}>km</span>
-              </div>
-            </div>
-
-            {/* Running Time */}
-            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px', borderLeft: '4px solid #F59E0B' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Running Time</div>
-              <div style={{ fontSize: '22px', fontWeight: 800, color: '#F59E0B', lineHeight: 1, fontFamily: 'monospace' }}>
-                {formatDuration(reportData.summary.totalRunningMs)}
-              </div>
-            </div>
-
-            {/* Parked Time */}
-            <div style={{ background: '#FFF', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px', borderLeft: '4px solid #64748B' }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '6px' }}>Parked Time</div>
-              <div style={{ fontSize: '22px', fontWeight: 800, color: '#64748B', lineHeight: 1, fontFamily: 'monospace' }}>
-                {formatDuration(reportData.summary.totalParkedMs)}
-              </div>
-            </div>
-
+                    return (
+                      <tr key={idx} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB' }}>
+                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', color: '#1E293B', fontWeight: 500 }}>
+                          {formatDateTime12(ev.time)}
+                        </td>
+                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', fontWeight: 800, color: ev.status === 'ON' ? '#10B981' : '#64748B' }}>
+                          {ev.status}
+                        </td>
+                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', color: '#0F172A', fontWeight: 600, fontFamily: 'monospace' }}>
+                          {durationText}
+                        </td>
+                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', textAlign: 'left', color: '#334155' }}>
+                          {addressText}
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          {ev.lat && ev.lng ? (
+                            <a href={`https://www.google.com/maps?q=${ev.lat},${ev.lng}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              Link <ExternalLink size={12} />
+                            </a>
+                          ) : '-'}
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={5} style={{ padding: '30px', color: '#64748B', fontSize: '13px', background: '#FFF' }}>
+                      <Zap size={28} style={{ margin: '0 auto 6px', opacity: 0.3 }} />
+                      <div>No Engine ON events found for <strong>{selectedVehicleObj?.name}</strong> in the selected date range.</div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
 
         </div>

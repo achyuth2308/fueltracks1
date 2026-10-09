@@ -770,7 +770,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Right: Map + optional vehicle detail */}
         <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
           <FleetMap
-            vehicles={filtered}
+            vehicles={currentSelected ? (isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected]) : filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
             onMarkerClick={(v) => setSelectedVehicle(v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}

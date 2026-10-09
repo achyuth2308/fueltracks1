@@ -37,27 +37,21 @@ const FitBoundsToRoute = ({ points }) => {
   return null;
 };
 
-// Recenter Map dynamically if follow mode is active
-const RecenterMap = ({ activePoint, follow, playbackSpeed }) => {
+// Recenter Map dynamically if follow mode is active AND playback is playing
+const RecenterMap = ({ activePoint, follow, playbackSpeed, isPlaying }) => {
   const map = useMap();
   useEffect(() => {
-    if (follow && activePoint && activePoint.lat && activePoint.lng) {
+    if (follow && isPlaying && activePoint && activePoint.lat && activePoint.lng) {
       if (isValidCoord(activePoint.lat, activePoint.lng)) {
-        const currentZoom = map.getZoom();
-        const targetZoom = currentZoom < 16 ? 16 : currentZoom;
-
         let durationSec = 0.4;
-        if (playbackSpeed === 'Slow') durationSec = 1.5;
+        if (playbackSpeed === 'Slow') durationSec = 0.8;
         if (playbackSpeed === 'Fast') durationSec = 0.08;
 
-        if (currentZoom !== targetZoom) {
-          map.setView([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], targetZoom, { animate: true, duration: durationSec });
-        } else {
-          map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
-        }
+        // Smoothly pan to center active vehicle without altering zoom level
+        map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
       }
     }
-  }, [activePoint, follow, map, playbackSpeed]);
+  }, [activePoint, follow, isPlaying, map, playbackSpeed]);
   return null;
 };
 
@@ -478,11 +472,27 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
   }, [activePoint, stoppages]);
 
   // Sliced positions up to current playback index
-  const validCurrentIndex = validPoints.findIndex(
-    p => activePoint && p.device_time === activePoint.device_time
-  );
+  const validCurrentIndex = React.useMemo(() => {
+    if (!activePoint || validPoints.length === 0) return -1;
+    const idx = validPoints.findIndex(p => p.device_time === activePoint.device_time);
+    if (idx !== -1) return idx;
 
-  const pastPoints = validPoints.slice(0, (validCurrentIndex === -1 ? 0 : validCurrentIndex));
+    // Fallback: match closest prior point by timestamp
+    const activeMs = new Date(activePoint.device_time).getTime();
+    for (let i = validPoints.length - 1; i >= 0; i--) {
+      if (new Date(validPoints[i].device_time).getTime() <= activeMs) {
+        return i;
+      }
+    }
+    return 0;
+  }, [activePoint, validPoints]);
+
+  const pastPoints = React.useMemo(() => {
+    if (validCurrentIndex < 0 || validPoints.length === 0) return [];
+    // Include validCurrentIndex so the green trail extends directly to activePoint!
+    return validPoints.slice(0, validCurrentIndex + 1);
+  }, [validPoints, validCurrentIndex]);
+
   const pastSegments = React.useMemo(() => splitIntoSegments(pastPoints), [pastPoints]);
 
   // Memoize the icon so react-leaflet doesn't destroy and recreate the DOM node on every frame
@@ -676,7 +686,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
         </LayersControl>
 
         <FitBoundsToRoute points={points} />
-        {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} playbackSpeed={playbackSpeed} />}
+        {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} playbackSpeed={playbackSpeed} isPlaying={isPlaying} />}
         <MapResizer />
 
 

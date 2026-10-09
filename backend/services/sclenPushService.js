@@ -36,6 +36,9 @@ function formatSclenDate(utcDate) {
 // In-memory cache for organization checks (to avoid DB hits on every single GPS packet)
 const orgCache = new LRUCache({ max: 5000, ttl: 5 * 60 * 1000 });
 
+// Throttle pushes to Coromandel (1 push per 5 minutes per vehicle)
+const lastPushCache = new LRUCache({ max: 5000, ttl: 5 * 60 * 1000 });
+
 async function isSathyadevaVehicle(vehicleId, orgId) {
   if (orgCache.has(vehicleId)) {
     return orgCache.get(vehicleId);
@@ -79,6 +82,10 @@ async function pushToCoromandel(vehicle, point) {
     // 2. Check if the vehicle belongs to Sathyadeva
     const isTargetOrg = await isSathyadevaVehicle(vehicle.id, vehicle.org_id);
     if (!isTargetOrg) return;
+
+    // 2.5. Throttle: only push once per 5 minutes
+    if (lastPushCache.has(vehicle.id)) return;
+    lastPushCache.set(vehicle.id, true);
 
     // 3. Get Reverse Geocode Address
     const address = await getAddress(point.lat, point.lng);

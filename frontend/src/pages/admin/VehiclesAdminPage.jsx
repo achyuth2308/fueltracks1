@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+ import React, { useState, useEffect } from 'react';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -13,13 +13,12 @@ import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
-
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
       width: '8px', height: '8px', borderRadius: '50%',
-      background: online ? '#10B981' : '#94A3B8',
-      boxShadow: online ? '0 0 6px rgba(16,185,129,0.4)' : 'none',
+      background: online ? '#10B981' : '#a0b4d1ff',
+      boxShadow: online ? '0 0 6px rgba(16, 185, 129, 0.42)' : 'none',
     }} />
     <span style={{ fontSize: '11px', fontWeight: 600, color: online ? '#10B981' : '#64748B' }}>
       {online ? 'Online' : 'Offline'}
