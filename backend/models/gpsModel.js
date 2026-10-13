@@ -474,6 +474,12 @@ const GpsModel = {
         endLat: lastP.lat,
         endLng: lastP.lng
       });
+      for (let j = events.length - 1; j >= 0; j--) {
+        if (events[j].status === 'ON' && events[j].durationMs === null) {
+          events[j].durationMs = durMs;
+          break;
+        }
+      }
     }
 
     if (minOdo !== null && maxOdo !== null) {

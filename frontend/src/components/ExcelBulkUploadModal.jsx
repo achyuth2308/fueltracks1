@@ -5,7 +5,7 @@ import {
   Loader2, RefreshCw, Edit3, Trash2, Check, AlertTriangle, Eye, Plus
 } from 'lucide-react';
 import { bulkOnboardExcel, createOrg } from '../api/adminApi';
-import { generateVehicleOnboardingTemplate } from '../utils/excelTemplateGenerator';
+import { generateVehicleOnboardingTemplate, generateImeiOnlyTemplate } from '../utils/excelTemplateGenerator';
 import AddGroupModal from './modals/AddGroupModal';
 import AddUserModal from './modals/AddUserModal';
 
@@ -14,12 +14,14 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
   const [selectedFile, setSelectedFile] = useState(null);
   const [parsedRows, setParsedRows] = useState([]);
   const [selectedOrgId, setSelectedOrgId] = useState(currentOrgId || '');
+  const [uploadMode, setUploadMode] = useState('full'); // 'full' | 'quick'
   const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'errors' | 'valid'
   const [editingRowIndex, setEditingRowIndex] = useState(null);
   const [editFormData, setEditFormData] = useState({});
-  const [importStatus, setImportStatus] = useState(null); // { success: boolean, message: string, count: number }
+  const [importStatus, setImportStatus] = useState(null); // { success: boolean, message: string, count: number, skipped?: [] }
+  const [showSkippedDetails, setShowSkippedDetails] = useState(false);
 
   // Quick Modal States
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false);
@@ -31,24 +33,28 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
   if (!isOpen) return null;
 
-  const validateRows = (rows) => {
+  const validateRows = (rows, currentMode = uploadMode) => {
     const seenImeis = new Set();
     const seenPlates = new Set();
     const seenIccids = new Set();
 
     return rows.map((row, index) => {
       const errors = [];
-      const imei = String(row['Device ID(IMEI)'] || row['IMEI Number'] || row['IMEI'] || row.imei || '').trim();
-      const vehicleNo = String(row['Vehicle Id'] || row['Registration Number'] || row['Registration No'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
+      let imei = String(row['Device ID(IMEI)'] || row['IMEI Number'] || row['IMEI'] || row.imei || '').trim();
+      if (imei.includes('e+') || imei.includes('E+')) {
+        try { imei = BigInt(Number(imei)).toString(); } catch (e) {}
+      }
+      const rawVehicleNo = String(row['Vehicle Id'] || row['Registration Number'] || row['Registration No'] || row['Vehicle Number'] || row['Plate'] || row.vehicleNumber || row.vehicleId || '').trim();
+      const vehicleNo = rawVehicleNo || (currentMode === 'quick' && imei ? `VEH-${imei}` : '');
       const category = String(row['Category'] || row.category || 'General').trim();
       const rawDeviceType = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
       const deviceModel = rawDeviceType.split(' (')[0].trim();
 
-      // IMEI Validation — must be exactly 15 numeric digits
+      // IMEI Validation — must be 10-20 numeric digits
       if (!imei) {
         errors.push('IMEI number is required');
-      } else if (!/^\d{15}$/.test(imei)) {
-        errors.push('IMEI must be exactly 15 numeric digits');
+      } else if (!/^\d{10,20}$/.test(imei)) {
+        errors.push('IMEI must be 10-20 numeric digits');
       } else if (seenImeis.has(imei)) {
         errors.push(`Duplicate IMEI in file (${imei})`);
       } else {
@@ -56,12 +62,21 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
       }
 
       // Vehicle Plate Validation
-      if (!vehicleNo) {
-        errors.push('Vehicle Id / Plate Number is required');
-      } else if (seenPlates.has(vehicleNo.toUpperCase())) {
-        errors.push(`Duplicate Vehicle Id in file (${vehicleNo})`);
+      if (currentMode === 'full') {
+        if (!rawVehicleNo) {
+          errors.push('Vehicle Id / Plate Number is required');
+        } else if (seenPlates.has(rawVehicleNo.toUpperCase())) {
+          errors.push(`Duplicate Vehicle Id in file (${rawVehicleNo})`);
+        } else {
+          seenPlates.add(rawVehicleNo.toUpperCase());
+        }
       } else {
-        seenPlates.add(vehicleNo.toUpperCase());
+        // Quick IMEI-Only mode: vehicle number is optional and auto-generated
+        if (rawVehicleNo && seenPlates.has(rawVehicleNo.toUpperCase())) {
+          errors.push(`Duplicate Vehicle Id in file (${rawVehicleNo})`);
+        } else if (rawVehicleNo) {
+          seenPlates.add(rawVehicleNo.toUpperCase());
+        }
       }
 
       // ICCID Validation
@@ -217,7 +232,9 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
         setImportStatus({
           success: true,
           message: res.message || `Successfully onboarded ${res.count} vehicles!`,
-          count: res.count
+          count: res.count,
+          skippedCount: res.skippedCount || 0,
+          skipped: res.skipped || []
         });
         if (onSuccess) onSuccess();
       } else {
@@ -264,10 +281,10 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => generateVehicleOnboardingTemplate(availableGroups)}
+              onClick={() => uploadMode === 'quick' ? generateImeiOnlyTemplate(availableOrgs.find(o => o.id === selectedOrgId)?.name || '') : generateVehicleOnboardingTemplate(availableGroups, availableOrgs.find(o => o.id === selectedOrgId)?.name || '')}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg border border-orange-200 transition-colors"
             >
-              <Download size={14} /> Download Template
+              <Download size={14} /> {uploadMode === 'quick' ? 'Download IMEI Template' : 'Download Full Template'}
             </button>
             <button
               onClick={onClose}
@@ -280,6 +297,53 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
         {/* Modal Content */}
         <div className="p-6 overflow-y-auto flex-1 space-y-6">
+
+          {/* Mode Switcher Tabs */}
+          <div className="flex items-center gap-2 p-1.5 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => {
+                setUploadMode('full');
+                if (parsedRows.length > 0) setParsedRows(validateRows(parsedRows, 'full'));
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                uploadMode === 'full'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span>📑 Full Onboarding</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800">Mandatory Fields</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setUploadMode('quick');
+                if (parsedRows.length > 0) setParsedRows(validateRows(parsedRows, 'quick'));
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                uploadMode === 'quick'
+                  ? 'bg-white text-slate-800 shadow-sm border border-slate-200'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              <span>⚡ Quick IMEI-Only</span>
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800">IMEI Only</span>
+            </button>
+          </div>
+
+          {/* Mode explanation banner */}
+          <div className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center gap-2">
+            {uploadMode === 'full' ? (
+              <div>
+                📑 <strong>Full Onboarding Mode:</strong> Requires both IMEI and Vehicle Id / Plate Number along with optional customer login credentials and groups. Existing records will be skipped automatically.
+              </div>
+            ) : (
+              <div>
+                ⚡ <strong>Quick IMEI-Only Mode:</strong> Requires only the IMEI column. Existing IMEIs already present in the system will be safely skipped and all new ones will be onboarded.
+              </div>
+            )}
+          </div>
 
           {isSuperAdmin && availableOrgs.length > 0 && (
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between gap-4">
@@ -383,11 +447,36 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
 
               {/* Status Notice */}
               {importStatus && (
-                <div className={`p-4 rounded-xl border flex items-center gap-3 ${
+                <div className={`p-4 rounded-xl border flex flex-col gap-2 ${
                   importStatus.success ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-rose-50 border-rose-200 text-rose-800'
                 }`}>
-                  {importStatus.success ? <CheckCircle2 size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
-                  <div className="text-xs font-semibold">{importStatus.message}</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      {importStatus.success ? <CheckCircle2 size={20} className="shrink-0 text-emerald-600" /> : <AlertCircle size={20} className="shrink-0 text-rose-600" />}
+                      <div className="text-xs font-semibold">{importStatus.message}</div>
+                    </div>
+                    {importStatus.skipped && importStatus.skipped.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSkippedDetails(!showSkippedDetails)}
+                        className="text-xs font-bold px-2.5 py-1 bg-white border border-emerald-300 rounded-md text-emerald-700 hover:bg-emerald-100 transition-colors cursor-pointer"
+                      >
+                        {showSkippedDetails ? 'Hide Skipped' : `View Skipped (${importStatus.skipped.length})`}
+                      </button>
+                    )}
+                  </div>
+
+                  {showSkippedDetails && importStatus.skipped && importStatus.skipped.length > 0 && (
+                    <div className="mt-2 p-3 bg-white/90 border border-emerald-200 rounded-lg max-h-48 overflow-y-auto text-xs space-y-1">
+                      <div className="font-bold text-slate-700 mb-1">Skipped Devices / IMEIs ({importStatus.skipped.length}):</div>
+                      {importStatus.skipped.map((s, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-1 px-2 bg-slate-50 rounded text-slate-700 text-[11px]">
+                          <span className="font-mono font-semibold">Row {s.row}: IMEI {s.imei}</span>
+                          <span className="text-amber-700 font-medium">{s.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 

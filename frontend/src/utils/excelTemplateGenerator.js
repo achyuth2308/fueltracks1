@@ -264,3 +264,57 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   document.body.removeChild(a);
   window.URL.revokeObjectURL(url);
 };
+
+export const generateImeiOnlyTemplate = async (orgName = '') => {
+  const workbook = new ExcelJS.Workbook();
+  workbook.creator = 'FuelTracks Platform';
+  workbook.created = new Date();
+
+  const sheet = workbook.addWorksheet('IMEI_List', {
+    views: [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
+  });
+
+  sheet.columns = [
+    { header: 'Sl.No', key: 'slno', width: 10 },
+    { header: 'Device ID(IMEI) *', key: 'imei', width: 26 },
+    { header: 'Device Type', key: 'deviceType', width: 22 },
+    { header: 'Category', key: 'category', width: 20 }
+  ];
+
+  const headerRow = sheet.getRow(1);
+  headerRow.height = 30;
+  headerRow.eachCell((cell, colNumber) => {
+    cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: colNumber === 2 ? 'FFD97706' : 'FF1E293B' }
+    };
+    cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  });
+
+  // Example placeholder rows
+  for (let i = 1; i <= 20; i++) {
+    sheet.addRow({
+      slno: i,
+      imei: '',
+      deviceType: 'AIS140',
+      category: 'General'
+    });
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const fileName = orgName
+    ? `FuelTracks_IMEI_Only_Template_${orgName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`
+    : 'FuelTracks_IMEI_Only_Template.xlsx';
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
+};
+

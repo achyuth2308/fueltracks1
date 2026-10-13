@@ -313,98 +313,149 @@ const OnboardController = {
 
       await client.query('BEGIN');
 
-      // ── 1. Validate internal duplicates within the Excel sheet ──────
-      const seenImeisExcel = new Map();
-      const seenPlatesExcel = new Map();
-      const seenIccidsExcel = new Map();
+      // ── 1. Collect all IMEIs, plates, and ICCIDs from submitted file ──
+      const rawImeisList = [];
+      const rawPlatesList = [];
+      const rawIccidsList = [];
 
       for (let i = 0; i < records.length; i++) {
         const row = records[i];
-        const imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
+        let imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
+        if (imei.includes('e+') || imei.includes('E+')) {
+          try { imei = BigInt(Number(imei)).toString(); } catch (e) {}
+        }
         const regNo = String(row['Registration Number'] || row['Registration No'] || row.registrationNo || row.plate || row['Vehicle Id'] || row.vehicleId || '').trim().toUpperCase();
         const iccid = String(row.iccid || row['ICCID'] || '').trim();
 
-        if (imei) {
-          if (seenImeisExcel.has(imei)) {
-            throw new Error(`Row ${i + 1}: Duplicate IMEI "${imei}" found in Excel file (already in row ${seenImeisExcel.get(imei)}). Duplicate entries are not allowed.`);
-          }
-          seenImeisExcel.set(imei, i + 1);
-        }
-
-        if (regNo) {
-          if (seenPlatesExcel.has(regNo)) {
-            throw new Error(`Row ${i + 1}: Duplicate Registration Number / Vehicle ID "${regNo}" found in Excel file (already in row ${seenPlatesExcel.get(regNo)}). Duplicate entries are not allowed.`);
-          }
-          seenPlatesExcel.set(regNo, i + 1);
-        }
-
-        if (iccid) {
-          if (seenIccidsExcel.has(iccid)) {
-            throw new Error(`Row ${i + 1}: Duplicate ICCID "${iccid}" found in Excel file (already in row ${seenIccidsExcel.get(iccid)}). Duplicate entries are not allowed.`);
-          }
-          seenIccidsExcel.set(iccid, i + 1);
-        }
+        if (imei) rawImeisList.push(imei);
+        if (regNo) rawPlatesList.push(regNo);
+        if (iccid) rawIccidsList.push(iccid);
       }
 
-      // ── 2. Validate against existing database records ──────────────
-      const excelImeis = Array.from(seenImeisExcel.keys());
-      if (excelImeis.length > 0) {
-        const dbDevRes = await client.query(`SELECT device_id FROM devices WHERE device_id = ANY($1::text[])`, [excelImeis]);
-        if (dbDevRes.rows.length > 0) {
-          throw new Error(`Device with IMEI "${dbDevRes.rows[0].device_id}" is already registered in the system. Upload blocked.`);
-        }
-        const dbVehRes = await client.query(`SELECT imei FROM vehicles WHERE imei = ANY($1::text[])`, [excelImeis]);
-        if (dbVehRes.rows.length > 0) {
-          throw new Error(`Vehicle with IMEI "${dbVehRes.rows[0].imei}" is already registered in the system. Upload blocked.`);
-        }
+      // ── 2. Pre-fetch existing database records for duplicate detection ──
+      const existingImeisSet = new Set();
+      if (rawImeisList.length > 0) {
+        const dbDevRes = await client.query(`SELECT device_id FROM devices WHERE device_id = ANY($1::text[])`, [rawImeisList]);
+        dbDevRes.rows.forEach(r => { if (r.device_id) existingImeisSet.add(String(r.device_id).trim()); });
+
+        const dbVehRes = await client.query(`SELECT imei FROM vehicles WHERE imei = ANY($1::text[])`, [rawImeisList]);
+        dbVehRes.rows.forEach(r => { if (r.imei) existingImeisSet.add(String(r.imei).trim()); });
       }
 
-      const excelPlates = Array.from(seenPlatesExcel.keys());
-      if (excelPlates.length > 0) {
+      const existingPlatesSet = new Set();
+      if (rawPlatesList.length > 0) {
         const dbPlateRes = await client.query(
           `SELECT plate, name FROM vehicles WHERE UPPER(TRIM(plate)) = ANY($1::text[]) OR UPPER(TRIM(name)) = ANY($1::text[])`,
-          [excelPlates]
+          [rawPlatesList]
         );
-        if (dbPlateRes.rows.length > 0) {
-          const matched = dbPlateRes.rows[0].plate || dbPlateRes.rows[0].name;
-          throw new Error(`Vehicle with Registration Number / ID "${matched}" is already registered in the system. Upload blocked.`);
-        }
+        dbPlateRes.rows.forEach(r => {
+          if (r.plate) existingPlatesSet.add(String(r.plate).trim().toUpperCase());
+          if (r.name) existingPlatesSet.add(String(r.name).trim().toUpperCase());
+        });
       }
 
-      const excelIccids = Array.from(seenIccidsExcel.keys());
-      if (excelIccids.length > 0) {
+      const existingIccidsSet = new Set();
+      if (rawIccidsList.length > 0) {
         const dbIccidRes = await client.query(
           `SELECT metadata->>'iccid' as iccid FROM vehicles WHERE metadata->>'iccid' = ANY($1::text[])`,
-          [excelIccids]
+          [rawIccidsList]
         );
-        if (dbIccidRes.rows.length > 0) {
-          throw new Error(`SIM / ICCID "${dbIccidRes.rows[0].iccid}" is already registered in the system. Upload blocked.`);
-        }
+        dbIccidRes.rows.forEach(r => {
+          if (r.iccid) existingIccidsSet.add(String(r.iccid).trim());
+        });
       }
 
       const onboardedResults = [];
+      const skippedResults = [];
+      const seenImeisInBatch = new Set();
+      const seenPlatesInBatch = new Set();
 
       for (let i = 0; i < records.length; i++) {
         const row = records[i];
         const rawDeviceType = String(row['Device Type'] || row.deviceType || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || 'AIS140').trim();
         const deviceType = rawDeviceType.split(' (')[0].trim();
-        const imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
+        let imei = String(row['Device ID(IMEI)'] || row.imei || row['IMEI Number'] || row['IMEI'] || row.deviceId || '').trim();
+        if (imei.includes('e+') || imei.includes('E+')) {
+          try { imei = BigInt(Number(imei)).toString(); } catch (e) {}
+        }
         const category = String(row['Category'] || row.category || 'General').trim();
         const registrationNo = String(row['Registration Number'] || row['Registration No'] || row.registrationNo || row.plate || '').trim();
         const vehicleIdInput = String(row['Vehicle Id'] || row.vehicleId || '').trim();
-        const vehicleNumber = registrationNo || vehicleIdInput || '';
-        const vehicleModel = String(row['Vehicle Model'] || row.vehicleModel || row.model || 'Truck').trim();
-        const vehicleName = String(row['Vehicle Name'] || row.vehicleName || vehicleNumber || `Vehicle ${imei}`).trim();
+        const upperPlate = (registrationNo || vehicleIdInput || '').toUpperCase().trim();
+        const iccid = String(row.iccid || row['ICCID'] || '').trim();
 
+        // 1. Validate IMEI format
         if (!imei || !/^\d{10,20}$/.test(imei)) {
-          throw new Error(`Row ${i + 1}: Invalid or missing IMEI number (${imei || 'empty'}). Must be 10-20 digits.`);
+          skippedResults.push({
+            imei: imei || 'EMPTY',
+            row: i + 1,
+            reason: `Invalid or missing IMEI (${imei || 'empty'}). Must be 10-20 numeric digits.`
+          });
+          continue;
         }
-        if (!vehicleNumber) {
-          throw new Error(`Row ${i + 1} (IMEI ${imei}): Vehicle Id or Registration Number is required.`);
+
+        // 2. Check duplicate IMEI within the uploaded batch
+        if (seenImeisInBatch.has(imei)) {
+          skippedResults.push({
+            imei,
+            row: i + 1,
+            reason: `Duplicate IMEI "${imei}" in uploaded file (already processed earlier row).`
+          });
+          continue;
         }
+        seenImeisInBatch.add(imei);
+
+        // 3. Skip if IMEI is already registered in database
+        if (existingImeisSet.has(imei)) {
+          skippedResults.push({
+            imei,
+            row: i + 1,
+            reason: `Device with IMEI "${imei}" is already registered in the system.`
+          });
+          continue;
+        }
+
+        // 4. Check plate uniqueness if provided
+        if (upperPlate) {
+          if (seenPlatesInBatch.has(upperPlate)) {
+            skippedResults.push({
+              imei,
+              plate: upperPlate,
+              row: i + 1,
+              reason: `Duplicate Registration / Vehicle ID "${upperPlate}" in uploaded file.`
+            });
+            continue;
+          }
+          seenPlatesInBatch.add(upperPlate);
+
+          if (existingPlatesSet.has(upperPlate)) {
+            skippedResults.push({
+              imei,
+              plate: upperPlate,
+              row: i + 1,
+              reason: `Vehicle with Registration Number / ID "${upperPlate}" is already registered in the system.`
+            });
+            continue;
+          }
+        }
+
+        // 5. Check ICCID uniqueness if provided
+        if (iccid && existingIccidsSet.has(iccid)) {
+          skippedResults.push({
+            imei,
+            iccid,
+            row: i + 1,
+            reason: `SIM / ICCID "${iccid}" is already registered in the system.`
+          });
+          continue;
+        }
+
+        // Auto-assign vehicle identifiers if missing (supports IMEI-only bulk upload)
+        const vehicleNumber = registrationNo || vehicleIdInput || `VEH-${imei}`;
+        const vehicleModel = String(row['Vehicle Model'] || row.vehicleModel || row.model || 'Truck').trim();
+        const vehicleName = String(row['Vehicle Name'] || row.vehicleName || (registrationNo || vehicleIdInput ? vehicleNumber : `Vehicle ${imei}`)).trim();
 
         const vlttdSlno = String(row.vlttdSlno || row['VLTD SLNO'] || row['VLTTD SLNO'] || '').trim();
-        const iccid = String(row.iccid || row['ICCID'] || '').trim();
         const sim1 = String(row.sim1 || row['GPS SIM Number 1'] || row['GPS SIMNO 1'] || row['GPS SIMNO1'] || row['SIM 1'] || row.gpsSimNo || '').trim();
         const sim2 = String(row.sim2 || row['GPS SIM Number 2'] || row['GPS SIMNO 2'] || row['GPS SIMNO2'] || row['SIM 2'] || '').trim();
         const chassisNo = String(row.chassisNo || row.chassisNumber || row['Chassis Number'] || '').trim();
@@ -629,24 +680,44 @@ const OnboardController = {
 
       await client.query('COMMIT');
 
+      const totalOnboarded = onboardedResults.length;
+      const totalSkipped = skippedResults.length;
+
+      let summaryMsg = '';
+      if (totalOnboarded > 0 && totalSkipped > 0) {
+        summaryMsg = `Successfully onboarded ${totalOnboarded} new vehicles! (${totalSkipped} existing/duplicate records were skipped).`;
+      } else if (totalOnboarded > 0) {
+        summaryMsg = `Successfully onboarded all ${totalOnboarded} vehicles!`;
+      } else {
+        summaryMsg = `All ${totalSkipped} records are already registered in the system or duplicates. No new vehicles were added.`;
+      }
+
       res.status(201).json({
         success: true,
-        message: `Successfully onboarded ${onboardedResults.length} vehicles from Excel!`,
-        count: onboardedResults.length,
+        message: summaryMsg,
+        count: totalOnboarded,
+        skippedCount: totalSkipped,
+        skipped: skippedResults,
         data: onboardedResults
       });
 
       // Background audit log
-      try {
-        await AuditService.log({
-          auditType: 'vehicle', entityType: 'Vehicle',
-          action: 'BULK_IMPORT',
-          newData: { totalCount: onboardedResults.length, vehicles: onboardedResults.map(v => v.imei) },
-          performedById: req.user.userId, performedByRole: req.user.role,
-          orgId: callerOrgId,
-          ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
-        });
-      } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+      if (totalOnboarded > 0) {
+        try {
+          await AuditService.log({
+            auditType: 'vehicle', entityType: 'Vehicle',
+            action: 'BULK_IMPORT',
+            newData: {
+              totalCount: totalOnboarded,
+              skippedCount: totalSkipped,
+              vehicles: onboardedResults.map(v => v.imei)
+            },
+            performedById: req.user.userId, performedByRole: req.user.role,
+            orgId: callerOrgId,
+            ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
+          });
+        } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+      }
     } catch (err) {
       await client.query('ROLLBACK');
       console.error('[BULK-ONBOARD-ERROR]', err);
