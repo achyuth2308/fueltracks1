@@ -597,17 +597,17 @@ const OnBoardDevicePage = () => {
                               onChange={(e) => updateDevice(idx, 'deviceType', e.target.value)}
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             >
-                              <option value="VOLTY">VOLTY (5004)</option>
-                              <option value="CONCOX">CONCOX (5002)</option>
-                              <option value="AIS140 V2">AIS140 V2 (5003)</option>
-                              <option value="FMB 920">FMB 920 (5005)</option>
-                              <option value="PT06">PT06 (5006)</option>
-                              <option value="EC08">EC08 (5007)</option>
-                              <option value="PN02">PN02 (5008)</option>
-                              <option value="V5 4G">V5 4G (5009)</option>
-                              <option value="BSTPL">BSTPL (5000)</option>
-                              <option value="BSTPL-17IS">BSTPL-17IS (5010)</option>
-                              <option value="AIS140">AIS140 (5001)</option>
+                              <option value="VOLTY">VOLTY - AIS140 (5004)</option>
+                              <option value="CONCOX">CONCOX - V5/GT800 (5002)</option>
+                              <option value="AIS140 V2">VAMO - AIS140 V2 (5003)</option>
+                              <option value="FMB 920">Teltonika - FMB 920 (5005)</option>
+                              <option value="PT06">PT06 - Binary (5006)</option>
+                              <option value="EC08">EC08 - GT06 (5007)</option>
+                              <option value="PN02">PN02 - Binary (5008)</option>
+                              <option value="V5 4G">CONCOX - V5 4G (5009)</option>
+                              <option value="BSTPL">BSTPL - BSTPL-17 (5000)</option>
+                              <option value="BSTPL-17IS">BSTPL - BSTPL-17IS (5010)</option>
+                              <option value="AIS140">TrackNow - AIS140 (5001)</option>
                             </select>
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>

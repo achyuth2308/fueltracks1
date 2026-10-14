@@ -123,30 +123,45 @@ const VEHICLE_TYPES = [
 ];
 
 const DEVICE_TYPES = [
-  { value: 'VOLTY', label: 'VOLTY (5004)' },
-  { value: 'CONCOX', label: 'CONCOX (5002)' },
-  { value: 'AIS140 V2', label: 'AIS140 V2 (5003)' },
-  { value: 'FMB 920', label: 'FMB 920 (5005)' },
-  { value: 'BSTPL', label: 'BSTPL (5000)' },
-  { value: 'BSTPL-17IS', label: 'BSTPL-17IS (5010)' },
-  { value: 'AIS140', label: 'AIS140 (5001)' },
-  { value: 'PT06', label: 'PT06 (5006)' },
-  { value: 'EC08', label: 'EC08 (5007)' },
-  { value: 'PN02', label: 'PN02 (5008)' },
-  { value: 'V5 4G', label: 'V5 4G (5009)' }
+  { value: 'VOLTY', label: 'VOLTY - AIS140 (5004)' },
+  { value: 'CONCOX', label: 'CONCOX - V5/GT800 (5002)' },
+  { value: 'AIS140 V2', label: 'VAMO - AIS140 V2 (5003)' },
+  { value: 'FMB 920', label: 'Teltonika - FMB 920 (5005)' },
+  { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
+  { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
+  { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
+  { value: 'PT06', label: 'PT06 - Binary (5006)' },
+  { value: 'EC08', label: 'EC08 - GT06 (5007)' },
+  { value: 'PN02', label: 'PN02 - Binary (5008)' },
+  { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' }
 ];
 
 const TELECOM_OPERATORS = ['Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
 
 // Normalize any stored device version string to match DEVICE_TYPES option values
-// e.g. "VOLTY (5004)" → "VOLTY", "FMB 920 (5005)" → "FMB 920"
+// e.g. "VOLTY (5004)" → "VOLTY", "TrackNow - AIS140 (5001)" → "AIS140"
 const normalizeDeviceVersion = (raw) => {
   if (!raw) return 'VOLTY';
+  const u = String(raw).toUpperCase().trim();
+  if (u.includes('TRACKNOW') || u.includes('TNAVIC')) return 'AIS140';
+  if (u.includes('VAMO')) return 'AIS140 V2';
+  if (u.includes('TELTONIKA') || u.includes('FMB')) return 'FMB 920';
+  if (u.includes('17IS')) return 'BSTPL-17IS';
+  if (u.includes('BSTPL')) return 'BSTPL';
+  if (u.includes('CONCOX') && u.includes('4G')) return 'V5 4G';
+  if (u.includes('CONCOX')) return 'CONCOX';
+  if (u.includes('EC08')) return 'EC08';
+  if (u.includes('PT06')) return 'PT06';
+  if (u.includes('PN02')) return 'PN02';
+  if (u.includes('VOLTY')) return 'VOLTY';
+  if (u.includes('AIS140') && u.includes('V2')) return 'AIS140 V2';
+  if (u.includes('AIS140')) return 'AIS140';
+
   // Exact match first
   const exact = DEVICE_TYPES.find(d => d.value === raw);
   if (exact) return exact.value;
   // Partial match: check if any value is contained in raw string
-  const partial = DEVICE_TYPES.find(d => raw.toUpperCase().startsWith(d.value.toUpperCase()));
+  const partial = DEVICE_TYPES.find(d => d.label === raw || raw.toUpperCase().includes(d.value.toUpperCase()));
   if (partial) return partial.value;
   return raw;
 };

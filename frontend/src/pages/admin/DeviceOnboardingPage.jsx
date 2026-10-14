@@ -471,17 +471,17 @@ const DeviceOnboardingPage = () => {
                             style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', background: '#FFF', color: '#111827', boxSizing: 'border-box' }}
                           >
                             <option value="">Select Model...</option>
-                            <option value="BSTPL">BSTPL (5000)</option>
-                            <option value="BSTPL-17IS">BSTPL-17IS (5010)</option>
-                            <option value="V5">V5</option>
-                            <option value="Concox">Concox</option>
-                            <option value="AIS140 V2">AIS140 V2</option>
-                            <option value="Volty">Volty</option>
-                            <option value="Teltonika">Teltonika</option>
-                            <option value="Coban">Coban</option>
-                            <option value="EC08">EC08</option>
-                            <option value="PT06">PT06</option>
-                            <option value="PN02">PN02</option>
+                            <option value="VOLTY">VOLTY - AIS140 (5004)</option>
+                            <option value="CONCOX">CONCOX - V5/GT800 (5002)</option>
+                            <option value="AIS140 V2">VAMO - AIS140 V2 (5003)</option>
+                            <option value="FMB 920">Teltonika - FMB 920 (5005)</option>
+                            <option value="PT06">PT06 - Binary (5006)</option>
+                            <option value="EC08">EC08 - GT06 (5007)</option>
+                            <option value="PN02">PN02 - Binary (5008)</option>
+                            <option value="V5 4G">CONCOX - V5 4G (5009)</option>
+                            <option value="BSTPL">BSTPL - BSTPL-17 (5000)</option>
+                            <option value="BSTPL-17IS">BSTPL - BSTPL-17IS (5010)</option>
+                            <option value="AIS140">TrackNow - AIS140 (5001)</option>
                             <option value="Other">Other</option>
                           </select>
                         </td>
