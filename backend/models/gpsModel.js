@@ -1012,7 +1012,19 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
+            vls.last_seen >= NOW() - INTERVAL '3 minutes'
+            OR (
+              (
+                COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+                OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+              )
+              AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '24 hours'
+            )
+          ) THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o
@@ -1024,7 +1036,19 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
+            vls.last_seen >= NOW() - INTERVAL '3 minutes'
+            OR (
+              (
+                COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+                OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+              )
+              AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '24 hours'
+            )
+          ) THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o

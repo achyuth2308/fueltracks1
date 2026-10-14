@@ -10,7 +10,7 @@ import { formatSpeed, formatVoltage, formatDirection } from '../../utils/formatU
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
-import { getVehicleStatus } from '../../utils/markerUtils';
+import { getVehicleStatus, getVehicleType } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
@@ -137,11 +137,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   const getStatus = (v) => {
-    if (!v.last_seen) return 'unavailable';
-    if (!v.is_online) return 'offline';
-    if ((v.current_speed || 0) > 2.0) return 'running';
-    if (v.current_ignition) return 'idle';
-    return 'parked';
+    return getVehicleStatus(v);
   };
 
   const metrics = useMemo(() => {
@@ -601,6 +597,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 { key: null, label: `All ${vehicles.length}` },
                 { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
                 { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
+                { key: 'parked', label: `Parked ${metrics.parked}`, color: '#64748B' },
                 { key: 'offline', label: `Offline ${metrics.offline}`, color: '#EF4444' },
               ].map(pill => {
                 const active = statusFilter === pill.key;
@@ -719,22 +716,50 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       justifyContent: 'center',
                       flexShrink: 0
                     }}>
-                      {isVan ? (
-                        <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                          <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
-                          <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
-                          <circle cx="14" cy="27" r="4" fill="#334155"/>
-                          <circle cx="34" cy="27" r="4" fill="#334155"/>
-                          <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
-                        </svg>
-                      ) : (
-                        <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                          <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
-                          <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                          <circle cx="12" cy="26" r="4" fill="#1E293B"/>
-                          <circle cx="34" cy="26" r="4" fill="#1E293B"/>
-                        </svg>
-                      )}
+                      {(() => {
+                        const vType = getVehicleType(v);
+                        if (vType === 'bike') {
+                          return (
+                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                              <path d="M10 24L18 10H26L30 16H36" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              <path d="M18 10H24" stroke={isSelected ? '#38BDF8' : '#0EA5E9'} strokeWidth="2.5" strokeLinecap="round"/>
+                              <circle cx="12" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
+                              <circle cx="12" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
+                              <circle cx="34" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
+                              <circle cx="34" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
+                              <path d="M16 16C16 14 19 13 23 13C26 13 28 15 29 17" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round"/>
+                            </svg>
+                          );
+                        }
+                        if (vType === 'car') {
+                          return (
+                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                              <path d="M8 20C8 16 12 13 16 13H28C32 13 36 16 38 20V25H8V20Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
+                              <circle cx="14" cy="25" r="3.5" fill="#1E293B"/>
+                              <circle cx="32" cy="25" r="3.5" fill="#1E293B"/>
+                            </svg>
+                          );
+                        }
+                        if (vType === 'van') {
+                          return (
+                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                              <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
+                              <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
+                              <circle cx="14" cy="27" r="4" fill="#334155"/>
+                              <circle cx="34" cy="27" r="4" fill="#334155"/>
+                              <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
+                            </svg>
+                          );
+                        }
+                        return (
+                          <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                            <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
+                            <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
+                            <circle cx="12" cy="26" r="4" fill="#1E293B"/>
+                            <circle cx="34" cy="26" r="4" fill="#1E293B"/>
+                          </svg>
+                        );
+                      })()}
                     </div>
 
                     {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}

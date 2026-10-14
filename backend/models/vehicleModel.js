@@ -49,7 +49,18 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
-              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              CASE 
+                WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+                WHEN (
+                  COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                  OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+                  OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                )
+                AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+                AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+                ELSE FALSE 
+              END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
@@ -163,7 +174,18 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
-              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              CASE 
+                WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+                WHEN (
+                  COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                  OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+                  OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                )
+                AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+                AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+                ELSE FALSE 
+              END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
               GREATEST(0, CASE

@@ -402,10 +402,23 @@ async function bootstrap() {
     setInterval(async () => {
       try {
         const result = await db.query(`
-          UPDATE vehicle_latest_state 
+          UPDATE vehicle_latest_state vls
           SET is_online = FALSE 
-          WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '15 minutes'
-          RETURNING vehicle_id;
+          FROM vehicles v
+          WHERE vls.vehicle_id = v.id
+            AND vls.is_online = TRUE 
+            AND vls.last_seen < NOW() - INTERVAL '15 minutes'
+            AND NOT (
+              (
+                COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+                OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+                OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+              )
+              AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '24 hours'
+            )
+          RETURNING vls.vehicle_id;
         `);
         if (result.rowCount > 0) {
           console.log(`[CRON] Marked ${result.rowCount} vehicles as OFFLINE due to inactivity.`);

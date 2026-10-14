@@ -1,18 +1,23 @@
 import L from 'leaflet';
 
 export const getVehicleType = (vehicle = {}) => {
-  const model = (vehicle.model || '').toLowerCase().trim();
+  const model = (vehicle.model || vehicle.vehicle_type || vehicle.type || vehicle.metadata?.vehicleType || '').toLowerCase().trim();
   const name = (vehicle.name || '').toLowerCase();
 
+  // Two-wheelers / Bikes / Scooties
   if (model === 'scooty' || model === 'scooter' || model === 'moped') return 'bike';
-  if (model === 'motorcycle' || model === 'bike') return 'bike';
+  if (model === 'motorcycle' || model === 'bike' || model === 'two wheeler' || model === 'twowheeler' || model === '2 wheeler' || model === '2wheeler') return 'bike';
   if (model === 'car') return 'car';
   if (model === 'bus' || model === 'ambulance') return 'bus';
   if (model === 'van' || model === 'pickup') return 'van';
   if (model === 'truck' || model === 'lorry' || model === 'tanker' ||
     model === 'tractor' || model === 'jcb' || model === 'crane' || model === 'borewell') return 'lorry';
 
-  if (model.includes('scooty') || model.includes('scooter') || model.includes('moped')) return 'bike';
+  if (model.includes('scooty') || model.includes('scooter') || model.includes('moped') ||
+      name.includes('scooty') || name.includes('scooter') || name.includes('activa') ||
+      name.includes('jupiter') || name.includes('access') || name.includes('dio') ||
+      name.includes('pulsar') || name.includes('splendor') || name.includes('bullet') ||
+      name.includes('apache') || name.includes('tvs') || name.includes('two wheeler') || name.includes('2 wheeler')) return 'bike';
   if (model.includes('bike') || model.includes('motorcycle') || name.includes('bike')) return 'bike';
   if (model.includes('car')) return 'car';
   if (model.includes('bus') || name.includes('bus')) return 'bus';
@@ -21,11 +26,25 @@ export const getVehicleType = (vehicle = {}) => {
 };
 
 export const getVehicleStatus = (vehicle = {}) => {
-  const isOnline = !!vehicle.is_online;
   const speed = parseFloat(vehicle.current_speed || vehicle.speed || 0);
   const ignition = !!vehicle.current_ignition;
+  const isOnline = !!vehicle.is_online;
 
   if (!vehicle.last_seen) return 'unavailable';
+
+  // Two-wheeler sleep/parked handling:
+  // Scooters/Bikes enter deep sleep when ignition is OFF to prevent battery drainage.
+  // If ignition is OFF and speed <= 2 km/h, they should show 'parked' instead of 'offline'
+  // (unless no telemetry received for over 24 hours).
+  const isTwoWheeler = getVehicleType(vehicle) === 'bike';
+  if (isTwoWheeler && !ignition && speed <= 2.0) {
+    const lastSeenMs = new Date(vehicle.last_seen).getTime();
+    const nowMs = Date.now();
+    if (!isNaN(lastSeenMs) && (nowMs - lastSeenMs < 24 * 60 * 60 * 1000)) {
+      return 'parked';
+    }
+  }
+
   if (!isOnline) return 'offline';
   if (speed > 2.0) return 'running';
   if (ignition) return 'idle';
