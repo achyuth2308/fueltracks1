@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
@@ -10,6 +10,45 @@ import GoogleFormModal from '../../components/GoogleFormModal';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
+import SearchableSelect from '../../components/ui/SearchableSelect';
+
+// Device types in ascending order based on port numbers (5000 -> 5010)
+const DEVICE_TYPE_OPTIONS = [
+  { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
+  { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
+  { value: 'CONCOX', label: 'CONCOX - V5/GT800 (5002)' },
+  { value: 'AIS140 V2', label: 'VAMO - AIS140 V2 (5003)' },
+  { value: 'VOLTY', label: 'VOLTY - AIS140 (5004)' },
+  { value: 'FMB 920', label: 'Teltonika - FMB 920 (5005)' },
+  { value: 'PT06', label: 'PT06 - Binary (5006)' },
+  { value: 'EC08', label: 'EC08 - GT06 (5007)' },
+  { value: 'PN02', label: 'PN02 - Binary (5008)' },
+  { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' },
+  { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
+];
+
+const LICENCE_TYPE_OPTIONS = [
+  { value: 'Starter', label: 'Starter' },
+  { value: 'Basic', label: 'Basic' },
+  { value: 'Advanced', label: 'Advanced' },
+  { value: 'Premium', label: 'Premium' },
+];
+
+const VEHICLE_TYPE_OPTIONS = [
+  { value: 'Truck', label: 'Truck' },
+  { value: 'Car', label: 'Car' },
+  { value: 'Van', label: 'Van' },
+  { value: 'Bus', label: 'Bus' },
+  { value: 'Scooty', label: 'Scooty' },
+  { value: 'Motorcycle', label: 'Motorcycle' },
+  { value: 'Tractor', label: 'Tractor' },
+  { value: 'JCB', label: 'JCB' },
+  { value: 'Crane', label: 'Crane' },
+  { value: 'Ambulance', label: 'Ambulance' },
+  { value: 'Pickup', label: 'Pickup' },
+  { value: 'Borewell', label: 'Borewell' },
+  { value: 'Tanker', label: 'Tanker' },
+];
 
 const OnBoardDevicePage = () => {
   const navigate = useNavigate();
@@ -44,10 +83,56 @@ const OnBoardDevicePage = () => {
 
   const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '', aadhar: '' });
   const [existingUserSelection, setExistingUserSelection] = useState({ userId: '', groupId: '', orgId: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const isPasswordError = passwordTouched && newUser.password.length > 0 && newUser.password.length < 6;
 
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [orgs, setOrgs] = useState([]);
+
+  const handleExistingUserChange = (selectedUserId) => {
+    if (!selectedUserId) {
+      setExistingUserSelection({ userId: '', groupId: '', orgId: '' });
+      return;
+    }
+
+    const selectedUser = users.find(u => String(u.id) === String(selectedUserId));
+    let autoGroupId = '';
+
+    // 1. Try to find group from selectedUser.groups (joined array from backend)
+    if (selectedUser?.groups && Array.isArray(selectedUser.groups) && selectedUser.groups.length > 0) {
+      autoGroupId = selectedUser.groups[0].id;
+    }
+
+    // 2. If not found, match group name with user's name or username (e.g. "SRISAIMANIKANTABOREWELL:VAM")
+    if (!autoGroupId && selectedUser && groups.length > 0) {
+      const uName = (selectedUser.name || '').toLowerCase().trim();
+      const uUsername = (selectedUser.username || '').toLowerCase().trim();
+      const match = groups.find(g => {
+        const gName = (g.name || '').toLowerCase().trim();
+        return (uName && gName.includes(uName)) || (uUsername && gName.includes(uUsername));
+      });
+      if (match) {
+        autoGroupId = match.id;
+      }
+    }
+
+    // 3. Fallback: If user belongs to an org, check if there's a group in that org
+    const userOrgId = selectedUser?.org_id || selectedUser?.orgId || '';
+    if (!autoGroupId && userOrgId && groups.length > 0) {
+      const orgGroup = groups.find(g => g.org_id === userOrgId || g.orgId === userOrgId);
+      if (orgGroup) {
+        autoGroupId = orgGroup.id;
+      }
+    }
+
+    setExistingUserSelection(prev => ({
+      ...prev,
+      userId: selectedUserId,
+      groupId: autoGroupId || ''
+    }));
+  };
 
   const [devices, setDevices] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
@@ -195,26 +280,17 @@ const OnBoardDevicePage = () => {
         id: Date.now() + i,
         licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
         deviceId: '',
-        vlttdSlno: '',
         deviceType: 'VOLTY',
         vehicleId: '',
         vehicleName: '',
-        registrationNo: '',
-        vehicleModel: '',
         vehicleTypeSelect: '',
         gpsSimNo: '',
-        gpsSimNo2: '',
         odoDistance: '',
         serviceEngineer: '',
-        serviceEngineerMob: '',
         salesman: '',
-        salesmanMob: '',
+        supportPerson: '',
         ticketId: '',
-        sensorNo: '',
-        iccid: '',
-        vehicleVoltage: '',
-        timezone: 'IST',
-        ignitionDetection: 'ENGINE ON STATUS WITH IGNITION'
+        sensorNo: ''
       });
     }
     setDevices(newRows);
@@ -242,6 +318,19 @@ const OnBoardDevicePage = () => {
     try {
       if (deviceEntryMode === 'details' && devices.length === 0) {
         throw new Error('Please generate and fill in at least one device row.');
+      }
+
+      if (userType === 'new') {
+        if (!newUser.username?.trim()) throw new Error('User Name is required.');
+        if (!newUser.email?.trim()) throw new Error('Email is required.');
+        if (!newUser.password) {
+          setPasswordTouched(true);
+          throw new Error('Password is required.');
+        }
+        if (newUser.password.length < 6) {
+          setPasswordTouched(true);
+          throw new Error('Please, Enter minimum 6 characters or more for password.');
+        }
       }
 
       if (deviceEntryMode === 'details') {
@@ -273,7 +362,7 @@ const OnBoardDevicePage = () => {
   const inputStyle = {
     width: '100%', padding: '10px 14px', borderRadius: '8px',
     border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none',
-    color: '#111827', // Black color explicitly set for typing
+    color: '#475569', // Distinct Dark Slate Grey for entered values
     background: '#FFFFFF', boxSizing: 'border-box'
   };
 
@@ -295,35 +384,41 @@ const OnBoardDevicePage = () => {
         </div>
       )}
 
-      {/* Fast Bulk Onboarding Banner */}
-      <div className="bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl p-6 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div>
-          <span className="bg-white/20 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-            Fast Bulk Onboarding
-          </span>
-          <h2 className="text-xl font-extrabold mt-1.5 text-white">Have multiple devices to onboard at once?</h2>
-          <p className="text-sm text-orange-100 mt-1">
-            Download our pre-formatted Excel template with dropdowns, fill in your hardware data, and onboard in 1 click.
-          </p>
+      {/* Minimalist Bulk Onboarding Callout */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 mb-6">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+            <FileSpreadsheet size={22} className="text-orange-500" />
+          </div>
+          <div className="flex items-center gap-2.5">
+            <span className="text-base font-bold text-slate-800">Bulk Onboarding</span>
+            <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-md">
+              Fast Import
+            </span>
+          </div>
         </div>
+
         <div className="flex items-center flex-wrap gap-3 shrink-0">
           <button
             onClick={() => setIsGoogleFormModalOpen(true)}
-            className="px-4 py-2.5 bg-white text-slate-800 hover:bg-orange-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer border border-white/40"
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs"
           >
-            <Globe size={15} className="text-orange-500" /> Google Form Link
+            <Globe size={16} className="text-slate-500" />
+            <span>Google Form</span>
           </button>
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
-            className="px-4 py-2.5 bg-white text-orange-700 hover:bg-orange-50 rounded-xl font-bold text-xs flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs"
           >
-            <Download size={15} /> Excel Template
+            <Download size={16} className="text-slate-500" />
+            <span>Excel Template</span>
           </button>
           <button
             onClick={() => setIsExcelModalOpen(true)}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-md transition-all cursor-pointer"
+            className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-sm"
           >
-            <FileSpreadsheet size={15} className="text-orange-400" /> Upload Excel
+            <FileSpreadsheet size={16} className="text-amber-400" />
+            <span>Upload Excel</span>
           </button>
         </div>
       </div>
@@ -363,22 +458,27 @@ const OnBoardDevicePage = () => {
               )}
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4">
-                <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
-                <select
-                  className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none bg-white text-gray-900"
-                  value={licenceType}
-                  onChange={e => setLicenceType(e.target.value)}
-                >
-                  <option value="Starter">Starter</option>
-                  <option value="Basic">Basic</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Premium">Premium</option>
-                </select>
+                <label className="text-[14px] font-[600] text-gray-900 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
+                <div className="w-full sm:w-[60%]">
+                  <SearchableSelect
+                    options={LICENCE_TYPE_OPTIONS}
+                    value={licenceType}
+                    onChange={(val) => setLicenceType(val || 'Starter')}
+                    placeholder="-- Select Licence Type --"
+                    searchPlaceholder="Search licence type..."
+                    triggerStyle={{
+                      padding: '10px 14px',
+                      fontSize: '14px',
+                      borderColor: '#CBD5E1',
+                      background: '#FFFFFF'
+                    }}
+                  />
+                </div>
               </div>
 
               <div className="flex flex-col border-b border-slate-100 pb-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                  <label className="text-[14px] font-[600] text-slate-600 w-full sm:w-[40%] mb-2 sm:mb-0">Quantity :</label>
+                  <label className="text-[14px] font-[600] text-gray-900 w-full sm:w-[40%] mb-2 sm:mb-0">Quantity :</label>
                   <input
                     type="number" min="1"
                     placeholder="Enter Quantity"
@@ -404,14 +504,13 @@ const OnBoardDevicePage = () => {
 
         {step === 2 && (
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>2</div>
+            <div style={{ marginBottom: '24px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Business Information</h2>
             </div>
 
             {/* Top Toggle */}
             <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#f97316' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#f97316' : '#111827' }}>
                 <input
                   type="radio"
                   style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
@@ -420,7 +519,7 @@ const OnBoardDevicePage = () => {
                 />
                 New User
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#f97316' : '#475569' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#f97316' : '#111827' }}>
                 <input
                   type="radio"
                   style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
@@ -435,136 +534,148 @@ const OnBoardDevicePage = () => {
             {userType === 'new' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Name *</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>User Name *</label>
                   <input
-                    type="text" placeholder="Enter Name"
+                    type="text" placeholder="User Name"
                     style={inputStyle}
-                    value={newUser.name}
-                    onChange={e => setNewUser({ ...newUser, name: e.target.value })}
+                    autoComplete="new-password"
+                    value={newUser.username}
+                    onChange={e => setNewUser({ ...newUser, username: e.target.value, name: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Mobile Number *</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Mobile Number *</label>
                   <input
-                    type="text" placeholder="Enter Mobile"
+                    type="text" placeholder="Mobile Number"
                     style={inputStyle}
                     value={newUser.phone}
                     onChange={e => setNewUser({ ...newUser, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Loc</label>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Email *</label>
                   <input
-                    type="text" placeholder="Enter Location"
-                    style={inputStyle}
-                    value={newUser.location}
-                    onChange={e => setNewUser({ ...newUser, location: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Aadhar</label>
-                  <input
-                    type="text" placeholder="Enter Aadhar"
-                    style={inputStyle}
-                    value={newUser.aadhar}
-                    onChange={e => setNewUser({ ...newUser, aadhar: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Customer Email ID *</label>
-                  <input
-                    type="email" placeholder="Enter Email"
+                    type="email" placeholder="Email"
                     style={inputStyle}
                     value={newUser.email}
                     onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Username Name *</label>
-                  <input
-                    type="text" placeholder="Enter Username"
-                    style={inputStyle}
-                    autoComplete="new-password"
-                    value={newUser.username}
-                    onChange={e => setNewUser({ ...newUser, username: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Password *</label>
-                  <input
-                    type="password" placeholder="Enter Password"
-                    style={inputStyle}
-                    autoComplete="new-password"
-                    value={newUser.password}
-                    onChange={e => setNewUser({ ...newUser, password: e.target.value })}
-                  />
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Password *</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Password"
+                      style={{
+                        ...inputStyle,
+                        paddingRight: '36px',
+                        borderColor: isPasswordError ? '#EF4444' : '#CBD5E1',
+                        boxShadow: isPasswordError ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none'
+                      }}
+                      autoComplete="new-password"
+                      value={newUser.password}
+                      onChange={e => {
+                        setPasswordTouched(true);
+                        setNewUser({ ...newUser, password: e.target.value });
+                      }}
+                      onBlur={() => setPasswordTouched(true)}
+                    />
+                    <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                      {isPasswordError ? (
+                        <AlertCircle size={16} color="#EF4444" />
+                      ) : newUser.password ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      ) : null}
+                    </div>
+                  </div>
+                  {isPasswordError && (
+                    <div style={{ color: '#EF4444', fontSize: '12px', marginTop: '6px', fontWeight: 500 }}>
+                      Please, Enter minimum 6 characters or more
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select User</label>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select User</label>
                   </div>
-                  <select
-                    style={inputStyle}
+                  <SearchableSelect
+                    options={users
+                      .filter(u => u.role !== 'superadmin')
+                      .map(u => ({
+                        value: u.id,
+                        label: u.name || u.email,
+                        sublabel: u.name && u.email ? u.email : undefined
+                      }))}
                     value={existingUserSelection.userId}
-                    onChange={e => setExistingUserSelection({ ...existingUserSelection, userId: e.target.value })}
-                  >
-                    <option value="">-- Choose User --</option>
-                    {users.filter(u => u.role !== 'superadmin').map(u => <option key={u.id} value={u.id}>{u.name || u.email}</option>)}
-                  </select>
+                    onChange={handleExistingUserChange}
+                    placeholder="-- Choose User --"
+                    searchPlaceholder="Search user..."
+                    emptyMessage="No users found"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Group</label>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select Group</label>
                   </div>
-                  <select
-                    style={inputStyle}
+                  <SearchableSelect
+                    options={groups.map(g => ({
+                      value: g.id,
+                      label: g.name
+                    }))}
                     value={existingUserSelection.groupId}
-                    onChange={e => setExistingUserSelection({ ...existingUserSelection, groupId: e.target.value })}
-                  >
-                    <option value="">-- Choose Group --</option>
-                    {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-                  </select>
+                    onChange={val => setExistingUserSelection(prev => ({ ...prev, groupId: val }))}
+                    placeholder="-- Choose Group --"
+                    searchPlaceholder="Search group..."
+                    emptyMessage="No groups found"
+                  />
                 </div>
                 <div>
                   <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#475569', margin: 0 }}>Select Organization</label>
+                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select Organization</label>
                   </div>
-                  <select
-                    style={inputStyle}
+                  <SearchableSelect
+                    options={orgs.map(o => ({
+                      value: o.id,
+                      label: o.name
+                    }))}
                     value={existingUserSelection.orgId}
-                    onChange={e => setExistingUserSelection({ ...existingUserSelection, orgId: e.target.value })}
-                  >
-                    <option value="">-- Choose Organization --</option>
-                    {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-                  </select>
+                    onChange={val => setExistingUserSelection(prev => ({ ...prev, orgId: val }))}
+                    placeholder="-- Choose Organization --"
+                    searchPlaceholder="Search organization..."
+                    emptyMessage="No organizations found"
+                  />
                 </div>
               </div>
             )}
 
             <hr style={{ borderTop: '1px solid #F1F5F9', borderBottom: 'none', margin: '0 0 32px 0' }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>3</div>
+            <div style={{ marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
             </div>
 
             {/* Device Table */}
-
             {devices.length > 0 && (
               <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', marginBottom: '40px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#F8FAFC', color: '#475569' }}>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, width: '40px', borderRight: '1px solid rgba(255,255,255,0.2)' }}>No</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device ID(IMEI)</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>VLTD SLNO</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Device Type</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle Id</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 600, textAlign: 'center' }}>Action</th>
+                    <tr style={{ background: '#F1F5F9', color: '#000000' }}>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, width: '40px', borderRight: '1px solid #E2E8F0' }}>No</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>LicenceId ({licenceType})</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Device ID(IMEI)</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Device Type</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
+                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -584,31 +695,22 @@ const OnBoardDevicePage = () => {
                               style={{ ...inputStyle, padding: '8px 12px' }}
                             />
                           </td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
-                            <input
-                              type="text" placeholder="Enter VLTD SLNO" value={device.vlttdSlno}
-                              onChange={(e) => updateDevice(idx, 'vlttdSlno', e.target.value)}
-                              style={{ ...inputStyle, padding: '8px 12px' }}
-                            />
-                          </td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
-                            <select
+                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9', minWidth: '240px' }}>
+                            <SearchableSelect
+                              options={DEVICE_TYPE_OPTIONS}
                               value={device.deviceType}
-                              onChange={(e) => updateDevice(idx, 'deviceType', e.target.value)}
-                              style={{ ...inputStyle, padding: '8px 12px' }}
-                            >
-                              <option value="VOLTY">VOLTY - AIS140 (5004)</option>
-                              <option value="CONCOX">CONCOX - V5/GT800 (5002)</option>
-                              <option value="AIS140 V2">VAMO - AIS140 V2 (5003)</option>
-                              <option value="FMB 920">Teltonika - FMB 920 (5005)</option>
-                              <option value="PT06">PT06 - Binary (5006)</option>
-                              <option value="EC08">EC08 - GT06 (5007)</option>
-                              <option value="PN02">PN02 - Binary (5008)</option>
-                              <option value="V5 4G">CONCOX - V5 4G (5009)</option>
-                              <option value="BSTPL">BSTPL - BSTPL-17 (5000)</option>
-                              <option value="BSTPL-17IS">BSTPL - BSTPL-17IS (5010)</option>
-                              <option value="AIS140">TrackNow - AIS140 (5001)</option>
-                            </select>
+                              onChange={(val) => updateDevice(idx, 'deviceType', val || 'VOLTY')}
+                              placeholder="-- Select Device Type --"
+                              searchPlaceholder="Search type or port..."
+                              emptyMessage="No device type found"
+                              usePortal={true}
+                              triggerStyle={{
+                                padding: '8px 12px',
+                                fontSize: '13px',
+                                borderColor: '#CBD5E1',
+                                background: '#FFFFFF'
+                              }}
+                            />
                           </td>
                           <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
                             <input
@@ -619,8 +721,9 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '14px 16px', textAlign: 'center' }}>
                             <button
+                              type="button"
                               onClick={() => toggleRowExpansion(idx)}
-                              style={{ padding: '8px 16px', background: '#f97316', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.2)' }}
+                              style={{ padding: '8px 16px', background: '#f97316', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(249,115,22,0.2)' }}
                             >
                               {expandedRows[idx] ? 'Hide Details' : 'Show Details'}
                             </button>
@@ -630,165 +733,123 @@ const OnBoardDevicePage = () => {
                           <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #E2E8F0' }}>
                             <td style={{ borderRight: '1px solid #F1F5F9' }}></td>
                             <td colSpan="5" style={{ padding: '24px' }}>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 py-2">
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Name</label>
-                                  <input
-                                    type="text" placeholder="Vehicle Name" value={device.vehicleName}
-                                    onChange={(e) => updateDevice(idx, 'vehicleName', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                {/* Row 1: 4 fields */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Vehicle Name</label>
+                                    <input
+                                      type="text" placeholder="Vehicle Name" value={device.vehicleName}
+                                      onChange={(e) => updateDevice(idx, 'vehicleName', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Vehicle Type</label>
+                                    <SearchableSelect
+                                      options={VEHICLE_TYPE_OPTIONS}
+                                      value={device.vehicleTypeSelect}
+                                      onChange={(val) => updateDevice(idx, 'vehicleTypeSelect', val)}
+                                      placeholder="-- Select Vehicle Type --"
+                                      searchPlaceholder="Search vehicle type..."
+                                      emptyMessage="No vehicle type found"
+                                      usePortal={true}
+                                      triggerStyle={{
+                                        padding: '10px 14px',
+                                        fontSize: '14px',
+                                        borderColor: '#CBD5E1',
+                                        background: '#FFFFFF'
+                                      }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>GPS SIM No</label>
+                                    <input
+                                      type="text" placeholder="GPS SIM No" value={device.gpsSimNo}
+                                      onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Odo Distance</label>
+                                    <input
+                                      type="text" placeholder="Odo Distance" value={device.odoDistance}
+                                      onChange={(e) => updateDevice(idx, 'odoDistance', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
                                 </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Registration No</label>
-                                  <input
-                                    type="text" placeholder="e.g. MH12AB1234" value={device.registrationNo}
-                                    onChange={(e) => updateDevice(idx, 'registrationNo', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Type</label>
-                                  <select
-                                    value={device.vehicleTypeSelect}
-                                    onChange={(e) => updateDevice(idx, 'vehicleTypeSelect', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  >
-                                    <option value="">Select Type</option>
-                                    <option value="Truck">Truck</option>
-                                    <option value="Car">Car</option>
-                                    <option value="Van">Van</option>
-                                    <option value="Bus">Bus</option>
-                                    <option value="Scooty">Scooty</option>
-                                    <option value="Motorcycle">Motorcycle</option>
-                                    <option value="Tractor">Tractor</option>
-                                    <option value="JCB">JCB</option>
-                                    <option value="Crane">Crane</option>
-                                    <option value="Ambulance">Ambulance</option>
-                                    <option value="Pickup">Pickup</option>
-                                    <option value="Borewell">Borewell</option>
-                                    <option value="Tanker">Tanker</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Model</label>
-                                  <input
-                                    type="text" placeholder="e.g. Tata Prima" value={device.vehicleModel}
-                                    onChange={(e) => updateDevice(idx, 'vehicleModel', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>GPS SIMNO 1</label>
-                                  <input
-                                    type="text" placeholder="GPS SIMNO 1" value={device.gpsSimNo}
-                                    onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>GPS SIMNO 2</label>
-                                  <input
-                                    type="text" placeholder="GPS SIMNO 2" value={device.gpsSimNo2 || ''}
-                                    onChange={(e) => updateDevice(idx, 'gpsSimNo2', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Odo Distance</label>
-                                  <input
-                                    type="text" placeholder="Odo Distance" value={device.odoDistance}
-                                    onChange={(e) => updateDevice(idx, 'odoDistance', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Service Engineer</label>
-                                  <input
-                                    type="text" placeholder="Service Engineer" value={device.serviceEngineer}
-                                    onChange={(e) => updateDevice(idx, 'serviceEngineer', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Service Engineer Mobno</label>
-                                  <input
-                                    type="text" placeholder="Engineer Mobno" value={device.serviceEngineerMob || ''}
-                                    onChange={(e) => updateDevice(idx, 'serviceEngineerMob', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Salesman</label>
-                                  <input
-                                    type="text" placeholder="Salesman" value={device.salesman}
-                                    onChange={(e) => updateDevice(idx, 'salesman', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Salesman Mobno</label>
-                                  <input
-                                    type="text" placeholder="Salesman Mobno" value={device.salesmanMob || ''}
-                                    onChange={(e) => updateDevice(idx, 'salesmanMob', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Ticket Id</label>
-                                  <input
-                                    type="text" placeholder="Ticket Id" value={device.ticketId}
-                                    onChange={(e) => updateDevice(idx, 'ticketId', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Sensor No</label>
-                                  <input
-                                    type="text" placeholder="Sensor No" value={device.sensorNo}
-                                    onChange={(e) => updateDevice(idx, 'sensorNo', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>ICCID</label>
-                                  <input
-                                    type="text" placeholder="ICCID" value={device.iccid || ''}
-                                    onChange={(e) => updateDevice(idx, 'iccid', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Vehicle Voltage</label>
-                                  <input
-                                    type="text" placeholder="e.g. 12V" value={device.vehicleVoltage || ''}
-                                    onChange={(e) => updateDevice(idx, 'vehicleVoltage', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  />
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Timezone</label>
-                                  <select
-                                    value={device.timezone || 'IST'}
-                                    onChange={(e) => updateDevice(idx, 'timezone', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  >
-                                    <option value="IST">IST</option>
-                                    <option value="UTC">UTC</option>
-                                    <option value="Asia/Kolkata">Asia/Kolkata</option>
-                                  </select>
-                                </div>
-                                <div>
-                                  <label style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '6px', display: 'block' }}>Ignition Detection</label>
-                                  <select
-                                    value={device.ignitionDetection || 'ENGINE ON STATUS WITH IGNITION'}
-                                    onChange={(e) => updateDevice(idx, 'ignitionDetection', e.target.value)}
-                                    style={{ ...inputStyle, padding: '10px 14px' }}
-                                  >
-                                    <option value="ENGINE ON STATUS WITH IGNITION">ENGINE ON STATUS WITH IGNITION</option>
-                                    <option value="IGNITION + VOLTAGE">IGNITION + VOLTAGE</option>
-                                    <option value="VOLTAGE">VOLTAGE</option>
-                                  </select>
+
+                                {/* Row 2: 5 fields */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Service Engineer</label>
+                                    <SearchableSelect
+                                      options={users.map(u => ({
+                                        value: u.name || u.email,
+                                        label: u.name || u.email,
+                                        sublabel: u.name && u.email ? u.email : undefined
+                                      }))}
+                                      value={device.serviceEngineer}
+                                      onChange={(val) => updateDevice(idx, 'serviceEngineer', val)}
+                                      placeholder="-- Select Engineer --"
+                                      searchPlaceholder="Search engineer..."
+                                      emptyMessage="No engineer found"
+                                      usePortal={true}
+                                      triggerStyle={{
+                                        padding: '10px 14px',
+                                        fontSize: '14px',
+                                        borderColor: '#CBD5E1',
+                                        background: '#FFFFFF'
+                                      }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Salesman</label>
+                                    <SearchableSelect
+                                      options={users.map(u => ({
+                                        value: u.name || u.email,
+                                        label: u.name || u.email,
+                                        sublabel: u.name && u.email ? u.email : undefined
+                                      }))}
+                                      value={device.salesman}
+                                      onChange={(val) => updateDevice(idx, 'salesman', val)}
+                                      placeholder="-- Select Salesman --"
+                                      searchPlaceholder="Search salesman..."
+                                      emptyMessage="No salesman found"
+                                      usePortal={true}
+                                      triggerStyle={{
+                                        padding: '10px 14px',
+                                        fontSize: '14px',
+                                        borderColor: '#CBD5E1',
+                                        background: '#FFFFFF'
+                                      }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Support Person</label>
+                                    <input
+                                      type="text" placeholder="Support Person" value={device.supportPerson || ''}
+                                      onChange={(e) => updateDevice(idx, 'supportPerson', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Ticket Id</label>
+                                    <input
+                                      type="text" placeholder="Ticket Id" value={device.ticketId}
+                                      onChange={(e) => updateDevice(idx, 'ticketId', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
+                                  <div>
+                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Sensor No</label>
+                                    <input
+                                      type="text" placeholder="Sensor No" value={device.sensorNo}
+                                      onChange={(e) => updateDevice(idx, 'sensorNo', e.target.value)}
+                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             </td>
@@ -809,7 +870,7 @@ const OnBoardDevicePage = () => {
                 style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(249,115,22,0.3)' }}
               >
                 {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                Submit Devices
+                {devices.length > 1 ? 'Submit Devices' : 'Submit'}
               </button>
             </div>
           </div>

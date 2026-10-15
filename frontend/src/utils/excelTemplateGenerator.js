@@ -104,17 +104,17 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   const refSheet = workbook.addWorksheet('Dropdown_Options');
 
   const deviceTypeOptions = [
-    'VOLTY - AIS140 (5004)',
+    'BSTPL - BSTPL-17 (5000)',
+    'TrackNow - AIS140 (5001)',
     'CONCOX - V5/GT800 (5002)',
     'VAMO - AIS140 V2 (5003)',
+    'VOLTY - AIS140 (5004)',
     'Teltonika - FMB 920 (5005)',
     'PT06 - Binary (5006)',
     'EC08 - GT06 (5007)',
     'PN02 - Binary (5008)',
     'CONCOX - V5 4G (5009)',
-    'BSTPL - BSTPL-17 (5000)',
-    'BSTPL - BSTPL-17IS (5010)',
-    'TrackNow - AIS140 (5001)'
+    'BSTPL - BSTPL-17IS (5010)'
   ];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
   const vehicleTypeOptions = [

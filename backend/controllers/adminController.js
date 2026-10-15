@@ -346,20 +346,42 @@ const AdminController = {
         phone
       });
 
-      // Handle user group assignments
-      if (groupIds && Array.isArray(groupIds)) {
-        const validGroupIds = [];
+      // Handle user group assignments - ALWAYS ensure a group with the username is created
+      const autoGroupName = (username || name || email).trim();
+      let autoGroupId = null;
+      if (autoGroupName) {
+        const existingGroup = await db.query(
+          `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+          [targetOrgId, autoGroupName]
+        );
+        if (existingGroup.rows.length > 0) {
+          autoGroupId = existingGroup.rows[0].id;
+        } else {
+          const createdGroup = await GroupModel.create({
+            orgId: targetOrgId,
+            name: autoGroupName,
+            description: `Auto-created group for user ${autoGroupName}`
+          });
+          autoGroupId = createdGroup.id;
+        }
+      }
+
+      const allGroupIds = new Set();
+      if (autoGroupId) allGroupIds.add(autoGroupId);
+
+      if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
         for (const gId of groupIds) {
           if (req.user.role === 'superadmin') {
-            validGroupIds.push(gId);
+            allGroupIds.add(gId);
           } else {
             const belongs = await GroupModel.belongsToOrg(gId, targetOrgId);
-            if (belongs) validGroupIds.push(gId);
+            if (belongs) allGroupIds.add(gId);
           }
         }
-        if (validGroupIds.length > 0) {
-          await GroupModel.assignUserToGroups(newUser.id, validGroupIds);
-        }
+      }
+
+      if (allGroupIds.size > 0) {
+        await GroupModel.assignUserToGroups(newUser.id, Array.from(allGroupIds));
       }
 
       res.status(201).json({
@@ -1328,53 +1350,8 @@ const AdminController = {
     } catch (err) {
       next(err);
     }
-  },
-
-  // ============================================================
-  // GROUPS
-  // ============================================================
-  async getAllGroups(req, res, next) {
-    try {
-      const groups = await GroupModel.findAll(req.user.orgId, req.user.role, req.user.userId);
-      res.status(200).json({ success: true, data: groups });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async createGroup(req, res, next) {
-    try {
-      const { name, description } = req.body;
-      if (!name) return res.status(400).json({ success: false, error: 'Group name is required.' });
-      const group = await GroupModel.create({ orgId: req.user.orgId, name, description });
-      res.status(201).json({ success: true, data: group, message: 'Group created successfully.' });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async updateGroup(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { name, description, isActive } = req.body;
-      const updated = await GroupModel.update(id, { name, description, isActive });
-      if (!updated) return res.status(404).json({ success: false, error: 'Group not found.' });
-      res.status(200).json({ success: true, data: updated });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async deleteGroup(req, res, next) {
-    try {
-      const { id } = req.params;
-      const deleted = await GroupModel.delete(id);
-      if (!deleted) return res.status(404).json({ success: false, error: 'Group not found.' });
-      res.status(200).json({ success: true, message: 'Group deleted.' });
-    } catch (err) {
-      next(err);
-    }
   }
 };
 
 module.exports = AdminController;
+

@@ -20,9 +20,9 @@ const OnboardController = {
 
       if (userType === 'new') {
         const { name, phone, email, password, username, location, aadhar } = newUser;
-        const finalUsername = (username || email).toLowerCase().trim();
-        if (!email || !password || !name || !finalUsername) {
-          throw new Error('Customer Name, Email, Password, and Username are required.');
+        const finalUsername = (username || name || email).trim();
+        if (!email || !password || !finalUsername) {
+          throw new Error('User Name, Email, and Password are required.');
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -32,16 +32,65 @@ const OnboardController = {
           `INSERT INTO users (org_id, email, password, role, name, phone, username, location, aadhar)
            VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7, $8)
            RETURNING id`,
-          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name, phone, finalUsername, location || '', aadhar || '']
+          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name || finalUsername, phone || '', finalUsername, location || '', aadhar || '']
         );
         targetUserId = userResult.rows[0].id;
+
+        // Auto-create Group with username for the new user
+        const groupName = finalUsername;
+        const groupCheck = await client.query(
+          `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+          [targetOrgId, groupName]
+        );
+
+        if (groupCheck.rows.length > 0) {
+          targetGroupId = groupCheck.rows[0].id;
+        } else {
+          const newGroupRes = await client.query(
+            `INSERT INTO groups (org_id, name, description, is_active)
+             VALUES ($1, $2, $3, TRUE)
+             RETURNING id`,
+            [targetOrgId, groupName, `Auto-created group for user ${groupName}`]
+          );
+          targetGroupId = newGroupRes.rows[0].id;
+        }
+
+        // Link the new user to this group in user_groups
+        if (targetGroupId && targetUserId) {
+          await client.query(
+            `INSERT INTO user_groups (user_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, group_id) DO NOTHING`,
+            [targetUserId, targetGroupId]
+          );
+        }
       } else {
-        if (!existingUser || !existingUser.userId || !existingUser.orgId) {
-          throw new Error('Existing user details (User, Org) are required.');
+        if (!existingUser || !existingUser.userId) {
+          throw new Error('Existing user details are required.');
         }
         targetUserId = existingUser.userId;
-        targetOrgId = existingUser.orgId;
+
+        // If orgId wasn't explicitly selected, retrieve it from the user's account
+        if (existingUser.orgId) {
+          targetOrgId = existingUser.orgId;
+        } else {
+          const userOrgRes = await client.query('SELECT org_id FROM users WHERE id = $1', [targetUserId]);
+          if (userOrgRes.rows.length > 0 && userOrgRes.rows[0].org_id) {
+            targetOrgId = userOrgRes.rows[0].org_id;
+          }
+        }
+
         targetGroupId = existingUser.groupId || null;
+
+        // Also ensure user is linked to targetGroupId if group selected
+        if (targetGroupId && targetUserId) {
+          await client.query(
+            `INSERT INTO user_groups (user_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, group_id) DO NOTHING`,
+            [targetUserId, targetGroupId]
+          );
+        }
       }
 
       // ── Validate device IDs & duplicate checks first ───────────
@@ -244,6 +293,15 @@ const OnboardController = {
              VALUES ($1, FALSE) ON CONFLICT DO NOTHING`,
             [newVehicleId]
           );
+
+          if (targetGroupId) {
+            await client.query(
+              `INSERT INTO vehicle_groups (vehicle_id, group_id)
+               VALUES ($1, $2)
+               ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+              [newVehicleId, targetGroupId]
+            );
+          }
         }
       }
 
@@ -549,6 +607,30 @@ const OnboardController = {
               [targetOrgId, gName]
             );
             groupIds.push(newGroupRes.rows[0].id);
+          }
+        }
+
+        // Also ensure a group with the username is automatically created and assigned
+        const autoUserGroupName = (username || (customerPhone ? `user_${customerPhone}` : `user_${imei}`)).trim();
+        if (autoUserGroupName && targetUserId) {
+          let uGroupRes = await client.query(
+            `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1`,
+            [targetOrgId, autoUserGroupName]
+          );
+          let uGroupId;
+          if (uGroupRes.rows.length > 0) {
+            uGroupId = uGroupRes.rows[0].id;
+          } else {
+            const newUGroupRes = await client.query(
+              `INSERT INTO groups (org_id, name, description, is_active)
+               VALUES ($1, $2, 'Auto-created group for user', TRUE)
+               RETURNING id`,
+              [targetOrgId, autoUserGroupName]
+            );
+            uGroupId = newUGroupRes.rows[0].id;
+          }
+          if (uGroupId && !groupIds.includes(uGroupId)) {
+            groupIds.push(uGroupId);
           }
         }
 

@@ -3,7 +3,7 @@ import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
 
 import { useNavigate } from 'react-router-dom';
-import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, Smartphone, Cpu, Store, ArrowUpRight } from 'lucide-react';
+import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, Smartphone, Cpu, Store, ArrowUpRight, Wifi, WifiOff } from 'lucide-react';
 
 import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
@@ -46,8 +46,52 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
   </div>
 );
 
+const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClick }) => (
+  <div
+    onClick={onClick}
+    className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col items-center justify-center"
+    style={{
+      border: `2px solid ${color}`,
+      boxShadow: `0 2px 8px ${color}1A`,
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+    }}
+  >
+    <div className="flex items-center gap-1.5 text-[12px] md:text-[13px] text-gray-900 font-[700]">
+      <Truck className="w-[15px] h-[15px]" color={color} />
+      <span>Vehicles</span>
+    </div>
+    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>
+      {total}
+    </div>
+    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-emerald-600 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+          Online
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-emerald-600">{online}</span>
+      </div>
+      <div className="w-[1px] bg-slate-100"></div>
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+          Offline
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
+      </div>
+    </div>
+  </div>
+);
+
 const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
-  <div 
+  <div
     className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] transition-all duration-200 flex flex-col items-center justify-center"
     style={{
       border: `2px solid ${color}`,
@@ -78,10 +122,10 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used',
   </div>
 );
 
-const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick }) => (
+const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick, isPositive = true, showArrow = true }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[200px] p-3 md:p-3.5 bg-white rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[190px] p-3 md:p-3.5 bg-white rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
       border: `2px solid ${color}`,
       boxShadow: `0 2px 8px ${color}1A`,
@@ -106,11 +150,11 @@ const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick
         <ChevronRight size={14} />
       </div>
     </div>
-    
+
     <div>
       <div className="text-[24px] font-[800] text-gray-900 leading-none mb-1">{value}</div>
-      <div className="text-[11px] font-[700] text-emerald-600 flex items-center gap-1">
-        <span>↑</span>
+      <div className={`text-[11px] font-[700] flex items-center gap-1 ${isPositive ? 'text-emerald-600' : 'text-slate-500'}`}>
+        {showArrow && <span>↑</span>}
         <span>{changeText}</span>
       </div>
     </div>
@@ -161,11 +205,17 @@ const DashboardPage = ({ setAppVehicles }) => {
     }
   }, [isDealer]);
 
-  const onlineCount = vehicles.filter(v => v.is_online).length;
+  const onlineCount = vehicles.length > 0
+    ? vehicles.filter(v => v.is_online).length
+    : (apiStats?.online_vehicles !== undefined ? Number(apiStats.online_vehicles) : 0);
 
   const totalUsers = apiStats?.users ?? '-';
   const totalGroups = groups.length || '-';
-  const totalVehicles = apiStats?.total_vehicles ?? vehicles.length;
+  const totalVehicles = vehicles.length > 0
+    ? vehicles.length
+    : (apiStats?.total_vehicles !== undefined ? Number(apiStats.total_vehicles) : 0);
+
+  const offlineCount = Math.max(0, totalVehicles - onlineCount);
 
   const getTierStats = (type) => {
     if (isDealer && quota) {
@@ -220,7 +270,13 @@ const DashboardPage = ({ setAppVehicles }) => {
       <div className="p-3 md:p-4 pb-2 md:pb-2 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
         <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
         <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
-        <StatCard label="Vehicles" value={totalVehicles} color="#EC4899" icon={Truck} onClick={() => navigate('/admin/vehicles')} />
+        <VehicleOverviewCard
+          total={totalVehicles}
+          online={onlineCount}
+          offline={offlineCount}
+          color="#EC4899"
+          onClick={() => navigate('/admin/vehicles')}
+        />
 
         <LicenseCard
           title="Starter"
@@ -263,6 +319,26 @@ const DashboardPage = ({ setAppVehicles }) => {
       {/* KPI Cards Row 2 (Middle Analytics Cards) */}
       <div className="px-3 md:px-4 pb-3 md:pb-3 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
         <MetricDetailCard
+          title="Online Vehicles"
+          value={onlineCount}
+          changeText="Live & transmitting"
+          color="#10B981"
+          icon={Wifi}
+          isPositive={true}
+          showArrow={false}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        <MetricDetailCard
+          title="Offline Vehicles"
+          value={offlineCount}
+          changeText={offlineCount > 0 ? "Stationary / no signal" : "All vehicles active"}
+          color="#EF4444"
+          icon={WifiOff}
+          isPositive={false}
+          showArrow={false}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        <MetricDetailCard
           title="Devices Installed This Month"
           value="24"
           changeText="+18% vs last month"
@@ -274,7 +350,7 @@ const DashboardPage = ({ setAppVehicles }) => {
           title="Total Devices Installed"
           value={totalVehicles > 0 ? totalVehicles : "486"}
           changeText="+12% vs last month"
-          color="#10B981"
+          color="#6366F1"
           icon={Cpu}
           onClick={() => navigate('/admin/vehicles')}
         />

@@ -18,15 +18,21 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
       if (editingGroup) {
         setName(editingGroup.name || '');
         setOrgId(editingGroup.org_id || '');
+        if (editingGroup.vehicles && Array.isArray(editingGroup.vehicles)) {
+          setSelectedVehicleIds(new Set(editingGroup.vehicles.map(v => v.id)));
+        } else {
+          setSelectedVehicleIds(new Set());
+        }
       } else {
         setName('');
         setOrgId('');
+        setSelectedVehicleIds(new Set());
       }
       setError(null);
     }
-  }, [isOpen, orgs, editingGroup]);
+  }, [isOpen, editingGroup]);
 
-  // Fetch all vehicles (and if editing, pre-select the group's vehicles)
+  // Fetch all vehicles (and fallback to query group vehicles if not already present on editingGroup)
   useEffect(() => {
     if (!isOpen) return;
     
@@ -36,18 +42,15 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         // Fetch all vehicles
         const res = await vehicleApi.getVehicles();
         if (res.success) {
-          // Show all vehicles, do not filter by orgId
           setAvailableVehicles(res.data);
           
-          // If editing, we also need to know which vehicles belong to this group to check them initially
-          if (editingGroup) {
+          // If editing and group didn't already have vehicles populated
+          if (editingGroup && (!editingGroup.vehicles || editingGroup.vehicles.length === 0)) {
             const groupVehiclesRes = await vehicleApi.getVehicles({ groupId: editingGroup.id });
             if (groupVehiclesRes.success) {
               const groupVehicleIds = groupVehiclesRes.data.map(v => v.id);
               setSelectedVehicleIds(new Set(groupVehicleIds));
             }
-          } else {
-            setSelectedVehicleIds(new Set());
           }
         }
       } catch (err) {
