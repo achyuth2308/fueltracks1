@@ -143,6 +143,9 @@ function parseVoltyFuelFrame(f) {
       alertText = ALERT_MAP[b2].text;
     }
 
+    const lacHex = f.readUInt16BE(3).toString(16).toUpperCase();
+    const cellIdHex = cellId.toString(16).toUpperCase();
+
     return {
       packetType: 'VOLTYFUEL_NORMAL',
       imei,
@@ -159,7 +162,13 @@ function parseVoltyFuelFrame(f) {
       ignition:   isIgnition,
       voltage:    mainVoltage,
       fuel:       fuelLitres !== null ? fuelLitres : null,
-      rfid,
+      serial:     rfid,
+      serialData: rfid,
+      rfid, // retained for backward compatibility
+      lac:        lacHex,
+      cellId:     cellIdHex,
+      hdop:       hdop / 10,
+      adc1Mv,
       output1:    isOutput1,
       output2:    isOutput2,
       isLive:     !isHistory,

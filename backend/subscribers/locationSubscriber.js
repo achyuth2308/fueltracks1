@@ -181,7 +181,7 @@ async function start(io) {
           deviceTime: data.deviceTime,
           odometer: data.odometer,
           rawHex: data.rawHex || actualRaw,
-          parsedJson: data.parsedJson,
+          parsedJson: data.parsedJson || data,
           parsed: isParsed,
           error: errorMsg
         });
@@ -199,7 +199,8 @@ async function start(io) {
               packet_type: data.packetType || 'DATA',
               raw_hex: data.rawHex || actualRaw,
               raw: actualRaw,
-              error: errorMsg
+              error: errorMsg,
+              parsed_data: data.parsedJson || data
             });
           }
         }
