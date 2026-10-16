@@ -102,6 +102,9 @@ function parseVoltyFuelFrame(f) {
     // Parse TLVs starting at byte 46 up to f.length - 2
     let odometerKm = 0;
     let mainVoltage = isPowerOff ? 0 : 24.0;
+    if (!isPowerOff && adc1Mv > 0) {
+      mainVoltage = adc1Mv > 10000 ? Number((adc1Mv / 1000).toFixed(1)) : Number((adc1Mv / 100).toFixed(1));
+    }
     let rfid = null;
     let adc2Mv = null;
     let fuelLitres = null;
@@ -129,12 +132,22 @@ function parseVoltyFuelFrame(f) {
         }
       } else if (tag === 0x05) {
         adc2Mv = val.readUIntBE(0, Math.min(len, 6));
-        mainVoltage = Number((adc2Mv / 1000).toFixed(1));
+        // Only update main voltage if secondary ADC reports a valid positive voltage reading
+        if (adc2Mv > 0) {
+          mainVoltage = Number((adc2Mv / 1000).toFixed(1));
+        }
       }
       i += 2 + len;
     }
 
-    const battPct = Math.round(Math.min(100, Math.max(0, (internalV / 4.2) * 100)));
+    let battPct = 100;
+    if (internalV > 0) {
+      battPct = Math.round(Math.min(100, Math.max(0, (internalV / 4.2) * 100)));
+    } else if (isPowerOff) {
+      battPct = 0;
+    } else {
+      battPct = 95; // Default healthy backup battery when main power is connected
+    }
 
     let alertType = null;
     let alertText = null;
@@ -217,15 +230,11 @@ function parseVoltyFuelFrame(f) {
 // ── ACK / COMMAND BUILDERS ───────────────────────────────────
 
 function buildGpsDataAck(seqNum) {
-  const frame = Buffer.alloc(9);
-  frame[0] = 0x3A;
-  frame[1] = 0x3A;
-  frame.writeUInt16BE(9, 2);
-  frame[4] = PKT_TYPE_GPS_ACK;
-  frame.writeUInt16BE(seqNum & 0xFFFF, 5);
-  frame[7] = 0x23;
-  frame[8] = 0x23;
-  return frame;
+  // Variant A: Standard TranSync single-byte length (8 bytes total)
+  const a1 = Buffer.from([0x3A, 0x3A, 0x05, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
+  // Variant B: Extended two-byte length (9 bytes total)
+  const a2 = Buffer.from([0x3A, 0x3A, 0x00, 0x09, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
+  return Buffer.concat([a1, a2]);
 }
 
 function buildCommandFrame(imei, requestId, asciiCmd) {
