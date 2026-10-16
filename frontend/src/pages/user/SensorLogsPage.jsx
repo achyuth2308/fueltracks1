@@ -66,6 +66,14 @@ function extractParsedData(m) {
   };
 }
 
+const sortDesc = (list) => {
+  return [...list].sort((a, b) => {
+    const tA = new Date(a.device_time || a.received_at || 0).getTime();
+    const tB = new Date(b.device_time || b.received_at || 0).getTime();
+    return tB - tA;
+  });
+};
+
 const SensorLogsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -106,7 +114,8 @@ const SensorLogsPage = () => {
       if (data.vehicleId && String(data.vehicleId) !== String(id)) return;
       setMessages((prev) => {
         const enriched = extractParsedData(data);
-        return [enriched, ...prev].slice(0, 100);
+        const filtered = prev.filter((m) => m.id !== enriched.id);
+        return sortDesc([enriched, ...filtered]).slice(0, 100);
       });
     };
 
@@ -124,7 +133,7 @@ const SensorLogsPage = () => {
       const res = await api.get(`/api/vehicles/${id}/messages`, { params: { page, limit: 100 } });
       const rawList = res.data.data || [];
       const enriched = rawList.map(extractParsedData);
-      setMessages(enriched);
+      setMessages(sortDesc(enriched));
       if (res.data.pagination) setPagination(res.data.pagination);
       setError(null);
     } catch (err) {

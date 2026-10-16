@@ -707,7 +707,7 @@ const GpsModel = {
               parsed_data
        FROM raw_packets
        WHERE imei = $1
-       ORDER BY received_at DESC
+       ORDER BY COALESCE(device_time, received_at) DESC, id DESC
        LIMIT $2 OFFSET $3`,
       [imei, limit, offset]
     );
