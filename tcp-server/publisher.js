@@ -220,6 +220,9 @@ async function publishRawMessage(parsed) {
     alertText: parsed.alertText || null,
     isLive: parsed.isLive,
     odometer: parsed.odometer,
+    fuel: parsed.fuel !== undefined ? parsed.fuel : null,
+    serial: parsed.serial || parsed.serialData || parsed.rfid || null,
+    rfid: parsed.rfid || null,
     error: parsed.error || null,
   };
 

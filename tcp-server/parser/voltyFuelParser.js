@@ -56,11 +56,11 @@ function parseOutputResponse(text) {
 // ── FRAME PARSER ─────────────────────────────────────────────
 
 function parseVoltyFuelFrame(f) {
-  if (!f || f.length < 9) return null;
-  if (!f.subarray(-2).equals(STOP)) return null;
+  if (!f || f.length < 5) return null;
 
   // 1. GPS DATA FRAME (3A 3A ... 23 23)
   if (f.subarray(0, 2).equals(START_DATA)) {
+    if (!f.subarray(-2).equals(STOP)) return null;
     if (f.length < MIN_FRAME_BYTES) return null;
     if (f[15] !== PKT_TYPE_GPS_DATA) return null;
 
@@ -108,6 +108,7 @@ function parseVoltyFuelFrame(f) {
     let rfid = null;
     let adc2Mv = null;
     let fuelLitres = null;
+    let tag06Val = null;
 
     let i = FIXED_HEADER_LEN;
     const end = f.length - 2;
@@ -120,15 +121,26 @@ function parseVoltyFuelFrame(f) {
         const odoMeters = val.readUIntBE(0, Math.min(len, 6));
         odometerKm = Number((odoMeters / 1000).toFixed(3));
       } else if (tag === 0x02) {
-        // Tag 0x02: Serial Fuel Sensor / RFID
+        // Tag 0x02: Serial / RS485 Digital Fuel Sensor / RFID
         rfid = val.toString('hex').toUpperCase();
-        if (len > 0 && len <= 6) {
-          try {
-            const rawFuelInt = val.readUIntBE(0, len);
-            if (rawFuelInt > 0) {
-              fuelLitres = rawFuelInt;
+        try {
+          if (val[0] === 0x31 && len >= 5) {
+            // Omnicomm RS485 frame: 31 [addr] [cmd] [temp] [level_lsb] [level_msb]
+            if (val[2] === 0x06 && len >= 6) {
+              fuelLitres = val.readUInt16LE(4);
+            } else if (val[2] === 0x00 && len >= 5) {
+              fuelLitres = val.readUInt16LE(3);
+            } else {
+              fuelLitres = val.readUInt16LE(len - 2);
             }
-          } catch (e) {}
+          } else if (len === 5) {
+            // 5-byte format: byte 0 is sensor status/address, bytes 1-4 is level
+            fuelLitres = val.readUInt32BE(1);
+          } else if (len > 0 && len <= 6) {
+            fuelLitres = val.readUIntBE(0, len);
+          }
+        } catch (e) {
+          console.warn('[VOLTYFUEL-PARSER] Tag 0x02 decode error:', e.message);
         }
       } else if (tag === 0x05) {
         adc2Mv = val.readUIntBE(0, Math.min(len, 6));
@@ -136,6 +148,9 @@ function parseVoltyFuelFrame(f) {
         if (adc2Mv > 0) {
           mainVoltage = Number((adc2Mv / 1000).toFixed(1));
         }
+      } else if (tag === 0x06) {
+        // Tag 0x06: Auxiliary sensor / frequency / secondary fuel
+        tag06Val = val.readUIntBE(0, Math.min(len, 6));
       }
       i += 2 + len;
     }
@@ -175,6 +190,8 @@ function parseVoltyFuelFrame(f) {
       ignition:   isIgnition,
       voltage:    mainVoltage,
       fuel:       fuelLitres !== null ? fuelLitres : null,
+      fuelRaw:    rfid,
+      tag06:      tag06Val,
       serial:     rfid,
       serialData: rfid,
       rfid, // retained for backward compatibility
@@ -192,8 +209,20 @@ function parseVoltyFuelFrame(f) {
     };
   }
 
-  // 2. COMMAND FRAME (2A 2A ... 23 23)
+  // 2. COMMAND FRAME (2A 2A ... 23 23 OR plain ASCII **... )
   if (f.subarray(0, 2).equals(START_CMD)) {
+    // Check if plain ASCII response (e.g. **SETTINGS UPDATED;:)
+    const rawAscii = f.toString('ascii');
+    if (/^\*\*([A-Za-z0-9_\s;:,\-\.\/=#]+)$/.test(rawAscii)) {
+      const cleanCmd = rawAscii.replace(/^\*\*|[#\r\n\0]+$/g, '').trim();
+      return {
+        packetType: 'VOLTYFUEL_CMD_RESP',
+        success: true,
+        command: cleanCmd,
+        rawPacket: f.toString('hex').toUpperCase()
+      };
+    }
+
     if (f.length < 18) return null;
     const proto = f[15];
     const imei = imeiFromDeviceId(f.subarray(5, 13));
@@ -291,6 +320,34 @@ function extractFrames(buffer) {
         }
       }
     } else if (isCmd) {
+      // Check if this is an ASCII command response (e.g. **SETTINGS UPDATED;:)
+      const nextByte = buffer[offset + 2];
+      const isAsciiCmd = nextByte && nextByte >= 0x41 && nextByte <= 0x5A; // Starts with uppercase A-Z
+      if (isAsciiCmd) {
+        // Look for end delimiters: STOP (##), or newline, or ending delimiter ';' or '#'
+        let endIdx = buffer.indexOf(STOP, offset + 2);
+        if (endIdx === -1) {
+          // Look for newline or end of buffer if length is bounded
+          for (let j = offset + 2; j < Math.min(buffer.length, offset + 128); j++) {
+            if (buffer[j] === 0x0A || buffer[j] === 0x0D || (j > offset + 10 && buffer[j] === 0x3A && (j + 1 === buffer.length || buffer[j + 1] === 0x3A || buffer[j + 1] === 0x2A))) {
+              endIdx = j;
+              break;
+            }
+          }
+        }
+        if (endIdx !== -1) {
+          const sliceLen = buffer[endIdx] === 0x23 && buffer[endIdx + 1] === 0x23 ? endIdx + 2 : endIdx + 1;
+          frames.push(buffer.subarray(offset, sliceLen));
+          offset = sliceLen;
+          continue;
+        } else if (buffer.length - offset > 256) {
+          offset++;
+          continue;
+        } else {
+          break; // wait for more bytes
+        }
+      }
+
       if (offset + 18 > buffer.length) break;
       const pl = buffer[offset + 2];
       const expectedEnd = offset + 2 + pl;

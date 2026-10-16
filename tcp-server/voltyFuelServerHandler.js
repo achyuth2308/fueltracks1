@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // VOLTYFUEL SERVER HANDLER
 // Dedicated TCP server for TranSync NAV 140 binary protocol
 // Port: VOLTYFUEL_TCP_PORT (default 5011)
@@ -181,20 +181,12 @@ function initVoltyFuelServer(port, protocolStats, connectedDevices, publisher) {
             }
             connectedDevices.set(parsed.imei, devEntry);
 
+            // Always publish location/telemetry so fuel, ignition, and battery state update
+            // even when the vehicle is parked stationary or indoors without 3D GPS fix.
+            // publisher.publishLocation already handles null/cached coordinates safely.
+            await publisher.publishLocation(parsed);
             if (!isValidGps) {
-              // No GPS fix yet — mark device online via heartbeat only
-              console.log('[TCP - ' + PROTO + '] IMEI ' + parsed.imei + ': GPS not fixed. Publishing heartbeat.');
-              await publisher.publishHeartbeat(
-                parsed.imei,
-                parsed.battery,
-                parsed.gsmSignal,
-                parsed.ignition,
-                parsed.deviceTime,
-                frame.toString('hex').toUpperCase(),
-                'VOLTYFUEL_HEARTBEAT'
-              );
-            } else {
-              await publisher.publishLocation(parsed);
+              console.log('[TCP - ' + PROTO + '] IMEI ' + parsed.imei + ': GPS not fixed (status-only / stationary). Fuel=' + parsed.fuel + ', V=' + parsed.voltage);
             }
 
             if (parsed.alertType) {
