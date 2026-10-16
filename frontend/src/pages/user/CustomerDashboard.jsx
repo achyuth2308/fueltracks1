@@ -141,15 +141,22 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   };
 
   const metrics = useMemo(() => {
-    const m = { running: 0, idle: 0, parked: 0, offline: 0, unavailable: 0 };
-    vehicles.forEach(v => m[getStatus(v)]++);
+    const m = { running: 0, idle: 0, parked: 0, offline: 0, unavailable: 0, unreachable: 0 };
+    vehicles.forEach(v => {
+      const s = getStatus(v);
+      m[s] = (m[s] || 0) + 1;
+    });
     return m;
   }, [vehicles]);
 
   const filtered = useMemo(() => {
     let result = vehicles;
     if (statusFilter) {
-      result = result.filter(v => getStatus(v) === statusFilter);
+      result = result.filter(v => {
+        const s = getStatus(v);
+        if (statusFilter === 'unreachable') return s === 'unreachable' || s === 'unavailable';
+        return s === statusFilter;
+      });
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -162,8 +169,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return result;
   }, [vehicles, statusFilter, searchQuery]);
 
-  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unavailable: '#94a3b8' };
-  const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline', unavailable: 'No Data' };
+  const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unreachable: '#94a3b8', unavailable: '#94a3b8' };
+  const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
 
   const currentSelected = useMemo(() => {
     if (!selectedVehicle) return null;
@@ -378,10 +385,10 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
 
           {/* Status filter pills */}
-          {['running', 'idle', 'parked', 'offline', 'unavailable'].map(s => (
+          {['running', 'idle', 'parked', 'offline', 'unreachable'].map(s => (
             <StatusPill
-              key={s} label={statusLabels[s]} count={metrics[s]}
-              color={statusColors[s]} active={statusFilter === s}
+              key={s} label={statusLabels[s]} count={metrics[s] || (s === 'unreachable' ? metrics.unavailable : 0) || 0}
+              color={statusColors[s]} active={statusFilter === s || (s === 'unreachable' && statusFilter === 'unavailable')}
               onClick={() => setStatusFilter(prev => prev === s ? null : s)}
             />
           ))}
@@ -498,7 +505,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0' }}>Speed (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
-                  {Math.round(hoveredVehicle.current_speed || 0)}
+                  {Math.round(hoveredVehicle.is_online ? (hoveredVehicle.current_speed || 0) : 0)}
                 </td>
               </tr>
               <tr>
@@ -525,7 +532,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             fontSize: '10px',
             lineHeight: '1.4'
           }}>
-            {hoveredVehicleAddress || 'Location unavailable'}
+            {hoveredVehicleAddress || (hoveredVehicle?.last_seen ? 'Location unavailable' : 'Never communicated')}
           </div>
         </div>
       )}
@@ -598,7 +605,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
                 { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
                 { key: 'parked', label: `Parked ${metrics.parked}`, color: '#64748B' },
-                { key: 'offline', label: `Offline ${metrics.offline}`, color: '#EF4444' },
+                { key: 'offline', label: `No Data ${metrics.offline || 0}`, color: '#EF4444' },
+                { key: 'unreachable', label: `Unreachable ${(metrics.unreachable || 0) + (metrics.unavailable || 0)}`, color: '#94A3B8' },
               ].map(pill => {
                 const active = statusFilter === pill.key;
                 const isAllPill = pill.key === null;
@@ -771,9 +779,9 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                         {v.plate || v.name}
                       </div>
                       <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <span>{formatSpeed(v.current_speed)}</span>
+                        <span>{formatSpeed(v.current_speed, v.is_online)}</span>
                         <span>·</span>
-                        <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'No GPS data'}</span>
+                        <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
                       </div>
                     </div>
 

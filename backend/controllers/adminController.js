@@ -775,15 +775,16 @@ const AdminController = {
           o.name as org_name,
           v.id as vehicle_uuid,
           CASE 
+            -- 1. Active telemetry within 3 minutes (Moving / Live):
             WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
-            WHEN (
-              COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-              OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
-              OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-            )
-            AND (vls.ignition = FALSE OR vls.ignition IS NULL)
-            AND (vls.speed <= 2.0 OR vls.speed IS NULL)
-            AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+            -- 2. Idling vehicles (Ignition ON, Speed <= 2): Preserve up to 5 minutes
+            WHEN (vls.ignition = TRUE)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '5 minutes' THEN TRUE
+            -- 3. Parked vehicles (Ignition OFF, Speed <= 2): Universal 24h Sleep Mode for ALL vehicles
+            WHEN (vls.ignition = FALSE OR vls.ignition IS NULL)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
             ELSE FALSE 
           END as is_online,
           vls.last_seen

@@ -30,22 +30,36 @@ export const getVehicleStatus = (vehicle = {}) => {
   const ignition = !!vehicle.current_ignition;
   const isOnline = !!vehicle.is_online;
 
-  if (!vehicle.last_seen) return 'unavailable';
+  if (!vehicle.last_seen) return 'unreachable';
 
-  // Two-wheeler sleep/parked handling:
-  // Scooters/Bikes enter deep sleep when ignition is OFF to prevent battery drainage.
-  // If ignition is OFF and speed <= 2 km/h, they should show 'parked' instead of 'offline'
-  // (unless no telemetry received for over 24 hours).
-  const isTwoWheeler = getVehicleType(vehicle) === 'bike';
-  if (isTwoWheeler && !ignition && speed <= 2.0) {
-    const lastSeenMs = new Date(vehicle.last_seen).getTime();
-    const nowMs = Date.now();
-    if (!isNaN(lastSeenMs) && (nowMs - lastSeenMs < 24 * 60 * 60 * 1000)) {
-      return 'parked';
-    }
+  const lastSeenMs = new Date(vehicle.last_seen).getTime();
+  const diffMs = !isNaN(lastSeenMs) ? (Date.now() - lastSeenMs) : Infinity;
+
+  // 1. PARKED STATE PRESERVATION (Universal 24h Sleep Mode for ALL vehicles):
+  // When ignition is OFF and vehicle is stationary (speed <= 2 km/h),
+  // devices enter deep sleep / power save mode. Preserve 'parked' for up to 24 hours.
+  if (!ignition && speed <= 2.0 && diffMs < 24 * 60 * 60 * 1000) {
+    return 'parked';
   }
 
-  if (!isOnline) return 'offline';
+  // 2. IDLE STATE PRESERVATION:
+  // When engine is running (ignition ON) but vehicle is stationary (speed <= 2 km/h),
+  // devices throttle reporting to save data (often 2-3 min intervals).
+  // Preserve 'idle' for up to 5 minutes before treating as No Data.
+  if (ignition && speed <= 2.0 && diffMs < 5 * 60 * 1000) {
+    return 'idle';
+  }
+
+  // 3. MOVING STATE PRESERVATION:
+  // When speed > 2 km/h and telemetry arrived within 3 minutes, vehicle is moving.
+  if (speed > 2.0 && diffMs < 3 * 60 * 1000) {
+    return 'running';
+  }
+
+  // 4. Stale / Lost Signal:
+  // If connection is lost or beyond grace period, vehicle enters 'No Data'.
+  if (!isOnline || diffMs >= 3 * 60 * 1000) return 'offline';
+
   if (speed > 2.0) return 'running';
   if (ignition) return 'idle';
   return 'parked';
@@ -55,8 +69,10 @@ export const STATUS_CONFIG = {
   running: { color: '#10b981', label: 'Running', pulse: true },
   idle: { color: '#f59e0b', label: 'Idle', pulse: false },
   parked: { color: '#64748B', label: 'Parked', pulse: false },
-  offline: { color: '#ef4444', label: 'Offline', pulse: false },
-  unavailable: { color: '#94a3b8', label: 'No Data', pulse: false },
+  offline: { color: '#ef4444', label: 'No Data', pulse: false },
+  nodata: { color: '#ef4444', label: 'No Data', pulse: false },
+  unreachable: { color: '#94a3b8', label: 'Unreachable', pulse: false },
+  unavailable: { color: '#94a3b8', label: 'Unreachable', pulse: false },
 };
 
 // Ultra-bright high-contrast white vehicle SVGs

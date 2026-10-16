@@ -207,20 +207,20 @@ const DevicesAdminPage = () => {
             • Online: <strong style={{ color: '#10b981', fontWeight: 700 }}>{onlineCount}</strong>
           </span>
 
-          {/* Offline */}
+          {/* No Data */}
           <span
             onClick={() => setStatusFilter(statusFilter === 'OFFLINE' ? 'ALL' : 'OFFLINE')}
             style={{ cursor: 'pointer', color: '#dc2626', background: statusFilter === 'OFFLINE' ? '#fef2f2' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fecaca' }}
           >
-            • Offline: <strong style={{ color: '#ef4444', fontWeight: 700 }}>{offlineCount}</strong>
+            • No Data: <strong style={{ color: '#ef4444', fontWeight: 700 }}>{offlineCount}</strong>
           </span>
 
-          {/* Never Communicated */}
+          {/* Unreachable */}
           <span
             onClick={() => setStatusFilter(statusFilter === 'NEVER' ? 'ALL' : 'NEVER')}
             style={{ cursor: 'pointer', color: '#64748b', background: statusFilter === 'NEVER' ? '#e2e8f0' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
           >
-            • Never Communicated: <strong style={{ color: '#475569', fontWeight: 700 }}>{neverCount}</strong>
+            • Unreachable: <strong style={{ color: '#475569', fontWeight: 700 }}>{neverCount}</strong>
           </span>
         </div>
       </div>
@@ -266,7 +266,7 @@ const DevicesAdminPage = () => {
                 let dotColor = '#cbd5e1';
 
                 if (!d.last_update) {
-                  statusText = 'Never';
+                  statusText = 'Unreachable';
                   statusColor = '#64748b';
                   dotColor = '#cbd5e1';
                 } else if (d.is_online) {
@@ -274,7 +274,7 @@ const DevicesAdminPage = () => {
                   statusColor = '#059669';
                   dotColor = '#10b981';
                 } else {
-                  statusText = 'Offline';
+                  statusText = 'No Data';
                   statusColor = '#dc2626';
                   dotColor = '#ef4444';
                 }

@@ -341,8 +341,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
   const newLat = parseFloat(vehicle.lat);
   const newLng = parseFloat(vehicle.lng);
   const warning = getExpiryWarning(vehicle.licence_expire_date);
-  const clusterRank = vehicle._clusterRank || 0;
-  const speed = Math.round(vehicle.current_speed || 0);
+  const speed = (status === 'offline' || status === 'unreachable' || !vehicle.is_online) ? 0 : Math.round(vehicle.current_speed || 0);
   const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
 
   // ── KEY FIX: freeze the position prop at MOUNT TIME ──────────────────
@@ -517,7 +516,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
                 </td>
               </tr>
-              {getNoDataDuration(vehicle.last_seen) && status === 'offline' ? (
+              {getNoDataDuration(vehicle.last_seen) && (status === 'offline' || status === 'nodata') ? (
                 <>
                   <tr>
                     <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>No Data</td>
@@ -525,7 +524,18 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                   </tr>
                   <tr>
                     <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Reason</td>
-                    <td style={{ color: '#ef4444', fontWeight: 700, padding: '2px 0' }}>- Device Offline</td>
+                    <td style={{ color: '#ef4444', fontWeight: 700, padding: '2px 0' }}>- No Data Received</td>
+                  </tr>
+                </>
+              ) : (!vehicle.last_seen || status === 'unreachable' || status === 'unavailable') ? (
+                <>
+                  <tr>
+                    <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Status</td>
+                    <td style={{ color: '#94a3b8', fontWeight: 700, padding: '2px 0' }}>- Unreachable</td>
+                  </tr>
+                  <tr>
+                    <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Reason</td>
+                    <td style={{ color: '#94a3b8', fontWeight: 700, padding: '2px 0' }}>- Never Communicated</td>
                   </tr>
                 </>
               ) : (

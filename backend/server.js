@@ -409,12 +409,7 @@ async function bootstrap() {
             AND vls.is_online = TRUE 
             AND vls.last_seen < NOW() - INTERVAL '15 minutes'
             AND NOT (
-              (
-                COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-                OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
-                OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-              )
-              AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+              (vls.ignition = FALSE OR vls.ignition IS NULL)
               AND (vls.speed <= 2.0 OR vls.speed IS NULL)
               AND vls.last_seen >= NOW() - INTERVAL '24 hours'
             )

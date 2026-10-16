@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, AlertCircle, Loader2, MapPin,
   CheckCircle2, PlayCircle, PauseCircle, StopCircle,
   AlertOctagon, Navigation, RefreshCcw, Gauge, Users, UserCircle,
-  Building, Calendar, Wifi, Clock, AlertTriangle, Filter, MoreVertical
+  Building, Calendar, Wifi, WifiOff, Clock, AlertTriangle, Filter, MoreVertical
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -71,20 +71,21 @@ const ReportsAdminPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   const metrics = useMemo(() => {
-    let running = 0, idle = 0, parking = 0, noData = 0, totalKms = 0, notSynced = 0;
+    let running = 0, idle = 0, parking = 0, noData = 0, unreachable = 0, totalKms = 0, notSynced = 0;
     vehicles.forEach(v => {
       totalKms += Number(v.current_odometer || 0);
       const status = getVehicleStatus(v);
       if (status === 'running') running++;
       else if (status === 'idle') idle++;
       else if (status === 'parked') parking++;
-      else if (status === 'offline') noData++;
+      else if (status === 'unreachable' || status === 'unavailable') unreachable++;
+      else noData++;
       if (!v.last_seen || (new Date() - new Date(v.last_seen)) > 24 * 60 * 60 * 1000) notSynced++;
     });
     return {
       total: vehicles.length,
       online: running + idle + parking,
-      running, idle, parking, noData,
+      running, idle, parking, noData, unreachable,
       totalKms: Math.round(totalKms),
       notSynced
     };
@@ -175,8 +176,8 @@ const ReportsAdminPage = () => {
             <MetricCard label="Idling" value={metrics.idle} icon={Clock} color="#EA580C" bg="#FFF7ED" />
             <MetricCard label="Parking" value={metrics.parking} icon={StopCircle} color="#9333EA" bg="#F5F3FF" />
             <MetricCard label="No Data" value={metrics.noData} icon={AlertTriangle} color="#DC2626" bg="#FEF2F2" />
+            <MetricCard label="Unreachable" value={metrics.unreachable} icon={WifiOff} color="#64748B" bg="#F1F5F9" />
             <MetricCard label="Total KMS" value={metrics.totalKms} icon={Navigation} color="#3B82F6" bg="#EFF6FF" />
-            <MetricCard label="Not Synced" value={metrics.notSynced} icon={RefreshCw} color="#C026D3" bg="#FDF4FF" />
           </div>
 
           {/* Search Bar & Table Container */}
@@ -241,11 +242,12 @@ const ReportsAdminPage = () => {
                       const speed = Math.round(v.current_speed || 0);
                       const ignition = !!v.current_ignition;
 
-                      let statusColor = '#94A3B8'; // Offline gray
+                      let statusColor = '#94A3B8'; // Unreachable gray
                       const status = getVehicleStatus(v);
                       if (status === 'running') statusColor = '#10B981'; // Running green
                       else if (status === 'idle') statusColor = '#F59E0B'; // Idle amber
                       else if (status === 'parked') statusColor = '#64748B'; // Parking slate
+                      else if (status === 'offline' || status === 'nodata') statusColor = '#EF4444'; // No Data red
 
                       return (
                         <tr key={v.id} style={{ background: idx % 2 === 0 ? '#ffffff' : '#fafafa', transition: 'background 0.2s' }}>

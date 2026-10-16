@@ -83,7 +83,7 @@ const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClic
       <div className="flex flex-col items-center">
         <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-          Offline
+          No Data
         </span>
         <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
       </div>
@@ -193,7 +193,7 @@ const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline,
       <div className="flex flex-col items-center">
         <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-          Offline
+          No Data
         </span>
         <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
       </div>

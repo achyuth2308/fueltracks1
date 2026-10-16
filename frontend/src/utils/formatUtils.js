@@ -1,5 +1,6 @@
-export const formatSpeed = (speed) => {
+export const formatSpeed = (speed, isOnline = true) => {
   if (speed === null || speed === undefined) return 'N/A';
+  if (isOnline === false) return '0 km/h';
   return `${Math.round(speed)} km/h`;
 };
 
