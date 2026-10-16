@@ -774,8 +774,18 @@ const AdminController = {
           d.*, 
           o.name as org_name,
           v.id as vehicle_uuid,
-          v.name as vehicle_name,
-          vls.is_online,
+          CASE 
+            WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+            WHEN (
+              COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+              OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+              OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+            )
+            AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+            AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+            AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+            ELSE FALSE 
+          END as is_online,
           vls.last_seen
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id

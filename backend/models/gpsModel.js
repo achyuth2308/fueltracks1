@@ -1060,15 +1060,17 @@ const GpsModel = {
     }
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
+    const onlineVehicles = parseInt(result.rows[0].online_vehicles || 0);
+    const offlineVehicles = Math.max(0, totalVehicles - onlineVehicles);
     const availableInventory = 0; // Inventory not tracked in DB — honest zero rather than fabricated constant
-
 
     return {
       total_devices: totalVehicles + availableInventory,
       assigned_devices: totalVehicles,
       available_devices: availableInventory,
       total_vehicles: totalVehicles,
-      online_vehicles: parseInt(result.rows[0].online_vehicles || 0),
+      online_vehicles: onlineVehicles,
+      offline_vehicles: offlineVehicles,
       organizations: parseInt(result.rows[0].organizations_count || 0),
       users: parseInt(result.rows[0].users_count || 0),
     };

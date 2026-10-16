@@ -165,14 +165,19 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   useEffect(() => {
     if (vehicles.length > 0) {
       const online = vehicles.filter(v => v.is_online).length;
-      setStats({ total: vehicles.length, online, offline: vehicles.length - online });
+      setStats({ total: vehicles.length, online, offline: Math.max(0, vehicles.length - online) });
     } else {
       adminApi.getDashboardStats().then(res => {
         if (res?.success && res?.data) {
+          const total = parseInt(res.data.total_vehicles || res.data.total_devices) || 0;
+          const online = parseInt(res.data.online_vehicles) || 0;
+          const offline = res.data.offline_vehicles !== undefined
+            ? parseInt(res.data.offline_vehicles)
+            : Math.max(0, total - online);
           setStats({
-            total: parseInt(res.data.total_vehicles) || 0,
-            online: parseInt(res.data.online_vehicles) || 0,
-            offline: parseInt(res.data.offline_vehicles) || 0,
+            total,
+            online,
+            offline,
           });
         }
       }).catch(() => { });
