@@ -209,9 +209,28 @@ const OrgModel = {
   },
 
   /**
-   * Delete organization (soft delete)
+   * Delete organization
+   * Proactive Brain Safeguard: Reassign any devices, vehicles, and groups to master FuelTracks Platform 
+   * so they are NEVER wiped by PostgreSQL cascade deletion.
    */
   async delete(orgId) {
+    const MASTER_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
+    // 1. Move any devices in this org to master FuelTracks Platform
+    await db.query(
+      `UPDATE devices SET org_id = $1 WHERE org_id = $2`,
+      [MASTER_ORG_ID, orgId]
+    );
+    // 2. Move any vehicles in this org to master FuelTracks Platform
+    await db.query(
+      `UPDATE vehicles SET org_id = $1 WHERE org_id = $2`,
+      [MASTER_ORG_ID, orgId]
+    );
+    // 3. Move any groups in this org to master FuelTracks Platform
+    await db.query(
+      `UPDATE groups SET org_id = $1 WHERE org_id = $2`,
+      [MASTER_ORG_ID, orgId]
+    );
+    // 4. Safely delete the organization shell
     const result = await db.query(
       `DELETE FROM organizations WHERE id = $1 RETURNING id`,
       [orgId]

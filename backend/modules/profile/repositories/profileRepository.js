@@ -26,7 +26,7 @@ class ProfileRepository {
   /**
    * Upsert profile data
    */
-  async upsertProfile(organizationId, updateData) {
+  async upsertProfile(organizationId, updateData, userId = null) {
     // Separate organization table fields (name, phone, email, contact_person, address) if provided
     const orgFields = {};
     if (updateData.name !== undefined) orgFields.name = updateData.name;
@@ -37,25 +37,36 @@ class ProfileRepository {
       await db.query(`UPDATE organizations SET ${setOrg} WHERE id = $1`, [organizationId, ...Object.values(orgFields)]);
     }
 
-    // Also sync email/name to users table if provided
-    if (updateData.email || updateData.contact_person || updateData.mobile) {
+    // Also sync email/name/phone to users table if provided
+    if (updateData.email || updateData.contact_person || updateData.mobile || updateData.phone || updateData.name) {
       const userUpdates = [];
       const userVals = [];
       let uIdx = 1;
-      if (updateData.email) { userUpdates.push(`email = $${uIdx++}`); userVals.push(updateData.email); }
-      if (updateData.contact_person) { userUpdates.push(`name = $${uIdx++}`); userVals.push(updateData.contact_person); }
-      if (updateData.mobile) { userUpdates.push(`phone = $${uIdx++}`); userVals.push(updateData.mobile); }
+      const emailVal = updateData.email;
+      const nameVal = updateData.name || updateData.contact_person;
+      const phoneVal = updateData.phone || updateData.mobile;
+
+      if (emailVal) { userUpdates.push(`email = $${uIdx++}`); userVals.push(emailVal); }
+      if (nameVal) { userUpdates.push(`name = $${uIdx++}`); userVals.push(nameVal); }
+      if (phoneVal) { userUpdates.push(`phone = $${uIdx++}`); userVals.push(phoneVal); }
       
-      userVals.push(organizationId);
-      await db.query(
-        `UPDATE users SET ${userUpdates.join(', ')} 
-         WHERE id = (
-           SELECT id FROM users WHERE org_id = $${uIdx} 
-           ORDER BY (CASE WHEN role = 'dealer' THEN 0 WHEN role = 'superadmin' THEN 1 ELSE 2 END), created_at ASC 
-           LIMIT 1
-         )`,
-        userVals
-      );
+      if (userUpdates.length > 0) {
+        if (userId) {
+          userVals.push(userId);
+          await db.query(`UPDATE users SET ${userUpdates.join(', ')}, updated_at = NOW() WHERE id = $${uIdx}`, userVals);
+        } else {
+          userVals.push(organizationId);
+          await db.query(
+            `UPDATE users SET ${userUpdates.join(', ')}, updated_at = NOW() 
+             WHERE id = (
+               SELECT id FROM users WHERE org_id = $${uIdx} 
+               ORDER BY (CASE WHEN role = 'dealer' THEN 0 WHEN role = 'superadmin' THEN 1 ELSE 2 END), created_at ASC 
+               LIMIT 1
+             )`,
+            userVals
+          );
+        }
+      }
     }
 
     // Filter fields that belong to organization_profiles

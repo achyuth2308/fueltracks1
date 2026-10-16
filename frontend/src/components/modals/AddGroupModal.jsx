@@ -18,15 +18,21 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
       if (editingGroup) {
         setName(editingGroup.name || '');
         setOrgId(editingGroup.org_id || '');
+        if (editingGroup.vehicles && Array.isArray(editingGroup.vehicles)) {
+          setSelectedVehicleIds(new Set(editingGroup.vehicles.map(v => v.id)));
+        } else {
+          setSelectedVehicleIds(new Set());
+        }
       } else {
         setName('');
         setOrgId('');
+        setSelectedVehicleIds(new Set());
       }
       setError(null);
     }
-  }, [isOpen, orgs, editingGroup]);
+  }, [isOpen, editingGroup]);
 
-  // Fetch all vehicles (and if editing, pre-select the group's vehicles)
+  // Fetch all vehicles (and fallback to query group vehicles if not already present on editingGroup)
   useEffect(() => {
     if (!isOpen) return;
     
@@ -36,24 +42,15 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         // Fetch all vehicles
         const res = await vehicleApi.getVehicles();
         if (res.success) {
-          // Show all vehicles, do not filter by orgId
           setAvailableVehicles(res.data);
           
-          // If editing, pre-select only vehicles that are both in this group AND visible in the list
-          if (editingGroup) {
+          // If editing and group didn't already have vehicles populated
+          if (editingGroup && (!editingGroup.vehicles || editingGroup.vehicles.length === 0)) {
             const groupVehiclesRes = await vehicleApi.getVehicles({ groupId: editingGroup.id });
             if (groupVehiclesRes.success) {
-              // Build a set of all available vehicle IDs (active vehicles shown in the modal)
-              const allVehicleIds = new Set(res.data.map(v => v.id));
-              // Only pre-select vehicles that exist in the shown list — this prevents
-              // inactive/hidden vehicles from being silently re-submitted on every save
-              const groupVehicleIds = groupVehiclesRes.data
-                .map(v => v.id)
-                .filter(id => allVehicleIds.has(id));
+              const groupVehicleIds = groupVehiclesRes.data.map(v => v.id);
               setSelectedVehicleIds(new Set(groupVehicleIds));
             }
-          } else {
-            setSelectedVehicleIds(new Set());
           }
         }
       } catch (err) {

@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
 
 
 import { useNavigate } from 'react-router-dom';
-import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, Smartphone, Cpu, Store, ArrowUpRight } from 'lucide-react';
+import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, ArrowUpRight, Wifi, WifiOff, Navigation, PauseCircle, Shield, Cpu, Smartphone } from 'lucide-react';
 
 import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
+import { getVehicleStatus } from '../../utils/markerUtils';
 
 const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
   <div
@@ -46,8 +47,52 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
   </div>
 );
 
+const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClick }) => (
+  <div
+    onClick={onClick}
+    className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col items-center justify-center"
+    style={{
+      border: `2px solid ${color}`,
+      boxShadow: `0 2px 8px ${color}1A`,
+    }}
+    onMouseEnter={e => {
+      e.currentTarget.style.transform = 'translateY(-2px)';
+      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+    }}
+    onMouseLeave={e => {
+      e.currentTarget.style.transform = 'none';
+      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+    }}
+  >
+    <div className="flex items-center gap-1.5 text-[12px] md:text-[13px] text-gray-900 font-[700]">
+      <Truck className="w-[15px] h-[15px]" color={color} />
+      <span>Vehicles</span>
+    </div>
+    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>
+      {total}
+    </div>
+    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-emerald-600 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+          Online
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-emerald-600">{online}</span>
+      </div>
+      <div className="w-[1px] bg-slate-100"></div>
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+          Offline
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
+      </div>
+    </div>
+  </div>
+);
+
 const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
-  <div 
+  <div
     className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] transition-all duration-200 flex flex-col items-center justify-center"
     style={{
       border: `2px solid ${color}`,
@@ -78,10 +123,10 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used',
   </div>
 );
 
-const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick }) => (
+const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline, color = '#0EA5E9', icon: Icon, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[200px] p-3 md:p-3.5 bg-white rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[240px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col items-center justify-center"
     style={{
       border: `2px solid ${color}`,
       boxShadow: `0 2px 8px ${color}1A`,
@@ -95,23 +140,62 @@ const MetricDetailCard = ({ title, value, changeText, color, icon: Icon, onClick
       e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
     }}
   >
-    <div className="flex items-center justify-between w-full mb-2">
-      <div className="flex items-center gap-2.5">
-        <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
-          <Icon size={18} color={color} />
-        </div>
-        <span className="text-[12px] font-[700] text-gray-800 leading-tight">{title}</span>
-      </div>
-      <div className="w-[24px] h-[24px] rounded-full flex items-center justify-center bg-slate-50 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0">
-        <ChevronRight size={14} />
-      </div>
+    <div className="flex items-center gap-1.5 text-[12px] md:text-[13px] text-gray-900 font-[700]">
+      {Icon && <Icon className="w-[15px] h-[15px]" color={color} />}
+      <span>{title}</span>
     </div>
-    
-    <div>
-      <div className="text-[24px] font-[800] text-gray-900 leading-none mb-1">{value}</div>
-      <div className="text-[11px] font-[700] text-emerald-600 flex items-center gap-1">
-        <span>↑</span>
-        <span>{changeText}</span>
+
+    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>
+      {total}
+    </div>
+
+    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-emerald-600 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+          Online
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-emerald-600">{online}</span>
+      </div>
+
+      <div className="w-[1px] bg-slate-100"></div>
+
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-teal-600 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-500 inline-block"></span>
+          Moving
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-teal-600">{moving}</span>
+      </div>
+
+      <div className="w-[1px] bg-slate-100"></div>
+
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-amber-500 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+          Idle
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-amber-600">{idle}</span>
+      </div>
+
+      <div className="w-[1px] bg-slate-100"></div>
+
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-indigo-500 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>
+          Parked
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-indigo-600">{parked}</span>
+      </div>
+
+      <div className="w-[1px] bg-slate-100"></div>
+
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+          Offline
+        </span>
+        <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
       </div>
     </div>
   </div>
@@ -126,6 +210,11 @@ const DashboardPage = ({ setAppVehicles }) => {
   const [apiStats, setApiStats] = useState(null);
   const isDealer = user?.role === 'dealer';
 
+  // Customer role gets the map-based fleet dashboard
+  if (user?.role === 'customer') {
+    return <CustomerDashboard setAppVehicles={setAppVehicles} />;
+  }
+
   useEffect(() => {
     if (vehicles && setAppVehicles) {
       setAppVehicles(prev => {
@@ -139,14 +228,12 @@ const DashboardPage = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   useEffect(() => {
-    if (user?.role !== 'customer') {
-      getDashboardStats()
-        .then(res => {
-          if (res.success) setApiStats(res.data);
-        })
-        .catch(err => console.error("Failed to fetch dashboard stats", err));
-    }
-  }, [vehicles, user?.role]);
+    getDashboardStats()
+      .then(res => {
+        if (res.success) setApiStats(res.data);
+      })
+      .catch(err => console.error("Failed to fetch dashboard stats", err));
+  }, [vehicles]);
 
   useEffect(() => {
     if (isDealer) {
@@ -158,24 +245,112 @@ const DashboardPage = ({ setAppVehicles }) => {
     }
   }, [isDealer]);
 
-  // Customer role gets the map-based fleet dashboard
-  if (user?.role === 'customer') {
-    return <CustomerDashboard setAppVehicles={setAppVehicles} />;
-  }
+  const onlineCount = vehicles.length > 0
+    ? vehicles.filter(v => v.is_online).length
+    : (apiStats?.online_vehicles !== undefined ? Number(apiStats.online_vehicles) : 0);
 
-  const onlineCount = vehicles.filter(v => v.is_online).length;
+  const totalUsers = apiStats?.users ?? '-';
+  const totalGroups = groups.length || '-';
+  const totalVehicles = vehicles.length > 0
+    ? vehicles.length
+    : (apiStats?.total_vehicles !== undefined ? Number(apiStats.total_vehicles) : 0);
 
-  const totalUsers = (apiStats?.users != null && typeof apiStats.users !== 'object') ? apiStats.users : '-';
-  const totalGroups = (groups && Array.isArray(groups)) ? groups.length : '-';
-  const totalVehicles = (apiStats?.total_vehicles != null && typeof apiStats.total_vehicles !== 'object') ? apiStats.total_vehicles : (Array.isArray(vehicles) ? vehicles.length : '-');
+  const offlineCount = Math.max(0, totalVehicles - onlineCount);
+
+  const normalizeDeviceType = (v) => {
+    const raw = v.deviceType || v.device_version || v.metadata?.deviceModel || v.metadata?.deviceType || v.model || '';
+    const str = String(raw).trim();
+    const upper = str.toUpperCase();
+    if (!str) return 'Other';
+    if (upper.includes('VOLTY')) return 'VOLTY';
+    if (upper.includes('AIS140') || upper.includes('AIS-140') || upper.includes('AIS 140')) {
+      if (upper.includes('V2')) return 'AIS140 V2';
+      return 'AIS140';
+    }
+    if (upper.includes('CONCOX')) return 'CONCOX';
+    if (upper.includes('FMB') || upper.includes('TELTONIKA')) return 'TELTONIKA';
+    if (upper.includes('BSTPL') || upper.includes('TRACKNOW')) return 'TRACKNOW';
+    return str;
+  };
+
+  const { allStats, voltyStats, otherDeviceCards } = useMemo(() => {
+    const calcStats = (vehList) => {
+      let online = 0;
+      let moving = 0;
+      let idle = 0;
+      let parked = 0;
+      let offline = 0;
+
+      vehList.forEach(v => {
+        const status = getVehicleStatus(v);
+        if (status === 'running') {
+          moving++;
+          online++;
+        } else if (status === 'idle') {
+          idle++;
+          online++;
+        } else if (status === 'parked') {
+          parked++;
+          if (v.is_online) online++;
+          else offline++;
+        } else {
+          offline++;
+        }
+      });
+
+      return {
+        total: vehList.length,
+        online,
+        moving,
+        idle,
+        parked,
+        offline
+      };
+    };
+
+    const all = calcStats(vehicles);
+    if (vehicles.length === 0 && apiStats) {
+      all.total = Number(apiStats.total_vehicles || 0);
+      all.online = Number(apiStats.online_vehicles || 0);
+      all.offline = Math.max(0, all.total - all.online);
+    }
+
+    const voltyVehicles = vehicles.filter(v => normalizeDeviceType(v) === 'VOLTY');
+    const volty = calcStats(voltyVehicles);
+
+    const otherGroups = {};
+    const colorPalette = ['#8B5CF6', '#F59E0B', '#10B981', '#EC4899'];
+    let colorIdx = 0;
+
+    vehicles.forEach(v => {
+      const type = normalizeDeviceType(v);
+      if (type !== 'VOLTY' && type !== 'Other') {
+        if (!otherGroups[type]) {
+          otherGroups[type] = [];
+        }
+        otherGroups[type].push(v);
+      }
+    });
+
+    const otherCards = Object.entries(otherGroups).map(([type, list]) => ({
+      title: `${type} Devices`,
+      color: colorPalette[colorIdx++ % colorPalette.length],
+      ...calcStats(list)
+    }));
+
+    return {
+      allStats: all,
+      voltyStats: volty,
+      otherDeviceCards: otherCards
+    };
+  }, [vehicles, apiStats]);
 
   const getTierStats = (type) => {
     if (isDealer && quota) {
-      const getVal = (obj, key) => (obj && obj[key] != null && typeof obj[key] !== 'object') ? obj[key] : 0;
       return {
-        total: getVal(quota.limits, type),
-        used: getVal(quota.used, type),
-        available: getVal(quota.available, type),
+        total: quota.limits?.[type] || 0,
+        used: quota.used?.[type] || 0,
+        available: quota.available?.[type] || 0,
         labelUsed: 'Used',
         labelAvailable: 'Available'
       };
@@ -186,7 +361,7 @@ const DashboardPage = ({ setAppVehicles }) => {
 
       let typeVehicles = vehicles.filter(v => {
         if (v.metadata?.licenceType === type) return true;
-        if (v.licenceId && String(v.licenceId).startsWith(prefix)) return true;
+        if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
         return false;
       });
 
@@ -223,7 +398,13 @@ const DashboardPage = ({ setAppVehicles }) => {
       <div className="p-3 md:p-4 pb-2 md:pb-2 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
         <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
         <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
-        <StatCard label="Vehicles" value={totalVehicles} color="#EC4899" icon={Truck} onClick={() => navigate('/admin/vehicles')} />
+        <VehicleOverviewCard
+          total={totalVehicles}
+          online={onlineCount}
+          offline={offlineCount}
+          color="#EC4899"
+          onClick={() => navigate('/admin/vehicles')}
+        />
 
         <LicenseCard
           title="Starter"
@@ -263,6 +444,48 @@ const DashboardPage = ({ setAppVehicles }) => {
         />
       </div>
 
+      {/* Device Telemetry Overview Cards (Prepared like LicenseCard) */}
+      <div className="px-3 md:px-4 pb-3 md:pb-3 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
+        <DeviceStatusCard
+          title="All Devices"
+          total={allStats.total}
+          online={allStats.online}
+          moving={allStats.moving}
+          idle={allStats.idle}
+          parked={allStats.parked}
+          offline={allStats.offline}
+          color="#3B82F6"
+          icon={Cpu}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        <DeviceStatusCard
+          title="VOLTY Devices"
+          total={voltyStats.total}
+          online={voltyStats.online}
+          moving={voltyStats.moving}
+          idle={voltyStats.idle}
+          parked={voltyStats.parked}
+          offline={voltyStats.offline}
+          color="#0EA5E9"
+          icon={Smartphone}
+          onClick={() => navigate('/admin/vehicles')}
+        />
+        {otherDeviceCards.map(dev => (
+          <DeviceStatusCard
+            key={dev.title}
+            title={dev.title}
+            total={dev.total}
+            online={dev.online}
+            moving={dev.moving}
+            idle={dev.idle}
+            parked={dev.parked}
+            offline={dev.offline}
+            color={dev.color}
+            icon={Cpu}
+            onClick={() => navigate('/admin/vehicles')}
+          />
+        ))}
+      </div>
 
       {/* Main Layout: Expiring Licenses */}
       <div style={{ display: 'flex', padding: '0 16px 16px 16px', minHeight: '360px', flexShrink: 0 }}>

@@ -51,11 +51,11 @@ const VehicleModel = {
               vls.voltage as current_voltage, vls.battery as current_battery,
               CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
-              vls.last_seen, CASE
+              vls.last_seen, GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
                 ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
-              END as current_odometer,
+              END) as current_odometer,
               vls.direction as current_direction,
               vls.satellites as current_satellites,
               vls.gsm_signal as current_gsm_signal,
@@ -166,11 +166,11 @@ const VehicleModel = {
               CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
-              CASE
+              GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
-              END as current_odometer,
+                THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (GREATEST(0, COALESCE(vls.today_start_odometer, vls.odometer, 0)) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                ELSE GREATEST(0, COALESCE(vls.today_start_odometer, vls.odometer, 0)) + COALESCE(vls.today_distance, 0)
+              END) as current_odometer,
               COALESCE(vls.today_distance, 0) as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id

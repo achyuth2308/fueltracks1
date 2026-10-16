@@ -27,14 +27,15 @@ function userFromToken(token) {
   const payload = decodeJwtPayload(token);
   if (!payload) return null;
   if (payload.exp && payload.exp * 1000 < Date.now()) return null;
+  const isSuper = payload.role === 'superadmin';
   return {
     id: payload.userId,
     role: payload.role,
-    orgId: payload.orgId,
-    orgType: payload.orgType,
+    orgId: isSuper ? 'a0000000-0000-0000-0000-000000000001' : payload.orgId,
+    orgType: isSuper ? 'super' : payload.orgType,
     name: payload.name || null,
     email: payload.email || null,
-    orgName: payload.orgName || null,
+    orgName: isSuper ? 'FuelTracks Platform' : (payload.orgName || null),
     phone: payload.phone || null,
     mapProvider: null,
     apiKey: null,
@@ -59,9 +60,10 @@ export const AuthProvider = ({ children }) => {
           ...prev,
           mapProvider: response.data.user.mapProvider,
           apiKey: response.data.user.apiKey,
-          name: prev.name || response.data.user.name,
-          email: prev.email || response.data.user.email,
-          orgName: prev.orgName || response.data.user.orgName,
+          name: response.data.user.name || prev.name,
+          email: response.data.user.email || prev.email,
+          orgName: response.data.user.role === 'superadmin' ? 'FuelTracks Platform' : (response.data.user.orgName || prev.orgName),
+          orgId: response.data.user.role === 'superadmin' ? 'a0000000-0000-0000-0000-000000000001' : (response.data.user.orgId || prev.orgId),
         } : prev);
       }
     } catch {

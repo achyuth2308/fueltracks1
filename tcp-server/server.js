@@ -5,10 +5,12 @@
 // - Port 5001: AIS140 V1 / tNavIC (uses * delimiter)
 // - Port 5002: Concox V5/VL149/GT800 (binary protocol)
 // - Port 5003: AIS140 V2 (MODEL NO:1819001A) (uses * or $ delimiter)
+// - Port 5004: Volty AIS-140 ASCII (VLT1 firmware)
 // - Port 5005: Teltonika FMB920 (binary protocol)
 // - Port 5007: EC08 Binary (GT06 protocol)
 // - Port 5008: PN02 Binary
 // - Port 5009: V5 4G (VL149 binary protocol)
+// - Port 5011: VoltyFuel / TranSync NAV 140 (binary, 3A3A..2323)
 // ============================================================
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
@@ -20,17 +22,18 @@ const { isV2LoginPacket } = require('./parser/ais140V2Parser');
 
 
 const protocolStats = {
-  'BSTPL-17':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'BSTPL17IS': { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'AIS140':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'AIS140V2':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'CONCOX':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'PT06':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'PN02':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'VOLTY':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'FMB920':    { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'EC08':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
-  'V54G':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 }
+  'BSTPL-17':   { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'BSTPL17IS':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'AIS140':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'AIS140V2':   { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'CONCOX':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'PT06':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'PN02':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'VOLTY':      { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'FMB920':     { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'EC08':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'V54G':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'VOLTYFUEL':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -48,6 +51,7 @@ const VOLTY_PORT       = parseInt(process.env.VOLTY_TCP_PORT) || 5004;
 const FMB920_PORT      = parseInt(process.env.FMB920_TCP_PORT) || 5005;
 const EC08_PORT        = process.env.EC08_TCP_PORT || 5007;
 const V54G_PORT        = process.env.V5_4G_TCP_PORT || 5009;
+const VOLTYFUEL_PORT   = parseInt(process.env.VOLTYFUEL_TCP_PORT) || 5011;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -74,6 +78,12 @@ const { initPt06Server } = require('./pt06ServerHandler');
 
 // Isolated PN02 server handler
 const { initPn02Server } = require('./pn02ServerHandler');
+
+// VoltyFuel (TranSync NAV 140) binary server handler
+const { initVoltyFuelServer, nextSeq: voltyFuelNextSeq } = require('./voltyFuelServerHandler');
+
+// VoltyFuel binary command builder (for relay dispatch)
+const { buildCommandFrame: buildVoltyFuelCommandFrame } = require('./parser/voltyFuelParser');
 
 // Track connected devices
 const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
@@ -140,6 +150,12 @@ const commandAdapters = {
     // RL:0 = de-energize  → NC CLOSES → power FLOWS → MOBILIZE
     immobilize: () => 'RL:1\r\n',
     mobilize:   () => 'RL:0\r\n',
+  },
+  VOLTYFUEL: {
+    // TranSync NAV 140 binary relay (NC wiring — same logic as VOLTY)
+    // Command wrapped in 0x40 binary frame by dispatchCommand()
+    immobilize: () => '__VOLTYFUEL_BINARY_IMMOBILIZE__',
+    mobilize:   () => '__VOLTYFUEL_BINARY_MOBILIZE__',
   },
 };
 
@@ -260,6 +276,9 @@ const pt06Server = initPt06Server(PT06_PORT, protocolStats, connectedDevices, pu
 
 // Start PN02 Server
 const pn02Server = initPn02Server(PN02_PORT, protocolStats, connectedDevices, publisher);
+
+// Start VoltyFuel (TranSync NAV 140) Server on port 5011
+const voltyFuelServer = initVoltyFuelServer(VOLTYFUEL_PORT, protocolStats, connectedDevices, publisher);
 
 /**
  * Factory to create a TCP server for a specific protocol configuration
@@ -398,7 +417,8 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
     //      correctly rejects Volty/VAMO $PVT and $HEL packets.
     //   3. Single-field entry (no comma, not IS_V2_LOGIN): match first comma field.
     //      e.g. '$,' matches '$,10,...'  |  'ACTVR' matches 'ACTVR,...'
-    const header = raw.split(',')[0].trim();
+    const pDelim = (raw.includes(';') && raw.split(';').length > raw.split(',').length) ? ';' : ',';
+    const header = raw.split(pDelim)[0].trim();
     const headerAllowed = allowedHeaders.some(allowed => {
       if (allowed === 'IS_V2_LOGIN') return isV2LoginPacket(raw);
       if (allowed.includes(','))     return raw.trimStart().startsWith(allowed);
@@ -1478,6 +1498,14 @@ async function dispatchCommand(imei, action, proto, socket, overrideCommand = nu
     const relayStr = isImmobilize ? 'setdigout 1' : 'setdigout 0';
     rawRepresentation = `[FMB920 Codec 12] ${relayStr}`;
     sendBuffer = buildCodec12Command(relayStr);
+  } else if (proto === 'VOLTYFUEL') {
+    // TranSync NAV 140: relay command wrapped in binary 0x40 frame
+    // VLT;0000;GPO1#ON; = Output 1 ON  -> energize NC relay -> power CUT  -> IMMOBILIZE
+    // VLT;0000;GPO1#OFF; = Output 1 OFF -> de-energize       -> power FLOWS -> MOBILIZE
+    const relayCmdStr = isImmobilize ? 'VLT;0000;GPO1#ON;' : 'VLT;0000;GPO1#OFF;';
+    const seqForCmd   = voltyFuelNextSeq(imei);
+    rawRepresentation = `[VOLTYFUEL 0x40] ${relayCmdStr} (seq=${seqForCmd})`;
+    sendBuffer = buildVoltyFuelCommandFrame(imei, seqForCmd, relayCmdStr);
   } else {
     rawRepresentation = cmdStr.trim();
     sendBuffer = Buffer.from(cmdStr, 'ascii');
@@ -1742,14 +1770,15 @@ const healthServer = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({
       status: 'OK',
-      bstplConnections:    protocolStats['BSTPL-17'].connections,
-      ais140Connections:   protocolStats['AIS140'].connections,
-      ais140V2Connections: protocolStats['AIS140V2'].connections,
-      concoxConnections:   protocolStats['CONCOX'].connections,
-      voltyConnections:    protocolStats['VOLTY'].connections,
-      fmb920Connections:   protocolStats['FMB920'].connections,
-      ec08Connections:     protocolStats['EC08'].connections,
-      v54gConnections:     protocolStats['V54G'].connections,
+      bstplConnections:       protocolStats['BSTPL-17'].connections,
+      ais140Connections:      protocolStats['AIS140'].connections,
+      ais140V2Connections:    protocolStats['AIS140V2'].connections,
+      concoxConnections:      protocolStats['CONCOX'].connections,
+      voltyConnections:       protocolStats['VOLTY'].connections,
+      fmb920Connections:      protocolStats['FMB920'].connections,
+      ec08Connections:        protocolStats['EC08'].connections,
+      v54gConnections:        protocolStats['V54G'].connections,
+      voltyFuelConnections:   protocolStats['VOLTYFUEL'].connections,
       stats: protocolStats
     }));
   } else {
@@ -1777,6 +1806,7 @@ function shutdown() {
   ec08Server.close();
   pt06Server.close();
   pn02Server.close();
+  voltyFuelServer.close();
   healthServer.close();
   setTimeout(() => process.exit(0), 1000);
 }
@@ -2158,4 +2188,4 @@ function startV54GServer(port) {
   return server;
 }
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, v54gServer, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, v54gServer, voltyFuelServer, healthServer };

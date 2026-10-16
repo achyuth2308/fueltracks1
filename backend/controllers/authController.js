@@ -203,6 +203,11 @@ const AuthController = {
         }
       }
 
+      if (jwtUser.role === 'superadmin') {
+        jwtUser.orgId = 'a0000000-0000-0000-0000-000000000001';
+        orgName = 'FuelTracks Platform';
+      }
+
       // Fetch map config from org profile
       let mapProvider = null;
       let apiKey = null;

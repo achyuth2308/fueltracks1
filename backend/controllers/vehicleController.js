@@ -59,11 +59,11 @@ const VehicleController = {
       const result = await db.query(`
         SELECT v.id as vehicle_id,
                COALESCE(vls.today_distance, 0) as cdist,
-               CASE
+               GREATEST(0, CASE
                  WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
                  THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
                  ELSE COALESCE(vls.today_start_odometer, vls.odometer, 0) + COALESCE(vls.today_distance, 0)
-               END as dynamic_odo
+               END) as dynamic_odo
         FROM vehicles v
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `);
@@ -72,7 +72,7 @@ const VehicleController = {
       result.rows.forEach(row => {
         metrics[row.vehicle_id] = {
           cDist: parseFloat(row.cdist || 0),
-          dynamicOdo: parseFloat(row.dynamic_odo || 0)
+          dynamicOdo: Math.max(0, parseFloat(row.dynamic_odo || 0))
         };
       });
 
@@ -497,7 +497,7 @@ const VehicleController = {
   async updateVehicleSettings(req, res, next) {
     try {
       const { id } = req.params;
-      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert } = req.body;
+      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, stoppageThreshold, alertConfig } = req.body;
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -528,6 +528,8 @@ const VehicleController = {
       if (overSpeedLimit !== undefined) newMetadata.overSpeedLimit = parseFloat(overSpeedLimit);
       if (overspeedDurationAlert !== undefined) newMetadata.overspeedDurationAlert = parseFloat(overspeedDurationAlert);
       if (idleDurationAlert !== undefined) newMetadata.idleDurationAlert = parseFloat(idleDurationAlert);
+      if (stoppageThreshold !== undefined) newMetadata.stoppageThreshold = parseFloat(stoppageThreshold);
+      if (alertConfig !== undefined && typeof alertConfig === 'object') newMetadata.alertConfig = alertConfig;
 
       // Perform update
       const updated = await VehicleModel.update(id, { metadata: newMetadata });

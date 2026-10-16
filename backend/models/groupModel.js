@@ -210,10 +210,12 @@ const GroupModel = {
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM vehicle_groups WHERE group_id = $1', [groupId]);
-      for (const vehicleId of vehicleIds) {
+      if (vehicleIds && Array.isArray(vehicleIds) && vehicleIds.length > 0) {
         await client.query(
-          'INSERT INTO vehicle_groups (group_id, vehicle_id) VALUES ($1, $2)',
-          [groupId, vehicleId]
+          `INSERT INTO vehicle_groups (group_id, vehicle_id)
+           SELECT $1, unnest($2::uuid[])
+           ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+          [groupId, vehicleIds]
         );
       }
       await client.query('COMMIT');

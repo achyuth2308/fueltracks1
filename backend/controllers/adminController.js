@@ -255,6 +255,17 @@ const AdminController = {
         });
       }
 
+      // Proactive Brain Safeguard: Never delete an org that currently has active devices or vehicles
+      const deviceCheck = await db.query('SELECT COUNT(*) FROM devices WHERE org_id = $1', [id]);
+      const vehicleCheck = await db.query('SELECT COUNT(*) FROM vehicles WHERE org_id = $1', [id]);
+      if (parseInt(deviceCheck.rows[0].count) > 0 || parseInt(vehicleCheck.rows[0].count) > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Safety Guard: Cannot delete this organization. It contains ${deviceCheck.rows[0].count} device(s) and ${vehicleCheck.rows[0].count} vehicle(s). Please move or unassign them first.`,
+          code: 'ORGANIZATION_HAS_DEVICES'
+        });
+      }
+
       const deleted = await OrgModel.delete(id);
       if (!deleted) {
         return res.status(404).json({
@@ -346,20 +357,42 @@ const AdminController = {
         phone
       });
 
-      // Handle user group assignments
-      if (groupIds && Array.isArray(groupIds)) {
-        const validGroupIds = [];
+      // Handle user group assignments - ALWAYS ensure a group with the username is created
+      const autoGroupName = (username || name || email).trim();
+      let autoGroupId = null;
+      if (autoGroupName) {
+        const existingGroup = await db.query(
+          `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+          [targetOrgId, autoGroupName]
+        );
+        if (existingGroup.rows.length > 0) {
+          autoGroupId = existingGroup.rows[0].id;
+        } else {
+          const createdGroup = await GroupModel.create({
+            orgId: targetOrgId,
+            name: autoGroupName,
+            description: `Auto-created group for user ${autoGroupName}`
+          });
+          autoGroupId = createdGroup.id;
+        }
+      }
+
+      const allGroupIds = new Set();
+      if (autoGroupId) allGroupIds.add(autoGroupId);
+
+      if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
         for (const gId of groupIds) {
           if (req.user.role === 'superadmin') {
-            validGroupIds.push(gId);
+            allGroupIds.add(gId);
           } else {
             const belongs = await GroupModel.belongsToOrg(gId, targetOrgId);
-            if (belongs) validGroupIds.push(gId);
+            if (belongs) allGroupIds.add(gId);
           }
         }
-        if (validGroupIds.length > 0) {
-          await GroupModel.assignUserToGroups(newUser.id, validGroupIds);
-        }
+      }
+
+      if (allGroupIds.size > 0) {
+        await GroupModel.assignUserToGroups(newUser.id, Array.from(allGroupIds));
       }
 
       res.status(201).json({
@@ -752,8 +785,19 @@ const AdminController = {
           d.*, 
           o.name as org_name,
           v.id as vehicle_uuid,
-          v.name as vehicle_name,
-          vls.is_online,
+          COALESCE(v.name, v.plate) as vehicle_name,
+          CASE 
+            WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+            WHEN (
+              COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+              OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
+              OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
+            )
+            AND (vls.ignition = FALSE OR vls.ignition IS NULL)
+            AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+            AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+            ELSE FALSE 
+          END as is_online,
           vls.last_seen
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id
@@ -789,6 +833,19 @@ const AdminController = {
         if (deviceRes.rows[0].org_id !== req.user.orgId) {
           return res.status(403).json({ success: false, error: 'Access denied.' });
         }
+      }
+
+      // Proactive Brain Safeguard: Prevent deleting a device if it is linked to an active vehicle
+      const linkedVeh = await db.query(
+        'SELECT id, plate, name FROM vehicles WHERE imei = (SELECT device_id FROM devices WHERE id = $1) LIMIT 1',
+        [id]
+      );
+      if (linkedVeh.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Safety Guard: Cannot delete device. It is actively linked to vehicle "${linkedVeh.rows[0].plate || linkedVeh.rows[0].name}". Unlink or migrate the vehicle before deleting the device.`,
+          code: 'DEVICE_LINKED_TO_VEHICLE'
+        });
       }
 
       const result = await db.query('DELETE FROM devices WHERE id = $1 RETURNING id', [id]);
@@ -1325,52 +1382,6 @@ const AdminController = {
       const GpsModel = require('../models/gpsModel');
       const alerts = await GpsModel.getRecentAlerts(orgId);
       res.json({ success: true, data: alerts });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  // ============================================================
-  // GROUPS
-  // ============================================================
-  async getAllGroups(req, res, next) {
-    try {
-      const groups = await GroupModel.findAll(req.user.orgId, req.user.role, req.user.userId);
-      res.status(200).json({ success: true, data: groups });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async createGroup(req, res, next) {
-    try {
-      const { name, description } = req.body;
-      if (!name) return res.status(400).json({ success: false, error: 'Group name is required.' });
-      const group = await GroupModel.create({ orgId: req.user.orgId, name, description });
-      res.status(201).json({ success: true, data: group, message: 'Group created successfully.' });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async updateGroup(req, res, next) {
-    try {
-      const { id } = req.params;
-      const { name, description, isActive } = req.body;
-      const updated = await GroupModel.update(id, { name, description, isActive });
-      if (!updated) return res.status(404).json({ success: false, error: 'Group not found.' });
-      res.status(200).json({ success: true, data: updated });
-    } catch (err) {
-      next(err);
-    }
-  },
-
-  async deleteGroup(req, res, next) {
-    try {
-      const { id } = req.params;
-      const deleted = await GroupModel.delete(id);
-      if (!deleted) return res.status(404).json({ success: false, error: 'Group not found.' });
-      res.status(200).json({ success: true, message: 'Group deleted.' });
     } catch (err) {
       next(err);
     }

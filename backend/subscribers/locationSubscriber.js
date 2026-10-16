@@ -344,6 +344,29 @@ async function start(io) {
         }
       }
 
+      // ── STATUS SINCE TRACKING ───────────────────────────────────────────
+      // Compute the current vehicle status using the same rules as the Flutter app:
+      //   'moving'  → speed > 2 km/h
+      //   'idle'    → speed <= 2 km/h AND ignition ON
+      //   'parked'  → speed <= 2 km/h AND ignition OFF
+      const evalSpeedForStatus = (speed || 0);
+      let currentStatusKey;
+      if (evalSpeedForStatus > 2) {
+        currentStatusKey = 'moving';
+      } else if (finalIgnition === true) {
+        currentStatusKey = 'idle';
+      } else {
+        currentStatusKey = 'parked';
+      }
+
+      // Detect transitions and persist statusSince in the Redis cache
+      const prevStatusKey = prevState ? prevState.statusKey : null;
+      let statusSince = prevState ? prevState.statusSince : null;
+      if (prevStatusKey !== currentStatusKey || !statusSince) {
+        // Status changed — record the exact deviceTime when the new state began
+        statusSince = deviceTime;
+      }
+
       // 2c. Compute Fuel in Liters (Quick Calibration Interpolation)
       let finalFuelLiters = fuel; // Default to raw if no calibration exists
       if (vehicle.metadata) {
@@ -398,7 +421,7 @@ async function start(io) {
       // 3. Cache updated state in Redis (fast — always per-packet)
       // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
       if (isLive) {
-        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince, fuel: finalFuelLiters };
+        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince, fuel: finalFuelLiters, statusKey: currentStatusKey, statusSince };
         await redis.set(
           `vehicle:state:${imei}`,
           JSON.stringify(updatedPayload),
@@ -519,8 +542,24 @@ async function start(io) {
         const evalSpeed = data.isHeartbeat ? (prevState ? parseFloat(prevState.speed) : 0) : (speed || 0);
 
         // Check A: Ignition ON transition
+        // Smart Filter: Only trigger if the vehicle was actually parked for at least 3 minutes, or was asleep.
+        // This prevents massive alert spam from loose ignition wires or stop-and-go traffic.
         if (finalIgnition === true && prevState && prevState.ignition === false) {
-          alertsToTrigger.push({ type: 'ignition_on', text: 'Ignition ON Alert: Vehicle started.' });
+          const igKey = `vehicle:ignition_on_fired:${vehicleId}`;
+          const alreadyFired = await redis.get(igKey);
+          
+          let wasParkedLongEnough = false;
+          if (prevState.parkedSince) {
+            const parkedDurationMs = currentDeviceTimeMs - new Date(prevState.parkedSince).getTime();
+            if (parkedDurationMs >= 3 * 60 * 1000) { // Off for at least 3 minutes
+              wasParkedLongEnough = true;
+            }
+          }
+
+          if (!alreadyFired && (wasParkedLongEnough || wasAsleep)) {
+            alertsToTrigger.push({ type: 'ignition_on', text: 'Engine ON Alert: Vehicle started.' });
+            await redis.set(igKey, '1', 'EX', 1800); // Lock for 30 minutes to ensure it doesn't fire again on this trip
+          }
         }
 
         // Check A2: Safety Park Alarm (Unauthorized Movement / Ignition)
@@ -547,9 +586,62 @@ async function start(io) {
         // Check B: Trip started (Automated trip started notification removed as requested)
         // Only Manual Trips (Check G) will now trigger trip_started / trip_ended alerts.
 
-        // Check C: Ignition OFF transition
-        if (finalIgnition === false && prevState && prevState.ignition === true) {
-          alertsToTrigger.push({ type: 'stoppage', text: `Vehicle Stoppage Alert: ${vehicle.name} (${vehicle.plate}) has stopped and ignition turned OFF.` });
+        // Check C: Stoppage & Moving Tracking based on SPEED
+        // Stoppage alert fires when speed hits 0 (debounced).
+        // Moving alert fires when speed reaches >= 10 km/h, reporting the duration it was stopped.
+        const stoppageStartKey = `vehicle:stoppage_start:${vehicleId}`;
+        const stoppageAlertFiredKey = `vehicle:stoppage_fired:${vehicleId}`;
+        
+        if (evalSpeed === 0) {
+          const existingStart = await redis.get(stoppageStartKey);
+          let startMs = currentDeviceTimeMs;
+          if (!existingStart || wasAsleep) {
+            await redis.set(stoppageStartKey, startMs); // Start tracking stoppage
+          } else {
+            startMs = parseInt(existingStart, 10);
+          }
+          
+          // Fire a 'stoppage' alert ONCE when the vehicle has been stopped for the user's custom threshold.
+          const customThresholdMins = vehicle.metadata?.stoppageThreshold ? parseInt(vehicle.metadata.stoppageThreshold, 10) : 10; // Default 10 mins
+          const currentDurationMins = (currentDeviceTimeMs - startMs) / 60000;
+          
+          if (currentDurationMins >= customThresholdMins) {
+            const alreadyFiredStoppage = await redis.get(stoppageAlertFiredKey);
+            if (!alreadyFiredStoppage) {
+              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit', hour12: true };
+              const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
+              const endFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
+              
+              alertsToTrigger.push({ 
+                type: 'stoppage', 
+                text: `Long Stoppage Alert: ${vehicle.name} (${vehicle.plate}) has been stopped for ${customThresholdMins} mins (from ${startFmt} to ${endFmt}).` 
+              });
+              // Lock it so it only fires exactly once per stoppage session
+              await redis.set(stoppageAlertFiredKey, '1', 'EX', 86400); // 24h lock, cleared when moving
+            }
+          }
+        } else if (evalSpeed >= 10) {
+          const stoppageStartStr = await redis.get(stoppageStartKey);
+          if (stoppageStartStr) {
+            const startMs = parseInt(stoppageStartStr, 10);
+            const durationMin = Math.round((currentDeviceTimeMs - startMs) / 60000);
+            
+            // Only fire if the stoppage was at least 3 minutes (filters out standard traffic lights/stop signs)
+            if (durationMin >= 3) {
+              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit', hour12: true };
+              const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
+              const endFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
+              
+              // This calculates duration and time window as requested for the MOVING alert
+              alertsToTrigger.push({ 
+                type: 'moving', 
+                text: `Moving Alert: ${vehicle.name} (${vehicle.plate}) has started moving after ${durationMin} mins of stoppage (from ${startFmt} to ${endFmt}).` 
+              });
+            }
+            // Clear the tracking keys since the vehicle is now moving >= 10 kmph
+            await redis.del(stoppageStartKey);
+            await redis.del(stoppageAlertFiredKey);
+          }
         }
 
         // Check C2: Long Parking Alert
@@ -750,7 +842,11 @@ async function start(io) {
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true,
           // today_distance included so the mobile app can display live covered distance
-          today_distance: todayDistanceKm ?? 0
+          today_distance: todayDistanceKm ?? 0,
+          // statusSince: the exact timestamp when the vehicle entered its current status
+          // (Moving/Idle/Parked). Flutter uses this to show accurate duration like
+          // "Moving Since 10:25 AM (3h 15m)" instead of resetting to now() every packet.
+          statusSince
         };
         io.to(`vehicle:${vehicleId}`).emit('location:update', payload);
         io.to(`org:${orgId}`).emit('fleet:update', payload);

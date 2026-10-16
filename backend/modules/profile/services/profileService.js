@@ -175,9 +175,47 @@ class ProfileService {
       delete updateData.api_key;
     }
 
-    const newProfile = await profileRepository.upsertProfile(organizationId, updateData);
+    const targetUserId = user?.userId || user?.id;
+    let oldUser = null;
+    if (targetUserId) {
+      try {
+        const uRes = await db.query('SELECT id, name, email, phone, role FROM users WHERE id = $1', [targetUserId]);
+        oldUser = uRes.rows[0] || null;
+      } catch (_) {}
+    }
 
-    // Audit Log
+    const newProfile = await profileRepository.upsertProfile(organizationId, updateData, targetUserId);
+
+    // If user updated their personal details (name/phone), log an explicit USER audit event
+    const newName = updateData.name || updateData.contact_person;
+    const newPhone = updateData.phone || updateData.mobile;
+    if (targetUserId && (newName !== undefined || newPhone !== undefined)) {
+      try {
+        const AuditService = require('../../../services/auditService');
+        const uRes = await db.query('SELECT id, name, email, phone, role FROM users WHERE id = $1', [targetUserId]);
+        const updatedUser = uRes.rows[0] || {};
+        await AuditService.log({
+          auditType: 'user',
+          entityType: 'User',
+          entityId: targetUserId,
+          entityName: updatedUser.name || oldUser?.name || user.email || 'User Profile',
+          action: 'UPDATED',
+          oldData: oldUser ? { name: oldUser.name, phone: oldUser.phone, email: oldUser.email } : null,
+          newData: { name: updatedUser.name || newName, phone: updatedUser.phone || newPhone, email: updatedUser.email || oldUser?.email },
+          performedById: targetUserId,
+          performedByName: updatedUser.name || user.name || 'User',
+          performedByEmail: user.email,
+          performedByRole: user.role || 'customer',
+          orgId: organizationId,
+          ipAddress: user.ip || '0.0.0.0',
+          userAgent: user.userAgent || 'FuelTracks Mobile App'
+        });
+      } catch (auditErr) {
+        console.error('[ProfileService] Failed to log user audit:', auditErr.message);
+      }
+    }
+
+    // Organization Profile Audit Log
     await profileRepository.createAuditLog({
       audit_type: 'organization',
       entity_type: 'Profile',

@@ -19,6 +19,9 @@ class ProfileController {
         }
       }
     }
+    if (req.user?.role === 'superadmin') {
+      return 'a0000000-0000-0000-0000-000000000001';
+    }
     return req.user.orgId;
   }
 

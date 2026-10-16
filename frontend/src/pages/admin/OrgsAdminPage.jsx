@@ -126,7 +126,7 @@ const OrgsAdminPage = () => {
   };
 
   const handleDelete = async (org) => {
-    if (org.type === 'super') {
+    if (org.type === 'super' || org.id === 'a0000000-0000-0000-0000-000000000001') {
       alert('Access Denied: The root platform organization cannot be deleted as it hosts all other accounts and settings.');
       return;
     }
@@ -176,6 +176,8 @@ const OrgsAdminPage = () => {
       setAssignedUserIds([...assignedUserIds, id]);
     }
   };
+
+  const visibleOrgs = orgs.filter(org => org.id !== 'a0000000-0000-0000-0000-000000000001');
 
   return (
     <div className="pastel-page-bg" style={{ padding: '32px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -233,13 +235,13 @@ const OrgsAdminPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {orgs.length === 0 ? (
+                {visibleOrgs.length === 0 ? (
                   <tr>
                     <td colSpan="8" style={{ padding: '40px', textAlign: 'center' }}>
                       <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>No organizations available</div>
                     </td>
                   </tr>
-                ) : orgs.filter(org => org.type !== 'super').map((org) => (
+                ) : visibleOrgs.map((org) => (
                   <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                     <td style={{ padding: '16px 20px' }}>
                       <div 
@@ -276,7 +278,7 @@ const OrgsAdminPage = () => {
                         <button onClick={() => handleOpenModal(org)} title="Edit Organization" style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '6px', color: '#f97316', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
                           <Edit size={14} /> Edit
                         </button>
-                        {org.type !== 'super' && parseInt(org.superadmin_count) === 0 && (
+                        {org.id !== 'a0000000-0000-0000-0000-000000000001' && parseInt(org.superadmin_count || 0) === 0 && (
                           <button onClick={() => handleDelete(org)} title="Delete Organization" style={{ padding: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
                         )}
                       </div>
@@ -354,7 +356,6 @@ const OrgsAdminPage = () => {
                         <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', background: '#fff', boxSizing: 'border-box', color: '#111827' }}>
                           <option value="customer">Customer</option>
                           <option value="dealer">Dealer</option>
-                          <option value="super">Platform Super</option>
                         </select>
                       </div>
                     </div>

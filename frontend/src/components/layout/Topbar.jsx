@@ -23,7 +23,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       axiosInstance.get('/api/profile').then(res => {
         if (res.data?.success && res.data.profile) {
           setBrandProfile(res.data.profile);
-          applyBrowserBranding(res.data.profile);
+          if (user?.role !== 'superadmin') {
+            applyBrowserBranding(res.data.profile);
+          } else {
+            document.title = 'FuelTracks — Enterprise Fleet Intelligence';
+          }
         }
       }).catch(() => {});
     };
@@ -33,7 +37,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     const handleProfileUpdated = (e) => {
       if (e.detail) {
         setBrandProfile(e.detail);
-        applyBrowserBranding(e.detail);
+        if (user?.role !== 'superadmin') {
+          applyBrowserBranding(e.detail);
+        } else {
+          document.title = 'FuelTracks — Enterprise Fleet Intelligence';
+        }
       } else {
         loadProfile();
       }
@@ -165,19 +173,24 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   useEffect(() => {
     if (vehicles.length > 0) {
       const online = vehicles.filter(v => v.is_online).length;
-      setStats({ total: vehicles.length, online, offline: vehicles.length - online });
+      setStats({ total: vehicles.length, online, offline: Math.max(0, vehicles.length - online) });
     } else {
       adminApi.getDashboardStats().then(res => {
         if (res?.success && res?.data) {
+          const total = parseInt(res.data.total_vehicles || res.data.total_devices) || 0;
+          const online = parseInt(res.data.online_vehicles) || 0;
+          const offline = res.data.offline_vehicles !== undefined
+            ? parseInt(res.data.offline_vehicles)
+            : Math.max(0, total - online);
           setStats({
-            total: parseInt(res.data.total_vehicles) || 0,
-            online: parseInt(res.data.online_vehicles) || 0,
-            offline: parseInt(res.data.offline_vehicles) || 0,
+            total,
+            online,
+            offline,
           });
         }
       }).catch(() => { });
     }
-  }, [vehicles]);
+  }, [vehicles.length]);
 
   const timeStr = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const dateStr = formatLocalDate(time);
@@ -227,22 +240,22 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
             <img 
-              src={brandProfile?.logo_url ? getFullImageUrl(brandProfile.logo_url) : '/fuelimage.png'} 
-              alt={brandProfile?.brand_name || user?.orgName || 'FuelTracks'} 
+              src={user?.role === 'superadmin' ? '/fuelimage.png' : (brandProfile?.logo_url ? getFullImageUrl(brandProfile.logo_url) : '/fuelimage.png')} 
+              alt={user?.role === 'superadmin' ? 'FuelTracks' : (brandProfile?.brand_name || user?.orgName || 'FuelTracks')} 
               style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              onError={(e) => { if (!brandProfile) e.currentTarget.src = '/fuelimage.png'; }}
+              onError={(e) => { e.currentTarget.src = '/fuelimage.png'; }}
             />
           </div>
           <div>
             <div style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
-              {brandProfile?.brand_name || user?.orgName || (user?.role === 'superadmin' ? 'FuelTracks' : 'Telematics')}
+              {user?.role === 'superadmin' ? 'FuelTracks' : (brandProfile?.brand_name || user?.orgName || 'Telematics')}
             </div>
-            {brandProfile?.brand_tagline ? (
+            {brandProfile?.brand_tagline && user?.role !== 'superadmin' ? (
               <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {brandProfile.brand_tagline.slice(0, 28)}
               </div>
             ) : (
-              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '9px', fontWeight: 600, color: '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {user?.role === 'superadmin' ? 'Enterprise Admin' : 'Telematics Portal'}
               </div>
             )}
@@ -250,7 +263,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Superadmin Workspace Indicator */}
-        {user?.role === 'superadmin' && user?.orgName && user.orgName !== 'FuelTracks' && (
+        {user?.role === 'superadmin' && user?.orgName && !user.orgName.toLowerCase().startsWith('fueltracks') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginLeft: '16px' }}>
             <div style={{
               width: '5px', height: '5px', borderRadius: '50%',

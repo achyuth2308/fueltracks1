@@ -51,10 +51,22 @@ const server = http.createServer(app);
 
 const isDev = env.NODE_ENV !== 'production';
 
-// General API limiter - 10,000 requests in dev, 5,000 in prod per 15 mins per IP
+// Function to extract real client IP (Cloudflare CF-Connecting-IP > X-Forwarded-For > req.ip)
+const getClientIp = (req) => {
+  return (
+    req.headers['cf-connecting-ip'] ||
+    (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0].trim() : null) ||
+    req.headers['x-real-ip'] ||
+    req.ip ||
+    '127.0.0.1'
+  );
+};
+
+// General API limiter - 50,000 requests in dev, 25,000 in prod per 15 mins per real client IP
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: isDev ? 10000 : 5000,
+  max: isDev ? 50000 : 25000,
+  keyGenerator: (req) => getClientIp(req),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -68,6 +80,7 @@ const apiLimiter = rateLimit({
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 1000 : 200,
+  keyGenerator: (req) => getClientIp(req),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -214,7 +227,8 @@ app.use(errorHandler);
 async function bootstrap() {
   try {
     // 0. Ensure database tables and columns exist
-    await db.query(`
+    try {
+      await db.query(`
       ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhar VARCHAR(255);
@@ -382,7 +396,10 @@ async function bootstrap() {
       CREATE INDEX IF NOT EXISTS idx_mining_reg_imei ON mining_registrations(imei_number);
       CREATE INDEX IF NOT EXISTS idx_mining_reg_created_at ON mining_registrations(created_at DESC);
     `);
-    console.log('[BOOT] Database tables & migrations verified');
+      console.log('[BOOT] Database tables & migrations verified');
+    } catch (migErr) {
+      console.warn('[BOOT] Database schema verification warning (non-fatal):', migErr.message);
+    }
 
     // Auto-sync any unprovisioned Google Form registrations into live devices and vehicles
     await MiningRegistrationController.syncUnprovisionedRegistrations();

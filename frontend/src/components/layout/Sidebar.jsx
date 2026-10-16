@@ -104,7 +104,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     <>
       <aside
         style={{
-          background: brandProfile?.secondary_color || '#1e1b4b',
+          background: user?.role === 'superadmin' ? '#1e1b4b' : (brandProfile?.secondary_color || '#1e1b4b'),
           borderRight: '1px solid rgba(255, 255, 255, 0.1)',
           boxShadow: '4px 0 24px rgba(0,0,0,0.1)',
           display: 'flex',
@@ -127,10 +127,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
               width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
-              background: brandProfile?.primary_color || '#6366f1', color: 'white',
+              background: user?.role === 'superadmin' ? '#6366f1' : (brandProfile?.primary_color || '#6366f1'), color: 'white',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: '13px', fontWeight: 700,
-              boxShadow: `0 4px 12px ${brandProfile?.primary_color ? brandProfile.primary_color + '40' : 'rgba(99,102,241,0.4)'}`,
+              boxShadow: `0 4px 12px ${user?.role === 'superadmin' ? 'rgba(99,102,241,0.4)' : (brandProfile?.primary_color ? brandProfile.primary_color + '40' : 'rgba(99,102,241,0.4)')}`,
             }}>
               {initials}
             </div>

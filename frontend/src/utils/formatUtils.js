@@ -8,8 +8,8 @@ export const formatFuel = (fuel) => {
 };
 
 export const formatOdometer = (odo) => {
-  if (!odo) return '0 km';
-  return `${Number(odo).toLocaleString()} km`;
+  if (odo === null || odo === undefined || isNaN(Number(odo)) || Number(odo) <= 0) return '0 km';
+  return `${Math.max(0, Math.round(Number(odo))).toLocaleString()} km`;
 };
 
 export const formatVoltage = (volt) => {

@@ -21,13 +21,10 @@ const formatDateTime12 = (dateInput) => {
   const day = String(d.getDate()).padStart(2, '0');
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const year = d.getFullYear();
-  let hours = d.getHours();
+  const hours = String(d.getHours()).padStart(2, '0');
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const seconds = String(d.getSeconds()).padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  const strHours = String(hours ? hours : 12).padStart(2, '0');
-  return `${strHours}:${minutes}:${seconds} ${day}-${month}-${year}`;
+  return `${hours}:${minutes}:${seconds} ${day}-${month}-${year}`;
 };
 
 const formatHeaderTime12 = (dateStr, timeStr) => {
@@ -171,17 +168,57 @@ const IgnitionReportPage = () => {
     fetchReport(updatedFilters);
   };
 
+  const prepareRowRenderSpecs = (events) => {
+    if (!events || !events.length) return [];
+    const specs = [];
+    let i = 0;
+    while (i < events.length) {
+      const ev = events[i];
+      if (ev.status === 'ON' && i + 1 < events.length && events[i + 1].status === 'OFF') {
+        const nextEv = events[i + 1];
+        const durationText = formatDuration(nextEv.durationMs);
+
+        specs.push({
+          ev: ev,
+          renderDurationCell: true,
+          durationRowSpan: 2,
+          durationText: durationText
+        });
+
+        specs.push({
+          ev: nextEv,
+          renderDurationCell: false,
+          durationRowSpan: 0,
+          durationText: ''
+        });
+
+        i += 2;
+      } else {
+        specs.push({
+          ev: ev,
+          renderDurationCell: true,
+          durationRowSpan: 1,
+          durationText: ev.durationMs ? formatDuration(ev.durationMs) : ''
+        });
+        i += 1;
+      }
+    }
+    return specs;
+  };
+
   const selectedVehicleObj = vehicles.find(v => v.id === filters.vehicleId);
 
   const getExportData = () => {
     if (!reportData || !reportData.events) return [];
-    return reportData.events.map(ev => {
+    const rowSpecs = prepareRowRenderSpecs(reportData.events);
+    return rowSpecs.map(spec => {
+      const ev = spec.ev;
       const coordKey = `${ev.lat},${ev.lng}`;
-      const addr = addresses[coordKey] || `${ev.lat?.toFixed(5)}, ${ev.lng?.toFixed(5)}`;
+      const addr = addresses[coordKey] || (ev.lat && ev.lng ? `${ev.lat?.toFixed(5)}, ${ev.lng?.toFixed(5)}` : '-');
       return {
         'Date & Time': formatDateTime12(ev.time),
         'Engine Status': ev.status,
-        'Duration': ev.status === 'OFF' ? formatDuration(ev.durationMs) : '',
+        'Duration': spec.renderDurationCell ? spec.durationText : (ev.durationMs ? formatDuration(ev.durationMs) : ''),
         'Address': addr,
         'Latitude': ev.lat || '',
         'Longitude': ev.lng || ''
@@ -275,7 +312,7 @@ const IgnitionReportPage = () => {
                 </tr>
                 <tr style={{ borderBottom: '1px solid #E0F2FE' }}>
                   <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Engine ON</td>
-                  <td style={{ padding: '8px 12px', color: '#334155', borderRight: '1px solid #BAE6FD' }}>{reportData.vehicleInfo?.engineOnDetection || 'Voltage + Ignition ( 12.8 )'}</td>
+                  <td style={{ padding: '8px 12px', color: '#334155', borderRight: '1px solid #BAE6FD' }}>{reportData.vehicleInfo?.engineOnDetection || 'Voltage + Ignition ( 26.0 )'}</td>
                   <td style={{ background: '#E0F2FE', padding: '8px 12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #BAE6FD' }}>Total Duration</td>
                   <td style={{ padding: '8px 12px', fontWeight: 700, color: '#0F172A' }}>{formatDuration(reportData.summary?.totalRunningMs) || '00:00:00'}</td>
                 </tr>
@@ -303,35 +340,50 @@ const IgnitionReportPage = () => {
               </thead>
               <tbody>
                 {reportData.events && reportData.events.length > 0 ? (
-                  reportData.events.map((ev, idx) => {
-                    const coordKey = `${ev.lat},${ev.lng}`;
-                    const addressText = addresses[coordKey] || (ev.lat && ev.lng ? 'Loading address...' : '-');
-                    const durationText = ev.status === 'OFF' ? formatDuration(ev.durationMs) : '';
+                  (() => {
+                    const rowSpecs = prepareRowRenderSpecs(reportData.events);
+                    return rowSpecs.map((spec, idx) => {
+                      const ev = spec.ev;
+                      const coordKey = `${ev.lat},${ev.lng}`;
+                      const addressText = addresses[coordKey] || (ev.lat && ev.lng ? 'Loading address...' : '-');
 
-                    return (
-                      <tr key={idx} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB' }}>
-                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', color: '#1E293B', fontWeight: 500 }}>
-                          {formatDateTime12(ev.time)}
-                        </td>
-                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', fontWeight: 800, color: ev.status === 'ON' ? '#10B981' : '#64748B' }}>
-                          {ev.status}
-                        </td>
-                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', color: '#0F172A', fontWeight: 600, fontFamily: 'monospace' }}>
-                          {durationText}
-                        </td>
-                        <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', textAlign: 'left', color: '#334155' }}>
-                          {addressText}
-                        </td>
-                        <td style={{ padding: '8px 12px' }}>
-                          {ev.lat && ev.lng ? (
-                            <a href={`https://www.google.com/maps?q=${ev.lat},${ev.lng}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              Link <ExternalLink size={12} />
-                            </a>
-                          ) : '-'}
-                        </td>
-                      </tr>
-                    );
-                  })
+                      return (
+                        <tr key={idx} style={{ borderBottom: '1px solid #E2E8F0', background: idx % 2 === 0 ? '#FFFFFF' : '#F9FAFB' }}>
+                          <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', color: '#1E293B', fontWeight: 500 }}>
+                            {formatDateTime12(ev.time)}
+                          </td>
+                          <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', fontWeight: 800, color: ev.status === 'ON' ? '#1E293B' : '#64748B' }}>
+                            {ev.status}
+                          </td>
+                          {spec.renderDurationCell && (
+                            <td
+                              rowSpan={spec.durationRowSpan}
+                              style={{
+                                padding: '8px 12px',
+                                borderRight: '1px solid #E2E8F0',
+                                color: '#0F172A',
+                                fontWeight: 600,
+                                fontFamily: 'monospace',
+                                verticalAlign: 'middle'
+                              }}
+                            >
+                              {spec.durationText}
+                            </td>
+                          )}
+                          <td style={{ padding: '8px 12px', borderRight: '1px solid #E2E8F0', textAlign: 'left', color: '#334155' }}>
+                            {addressText}
+                          </td>
+                          <td style={{ padding: '8px 12px' }}>
+                            {ev.lat && ev.lng ? (
+                              <a href={`https://www.google.com/maps?q=${ev.lat},${ev.lng}`} target="_blank" rel="noreferrer" style={{ color: '#0284C7', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                Link <ExternalLink size={12} />
+                              </a>
+                            ) : '-'}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()
                 ) : (
                   <tr>
                     <td colSpan={5} style={{ padding: '30px', color: '#64748B', fontSize: '13px', background: '#FFF' }}>

@@ -154,7 +154,10 @@ async function start(io) {
       try {
         const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, vehicleId, alertType.toLowerCase());
         if (fcmTokens.length > 0) {
-          const typeUpper = alertType.toUpperCase().replace(/_/g, ' ');
+          let typeUpper = alertType.toUpperCase().replace(/_/g, ' ');
+          if (typeUpper === 'IGNITION ON') typeUpper = 'ENGINE ON';
+          if (typeUpper === 'IGNITION OFF') typeUpper = 'ENGINE OFF';
+          
           const shortAddress = address.split(',')[0].substring(0, 15) + '...';
           
           const vehicleDisplay = vehicle.name || vehicle.plate || 'Unknown Vehicle';

@@ -77,7 +77,9 @@ function parseVoltyTime(dateStr, timeStr) {
  */
 function parseVoltyPacket(raw) {
   const cleanRaw = raw.replace(/\*/g, '').trim();
-  const parts = cleanRaw.split(',');
+  // Support both standard comma-delimited and semicolon-delimited Volty packets
+  const delimiter = (cleanRaw.includes(';') && cleanRaw.split(';').length > cleanRaw.split(',').length) ? ';' : ',';
+  const parts = cleanRaw.split(delimiter);
 
   // Special Handling: Government Standard Emergency EPB Schema ($EPB,EMR,IMEI,NM/SP,DDMMYYYYhhmmss,A/V,Lat,N,Lng,E...)
   if (parts[0] && parts[0].toUpperCase() === '$EPB' && (parts[1] === 'EMR' || parts[1] === 'SEM') && parts[2] && parts[2].length >= 14) {
@@ -161,7 +163,8 @@ function parseVoltyPacket(raw) {
   // Check if packet is Health Monitoring ($HLM / $HLT)
   const header = (parts[0] || '').toUpperCase();
   const pktType = (parts[3] || '').toUpperCase();
-  if (header.includes('HLM') || header.includes('HLT') || pktType === 'HL' || pktType === 'HP' || (parts.length - imeiIndex <= 9)) {
+  const pktTypeAlt = (parts[1] || '').toUpperCase();
+  if (header.includes('HLM') || header.includes('HLT') || pktType === 'HL' || pktType === 'HP' || pktTypeAlt === 'HP' || (parts.length - imeiIndex <= 9)) {
     const batteryPercent = parseInt(safeGet(1), 10) || 100;
     const lowBattThreshold = parseInt(safeGet(2), 10) || 15;
     const memoryPercent = parseInt(safeGet(3), 10) || 0;
