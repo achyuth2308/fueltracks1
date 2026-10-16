@@ -12,6 +12,7 @@ import { formatLocalTime } from '../../utils/dateUtils';
 import { useSocket } from '../../hooks/useSocket';
 
 const DEFAULT_COLUMNS = [
+  { key: 'imei', label: 'Device IMEI', visible: true, width: '155px' },
   { key: 'received_at', label: 'Server Time', visible: true, width: '160px' },
   { key: 'device_time', label: 'GPS Time', visible: true, width: '160px' },
   { key: 'gps_fix', label: 'GPS Fix', visible: true, width: '90px' },
@@ -70,6 +71,7 @@ const SensorLogsPage = () => {
   const navigate = useNavigate();
   const { socket } = useSocket();
 
+  const [vehicle, setVehicle] = useState(null);
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -78,10 +80,23 @@ const SensorLogsPage = () => {
   const [showColPicker, setShowColPicker] = useState(false);
   const [inspectModal, setInspectModal] = useState(null);
   const [copiedHex, setCopiedHex] = useState(false);
+  const [copiedImei, setCopiedImei] = useState(false);
 
   useEffect(() => {
+    fetchVehicle();
     fetchMessages(1);
   }, [id]);
+
+  const fetchVehicle = async () => {
+    try {
+      const res = await api.get(`/api/vehicles/${id}`);
+      if (res.data?.data) {
+        setVehicle(res.data.data);
+      }
+    } catch (e) {
+      console.warn('Failed to fetch vehicle metadata', e);
+    }
+  };
 
   useEffect(() => {
     if (!socket || !id) return;
@@ -141,6 +156,7 @@ const SensorLogsPage = () => {
     if (messages.length === 0) return;
     const exportData = messages.map((m, idx) => ({
       No: idx + 1,
+      'Device IMEI': m.imei || vehicle?.imei || '—',
       'Server Time': formatLocalTime(m.received_at),
       'GPS Time': m.device_time ? formatLocalTime(m.device_time) : '—',
       'GPS Fix': m.gpsValid === 'A' || m.parsed ? 'Valid' : 'No Fix',
@@ -167,22 +183,25 @@ const SensorLogsPage = () => {
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sensor_Packets');
-    XLSX.writeFile(wb, `sensor_logs_${id}_p${pagination.page}.xlsx`);
+    const safeName = (vehicle?.plate || vehicle?.name || id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    XLSX.writeFile(wb, `sensor_logs_${safeName}_p${pagination.page}.xlsx`);
   };
 
   // Export to PDF
   const handleDownloadPDF = () => {
     if (messages.length === 0) return;
     const doc = new jsPDF('landscape');
-    doc.text('Sensor Data Logs — Telemetry Packets', 14, 12);
+    const vehicleLabel = vehicle?.plate || vehicle?.name || 'Vehicle';
+    doc.text(`Sensor Data Logs — Telemetry Packets (${vehicleLabel})`, 14, 12);
     doc.setFontSize(9);
-    doc.text(`Vehicle ID: ${id} | Generated: ${formatLocalTime(new Date().toISOString())}`, 14, 18);
+    doc.text(`Vehicle: ${vehicleLabel} | IMEI: ${vehicle?.imei || messages[0]?.imei || '—'} | Protocol: ${vehicle?.device_version || vehicle?.device_model || '—'} | Generated: ${formatLocalTime(new Date().toISOString())}`, 14, 18);
 
     const tableColumn = [
-      'Server Time', 'GPS Time', 'Fix', 'Speed', 'Ignition',
-      'Serial Fuel', 'Voltage', 'Batt', 'Odometer', 'Sat', 'Packet Type'
+      'IMEI', 'Server Time', 'GPS Time', 'Fix', 'Speed', 'Ignition',
+      'Serial Fuel', 'Voltage', 'Batt', 'Sat', 'Packet Type'
     ];
     const tableRows = messages.map((m) => [
+      m.imei || vehicle?.imei || '—',
       formatLocalTime(m.received_at),
       m.device_time ? formatLocalTime(m.device_time) : '—',
       m.gpsValid === 'A' || m.parsed ? 'Valid' : 'No Fix',
@@ -191,7 +210,6 @@ const SensorLogsPage = () => {
       m.fuel != null ? `${m.fuel} L` : '—',
       m.voltage != null ? `${m.voltage}V` : '—',
       m.battery != null ? `${m.battery}%` : '—',
-      m.odometer != null ? `${m.odometer} km` : '—',
       m.satellites || '—',
       m.packet_type || '—'
     ]);
@@ -204,7 +222,8 @@ const SensorLogsPage = () => {
       headStyles: { fillColor: [249, 115, 22] }
     });
 
-    doc.save(`sensor_logs_${id}_page${pagination.page}.pdf`);
+    const safeName = (vehicle?.plate || vehicle?.name || id).replace(/[^a-zA-Z0-9_-]/g, '_');
+    doc.save(`sensor_logs_${safeName}_page${pagination.page}.pdf`);
   };
 
   const activeCols = useMemo(() => columns.filter((c) => c.visible), [columns]);
@@ -226,7 +245,44 @@ const SensorLogsPage = () => {
               <Server size={20} color="#f97316" />
             </div>
             <div>
-              <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>Sensor Data Logs</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>Sensor Data Logs</h1>
+
+                {/* Vehicle Plate / Name Badge */}
+                {vehicle && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #DBEAFE' }}>
+                    🚗 {vehicle.plate || vehicle.name || 'Vehicle'}
+                    {vehicle.name && vehicle.plate && vehicle.name !== vehicle.plate ? ` (${vehicle.name})` : ''}
+                  </span>
+                )}
+
+                {/* Device IMEI Badge with Copy Button */}
+                {(vehicle?.imei || messages[0]?.imei) && (
+                  <button
+                    onClick={() => {
+                      const imeiToCopy = vehicle?.imei || messages[0]?.imei;
+                      if (imeiToCopy) {
+                        navigator.clipboard.writeText(imeiToCopy);
+                        setCopiedImei(true);
+                        setTimeout(() => setCopiedImei(false), 2000);
+                      }
+                    }}
+                    title="Click to copy IMEI"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '3px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 700, background: '#F8FAFC', color: '#0F172A', border: '1px solid #CBD5E1', cursor: 'pointer', fontFamily: 'monospace' }}
+                  >
+                    <span style={{ color: '#64748B' }}>IMEI:</span>
+                    <span style={{ color: '#EA580C', fontWeight: 800 }}>{vehicle?.imei || messages[0]?.imei}</span>
+                    {copiedImei ? <Check size={13} color="#16A34A" /> : <Copy size={13} color="#64748B" />}
+                  </button>
+                )}
+
+                {/* Device Protocol / Model Badge */}
+                {(vehicle?.device_version || vehicle?.device_model) && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 9px', borderRadius: '6px', fontSize: '11px', fontWeight: 600, background: '#F0FDF4', color: '#15803D', border: '1px solid #DCFCE7' }}>
+                    ⚡ {vehicle.device_version || vehicle.device_model}
+                  </span>
+                )}
+              </div>
               <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Protocol-accurate telemetry stream (Live Socket + Historical)</span>
             </div>
           </div>
@@ -382,6 +438,13 @@ const SensorLogsPage = () => {
                         <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 600, color: '#64748B', borderRight: '1px solid #F1F5F9', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA', position: 'sticky', left: 0, zIndex: 1 }}>
                           {idx + 1}
                         </td>
+
+                        {/* Device IMEI */}
+                        {columns.find((c) => c.key === 'imei')?.visible && (
+                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #F1F5F9' }}>
+                            {m.imei || vehicle?.imei || '—'}
+                          </td>
+                        )}
 
                         {/* Server Time */}
                         {columns.find((c) => c.key === 'received_at')?.visible && (
@@ -662,6 +725,9 @@ const SensorLogsPage = () => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <tbody>
                       {[
+                        { label: 'Device IMEI', value: inspectModal.imei || vehicle?.imei || '—' },
+                        { label: 'Assigned Vehicle', value: vehicle ? `${vehicle.plate || ''} ${vehicle.name ? `(${vehicle.name})` : ''}`.trim() : '—' },
+                        { label: 'Configured Protocol', value: vehicle?.device_version || vehicle?.device_model || '—' },
                         { label: 'Server Reception Time', value: formatLocalTime(inspectModal.received_at) },
                         { label: 'Device GPS Time (UTC)', value: inspectModal.device_time ? formatLocalTime(inspectModal.device_time) : '—' },
                         { label: 'Latitude / Longitude', value: inspectModal.lat ? `${inspectModal.lat}, ${inspectModal.lng}` : '—' },
