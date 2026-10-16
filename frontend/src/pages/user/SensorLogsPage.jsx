@@ -19,10 +19,10 @@ const DEFAULT_COLUMNS = [
   { key: 'speed', label: 'Speed', visible: true, width: '95px' },
   { key: 'heading', label: 'Heading', visible: true, width: '90px' },
   { key: 'ignition', label: 'Ignition', visible: true, width: '95px' },
-  { key: 'fuel', label: 'Serial Fuel (L)', visible: true, width: '120px' },
-  { key: 'serial', label: 'Serial Port Data', visible: true, width: '130px' },
+  { key: 'fuel', label: 'Fuel (L)', visible: true, width: '110px' },
   { key: 'voltage', label: 'Main Voltage', visible: true, width: '110px' },
   { key: 'battery', label: 'Backup Batt', visible: true, width: '110px' },
+  { key: 'serial', label: 'Serial Port Data', visible: false, width: '130px' },
   { key: 'gps_fix', label: 'GPS Fix', visible: false, width: '90px' },
   { key: 'odometer', label: 'Odometer', visible: false, width: '115px' },
   { key: 'satellites', label: 'Satellites', visible: false, width: '90px' },
@@ -165,7 +165,7 @@ const SensorLogsPage = () => {
       'Speed (km/h)': m.speed != null ? m.speed : 0,
       'Heading (deg)': m.direction != null ? `${m.direction}°` : '—',
       'Ignition': m.ignition ? 'ON' : 'OFF',
-      'Serial Fuel (L)': m.fuel != null ? `${m.fuel} L` : '—',
+      'Fuel (L)': m.fuel != null ? `${m.fuel} L` : '—',
       'Serial Port Data': m.serial || '—',
       'Main Voltage (V)': m.voltage != null ? `${m.voltage} V` : '—',
       'Backup Batt (%)': m.battery != null ? `${m.battery}%` : '—',
@@ -198,7 +198,7 @@ const SensorLogsPage = () => {
 
     const tableColumn = [
       'IMEI', 'Server Time', 'GPS Time', 'Fix', 'Speed', 'Ignition',
-      'Serial Fuel', 'Voltage', 'Batt', 'Sat', 'Packet Type'
+      'Fuel', 'Voltage', 'Batt', 'Sat', 'Packet Type'
     ];
     const tableRows = messages.map((m) => [
       m.imei || vehicle?.imei || '—',
@@ -733,7 +733,7 @@ const SensorLogsPage = () => {
                         { label: 'Latitude / Longitude', value: inspectModal.lat ? `${inspectModal.lat}, ${inspectModal.lng}` : '—' },
                         { label: 'Speed', value: `${inspectModal.speed || 0} km/h` },
                         { label: 'Heading / Course', value: inspectModal.direction != null ? `${inspectModal.direction}°` : '—' },
-                        { label: 'Serial Fuel Level', value: inspectModal.fuel != null ? `${inspectModal.fuel} Litres` : '— (No serial fuel detected)' },
+                        { label: 'Fuel Level (L)', value: inspectModal.fuel != null ? `${inspectModal.fuel} Litres` : '— (No fuel sensor reading)' },
                         { label: 'Serial Port Data (Hex)', value: inspectModal.serial || '—' },
                         { label: 'Main Battery Voltage', value: inspectModal.voltage != null ? `${inspectModal.voltage} V` : '—' },
                         { label: 'Internal Backup Battery', value: inspectModal.battery != null ? `${inspectModal.battery}%` : '—' },
