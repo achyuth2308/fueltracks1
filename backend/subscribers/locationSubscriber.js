@@ -422,7 +422,24 @@ async function start(io) {
       // 3. Cache updated state in Redis (fast — always per-packet)
       // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
       if (isLive) {
-        const updatedPayload = { ...data, ignition: finalIgnition, odometer: finalOdometer, parkedSince, fuel: finalFuelLiters, statusKey: currentStatusKey, statusSince };
+        // State preservation: Never erase last-known GPS coordinates or voltage from Redis cache
+        // when a vehicle enters a tunnel, shed, or stationary GPS-blind spot.
+        const cachedLat = lat || (prevState && prevState.lat) || null;
+        const cachedLng = lng || (prevState && prevState.lng) || null;
+        const cachedVoltage = voltage || (prevState && prevState.voltage) || null;
+
+        const updatedPayload = {
+          ...data,
+          lat: cachedLat,
+          lng: cachedLng,
+          voltage: cachedVoltage,
+          ignition: finalIgnition,
+          odometer: finalOdometer,
+          parkedSince,
+          fuel: finalFuelLiters,
+          statusKey: currentStatusKey,
+          statusSince
+        };
         await redis.set(
           `vehicle:state:${imei}`,
           JSON.stringify(updatedPayload),

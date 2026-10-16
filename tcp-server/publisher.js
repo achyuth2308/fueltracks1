@@ -86,12 +86,14 @@ async function publishLocation(parsed) {
       // Ignore JSON parse error on stale cache
     }
 
+    if (!restored) {
       // No valid cached coords either.
       // STILL publish with null coords so ignition/voltage/status is updated.
       // Never fabricate coordinates — leave lat/lng null.
       lat = null;
       lng = null;
       console.warn(`[REDIS] No GPS fix and no cached location for ${imei} — publishing status-only.`);
+    }
   }
 
   const payload = JSON.stringify({
