@@ -579,19 +579,55 @@ const SensorLogsPage = () => {
 
       {/* Packet Inspector Modal Drawer */}
       {inspectModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(3px)', display: 'flex', justifyContent: 'flex-end', zIndex: 1000 }}>
-          <div style={{ width: '560px', height: '100%', background: '#FFFFFF', boxShadow: '-10px 0 30px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'slideIn 0.2s ease-out' }}>
+        <div
+          onClick={() => setInspectModal(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.6)',
+            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            justifyContent: 'flex-end',
+            zIndex: 99999
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '560px',
+              maxWidth: '90vw',
+              height: '100%',
+              background: '#FFFFFF',
+              boxShadow: '-10px 0 30px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: 100000
+            }}
+          >
             {/* Modal Header */}
-            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
+            <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#F8FAFC' }}>
               <div>
                 <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Packet Field Inspector</h2>
                 <span style={{ fontSize: '12px', color: '#64748B' }}>Complete decoded telemetry payload</span>
               </div>
               <button
                 onClick={() => setInspectModal(null)}
-                style={{ width: '32px', height: '32px', borderRadius: '8px', border: 'none', background: '#E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569' }}
+                style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#0F172A',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                }}
+                title="Close Inspector"
               >
-                <X size={16} />
+                <X size={18} />
               </button>
             </div>
 
