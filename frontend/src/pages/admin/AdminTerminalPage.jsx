@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Terminal as TerminalIcon, Search, RefreshCw, Download,
-  MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown
+  MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown,
+  FileCode, Copy, Check
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
@@ -77,6 +78,17 @@ const AdminTerminalPage = () => {
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [error, setError] = useState(null);
   const [liveCount, setLiveCount] = useState(0);
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopy = (id, text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }).catch(err => {
+      console.error('Failed to copy raw packet:', err);
+    });
+  };
 
   // Fetch vehicles list for client-side matching
   useEffect(() => {
@@ -174,10 +186,12 @@ const AdminTerminalPage = () => {
       return {
         'S.No': idx + 1,
         'IMEI': p.imei || '',
-        'Server Time (IST)': formatIST(p.device_time || p.received_at),
+        'Server Time (IST)': formatIST(p.received_at),
+        'Device / GPS Time (IST)': formatIST(p.device_time),
         'Speed (km/h)': speed != null ? Math.round(speed) : 0,
         'Fuel (L)': fuel != null ? Number(fuel).toFixed(2) : '',
-        'Location (Google Maps)': mapsUrl
+        'Location (Google Maps)': mapsUrl,
+        'Raw Packet': p.raw_hex || p.raw || ''
       };
     });
     const ws = XLSX.utils.json_to_sheet(rows);
@@ -485,33 +499,38 @@ const AdminTerminalPage = () => {
         overflow: 'hidden'
       }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
-                <th style={{ padding: '13px 14px', fontWeight: 700, width: '6%', textAlign: 'center', fontSize: '12px' }}>#</th>
-                <th style={{ padding: '13px 16px', fontWeight: 700, width: '20%', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '45px', textAlign: 'center', fontSize: '12px' }}>#</th>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '145px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Cpu size={13} color="#7DD3FC" /> IMEI
                   </div>
                 </th>
-                <th style={{ padding: '13px 16px', fontWeight: 700, width: '22%', fontSize: '12px' }}>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '190px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Clock size={13} color="#7DD3FC" /> Server Time (IST)
                   </div>
                 </th>
-                <th style={{ padding: '13px 16px', fontWeight: 700, width: '13%', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '100px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Navigation size={13} color="#7DD3FC" /> Speed
                   </div>
                 </th>
-                <th style={{ padding: '13px 16px', fontWeight: 700, width: '13%', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '100px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span role="img" aria-label="fuel">⛽</span> Fuel (L)
                   </div>
                 </th>
-                <th style={{ padding: '13px 16px', fontWeight: 700, width: '26%', fontSize: '12px' }}>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '150px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <MapPin size={13} color="#7DD3FC" /> Location (Google Maps)
+                    <MapPin size={13} color="#7DD3FC" /> Location
+                  </div>
+                </th>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '380px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileCode size={13} color="#7DD3FC" /> Raw Packet
                   </div>
                 </th>
               </tr>
@@ -519,14 +538,14 @@ const AdminTerminalPage = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
                     <Loader2 size={30} className="animate-spin" style={{ margin: '0 auto 12px', color: '#1E3A5F', display: 'block' }} />
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading telemetry packets...</div>
                   </td>
                 </tr>
               ) : packets.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
                     <TerminalIcon size={36} style={{ margin: '0 auto 12px', opacity: 0.35, display: 'block' }} />
                     <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>No telemetry packets found</div>
                     <div style={{ fontSize: '13px', marginTop: '4px', color: '#64748B' }}>
@@ -541,6 +560,8 @@ const AdminTerminalPage = () => {
                   const mapsUrl = hasGps
                     ? `https://www.google.com/maps?q=${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`
                     : null;
+                  const rawPacketStr = p.raw_hex || p.raw || '';
+                  const isCopied = copiedId === (p.id || idx);
 
                   return (
                     <tr
@@ -554,30 +575,52 @@ const AdminTerminalPage = () => {
                       onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
                     >
                       {/* S.No */}
-                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>
+                      <td style={{ padding: '12px 12px', textAlign: 'center', color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>
                         {(pagination.page - 1) * pagination.limit + idx + 1}
                       </td>
 
                       {/* IMEI */}
-                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 700, color: '#1E3A5F', fontSize: '12.5px', letterSpacing: '0.02em' }}>
+                      <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontWeight: 700, color: '#1E3A5F', fontSize: '12.5px', letterSpacing: '0.02em' }}>
                         {p.imei || '—'}
                       </td>
 
-                      {/* Server Time */}
-                      <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-                        {formatIST(p.device_time || p.received_at)}
+                      {/* Server Time (IST) */}
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ color: '#0F172A', fontWeight: 600, fontSize: '12.5px' }}>
+                            {formatIST(p.received_at)}
+                          </span>
+                          {p.device_time && (
+                            <span style={{
+                              fontSize: '11px',
+                              color: p.device_time.startsWith('2004') ? '#DC2626' : '#64748B',
+                              display: 'inline-flex', alignItems: 'center', gap: '4px'
+                            }}>
+                              <span style={{ fontWeight: 600, color: '#475569' }}>GPS:</span>
+                              {formatIST(p.device_time)}
+                              {p.device_time.startsWith('2004') && (
+                                <span style={{
+                                  fontSize: '9.5px', background: '#FEE2E2', color: '#991B1B',
+                                  padding: '0 4px', borderRadius: '3px', fontWeight: 700
+                                }}>
+                                  Unsynced
+                                </span>
+                              )}
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Speed */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '12px 12px' }}>
                         <div style={{
                           display: 'inline-flex', alignItems: 'center', gap: '5px',
-                          padding: '4px 12px',
+                          padding: '4px 10px',
                           borderRadius: '20px',
                           background: speed > 0 ? '#DCFCE7' : '#F1F5F9',
                           color: speed > 0 ? '#15803D' : '#64748B',
                           fontWeight: 700,
-                          fontSize: '12.5px'
+                          fontSize: '12px'
                         }}>
                           <Navigation size={11} />
                           {speed != null ? `${Math.round(speed)} km/h` : '0 km/h'}
@@ -585,13 +628,13 @@ const AdminTerminalPage = () => {
                       </td>
 
                       {/* Fuel */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '12px 12px' }}>
                         {fuel != null ? (
                           <span style={{
                             display: 'inline-flex', alignItems: 'center', gap: '4px',
-                            padding: '4px 10px', borderRadius: '20px',
+                            padding: '4px 8px', borderRadius: '20px',
                             background: '#FFF7ED', color: '#C2410C',
-                            fontWeight: 700, fontSize: '12.5px'
+                            fontWeight: 700, fontSize: '12px'
                           }}>
                             ⛽ {parseFloat(fuel).toFixed(2)} L
                           </span>
@@ -601,7 +644,7 @@ const AdminTerminalPage = () => {
                       </td>
 
                       {/* Location */}
-                      <td style={{ padding: '12px 16px' }}>
+                      <td style={{ padding: '12px 14px' }}>
                         {hasGps ? (
                           <a
                             href={mapsUrl}
@@ -610,12 +653,12 @@ const AdminTerminalPage = () => {
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '6px',
+                              gap: '5px',
                               color: '#1D4ED8',
                               textDecoration: 'none',
-                              fontSize: '12.5px',
+                              fontSize: '12px',
                               fontWeight: 600,
-                              padding: '5px 12px',
+                              padding: '4px 10px',
                               borderRadius: '8px',
                               background: '#EFF6FF',
                               border: '1px solid #BFDBFE',
@@ -624,19 +667,57 @@ const AdminTerminalPage = () => {
                             onMouseEnter={e => { e.currentTarget.style.background = '#DBEAFE'; e.currentTarget.style.borderColor = '#93C5FD'; }}
                             onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.borderColor = '#BFDBFE'; }}
                           >
-                            <MapPin size={12} color="#2563EB" />
-                            {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
-                            <ExternalLink size={11} color="#3B82F6" />
+                            <MapPin size={11} color="#2563EB" />
+                            {Number(lat).toFixed(4)}, {Number(lng).toFixed(4)}
+                            <ExternalLink size={10} color="#3B82F6" />
                           </a>
                         ) : (
                           <span style={{
-                            display: 'inline-flex', alignItems: 'center', gap: '5px',
-                            color: '#94A3B8', fontSize: '12px', padding: '5px 10px',
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            color: '#94A3B8', fontSize: '11.5px', padding: '4px 8px',
                             borderRadius: '8px', background: '#F8FAFC',
                             border: '1px solid #E2E8F0'
                           }}>
-                            <MapPin size={12} /> No GPS
+                            <MapPin size={11} /> No GPS
                           </span>
+                        )}
+                      </td>
+
+                      {/* Raw Packet */}
+                      <td style={{ padding: '10px 14px' }}>
+                        {rawPacketStr ? (
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: '6px',
+                            background: '#F8FAFC', border: '1px solid #E2E8F0',
+                            borderRadius: '6px', padding: '4px 8px', maxWidth: '100%'
+                          }}>
+                            <div style={{
+                              fontFamily: 'monospace', fontSize: '11px', color: '#334155',
+                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              flex: 1
+                            }} title={rawPacketStr}>
+                              {rawPacketStr}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(p.id || idx, rawPacketStr)}
+                              title="Copy Raw Packet"
+                              style={{
+                                background: isCopied ? '#DCFCE7' : '#FFFFFF',
+                                border: `1px solid ${isCopied ? '#86EFAC' : '#CBD5E1'}`,
+                                borderRadius: '4px', padding: '3px 7px',
+                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px',
+                                fontSize: '11px', fontWeight: 600,
+                                color: isCopied ? '#15803D' : '#475569',
+                                flexShrink: 0, transition: 'all 0.15s ease'
+                              }}
+                            >
+                              {isCopied ? <Check size={11} color="#16A34A" /> : <Copy size={11} />}
+                              {isCopied ? 'Copied' : 'Copy'}
+                            </button>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
                         )}
                       </td>
                     </tr>

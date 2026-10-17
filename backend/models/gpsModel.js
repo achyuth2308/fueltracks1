@@ -736,7 +736,7 @@ const GpsModel = {
               ) as fuel
        FROM raw_packets
        ${whereClause}
-       ORDER BY COALESCE(device_time, received_at) DESC, id DESC
+       ORDER BY received_at DESC, id DESC
        LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
       queryParams
     );
