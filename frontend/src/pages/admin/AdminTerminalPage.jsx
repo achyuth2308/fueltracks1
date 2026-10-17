@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Terminal as TerminalIcon, Search, RefreshCw, Download,
-  MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink
+  MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
@@ -194,7 +194,7 @@ const AdminTerminalPage = () => {
   const handleExport = () => {
     if (!packets.length) return;
     const rows = packets.map((p, idx) => {
-      const { lat, lng, speed } = extractFields(p);
+      const { lat, lng, speed, fuel } = extractFields(p);
       const mapsUrl = (lat && lng && lat !== 0 && lng !== 0)
         ? `https://www.google.com/maps?q=${lat},${lng}` : '';
       return {
@@ -202,7 +202,7 @@ const AdminTerminalPage = () => {
         'IMEI': p.imei || '',
         'Server Time (IST)': formatIST(p.device_time || p.received_at),
         'Speed (km/h)': speed != null ? Math.round(speed) : 0,
-        'Fuel (L)': fuel != null ? fuel.toFixed(2) : '',
+        'Fuel (L)': fuel != null ? Number(fuel).toFixed(2) : '',
         'Location (Google Maps)': mapsUrl
       };
     });
@@ -244,8 +244,8 @@ const AdminTerminalPage = () => {
             <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em' }}>
               Live Terminal
             </h1>
-            <p style={{ margin: '2px 0 0', fontSize: '12px', opacity: 0.7 }}>
-              Real-time GPS packet stream — IMEI · Server Time · Speed · Location
+            <p style={{ margin: '2px 0 0', fontSize: '12px', opacity: 0.8 }}>
+              Real-time GPS packet stream | IMEI &bull; Server Time &bull; Speed &bull; Location
             </p>
           </div>
         </div>
@@ -278,7 +278,7 @@ const AdminTerminalPage = () => {
               fontFamily: 'monospace',
               color: '#BAE6FD'
             }}>
-              {selectedVehicle?.plate || 'Direct IMEI'} · {selectedVehicle?.imei || activeIdentifier}
+              {selectedVehicle?.plate || 'Direct IMEI'} | {selectedVehicle?.imei || activeIdentifier}
             </div>
           )}
         </div>
@@ -337,8 +337,12 @@ const AdminTerminalPage = () => {
                   <X size={14} />
                 </button>
               )}
-              <span onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={{ color: '#3B82F6', marginLeft: '4px', cursor: 'pointer', fontSize: '10px' }}>▼</span>
+              <ChevronDown
+                size={14}
+                color="#3B82F6"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                style={{ marginLeft: '4px', cursor: 'pointer', flexShrink: 0 }}
+              />
             </div>
 
             {isDropdownOpen && (
@@ -384,8 +388,18 @@ const AdminTerminalPage = () => {
               No. of Records
             </label>
             <input
-              type="number" min="1" max="500" value={recordLimit}
-              onChange={(e) => setRecordLimit(Math.max(1, parseInt(e.target.value) || 50))}
+              type="text"
+              inputMode="numeric"
+              value={recordLimit}
+              onChange={(e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                setRecordLimit(val);
+              }}
+              onBlur={() => {
+                if (!recordLimit || Number(recordLimit) < 1) setRecordLimit(50);
+                else if (Number(recordLimit) > 500) setRecordLimit(500);
+              }}
+              placeholder="e.g. 50"
               style={{
                 width: '100%', border: '1.5px solid #E2E8F0', borderRadius: '8px',
                 padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#0F172A',
@@ -492,54 +506,58 @@ const AdminTerminalPage = () => {
         border: '1px solid #E2E8F0', boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
         overflow: 'hidden'
       }}>
-        {loading ? (
-          <div style={{ padding: '60px', textAlign: 'center', color: '#64748B' }}>
-            <Loader2 size={30} className="animate-spin" style={{ margin: '0 auto 12px', color: '#1E3A5F', display: 'block' }} />
-            <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading packets...</div>
-          </div>
-        ) : packets.length === 0 ? (
-          <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
-            <TerminalIcon size={36} style={{ margin: '0 auto 12px', opacity: 0.3, display: 'block' }} />
-            <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>No packets found</div>
-            <div style={{ fontSize: '13px', marginTop: '4px' }}>
-              Select a vehicle and click <b>Submit</b> to query packets.
-            </div>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-              <thead>
-                <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '50px', textAlign: 'center', fontSize: '12px' }}>#</th>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '175px', fontSize: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Cpu size={13} color="#7DD3FC" /> IMEI
-                    </div>
-                  </th>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '190px', fontSize: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Clock size={13} color="#7DD3FC" /> Server Time (IST)
-                    </div>
-                  </th>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '130px', fontSize: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Navigation size={13} color="#7DD3FC" /> Speed
-                    </div>
-                  </th>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '110px', fontSize: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      ⛽ Fuel (L)
-                    </div>
-                  </th>
-                  <th style={{ padding: '13px 16px', fontWeight: 700, fontSize: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <MapPin size={13} color="#7DD3FC" /> Location (Google Maps)
-                    </div>
-                  </th>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '6%', textAlign: 'center', fontSize: '12px' }}>#</th>
+                <th style={{ padding: '13px 16px', fontWeight: 700, width: '20%', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Cpu size={13} color="#7DD3FC" /> IMEI
+                  </div>
+                </th>
+                <th style={{ padding: '13px 16px', fontWeight: 700, width: '22%', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Clock size={13} color="#7DD3FC" /> Server Time (IST)
+                  </div>
+                </th>
+                <th style={{ padding: '13px 16px', fontWeight: 700, width: '13%', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Navigation size={13} color="#7DD3FC" /> Speed
+                  </div>
+                </th>
+                <th style={{ padding: '13px 16px', fontWeight: 700, width: '13%', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span role="img" aria-label="fuel">⛽</span> Fuel (L)
+                  </div>
+                </th>
+                <th style={{ padding: '13px 16px', fontWeight: 700, width: '26%', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <MapPin size={13} color="#7DD3FC" /> Location (Google Maps)
+                  </div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
+                    <Loader2 size={30} className="animate-spin" style={{ margin: '0 auto 12px', color: '#1E3A5F', display: 'block' }} />
+                    <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading telemetry packets...</div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {packets.map((p, idx) => {
+              ) : packets.length === 0 ? (
+                <tr>
+                  <td colSpan="6" style={{ padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                    <TerminalIcon size={36} style={{ margin: '0 auto 12px', opacity: 0.35, display: 'block' }} />
+                    <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>No telemetry packets found</div>
+                    <div style={{ fontSize: '13px', marginTop: '4px', color: '#64748B' }}>
+                      Select a vehicle or enter an IMEI and click <b>Submit</b> to query packets.
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                packets.map((p, idx) => {
                   const { lat, lng, speed, fuel } = extractFields(p);
                   const hasGps = lat != null && lng != null && lat !== 0 && lng !== 0;
                   const mapsUrl = hasGps
@@ -645,11 +663,11 @@ const AdminTerminalPage = () => {
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Pagination */}
         {pagination.totalPages > 1 && !loading && (
@@ -664,7 +682,7 @@ const AdminTerminalPage = () => {
             gap: '10px'
           }}>
             <span style={{ fontSize: '12px', color: '#64748B' }}>
-              Page <b>{pagination.page}</b> of <b>{pagination.totalPages}</b> · {pagination.total} total packets
+              Page <b>{pagination.page}</b> of <b>{pagination.totalPages}</b> | {pagination.total} total packets
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
@@ -676,7 +694,7 @@ const AdminTerminalPage = () => {
                   fontSize: '12px', fontWeight: 600, color: '#334155',
                   opacity: pagination.page <= 1 ? 0.4 : 1
                 }}
-              >← Prev</button>
+              >&larr; Prev</button>
               <button
                 disabled={pagination.page >= pagination.totalPages}
                 onClick={() => fetchPackets(pagination.page + 1)}
@@ -686,7 +704,7 @@ const AdminTerminalPage = () => {
                   fontSize: '12px', fontWeight: 600, color: '#334155',
                   opacity: pagination.page >= pagination.totalPages ? 0.4 : 1
                 }}
-              >Next →</button>
+              >Next &rarr;</button>
             </div>
           </div>
         )}

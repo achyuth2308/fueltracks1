@@ -99,12 +99,12 @@ function App() {
                   <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                   <Route path="settings" element={<SettingsAdminPage />} />
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
+                  <Route path="terminal" element={<AdminTerminalPage />} />
                 </Route>
 
                 {/* Shared Protected Routes (All authenticated users including customers) */}
                 <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']} />}>
                   {/* System and Integrations */}
-                  <Route path="terminal" element={<AdminTerminalPage />} />
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<GeofencesAdminPage />} />

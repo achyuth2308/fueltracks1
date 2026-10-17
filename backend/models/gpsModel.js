@@ -697,7 +697,7 @@ const GpsModel = {
     let paramIdx = 2;
 
     if (date) {
-      whereClause += ` AND (DATE(COALESCE(device_time, received_at) AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date OR DATE(received_at AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date)`;
+      whereClause += ` AND (DATE(COALESCE(device_time, received_at) + interval '5 hours 30 minutes') = $${paramIdx}::date OR DATE(received_at + interval '5 hours 30 minutes') = $${paramIdx}::date)`;
       params.push(date);
       paramIdx++;
     }
