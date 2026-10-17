@@ -25,12 +25,12 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
         }
       } else {
         setName('');
-        setOrgId('');
+        setOrgId(orgs && orgs.length > 0 ? orgs[0].id : '');
         setSelectedVehicleIds(new Set());
       }
       setError(null);
     }
-  }, [isOpen, editingGroup]);
+  }, [isOpen, editingGroup, orgs]);
 
   // Fetch all vehicles (and fallback to query group vehicles if not already present on editingGroup)
   useEffect(() => {
@@ -103,10 +103,11 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
     setError(null);
 
     try {
-      await onSave({ name, orgId, vehicleIds: Array.from(selectedVehicleIds) });
+      const resolvedOrgId = editingGroup?.org_id || orgId || (orgs && orgs[0]?.id) || null;
+      await onSave({ name, orgId: resolvedOrgId, vehicleIds: Array.from(selectedVehicleIds) });
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create group');
+      setError(err.response?.data?.error || 'Failed to save group');
     } finally {
       setLoading(false);
     }
@@ -142,39 +143,18 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Group Name *
-              </label>
-              <input
-                type="text"
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. North Zone Fleet"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-
-            <div style={{ flex: 1 }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Organization *
-              </label>
-              <select
-                required
-                value={orgId}
-                onChange={(e) => setOrgId(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box', appearance: 'none', cursor: 'pointer' }}
-              >
-                <option value="" disabled>Select Organization</option>
-                {orgs.map((org) => (
-                  <option key={org.id} value={org.id}>
-                    {org.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+              Group Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. North Zone Fleet"
+              style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+            />
           </div>
           
           {/* Controls Bar: Select All + Search */}

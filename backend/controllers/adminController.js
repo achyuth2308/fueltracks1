@@ -603,6 +603,15 @@ const AdminController = {
       if (req.user.role === 'superadmin' && orgId) {
         targetOrgId = orgId;
       }
+      if (!targetOrgId) {
+        const defaultOrgResult = await db.query("SELECT id FROM organizations WHERE type = 'super' LIMIT 1");
+        if (defaultOrgResult.rows.length > 0) {
+          targetOrgId = defaultOrgResult.rows[0].id;
+        } else {
+          const anyOrg = await db.query("SELECT id FROM organizations LIMIT 1");
+          targetOrgId = anyOrg.rows[0]?.id;
+        }
+      }
 
       const newGroup = await GroupModel.create({
         orgId: targetOrgId,
@@ -670,7 +679,8 @@ const AdminController = {
         vehicleNames: oldVehicleNames
       };
 
-      const updated = await GroupModel.update(id, { name, description, isActive, orgId });
+      const targetOrgId = (orgId !== undefined && orgId !== null && orgId !== '') ? orgId : oldGroup.org_id;
+      const updated = await GroupModel.update(id, { name, description, isActive, orgId: targetOrgId });
 
       if (vehicleIds && Array.isArray(vehicleIds)) {
         await GroupModel.assignVehiclesToGroup(id, vehicleIds);

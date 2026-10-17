@@ -22,6 +22,7 @@ import {
   FileCheck,
   Sparkles,
   Palette,
+  Terminal,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -60,6 +61,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
+        { name: 'Terminal', path: '/admin/terminal', icon: Terminal, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Registrations', path: '/admin/mining-registrations', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },

@@ -672,30 +672,59 @@ const GpsModel = {
   /**
    * Get raw messages for Sensor Data page
    */
-  async getRawMessages(imei, { page = 1, limit = 100 }) {
+  async getRawMessages(imei, { page = 1, limit = 100, date = null }) {
     if (!imei) {
       return { messages: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 1 } };
     }
     const offset = (page - 1) * limit;
 
+    let whereClause = `WHERE imei = $1`;
+    const params = [imei];
+    let paramIdx = 2;
+
+    if (date) {
+      whereClause += ` AND (DATE(COALESCE(device_time, received_at) AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date OR DATE(received_at AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date)`;
+      params.push(date);
+      paramIdx++;
+    }
+
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM raw_packets WHERE imei = $1`,
-      [imei]
+      `SELECT COUNT(*) FROM raw_packets ${whereClause}`,
+      params
     );
     const total = parseInt(countResult.rows[0]?.count || 0);
 
+    const queryParams = [...params, limit, offset];
     const result = await db.query(
       `SELECT id, imei, raw, parsed, error, received_at,
               COALESCE(packet_type, 'DATA') as packet_type,
               COALESCE(device_time, received_at) as device_time,
               COALESCE(odometer, 0) as odometer,
               COALESCE(raw_hex, raw) as raw_hex,
-              parsed_data
+              parsed_data,
+              COALESCE(
+                CASE WHEN parsed_data->>'lat' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lat')::numeric ELSE NULL END,
+                NULL
+              ) as lat,
+              COALESCE(
+                CASE WHEN parsed_data->>'lng' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lng')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'lon' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lon')::numeric ELSE NULL END,
+                NULL
+              ) as lng,
+              COALESCE(
+                CASE WHEN parsed_data->>'speed' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'speed')::numeric ELSE NULL END,
+                0
+              ) as speed,
+              COALESCE(
+                CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
+                NULL
+              ) as fuel
        FROM raw_packets
-       WHERE imei = $1
-       ORDER BY received_at DESC
-       LIMIT $2 OFFSET $3`,
-      [imei, limit, offset]
+       ${whereClause}
+       ORDER BY COALESCE(device_time, received_at) DESC, id DESC
+       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      queryParams
     );
 
     return {
