@@ -586,30 +586,8 @@ const AdminTerminalPage = () => {
                       </td>
 
                       {/* Server Time (IST) */}
-                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ color: '#0F172A', fontWeight: 600, fontSize: '12.5px' }}>
-                            {formatIST(p.received_at)}
-                          </span>
-                          {p.device_time && (
-                            <span style={{
-                              fontSize: '11px',
-                              color: p.device_time.startsWith('2004') ? '#DC2626' : '#64748B',
-                              display: 'inline-flex', alignItems: 'center', gap: '4px'
-                            }}>
-                              <span style={{ fontWeight: 600, color: '#475569' }}>GPS:</span>
-                              {formatIST(p.device_time)}
-                              {p.device_time.startsWith('2004') && (
-                                <span style={{
-                                  fontSize: '9.5px', background: '#FEE2E2', color: '#991B1B',
-                                  padding: '0 4px', borderRadius: '3px', fontWeight: 700
-                                }}>
-                                  Unsynced
-                                </span>
-                              )}
-                            </span>
-                          )}
-                        </div>
+                      <td style={{ padding: '12px 14px', whiteSpace: 'nowrap', color: '#0F172A', fontWeight: 600, fontSize: '12.5px' }}>
+                        {formatIST(p.received_at)}
                       </td>
 
                       {/* Speed */}
