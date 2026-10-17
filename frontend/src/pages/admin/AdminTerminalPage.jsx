@@ -68,11 +68,11 @@ const AdminTerminalPage = () => {
   const [inputValue, setInputValue] = useState('');
   const [isInputFocused, setIsInputFocused] = useState(false);
 
-  const [recordLimit, setRecordLimit] = useState(50);
+  const [recordLimit, setRecordLimit] = useState(10);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
 
   const [packets, setPackets] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [error, setError] = useState(null);
@@ -347,7 +347,7 @@ const AdminTerminalPage = () => {
                 setRecordLimit(val);
               }}
               onBlur={() => {
-                if (!recordLimit || Number(recordLimit) < 1) setRecordLimit(50);
+                if (!recordLimit || Number(recordLimit) < 1) setRecordLimit(10);
                 else if (Number(recordLimit) > 500) setRecordLimit(500);
               }}
               placeholder="10"
