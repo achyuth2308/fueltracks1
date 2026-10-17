@@ -338,6 +338,7 @@ const OnboardController = {
       }
     } catch (err) {
       await client.query('ROLLBACK');
+      console.error('[ONBOARD-ERROR]', err.message || err);
       if (err.code === '23505') {
         let errorMsg = 'A record with this information already exists.';
         if (err.constraint && err.constraint.includes('email')) {

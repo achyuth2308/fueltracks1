@@ -259,11 +259,8 @@ function parseVoltyFuelFrame(f) {
 // ── ACK / COMMAND BUILDERS ───────────────────────────────────
 
 function buildGpsDataAck(seqNum) {
-  // Variant A: Standard TranSync single-byte length (8 bytes total)
-  const a1 = Buffer.from([0x3A, 0x3A, 0x05, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
-  // Variant B: Extended two-byte length (9 bytes total)
-  const a2 = Buffer.from([0x3A, 0x3A, 0x00, 0x09, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
-  return Buffer.concat([a1, a2]);
+  // Standard TranSync 8-byte GPS Data ACK: 3A 3A 05 11 [SeqH] [SeqL] 23 23
+  return Buffer.from([0x3A, 0x3A, 0x05, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
 }
 
 function buildCommandFrame(imei, requestId, asciiCmd) {

@@ -686,18 +686,29 @@ const GpsModel = {
   /**
    * Get raw messages for Sensor Data page
    */
-  async getRawMessages(imei, { page = 1, limit = 100 }) {
+  async getRawMessages(imei, { page = 1, limit = 100, date = null }) {
     if (!imei) {
       return { messages: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 1 } };
     }
     const offset = (page - 1) * limit;
 
+    let whereClause = `WHERE imei = $1`;
+    const params = [imei];
+    let paramIdx = 2;
+
+    if (date) {
+      whereClause += ` AND (DATE(COALESCE(device_time, received_at) AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date OR DATE(received_at AT TIME ZONE 'Asia/Kolkata') = $${paramIdx}::date)`;
+      params.push(date);
+      paramIdx++;
+    }
+
     const countResult = await db.query(
-      `SELECT COUNT(*) FROM raw_packets WHERE imei = $1`,
-      [imei]
+      `SELECT COUNT(*) FROM raw_packets ${whereClause}`,
+      params
     );
     const total = parseInt(countResult.rows[0]?.count || 0);
 
+    const queryParams = [...params, limit, offset];
     const result = await db.query(
       `SELECT id, imei, raw, parsed, error, received_at,
               COALESCE(packet_type, 'DATA') as packet_type,
@@ -706,10 +717,10 @@ const GpsModel = {
               COALESCE(raw_hex, raw) as raw_hex,
               parsed_data
        FROM raw_packets
-       WHERE imei = $1
+       ${whereClause}
        ORDER BY COALESCE(device_time, received_at) DESC, id DESC
-       LIMIT $2 OFFSET $3`,
-      [imei, limit, offset]
+       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+      queryParams
     );
 
     return {

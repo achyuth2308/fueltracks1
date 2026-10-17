@@ -385,6 +385,13 @@ const OnBoardDevicePage = () => {
         </div>
       )}
 
+      {error && (
+        <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#B91C1C', marginBottom: '24px' }}>
+          <AlertCircle size={20} />
+          <div style={{ fontSize: '14px', fontWeight: 600 }}>{error}</div>
+        </div>
+      )}
+
       {/* Minimalist Bulk Onboarding Callout */}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 mb-6">
         <div className="flex items-center gap-3.5">

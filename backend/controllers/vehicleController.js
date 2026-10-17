@@ -912,33 +912,58 @@ const VehicleController = {
   async getVehicleMessages(req, res, next) {
     try {
       const { id } = req.params;
-      const { page, limit } = req.query;
+      const { page, limit, date } = req.query;
 
-      // Access Check
-      if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
-        if (!belongs) {
-          return res.status(403).json({
+      // Look up vehicle by either IMEI or numeric ID
+      let imei = null;
+      let vehicle = null;
+
+      if (/^\d{15}$/.test(id)) {
+        imei = id;
+        vehicle = await VehicleModel.findByImei(id);
+        if (req.user.role !== 'superadmin') {
+          if (!vehicle) {
+            return res.status(404).json({
+              success: false,
+              error: 'Vehicle with this IMEI not found.',
+              code: 'NOT_FOUND'
+            });
+          }
+          const belongs = await VehicleModel.belongsToOrg(vehicle.id, req.user.orgId, req.user.userId, req.user.role);
+          if (!belongs) {
+            return res.status(403).json({
+              success: false,
+              error: 'Access denied to vehicle.',
+              code: 'FORBIDDEN'
+            });
+          }
+        }
+      } else {
+        vehicle = await VehicleModel.findById(id);
+        if (!vehicle || !vehicle.imei) {
+          return res.status(404).json({
             success: false,
-            error: 'Access denied to vehicle.',
-            code: 'FORBIDDEN'
+            error: 'Vehicle or IMEI not found.',
+            code: 'NOT_FOUND'
           });
         }
-      }
-
-      // We need the IMEI of the vehicle
-      const vehicle = await VehicleModel.findById(id);
-      if (!vehicle || !vehicle.imei) {
-        return res.status(404).json({
-          success: false,
-          error: 'Vehicle or IMEI not found.',
-          code: 'NOT_FOUND'
-        });
+        if (req.user.role !== 'superadmin') {
+          const belongs = await VehicleModel.belongsToOrg(vehicle.id, req.user.orgId, req.user.userId, req.user.role);
+          if (!belongs) {
+            return res.status(403).json({
+              success: false,
+              error: 'Access denied to vehicle.',
+              code: 'FORBIDDEN'
+            });
+          }
+        }
+        imei = vehicle.imei;
       }
 
       const result = await GpsModel.getRawMessages(vehicle.imei, {
         page: parseInt(page) || 1,
-        limit: parseInt(limit) || 100
+        limit: parseInt(limit) || 100,
+        date: date || null
       });
 
       res.status(200).json({
