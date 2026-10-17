@@ -60,6 +60,16 @@ const VehiclesAdminPage = () => {
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
+  const [activeActionDropdownId, setActiveActionDropdownId] = useState(null);
+
+  // Close Action dropdown when clicking anywhere outside
+  useEffect(() => {
+    const handleOutsideClick = () => setActiveActionDropdownId(null);
+    if (activeActionDropdownId) {
+      document.addEventListener('click', handleOutsideClick);
+    }
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [activeActionDropdownId]);
 
   const handleCopy = (text, key) => {
     if (!text || text === '-') return;
@@ -697,29 +707,227 @@ const VehiclesAdminPage = () => {
                         </td>
 
                         {/* 12. Actions */}
-                        <td style={{ padding: '8px 14px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-                          <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <td style={{ padding: '8px 14px', textAlign: 'center', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                          <div style={{ position: 'relative', display: 'inline-block' }}>
                             <button
-                              onClick={() => navigate(`/admin/vehicles/edit/${v.id}`)}
-                              title="Edit Vehicle Details"
-                              style={{
-                                width: '30px',
-                                height: '30px',
-                                borderRadius: '7px',
-                                background: '#f0fdf4',
-                                border: '1px solid #bbf7d0',
-                                color: '#16a34a',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s'
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveActionDropdownId(activeActionDropdownId === v.id ? null : v.id);
                               }}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#dcfce7'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#f0fdf4'; }}
+                              title="Click to choose vehicle action"
+                              style={{
+                                padding: '5px 12px',
+                                borderRadius: '5px',
+                                background: '#1d4ed8',
+                                border: '1px solid #1e40af',
+                                color: '#ffffff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                boxShadow: '0 1px 3px rgba(29, 78, 216, 0.3)'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#1e40af'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#1d4ed8'; }}
                             >
-                              <Edit2 size={14} />
+                              <span style={{ fontSize: '10px' }}>◀</span>
+                              <span>Action</span>
                             </button>
+
+                            {/* Dropdown Menu matching reference screenshot */}
+                            {activeActionDropdownId === v.id && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  position: 'absolute',
+                                  right: '100%',
+                                  top: '0',
+                                  marginRight: '6px',
+                                  width: '145px',
+                                  borderRadius: '6px',
+                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.15)',
+                                  zIndex: 99999,
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  textAlign: 'left',
+                                  animation: 'fadeIn 0.12s ease-out'
+                                }}
+                              >
+                                {/* 1. Migration */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/vehicles/migration/${v.id}`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#22c55e',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Migration
+                                </button>
+
+                                {/* 2. Edit - Navigates directly to full Edit Vehicle page with all 5 sections */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/vehicles/edit/${v.id}`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#0284c7',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Edit
+                                </button>
+
+                                {/* 3. Add User */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/users`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#2563eb',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Add User
+                                </button>
+
+                                {/* 4. Calibrate */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/vehicles/edit/${v.id}`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#f97316',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Calibrate
+                                </button>
+
+                                {/* 5. Audit Report */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/audit-logs?search=${encodeURIComponent(v.plate || v.name || v.imei || '')}`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#16a34a',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Audit Report
+                                </button>
+
+                                {/* 6. Rename */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    navigate(`/admin/vehicles/edit/${v.id}`);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#38bdf8',
+                                    color: '#0f172a',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    borderBottom: '1px solid rgba(0,0,0,0.1)',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Rename
+                                </button>
+
+                                {/* 7. Reprocess */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    setViewingVehicle(v);
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '7px 12px',
+                                    background: '#6366f1',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    transition: 'opacity 0.1s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
+                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                >
+                                  Reprocess
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
