@@ -65,10 +65,8 @@ const AdminTerminalPage = () => {
   const { socket } = useSocket();
 
   const [vehicles, setVehicles] = useState([]);
-  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [inputValue, setInputValue] = useState('');
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = useRef(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const [recordLimit, setRecordLimit] = useState(50);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
@@ -80,18 +78,7 @@ const AdminTerminalPage = () => {
   const [error, setError] = useState(null);
   const [liveCount, setLiveCount] = useState(0);
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setIsDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  // Fetch vehicles list
+  // Fetch vehicles list for client-side matching
   useEffect(() => {
     const fetchList = async () => {
       setFetchingVehicles(true);
@@ -101,11 +88,6 @@ const AdminTerminalPage = () => {
           ? res.data.data
           : (Array.isArray(res.data?.vehicles) ? res.data.vehicles : []);
         setVehicles(list);
-        if (list.length > 0) {
-          const first = list[0];
-          setSelectedVehicle(first);
-          setInputValue(`${first.plate} (${first.imei})`);
-        }
       } catch (err) {
         console.error('Failed to load vehicles:', err);
       } finally {
@@ -115,20 +97,31 @@ const AdminTerminalPage = () => {
     fetchList();
   }, []);
 
-  // Active identifier: vehicle ID or typed 15-digit IMEI
+  // Match vehicle by plate, name, or IMEI
+  const matchedVehicle = useMemo(() => {
+    const clean = inputValue.trim().toLowerCase();
+    if (!clean) return null;
+    return vehicles.find(v =>
+      (v.plate && v.plate.toLowerCase() === clean) ||
+      (v.imei && v.imei.toLowerCase() === clean) ||
+      (v.name && v.name.toLowerCase() === clean)
+    ) || null;
+  }, [vehicles, inputValue]);
+
+  // Active identifier: vehicle ID or typed 15-digit IMEI / plate
   const activeIdentifier = useMemo(() => {
-    if (selectedVehicle?.id) return selectedVehicle.id;
-    if (selectedVehicle?.imei) return selectedVehicle.imei;
     const clean = inputValue.trim();
-    if (/^\d{15}$/.test(clean)) return clean;
-    const match = clean.match(/\((\d{15})\)/);
-    if (match) return match[1];
+    if (!clean) return '';
+    if (matchedVehicle) return matchedVehicle.id || matchedVehicle.imei;
     return clean;
-  }, [selectedVehicle, inputValue]);
+  }, [matchedVehicle, inputValue]);
 
   const activeImei = useMemo(() => {
-    return selectedVehicle?.imei || (String(activeIdentifier).length === 15 ? activeIdentifier : null);
-  }, [selectedVehicle, activeIdentifier]);
+    if (matchedVehicle?.imei) return matchedVehicle.imei;
+    const clean = inputValue.trim();
+    if (/^\d{15}$/.test(clean)) return clean;
+    return null;
+  }, [matchedVehicle, inputValue]);
 
   // Fetch packets from API
   const fetchPackets = async (page = 1) => {
@@ -153,12 +146,6 @@ const AdminTerminalPage = () => {
     }
   };
 
-  // Fetch on vehicle selection change
-  useEffect(() => {
-    if (activeIdentifier) fetchPackets(1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVehicle]);
-
   // Live Socket.io updates
   useEffect(() => {
     if (!socket || !activeImei) return;
@@ -176,19 +163,6 @@ const AdminTerminalPage = () => {
     socket.on('raw:update', handleRaw);
     return () => socket.off('raw:update', handleRaw);
   }, [socket, activeImei, recordLimit]);
-
-  // Filter vehicles for dropdown
-  const filteredVehicles = useMemo(() => {
-    if (!inputValue) return vehicles;
-    const q = inputValue.toLowerCase().trim();
-    const cleanQ = q.includes('(') ? q.split('(')[0].trim() : q;
-    return vehicles.filter(v =>
-      (v.plate && v.plate.toLowerCase().includes(cleanQ)) ||
-      (v.imei && v.imei.includes(cleanQ))
-    );
-  }, [vehicles, inputValue]);
-
-  const isExactImei = /^\d{15}$/.test(inputValue.trim());
 
   // Export to Excel
   const handleExport = () => {
@@ -209,7 +183,7 @@ const AdminTerminalPage = () => {
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Terminal');
-    XLSX.writeFile(wb, `Terminal_${selectedVehicle?.plate || activeIdentifier}_${selectedDate || 'all'}.xlsx`);
+    XLSX.writeFile(wb, `Terminal_${matchedVehicle?.plate || activeIdentifier || 'data'}_${selectedDate || 'all'}.xlsx`);
   };
 
   return (
@@ -278,7 +252,7 @@ const AdminTerminalPage = () => {
               fontFamily: 'monospace',
               color: '#BAE6FD'
             }}>
-              {selectedVehicle?.plate || 'Direct IMEI'} | {selectedVehicle?.imei || activeIdentifier}
+              {matchedVehicle ? `${matchedVehicle.plate} (${matchedVehicle.imei})` : activeIdentifier}
             </div>
           )}
         </div>
@@ -295,97 +269,74 @@ const AdminTerminalPage = () => {
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
           gap: '18px',
-          alignItems: 'flex-end'
+          alignItems: 'flex-start'
         }}>
-          {/* Vehicle / IMEI selector */}
-          <div style={{ position: 'relative' }} ref={dropdownRef}>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Reg No / IMEI
+          {/* Reg No / IMEI text input (No dropdown, matching Image 1) */}
+          <div>
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+              Reg No/IMEI :
             </label>
             <div style={{
-              border: '1.5px solid #3B82F6',
-              borderRadius: '8px',
-              padding: '0 10px',
+              border: isInputFocused ? '1.5px solid #EA580C' : '1px solid #CBD5E1',
+              borderRadius: '10px',
+              padding: '0 12px',
               background: '#FFFFFF',
               display: 'flex',
               alignItems: 'center',
-              minHeight: '38px'
+              minHeight: '42px',
+              boxSizing: 'border-box',
+              transition: 'all 0.15s ease'
             }}>
               <input
                 type="text"
-                placeholder="Search plate or IMEI..."
+                placeholder="Search IMEI / Reg No / ICCID"
                 value={inputValue}
-                onChange={(e) => {
-                  setInputValue(e.target.value);
-                  setIsDropdownOpen(true);
-                  const val = e.target.value.trim().toLowerCase();
-                  const exact = vehicles.find(v => v.plate?.toLowerCase() === val || v.imei === val);
-                  setSelectedVehicle(exact || null);
-                }}
-                onFocus={() => setIsDropdownOpen(true)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { setIsDropdownOpen(false); fetchPackets(1); } }}
+                onChange={(e) => setInputValue(e.target.value)}
+                onFocus={() => setIsInputFocused(true)}
+                onBlur={() => setIsInputFocused(false)}
+                onKeyDown={(e) => { if (e.key === 'Enter') fetchPackets(1); }}
                 style={{
-                  border: 'none', outline: 'none', background: 'transparent',
-                  fontSize: '13px', fontWeight: 600, color: '#0F172A', width: '100%', padding: '8px 4px'
+                  border: 'none',
+                  outline: 'none',
+                  background: 'transparent',
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  color: '#0F172A',
+                  width: '100%',
+                  padding: '9px 0'
                 }}
               />
               {inputValue && (
-                <button type="button" onClick={() => { setInputValue(''); setSelectedVehicle(null); setIsDropdownOpen(true); }}
-                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px' }}>
-                  <X size={14} />
+                <button
+                  type="button"
+                  onClick={() => setInputValue('')}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px', display: 'flex', alignItems: 'center' }}
+                >
+                  <X size={15} />
                 </button>
               )}
-              <ChevronDown
-                size={14}
-                color="#3B82F6"
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={{ marginLeft: '4px', cursor: 'pointer', flexShrink: 0 }}
-              />
             </div>
-
-            {isDropdownOpen && (
+            {isInputFocused && inputValue.trim().length > 0 && inputValue.trim().length < 4 && (
               <div style={{
-                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
-                marginTop: '4px', background: '#FFF', borderRadius: '10px',
-                border: '1px solid #CBD5E1', boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                maxHeight: '240px', display: 'flex', flexDirection: 'column', overflow: 'hidden'
+                marginTop: '5px',
+                padding: '3px 8px',
+                background: '#F1F5F9',
+                borderRadius: '6px',
+                fontSize: '11px',
+                color: '#64748B',
+                display: 'inline-block'
               }}>
-                {isExactImei && !vehicles.some(v => v.imei === inputValue.trim()) && (
-                  <div onClick={() => { setSelectedVehicle({ id: inputValue.trim(), plate: 'Custom IMEI', imei: inputValue.trim() }); setIsDropdownOpen(false); }}
-                    style={{ padding: '10px 12px', background: '#EFF6FF', borderBottom: '1px solid #DBEAFE', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#1D4ED8' }}>
-                    ⚡ Use direct IMEI: <b>{inputValue.trim()}</b>
-                  </div>
-                )}
-                <div style={{ overflowY: 'auto', flex: 1 }}>
-                  {filteredVehicles.length === 0 ? (
-                    <div style={{ padding: '16px', fontSize: '12px', color: '#94A3B8', textAlign: 'center' }}>No vehicles found</div>
-                  ) : filteredVehicles.map(v => (
-                    <div key={v.id}
-                      onClick={() => { setSelectedVehicle(v); setInputValue(`${v.plate} (${v.imei})`); setIsDropdownOpen(false); }}
-                      style={{
-                        padding: '9px 12px', fontSize: '12px', cursor: 'pointer',
-                        borderBottom: '1px solid #F8FAFC',
-                        background: selectedVehicle?.id === v.id ? '#EFF6FF' : 'transparent',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
-                      onMouseLeave={e => e.currentTarget.style.background = selectedVehicle?.id === v.id ? '#EFF6FF' : 'transparent'}
-                    >
-                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{v.plate}</span>
-                      <span style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{v.imei}</span>
-                    </div>
-                  ))}
-                </div>
+                Enter at least 4 characters
               </div>
             )}
           </div>
 
           {/* No of Records */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              No. of Records
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+              No Of Records :
             </label>
             <input
               type="text"
@@ -399,47 +350,68 @@ const AdminTerminalPage = () => {
                 if (!recordLimit || Number(recordLimit) < 1) setRecordLimit(50);
                 else if (Number(recordLimit) > 500) setRecordLimit(500);
               }}
-              placeholder="e.g. 50"
+              placeholder="10"
               style={{
-                width: '100%', border: '1.5px solid #E2E8F0', borderRadius: '8px',
-                padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#0F172A',
-                outline: 'none', boxSizing: 'border-box'
+                width: '100%',
+                border: '1px solid #CBD5E1',
+                borderRadius: '10px',
+                padding: '9px 12px',
+                minHeight: '42px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#0F172A',
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
           </div>
 
           {/* Date */}
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Date
+            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+              Date :
             </label>
             <input
-              type="date" value={selectedDate}
+              type="date"
+              value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               style={{
-                width: '100%', border: '1.5px solid #E2E8F0', borderRadius: '8px',
-                padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#0F172A',
-                outline: 'none', boxSizing: 'border-box'
+                width: '100%',
+                border: '1px solid #CBD5E1',
+                borderRadius: '10px',
+                padding: '9px 12px',
+                minHeight: '42px',
+                fontSize: '13px',
+                fontWeight: 600,
+                color: '#0F172A',
+                outline: 'none',
+                boxSizing: 'border-box'
               }}
             />
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '24px' }}>
             <button
               onClick={() => fetchPackets(1)}
               disabled={loading || !activeIdentifier}
               style={{
-                background: loading || !activeIdentifier ? '#94A3B8' : '#1E3A5F',
-                color: '#FFFFFF', border: 'none', borderRadius: '8px',
-                padding: '9px 22px', fontSize: '13px', fontWeight: 700,
+                background: loading || !activeIdentifier ? '#94A3B8' : '#C2410C',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '10px 24px',
+                fontSize: '13px',
+                fontWeight: 700,
                 cursor: loading || !activeIdentifier ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', gap: '7px',
-                boxShadow: '0 2px 8px rgba(30, 58, 95, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 8px rgba(194, 65, 12, 0.25)',
                 transition: 'all 0.15s ease'
               }}
             >
-              {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+              {loading && <Loader2 size={15} className="animate-spin" />}
               Submit
             </button>
 
@@ -448,10 +420,16 @@ const AdminTerminalPage = () => {
               disabled={packets.length === 0}
               title="Export to Excel"
               style={{
-                background: '#FFFFFF', color: '#334155',
-                border: '1.5px solid #E2E8F0', borderRadius: '8px',
-                padding: '9px 14px', cursor: packets.length === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: '#FFFFFF',
+                color: '#334155',
+                border: '1px solid #CBD5E1',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                minHeight: '40px',
+                cursor: packets.length === 0 ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 opacity: packets.length === 0 ? 0.5 : 1,
                 boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
               }}
