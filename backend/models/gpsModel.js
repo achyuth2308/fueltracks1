@@ -715,7 +715,20 @@ const GpsModel = {
               COALESCE(device_time, received_at) as device_time,
               COALESCE(odometer, 0) as odometer,
               COALESCE(raw_hex, raw) as raw_hex,
-              parsed_data
+              parsed_data,
+              COALESCE(
+                CASE WHEN parsed_data->>'lat' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lat')::numeric ELSE NULL END,
+                NULL
+              ) as lat,
+              COALESCE(
+                CASE WHEN parsed_data->>'lng' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lng')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'lon' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lon')::numeric ELSE NULL END,
+                NULL
+              ) as lng,
+              COALESCE(
+                CASE WHEN parsed_data->>'speed' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'speed')::numeric ELSE NULL END,
+                0
+              ) as speed
        FROM raw_packets
        ${whereClause}
        ORDER BY COALESCE(device_time, received_at) DESC, id DESC

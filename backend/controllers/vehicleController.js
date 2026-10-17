@@ -960,7 +960,7 @@ const VehicleController = {
         imei = vehicle.imei;
       }
 
-      const result = await GpsModel.getRawMessages(vehicle.imei, {
+      const result = await GpsModel.getRawMessages(imei || vehicle?.imei, {
         page: parseInt(page) || 1,
         limit: parseInt(limit) || 100,
         date: date || null

@@ -1,55 +1,27 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Terminal as TerminalIcon, Search, Calendar, RefreshCw, Download,
-  Copy, Check, ChevronLeft, ChevronRight, AlertCircle, Loader2,
-  FileSpreadsheet, Filter, CheckCircle2, XCircle, ArrowUpDown, X
+  Terminal as TerminalIcon, Search, RefreshCw, Download,
+  MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
 import { useSocket } from '../../hooks/useSocket';
 
-function formatTerminalDateTime(isoString) {
+function formatIST(isoString) {
   if (!isoString) return '—';
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return '—';
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    return `${day}-${month}-${year} ${hours}:${minutes} ${ampm}`;
-  } catch (e) {
-    return '—';
-  }
-}
-
-function formatTerminalDate(isoString) {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return '—';
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${day}-${month}-${year}`;
-  } catch (e) {
-    return '—';
-  }
-}
-
-function formatTerminalTime(isoString) {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d.getTime())) return '—';
-    let hours = d.getHours();
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    return `${hours}:${minutes} ${ampm}`;
+    return d.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).replace(',', '');
   } catch (e) {
     return '—';
   }
@@ -57,13 +29,11 @@ function formatTerminalTime(isoString) {
 
 function getTodayString() {
   const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function extractParsedData(m) {
+function extractFields(m) {
+  // Parse parsed_data if string
   let p = {};
   if (m.parsed_data) {
     if (typeof m.parsed_data === 'string') {
@@ -72,241 +42,181 @@ function extractParsedData(m) {
       p = m.parsed_data;
     }
   }
-  return {
-    ...m,
-    fuel: p.fuel != null ? p.fuel : (m.fuel != null ? m.fuel : null),
-    serial: p.serial || p.serialData || p.rfid || m.serial || m.rfid || null,
-    voltage: p.voltage != null ? p.voltage : (m.voltage != null ? m.voltage : null),
-    battery: p.battery != null ? p.battery : (m.battery != null ? m.battery : null),
-    ignition: p.ignition !== undefined ? p.ignition : (m.ignition !== undefined ? m.ignition : null),
-    speed: p.speed != null ? p.speed : (m.speed != null ? m.speed : 0),
-    lat: p.lat != null ? p.lat : (m.lat != null ? m.lat : null),
-    lng: p.lng != null ? p.lng : (m.lng != null ? m.lng : null),
-    gpsValid: p.gpsValid || m.gpsValid || (m.parsed ? 'A' : 'V'),
-    direction: p.direction != null ? p.direction : (m.direction != null ? m.direction : null),
-    satellites: p.satellites != null ? p.satellites : (m.satellites != null ? m.satellites : null),
-    gsmSignal: p.gsmSignal != null ? p.gsmSignal : (m.gsmSignal != null ? m.gsmSignal : null),
-    lac: p.lac || m.lac || null,
-    cellId: p.cellId || m.cellId || null,
-    output1: p.output1 !== undefined ? p.output1 : (m.output1 !== undefined ? m.output1 : null),
-    alertText: p.alertText || m.alertText || null,
-    alertType: p.alertType || m.alertType || null,
-    rawParsed: p
-  };
+
+  // lat/lng: prefer DB-computed columns, fallback to parsed_data
+  const lat = m.lat != null ? parseFloat(m.lat)
+    : (p.lat != null ? parseFloat(p.lat) : null);
+  const lng = m.lng != null ? parseFloat(m.lng)
+    : (p.lng != null ? parseFloat(p.lng) : (p.lon != null ? parseFloat(p.lon) : null));
+
+  // speed: prefer DB-computed columns, fallback to parsed_data
+  const speed = m.speed != null ? parseFloat(m.speed)
+    : (p.speed != null ? parseFloat(p.speed) : 0);
+
+  return { lat, lng, speed };
 }
 
 const AdminTerminalPage = () => {
   const { socket } = useSocket();
 
-  // State
   const [vehicles, setVehicles] = useState([]);
-  const [selectedVehicle, setSelectedVehicle] = useState(null); // { id, plate, imei }
-  const [inputValue, setInputValue] = useState(''); // text typed by user in selector
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
+  const [inputValue, setInputValue] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  const [recordLimit, setRecordLimit] = useState(10);
+  const [recordLimit, setRecordLimit] = useState(50);
   const [selectedDate, setSelectedDate] = useState(getTodayString());
-  const [activeTab, setActiveTab] = useState('raw'); // 'raw' | 'parsed'
 
   const [packets, setPackets] = useState([]);
-  const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, limit: 50, total: 0, totalPages: 1 });
   const [loading, setLoading] = useState(false);
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [error, setError] = useState(null);
-  const [copiedId, setCopiedId] = useState(null);
+  const [liveCount, setLiveCount] = useState(0);
 
   // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (e) => {
+    const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setIsDropdownOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // Fetch all vehicles for selector
+  // Fetch vehicles list
   useEffect(() => {
-    const fetchVehiclesList = async () => {
+    const fetchList = async () => {
       setFetchingVehicles(true);
       try {
         const res = await axiosInstance.get('/api/vehicles');
-        // Backend returns: { success: true, data: [...] }
         const list = Array.isArray(res.data?.data)
           ? res.data.data
           : (Array.isArray(res.data?.vehicles) ? res.data.vehicles : []);
-
         setVehicles(list);
-
-        // Default to AP07TH2233 or first vehicle
-        const target = list.find(v => v.plate === 'AP07TH2233' || v.imei === '868329088498955') || list[0];
-        if (target) {
-          setSelectedVehicle(target);
-          setInputValue(`${target.plate} (${target.imei})`);
+        if (list.length > 0) {
+          const first = list[0];
+          setSelectedVehicle(first);
+          setInputValue(`${first.plate} (${first.imei})`);
         }
       } catch (err) {
-        console.error('Failed to load vehicles list for terminal:', err);
+        console.error('Failed to load vehicles:', err);
       } finally {
         setFetchingVehicles(false);
       }
     };
-    fetchVehiclesList();
+    fetchList();
   }, []);
 
-  // Get active identifier (vehicle ID or typed IMEI)
+  // Active identifier: vehicle ID or typed 15-digit IMEI
   const activeIdentifier = useMemo(() => {
     if (selectedVehicle?.id) return selectedVehicle.id;
     if (selectedVehicle?.imei) return selectedVehicle.imei;
     const clean = inputValue.trim();
     if (/^\d{15}$/.test(clean)) return clean;
-    // Extract IMEI from "PLATE (IMEI)" if present
     const match = clean.match(/\((\d{15})\)/);
     if (match) return match[1];
     return clean;
   }, [selectedVehicle, inputValue]);
 
-  // Fetch packets
+  const activeImei = useMemo(() => {
+    return selectedVehicle?.imei || (String(activeIdentifier).length === 15 ? activeIdentifier : null);
+  }, [selectedVehicle, activeIdentifier]);
+
+  // Fetch packets from API
   const fetchPackets = async (page = 1) => {
     if (!activeIdentifier) return;
     setLoading(true);
     setError(null);
     try {
       const res = await axiosInstance.get(`/api/vehicles/${activeIdentifier}/messages`, {
-        params: {
-          page,
-          limit: recordLimit,
-          date: selectedDate || null
-        }
+        params: { page, limit: recordLimit, date: selectedDate || null }
       });
       if (res.data?.success) {
-        const extracted = (res.data.data || []).map(extractParsedData);
-        setPackets(extracted);
-        if (res.data.pagination) {
-          setPagination(res.data.pagination);
-        }
+        setPackets(res.data.data || []);
+        if (res.data.pagination) setPagination(res.data.pagination);
       } else {
-        setError(res.data?.error || 'Failed to fetch terminal packets.');
+        setError(res.data?.error || 'Failed to fetch packets.');
       }
     } catch (err) {
-      console.error('Error fetching terminal packets:', err);
-      setError(err.response?.data?.error || err.message || 'Error communicating with server.');
+      console.error('Terminal fetch error:', err);
+      setError(err.response?.data?.error || err.message || 'Server error.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Initial fetch when vehicle selection changes
+  // Fetch on vehicle selection change
   useEffect(() => {
-    if (activeIdentifier) {
-      fetchPackets(1);
-    }
+    if (activeIdentifier) fetchPackets(1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle]);
 
-  // Live Socket.io updates for selected vehicle
+  // Live Socket.io updates
   useEffect(() => {
-    if (!socket || !activeIdentifier) return;
-
-    const currentImei = selectedVehicle?.imei || (String(activeIdentifier).length === 15 ? activeIdentifier : null);
-    if (!currentImei) return;
-
-    const handleRawUpdate = (data) => {
-      if (data && String(data.imei) === String(currentImei)) {
-        const newMsg = extractParsedData(data);
+    if (!socket || !activeImei) return;
+    const handleRaw = (data) => {
+      if (data && String(data.imei) === String(activeImei)) {
         setPackets((prev) => {
-          if (prev.some(p => p.id && newMsg.id && p.id === newMsg.id)) {
-            return prev;
-          }
-          const updated = [newMsg, ...prev];
+          if (prev.some(p => p.id && data.id && p.id === data.id)) return prev;
+          const updated = [data, ...prev];
           return updated.slice(0, recordLimit);
         });
         setPagination(prev => ({ ...prev, total: prev.total + 1 }));
+        setLiveCount(c => c + 1);
       }
     };
-
-    socket.on('raw:update', handleRawUpdate);
-    return () => {
-      socket.off('raw:update', handleRawUpdate);
-    };
-  }, [socket, activeIdentifier, selectedVehicle, recordLimit]);
+    socket.on('raw:update', handleRaw);
+    return () => socket.off('raw:update', handleRaw);
+  }, [socket, activeImei, recordLimit]);
 
   // Filter vehicles for dropdown
   const filteredVehicles = useMemo(() => {
     if (!inputValue) return vehicles;
     const q = inputValue.toLowerCase().trim();
-    // Ignore parenthesized imei for filtering if already selected
     const cleanQ = q.includes('(') ? q.split('(')[0].trim() : q;
     return vehicles.filter(v =>
       (v.plate && v.plate.toLowerCase().includes(cleanQ)) ||
-      (v.imei && v.imei.toLowerCase().includes(cleanQ))
+      (v.imei && v.imei.includes(cleanQ))
     );
   }, [vehicles, inputValue]);
 
-  const isExactImei = useMemo(() => {
-    const clean = inputValue.trim();
-    return /^\d{15}$/.test(clean);
-  }, [inputValue]);
+  const isExactImei = /^\d{15}$/.test(inputValue.trim());
 
-  const handleCopyRaw = (text, id) => {
-    if (!text) return;
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  const handleExportExcel = () => {
-    if (!packets || packets.length === 0) return;
-
-    let exportRows = [];
-    if (activeTab === 'raw') {
-      exportRows = packets.map(p => ({
+  // Export to Excel
+  const handleExport = () => {
+    if (!packets.length) return;
+    const rows = packets.map((p, idx) => {
+      const { lat, lng, speed } = extractFields(p);
+      const mapsUrl = (lat && lng && lat !== 0 && lng !== 0)
+        ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+      return {
+        'S.No': idx + 1,
         'IMEI': p.imei || '',
-        'Time': formatTerminalDateTime(p.device_time || p.received_at),
-        'Valid': p.parsed ? 'true' : (p.gpsValid === 'A' ? 'true' : 'false'),
-        'Raw Data': p.raw_hex || p.raw || '',
-        'Source': 'INDIA',
-        'Processed': 'true'
-      }));
-    } else {
-      exportRows = packets.map((p, idx) => ({
-        'S.No': (pagination.page - 1) * pagination.limit + idx + 1,
-        'Date': formatTerminalDate(p.device_time || p.received_at),
-        'Format': p.packet_type ? p.packet_type.replace('_NORMAL', '') : 'VT02',
-        'Command': p.rawParsed?.command || 'DAT',
-        'Time': formatTerminalTime(p.device_time || p.received_at),
-        'Engine': p.ignition ? 'On' : 'Off',
-        'ADC': p.rawParsed?.adc2Mv || p.rawParsed?.adc1Mv || 0,
-        'Temperature': p.rawParsed?.temperature != null ? `${p.rawParsed.temperature}°C` : 'N/A',
-        'GSM': p.gsmSignal != null ? p.gsmSignal : '—',
-        'Satellites': p.satellites != null ? p.satellites : '—',
-        'Accuracy': p.rawParsed?.hdop || 0,
-        'Latitude': p.lat != null ? Number(p.lat).toFixed(6) : '—',
-        'Longitude': p.lng != null ? Number(p.lng).toFixed(6) : '—',
-        'Speed': p.speed != null ? `${Math.round(p.speed)} km/h` : '0 km/h',
-        'Voltage': p.voltage != null ? `${p.voltage} V` : '—',
-        'Fuel (L)': p.fuel != null ? `${p.fuel} L` : '—'
-      }));
-    }
-
-    const ws = XLSX.utils.json_to_sheet(exportRows);
+        'Server Time (IST)': formatIST(p.device_time || p.received_at),
+        'Speed (km/h)': speed != null ? Math.round(speed) : 0,
+        'Location (Google Maps)': mapsUrl
+      };
+    });
+    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, activeTab === 'raw' ? 'RawData' : 'ParsedData');
-    const fileName = `Terminal_${selectedVehicle?.plate || activeIdentifier}_${activeTab}_${selectedDate || 'all'}.xlsx`;
-    XLSX.writeFile(wb, fileName);
+    XLSX.utils.book_append_sheet(wb, ws, 'Terminal');
+    XLSX.writeFile(wb, `Terminal_${selectedVehicle?.plate || activeIdentifier}_${selectedDate || 'all'}.xlsx`);
   };
 
   return (
-    <div style={{ background: '#F8FAFC', minHeight: '100%', padding: '24px', boxSizing: 'border-box' }}>
-      
-      {/* Top Breadcrumb & Page Banner */}
+    <div style={{ background: '#F0F4F8', minHeight: '100%', padding: '20px', boxSizing: 'border-box' }}>
+
+      {/* Header Banner */}
       <div style={{
-        background: 'linear-gradient(135deg, #0F766E 0%, #115E59 100%)',
-        borderRadius: '16px',
-        padding: '20px 24px',
+        background: 'linear-gradient(135deg, #1E3A5F 0%, #0F2744 100%)',
+        borderRadius: '14px',
+        padding: '18px 24px',
         color: '#FFFFFF',
-        marginBottom: '20px',
-        boxShadow: '0 4px 14px rgba(15, 118, 110, 0.15)',
+        marginBottom: '18px',
+        boxShadow: '0 4px 20px rgba(15, 39, 68, 0.25)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -315,663 +225,396 @@ const AdminTerminalPage = () => {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
           <div style={{
-            background: 'rgba(255, 255, 255, 0.18)',
-            borderRadius: '12px',
+            background: 'rgba(255, 255, 255, 0.15)',
+            borderRadius: '10px',
             padding: '10px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'
           }}>
-            <TerminalIcon size={26} color="#FFFFFF" />
+            <TerminalIcon size={24} color="#7DD3FC" />
           </div>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                Terminal
-              </h1>
-              <span style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '0.04em'
-              }}>
-                RAW & PARSED PACKET STREAM
-              </span>
-            </div>
-            <p style={{ margin: '3px 0 0', fontSize: '13px', opacity: 0.85 }}>
-              Inspect live incoming hexadecimal and decoded sensor packets from GPS trackers.
+            <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              Live Terminal
+            </h1>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', opacity: 0.7 }}>
+              Real-time GPS packet stream — IMEI · Server Time · Speed · Location
             </p>
           </div>
         </div>
 
-        {activeIdentifier && (
-          <div style={{
-            background: 'rgba(0, 0, 0, 0.2)',
-            padding: '8px 14px',
-            borderRadius: '10px',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px'
-          }}>
-            <span style={{ opacity: 0.8 }}>Target:</span>
-            <span style={{ fontWeight: 700, color: '#A7F3D0' }}>{selectedVehicle?.plate || 'Device IMEI'}</span>
-            <span style={{ opacity: 0.6 }}>•</span>
-            <span style={{ fontFamily: 'monospace' }}>{selectedVehicle?.imei || activeIdentifier}</span>
-          </div>
-        )}
+        {/* Live badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {liveCount > 0 && (
+            <div style={{
+              background: 'rgba(34, 197, 94, 0.2)',
+              border: '1px solid rgba(34, 197, 94, 0.4)',
+              borderRadius: '20px',
+              padding: '4px 12px',
+              fontSize: '12px',
+              color: '#86EFAC',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#22C55E', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+              {liveCount} live packets
+            </div>
+          )}
+          {activeIdentifier && (
+            <div style={{
+              background: 'rgba(255,255,255,0.1)',
+              padding: '6px 12px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontFamily: 'monospace',
+              color: '#BAE6FD'
+            }}>
+              {selectedVehicle?.plate || 'Direct IMEI'} · {selectedVehicle?.imei || activeIdentifier}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Filter Control Card */}
+      {/* Filter Card */}
       <div style={{
         background: '#FFFFFF',
-        borderRadius: '14px',
+        borderRadius: '12px',
         border: '1px solid #E2E8F0',
-        padding: '20px 24px',
-        marginBottom: '20px',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)'
+        padding: '18px 22px',
+        marginBottom: '18px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
       }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '20px',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '18px',
           alignItems: 'flex-end'
         }}>
-
-          {/* Reg No / IMEI Editable Search Dropdown */}
+          {/* Vehicle / IMEI selector */}
           <div style={{ position: 'relative' }} ref={dropdownRef}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              Reg No/IMEI :
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Reg No / IMEI
             </label>
-            <div
-              style={{
-                border: '1.5px solid #F97316',
-                borderRadius: '8px',
-                padding: '2px 8px',
-                background: '#FFFFFF',
-                display: 'flex',
-                alignItems: 'center',
-                minHeight: '38px',
-                boxSizing: 'border-box'
-              }}
-            >
+            <div style={{
+              border: '1.5px solid #3B82F6',
+              borderRadius: '8px',
+              padding: '0 10px',
+              background: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              minHeight: '38px'
+            }}>
               <input
                 type="text"
-                placeholder="Type plate or IMEI (e.g. 861329...)"
+                placeholder="Search plate or IMEI..."
                 value={inputValue}
                 onChange={(e) => {
                   setInputValue(e.target.value);
                   setIsDropdownOpen(true);
-                  // If cleared or changed, check if exact match
                   const val = e.target.value.trim().toLowerCase();
                   const exact = vehicles.find(v => v.plate?.toLowerCase() === val || v.imei === val);
-                  if (exact) {
-                    setSelectedVehicle(exact);
-                  } else {
-                    setSelectedVehicle(null);
-                  }
+                  setSelectedVehicle(exact || null);
                 }}
                 onFocus={() => setIsDropdownOpen(true)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    setIsDropdownOpen(false);
-                    fetchPackets(1);
-                  }
-                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { setIsDropdownOpen(false); fetchPackets(1); } }}
                 style={{
-                  border: 'none',
-                  outline: 'none',
-                  background: 'transparent',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#0F172A',
-                  width: '100%',
-                  padding: '6px 4px'
+                  border: 'none', outline: 'none', background: 'transparent',
+                  fontSize: '13px', fontWeight: 600, color: '#0F172A', width: '100%', padding: '8px 4px'
                 }}
               />
-
               {inputValue && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInputValue('');
-                    setSelectedVehicle(null);
-                    setIsDropdownOpen(true);
-                  }}
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    cursor: 'pointer',
-                    padding: '2px',
-                    color: '#94A3B8'
-                  }}
-                >
-                  <X size={15} />
+                <button type="button" onClick={() => { setInputValue(''); setSelectedVehicle(null); setIsDropdownOpen(true); }}
+                  style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px' }}>
+                  <X size={14} />
                 </button>
               )}
-
-              <span
-                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                style={{ color: '#F97316', fontSize: '10px', marginLeft: '6px', cursor: 'pointer', padding: '4px' }}
-              >
-                ▼
-              </span>
+              <span onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                style={{ color: '#3B82F6', marginLeft: '4px', cursor: 'pointer', fontSize: '10px' }}>▼</span>
             </div>
 
-            {/* Dropdown Menu */}
             {isDropdownOpen && (
               <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                right: 0,
-                zIndex: 50,
-                marginTop: '4px',
-                background: '#FFFFFF',
-                borderRadius: '10px',
-                border: '1px solid #CBD5E1',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                maxHeight: '260px',
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden'
+                position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+                marginTop: '4px', background: '#FFF', borderRadius: '10px',
+                border: '1px solid #CBD5E1', boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
+                maxHeight: '240px', display: 'flex', flexDirection: 'column', overflow: 'hidden'
               }}>
-                {/* Direct IMEI fallback option if typed 15 digits */}
                 {isExactImei && !vehicles.some(v => v.imei === inputValue.trim()) && (
-                  <div
-                    onClick={() => {
-                      setSelectedVehicle({ id: inputValue.trim(), plate: 'Custom IMEI', imei: inputValue.trim() });
-                      setIsDropdownOpen(false);
-                    }}
-                    style={{
-                      padding: '10px 12px',
-                      background: '#EFF6FF',
-                      borderBottom: '1px solid #DBEAFE',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: '#1D4ED8',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span>Use direct IMEI: <b>{inputValue.trim()}</b></span>
+                  <div onClick={() => { setSelectedVehicle({ id: inputValue.trim(), plate: 'Custom IMEI', imei: inputValue.trim() }); setIsDropdownOpen(false); }}
+                    style={{ padding: '10px 12px', background: '#EFF6FF', borderBottom: '1px solid #DBEAFE', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: '#1D4ED8' }}>
+                    ⚡ Use direct IMEI: <b>{inputValue.trim()}</b>
                   </div>
                 )}
-
                 <div style={{ overflowY: 'auto', flex: 1 }}>
                   {filteredVehicles.length === 0 ? (
-                    <div style={{ padding: '16px', fontSize: '12px', color: '#94A3B8', textAlign: 'center' }}>
-                      {isExactImei ? (
-                        <span>Press <b>Submit</b> to query IMEI: <code>{inputValue.trim()}</code></span>
-                      ) : (
-                        <span>No vehicles matching "{inputValue}"</span>
-                      )}
+                    <div style={{ padding: '16px', fontSize: '12px', color: '#94A3B8', textAlign: 'center' }}>No vehicles found</div>
+                  ) : filteredVehicles.map(v => (
+                    <div key={v.id}
+                      onClick={() => { setSelectedVehicle(v); setInputValue(`${v.plate} (${v.imei})`); setIsDropdownOpen(false); }}
+                      style={{
+                        padding: '9px 12px', fontSize: '12px', cursor: 'pointer',
+                        borderBottom: '1px solid #F8FAFC',
+                        background: selectedVehicle?.id === v.id ? '#EFF6FF' : 'transparent',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
+                      onMouseLeave={e => e.currentTarget.style.background = selectedVehicle?.id === v.id ? '#EFF6FF' : 'transparent'}
+                    >
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{v.plate}</span>
+                      <span style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{v.imei}</span>
                     </div>
-                  ) : (
-                    filteredVehicles.map(v => (
-                      <div
-                        key={v.id}
-                        onClick={() => {
-                          setSelectedVehicle(v);
-                          setInputValue(`${v.plate} (${v.imei})`);
-                          setIsDropdownOpen(false);
-                        }}
-                        style={{
-                          padding: '8px 12px',
-                          fontSize: '12px',
-                          cursor: 'pointer',
-                          borderBottom: '1px solid #F8FAFC',
-                          background: selectedVehicle?.id === v.id ? '#FFF7ED' : 'transparent',
-                          color: selectedVehicle?.id === v.id ? '#C2410C' : '#1E293B',
-                          fontWeight: selectedVehicle?.id === v.id ? 700 : 500,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = selectedVehicle?.id === v.id ? '#FFF7ED' : 'transparent'}
-                      >
-                        <span style={{ fontWeight: 600 }}>{v.plate}</span>
-                        <span style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{v.imei}</span>
-                      </div>
-                    ))
-                  )}
+                  ))}
                 </div>
               </div>
             )}
           </div>
 
-          {/* No Of Records */}
+          {/* No of Records */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              No Of Records :
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              No. of Records
             </label>
             <input
-              type="number"
-              min="1"
-              max="500"
-              value={recordLimit}
-              onChange={(e) => setRecordLimit(Math.max(1, parseInt(e.target.value) || 10))}
+              type="number" min="1" max="500" value={recordLimit}
+              onChange={(e) => setRecordLimit(Math.max(1, parseInt(e.target.value) || 50))}
               style={{
-                width: '100%',
-                border: '1px solid #CBD5E1',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#0F172A',
-                outline: 'none',
-                boxSizing: 'border-box'
+                width: '100%', border: '1.5px solid #E2E8F0', borderRadius: '8px',
+                padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#0F172A',
+                outline: 'none', boxSizing: 'border-box'
               }}
             />
           </div>
 
-          {/* Date Picker */}
+          {/* Date */}
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-              Date :
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Date
             </label>
             <input
-              type="date"
-              value={selectedDate}
+              type="date" value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
               style={{
-                width: '100%',
-                border: '1px solid #CBD5E1',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#0F172A',
-                outline: 'none',
-                boxSizing: 'border-box'
+                width: '100%', border: '1.5px solid #E2E8F0', borderRadius: '8px',
+                padding: '9px 12px', fontSize: '13px', fontWeight: 600, color: '#0F172A',
+                outline: 'none', boxSizing: 'border-box'
               }}
             />
           </div>
 
-          {/* Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Buttons */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
             <button
               onClick={() => fetchPackets(1)}
               disabled={loading || !activeIdentifier}
               style={{
-                background: '#C2410C',
-                color: '#FFFFFF',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '9px 24px',
-                fontSize: '14px',
-                fontWeight: 700,
+                background: loading || !activeIdentifier ? '#94A3B8' : '#1E3A5F',
+                color: '#FFFFFF', border: 'none', borderRadius: '8px',
+                padding: '9px 22px', fontSize: '13px', fontWeight: 700,
                 cursor: loading || !activeIdentifier ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                boxShadow: '0 2px 8px rgba(194, 65, 12, 0.25)',
-                opacity: loading || !activeIdentifier ? 0.7 : 1,
+                display: 'flex', alignItems: 'center', gap: '7px',
+                boxShadow: '0 2px 8px rgba(30, 58, 95, 0.25)',
                 transition: 'all 0.15s ease'
               }}
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : null}
-              <span>Submit</span>
+              {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+              Submit
             </button>
 
             <button
-              onClick={handleExportExcel}
+              onClick={handleExport}
               disabled={packets.length === 0}
-              title="Export table to Excel"
+              title="Export to Excel"
               style={{
-                background: '#FFFFFF',
-                color: '#334155',
-                border: '1px solid #CBD5E1',
-                borderRadius: '8px',
-                padding: '9px 14px',
-                cursor: packets.length === 0 ? 'not-allowed' : 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                opacity: packets.length === 0 ? 0.5 : 1
+                background: '#FFFFFF', color: '#334155',
+                border: '1.5px solid #E2E8F0', borderRadius: '8px',
+                padding: '9px 14px', cursor: packets.length === 0 ? 'not-allowed' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: packets.length === 0 ? 0.5 : 1,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
               }}
             >
-              <Download size={18} color="#0F766E" />
+              <Download size={17} color="#16A34A" />
             </button>
           </div>
-
         </div>
       </div>
 
-      {/* Tabs Header */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '24px',
-        borderBottom: '2px solid #E2E8F0',
-        marginBottom: '16px',
-        paddingLeft: '4px'
-      }}>
-        <button
-          onClick={() => setActiveTab('raw')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'raw' ? '3px solid #C2410C' : '3px solid transparent',
-            padding: '10px 16px',
-            fontSize: '14px',
-            fontWeight: 700,
-            color: activeTab === 'raw' ? '#C2410C' : '#64748B',
-            cursor: 'pointer',
-            marginBottom: '-2px',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          RawData
-        </button>
-
-        <button
-          onClick={() => setActiveTab('parsed')}
-          style={{
-            background: 'none',
-            border: 'none',
-            borderBottom: activeTab === 'parsed' ? '3px solid #C2410C' : '3px solid transparent',
-            padding: '10px 16px',
-            fontSize: '14px',
-            fontWeight: 700,
-            color: activeTab === 'parsed' ? '#C2410C' : '#64748B',
-            cursor: 'pointer',
-            marginBottom: '-2px',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          Parsed Data
-        </button>
-      </div>
-
-      {/* Error Alert */}
+      {/* Error */}
       {error && (
         <div style={{
-          background: '#FEF2F2',
-          border: '1px solid #FCA5A5',
-          borderRadius: '10px',
-          padding: '12px 16px',
-          color: '#991B1B',
-          fontSize: '13px',
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
+          background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '10px',
+          padding: '12px 16px', color: '#991B1B', fontSize: '13px',
+          marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px'
         }}>
-          <AlertCircle size={18} />
-          <span>{error}</span>
+          <AlertCircle size={16} /> <span>{error}</span>
         </div>
       )}
 
-      {/* Main Table Card */}
+      {/* Stats Row */}
+      {packets.length > 0 && !loading && (
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          {[
+            { icon: <Cpu size={14} />, label: 'Total Packets', value: pagination.total || packets.length, color: '#1E3A5F' },
+            { icon: <Clock size={14} />, label: 'Showing', value: packets.length, color: '#0F766E' },
+            {
+              icon: <Navigation size={14} />, label: 'GPS Valid',
+              value: packets.filter(p => { const f = extractFields(p); return f.lat && f.lat !== 0 && f.lng && f.lng !== 0; }).length,
+              color: '#16A34A'
+            },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '10px',
+              padding: '10px 18px', display: 'flex', alignItems: 'center', gap: '10px',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
+            }}>
+              <div style={{ color: s.color }}>{s.icon}</div>
+              <div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '11px', color: '#64748B', marginTop: '1px' }}>{s.label}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Table */}
       <div style={{
-        background: '#FFFFFF',
-        borderRadius: '12px',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
+        background: '#FFFFFF', borderRadius: '12px',
+        border: '1px solid #E2E8F0', boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
         overflow: 'hidden'
       }}>
-
         {loading ? (
           <div style={{ padding: '60px', textAlign: 'center', color: '#64748B' }}>
-            <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto 12px', color: '#0F766E' }} />
-            <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading terminal packets...</div>
+            <Loader2 size={30} className="animate-spin" style={{ margin: '0 auto 12px', color: '#1E3A5F', display: 'block' }} />
+            <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading packets...</div>
           </div>
         ) : packets.length === 0 ? (
           <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
-            <TerminalIcon size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
+            <TerminalIcon size={36} style={{ margin: '0 auto 12px', opacity: 0.3, display: 'block' }} />
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>No packets found</div>
             <div style={{ fontSize: '13px', marginTop: '4px' }}>
-              Select a vehicle or enter an IMEI and click <b>Submit</b> to query raw & parsed packets.
+              Select a vehicle and click <b>Submit</b> to query packets.
             </div>
           </div>
-        ) : activeTab === 'raw' ? (
-
-          /* ── TAB 1: RAW DATA TABLE ── */
+        ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
               <thead>
-                <tr style={{ background: '#1E293B', color: '#F8FAFC', fontWeight: 700, borderBottom: '1px solid #0F172A' }}>
-                  <th style={{ padding: '12px 16px', width: '160px' }}>imei</th>
-                  <th style={{ padding: '12px 16px', width: '180px' }}>time</th>
-                  <th style={{ padding: '12px 16px', width: '90px' }}>valid</th>
-                  <th style={{ padding: '12px 16px' }}>data</th>
-                  <th style={{ padding: '12px 16px', width: '100px' }}>source</th>
-                  <th style={{ padding: '12px 16px', width: '100px' }}>processed</th>
+                <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '50px', textAlign: 'center', fontSize: '12px' }}>#</th>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '175px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Cpu size={13} color="#7DD3FC" /> IMEI
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '190px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={13} color="#7DD3FC" /> Server Time (IST)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '130px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Navigation size={13} color="#7DD3FC" /> Speed
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <MapPin size={13} color="#7DD3FC" /> Location (Google Maps)
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {packets.map((p, idx) => {
-                  const rawContent = p.raw_hex || p.raw || '—';
-                  const isValid = p.parsed ? true : (p.gpsValid === 'A');
-                  const isCopied = copiedId === (p.id || idx);
+                  const { lat, lng, speed } = extractFields(p);
+                  const hasGps = lat != null && lng != null && lat !== 0 && lng !== 0;
+                  const mapsUrl = hasGps
+                    ? `https://www.google.com/maps?q=${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`
+                    : null;
 
                   return (
                     <tr
                       key={p.id || idx}
                       style={{
                         borderBottom: '1px solid #F1F5F9',
-                        background: idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC',
+                        background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
                         transition: 'background 0.1s ease'
                       }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'}
+                      onMouseEnter={e => e.currentTarget.style.background = '#EFF6FF'}
+                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
                     >
+                      {/* S.No */}
+                      <td style={{ padding: '12px 16px', textAlign: 'center', color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>
+                        {(pagination.page - 1) * pagination.limit + idx + 1}
+                      </td>
+
                       {/* IMEI */}
-                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#334155', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '12px 16px', fontFamily: 'monospace', fontWeight: 700, color: '#1E3A5F', fontSize: '12.5px', letterSpacing: '0.02em' }}>
                         {p.imei || '—'}
                       </td>
 
-                      {/* Time */}
-                      <td style={{ padding: '12px 16px', color: '#475569', whiteSpace: 'nowrap' }}>
-                        {formatTerminalDateTime(p.device_time || p.received_at)}
-                      </td>
-
-                      {/* Valid */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{
-                          color: isValid ? '#16A34A' : '#DC2626',
-                          fontWeight: 700,
-                          fontSize: '12px'
-                        }}>
-                          {isValid ? 'true' : 'false'}
-                        </span>
-                      </td>
-
-                      {/* Data (Raw string monospace) */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{
-                            fontFamily: 'Consolas, Monaco, monospace',
-                            fontSize: '11.5px',
-                            color: '#0F172A',
-                            wordBreak: 'break-all',
-                            lineHeight: 1.4
-                          }}>
-                            {rawContent}
-                          </span>
-                          <button
-                            onClick={() => handleCopyRaw(rawContent, p.id || idx)}
-                            title="Copy packet"
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: '3px',
-                              borderRadius: '4px',
-                              color: isCopied ? '#16A34A' : '#94A3B8',
-                              flexShrink: 0
-                            }}
-                          >
-                            {isCopied ? <Check size={14} /> : <Copy size={14} />}
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* Source */}
-                      <td style={{ padding: '12px 16px', fontWeight: 600, color: '#475569' }}>
-                        INDIA
-                      </td>
-
-                      {/* Processed */}
-                      <td style={{ padding: '12px 16px' }}>
-                        <span style={{ color: '#16A34A', fontWeight: 700 }}>
-                          true
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-        ) : (
-
-          /* ── TAB 2: PARSED DATA TABLE ── */
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
-              <thead>
-                <tr style={{ background: '#1E293B', color: '#F8FAFC', fontWeight: 700, borderBottom: '1px solid #0F172A' }}>
-                  <th style={{ padding: '12px 14px' }}>S.No</th>
-                  <th style={{ padding: '12px 14px' }}>Date</th>
-                  <th style={{ padding: '12px 14px' }}>Format</th>
-                  <th style={{ padding: '12px 14px' }}>Command</th>
-                  <th style={{ padding: '12px 14px' }}>Time</th>
-                  <th style={{ padding: '12px 14px' }}>Engine</th>
-                  <th style={{ padding: '12px 14px' }}>ADC</th>
-                  <th style={{ padding: '12px 14px' }}>Temperature</th>
-                  <th style={{ padding: '12px 14px' }}>GSM</th>
-                  <th style={{ padding: '12px 14px' }}>Satellites</th>
-                  <th style={{ padding: '12px 14px' }}>Accuracy</th>
-                  <th style={{ padding: '12px 14px' }}>Latitude</th>
-                  <th style={{ padding: '12px 14px' }}>Longitude</th>
-                  <th style={{ padding: '12px 14px' }}>Speed</th>
-                  <th style={{ padding: '12px 14px' }}>Voltage</th>
-                  <th style={{ padding: '12px 14px' }}>Fuel (L)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {packets.map((p, idx) => {
-                  const sNo = (pagination.page - 1) * pagination.limit + idx + 1;
-                  const formatStr = p.packet_type ? p.packet_type.replace('_NORMAL', '').replace('_EXT', '') : 'VT02';
-                  const commandStr = p.rawParsed?.command || (p.packet_type?.includes('NORMAL') ? 'DAT' : (p.packet_type || 'DAT'));
-                  const isIgnOn = !!p.ignition;
-                  const adcVal = p.rawParsed?.adc2Mv != null ? p.rawParsed.adc2Mv : (p.rawParsed?.adc1Mv || 0);
-
-                  return (
-                    <tr
-                      key={p.id || idx}
-                      style={{
-                        borderBottom: '1px solid #F1F5F9',
-                        background: idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC',
-                        transition: 'background 0.1s ease'
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC'}
-                    >
-                      {/* S.No */}
-                      <td style={{ padding: '12px 14px', color: '#64748B', fontWeight: 600 }}>
-                        {sNo}
-                      </td>
-
-                      {/* Date */}
-                      <td style={{ padding: '12px 14px', fontWeight: 600, color: '#334155' }}>
-                        {formatTerminalDate(p.device_time || p.received_at)}
-                      </td>
-
-                      {/* Format */}
-                      <td style={{ padding: '12px 14px', color: '#475569', fontWeight: 600 }}>
-                        {formatStr}
-                      </td>
-
-                      {/* Command */}
-                      <td style={{ padding: '12px 14px', color: '#475569' }}>
-                        {commandStr}
-                      </td>
-
-                      {/* Time */}
-                      <td style={{ padding: '12px 14px', color: '#0F172A', fontWeight: 600 }}>
-                        {formatTerminalTime(p.device_time || p.received_at)}
-                      </td>
-
-                      {/* Engine */}
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          background: isIgnOn ? '#DCFCE7' : '#F1F5F9',
-                          color: isIgnOn ? '#15803D' : '#64748B'
-                        }}>
-                          {isIgnOn ? 'On' : 'Off'}
-                        </span>
-                      </td>
-
-                      {/* ADC */}
-                      <td style={{ padding: '12px 14px', color: '#475569' }}>
-                        {adcVal}
-                      </td>
-
-                      {/* Temperature */}
-                      <td style={{ padding: '12px 14px', color: '#64748B' }}>
-                        {p.rawParsed?.temperature != null ? `${p.rawParsed.temperature}°C` : 'N/A'}
-                      </td>
-
-                      {/* GSM */}
-                      <td style={{ padding: '12px 14px', color: '#334155' }}>
-                        {p.gsmSignal != null ? p.gsmSignal : (p.rawParsed?.csq != null ? p.rawParsed.csq : '5')}
-                      </td>
-
-                      {/* Satellites */}
-                      <td style={{ padding: '12px 14px', color: '#334155', fontWeight: 600 }}>
-                        {p.satellites != null ? p.satellites : '—'}
-                      </td>
-
-                      {/* Accuracy */}
-                      <td style={{ padding: '12px 14px', color: '#64748B' }}>
-                        {p.rawParsed?.accuracy != null ? p.rawParsed.accuracy : (p.rawParsed?.hdop || 0)}
-                      </td>
-
-                      {/* Latitude */}
-                      <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#1E293B' }}>
-                        {p.lat != null ? Number(p.lat).toFixed(6) : '—'}
-                      </td>
-
-                      {/* Longitude */}
-                      <td style={{ padding: '12px 14px', fontFamily: 'monospace', color: '#1E293B' }}>
-                        {p.lng != null ? Number(p.lng).toFixed(6) : '—'}
+                      {/* Server Time */}
+                      <td style={{ padding: '12px 16px', color: '#334155', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                        {formatIST(p.device_time || p.received_at)}
                       </td>
 
                       {/* Speed */}
-                      <td style={{ padding: '12px 14px', color: '#0F172A' }}>
-                        {p.speed != null ? `${Math.round(p.speed)} km/h` : '0 km/h'}
-                      </td>
-
-                      {/* Voltage */}
-                      <td style={{ padding: '12px 14px', fontWeight: 600, color: '#0F766E' }}>
-                        {p.voltage != null ? `${p.voltage} V` : '—'}
-                      </td>
-
-                      {/* Fuel (L) */}
-                      <td style={{ padding: '12px 14px' }}>
-                        <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '6px',
-                          fontSize: '11.5px',
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: '5px',
+                          padding: '4px 12px',
+                          borderRadius: '20px',
+                          background: speed > 0 ? '#DCFCE7' : '#F1F5F9',
+                          color: speed > 0 ? '#15803D' : '#64748B',
                           fontWeight: 700,
-                          background: '#EFF6FF',
-                          color: '#2563EB'
+                          fontSize: '12.5px'
                         }}>
-                          {p.fuel != null ? `${p.fuel} L` : '0 L'}
-                        </span>
+                          <Navigation size={11} />
+                          {speed != null ? `${Math.round(speed)} km/h` : '0 km/h'}
+                        </div>
+                      </td>
+
+                      {/* Location */}
+                      <td style={{ padding: '12px 16px' }}>
+                        {hasGps ? (
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              color: '#1D4ED8',
+                              textDecoration: 'none',
+                              fontSize: '12.5px',
+                              fontWeight: 600,
+                              padding: '5px 12px',
+                              borderRadius: '8px',
+                              background: '#EFF6FF',
+                              border: '1px solid #BFDBFE',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#DBEAFE'; e.currentTarget.style.borderColor = '#93C5FD'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.borderColor = '#BFDBFE'; }}
+                          >
+                            <MapPin size={12} color="#2563EB" />
+                            {Number(lat).toFixed(5)}, {Number(lng).toFixed(5)}
+                            <ExternalLink size={11} color="#3B82F6" />
+                          </a>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            color: '#94A3B8', fontSize: '12px', padding: '5px 10px',
+                            borderRadius: '8px', background: '#F8FAFC',
+                            border: '1px solid #E2E8F0'
+                          }}>
+                            <MapPin size={12} /> No GPS
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -981,95 +624,60 @@ const AdminTerminalPage = () => {
           </div>
         )}
 
-        {/* Pagination & Footer Controls */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 20px',
-          borderTop: '1px solid #E2E8F0',
-          background: '#F8FAFC',
-          fontSize: '12.5px',
-          color: '#64748B',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>Rows per page:</span>
-            <select
-              value={recordLimit}
-              onChange={(e) => {
-                const newLimit = parseInt(e.target.value);
-                setRecordLimit(newLimit);
-              }}
-              style={{
-                border: '1px solid #CBD5E1',
-                borderRadius: '6px',
-                padding: '3px 8px',
-                fontSize: '12px',
-                background: '#FFFFFF',
-                color: '#1E293B',
-                outline: 'none'
-              }}
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-            </select>
-          </div>
-
-          <div>
-            Showing <b>{packets.length > 0 ? (pagination.page - 1) * pagination.limit + 1 : 0}</b> - <b>{(pagination.page - 1) * pagination.limit + packets.length}</b> of <b>{pagination.total}</b>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <button
-              onClick={() => fetchPackets(Math.max(1, pagination.page - 1))}
-              disabled={pagination.page <= 1 || loading}
-              style={{
-                border: '1px solid #CBD5E1',
-                background: '#FFFFFF',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                cursor: pagination.page <= 1 || loading ? 'not-allowed' : 'pointer',
-                opacity: pagination.page <= 1 || loading ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <ChevronLeft size={16} />
-              <span>Previous</span>
-            </button>
-
-            <span style={{ padding: '0 6px', fontWeight: 700, color: '#0F172A' }}>
-              Page {pagination.page} / {pagination.totalPages || 1}
+        {/* Pagination */}
+        {pagination.totalPages > 1 && !loading && (
+          <div style={{
+            padding: '14px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            borderTop: '1px solid #F1F5F9',
+            background: '#FAFAFA',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <span style={{ fontSize: '12px', color: '#64748B' }}>
+              Page <b>{pagination.page}</b> of <b>{pagination.totalPages}</b> · {pagination.total} total packets
             </span>
-
-            <button
-              onClick={() => fetchPackets(pagination.page + 1)}
-              disabled={pagination.page >= pagination.totalPages || loading}
-              style={{
-                border: '1px solid #CBD5E1',
-                background: '#FFFFFF',
-                borderRadius: '6px',
-                padding: '5px 10px',
-                cursor: pagination.page >= pagination.totalPages || loading ? 'not-allowed' : 'pointer',
-                opacity: pagination.page >= pagination.totalPages || loading ? 0.5 : 1,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <span>Next</span>
-              <ChevronRight size={16} />
-            </button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                disabled={pagination.page <= 1}
+                onClick={() => fetchPackets(pagination.page - 1)}
+                style={{
+                  padding: '6px 16px', borderRadius: '7px', border: '1px solid #E2E8F0',
+                  background: '#FFFFFF', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer',
+                  fontSize: '12px', fontWeight: 600, color: '#334155',
+                  opacity: pagination.page <= 1 ? 0.4 : 1
+                }}
+              >← Prev</button>
+              <button
+                disabled={pagination.page >= pagination.totalPages}
+                onClick={() => fetchPackets(pagination.page + 1)}
+                style={{
+                  padding: '6px 16px', borderRadius: '7px', border: '1px solid #E2E8F0',
+                  background: '#FFFFFF', cursor: pagination.page >= pagination.totalPages ? 'not-allowed' : 'pointer',
+                  fontSize: '12px', fontWeight: 600, color: '#334155',
+                  opacity: pagination.page >= pagination.totalPages ? 0.4 : 1
+                }}
+              >Next →</button>
+            </div>
           </div>
-        </div>
-
+        )}
       </div>
 
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+        .animate-spin {
+          animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };
