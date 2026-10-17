@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Terminal as TerminalIcon, Search, RefreshCw, Download,
   MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown,
-  FileCode, Copy, Check
+  FileCode, Copy, Check, Maximize2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
@@ -79,6 +79,7 @@ const AdminTerminalPage = () => {
   const [error, setError] = useState(null);
   const [liveCount, setLiveCount] = useState(0);
   const [copiedId, setCopiedId] = useState(null);
+  const [modalPacket, setModalPacket] = useState(null);
 
   const handleCopy = (id, text) => {
     if (!text) return;
@@ -687,34 +688,54 @@ const AdminTerminalPage = () => {
                       <td style={{ padding: '10px 14px' }}>
                         {rawPacketStr ? (
                           <div style={{
-                            display: 'flex', alignItems: 'center', gap: '6px',
+                            display: 'flex', alignItems: 'flex-start', gap: '8px',
                             background: '#F8FAFC', border: '1px solid #E2E8F0',
-                            borderRadius: '6px', padding: '4px 8px', maxWidth: '100%'
+                            borderRadius: '6px', padding: '6px 10px', maxWidth: '100%'
                           }}>
                             <div style={{
-                              fontFamily: 'monospace', fontSize: '11px', color: '#334155',
-                              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                              fontSize: '11px', color: '#1E293B',
+                              wordBreak: 'break-all', whiteSpace: 'normal',
+                              lineHeight: '1.45', letterSpacing: '0.02em',
                               flex: 1
-                            }} title={rawPacketStr}>
+                            }}>
                               {rawPacketStr}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleCopy(p.id || idx, rawPacketStr)}
-                              title="Copy Raw Packet"
-                              style={{
-                                background: isCopied ? '#DCFCE7' : '#FFFFFF',
-                                border: `1px solid ${isCopied ? '#86EFAC' : '#CBD5E1'}`,
-                                borderRadius: '4px', padding: '3px 7px',
-                                cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '3px',
-                                fontSize: '11px', fontWeight: 600,
-                                color: isCopied ? '#15803D' : '#475569',
-                                flexShrink: 0, transition: 'all 0.15s ease'
-                              }}
-                            >
-                              {isCopied ? <Check size={11} color="#16A34A" /> : <Copy size={11} />}
-                              {isCopied ? 'Copied' : 'Copy'}
-                            </button>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(p.id || idx, rawPacketStr)}
+                                title="Copy Raw Packet"
+                                style={{
+                                  background: isCopied ? '#DCFCE7' : '#FFFFFF',
+                                  border: `1px solid ${isCopied ? '#86EFAC' : '#CBD5E1'}`,
+                                  borderRadius: '4px', padding: '3px 7px',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px',
+                                  fontSize: '11px', fontWeight: 600,
+                                  color: isCopied ? '#15803D' : '#475569',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                {isCopied ? <Check size={11} color="#16A34A" /> : <Copy size={11} />}
+                                {isCopied ? 'Copied' : 'Copy'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setModalPacket(p)}
+                                title="View Full Packet In Modal"
+                                style={{
+                                  background: '#EFF6FF',
+                                  border: '1px solid #BFDBFE',
+                                  borderRadius: '4px', padding: '3px 7px',
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px',
+                                  fontSize: '11px', fontWeight: 600,
+                                  color: '#1D4ED8',
+                                  transition: 'all 0.15s ease'
+                                }}
+                              >
+                                <Maximize2 size={11} /> View
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
@@ -768,6 +789,111 @@ const AdminTerminalPage = () => {
           </div>
         )}
       </div>
+
+      {/* Full Packet Modal */}
+      {modalPacket && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(3px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
+        }}>
+          <div style={{
+            background: '#FFFFFF', borderRadius: '14px', width: '100%', maxWidth: '780px',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0',
+            overflow: 'hidden', display: 'flex', flexDirection: 'column'
+          }}>
+            {/* Header */}
+            <div style={{
+              background: '#1E3A5F', color: '#FFFFFF', padding: '16px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <FileCode size={18} color="#7DD3FC" />
+                <span style={{ fontWeight: 700, fontSize: '15px' }}>Full Raw Telemetry Packet</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalPacket(null)}
+                style={{
+                  background: 'transparent', border: 'none', color: '#FFFFFF',
+                  cursor: 'pointer', padding: '4px', display: 'flex'
+                }}
+              >
+                <X size={20} color="#FFFFFF" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12.5px', color: '#475569' }}>
+                <div><b>IMEI:</b> <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{modalPacket.imei}</span></div>
+                <div><b>Server Time:</b> {formatIST(modalPacket.received_at)}</div>
+                {modalPacket.device_time && <div><b>GPS Time:</b> {formatIST(modalPacket.device_time)}</div>}
+                <div><b>Packet Length:</b> {(modalPacket.raw_hex || modalPacket.raw || '').length} characters ({(modalPacket.raw_hex || modalPacket.raw || '').length / 2} bytes)</div>
+              </div>
+
+              <div style={{
+                background: '#0F172A', color: '#38BDF8', padding: '14px 16px',
+                borderRadius: '8px', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                fontSize: '12.5px', lineHeight: '1.6', wordBreak: 'break-all',
+                maxHeight: '260px', overflowY: 'auto', border: '1px solid #1E293B',
+                letterSpacing: '0.04em'
+              }}>
+                {modalPacket.raw_hex || modalPacket.raw}
+              </div>
+
+              {/* Extra-Data breakdown helper if starts with 3A3A */}
+              {(modalPacket.raw_hex || modalPacket.raw || '').startsWith('3A3A') && (
+                <div style={{
+                  background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px 14px',
+                  fontSize: '12px', color: '#334155'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '6px', color: '#1E3A5F' }}>TranSync NAV 140 Structure:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '4px', fontSize: '11.5px' }}>
+                    <span style={{ fontWeight: 600 }}>Header:</span> <span>3A 3A (::)</span>
+                    <span style={{ fontWeight: 600 }}>Footer:</span> <span>23 23 (##)</span>
+                    <span style={{ fontWeight: 600 }}>Extra Data Tags:</span> <span>Tag 01 (Odometer) • Tag 02 (Fuel / RFID slot) • Tag 05 (Voltage ADC)</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              background: '#F8FAFC', borderTop: '1px solid #E2E8F0', padding: '12px 20px',
+              display: 'flex', justifyContent: 'flex-end', gap: '10px'
+            }}>
+              <button
+                type="button"
+                onClick={() => {
+                  handleCopy('modal', modalPacket.raw_hex || modalPacket.raw);
+                }}
+                style={{
+                  background: copiedId === 'modal' ? '#DCFCE7' : '#1E3A5F',
+                  color: copiedId === 'modal' ? '#15803D' : '#FFFFFF',
+                  border: 'none', borderRadius: '7px', padding: '8px 16px',
+                  fontWeight: 600, fontSize: '12.5px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px'
+                }}
+              >
+                {copiedId === 'modal' ? <Check size={14} color="#16A34A" /> : <Copy size={14} />}
+                {copiedId === 'modal' ? 'Copied Full Packet!' : 'Copy Entire Hex'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setModalPacket(null)}
+                style={{
+                  background: '#FFFFFF', color: '#475569', border: '1px solid #CBD5E1',
+                  borderRadius: '7px', padding: '8px 16px', fontWeight: 600,
+                  fontSize: '12.5px', cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse {
