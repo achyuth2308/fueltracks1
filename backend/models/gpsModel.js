@@ -728,7 +728,12 @@ const GpsModel = {
               COALESCE(
                 CASE WHEN parsed_data->>'speed' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'speed')::numeric ELSE NULL END,
                 0
-              ) as speed
+              ) as speed,
+              COALESCE(
+                CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
+                NULL
+              ) as fuel
        FROM raw_packets
        ${whereClause}
        ORDER BY COALESCE(device_time, received_at) DESC, id DESC

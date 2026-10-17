@@ -53,7 +53,12 @@ function extractFields(m) {
   const speed = m.speed != null ? parseFloat(m.speed)
     : (p.speed != null ? parseFloat(p.speed) : 0);
 
-  return { lat, lng, speed };
+  // fuel: prefer DB-computed columns, fallback to parsed_data
+  const fuel = m.fuel != null ? parseFloat(m.fuel)
+    : (p.fuel != null ? parseFloat(p.fuel)
+      : (p.fuelLevel != null ? parseFloat(p.fuelLevel) : null));
+
+  return { lat, lng, speed, fuel };
 }
 
 const AdminTerminalPage = () => {
@@ -197,6 +202,7 @@ const AdminTerminalPage = () => {
         'IMEI': p.imei || '',
         'Server Time (IST)': formatIST(p.device_time || p.received_at),
         'Speed (km/h)': speed != null ? Math.round(speed) : 0,
+        'Fuel (L)': fuel != null ? fuel.toFixed(2) : '',
         'Location (Google Maps)': mapsUrl
       };
     });
@@ -520,6 +526,11 @@ const AdminTerminalPage = () => {
                       <Navigation size={13} color="#7DD3FC" /> Speed
                     </div>
                   </th>
+                  <th style={{ padding: '13px 16px', fontWeight: 700, width: '110px', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      ⛽ Fuel (L)
+                    </div>
+                  </th>
                   <th style={{ padding: '13px 16px', fontWeight: 700, fontSize: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <MapPin size={13} color="#7DD3FC" /> Location (Google Maps)
@@ -529,7 +540,7 @@ const AdminTerminalPage = () => {
               </thead>
               <tbody>
                 {packets.map((p, idx) => {
-                  const { lat, lng, speed } = extractFields(p);
+                  const { lat, lng, speed, fuel } = extractFields(p);
                   const hasGps = lat != null && lng != null && lat !== 0 && lng !== 0;
                   const mapsUrl = hasGps
                     ? `https://www.google.com/maps?q=${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`
@@ -575,6 +586,22 @@ const AdminTerminalPage = () => {
                           <Navigation size={11} />
                           {speed != null ? `${Math.round(speed)} km/h` : '0 km/h'}
                         </div>
+                      </td>
+
+                      {/* Fuel */}
+                      <td style={{ padding: '12px 16px' }}>
+                        {fuel != null ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            padding: '4px 10px', borderRadius: '20px',
+                            background: '#FFF7ED', color: '#C2410C',
+                            fontWeight: 700, fontSize: '12.5px'
+                          }}>
+                            ⛽ {parseFloat(fuel).toFixed(2)} L
+                          </span>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
+                        )}
                       </td>
 
                       {/* Location */}
