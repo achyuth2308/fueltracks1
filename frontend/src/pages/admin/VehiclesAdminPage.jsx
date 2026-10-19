@@ -717,25 +717,25 @@ const VehiclesAdminPage = () => {
                               }}
                               title="Click to choose vehicle action"
                               style={{
-                                padding: '5px 12px',
-                                borderRadius: '5px',
+                                padding: '6px 14px',
+                                borderRadius: '6px',
                                 background: '#1d4ed8',
-                                border: '1px solid #1e40af',
+                                border: 'none',
                                 color: '#ffffff',
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '6px',
-                                fontSize: '11.5px',
+                                fontSize: '12px',
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 transition: 'all 0.15s',
-                                boxShadow: '0 1px 3px rgba(29, 78, 216, 0.3)'
+                                boxShadow: '0 2px 4px rgba(29, 78, 216, 0.35)'
                               }}
                               onMouseEnter={e => { e.currentTarget.style.background = '#1e40af'; }}
                               onMouseLeave={e => { e.currentTarget.style.background = '#1d4ed8'; }}
                             >
                               <span style={{ fontSize: '10px' }}>◀</span>
-                              <span>Action</span>
+                              <span>Actions</span>
                             </button>
 
                             {/* Dropdown Menu matching reference screenshot */}
@@ -744,17 +744,16 @@ const VehiclesAdminPage = () => {
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
                                   position: 'absolute',
-                                  right: '100%',
+                                  right: 'calc(100% + 8px)',
                                   top: '0',
-                                  marginRight: '6px',
-                                  width: '145px',
-                                  borderRadius: '6px',
-                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.15)',
+                                  width: '165px',
+                                  borderRadius: '12px',
+                                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.15)',
                                   zIndex: 99999,
                                   overflow: 'hidden',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  fontSize: '11.5px',
+                                  fontSize: '13.5px',
                                   fontWeight: 700,
                                   textAlign: 'left',
                                   animation: 'fadeIn 0.12s ease-out'
@@ -769,17 +768,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#22c55e',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Migration
                                 </button>
@@ -793,17 +795,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#0284c7',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Edit
                                 </button>
@@ -817,17 +822,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#2563eb',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Add User
                                 </button>
@@ -841,17 +849,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#f97316',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Calibrate
                                 </button>
@@ -865,17 +876,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#16a34a',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(255,255,255,0.2)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Audit Report
                                 </button>
@@ -889,17 +903,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
-                                    background: '#38bdf8',
-                                    color: '#0f172a',
+                                    padding: '9px 18px',
+                                    background: '#29b6f6',
+                                    color: '#000000',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    borderBottom: '1px solid rgba(0,0,0,0.1)',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Rename
                                 </button>
@@ -913,16 +930,20 @@ const VehiclesAdminPage = () => {
                                   }}
                                   style={{
                                     width: '100%',
-                                    padding: '7px 12px',
+                                    padding: '9px 18px',
                                     background: '#6366f1',
                                     color: '#ffffff',
                                     border: 'none',
+                                    outline: 'none',
                                     textAlign: 'left',
+                                    fontSize: '13.5px',
+                                    fontWeight: 700,
                                     cursor: 'pointer',
-                                    transition: 'opacity 0.1s'
+                                    transition: 'filter 0.1s ease',
+                                    display: 'block'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.opacity = '0.9'}
-                                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
+                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
                                 >
                                   Reprocess
                                 </button>

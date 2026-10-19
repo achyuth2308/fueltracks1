@@ -800,7 +800,7 @@ const AdminController = {
           vls.last_seen
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id
-        LEFT JOIN vehicles v ON d.device_id = v.imei
+        LEFT JOIN vehicles v ON d.device_id = v.imei AND v.is_active = TRUE
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `;
       let params = [];

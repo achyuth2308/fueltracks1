@@ -313,6 +313,7 @@ const VehicleModel = {
    * Delete vehicle (soft delete)
    */
   async delete(vehicleId) {
+    await db.query(`DELETE FROM vehicle_groups WHERE vehicle_id = $1`, [vehicleId]);
     const result = await db.query(
       `UPDATE vehicles SET is_active = FALSE WHERE id = $1 RETURNING id`,
       [vehicleId]
