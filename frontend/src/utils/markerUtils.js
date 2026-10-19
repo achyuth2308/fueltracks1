@@ -1,18 +1,23 @@
 import L from 'leaflet';
 
 export const getVehicleType = (vehicle = {}) => {
-  const model = (vehicle.model || '').toLowerCase().trim();
+  const model = (vehicle.model || vehicle.vehicle_type || vehicle.type || vehicle.metadata?.vehicleType || '').toLowerCase().trim();
   const name = (vehicle.name || '').toLowerCase();
 
+  // Two-wheelers / Bikes / Scooties
   if (model === 'scooty' || model === 'scooter' || model === 'moped') return 'bike';
-  if (model === 'motorcycle' || model === 'bike') return 'bike';
+  if (model === 'motorcycle' || model === 'bike' || model === 'two wheeler' || model === 'twowheeler' || model === '2 wheeler' || model === '2wheeler') return 'bike';
   if (model === 'car') return 'car';
   if (model === 'bus' || model === 'ambulance') return 'bus';
   if (model === 'van' || model === 'pickup') return 'van';
   if (model === 'truck' || model === 'lorry' || model === 'tanker' ||
     model === 'tractor' || model === 'jcb' || model === 'crane' || model === 'borewell') return 'lorry';
 
-  if (model.includes('scooty') || model.includes('scooter') || model.includes('moped')) return 'bike';
+  if (model.includes('scooty') || model.includes('scooter') || model.includes('moped') ||
+      name.includes('scooty') || name.includes('scooter') || name.includes('activa') ||
+      name.includes('jupiter') || name.includes('access') || name.includes('dio') ||
+      name.includes('pulsar') || name.includes('splendor') || name.includes('bullet') ||
+      name.includes('apache') || name.includes('tvs') || name.includes('two wheeler') || name.includes('2 wheeler')) return 'bike';
   if (model.includes('bike') || model.includes('motorcycle') || name.includes('bike')) return 'bike';
   if (model.includes('car')) return 'car';
   if (model.includes('bus') || name.includes('bus')) return 'bus';
@@ -21,12 +26,40 @@ export const getVehicleType = (vehicle = {}) => {
 };
 
 export const getVehicleStatus = (vehicle = {}) => {
-  const isOnline = !!vehicle.is_online;
   const speed = parseFloat(vehicle.current_speed || vehicle.speed || 0);
   const ignition = !!vehicle.current_ignition;
+  const isOnline = !!vehicle.is_online;
 
-  if (!vehicle.last_seen) return 'unavailable';
-  if (!isOnline) return 'offline';
+  if (!vehicle.last_seen) return 'unreachable';
+
+  const lastSeenMs = new Date(vehicle.last_seen).getTime();
+  const diffMs = !isNaN(lastSeenMs) ? (Date.now() - lastSeenMs) : Infinity;
+
+  // 1. PARKED STATE PRESERVATION (Universal 24h Sleep Mode for ALL vehicles):
+  // When ignition is OFF and vehicle is stationary (speed <= 2 km/h),
+  // devices enter deep sleep / power save mode. Preserve 'parked' for up to 24 hours.
+  if (!ignition && speed <= 2.0 && diffMs < 24 * 60 * 60 * 1000) {
+    return 'parked';
+  }
+
+  // 2. IDLE STATE PRESERVATION:
+  // When engine is running (ignition ON) but vehicle is stationary (speed <= 2 km/h),
+  // devices throttle reporting to save data (often 2-3 min intervals).
+  // Preserve 'idle' for up to 5 minutes before treating as No Data.
+  if (ignition && speed <= 2.0 && diffMs < 5 * 60 * 1000) {
+    return 'idle';
+  }
+
+  // 3. MOVING STATE PRESERVATION:
+  // When speed > 2 km/h and telemetry arrived within 3 minutes, vehicle is moving.
+  if (speed > 2.0 && diffMs < 3 * 60 * 1000) {
+    return 'running';
+  }
+
+  // 4. Stale / Lost Signal:
+  // If connection is lost or beyond grace period, vehicle enters 'No Data'.
+  if (!isOnline || diffMs >= 3 * 60 * 1000) return 'offline';
+
   if (speed > 2.0) return 'running';
   if (ignition) return 'idle';
   return 'parked';
@@ -36,8 +69,10 @@ export const STATUS_CONFIG = {
   running: { color: '#10b981', label: 'Running', pulse: true },
   idle: { color: '#f59e0b', label: 'Idle', pulse: false },
   parked: { color: '#64748B', label: 'Parked', pulse: false },
-  offline: { color: '#ef4444', label: 'Offline', pulse: false },
-  unavailable: { color: '#94a3b8', label: 'No Data', pulse: false },
+  offline: { color: '#ef4444', label: 'No Data', pulse: false },
+  nodata: { color: '#ef4444', label: 'No Data', pulse: false },
+  unreachable: { color: '#94a3b8', label: 'Unreachable', pulse: false },
+  unavailable: { color: '#94a3b8', label: 'Unreachable', pulse: false },
 };
 
 // Ultra-bright high-contrast white vehicle SVGs

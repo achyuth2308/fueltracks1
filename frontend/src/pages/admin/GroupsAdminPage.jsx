@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users2, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, Building2, User, Truck, X } from 'lucide-react';
+import { Users2, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User, Truck, X } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 
@@ -36,10 +36,18 @@ const GroupsAdminPage = () => {
 
   const handleSaveGroup = async (groupData) => {
     if (editingGroup) {
-      await adminApi.updateGroup(editingGroup.id, groupData);
-      setViewingGroup(prev => prev && prev.id === editingGroup.id ? { ...prev, name: groupData.name, org_id: groupData.orgId } : prev);
+      const payload = {
+        ...groupData,
+        orgId: groupData.orgId || editingGroup.org_id
+      };
+      await adminApi.updateGroup(editingGroup.id, payload);
+      setViewingGroup(prev => prev && prev.id === editingGroup.id ? { ...prev, name: payload.name, org_id: payload.orgId } : prev);
     } else {
-      await adminApi.createGroup(groupData);
+      const payload = {
+        ...groupData,
+        orgId: groupData.orgId || (orgs && orgs[0]?.id)
+      };
+      await adminApi.createGroup(payload);
     }
     fetchData();
   };
@@ -167,11 +175,6 @@ const GroupsAdminPage = () => {
                       </td>
                       <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{g.name}</div>
-                        {g.org_name && (
-                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#475569', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px', marginTop: '2px', fontWeight: 600 }}>
-                            <Building2 size={10} color="#64748b" /> {g.org_name}
-                          </div>
-                        )}
                       </td>
                       <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {(!g.vehicles || g.vehicles.length === 0) ? (

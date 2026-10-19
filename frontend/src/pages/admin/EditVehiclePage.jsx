@@ -1,26 +1,38 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Save, Loader2, AlertTriangle, CheckCircle, RefreshCcw,
-  Truck, UserCircle, Settings, Fuel, ChevronRight, Layers, Check, Search, Tag, UserCheck, Cpu, ShieldCheck
+  Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, Save, ArrowLeft, Fuel, Sliders
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 import { expandScientificNotation } from '../../utils/formatUtils';
 
+// FuelTracks Design System Theme Tokens
 const inputBaseStyle = {
-  width: '100%', padding: '12px 16px', borderRadius: '10px',
-  border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none',
-  color: '#0F172A', fontWeight: 600, background: '#FFFFFF', boxSizing: 'border-box',
-  transition: 'all 0.2s ease', fontFamily: 'Inter, sans-serif'
+  width: '100%',
+  padding: '10px 14px',
+  borderRadius: '10px',
+  border: '1px solid #cbd5e1',
+  fontSize: '13px',
+  fontWeight: 600,
+  outline: 'none',
+  color: '#0f172a',
+  background: '#ffffff',
+  boxSizing: 'border-box',
+  transition: 'border-color 0.15s, box-shadow 0.15s',
+  fontFamily: 'inherit'
 };
 
 const labelStyle = {
-  display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '8px'
+  display: 'block',
+  fontSize: '12.5px',
+  fontWeight: 700,
+  color: '#334155',
+  marginBottom: '6px'
 };
 
-const InputField = ({ label, type = "text", value, onChange, disabled, placeholder, onFocus, onBlur, focused, autoComplete }) => (
-  <div>
+const InputField = ({ label, type = "text", value, onChange, disabled, placeholder, focused, onFocus, onBlur }) => (
+  <div style={{ display: 'flex', flexDirection: 'column' }}>
     <label style={labelStyle}>{label}</label>
     <input
       type={type}
@@ -30,143 +42,334 @@ const InputField = ({ label, type = "text", value, onChange, disabled, placehold
       placeholder={placeholder}
       onFocus={onFocus}
       onBlur={onBlur}
-      autoComplete={autoComplete}
       style={{
         ...inputBaseStyle,
-        background: disabled ? '#F1F5F9' : (focused ? '#FFFFFF' : '#F8FAFC'),
-        border: focused ? '1px solid #f97316' : '1px solid #CBD5E1',
-        boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
-        color: '#0F172A',
-        opacity: 1,
+        background: disabled ? '#f1f5f9' : '#ffffff',
+        borderColor: focused ? '#f97316' : '#cbd5e1',
+        boxShadow: focused ? '0 0 0 3px rgba(249, 115, 22, 0.15)' : 'none',
+        color: disabled ? '#64748b' : '#0f172a',
         cursor: disabled ? 'not-allowed' : 'text'
       }}
     />
   </div>
 );
 
-const SelectField = ({ label, value, onChange, options, focused, onFocus, onBlur }) => (
-  <div>
-    <label style={labelStyle}>{label}</label>
-    <select
-      value={value ?? ''}
-      onChange={onChange}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      style={{
-        ...inputBaseStyle,
-        background: focused ? '#FFFFFF' : '#F8FAFC',
-        border: focused ? '1px solid #f97316' : '1px solid #E2E8F0',
-        boxShadow: focused ? '0 0 0 3px rgba(249,115,22,0.1)' : 'none',
-        cursor: 'pointer'
-      }}
-    >
-      <option value="">-- Select --</option>
-      {options.map((opt, i) => (
-        <option key={i} value={typeof opt === 'object' ? opt.value : opt}>
-          {typeof opt === 'object' ? opt.label : opt}
-        </option>
-      ))}
-    </select>
-  </div>
-);
+const SelectField = ({ label, value, onChange, options, placeholder = "-- Select --" }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-const ToggleButton = ({ label, active, onChange }) => (
-  <div>
-    <label style={labelStyle}>{label}</label>
-    <div className="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200">
-      <button
-        type="button"
-        onClick={() => onChange('NO')}
-        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-          active === 'NO' || !active ? 'bg-white text-slate-800 shadow-2xs' : 'text-slate-500 hover:text-slate-900'
-        }`}
-      >
-        NO
-      </button>
-      <button
-        type="button"
-        onClick={() => onChange('YES')}
-        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-          active === 'YES' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-500 hover:text-slate-900'
-        }`}
-      >
-        YES
-      </button>
-    </div>
-  </div>
-);
+  // Normalize options to { value, label }
+  const normalizedOptions = React.useMemo(() => {
+    return (options || []).map(opt => {
+      if (typeof opt === 'object' && opt !== null) {
+        return { value: String(opt.value ?? ''), label: String(opt.label ?? opt.value ?? '') };
+      }
+      return { value: String(opt ?? ''), label: String(opt ?? '') };
+    });
+  }, [options]);
 
-const SectionCard = ({ title, icon: Icon, children }) => (
-  <div style={{
-    background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-    boxShadow: '0 4px 20px -2px rgba(0,0,0,0.03)', overflow: 'hidden', marginBottom: '32px',
-    transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-  }}>
-    <div style={{
-      padding: '20px 24px', borderBottom: '1px solid #F1F5F9',
-      display: 'flex', alignItems: 'center', gap: '12px', background: '#FAFAFA'
-    }}>
-      <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#EEF5F8', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Icon size={18} />
+  // Current selected label
+  const selected = normalizedOptions.find(opt => opt.value === String(value ?? ''));
+
+  // Filter options by search term
+  const filtered = normalizedOptions.filter(opt =>
+    !search.trim() || opt.label.toLowerCase().includes(search.toLowerCase().trim())
+  );
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleOutside);
+      setSearch('');
+      setTimeout(() => searchInputRef.current?.focus(), 40);
+    }
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <label style={labelStyle}>{label}</label>
+      
+      {/* Trigger Button */}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          ...inputBaseStyle,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          cursor: 'pointer',
+          userSelect: 'none',
+          borderColor: isOpen ? '#f97316' : '#cbd5e1',
+          boxShadow: isOpen ? '0 0 0 3px rgba(249, 115, 22, 0.15)' : 'none',
+          background: '#ffffff'
+        }}
+      >
+        <span style={{
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          color: selected ? '#0f172a' : '#94a3b8',
+          fontWeight: selected ? 600 : 500
+        }}>
+          {selected ? selected.label : placeholder}
+        </span>
+        <ChevronRight
+          size={16}
+          style={{
+            transform: isOpen ? 'rotate(-90deg)' : 'rotate(90deg)',
+            transition: 'transform 0.15s ease',
+            color: '#64748b',
+            flexShrink: 0,
+            marginLeft: '8px'
+          }}
+        />
       </div>
-      <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0, letterSpacing: '-0.01em' }}>{title}</h2>
+
+      {/* Dropdown Menu with Search */}
+      {isOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 'calc(100% + 4px)',
+          left: 0,
+          right: 0,
+          background: '#ffffff',
+          borderRadius: '10px',
+          border: '1px solid #cbd5e1',
+          boxShadow: '0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1)',
+          zIndex: 9999,
+          overflow: 'hidden',
+          animation: 'fadeIn 0.12s ease-out'
+        }}>
+          {/* Search Box */}
+          <div style={{ padding: '8px', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+            <input
+              ref={searchInputRef}
+              type="text"
+              placeholder={`Search ${label}...`}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%',
+                padding: '7px 10px',
+                borderRadius: '6px',
+                border: '1px solid #cbd5e1',
+                fontSize: '12.5px',
+                outline: 'none',
+                color: '#0f172a',
+                background: '#ffffff',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+
+          {/* Options List */}
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            {filtered.length === 0 ? (
+              <div style={{ padding: '12px 14px', fontSize: '12px', color: '#94a3b8', textAlign: 'center' }}>
+                No options matching "{search}"
+              </div>
+            ) : (
+              filtered.map((opt, i) => {
+                const isSelected = opt.value === String(value ?? '');
+                return (
+                  <div
+                    key={i}
+                    onClick={() => {
+                      onChange({ target: { value: opt.value } });
+                      setIsOpen(false);
+                    }}
+                    style={{
+                      padding: '9px 14px',
+                      fontSize: '13px',
+                      fontWeight: isSelected ? 700 : 500,
+                      color: isSelected ? '#ea580c' : '#1e293b',
+                      background: isSelected ? '#fff7ed' : 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      transition: 'background 0.1s'
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) e.currentTarget.style.background = '#f8fafc';
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    {isSelected && (
+                      <span style={{ color: '#f97316', fontSize: '13px', fontWeight: 800 }}>✓</span>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
-    <div className="p-4 sm:p-8">
-      {children}
+  );
+};
+
+// FuelTracks Branded Pill Toggle
+const PillToggle = ({ label, active, onChange, tooltip }) => {
+  const isYes = active === 'YES' || active === true;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>{label}</span>
+        <span
+          title={tooltip || label}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '14px',
+            height: '14px',
+            borderRadius: '50%',
+            background: '#ea580c',
+            color: '#ffffff',
+            fontSize: '9.5px',
+            fontWeight: 800,
+            cursor: 'help'
+          }}
+        >
+          i
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={() => onChange(isYes ? 'NO' : 'YES')}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexDirection: isYes ? 'row' : 'row-reverse',
+          width: '76px',
+          height: '30px',
+          padding: '2px 4px',
+          borderRadius: '9999px',
+          border: isYes ? '1px solid #ea580c' : '1px solid #94a3b8',
+          background: isYes ? '#f97316' : '#475569',
+          color: '#ffffff',
+          cursor: 'pointer',
+          transition: 'all 0.18s ease',
+          fontSize: '11px',
+          fontWeight: 800,
+          boxShadow: isYes ? '0 2px 6px rgba(249, 115, 22, 0.3)' : '0 1px 3px rgba(0,0,0,0.1)'
+        }}
+      >
+        <span style={{
+          width: '24px',
+          height: '24px',
+          borderRadius: '50%',
+          background: '#ffffff',
+          display: 'block',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.25)'
+        }} />
+        <span style={{ padding: '0 6px', letterSpacing: '0.04em' }}>
+          {isYes ? 'YES' : 'NO'}
+        </span>
+      </button>
     </div>
+  );
+};
+
+// Section Header matching FuelTracks Dark Navy + Orange Brand Theme
+const SectionTitle = ({ title }) => (
+  <div style={{
+    margin: '32px 0 18px 0',
+    borderBottom: '1px solid #e2e8f0',
+    paddingBottom: '10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px'
+  }}>
+    <div style={{ width: '4px', height: '18px', background: '#f97316', borderRadius: '2px' }} />
+    <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: 0, letterSpacing: '-0.01em' }}>
+      {title}
+    </h3>
   </div>
 );
 
 const VEHICLE_TYPES = [
-  'Truck', 'Car', 'Van', 'Bus', 'Scooty', 'Motorcycle', 'Tractor',
+  'Bus', 'Truck', 'Car', 'Van', 'Scooty', 'Motorcycle', 'Tractor',
   'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper'
 ];
 
-const DEVICE_TYPES = [
-  { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
-  { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
-  { value: 'CONCOX', label: 'CONCOX - V5/GT800 (5002)' },
-  { value: 'AIS140 V2', label: 'VAMO - AIS140 V2 (5003)' },
-  { value: 'VOLTY', label: 'VOLTY - AIS140 (5004)' },
-  { value: 'FMB 920', label: 'Teltonika - FMB 920 (5005)' },
-  { value: 'PT06', label: 'PT06 - Binary (5006)' },
-  { value: 'EC08', label: 'EC08 - GT06 (5007)' },
-  { value: 'PN02', label: 'PN02 - Binary (5008)' },
-  { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' },
-  { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
-  { value: 'VOLTYFUEL', label: 'TranSync - NAV 140 (5011)' }
+const VEHICLE_MODELS = [
+  'Mazda',
+  'Tata Motors',
+  'Ashok Leyland',
+  'Eicher',
+  'Mahindra & Mahindra',
+  'BharatBenz',
+  'Maruti Suzuki',
+  'Hyundai',
+  'Toyota',
+  'Honda',
+  'Force Motors',
+  'Isuzu',
+  'Volvo',
+  'Scania',
+  'Swaraj',
+  'John Deere',
+  'JCB',
+  'Caterpillar',
+  'Sonalika',
+  'Escorts',
+  'Other'
 ];
 
-const TELECOM_OPERATORS = ['Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
+const DEVICE_MODELS = [
+  'GT06N (9964)', 'AIS140', 'AIS140 V2', 'VOLTY', 'BSTPL',
+  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL'
+];
 
-// Normalize any stored device version string to match DEVICE_TYPES option values
-// e.g. "VOLTY (5004)" → "VOLTY", "TrackNow - AIS140 (5001)" → "AIS140"
-const normalizeDeviceVersion = (raw) => {
-  if (!raw) return 'VOLTY';
-  const u = String(raw).toUpperCase().trim();
-  if (u.includes('VOLTYFUEL') || u.includes('TRANSYNC') || u.includes('5011') || u.includes('NAV 140') || u.includes('NAV140')) return 'VOLTYFUEL';
-  if (u.includes('TRACKNOW') || u.includes('TNAVIC')) return 'AIS140';
-  if (u.includes('VAMO')) return 'AIS140 V2';
-  if (u.includes('TELTONIKA') || u.includes('FMB')) return 'FMB 920';
-  if (u.includes('17IS')) return 'BSTPL-17IS';
-  if (u.includes('BSTPL')) return 'BSTPL';
-  if (u.includes('CONCOX') && u.includes('4G')) return 'V5 4G';
-  if (u.includes('CONCOX')) return 'CONCOX';
-  if (u.includes('EC08')) return 'EC08';
-  if (u.includes('PT06')) return 'PT06';
-  if (u.includes('PN02')) return 'PN02';
-  if (u.includes('VOLTY')) return 'VOLTY';
-  if (u.includes('AIS140') && u.includes('V2')) return 'AIS140 V2';
-  if (u.includes('AIS140')) return 'AIS140';
-
-  // Exact match first
-  const exact = DEVICE_TYPES.find(d => d.value === raw);
-  if (exact) return exact.value;
-  // Partial match: check if any value is contained in raw string
-  const partial = DEVICE_TYPES.find(d => d.label === raw || raw.toUpperCase().includes(d.value.toUpperCase()));
-  if (partial) return partial.value;
-  return raw;
+// Mapping of Device Model to Telemetry TCP Port
+const DEVICE_MODEL_PORTS = {
+  'BSTPL': '5000',
+  'AIS140': '5001',
+  'CONCOX': '5002',
+  'AIS140 V2': '5003',
+  'VOLTY': '5004',
+  'FMB 920': '5005',
+  'PT06': '5006',
+  'EC08': '5007',
+  'GT06N (9964)': '5007',
+  'PN02': '5008',
+  'V5 4G': '5009',
+  'BSTPL-17IS': '5010',
+  'VOLTYFUEL': '5011'
 };
+
+const getDevicePort = (model) => {
+  if (!model) return '5007';
+  const found = Object.keys(DEVICE_MODEL_PORTS).find(key => 
+    model.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(model.toLowerCase())
+  );
+  return found ? DEVICE_MODEL_PORTS[found] : (DEVICE_MODEL_PORTS[model] || '5007');
+};
+
+const getDefaultServerIp = () => {
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    // If running on localhost or 127.0.0.1, provide local/relay IP or hostname
+    return window.location.hostname;
+  }
+  return '127.0.0.1';
+};
+
+const TELECOM_OPERATORS = ['AIRCEL', 'Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
 
 const EditVehiclePage = () => {
   const { id } = useParams();
@@ -178,79 +381,171 @@ const EditVehiclePage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [orgs, setOrgs] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [selectedGroupIds, setSelectedGroupIds] = useState([]);
-  const [groupSearchQuery, setGroupSearchQuery] = useState('');
   const [focusedField, setFocusedField] = useState(null);
 
-  // Form State
+  // Form State containing ONLY the requested fields
   const [form, setForm] = useState({
-    imei: '', name: '', plate: '', model: 'Truck', make: '', driverName: '', driverPhone: '',
-    category: 'General', isSandMining: false,
-    serverName: '', gpsSimNo: '', deviceVersion: 'VOLTY', timezone: 'IST', apn: '',
-    licenceIssuedDate: '', licenceExpireDate: '', orgId: '',
+    imei: '',
+    name: '',
+    plate: '',
+    model: 'Bus',
+    serverName: '',
+    gpsSimNo: '',
+    deviceVersion: 'GT06N (9964)',
+    timezone: 'IST',
+    apn: '',
+    licenceIssuedDate: '',
+    licenceExpireDate: '',
+    orgId: '',
+    driverName: '',
+    driverPhone: '',
     metadata: {
-      vehicleId: '', registrationNo: '', vehicleTypeSelect: 'Truck', vehicleModel: '',
-      deviceModel: 'VOLTY', vlttdSlno: '', licenceId: '', iccid: '', sim1: '', sim2: '',
-      telecomOperator: 'Airtel', installationDate: '', onboardDate: '', onboardingDate: '', installedDate: '',
-      madeIn: 'India', mfgDate: '', chassisNo: '', engineNo: '', rtoLocation: '',
-      serviceEngineer: '', serviceEngineerPhone: '', salesman: '', salesmanPhone: '',
-      ticketId: '', sensorNo: '',
-      vehicleVoltage: '', batteryVoltage: '', engineOnStatus: '', engineOn: '',
-      oldGroups: '',
-      ownerName: '', ownerPhone: '', customerName: '', customerPhone: '', aadharNo: '', panNo: '',
-      email: '', username: '', password: '',
-      // Fuel configuration fields - defaulted to empty
-      fuelType: '', tankSize: '', fuelEmptyAdc: '', fuelFullAdc: '', expectedMileage: '',
-      // Configuration Details Toggles - ALL DEFAULT TO NO
-      deviceOdo: 'NO', assetTrack: 'NO', safetyPark: 'NO', rigMode: 'NO', acToggle: 'NO', externalDevice: 'NO',
-      // Telemetry & Threshold fields - defaulted to empty
-      secondaryEngine: '', odometerReading: '', odoDistance: '',
-      overSpeedLimit: '', overspeedDurationAlert: '', idleDurationAlert: '', enableDebugs: '',
-      ipAddress: '', portNo: '', lowBattery: ''
+      vehicleId: '',
+      registrationNo: '',
+      vehicleTypeSelect: 'Bus',
+      vehicleModel: 'Mazda',
+      deviceModel: 'GT06N (9964)',
+      iccid: '',
+      telecomOperator: 'AIRCEL',
+      installationDate: '',
+      onboardDate: '',
+      licenceId: '',
+      licenceNo: '',
+      // Fuel Sensor Details
+      fuelMode: 'Auto Calibrate',
+      sensorCount: '1',
+      numberOfTank: '1',
+      fuelType: 'Analog',
+      modeOfVehicle: 'None',
+      tankSize: '0',
+      speedSource: '',
+      fluctuations: 'YES',
+      fuelBatteryVolt: 'NO',
+      // Configuration Details
+      deviceOdo: 'YES',
+      assetTrack: 'NO',
+      safetyPark: 'NO',
+      rigMode: 'NO',
+      acToggle: 'NO',
+      secondaryEngine: 'Digital Input 2',
+      engineOnStatus: 'Ignition',
+      vehicleVoltage: '',
+      odometerReading: '0',
+      overSpeedLimit: '60',
+      expectedMileage: '0',
+      enableDebugs: 'Disable',
+      countryTimezone: '',
+      ipAddress: getDefaultServerIp(),
+      portNo: getDevicePort('GT06N (9964)'),
+      lowBattery: '20',
+      externalDevice: 'NO',
+      // Driver Details
+      driverName: '',
+      driverPhone: '',
+      // Other Details
+      madeIn: 'India',
+      mfgDate: '',
+      chassisNo: '',
+      alternateVehicleName: '',
+      description: '',
+      serviceEngineer: 'Service Engineer',
+      salesman: 'Salesman',
+      supportPerson: '',
+      ticketId: '',
+      sensorNo: ''
     }
   });
 
   useEffect(() => {
     adminApi.getOrgs?.().then(res => setOrgs(res.data || [])).catch(console.error);
-    adminApi.getGroups?.().then(res => setGroups(res.data || [])).catch(console.error);
 
     if (isEditing) {
       vehicleApi.getVehicleById(id)
         .then(res => {
           const v = res.data;
           const meta = v.metadata || {};
+          const currentDeviceModel = meta.deviceModel || v.device_version || 'GT06N (9964)';
+          const dynamicIp = meta.ipAddress || getDefaultServerIp();
+          const dynamicPort = meta.portNo || getDevicePort(currentDeviceModel);
+
           setForm({
             imei: v.imei || '',
             name: v.name || '',
-            plate: v.plate || meta.registrationNo || '',
-            model: v.model || meta.vehicleTypeSelect || 'Truck',
-            make: v.make || '',
-            driverName: v.driver_name || meta.ownerName || '',
-            driverPhone: v.driver_phone || meta.ownerPhone || '',
-            category: v.category || 'General',
-            isSandMining: v.is_sand_mining || false,
-            serverName: v.server_name || '',
-            gpsSimNo: expandScientificNotation(v.gps_sim_no || meta.sim1 || ''),
-            deviceVersion: normalizeDeviceVersion(v.device_version || meta.deviceModel),
+            plate: v.plate || meta.registrationNo || meta.vehicleId || '',
+            model: v.model || meta.vehicleTypeSelect || 'Bus',
+            serverName: v.server_name || meta.serverName || '',
+            gpsSimNo: expandScientificNotation(v.gps_sim_no || meta.sim1 || meta.simNo || ''),
+            deviceVersion: currentDeviceModel,
             timezone: v.timezone || meta.timezone || 'IST',
             apn: v.apn || '',
             orgId: v.org_id || '',
-            licenceIssuedDate: v.licence_issued_date ? new Date(v.licence_issued_date).toISOString().split('T')[0] : '',
-            licenceExpireDate: v.licence_expire_date ? new Date(v.licence_expire_date).toISOString().split('T')[0] : '',
-            metadata: { 
+            driverName: v.driver_name || meta.driverName || meta.ownerName || '',
+            driverPhone: v.driver_phone || meta.driverPhone || meta.ownerPhone || '',
+            licenceIssuedDate: v.licence_issued_date
+              ? new Date(v.licence_issued_date).toISOString().split('T')[0]
+              : (meta.licenceIssuedDate ? new Date(meta.licenceIssuedDate).toISOString().split('T')[0] : ''),
+            licenceExpireDate: v.licence_expire_date
+              ? new Date(v.licence_expire_date).toISOString().split('T')[0]
+              : (meta.licenceExpireDate ? new Date(meta.licenceExpireDate).toISOString().split('T')[0] : ''),
+            metadata: {
               ...meta,
-              sim2: expandScientificNotation(meta.sim2 || ''),
+              vehicleId: meta.vehicleId || v.plate || '',
+              registrationNo: meta.registrationNo || v.plate || '',
+              vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
+              vehicleModel: meta.vehicleModel || v.make || 'Mazda',
+              deviceModel: currentDeviceModel,
               iccid: expandScientificNotation(meta.iccid || ''),
-              vltdSlno: expandScientificNotation(meta.vltdSlno || '')
+              telecomOperator: meta.telecomOperator || 'AIRCEL',
+              installationDate: meta.installationDate || meta.installedDate || '',
+              onboardDate: meta.onboardDate || meta.onboardingDate || (v.created_at ? new Date(v.created_at).toISOString().split('T')[0] : ''),
+              licenceId: meta.licenceId || meta.licenceNo || v.licenceId || v.licence_no || '',
+              // Fuel Sensor Details
+              fuelMode: meta.fuelMode || 'Auto Calibrate',
+              sensorCount: meta.sensorCount || '1',
+              numberOfTank: meta.numberOfTank || '1',
+              fuelType: meta.fuelType || 'Analog',
+              modeOfVehicle: meta.modeOfVehicle || 'None',
+              tankSize: meta.tankSize !== undefined ? String(meta.tankSize) : '0',
+              speedSource: meta.speedSource || '',
+              fluctuations: meta.fluctuations || 'YES',
+              fuelBatteryVolt: meta.fuelBatteryVolt || 'NO',
+              // Configuration Details
+              deviceOdo: meta.deviceOdo || 'YES',
+              assetTrack: meta.assetTrack || 'NO',
+              safetyPark: meta.safetyPark || 'NO',
+              rigMode: meta.rigMode || 'NO',
+              acToggle: meta.acToggle || 'NO',
+              secondaryEngine: meta.secondaryEngine || 'Digital Input 2',
+              engineOnStatus: meta.engineOnStatus || meta.engineOn || 'Ignition',
+              vehicleVoltage: meta.vehicleVoltage || meta.batteryVoltage || '',
+              odometerReading: meta.odometerReading || meta.odoDistance || '0',
+              overSpeedLimit: meta.overSpeedLimit || '60',
+              expectedMileage: meta.expectedMileage || '0',
+              enableDebugs: meta.enableDebugs || 'Disable',
+              countryTimezone: meta.countryTimezone || '',
+              ipAddress: dynamicIp,
+              portNo: dynamicPort,
+              lowBattery: meta.lowBattery || '20',
+              externalDevice: meta.externalDevice || 'NO',
+              // Driver Details
+              driverName: meta.driverName || v.driver_name || '',
+              driverPhone: meta.driverPhone || v.driver_phone || '',
+              // Other Details
+              madeIn: meta.madeIn || 'India',
+              mfgDate: meta.mfgDate ? new Date(meta.mfgDate).toISOString().split('T')[0] : (meta.mfgDate || ''),
+              chassisNo: meta.chassisNo || '',
+              alternateVehicleName: meta.alternateVehicleName || '',
+              description: meta.description || meta.remarks || '',
+              serviceEngineer: meta.serviceEngineer || 'Service Engineer',
+              salesman: meta.salesman || 'Salesman',
+              supportPerson: meta.supportPerson || '',
+              ticketId: meta.ticketId || '',
+              sensorNo: meta.sensorNo || ''
             }
           });
-          if (v.groups && Array.isArray(v.groups)) {
-            setSelectedGroupIds(v.groups.map(g => g.id));
-          }
           setLoading(false);
         })
-        .catch(err => {
+        .catch(() => {
           setError('Failed to load vehicle details.');
           setLoading(false);
         });
@@ -260,39 +555,23 @@ const EditVehiclePage = () => {
   const updateField = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
   const updateMeta = (field, value) => setForm(prev => ({ ...prev, metadata: { ...prev.metadata, [field]: value } }));
 
-  const toggleGroup = (groupId) => {
-    setSelectedGroupIds(prev =>
-      prev.includes(groupId)
-        ? prev.filter(id => id !== groupId)
-        : [...prev, groupId]
-    );
-  };
-
   const handleSave = async () => {
     if (!form.name || form.name.trim() === '') {
       setError('Vehicle Name is mandatory.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (!form.imei || !/^\d{10,20}$/.test(form.imei)) {
-      setError('A valid IMEI number (10-20 digits) is required.');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
 
     setSubmitting(true);
-    setError(''); setSuccess('');
+    setError('');
+    setSuccess('');
     try {
       const payload = {
         imei: form.imei,
         name: form.name,
-        plate: form.plate || form.metadata.vehicleId,
-        model: form.model,
-        category: form.category || 'General',
-        driverName: form.driverName || form.metadata.ownerName,
-        driverPhone: form.driverPhone || form.metadata.ownerPhone,
+        plate: form.plate || form.metadata.vehicleId || form.metadata.registrationNo,
+        model: form.model || form.metadata.vehicleTypeSelect,
         orgId: form.orgId,
-        groupIds: selectedGroupIds,
         serverName: form.serverName,
         gpsSimNo: form.gpsSimNo,
         deviceVersion: form.deviceVersion,
@@ -300,13 +579,21 @@ const EditVehiclePage = () => {
         apn: form.apn,
         licenceIssuedDate: form.licenceIssuedDate,
         licenceExpireDate: form.licenceExpireDate,
-        isSandMining: form.isSandMining,
+        driverName: form.metadata.driverName || form.driverName,
+        driverPhone: form.metadata.driverPhone || form.driverPhone,
         metadata: {
           ...form.metadata,
-          sim1: form.gpsSimNo,
-          vehicleModel: form.model,
+          vehicleId: form.metadata.vehicleId || form.plate,
+          registrationNo: form.plate || form.metadata.registrationNo,
+          vehicleTypeSelect: form.model || form.metadata.vehicleTypeSelect,
+          vehicleModel: form.metadata.vehicleModel,
           deviceModel: form.deviceVersion,
-          registrationNo: form.plate || form.metadata.vehicleId
+          sim1: form.gpsSimNo,
+          licenceId: form.metadata.licenceId,
+          licenceIssuedDate: form.licenceIssuedDate,
+          licenceExpireDate: form.licenceExpireDate,
+          driverName: form.metadata.driverName || form.driverName,
+          driverPhone: form.metadata.driverPhone || form.driverPhone
         }
       };
 
@@ -317,7 +604,7 @@ const EditVehiclePage = () => {
       } else {
         await vehicleApi.createVehicle(payload);
         setSuccess('Vehicle registered successfully!');
-        setTimeout(() => navigate('/admin/vehicles'), 1500);
+        setTimeout(() => navigate('/admin/vehicles'), 1200);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save vehicle');
@@ -327,406 +614,738 @@ const EditVehiclePage = () => {
     }
   };
 
-  const filteredGroups = groups.filter(g =>
-    g.name.toLowerCase().includes(groupSearchQuery.toLowerCase())
-  );
-
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', background: '#EEF5F8' }}>
-        <Loader2 size={48} className="animate-spin" color="#f97316" style={{ marginBottom: '16px' }} />
-        <h2 style={{ fontSize: '18px', color: '#475569', fontWeight: 600 }}>Loading Vehicle Data...</h2>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '400px', background: '#EEF5F8' }}>
+        <Loader2 size={36} className="animate-spin" color="#f97316" style={{ marginBottom: '12px' }} />
+        <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 600 }}>Loading Vehicle Details...</span>
       </div>
     );
   }
 
+  const currentVehicleId = form.metadata.vehicleId || form.plate || form.name || 'Vehicle';
+
   return (
-    <div style={{ background: '#EEF5F8', minHeight: '100%', paddingBottom: '64px', boxSizing: 'border-box' }}>
+    <div style={{ background: '#EEF5F8', minHeight: '100%', padding: '20px 28px 60px 28px', boxSizing: 'border-box' }}>
 
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-200/80 p-4 sm:px-10 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-        <div className="flex items-center gap-3 sm:gap-5 w-full sm:w-auto">
-          <button
+      {/* Top Header & Breadcrumbs matching FuelTracks UI theme */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+          Edit Vehicle
+        </h1>
+
+        {/* Breadcrumbs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: 600 }}>
+          <Home size={15} style={{ color: '#64748b' }} />
+          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+          <span
             onClick={() => navigate('/admin/vehicles')}
-            style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#475569', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#111827'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.color = '#475569'; }}
+            style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+            onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
           >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="flex-1 min-w-0">
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#475569', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Vehicles <ChevronRight size={14} /> {isEditing ? 'Edit Vehicle' : 'Register Vehicle'}
-            </div>
-            <h1 style={{ fontSize: '28px', fontWeight: 900, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>
-              {isEditing ? form.name || form.plate || 'Edit Vehicle' : 'Register New Vehicle'}
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 w-full sm:w-auto">
-          {isEditing && (
-            <button
-              onClick={() => navigate(`/admin/vehicles/migration/${id}`)}
-              style={{ padding: '12px 24px', borderRadius: '12px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#111827', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
-              onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
-            >
-              <RefreshCcw size={18} color="#f97316" /> Migrate Device
-            </button>
-          )}
-          <button
-            onClick={handleSave} disabled={submitting}
-            style={{ padding: '12px 32px', borderRadius: '12px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '15px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '10px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 15px -3px rgba(249,115,22,0.3)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
-          >
-            {submitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-            {isEditing ? 'Save Changes' : 'Register Vehicle'}
-          </button>
+            Vehicle list
+          </span>
+          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+          <span>Vehicle Edit</span>
+          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+          <span style={{ color: '#ea580c', fontWeight: 800 }}>{currentVehicleId}</span>
         </div>
       </div>
 
-      <div className="p-4 sm:p-10 max-w-[1400px] mx-auto">
+      {/* Status Alerts */}
+      {error && (
+        <div style={{ padding: '14px 18px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#dc2626', marginBottom: '20px', fontSize: '13px', fontWeight: 700, boxShadow: '0 2px 4px rgba(220,38,38,0.06)' }}>
+          <AlertTriangle size={18} />
+          <span>{error}</span>
+        </div>
+      )}
+      {success && (
+        <div style={{ padding: '14px 18px', background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#059669', marginBottom: '20px', fontSize: '13px', fontWeight: 700, boxShadow: '0 2px 4px rgba(5,150,105,0.06)' }}>
+          <CheckCircle size={18} />
+          <span>{success}</span>
+        </div>
+      )}
 
-        {/* Status Alerts */}
-        {error && (
-          <div style={{ padding: '16px 20px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#DC2626', marginBottom: '32px', boxShadow: '0 4px 6px -1px rgba(220,38,38,0.1)' }}>
-            <AlertTriangle size={24} />
-            <div style={{ fontSize: '15px', fontWeight: 600 }}>{error}</div>
-          </div>
-        )}
-        {success && (
-          <div style={{ padding: '16px 20px', background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#059669', marginBottom: '32px', boxShadow: '0 4px 6px -1px rgba(5,150,105,0.1)' }}>
-            <CheckCircle size={24} />
-            <div style={{ fontSize: '15px', fontWeight: 600 }}>{success}</div>
-          </div>
-        )}
+      {/* Main White Card Container */}
+      <div style={{
+        background: '#ffffff',
+        borderRadius: '16px',
+        border: '1px solid #e2e8f0',
+        padding: '28px 36px',
+        boxShadow: '0 4px 6px rgba(0,0,0,0.02)'
+      }}>
 
-        {/* Section 1: Top Main Vehicle & Device Fields Grid (Matching Screenshot 2) */}
-        <SectionCard title="Vehicle & Device Core Information" icon={Truck}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-            
-            <InputField label="Vehicle ID" value={form.metadata.vehicleId || form.plate || ''} onChange={e => updateMeta('vehicleId', e.target.value)} placeholder="e.g. AP04X5678" focused={focusedField === 'vId'} onFocus={() => setFocusedField('vId')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Vehicle Name" value={form.name} onChange={e => updateField('name', e.target.value)} placeholder="e.g. AP04X5678" focused={focusedField === 'name'} onFocus={() => setFocusedField('name')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Vehicle Registration Number" value={form.plate} onChange={e => { updateField('plate', e.target.value); updateMeta('registrationNo', e.target.value); }} placeholder="e.g. MH12AB1234" focused={focusedField === 'plate'} onFocus={() => setFocusedField('plate')} onBlur={() => setFocusedField(null)} />
-            
-            <SelectField
-              label="Vehicle Type"
-              value={form.model || form.metadata.vehicleTypeSelect}
-              onChange={e => { updateField('model', e.target.value); updateMeta('vehicleTypeSelect', e.target.value); }}
-              options={VEHICLE_TYPES}
-              focused={focusedField === 'vType'}
-              onFocus={() => setFocusedField('vType')}
-              onBlur={() => setFocusedField(null)}
+        {/* ============================================================ */}
+        {/* SECTION 1: Vehicle Information                                */}
+        {/* ============================================================ */}
+        <SectionTitle title="Vehicle Information" />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: '32px', rowGap: '16px' }}>
+          {/* Row 1 */}
+          <InputField
+            label="Vehicle ID"
+            value={form.metadata.vehicleId || form.plate || form.imei}
+            disabled={true}
+            placeholder="Vehicle ID"
+          />
+          <InputField
+            label="Vehicle Name"
+            value={form.name}
+            onChange={e => updateField('name', e.target.value)}
+            placeholder="Vehicle Name"
+            focused={focusedField === 'name'}
+            onFocus={() => setFocusedField('name')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 2 */}
+          <InputField
+            label="Vehicle Registration Number"
+            value={form.plate}
+            onChange={e => { updateField('plate', e.target.value); updateMeta('registrationNo', e.target.value); }}
+            placeholder="e.g. MH12AB1234"
+            focused={focusedField === 'plate'}
+            onFocus={() => setFocusedField('plate')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Vehicle Type"
+            value={form.model || form.metadata.vehicleTypeSelect}
+            onChange={e => { updateField('model', e.target.value); updateMeta('vehicleTypeSelect', e.target.value); }}
+            options={VEHICLE_TYPES}
+            focused={focusedField === 'vType'}
+            onFocus={() => setFocusedField('vType')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 3 */}
+          <SelectField
+            label="Device Model"
+            value={form.deviceVersion || form.metadata.deviceModel}
+            onChange={e => {
+              const newModel = e.target.value;
+              const newPort = getDevicePort(newModel);
+              setForm(prev => ({
+                ...prev,
+                deviceVersion: newModel,
+                metadata: {
+                  ...prev.metadata,
+                  deviceModel: newModel,
+                  portNo: newPort
+                }
+              }));
+            }}
+            options={DEVICE_MODELS}
+            focused={focusedField === 'dModel'}
+            onFocus={() => setFocusedField('dModel')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Vehicle Model"
+            value={form.metadata.vehicleModel}
+            onChange={e => updateMeta('vehicleModel', e.target.value)}
+            options={
+              form.metadata.vehicleModel && !VEHICLE_MODELS.includes(form.metadata.vehicleModel)
+                ? [form.metadata.vehicleModel, ...VEHICLE_MODELS]
+                : VEHICLE_MODELS
+            }
+            placeholder="-- Select Vehicle Model --"
+            focused={focusedField === 'vModel'}
+            onFocus={() => setFocusedField('vModel')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 4 */}
+          <InputField
+            label="Device Id / IMEI No"
+            value={form.imei}
+            disabled={true}
+            placeholder="IMEI Number"
+          />
+          <InputField
+            label="GPS Sim Number"
+            value={form.gpsSimNo}
+            onChange={e => { updateField('gpsSimNo', e.target.value); updateMeta('sim1', e.target.value); }}
+            placeholder="0123456789"
+            focused={focusedField === 'sim1'}
+            onFocus={() => setFocusedField('sim1')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 5 */}
+          <InputField
+            label="GPS Sim ICCID"
+            value={form.metadata.iccid}
+            onChange={e => updateMeta('iccid', e.target.value)}
+            placeholder="ICCID"
+            focused={focusedField === 'iccid'}
+            onFocus={() => setFocusedField('iccid')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Telecom Operator Name"
+            value={form.metadata.telecomOperator}
+            onChange={e => updateMeta('telecomOperator', e.target.value)}
+            options={TELECOM_OPERATORS}
+            focused={focusedField === 'operator'}
+            onFocus={() => setFocusedField('operator')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 6 */}
+          <InputField
+            label="Installation Date"
+            type="date"
+            value={form.metadata.installationDate}
+            onChange={e => updateMeta('installationDate', e.target.value)}
+            focused={focusedField === 'instDate'}
+            onFocus={() => setFocusedField('instDate')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Organization Name"
+            value={form.orgId}
+            onChange={e => updateField('orgId', e.target.value)}
+            options={orgs.map(o => ({ value: o.id, label: o.name }))}
+            placeholder="DEFAULT"
+            focused={focusedField === 'orgId'}
+            onFocus={() => setFocusedField('orgId')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 7 */}
+          <InputField
+            label="Onboard Date"
+            type="date"
+            value={form.metadata.onboardDate}
+            onChange={e => updateMeta('onboardDate', e.target.value)}
+            focused={focusedField === 'onboardDate'}
+            onFocus={() => setFocusedField('onboardDate')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Licence Expiration Date"
+            type="date"
+            value={form.licenceExpireDate}
+            onChange={e => { updateField('licenceExpireDate', e.target.value); updateMeta('licenceExpireDate', e.target.value); }}
+            focused={focusedField === 'licExp'}
+            onFocus={() => setFocusedField('licExp')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 8 */}
+          <InputField
+            label="Licence Issued Date"
+            type="date"
+            value={form.licenceIssuedDate}
+            onChange={e => { updateField('licenceIssuedDate', e.target.value); updateMeta('licenceIssuedDate', e.target.value); }}
+            focused={focusedField === 'licIss'}
+            onFocus={() => setFocusedField('licIss')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Licence"
+            value={form.metadata.licenceId}
+            onChange={e => updateMeta('licenceId', e.target.value)}
+            placeholder="Licence ID"
+            focused={focusedField === 'lic'}
+            onFocus={() => setFocusedField('lic')}
+            onBlur={() => setFocusedField(null)}
+          />
+        </div>
+
+        {/* ============================================================ */}
+        {/* SECTION 2: Fuel Sensor Details                               */}
+        {/* ============================================================ */}
+        <SectionTitle title="Fuel Sensor Details" />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: '32px', rowGap: '16px' }}>
+          {/* Row 1 */}
+          <SelectField
+            label="Fuel Mode"
+            value={form.metadata.fuelMode}
+            onChange={e => updateMeta('fuelMode', e.target.value)}
+            options={['Auto Calibrate', 'Manual', 'None']}
+            focused={focusedField === 'fuelMode'}
+            onFocus={() => setFocusedField('fuelMode')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Sensor Count"
+            type="number"
+            value={form.metadata.sensorCount}
+            onChange={e => updateMeta('sensorCount', e.target.value)}
+            placeholder="1"
+            focused={focusedField === 'sensorCount'}
+            onFocus={() => setFocusedField('sensorCount')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 2 */}
+          <InputField
+            label="Number of Tank"
+            type="number"
+            value={form.metadata.numberOfTank}
+            onChange={e => updateMeta('numberOfTank', e.target.value)}
+            placeholder="1"
+            focused={focusedField === 'numTank'}
+            onFocus={() => setFocusedField('numTank')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Fuel Type"
+            value={form.metadata.fuelType}
+            onChange={e => updateMeta('fuelType', e.target.value)}
+            options={['Analog', 'Digital', 'Frequency', 'None', 'Diesel', 'Petrol', 'CNG']}
+            focused={focusedField === 'fType'}
+            onFocus={() => setFocusedField('fType')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 3 */}
+          <SelectField
+            label="Mode of Vehicle"
+            value={form.metadata.modeOfVehicle}
+            onChange={e => updateMeta('modeOfVehicle', e.target.value)}
+            options={['None', 'Moving', 'Stationary']}
+            focused={focusedField === 'modeVeh'}
+            onFocus={() => setFocusedField('modeVeh')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Tank Size"
+            type="number"
+            value={form.metadata.tankSize}
+            onChange={e => updateMeta('tankSize', e.target.value)}
+            placeholder="0"
+            focused={focusedField === 'tankSize'}
+            onFocus={() => setFocusedField('tankSize')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 4: Speed on Left, Toggles on Right */}
+          <SelectField
+            label="Speed"
+            value={form.metadata.speedSource}
+            onChange={e => updateMeta('speedSource', e.target.value)}
+            options={['GPS Speed', 'CAN Speed', 'Sensor Speed', 'Pulse Speed']}
+            placeholder="-- Select --"
+            focused={focusedField === 'speed'}
+            onFocus={() => setFocusedField('speed')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '32px', paddingTop: '2px' }}>
+            <PillToggle
+              label="Fluctuations"
+              active={form.metadata.fluctuations}
+              onChange={val => updateMeta('fluctuations', val)}
+              tooltip="Enable fuel level fluctuations filtering"
             />
-
-            <InputField label="Vehicle Model" value={form.metadata.vehicleModel || ''} onChange={e => updateMeta('vehicleModel', e.target.value)} placeholder="e.g. Tata Prima 3518" focused={focusedField === 'vModel'} onFocus={() => setFocusedField('vModel')} onBlur={() => setFocusedField(null)} />
-            
-            <SelectField
-              label="Device Type"
-              value={form.deviceVersion}
-              onChange={e => { updateField('deviceVersion', e.target.value); updateMeta('deviceModel', e.target.value); }}
-              options={DEVICE_TYPES}
-              focused={focusedField === 'dModel'}
-              onFocus={() => setFocusedField('dModel')}
-              onBlur={() => setFocusedField(null)}
+            <PillToggle
+              label="Fuel Battery Volt"
+              active={form.metadata.fuelBatteryVolt}
+              onChange={val => updateMeta('fuelBatteryVolt', val)}
+              tooltip="Enable fuel sensor battery voltage readings"
             />
-
-            <div style={{ position: 'relative' }}>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#0F172A', marginBottom: '8px' }}>
-                Device ID / IMEI No
-              </label>
-              <input
-                type="text"
-                value={form.imei}
-                onChange={e => updateField('imei', e.target.value.replace(/\D/g, '').slice(0, 15))}
-                disabled={isEditing}
-                placeholder="868329087240119"
-                maxLength={15}
-                style={{
-                  ...inputBaseStyle,
-                  cursor: isEditing ? 'not-allowed' : 'text',
-                  border: !isEditing && form.imei && form.imei.length !== 15
-                    ? '2px solid #EF4444'
-                    : form.imei && form.imei.length === 15
-                    ? '2px solid #22C55E'
-                    : '1px solid #CBD5E1',
-                  background: isEditing ? '#F1F5F9' : '#FFFFFF',
-                  color: '#0F172A',
-                  boxShadow: !isEditing && form.imei && form.imei.length !== 15
-                    ? '0 0 0 3px rgba(239,68,68,0.15)'
-                    : form.imei && form.imei.length === 15
-                    ? '0 0 0 3px rgba(34,197,94,0.15)'
-                    : 'none'
-                }}
-              />
-              {/* IMEI digit counter */}
-              {!isEditing && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
-                  {form.imei && form.imei.length !== 15 && (
-                    <span style={{ fontSize: '11px', color: '#EF4444', fontWeight: 700 }}>
-                      ⚠ IMEI must be exactly 15 digits
-                    </span>
-                  )}
-                  {form.imei && form.imei.length === 15 && (
-                    <span style={{ fontSize: '11px', color: '#22C55E', fontWeight: 700 }}>
-                      ✓ Valid IMEI
-                    </span>
-                  )}
-                  <span style={{ fontSize: '11px', color: form.imei?.length === 15 ? '#22C55E' : '#64748B', fontWeight: 600, marginLeft: 'auto' }}>
-                    {form.imei?.length || 0}/15
-                  </span>
-                </div>
-              )}
-              {isEditing && (
-                <span style={{ position: 'absolute', top: '0', right: '0', fontSize: '11px', color: '#f97316', fontWeight: 700, background: '#EEF5F8', padding: '2px 8px', borderRadius: '4px' }}>
-                  Use Migrate
-                </span>
-              )}
-            </div>
-
-            <InputField label="GPS Sim Number" value={form.gpsSimNo} onChange={e => updateField('gpsSimNo', e.target.value)} placeholder="0123456789" focused={focusedField === 'sim1'} onFocus={() => setFocusedField('sim1')} onBlur={() => setFocusedField(null)} />
-            <InputField label="GPS Sim Number 2" value={form.metadata.sim2 || ''} onChange={e => updateMeta('sim2', e.target.value)} placeholder="Secondary SIM" focused={focusedField === 'sim2'} onFocus={() => setFocusedField('sim2')} onBlur={() => setFocusedField(null)} />
-            <InputField label="GPS Sim ICCID" value={form.metadata.iccid || ''} onChange={e => updateMeta('iccid', e.target.value)} placeholder="ICCID Serial No" focused={focusedField === 'iccid'} onFocus={() => setFocusedField('iccid')} onBlur={() => setFocusedField(null)} />
-            
-            <SelectField
-              label="Telecom Operator"
-              value={form.metadata.telecomOperator}
-              onChange={e => updateMeta('telecomOperator', e.target.value)}
-              options={TELECOM_OPERATORS}
-              focused={focusedField === 'telecom'}
-              onFocus={() => setFocusedField('telecom')}
-              onBlur={() => setFocusedField(null)}
-            />
-
-            <InputField label="Installation Date" type="date" value={form.metadata.installationDate || form.metadata.installedDate || ''} onChange={e => updateMeta('installationDate', e.target.value)} focused={focusedField === 'instDate'} onFocus={() => setFocusedField('instDate')} onBlur={() => setFocusedField(null)} />
-            
-            {orgs && orgs.length > 0 && (
-              <SelectField
-                label="Organization Name"
-                value={form.orgId}
-                onChange={e => updateField('orgId', e.target.value)}
-                options={orgs.map(o => ({ value: o.id, label: o.name }))}
-                focused={focusedField === 'org'}
-                onFocus={() => setFocusedField('org')}
-                onBlur={() => setFocusedField(null)}
-              />
-            )}
-
-            <InputField label="Licence" value={form.metadata.licenceId || form.metadata.licenceNo || ''} onChange={e => updateMeta('licenceId', e.target.value)} placeholder="e.g. DL-12345" focused={focusedField === 'lic'} onFocus={() => setFocusedField('lic')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Onboard Date" type="date" value={form.metadata.onboardingDate || form.metadata.onboardDate || ''} onChange={e => updateMeta('onboardingDate', e.target.value)} focused={focusedField === 'onboardDate'} onFocus={() => setFocusedField('onboardDate')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Licence Issued Date" type="date" value={form.licenceIssuedDate} onChange={e => updateField('licenceIssuedDate', e.target.value)} focused={focusedField === 'licIss'} onFocus={() => setFocusedField('licIss')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Licence Expiration Date" type="date" value={form.licenceExpireDate} onChange={e => updateField('licenceExpireDate', e.target.value)} focused={focusedField === 'licExp'} onFocus={() => setFocusedField('licExp')} onBlur={() => setFocusedField(null)} />
-            
-            <InputField label="VLTD SLNO" value={form.metadata.vlttdSlno || ''} onChange={e => updateMeta('vlttdSlno', e.target.value)} placeholder="e.g. VLT-TS-98721" focused={focusedField === 'vlttd'} onFocus={() => setFocusedField('vlttd')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Chassis Number" value={form.metadata.chassisNo || ''} onChange={e => updateMeta('chassisNo', e.target.value)} placeholder="Chassis / VIN" focused={focusedField === 'chas'} onFocus={() => setFocusedField('chas')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Engine Number" value={form.metadata.engineNo || ''} onChange={e => updateMeta('engineNo', e.target.value)} placeholder="Engine Serial No" focused={focusedField === 'engNo'} onFocus={() => setFocusedField('engNo')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Sensor Number" value={form.metadata.sensorNo || ''} onChange={e => updateMeta('sensorNo', e.target.value)} placeholder="e.g. SNS-FUEL-01" focused={focusedField === 'sns'} onFocus={() => setFocusedField('sns')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Ticket ID" value={form.metadata.ticketId || ''} onChange={e => updateMeta('ticketId', e.target.value)} placeholder="e.g. TCK-98722" focused={focusedField === 'tck'} onFocus={() => setFocusedField('tck')} onBlur={() => setFocusedField(null)} />
-            
-            <SelectField
-              label="Operating Category"
-              value={form.category}
-              onChange={e => updateField('category', e.target.value)}
-              options={['General', 'TG Mining', 'VLTD', 'VLTD + Mining']}
-              focused={focusedField === 'cat'}
-              onFocus={() => setFocusedField('cat')}
-              onBlur={() => setFocusedField(null)}
-            />
-
-            {/* Sand Mining Filter Toggle */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px', background: '#F8FAFC', borderRadius: '12px', border: '1px solid #E2E8F0' }}>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>Enable Sand Mining</span>
-                <span style={{ fontSize: '11px', color: '#64748B' }}>Forward live data to TG Mining Government server</span>
-              </div>
-              <ToggleButton active={form.isSandMining ? 'YES' : 'NO'} onChange={(val) => updateField('isSandMining', val === 'YES')} />
-            </div>
           </div>
-        </SectionCard>
+        </div>
 
-        {/* Section 2: Fuel Configuration (Matching Screenshot 3) */}
-        <SectionCard title="Fuel Configuration" icon={Fuel}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '20px' }}>
-            
-            <SelectField
-              label="Fuel Type"
-              value={form.metadata.fuelType}
-              onChange={e => updateMeta('fuelType', e.target.value)}
-              options={['None', 'Diesel', 'Petrol', 'CNG']}
-              focused={focusedField === 'fType'}
-              onFocus={() => setFocusedField('fType')}
-              onBlur={() => setFocusedField(null)}
-            />
+        {/* ============================================================ */}
+        {/* SECTION 3: Configuration Details                             */}
+        {/* ============================================================ */}
+        <SectionTitle title="Configuration Details" />
 
-            <InputField label="Tank Size (Liters)" type="number" value={form.metadata.tankSize} onChange={e => updateMeta('tankSize', e.target.value)} placeholder="0" focused={focusedField === 'tSize'} onFocus={() => setFocusedField('tSize')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Fuel Empty ADC (Quick Calib)" type="number" value={form.metadata.fuelEmptyAdc} onChange={e => updateMeta('fuelEmptyAdc', e.target.value)} placeholder="0" focused={focusedField === 'fEmpty'} onFocus={() => setFocusedField('fEmpty')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Fuel Full ADC (Quick Calib)" type="number" value={form.metadata.fuelFullAdc} onChange={e => updateMeta('fuelFullAdc', e.target.value)} placeholder="1000" focused={focusedField === 'fFull'} onFocus={() => setFocusedField('fFull')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Expected Mileage (km/L)" type="number" value={form.metadata.expectedMileage} onChange={e => updateMeta('expectedMileage', e.target.value)} placeholder="4" focused={focusedField === 'exMil'} onFocus={() => setFocusedField('exMil')} onBlur={() => setFocusedField(null)} />
-          </div>
-        </SectionCard>
+        {/* Top Toggles Row */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '28px', marginBottom: '20px', alignItems: 'center' }}>
+          <PillToggle
+            label="Device Odo"
+            active={form.metadata.deviceOdo}
+            onChange={val => updateMeta('deviceOdo', val)}
+            tooltip="Use device odometer packets"
+          />
+          <PillToggle
+            label="Asset Tracker ..."
+            active={form.metadata.assetTrack}
+            onChange={val => updateMeta('assetTrack', val)}
+            tooltip="Enable portable asset tracking mode"
+          />
+          <PillToggle
+            label="Safety Parking ..."
+            active={form.metadata.safetyPark}
+            onChange={val => updateMeta('safetyPark', val)}
+            tooltip="Activate safety parking alerts"
+          />
+          <PillToggle
+            label="Rig Mode"
+            active={form.metadata.rigMode}
+            onChange={val => updateMeta('rigMode', val)}
+            tooltip="Enable drilling rig / machinery mode"
+          />
+          <PillToggle
+            label="AC"
+            active={form.metadata.acToggle}
+            onChange={val => updateMeta('acToggle', val)}
+            tooltip="Monitor air conditioner on/off state"
+          />
+        </div>
 
-        {/* Section 3: Configuration Details Toggles (Matching Screenshots 3 & 4) */}
-        <SectionCard title="Configuration Details" icon={Settings}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '24px' }}>
-            <ToggleButton label="Device Odo" active={form.metadata.deviceOdo} onChange={val => updateMeta('deviceOdo', val)} />
-            <ToggleButton label="Asset Track" active={form.metadata.assetTrack} onChange={val => updateMeta('assetTrack', val)} />
-            <ToggleButton label="Safety Park" active={form.metadata.safetyPark} onChange={val => updateMeta('safetyPark', val)} />
-            <ToggleButton label="Rig Mode" active={form.metadata.rigMode} onChange={val => updateMeta('rigMode', val)} />
-            <ToggleButton label="Ac Toggle" active={form.metadata.acToggle} onChange={val => updateMeta('acToggle', val)} />
-            <ToggleButton label="External Device" active={form.metadata.externalDevice} onChange={val => updateMeta('externalDevice', val)} />
-          </div>
-        </SectionCard>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: '32px', rowGap: '16px' }}>
+          {/* Row 1 */}
+          <SelectField
+            label="Secondary Engine (AC)"
+            value={form.metadata.secondaryEngine}
+            onChange={e => updateMeta('secondaryEngine', e.target.value)}
+            options={['Digital Input 2', 'Digital Input 1', 'Analog Input', 'Disabled']}
+            focused={focusedField === 'secEngine'}
+            onFocus={() => setFocusedField('secEngine')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Engine ON"
+            value={form.metadata.engineOnStatus}
+            onChange={e => updateMeta('engineOnStatus', e.target.value)}
+            options={['Ignition', 'Voltage', 'Voltage+Ignition', 'Digital Input 1', 'Digital Input 2']}
+            focused={focusedField === 'engineOn'}
+            onFocus={() => setFocusedField('engineOn')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-        {/* Section 4: Advanced Telemetry & Threshold Settings (Matching Screenshots 4 & 5) */}
-        <SectionCard title="Telemetry & Threshold Settings" icon={Cpu}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '24px' }}>
-            
-            <SelectField
-              label="Secondary Engine (AC)"
-              value={form.metadata.secondaryEngine}
-              onChange={e => updateMeta('secondaryEngine', e.target.value)}
-              options={['Digital Input 1', 'Digital Input 2', 'Analog Input', 'Disabled']}
-              focused={focusedField === 'secEng'}
-              onFocus={() => setFocusedField('secEng')}
-              onBlur={() => setFocusedField(null)}
-            />
+          {/* Row 2 */}
+          <InputField
+            label="Vehicle Battery Voltage"
+            value={form.metadata.vehicleVoltage}
+            onChange={e => updateMeta('vehicleVoltage', e.target.value)}
+            placeholder="Vehicle Battery Voltage"
+            focused={focusedField === 'vVolt'}
+            onFocus={() => setFocusedField('vVolt')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Odometer Reading"
+            type="number"
+            value={form.metadata.odometerReading}
+            onChange={e => updateMeta('odometerReading', e.target.value)}
+            placeholder="0"
+            focused={focusedField === 'odoRead'}
+            onFocus={() => setFocusedField('odoRead')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-            <SelectField
-              label="Engine ON"
-              value={form.metadata.engineOnStatus || form.metadata.engineOn}
-              onChange={e => { updateMeta('engineOnStatus', e.target.value); updateMeta('engineOn', e.target.value); }}
-              options={['Ignition', 'Voltage', 'Voltage+Ignition', 'Digital Input 1', 'Digital Input 2']}
-              focused={focusedField === 'engOn'}
-              onFocus={() => setFocusedField('engOn')}
-              onBlur={() => setFocusedField(null)}
-            />
+          {/* Row 3 */}
+          <InputField
+            label="OverSpeed Limit"
+            type="number"
+            value={form.metadata.overSpeedLimit}
+            onChange={e => updateMeta('overSpeedLimit', e.target.value)}
+            placeholder="60"
+            focused={focusedField === 'osLimit'}
+            onFocus={() => setFocusedField('osLimit')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Expected Mileage"
+            type="number"
+            value={form.metadata.expectedMileage}
+            onChange={e => updateMeta('expectedMileage', e.target.value)}
+            placeholder="0"
+            focused={focusedField === 'expMileage'}
+            onFocus={() => setFocusedField('expMileage')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-            <InputField label="Vehicle Battery Voltage" value={form.metadata.vehicleVoltage || form.metadata.batteryVoltage} onChange={e => { updateMeta('vehicleVoltage', e.target.value); updateMeta('batteryVoltage', e.target.value); }} placeholder="12V" focused={focusedField === 'vVolt'} onFocus={() => setFocusedField('vVolt')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Odometer Reading" type="number" value={form.metadata.odometerReading || form.metadata.odoDistance} onChange={e => { updateMeta('odometerReading', e.target.value); updateMeta('odoDistance', e.target.value); }} placeholder="0" focused={focusedField === 'odoRead'} onFocus={() => setFocusedField('odoRead')} onBlur={() => setFocusedField(null)} />
-            
-            <InputField label="OverSpeed Limit" type="number" value={form.metadata.overSpeedLimit} onChange={e => updateMeta('overSpeedLimit', e.target.value)} placeholder="60" focused={focusedField === 'osLimit'} onFocus={() => setFocusedField('osLimit')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Overspeed Duration (mins)" type="number" value={form.metadata.overspeedDurationAlert} onChange={e => updateMeta('overspeedDurationAlert', e.target.value)} placeholder="3" focused={focusedField === 'osDur'} onFocus={() => setFocusedField('osDur')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Idle Duration (mins)" type="number" value={form.metadata.idleDurationAlert} onChange={e => updateMeta('idleDurationAlert', e.target.value)} placeholder="10" focused={focusedField === 'idleDur'} onFocus={() => setFocusedField('idleDur')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Expected Mileage" type="number" value={form.metadata.expectedMileage} onChange={e => updateMeta('expectedMileage', e.target.value)} placeholder="4" focused={focusedField === 'expMil2'} onFocus={() => setFocusedField('expMil2')} onBlur={() => setFocusedField(null)} />
-            
-            <SelectField
-              label="Enable Debugs"
-              value={form.metadata.enableDebugs}
-              onChange={e => updateMeta('enableDebugs', e.target.value)}
-              options={['Disable', 'Enable']}
-              focused={focusedField === 'dbg'}
-              onFocus={() => setFocusedField('dbg')}
-              onBlur={() => setFocusedField(null)}
-            />
+          {/* Row 4 */}
+          <SelectField
+            label="Enable Debugs"
+            value={form.metadata.enableDebugs}
+            onChange={e => updateMeta('enableDebugs', e.target.value)}
+            options={['Disable', 'Enable']}
+            focused={focusedField === 'dbg'}
+            onFocus={() => setFocusedField('dbg')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Country Timezone"
+            value={form.metadata.countryTimezone}
+            onChange={e => updateMeta('countryTimezone', e.target.value)}
+            options={['India Standard Time (IST)', 'UTC (+00:00)', 'Asia/Kolkata', 'Asia/Dubai', 'US/Eastern']}
+            placeholder="-- Select Timezone --"
+            focused={focusedField === 'cTz'}
+            onFocus={() => setFocusedField('cTz')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-            <SelectField
-              label="Timezone"
-              value={form.timezone}
-              onChange={e => updateField('timezone', e.target.value)}
-              options={['IST', 'UTC', 'Asia/Kolkata']}
-              focused={focusedField === 'tz'}
-              onFocus={() => setFocusedField('tz')}
-              onBlur={() => setFocusedField(null)}
-            />
+          {/* Row 5 */}
+          <SelectField
+            label="Timezone"
+            value={form.timezone}
+            onChange={e => updateField('timezone', e.target.value)}
+            options={['TIMEZONE', 'IST', 'UTC', 'Asia/Kolkata']}
+            placeholder="TIMEZONE"
+            focused={focusedField === 'tz'}
+            onFocus={() => setFocusedField('tz')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="IP Address"
+            value={form.metadata.ipAddress}
+            disabled={true}
+            placeholder="Auto-fetched IP Address"
+          />
 
-            <InputField label="IP Address" value={form.metadata.ipAddress} onChange={e => updateMeta('ipAddress', e.target.value)} placeholder="e.g. 5.223.83.39" focused={focusedField === 'ip'} onFocus={() => setFocusedField('ip')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Communicating Port No" value={form.metadata.portNo} onChange={e => updateMeta('portNo', e.target.value)} placeholder="e.g. 5004" focused={focusedField === 'port'} onFocus={() => setFocusedField('port')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Low Battery Percentage" type="number" value={form.metadata.lowBattery} onChange={e => updateMeta('lowBattery', e.target.value)} placeholder="20" focused={focusedField === 'lowBat'} onFocus={() => setFocusedField('lowBat')} onBlur={() => setFocusedField(null)} />
-          </div>
-        </SectionCard>
+          {/* Row 6 */}
+          <InputField
+            label="Communicating Port No"
+            value={form.metadata.portNo}
+            disabled={true}
+            placeholder="Auto-fetched Port No"
+          />
+          <InputField
+            label="Low Battery Percentage"
+            type="number"
+            value={form.metadata.lowBattery}
+            onChange={e => updateMeta('lowBattery', e.target.value)}
+            placeholder="20"
+            focused={focusedField === 'lowBat'}
+            onFocus={() => setFocusedField('lowBat')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-        {/* Section 5: Multi-Group Assignment (Checkboxes) */}
-        <SectionCard title="Multi-Group Assignment" icon={Layers}>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <p className="text-xs text-slate-500">
-                Check all groups this vehicle belongs to. Vehicles will be accessible in operational reports for all checked groups.
-              </p>
-              <div className="relative w-full sm:w-64">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Filter groups..."
-                  value={groupSearchQuery}
-                  onChange={(e) => setGroupSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
-                />
-              </div>
-            </div>
+          {/* Row 7 */}
+          <SelectField
+            label="External Device"
+            value={form.metadata.externalDevice}
+            onChange={e => updateMeta('externalDevice', e.target.value)}
+            options={['NO', 'YES']}
+            placeholder="NO"
+            focused={focusedField === 'extDev'}
+            onFocus={() => setFocusedField('extDev')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <div />
+        </div>
 
-            {/* Checkbox Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-64 overflow-y-auto p-3 bg-slate-50/60 rounded-xl border border-slate-200">
-              {filteredGroups.length === 0 ? (
-                <div className="col-span-full py-6 text-center text-xs text-slate-400">
-                  No groups found.
-                </div>
-              ) : (
-                filteredGroups.map(group => {
-                  const isChecked = selectedGroupIds.includes(group.id);
+        {/* ============================================================ */}
+        {/* SECTION 4: Driver Details                                    */}
+        {/* ============================================================ */}
+        <SectionTitle title="Driver Details" />
 
-                  return (
-                    <label
-                      key={group.id}
-                      onClick={() => toggleGroup(group.id)}
-                      className={`flex items-center gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
-                        isChecked
-                          ? 'bg-orange-50 border-orange-300 text-orange-950 font-bold shadow-2xs'
-                          : 'bg-white border-slate-200 hover:bg-slate-100/80 text-slate-700 font-medium'
-                      }`}
-                    >
-                      <div className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${
-                        isChecked ? 'bg-orange-600 text-white' : 'border border-slate-300 bg-white'
-                      }`}>
-                        {isChecked && <Check size={12} strokeWidth={3} />}
-                      </div>
-                      <span className="text-xs truncate" title={group.name}>{group.name}</span>
-                    </label>
-                  );
-                })
-              )}
-            </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: '32px', rowGap: '16px' }}>
+          <InputField
+            label="Driver Name"
+            value={form.metadata.driverName}
+            onChange={e => { updateMeta('driverName', e.target.value); updateField('driverName', e.target.value); }}
+            placeholder="Driver Name"
+            focused={focusedField === 'dName'}
+            onFocus={() => setFocusedField('dName')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Driver Mobile No"
+            value={form.metadata.driverPhone}
+            onChange={e => { updateMeta('driverPhone', e.target.value); updateField('driverPhone', e.target.value); }}
+            placeholder="Driver Mobile No"
+            focused={focusedField === 'dPhone'}
+            onFocus={() => setFocusedField('dPhone')}
+            onBlur={() => setFocusedField(null)}
+          />
+        </div>
 
-            <div className="flex items-center justify-between text-xs text-slate-500 font-semibold pt-1">
-              <span>{selectedGroupIds.length} group{selectedGroupIds.length !== 1 ? 's' : ''} selected</span>
-              {form.metadata.oldGroups && (
-                <span className="text-slate-400">Old Groups: {form.metadata.oldGroups}</span>
-              )}
-            </div>
-          </div>
-        </SectionCard>
+        {/* ============================================================ */}
+        {/* SECTION 5: Other Details                                     */}
+        {/* ============================================================ */}
+        <SectionTitle title="Other Details" />
 
-        {/* Section 6: Owner & KYC */}
-        <SectionCard title="Owner & Customer KYC" icon={UserCheck}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-            <InputField label="Owner Name" value={form.metadata.ownerName || form.driverName || ''} onChange={e => { updateMeta('ownerName', e.target.value); updateField('driverName', e.target.value); }} placeholder="Client / Owner Full Name" focused={focusedField === 'oName'} onFocus={() => setFocusedField('oName')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Owner Mobile Number" value={form.metadata.ownerPhone || form.driverPhone || ''} onChange={e => { updateMeta('ownerPhone', e.target.value); updateField('driverPhone', e.target.value); }} placeholder="+91 XXXXX XXXXX" focused={focusedField === 'oPhone'} onFocus={() => setFocusedField('oPhone')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Owner Email ID" type="email" value={form.metadata.email || ''} onChange={e => updateMeta('email', e.target.value)} placeholder="owner@example.com" focused={focusedField === 'oEmail'} onFocus={() => setFocusedField('oEmail')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Owner Location" value={form.metadata.rtoLocation || ''} onChange={e => updateMeta('rtoLocation', e.target.value)} placeholder="e.g. Hyderabad RTO" focused={focusedField === 'oLoc'} onFocus={() => setFocusedField('oLoc')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Owner Aadhar Number" value={form.metadata.aadharNo || ''} onChange={e => updateMeta('aadharNo', e.target.value)} placeholder="12-digit Aadhar KYC" focused={focusedField === 'adh'} onFocus={() => setFocusedField('adh')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Owner PAN Number" value={form.metadata.panNo || ''} onChange={e => updateMeta('panNo', e.target.value)} placeholder="10-digit PAN (ABCDE1234F)" focused={focusedField === 'pan'} onFocus={() => setFocusedField('pan')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Username" value={form.metadata.username || ''} onChange={e => updateMeta('username', e.target.value)} placeholder="Username" focused={focusedField === 'uname'} onFocus={() => setFocusedField('uname')} onBlur={() => setFocusedField(null)} autoComplete="new-password" />
-            <InputField label="Password" type="password" value={form.metadata.password || ''} onChange={e => updateMeta('password', e.target.value)} placeholder="Password" focused={focusedField === 'pwd'} onFocus={() => setFocusedField('pwd')} onBlur={() => setFocusedField(null)} autoComplete="new-password" />
-          </div>
-        </SectionCard>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', columnGap: '32px', rowGap: '16px' }}>
+          {/* Row 1 */}
+          <InputField
+            label="Made In"
+            value={form.metadata.madeIn}
+            onChange={e => updateMeta('madeIn', e.target.value)}
+            placeholder="India"
+            focused={focusedField === 'madeIn'}
+            onFocus={() => setFocusedField('madeIn')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Manufacturing date"
+            type="date"
+            value={form.metadata.mfgDate}
+            onChange={e => updateMeta('mfgDate', e.target.value)}
+            focused={focusedField === 'mfgDate'}
+            onFocus={() => setFocusedField('mfgDate')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-        {/* Section 7: Personnel & Engineering */}
-        <SectionCard title="Field Engineering & Sales Personnel" icon={ShieldCheck}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-            <InputField label="Service Engineer Name" value={form.metadata.serviceEngineer || ''} onChange={e => updateMeta('serviceEngineer', e.target.value)} placeholder="Technician Name" focused={focusedField === 'techName'} onFocus={() => setFocusedField('techName')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Service Engineer Mobile Number" value={form.metadata.serviceEngineerPhone || ''} onChange={e => updateMeta('serviceEngineerPhone', e.target.value)} placeholder="+91 XXXXX XXXXX" focused={focusedField === 'techPhone'} onFocus={() => setFocusedField('techPhone')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Salesman Name" value={form.metadata.salesman || ''} onChange={e => updateMeta('salesman', e.target.value)} placeholder="Sales Executive Name" focused={focusedField === 'sName'} onFocus={() => setFocusedField('sName')} onBlur={() => setFocusedField(null)} />
-            <InputField label="Salesman Mobile Number" value={form.metadata.salesmanPhone || ''} onChange={e => updateMeta('salesmanPhone', e.target.value)} placeholder="+91 XXXXX XXXXX" focused={focusedField === 'sPhone'} onFocus={() => setFocusedField('sPhone')} onBlur={() => setFocusedField(null)} />
-          </div>
-        </SectionCard>
+          {/* Row 2 */}
+          <InputField
+            label="Chassis Number"
+            value={form.metadata.chassisNo}
+            onChange={e => updateMeta('chassisNo', e.target.value)}
+            placeholder="Chassis Number"
+            focused={focusedField === 'chassis'}
+            onFocus={() => setFocusedField('chassis')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Alternate Vehicle Name"
+            value={form.metadata.alternateVehicleName}
+            onChange={e => updateMeta('alternateVehicleName', e.target.value)}
+            placeholder="Alternate Vehicle Name"
+            focused={focusedField === 'altName'}
+            onFocus={() => setFocusedField('altName')}
+            onBlur={() => setFocusedField(null)}
+          />
 
-        {/* Save Bar */}
-        <div className="flex justify-end pt-4">
+          {/* Row 3 */}
+          <InputField
+            label="Description / Remarks"
+            value={form.metadata.description}
+            onChange={e => updateMeta('description', e.target.value)}
+            placeholder="Description / Remarks"
+            focused={focusedField === 'desc'}
+            onFocus={() => setFocusedField('desc')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Service Engineer"
+            value={form.metadata.serviceEngineer}
+            onChange={e => updateMeta('serviceEngineer', e.target.value)}
+            placeholder="Service Engineer"
+            focused={focusedField === 'eng'}
+            onFocus={() => setFocusedField('eng')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 4 */}
+          <InputField
+            label="Salesman"
+            value={form.metadata.salesman}
+            onChange={e => updateMeta('salesman', e.target.value)}
+            placeholder="Salesman"
+            focused={focusedField === 'sales'}
+            onFocus={() => setFocusedField('sales')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Support Person"
+            value={form.metadata.supportPerson}
+            onChange={e => updateMeta('supportPerson', e.target.value)}
+            placeholder="Support Person"
+            focused={focusedField === 'supp'}
+            onFocus={() => setFocusedField('supp')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 5 */}
+          <InputField
+            label="Ticket Id"
+            value={form.metadata.ticketId}
+            onChange={e => updateMeta('ticketId', e.target.value)}
+            placeholder="Ticket Id"
+            focused={focusedField === 'ticketId'}
+            onFocus={() => setFocusedField('ticketId')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Sensor No"
+            value={form.metadata.sensorNo}
+            onChange={e => updateMeta('sensorNo', e.target.value)}
+            placeholder="Sensor No"
+            focused={focusedField === 'sensorNo'}
+            onFocus={() => setFocusedField('sensorNo')}
+            onBlur={() => setFocusedField(null)}
+          />
+        </div>
+
+        {/* ============================================================ */}
+        {/* Bottom Action Buttons (FuelTracks Brand Colors)              */}
+        {/* ============================================================ */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', marginTop: '40px', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
+          {/* Back Button */}
           <button
-            onClick={handleSave} disabled={submitting}
-            style={{ padding: '16px 40px', borderRadius: '12px', background: '#f97316', border: 'none', color: '#FFFFFF', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '12px', cursor: submitting ? 'not-allowed' : 'pointer', boxShadow: '0 10px 20px -5px rgba(249,115,22,0.4)', transition: 'all 0.2s', opacity: submitting ? 0.7 : 1 }}
+            type="button"
+            onClick={() => navigate('/admin/vehicles')}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '10px',
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              color: '#334155',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#0f172a'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.color = '#334155'; }}
           >
-            {submitting ? <Loader2 size={24} className="animate-spin" /> : <Save size={24} />}
-            {isEditing ? 'Save Vehicle Details' : 'Submit Vehicle Registration'}
+            <ArrowLeft size={15} />
+            <span>Back</span>
+          </button>
+
+          {/* Update Button (FuelTracks Primary Orange) */}
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={submitting}
+            style={{
+              padding: '10px 32px',
+              borderRadius: '10px',
+              background: '#f97316',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: submitting ? 'not-allowed' : 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
+              opacity: submitting ? 0.75 : 1
+            }}
+            onMouseEnter={e => { if (!submitting) e.currentTarget.style.background = '#ea580c'; }}
+            onMouseLeave={e => { if (!submitting) e.currentTarget.style.background = '#f97316'; }}
+          >
+            {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+            <span>Update</span>
+          </button>
+
+          {/* Fuel Calibration Button (FuelTracks Dark Navy) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (id) {
+                navigate(`/vehicles/${id}`);
+              } else {
+                alert('Please register the vehicle first before configuring fuel calibration.');
+              }
+            }}
+            style={{
+              padding: '10px 24px',
+              borderRadius: '10px',
+              background: '#1e1b4b',
+              border: 'none',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              boxShadow: '0 4px 12px rgba(30, 27, 75, 0.2)'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#0f172a'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#1e1b4b'; }}
+          >
+            <Fuel size={15} color="#f97316" />
+            <span>Fuel Calibration</span>
           </button>
         </div>
 

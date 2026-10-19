@@ -11,8 +11,8 @@ const GpsModel = {
    * Save a GPS point (with dedup via ON CONFLICT)
    */
   async savePoint({ vehicleId, lat, lng, speed, direction, odometer, fuel,
-    ignition, satellites, gsmSignal, battery, voltage,
-    isLive, deviceTime }) {
+                     ignition, satellites, gsmSignal, battery, voltage,
+                     isLive, deviceTime }) {
     const result = await gpsQuery(
       `INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
@@ -21,7 +21,7 @@ const GpsModel = {
        ON CONFLICT (vehicle_id, device_time) DO NOTHING
        RETURNING id`,
       [vehicleId, lat, lng, speed, direction, odometer, fuel, ignition,
-        satellites, gsmSignal, battery, voltage, isLive, deviceTime]
+       satellites, gsmSignal, battery, voltage, isLive, deviceTime]
     );
     return result.rows[0] || null;
   },
@@ -49,7 +49,7 @@ const GpsModel = {
    * Update vehicle latest state (upsert)
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,
-    ignition, voltage, odometer, satellites, gsmSignal, battery }) {
+                             ignition, voltage, odometer, satellites, gsmSignal, battery }) {
     // Read previous lat/lng and today_distance_date to compute incremental distance.
     // RETURNING today_distance so the caller can include it in the socket emit payload,
     // which fixes the "covered distance always 0.00 km" issue in the mobile app.
@@ -99,8 +99,7 @@ const GpsModel = {
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
                 cos(radians($3) - radians(vehicle_latest_state.lng)) +
                 sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
-              )) BETWEEN 0.01 AND 10
-              AND ($4 > 3 OR $7 = TRUE)
+              )) BETWEEN 0.005 AND 10
             )
             THEN 6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
@@ -113,7 +112,7 @@ const GpsModel = {
         END
        RETURNING today_distance`,
       [vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
-        odometer, satellites, gsmSignal, battery]
+       odometer, satellites, gsmSignal, battery]
     );
     // Return the updated today_distance so it can be emitted via socket
     return parseFloat(result.rows[0]?.today_distance ?? 0);
@@ -210,32 +209,25 @@ const GpsModel = {
    * @returns {number} today_distance in km (3 decimal places)
    */
   async getTodayDistanceFromHistory(vehicleId) {
-    // Generate exact IST midnight in UTC just like the frontend History page does
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istNow = new Date(now.getTime() + istOffset);
-    const startUtc = new Date(Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), istNow.getUTCDate(), 0, 0, 0) - istOffset);
-    const startStr = startUtc.toISOString();
-
+    // Fetch all of today's points (IST midnight → now) ordered chronologically
     const result = await gpsQuery(
-      `SELECT lat, lng, speed, ignition
+      `SELECT lat, lng, speed, ignition, device_time
        FROM gps_points
        WHERE vehicle_id = $1
-         AND device_time >= $2
+         AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date
+         AND device_time <= NOW()
          AND lat IS NOT NULL AND lng IS NOT NULL
          AND lat != 0 AND lng != 0
-         AND lat > 6.5 AND lat < 37.5
-         AND lng > 68.0 AND lng < 98.0
+         AND lat BETWEEN 6.0 AND 38.0
+         AND lng BETWEEN 65.0 AND 100.0
        ORDER BY device_time ASC`,
-      [vehicleId, startStr]
+      [vehicleId]
     );
 
     const rows = result.rows;
     if (rows.length < 2) return 0;
 
-    // --- Drift Filter (same as HistoryPage.jsx lines 244-262) ---
-    // Keep a point if it or its predecessor is "moving" (speed > 3 OR ignition ON).
-    // This collapses GPS starburst clusters when the vehicle is parked.
+    // Smart Drift Filter (identical to HistoryPage.jsx)
     const driftFiltered = [];
     let lastValid = null;
     for (const p of rows) {
@@ -244,9 +236,18 @@ const GpsModel = {
         lastValid = p;
         continue;
       }
-      const isMoving = parseFloat(p.speed) > 3 || p.ignition;
-      const wasMoving = parseFloat(lastValid.speed) > 3 || lastValid.ignition;
-      if (isMoving || wasMoving) {
+      const lat1 = parseFloat(lastValid.lat), lon1 = parseFloat(lastValid.lng);
+      const lat2 = parseFloat(p.lat), lon2 = parseFloat(p.lng);
+      const R = 6371;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
+      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
+
+      if (distKm >= 0.005 || (p.speed && parseFloat(p.speed) > 0) || p.ignition || timeDiffMin >= 3) {
         driftFiltered.push(p);
         lastValid = p;
       }
@@ -265,11 +266,11 @@ const GpsModel = {
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-        Math.sin(dLon / 2) ** 2;
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLon / 2) ** 2;
       const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-      if (segDist > 0.01 && segDist < 5) {
+      if (segDist > 0.01 && segDist < 10) {
         totalKm += segDist;
       }
     }
@@ -775,7 +776,7 @@ const GpsModel = {
     const offset = (page - 1) * limit;
     const params = [orgId];
     let typeFilter = '';
-
+    
     // Add user filter
     let userFilter = '';
     if (role === 'customer' && userId) {
@@ -992,8 +993,8 @@ const GpsModel = {
     let prefKey = alertType;
     if (alertType) {
       const type = alertType.toLowerCase();
-      if (type === 'ignition_on' || type === 'stoppage' || type === 'parking' ||
-        type === 'excessive_idle' || type === 'trip_started' || type === 'trip_ended') {
+      if (type === 'ignition_on' || type === 'stoppage' || type === 'parking' || 
+          type === 'excessive_idle' || type === 'trip_started' || type === 'trip_ended') {
         prefKey = 'ignition';
       } else if (type === 'safety_park') {
         prefKey = 'theft';
@@ -1055,7 +1056,11 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
+            vls.last_seen >= NOW() - INTERVAL '3 minutes'
+            OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
+            OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
+          ) THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o
@@ -1067,7 +1072,11 @@ const GpsModel = {
       result = await db.query(`
         SELECT
           COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN v.id END) AS online_vehicles,
+          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
+            vls.last_seen >= NOW() - INTERVAL '3 minutes'
+            OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
+            OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
+          ) THEN v.id END) AS online_vehicles,
           COUNT(DISTINCT o.id) AS organizations_count,
           COUNT(DISTINCT u.id) AS users_count
         FROM organizations o
@@ -1079,9 +1088,9 @@ const GpsModel = {
     }
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
-    const availableInventory = 0; // Inventory not tracked in DB — honest zero rather than fabricated constant
     const onlineVehicles = parseInt(result.rows[0].online_vehicles || 0);
     const offlineVehicles = Math.max(0, totalVehicles - onlineVehicles);
+    const availableInventory = 0; // Inventory not tracked in DB — honest zero rather than fabricated constant
 
     return {
       total_devices: totalVehicles + availableInventory,
@@ -1090,6 +1099,7 @@ const GpsModel = {
       total_vehicles: totalVehicles,
       online_vehicles: onlineVehicles,
       offline_vehicles: offlineVehicles,
+      nodata_vehicles: offlineVehicles,
       organizations: parseInt(result.rows[0].organizations_count || 0),
       users: parseInt(result.rows[0].users_count || 0),
     };
@@ -1105,7 +1115,7 @@ const GpsModel = {
       params = [];
     }
     const result = await db.query(query, params);
-    if (orgId) await redis.del(`org:alerts:${orgId}`).catch(() => { });
+    if (orgId) await redis.del(`org:alerts:${orgId}`).catch(() => {});
     return result.rowCount;
   },
 
@@ -1120,7 +1130,7 @@ const GpsModel = {
     }
     const result = await db.query(query, params);
     const targetOrgId = orgId || (result.rows.length > 0 ? result.rows[0].v_org : null);
-    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => { });
+    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => {});
     return result.rowCount;
   },
 
@@ -1135,7 +1145,7 @@ const GpsModel = {
     }
     const result = await db.query(query, params);
     const targetOrgId = orgId || (result.rows.length > 0 ? result.rows[0].v_org : null);
-    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => { });
+    if (targetOrgId) await redis.del(`org:alerts:${targetOrgId}`).catch(() => {});
     return result.rowCount > 0;
   },
 };

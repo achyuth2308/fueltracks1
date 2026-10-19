@@ -104,8 +104,18 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
   const refSheet = workbook.addWorksheet('Dropdown_Options');
 
   const deviceTypeOptions = [
-    'VOLTY (5004)', 'CONCOX (5002)', 'AIS140 V2 (5003)', 'FMB 920 (5005)',
-    'PT06 (5006)', 'EC08 (5007)', 'PN02 (5008)', 'V5 4G (5009)', 'BSTPL (5000)', 'BSTPL-17IS (5010)', 'AIS140 (5001)', 'TranSync NAV 140 (5011)'
+    'BSTPL - BSTPL-17 (5000)',
+    'TrackNow - AIS140 (5001)',
+    'CONCOX - V5/GT800 (5002)',
+    'VAMO - AIS140 V2 (5003)',
+    'VOLTY - AIS140 (5004)',
+    'Teltonika - FMB 920 (5005)',
+    'PT06 - Binary (5006)',
+    'EC08 - GT06 (5007)',
+    'PN02 - Binary (5008)',
+    'CONCOX - V5 4G (5009)',
+    'BSTPL - BSTPL-17IS (5010)',
+    'TranSync - NAV 140 (5011)'
   ];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
   const vehicleTypeOptions = [
@@ -202,7 +212,7 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
 
   const guidelines = [
     { colName: 'Sl.No',                      hasDropdown: 'NO',             req: 'NO',  desc: 'Sequential index number.' },
-    { colName: 'Device Type *',              hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'Select device protocol with port number e.g. VOLTY (5004). Orange = mandatory.' },
+    { colName: 'Device Type *',              hasDropdown: 'YES (Dropdown)', req: 'YES', desc: 'Select device protocol with port number e.g. TrackNow - AIS140 (5001), VOLTY - AIS140 (5004). Orange = mandatory.' },
     { colName: 'Device ID(IMEI) *',          hasDropdown: 'NO',             req: 'YES', desc: '15-digit unique GPS device IMEI number.' },
     { colName: 'ICCID *',                    hasDropdown: 'NO',             req: 'YES', desc: 'SIM card ICCID number (19-20 digits).' },
     { colName: 'VLTD SLNO *',               hasDropdown: 'NO',             req: 'YES', desc: 'Compliance serial number for VLTD certification.' },

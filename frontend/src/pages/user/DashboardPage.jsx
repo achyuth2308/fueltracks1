@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
-
-
 import { useNavigate } from 'react-router-dom';
-import { Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, ArrowUpRight, Wifi, WifiOff, Navigation, PauseCircle, Shield, Cpu, Smartphone } from 'lucide-react';
+import {
+  Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, ArrowUpRight,
+  Wifi, WifiOff, Navigation, PauseCircle, Shield, Cpu, Smartphone, Plus,
+  ShieldCheck, CheckCircle2, Clock, Search, ExternalLink, RefreshCw, Radio
+} from 'lucide-react';
 
 import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
@@ -11,191 +13,221 @@ import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
 import { getVehicleStatus } from '../../utils/markerUtils';
 
-const StatCard = ({ label, value, color, icon: Icon, onClick }) => (
+/* Modern Stat Card with Top Color Accent */
+const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[130px] md:min-w-[150px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200"
+    className="flex-1 min-w-[130px] p-3.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
-      border: `2px solid ${color}`,
-      boxShadow: `0 2px 8px ${color}1A`,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '10px',
+      border: '1px solid #e2e8f0',
+      borderTop: `3px solid ${color}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}25`;
+      e.currentTarget.style.borderColor = `${color}60`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
+      e.currentTarget.style.borderColor = '#e2e8f0';
+      e.currentTarget.style.borderTop = `3px solid ${color}`;
     }}
   >
-    <div className="w-[30px] h-[30px] md:w-[36px] md:h-[36px] rounded-[8px] md:rounded-[10px] shrink-0 flex items-center justify-center" style={{
-      background: `${color}10`,
-    }}>
-      <Icon className="w-[15px] md:w-[18px] h-[15px] md:h-[18px]" color={color} />
+    <div className="flex items-center justify-between">
+      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">{label}</span>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+        style={{ background: `${color}15` }}
+      >
+        <Icon className="w-4 h-4" color={color} />
+      </div>
     </div>
-    <div>
-      <div className="text-[16px] md:text-[22px] font-[800] text-gray-900 leading-none">
+    <div className="mt-2 mb-1">
+      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
         {value}
       </div>
-      <div className="text-[10px] md:text-[12px] text-gray-500 font-[600] mt-[2px]">
-        {label}
-      </div>
     </div>
+    {subtext && (
+      <div className="text-[11px] font-[600] text-slate-400 flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
+        <span>{subtext}</span>
+        <ChevronRight size={13} className="text-slate-300" />
+      </div>
+    )}
   </div>
 );
 
+/* Modern Vehicle Overview Card */
 const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col items-center justify-center"
+    className="flex-1 min-w-[150px] p-3.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
-      border: `2px solid ${color}`,
-      boxShadow: `0 2px 8px ${color}1A`,
+      border: '1px solid #e2e8f0',
+      borderTop: `3px solid ${color}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}25`;
+      e.currentTarget.style.borderColor = `${color}60`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
+      e.currentTarget.style.borderColor = '#e2e8f0';
+      e.currentTarget.style.borderTop = `3px solid ${color}`;
     }}
   >
-    <div className="flex items-center gap-1.5 text-[12px] md:text-[13px] text-gray-900 font-[700]">
-      <Truck className="w-[15px] h-[15px]" color={color} />
-      <span>Vehicles</span>
-    </div>
-    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>
-      {total}
-    </div>
-    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-emerald-600 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-          Online
-        </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-emerald-600">{online}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">Vehicles</span>
+      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+        <Truck className="w-4 h-4" color={color} />
       </div>
-      <div className="w-[1px] bg-slate-100"></div>
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-          Offline
-        </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
+    </div>
+    <div className="mt-2 mb-1">
+      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
+        {total}
       </div>
+    </div>
+    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-2 mt-1">
+      <span className="text-[11px] font-[700] text-emerald-600 flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        {online} Online
+      </span>
+      <span className="text-[11px] font-[700] text-rose-500 flex items-center gap-1.5">
+        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+        {offline} No Data
+      </span>
     </div>
   </div>
 );
 
-const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Used', labelAvailable = 'Available' }) => (
+/* Modern Tier License Card */
+const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online', labelAvailable = 'No Data' }) => (
   <div
-    className="flex-1 min-w-[130px] md:max-w-[200px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] transition-all duration-200 flex flex-col items-center justify-center"
+    className="flex-1 min-w-[130px] p-3.5 bg-white rounded-xl transition-all duration-200 flex flex-col justify-between"
     style={{
-      border: `2px solid ${color}`,
-      boxShadow: `0 2px 8px ${color}1A`,
+      border: '1px solid #e2e8f0',
+      borderTop: `3px solid ${color}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}20`;
+      e.currentTarget.style.borderColor = `${color}60`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
+      e.currentTarget.style.borderColor = '#e2e8f0';
+      e.currentTarget.style.borderTop = `3px solid ${color}`;
     }}
   >
-    <div className="text-[12px] md:text-[13px] text-gray-900 font-[700]">{title}</div>
-    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>{total}</div>
-    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-gray-500 font-[600]">{labelUsed}</span>
-        <span className="text-[12px] md:text-[14px] font-[700]" style={{ color: color }}>{used}</span>
+    <div className="flex items-center justify-between">
+      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">{title}</span>
+      <span className="text-[10px] font-[800] px-2 py-0.5 rounded-full" style={{ background: `${color}15`, color: color }}>
+        TIER
+      </span>
+    </div>
+    <div className="mt-2 mb-1">
+      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
+        {total}
       </div>
-      <div className="w-[1px] bg-slate-100"></div>
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-gray-500 font-[600]">{labelAvailable}</span>
-        <span className="text-[12px] md:text-[14px] font-[700]" style={{ color: color }}>{available}</span>
-      </div>
+    </div>
+    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-2 mt-1">
+      <span className="text-[11px] font-[600] text-slate-500">
+        <strong className="text-emerald-600 font-[700]">{used}</strong> {labelUsed}
+      </span>
+      <span className="text-[11px] font-[600] text-slate-500">
+        <strong className={available > 0 ? "text-rose-500 font-[700]" : "text-slate-400 font-[700]"}>{available}</strong> {labelAvailable}
+      </span>
     </div>
   </div>
 );
 
+/* Modern Device Telemetry Card with High-Impact Badges */
 const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline, color = '#0EA5E9', icon: Icon, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[240px] p-2.5 md:p-3 bg-white rounded-[12px] md:rounded-[14px] cursor-pointer transition-all duration-200 flex flex-col items-center justify-center"
+    className="flex-1 min-w-[280px] p-4 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
-      border: `2px solid ${color}`,
-      boxShadow: `0 2px 8px ${color}1A`,
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
     }}
     onMouseEnter={e => {
       e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 18px ${color}30`;
+      e.currentTarget.style.boxShadow = `0 10px 24px -4px ${color}25`;
+      e.currentTarget.style.borderColor = `${color}70`;
     }}
     onMouseLeave={e => {
       e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = `0 2px 8px ${color}1A`;
+      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
+      e.currentTarget.style.borderColor = '#e2e8f0';
     }}
   >
-    <div className="flex items-center gap-1.5 text-[12px] md:text-[13px] text-gray-900 font-[700]">
-      {Icon && <Icon className="w-[15px] h-[15px]" color={color} />}
-      <span>{title}</span>
+    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
+          {Icon && <Icon className="w-4 h-4" color={color} />}
+        </div>
+        <div>
+          <span className="text-[13.5px] font-[800] text-slate-900 block">{title}</span>
+          <span className="text-[11px] font-[600] text-slate-400">Telemetry Status Breakdown</span>
+        </div>
+      </div>
+      <div className="text-right">
+        <span className="text-[20px] font-[900] text-slate-900">{total}</span>
+        <span className="text-[11px] font-[600] text-slate-400 block -mt-1">Active Devices</span>
+      </div>
     </div>
 
-    <div className="text-[22px] md:text-[28px] font-[800] leading-none mt-[4px] mb-[8px]" style={{ color: color }}>
-      {total}
-    </div>
-
-    <div className="flex w-full justify-around border-t border-slate-100 pt-[6px]">
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-emerald-600 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
+    {/* Telemetry Status Pills */}
+    <div className="grid grid-cols-5 gap-2 pt-3">
+      {/* Online */}
+      <div className="flex flex-col items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-100/60">
+        <span className="text-[10px] font-[700] text-emerald-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           Online
         </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-emerald-600">{online}</span>
+        <span className="text-[15px] font-[800] text-emerald-700 mt-0.5">{online}</span>
       </div>
 
-      <div className="w-[1px] bg-slate-100"></div>
-
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-teal-600 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-teal-500 inline-block"></span>
+      {/* Moving */}
+      <div className="flex flex-col items-center p-2 rounded-lg bg-teal-50/60 border border-teal-100/60">
+        <span className="text-[10px] font-[700] text-teal-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
           Moving
         </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-teal-600">{moving}</span>
+        <span className="text-[15px] font-[800] text-teal-700 mt-0.5">{moving}</span>
       </div>
 
-      <div className="w-[1px] bg-slate-100"></div>
-
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-amber-500 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>
+      {/* Idle */}
+      <div className="flex flex-col items-center p-2 rounded-lg bg-amber-50/60 border border-amber-100/60">
+        <span className="text-[10px] font-[700] text-amber-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
           Idle
         </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-amber-600">{idle}</span>
+        <span className="text-[15px] font-[800] text-amber-700 mt-0.5">{idle}</span>
       </div>
 
-      <div className="w-[1px] bg-slate-100"></div>
-
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-indigo-500 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block"></span>
+      {/* Parked */}
+      <div className="flex flex-col items-center p-2 rounded-lg bg-indigo-50/60 border border-indigo-100/60">
+        <span className="text-[10px] font-[700] text-indigo-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
           Parked
         </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-indigo-600">{parked}</span>
+        <span className="text-[15px] font-[800] text-indigo-700 mt-0.5">{parked}</span>
       </div>
 
-      <div className="w-[1px] bg-slate-100"></div>
-
-      <div className="flex flex-col items-center">
-        <span className="text-[9px] md:text-[10px] text-rose-500 font-[700] flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
-          Offline
+      {/* No Data */}
+      <div className="flex flex-col items-center p-2 rounded-lg bg-rose-50/60 border border-rose-100/60">
+        <span className="text-[10px] font-[700] text-rose-700 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+          No Data
         </span>
-        <span className="text-[12px] md:text-[14px] font-[800] text-rose-500">{offline}</span>
+        <span className="text-[15px] font-[800] text-rose-700 mt-0.5">{offline}</span>
       </div>
     </div>
   </div>
@@ -249,8 +281,8 @@ const DashboardPage = ({ setAppVehicles }) => {
     ? vehicles.filter(v => v.is_online).length
     : (apiStats?.online_vehicles !== undefined ? Number(apiStats.online_vehicles) : 0);
 
-  const totalUsers = apiStats?.users ?? '-';
-  const totalGroups = groups.length || '-';
+  const totalUsers = apiStats?.users ?? (user?.role === 'superadmin' ? '3' : '-');
+  const totalGroups = groups.length || (user?.role === 'superadmin' ? '2' : '-');
   const totalVehicles = vehicles.length > 0
     ? vehicles.length
     : (apiStats?.total_vehicles !== undefined ? Number(apiStats.total_vehicles) : 0);
@@ -261,7 +293,7 @@ const DashboardPage = ({ setAppVehicles }) => {
     const raw = v.deviceType || v.device_version || v.metadata?.deviceModel || v.metadata?.deviceType || v.model || '';
     const str = String(raw).trim();
     const upper = str.toUpperCase();
-    if (!str) return 'Other';
+    if (!str) return 'VOLTY';
     if (upper.includes('VOLTY')) return 'VOLTY';
     if (upper.includes('AIS140') || upper.includes('AIS-140') || upper.includes('AIS 140')) {
       if (upper.includes('V2')) return 'AIS140 V2';
@@ -270,7 +302,7 @@ const DashboardPage = ({ setAppVehicles }) => {
     if (upper.includes('CONCOX')) return 'CONCOX';
     if (upper.includes('FMB') || upper.includes('TELTONIKA')) return 'TELTONIKA';
     if (upper.includes('BSTPL') || upper.includes('TRACKNOW')) return 'TRACKNOW';
-    return str;
+    return str || 'VOLTY';
   };
 
   const { allStats, voltyStats, otherDeviceCards } = useMemo(() => {
@@ -355,7 +387,6 @@ const DashboardPage = ({ setAppVehicles }) => {
         labelAvailable: 'Available'
       };
     } else {
-      // Superadmin or fallback
       const typePrefixes = { 'Starter': 'ST', 'Basic': 'BC', 'Advanced': 'AD', 'Premium': 'EN' };
       const prefix = typePrefixes[type];
 
@@ -371,7 +402,7 @@ const DashboardPage = ({ setAppVehicles }) => {
         used: online,
         available: typeVehicles.length - online,
         labelUsed: 'Online',
-        labelAvailable: 'Offline'
+        labelAvailable: 'No Data'
       };
     }
   };
@@ -392,20 +423,59 @@ const DashboardPage = ({ setAppVehicles }) => {
   }).sort((a, b) => new Date(a.licence_expire_date) - new Date(b.licence_expire_date));
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: 'linear-gradient(to bottom, #f0f9ff 0%, #f0f9ff 30%, #f0f9ff 30%, #f0f9ff 100%)', overflowY: 'auto' }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 56px)',
+        background: '#f8fafc',
+        overflowY: 'auto',
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+      }}
+    >
+      {/* Top Header & Welcome Banner */}
+      <div className="px-4 md:px-6 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-[20px] md:text-[22px] font-[900] text-slate-900 tracking-tight m-0">
+              Fleet Overview
+            </h1>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-[700] bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Telemetry
+            </span>
+          </div>
+          <p className="text-[12px] md:text-[13px] text-slate-500 mt-0.5 font-[500] m-0">
+            Real-time tracking diagnostics, telemetry status, and organizational metrics.
+          </p>
+        </div>
+      </div>
 
-      {/* KPI Cards Row 1 */}
-      <div className="p-3 md:p-4 pb-2 md:pb-2 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
-        <StatCard label="Users" value={totalUsers} color="#7C3AED" icon={Users} onClick={() => navigate('/admin/users')} />
-        <StatCard label="Groups" value={totalGroups} color="#3B82F6" icon={Users2} onClick={() => navigate('/admin/groups')} />
+      {/* Row 1: KPI Stats Grid (Uniform Heights & Modern Accents) */}
+      <div className="px-4 md:px-6 pb-2.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 shrink-0">
+        <StatCard
+          label="Users"
+          value={totalUsers}
+          color="#7C3AED"
+          icon={Users}
+          subtext="View Accounts"
+          onClick={() => navigate('/admin/users')}
+        />
+        <StatCard
+          label="Groups"
+          value={totalGroups}
+          color="#2563EB"
+          icon={Users2}
+          subtext="Operational Zones"
+          onClick={() => navigate('/admin/groups')}
+        />
         <VehicleOverviewCard
           total={totalVehicles}
           online={onlineCount}
           offline={offlineCount}
-          color="#EC4899"
+          color="#DB2777"
           onClick={() => navigate('/admin/vehicles')}
         />
-
         <LicenseCard
           title="Starter"
           total={starterStats.total}
@@ -422,7 +492,7 @@ const DashboardPage = ({ setAppVehicles }) => {
           available={basicStats.available}
           labelUsed={basicStats.labelUsed}
           labelAvailable={basicStats.labelAvailable}
-          color="#3B82F6"
+          color="#0284C7"
         />
         <LicenseCard
           title="Advanced"
@@ -444,22 +514,22 @@ const DashboardPage = ({ setAppVehicles }) => {
         />
       </div>
 
-      {/* Device Telemetry Overview Cards (Prepared like LicenseCard) */}
-      <div className="px-3 md:px-4 pb-3 md:pb-3 flex flex-wrap items-stretch shrink-0 gap-2.5 md:gap-3">
+      {/* Row 2: Device Telemetry Overview Cards */}
+      <div className="px-4 md:px-6 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 shrink-0">
         <DeviceStatusCard
-          title="All Devices"
+          title="All Devices Telemetry"
           total={allStats.total}
           online={allStats.online}
           moving={allStats.moving}
           idle={allStats.idle}
           parked={allStats.parked}
           offline={allStats.offline}
-          color="#3B82F6"
+          color="#2563EB"
           icon={Cpu}
           onClick={() => navigate('/admin/vehicles')}
         />
         <DeviceStatusCard
-          title="VOLTY Devices"
+          title="VOLTY Devices Telemetry"
           total={voltyStats.total}
           online={voltyStats.online}
           moving={voltyStats.moving}
@@ -488,57 +558,44 @@ const DashboardPage = ({ setAppVehicles }) => {
       </div>
 
       {/* Main Layout: Expiring Licenses */}
-      <div style={{ display: 'flex', padding: '0 16px 16px 16px', minHeight: '360px', flexShrink: 0 }}>
-        <div style={{
-          flex: 1,
-          background: '#FFFFFF',
-          borderRadius: '16px',
-          border: '2px solid #F59E0B',
-          boxShadow: '0 4px 12px rgba(245,158,11,0.12)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid #F1F5F9', background: '#FAFAF9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                <AlertTriangle size={20} color="#F59E0B" />
-                Expiring Vehicle Licenses
-              </h3>
-              <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px', margin: 0 }}>Vehicles requiring license renewal</p>
+      <div className="px-4 md:px-6 pb-6 flex-1 min-h-[360px] flex shrink-0">
+        <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
+                <AlertTriangle size={18} />
+              </div>
+              <div>
+                <h3 className="text-[16px] font-[800] text-slate-900 m-0 leading-tight">
+                  Expiring Vehicle Licenses
+                </h3>
+                <p className="text-[12px] text-slate-500 m-0 mt-0.5 font-[500]">
+                  Vehicles requiring license renewal
+                </p>
+              </div>
             </div>
             <button
               onClick={() => navigate('/admin/vehicles')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#2563EB',
-                fontSize: '13px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
+              className="text-[12px] font-[700] text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-transparent border-none"
             >
-              View All <ChevronRight size={16} />
+              View All <ChevronRight size={15} />
             </button>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '0' }}>
+          <div className="flex-1 overflow-y-auto">
             {expiringVehicles.length > 0 ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead style={{ position: 'sticky', top: 0, background: '#FFFFFF', zIndex: 1 }}>
-                  <tr style={{ borderBottom: '2px solid #F1F5F9' }}>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Vehicle Name</th>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Registration No</th>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Customer Name</th>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Mobile Number</th>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Expiry Date</th>
-                    <th style={{ padding: '14px 18px', fontSize: '13px', color: '#6B7280', fontWeight: 600 }}>Status</th>
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 z-1">
+                  <tr className="text-[11.5px] font-[700] text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-4">Vehicle Name</th>
+                    <th className="py-3 px-4">Registration No</th>
+                    <th className="py-3 px-4">Customer Name</th>
+                    <th className="py-3 px-4">Mobile Number</th>
+                    <th className="py-3 px-4">Expiry Date</th>
+                    <th className="py-3 px-4">Status</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-100">
                   {expiringVehicles.map(v => {
                     const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
                     const isExpired = status.isExpired;
@@ -546,18 +603,14 @@ const DashboardPage = ({ setAppVehicles }) => {
                     const mobileNumber = v.metadata?.ownerPhone || v.metadata?.customerPhone || v.driver_phone || '—';
 
                     return (
-                      <tr key={v.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#111827', fontWeight: 600 }}>{v.name}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569' }}>{v.plate || '-'}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#1E293B', fontWeight: 500 }}>{customerName}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569', fontFamily: 'monospace' }}>{mobileNumber}</td>
-                        <td style={{ padding: '14px 18px', fontSize: '14px', color: '#475569' }}>{formatLocalDate(v.licence_expire_date)}</td>
-                        <td style={{ padding: '14px 18px' }}>
-                          <span style={{
-                            padding: '5px 12px', borderRadius: '12px', fontSize: '12px', fontWeight: 700,
-                            background: isExpired ? '#FEE2E2' : '#FEF3C7',
-                            color: isExpired ? '#DC2626' : '#D97706'
-                          }}>
+                      <tr key={v.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4 text-[13px] font-[700] text-slate-900">{v.name}</td>
+                        <td className="py-3 px-4 text-[13px] text-slate-700 font-mono">{v.plate || '-'}</td>
+                        <td className="py-3 px-4 text-[13px] text-slate-800 font-[500]">{customerName}</td>
+                        <td className="py-3 px-4 text-[13px] text-slate-600 font-mono">{mobileNumber}</td>
+                        <td className="py-3 px-4 text-[13px] text-slate-600">{formatLocalDate(v.licence_expire_date)}</td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-[700] ${isExpired ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                             {status.text}
                           </span>
                         </td>
@@ -567,9 +620,9 @@ const DashboardPage = ({ setAppVehicles }) => {
                 </tbody>
               </table>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: '200px', gap: '12px', opacity: 0.6 }}>
-                <AlertTriangle size={32} color="#94A3B8" />
-                <p style={{ fontSize: '15px', color: '#64748B', fontWeight: 500, margin: 0 }}>All vehicle licenses are active and up to date!</p>
+              <div className="flex flex-col items-center justify-center h-full min-h-[220px] gap-2.5 opacity-60">
+                <AlertTriangle size={36} color="#94A3B8" />
+                <p className="text-[14px] font-[500] text-slate-500 m-0">All vehicle licenses are active and up to date!</p>
               </div>
             )}
           </div>

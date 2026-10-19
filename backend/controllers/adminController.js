@@ -614,6 +614,15 @@ const AdminController = {
       if (req.user.role === 'superadmin' && orgId) {
         targetOrgId = orgId;
       }
+      if (!targetOrgId) {
+        const defaultOrgResult = await db.query("SELECT id FROM organizations WHERE type = 'super' LIMIT 1");
+        if (defaultOrgResult.rows.length > 0) {
+          targetOrgId = defaultOrgResult.rows[0].id;
+        } else {
+          const anyOrg = await db.query("SELECT id FROM organizations LIMIT 1");
+          targetOrgId = anyOrg.rows[0]?.id;
+        }
+      }
 
       const newGroup = await GroupModel.create({
         orgId: targetOrgId,
@@ -681,7 +690,8 @@ const AdminController = {
         vehicleNames: oldVehicleNames
       };
 
-      const updated = await GroupModel.update(id, { name, description, isActive, orgId });
+      const targetOrgId = (orgId !== undefined && orgId !== null && orgId !== '') ? orgId : oldGroup.org_id;
+      const updated = await GroupModel.update(id, { name, description, isActive, orgId: targetOrgId });
 
       if (vehicleIds && Array.isArray(vehicleIds)) {
         await GroupModel.assignVehiclesToGroup(id, vehicleIds);
@@ -787,21 +797,22 @@ const AdminController = {
           v.id as vehicle_uuid,
           COALESCE(v.name, v.plate) as vehicle_name,
           CASE 
+            -- 1. Active telemetry within 3 minutes (Moving / Live):
             WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
-            WHEN (
-              COALESCE(v.model, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-              OR COALESCE(v.name, '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%activa%', '%jupiter%', '%access%', '%dio%', '%pulsar%', '%splendor%'])
-              OR COALESCE(v.metadata->>'vehicleType', '') ILIKE ANY(ARRAY['%scoot%', '%bike%', '%motorcycle%', '%moped%', '%two wheeler%', '%2 wheeler%'])
-            )
-            AND (vls.ignition = FALSE OR vls.ignition IS NULL)
-            AND (vls.speed <= 2.0 OR vls.speed IS NULL)
-            AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+            -- 2. Idling vehicles (Ignition ON, Speed <= 2): Preserve up to 5 minutes
+            WHEN (vls.ignition = TRUE)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '5 minutes' THEN TRUE
+            -- 3. Parked vehicles (Ignition OFF, Speed <= 2): Universal 24h Sleep Mode for ALL vehicles
+            WHEN (vls.ignition = FALSE OR vls.ignition IS NULL)
+              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+              AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
             ELSE FALSE 
           END as is_online,
           vls.last_seen
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id
-        LEFT JOIN vehicles v ON d.device_id = v.imei
+        LEFT JOIN vehicles v ON d.device_id = v.imei AND v.is_active = TRUE
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `;
       let params = [];
@@ -1389,3 +1400,4 @@ const AdminController = {
 };
 
 module.exports = AdminController;
+

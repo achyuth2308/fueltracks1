@@ -447,10 +447,18 @@ async function bootstrap() {
       try {
         const result = await db.query(`
           WITH updated AS (
-            UPDATE vehicle_latest_state 
+            UPDATE vehicle_latest_state vls
             SET is_online = FALSE 
-            WHERE is_online = TRUE AND last_seen < NOW() - INTERVAL '15 minutes'
-            RETURNING vehicle_id
+            FROM vehicles v
+            WHERE vls.vehicle_id = v.id
+              AND vls.is_online = TRUE 
+              AND vls.last_seen < NOW() - INTERVAL '15 minutes'
+              AND NOT (
+                (vls.ignition = FALSE OR vls.ignition IS NULL)
+                AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                AND vls.last_seen >= NOW() - INTERVAL '24 hours'
+              )
+            RETURNING vls.vehicle_id
           )
           SELECT u.vehicle_id, v.org_id 
           FROM updated u

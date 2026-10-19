@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Server, Loader2, AlertTriangle, Search, ChevronRight, X, Truck,
+  Server, Loader2, AlertTriangle, Search, ChevronLeft, ChevronRight, X, Truck,
   Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Globe,
   Clock, Trash2, Cpu
 } from 'lucide-react';
@@ -41,6 +41,8 @@ const DevicesAdminPage = () => {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, ONLINE, OFFLINE, NEVER
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
@@ -93,6 +95,29 @@ const DevicesAdminPage = () => {
 
     return true;
   });
+
+  // Reset to first page when search or status filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
+
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+  const activePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (activePage - 1) * pageSize;
+  const paginatedDevices = filtered.slice(startIndex, startIndex + pageSize);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (activePage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    if (activePage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', activePage - 1, activePage, activePage + 1, '...', totalPages];
+  };
 
   const handleDelete = async (id, e) => {
     if (e) e.stopPropagation();
@@ -207,25 +232,25 @@ const DevicesAdminPage = () => {
             • Online: <strong style={{ color: '#10b981', fontWeight: 700 }}>{onlineCount}</strong>
           </span>
 
-          {/* Offline */}
+          {/* No Data */}
           <span
             onClick={() => setStatusFilter(statusFilter === 'OFFLINE' ? 'ALL' : 'OFFLINE')}
             style={{ cursor: 'pointer', color: '#dc2626', background: statusFilter === 'OFFLINE' ? '#fef2f2' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #fecaca' }}
           >
-            • Offline: <strong style={{ color: '#ef4444', fontWeight: 700 }}>{offlineCount}</strong>
+            • No Data: <strong style={{ color: '#ef4444', fontWeight: 700 }}>{offlineCount}</strong>
           </span>
 
-          {/* Never Communicated */}
+          {/* Unreachable */}
           <span
             onClick={() => setStatusFilter(statusFilter === 'NEVER' ? 'ALL' : 'NEVER')}
             style={{ cursor: 'pointer', color: '#64748b', background: statusFilter === 'NEVER' ? '#e2e8f0' : '#ffffff', padding: '4px 10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
           >
-            • Never Communicated: <strong style={{ color: '#475569', fontWeight: 700 }}>{neverCount}</strong>
+            • Unreachable: <strong style={{ color: '#475569', fontWeight: 700 }}>{neverCount}</strong>
           </span>
         </div>
       </div>
 
-      {/* Direct Table View without Card Wrapper */}
+      {/* Direct Table View */}
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1, padding: '40px' }}>
           <Loader2 size={30} color="#3b82f6" className="animate-spin" />
@@ -238,7 +263,7 @@ const DevicesAdminPage = () => {
           <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>{error}</div>
         </div>
       ) : (
-        <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff' }}>
+        <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff', borderRadius: '8px 8px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
               <tr style={{ background: '#1e1b4b', position: 'sticky', top: 0, zIndex: 10 }}>
@@ -251,7 +276,7 @@ const DevicesAdminPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.length === 0 ? (
+              {paginatedDevices.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ padding: '40px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
@@ -260,13 +285,13 @@ const DevicesAdminPage = () => {
                     </div>
                   </td>
                 </tr>
-              ) : filtered.map((d, idx) => {
+              ) : paginatedDevices.map((d, idx) => {
                 let statusText = 'Offline';
                 let statusColor = '#64748b';
                 let dotColor = '#cbd5e1';
 
                 if (!d.last_update) {
-                  statusText = 'Never';
+                  statusText = 'Unreachable';
                   statusColor = '#64748b';
                   dotColor = '#cbd5e1';
                 } else if (d.is_online) {
@@ -274,7 +299,7 @@ const DevicesAdminPage = () => {
                   statusColor = '#059669';
                   dotColor = '#10b981';
                 } else {
-                  statusText = 'Offline';
+                  statusText = 'No Data';
                   statusColor = '#dc2626';
                   dotColor = '#ef4444';
                 }
@@ -290,9 +315,9 @@ const DevicesAdminPage = () => {
                     onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
-                    {/* Sl. No */}
+                    {/* Sl. No based on current page */}
                     <td style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#64748b', borderRight: '1px solid #e2e8f0' }}>
-                      {idx + 1}
+                      {startIndex + idx + 1}
                     </td>
 
                     {/* Device IMEI */}
@@ -334,10 +359,159 @@ const DevicesAdminPage = () => {
         </div>
       )}
 
-      {/* Footer info bar */}
+      {/* Footer bar with Showing info, Rows per page selector, and Pagination */}
       {!loading && !error && filtered.length > 0 && (
-        <div style={{ padding: '8px 0', fontSize: '12px', color: '#64748b', fontWeight: 500, display: 'flex', justifyContent: 'between', alignItems: 'center' }}>
-          <span>Showing 1 to {filtered.length} of {filtered.length} entries</span>
+        <div style={{
+          padding: '10px 16px',
+          background: '#ffffff',
+          border: '1px solid #e2e8f0',
+          borderTop: '1px solid #cbd5e1',
+          borderRadius: '0 0 8px 8px',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '12px',
+          boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+        }}>
+          {/* Left: Showing info */}
+          <div style={{ fontSize: '13px', color: '#64748b' }}>
+            <span>
+              Showing <strong style={{ color: '#0f172a' }}>{startIndex + 1}</strong> to{' '}
+              <strong style={{ color: '#0f172a' }}>{Math.min(startIndex + pageSize, filtered.length)}</strong> of{' '}
+              <strong style={{ color: '#0f172a' }}>{filtered.length}</strong> entries
+            </span>
+          </div>
+
+          {/* Right: Page Numbers matching FuelTracks UI theme */}
+          {totalPages > 1 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* Previous page button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={activePage === 1}
+                aria-label="Previous page"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'transparent',
+                  color: activePage === 1 ? '#cbd5e1' : '#475569',
+                  cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  if (activePage !== 1) {
+                    e.currentTarget.style.background = '#f1f5f9';
+                    e.currentTarget.style.color = '#0f172a';
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = activePage === 1 ? '#cbd5e1' : '#475569';
+                }}
+              >
+                <ChevronLeft size={18} strokeWidth={2.5} />
+              </button>
+
+              {/* Page numbers */}
+              {getPageNumbers().map((item, i) => {
+                if (item === '...') {
+                  return (
+                    <span
+                      key={`ellipsis-${i}`}
+                      style={{
+                        width: '28px',
+                        textAlign: 'center',
+                        color: '#94a3b8',
+                        fontSize: '14px',
+                        userSelect: 'none'
+                      }}
+                    >
+                      …
+                    </span>
+                  );
+                }
+
+                const isActive = item === activePage;
+                return (
+                  <button
+                    type="button"
+                    key={item}
+                    onClick={() => setCurrentPage(item)}
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '13px',
+                      fontWeight: isActive ? 700 : 600,
+                      color: isActive ? '#ffffff' : '#475569',
+                      background: isActive ? '#1e1b4b' : 'transparent',
+                      cursor: isActive ? 'default' : 'pointer',
+                      transition: 'all 0.15s',
+                      boxShadow: isActive ? '0 2px 4px rgba(30, 27, 75, 0.25)' : 'none'
+                    }}
+                    onMouseEnter={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = '#f1f5f9';
+                        e.currentTarget.style.color = '#0f172a';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isActive) {
+                        e.currentTarget.style.background = 'transparent';
+                        e.currentTarget.style.color = '#475569';
+                      }
+                    }}
+                  >
+                    {item}
+                  </button>
+                );
+              })}
+
+              {/* Next page button */}
+              <button
+                type="button"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={activePage === totalPages}
+                aria-label="Next page"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'transparent',
+                  color: activePage === totalPages ? '#cbd5e1' : '#475569',
+                  cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => {
+                  if (activePage !== totalPages) {
+                    e.currentTarget.style.background = '#f1f5f9';
+                    e.currentTarget.style.color = '#0f172a';
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = activePage === totalPages ? '#cbd5e1' : '#475569';
+                }}
+              >
+                <ChevronRight size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 

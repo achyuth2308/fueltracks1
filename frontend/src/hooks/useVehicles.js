@@ -103,10 +103,10 @@ export const useVehicles = (initialParams = {}) => {
               const isOnlineStatus = data.is_online !== undefined ? data.is_online : (data.isOnline !== undefined ? data.isOnline : true);
               return {
                 ...vehicle,
-                lat: data.lat,
-                lng: data.lng,
-                current_speed: isOnlineStatus ? (data.speed || 0) : 0,
-                current_ignition: isOnlineStatus ? !!data.ignition : false,
+                lat: data.lat !== undefined ? data.lat : vehicle.lat,
+                lng: data.lng !== undefined ? data.lng : vehicle.lng,
+                current_speed: data.speed !== undefined ? (isOnlineStatus ? data.speed : 0) : vehicle.current_speed,
+                current_ignition: data.ignition !== undefined ? !!data.ignition : vehicle.current_ignition,
                 current_fuel: data.fuel !== undefined && data.fuel !== null ? data.fuel : vehicle.current_fuel,
                 current_voltage: data.voltage !== undefined && data.voltage !== null ? data.voltage : vehicle.current_voltage,
                 current_odometer: data.odometer !== undefined && data.odometer !== null ? data.odometer : vehicle.current_odometer,
@@ -115,7 +115,7 @@ export const useVehicles = (initialParams = {}) => {
                 current_gsm_signal: data.gsmSignal !== undefined && data.gsmSignal !== null ? data.gsmSignal : vehicle.current_gsm_signal,
                 is_online: isOnlineStatus,
                 today_distance: data.today_distance !== undefined ? data.today_distance : vehicle.today_distance,
-                last_seen: data.deviceTime || new Date().toISOString(),
+                last_seen: data.deviceTime || vehicle.last_seen || new Date().toISOString(),
               };
           }
           return vehicle;

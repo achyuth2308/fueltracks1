@@ -290,7 +290,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           {[
             { label: 'Total', value: stats.total, color: '#f1f5f9' },
             { label: 'Online', value: stats.online, color: '#f97316', dot: true },
-            { label: 'Offline', value: stats.offline, color: '#0ea5e9', dot: true },
+            { label: 'No Data', value: stats.offline, color: '#0ea5e9', dot: true },
           ].map(({ label, value, color, dot }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (

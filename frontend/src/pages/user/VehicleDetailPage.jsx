@@ -37,7 +37,7 @@ const getExpiryWarning = (expireDateStr) => {
 const StatusDot = ({ vehicle }) => {
   const status = getVehicleStatus(vehicle);
   const config = STATUS_CONFIG[status] || { color: '#94A3B8', label: 'Unknown', pulse: false };
-  const isOnline = status !== 'offline';
+  const isOnline = status === 'running' || status === 'idle' || (status === 'parked' && !!vehicle.is_online);
   const isMoving = status === 'running';
   
   return (

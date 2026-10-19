@@ -168,23 +168,31 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [vehicles, selectedVehicles]);
 
   const metrics = useMemo(() => {
-    let running = 0, idle = 0, parked = 0, offline = 0;
+    let running = 0, idle = 0, parked = 0, noData = 0, unreachable = 0;
     vehicles.forEach(v => {
       const status = getVehicleStatus(v);
       if (status === 'running') running++;
       else if (status === 'idle') idle++;
       else if (status === 'parked') parked++;
-      else if (status === 'offline') offline++;
+      else if (status === 'unreachable' || status === 'unavailable') unreachable++;
+      else noData++;
     });
-    return { running, idle, parked, offline, total: vehicles.length };
+    return { running, idle, parked, noData, unreachable, offline: noData, total: vehicles.length };
   }, [vehicles]);
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
-      if (statusFilter && getVehicleStatus(v) !== statusFilter) {
-        return false;
+      if (statusFilter) {
+        const s = getVehicleStatus(v);
+        if (statusFilter === 'offline' || statusFilter === 'nodata') {
+          if (s !== 'offline' && s !== 'nodata') return false;
+        } else if (statusFilter === 'unreachable' || statusFilter === 'unavailable') {
+          if (s !== 'unreachable' && s !== 'unavailable') return false;
+        } else if (s !== statusFilter) {
+          return false;
+        }
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
@@ -528,7 +536,9 @@ const TrackingPage = ({ setAppVehicles }) => {
               { key: null, label: `All ${vehicles.length}` },
               { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
               { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
-              { key: 'offline', label: `Offline ${metrics.offline}`, color: '#EF4444' },
+              { key: 'parked', label: `Parked ${metrics.parked}`, color: '#64748B' },
+              { key: 'offline', label: `No Data ${metrics.noData}`, color: '#EF4444' },
+              { key: 'unreachable', label: `Unreachable ${metrics.unreachable}`, color: '#94A3B8' },
             ].map(pill => {
               const active = statusFilter === pill.key;
               const isAllPill = pill.key === null;
@@ -582,10 +592,10 @@ const TrackingPage = ({ setAppVehicles }) => {
               const isExpired = warning && warning.type === 'expired';
               const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
               const statusKey = getVehicleStatus(v);
-              const statusColorsMap = { running: '#10B981', idle: '#F59E0B', parked: '#64748B', offline: '#EF4444', unavailable: '#94A3B8' };
-              const statusLabelsMap = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'Offline', unavailable: 'No Data' };
+              const statusColorsMap = { running: '#10B981', idle: '#F59E0B', parked: '#64748B', offline: '#EF4444', nodata: '#EF4444', unreachable: '#94A3B8', unavailable: '#94A3B8' };
+              const statusLabelsMap = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', nodata: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
               const sc = isExpired ? '#DC2626' : (statusColorsMap[statusKey] || '#94A3B8');
-              const labelText = isExpired ? 'EXPIRED' : (statusLabelsMap[statusKey] || 'No Data');
+              const labelText = isExpired ? 'EXPIRED' : (statusLabelsMap[statusKey] || 'Unreachable');
               const isVan = (v.name || '').toLowerCase().includes('van');
 
               return (
@@ -660,9 +670,9 @@ const TrackingPage = ({ setAppVehicles }) => {
                       {v.plate || v.name}
                     </div>
                     <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>{formatSpeed(v.current_speed)}</span>
+                      <span>{formatSpeed(v.current_speed, v.is_online)}</span>
                       <span>·</span>
-                      <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'No GPS data'}</span>
+                      <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
                     </div>
                   </div>
 
@@ -704,7 +714,8 @@ const TrackingPage = ({ setAppVehicles }) => {
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },
             { type: 'idle', label: 'Idle', count: metrics.idle, color: '#eab308' },
             { type: 'parked', label: 'Parked', count: metrics.parked, color: '#64748B' },
-            { type: 'offline', label: 'Offline', count: metrics.offline, color: '#6b7280' },
+            { type: 'offline', label: 'No Data', count: metrics.noData, color: '#ef4444' },
+            { type: 'unreachable', label: 'Unreachable', count: metrics.unreachable, color: '#94a3b8' },
           ].map(pill => {
             const isActive = statusFilter === pill.type;
             return (
@@ -982,7 +993,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                       <span>{currentSelectedVehicle.plate || currentSelectedVehicle.name}</span>
                       <span>•</span>
                       <span style={{ fontWeight: 700, color: currentSelectedVehicle.is_online ? '#4ADE80' : '#F87171' }}>
-                        {currentSelectedVehicle.is_online ? 'Online' : 'Offline'}
+                        {currentSelectedVehicle.is_online ? 'Online' : (currentSelectedVehicle.last_seen ? 'No Data' : 'Unreachable')}
                       </span>
                     </div>
                   </div>
@@ -1007,7 +1018,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                 {/* Telemetry details continuous list (No card background boxes, edge-to-edge dividers) */}
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: '#FFFFFF' }}>
                   {[
-                    { label: 'Speed', value: formatSpeed(currentSelectedVehicle.current_speed), icon: Activity, color: '#0EA5E9' },
+                    { label: 'Speed', value: formatSpeed(currentSelectedVehicle.current_speed, currentSelectedVehicle.is_online), icon: Activity, color: '#0EA5E9' },
                     ...(currentSelectedVehicles.length === 1 ? [
                       { label: 'Odometer', value: formatOdometer(liveRouteMetrics[currentSelectedVehicle.id]?.dynamicOdo || currentSelectedVehicle.current_odometer), icon: Compass, color: '#64748B' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10B981' : '#64748B' },
@@ -1175,7 +1186,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                         {v.distanceToTarget < 1 ? `${Math.round(v.distanceToTarget * 1000)} m` : `${v.distanceToTarget.toFixed(1)} km`}
                       </span>
                       <span style={{ fontSize: '10px', fontWeight: 700, color: v.is_online ? '#10b981' : '#9ca3af' }}>
-                        {v.is_online ? 'ONLINE' : 'OFFLINE'}
+                        {v.is_online ? 'ONLINE' : (v.last_seen ? 'NO DATA' : 'UNREACHABLE')}
                       </span>
                     </div>
                   </div>

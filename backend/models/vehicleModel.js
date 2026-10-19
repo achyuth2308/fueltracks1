@@ -49,7 +49,19 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
-              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              CASE 
+                -- 1. Active telemetry within 3 minutes (Moving / Live):
+                WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+                -- 2. Idling vehicles (Ignition ON, Speed <= 2): Preserve up to 5 minutes
+                WHEN (vls.ignition = TRUE)
+                  AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                  AND vls.last_seen >= NOW() - INTERVAL '5 minutes' THEN TRUE
+                -- 3. Parked vehicles (Ignition OFF, Speed <= 2): Universal 24h Sleep Mode for ALL vehicles
+                WHEN (vls.ignition = FALSE OR vls.ignition IS NULL)
+                  AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                  AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+                ELSE FALSE 
+              END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, GREATEST(0, CASE
                 WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
@@ -163,7 +175,19 @@ const VehicleModel = {
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
-              CASE WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE ELSE FALSE END as is_online,
+              CASE 
+                -- 1. Active telemetry within 3 minutes (Moving / Live):
+                WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
+                -- 2. Idling vehicles (Ignition ON, Speed <= 2): Preserve up to 5 minutes
+                WHEN (vls.ignition = TRUE)
+                  AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                  AND vls.last_seen >= NOW() - INTERVAL '5 minutes' THEN TRUE
+                -- 3. Parked vehicles (Ignition OFF, Speed <= 2): Universal 24h Sleep Mode for ALL vehicles
+                WHEN (vls.ignition = FALSE OR vls.ignition IS NULL)
+                  AND (vls.speed <= 2.0 OR vls.speed IS NULL)
+                  AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+                ELSE FALSE 
+              END as is_online,
               vls.is_immobilized, vls.immobilizer_updated_at,
               vls.last_seen, vls.direction as current_direction,
               GREATEST(0, CASE
@@ -289,6 +313,7 @@ const VehicleModel = {
    * Delete vehicle (soft delete)
    */
   async delete(vehicleId) {
+    await db.query(`DELETE FROM vehicle_groups WHERE vehicle_id = $1`, [vehicleId]);
     const result = await db.query(
       `UPDATE vehicles SET is_active = FALSE WHERE id = $1 RETURNING id`,
       [vehicleId]
