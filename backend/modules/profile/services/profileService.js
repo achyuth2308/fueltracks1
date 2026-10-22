@@ -184,7 +184,7 @@ class ProfileService {
       } catch (_) {}
     }
 
-    const newProfile = await profileRepository.upsertProfile(organizationId, updateData, targetUserId);
+    const newProfile = await profileRepository.upsertProfile(organizationId, updateData, targetUserId, user?.role);
 
     // If user updated their personal details (name/phone), log an explicit USER audit event
     const newName = updateData.name || updateData.contact_person;
@@ -215,23 +215,32 @@ class ProfileService {
       }
     }
 
-    // Organization Profile Audit Log
-    await profileRepository.createAuditLog({
-      audit_type: 'organization',
-      entity_type: 'Profile',
-      entity_id: organizationId,
-      entity_name: newProfile?.brand_name || oldProfile?.org_name || 'Organization Profile',
-      action: 'Profile & White-Labeling Updated',
-      old_data: oldProfile,
-      new_data: newProfile,
-      performed_by_id: user.userId,
-      performed_by_name: user.name || 'Admin',
-      performed_by_email: user.email,
-      performed_by_role: user.role,
-      org_id: organizationId,
-      ip_address: user.ip || '0.0.0.0',
-      user_agent: user.userAgent || 'Unknown'
-    });
+    // Organization Profile Audit Log (only if organization exists)
+    if (organizationId) {
+      try {
+        const orgExists = await db.query('SELECT id FROM organizations WHERE id = $1', [organizationId]);
+        if (orgExists.rows.length > 0) {
+          await profileRepository.createAuditLog({
+            audit_type: 'organization',
+            entity_type: 'Profile',
+            entity_id: organizationId,
+            entity_name: newProfile?.brand_name || oldProfile?.org_name || 'Organization Profile',
+            action: 'Profile & White-Labeling Updated',
+            old_data: oldProfile,
+            new_data: newProfile,
+            performed_by_id: user.userId,
+            performed_by_name: user.name || 'Admin',
+            performed_by_email: user.email,
+            performed_by_role: user.role,
+            org_id: organizationId,
+            ip_address: user.ip || '0.0.0.0',
+            user_agent: user.userAgent || 'Unknown'
+          });
+        }
+      } catch (auditErr) {
+        console.error('[ProfileService] Failed to log org audit:', auditErr.message);
+      }
+    }
 
     return newProfile;
   }

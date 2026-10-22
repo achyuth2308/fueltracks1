@@ -186,34 +186,37 @@ const AuthController = {
       let email = jwtUser.email;
       let orgName = jwtUser.orgName;
       let phone = jwtUser.phone;
+      let orgId = jwtUser.orgId;
+      let role = jwtUser.role;
+      let orgType = jwtUser.orgType;
 
-      // Old tokens don't carry name/email — do a single DB lookup for those users
-      if (!email) {
-        try {
-          const user = await UserModel.findById(jwtUser.userId);
-          if (user) {
-            name = user.name;
-            email = user.email;
-            orgName = user.org_name;
-            phone = user.phone;
-          }
-        } catch (dbErr) {
-          // Non-fatal — serve what we have from the JWT
-          console.warn('[AUTH] getMe DB fallback failed (old token):', dbErr.message);
+      // Always fetch fresh profile & org details from DB so edits to name/phone/org are immediately live
+      try {
+        const user = await UserModel.findById(jwtUser.userId);
+        if (user) {
+          name = user.name || name;
+          email = user.email || email;
+          orgName = user.org_name || orgName;
+          phone = user.phone || phone;
+          orgId = user.org_id || orgId;
+          role = user.role || role;
+          orgType = user.org_type || orgType;
         }
+      } catch (dbErr) {
+        console.warn('[AUTH] getMe DB lookup fallback to JWT:', dbErr.message);
       }
 
-      if (jwtUser.role === 'superadmin') {
-        jwtUser.orgId = 'a0000000-0000-0000-0000-000000000001';
+      if (role === 'superadmin') {
+        orgId = 'a0000000-0000-0000-0000-000000000001';
         orgName = 'FuelTracks Platform';
       }
 
       // Fetch map config from org profile
       let mapProvider = null;
       let apiKey = null;
-      if (jwtUser.orgId) {
+      if (orgId) {
         try {
-          const orgProfileData = await profileService.getProfile(jwtUser.orgId);
+          const orgProfileData = await profileService.getProfile(orgId);
           mapProvider = orgProfileData?.profile?.map_provider || null;
           apiKey = orgProfileData?.profile?.api_key || null;
         } catch (e) { /* non-critical */ }
@@ -225,10 +228,10 @@ const AuthController = {
           user: {
             id: jwtUser.userId,
             email,
-            role: jwtUser.role,
-            orgId: jwtUser.orgId,
+            role,
+            orgId,
             orgName,
-            orgType: jwtUser.orgType,
+            orgType,
             name,
             phone,
             mapProvider,

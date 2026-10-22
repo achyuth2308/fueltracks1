@@ -232,9 +232,13 @@ async function start(io) {
       // 1b. Compute final Engine ON state based on admin-configured preference
       const engineOnPref = vehicle.metadata?.engineOn || 'Ignition';
       const batteryThresh = parseFloat(vehicle.metadata?.batteryVoltage) || 13.2;
+      const isMoving = speed != null && parseFloat(speed) > 5.0;
       let finalIgnition = ignition;
 
-      if (engineOnPref === 'Voltage+Ignition') {
+      if (isMoving) {
+        // GPS speed > 5 km/h confirms the vehicle is actively driving; ignition cannot be OFF
+        finalIgnition = true;
+      } else if (engineOnPref === 'Voltage+Ignition') {
         // If voltage is null/unavailable (e.g. PN02 boot packet with 0xFF bytes),
         // fall back to ignition signal alone rather than blocking it
         if (voltage != null && !isNaN(voltage)) {

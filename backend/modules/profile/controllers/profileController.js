@@ -3,13 +3,13 @@ const profileService = require('../services/profileService');
 class ProfileController {
   
   async getOrganizationId(req) {
+    const db = require('../../../config/db');
     if (req.query.orgId) {
       if (req.user?.role === 'superadmin') {
         return req.query.orgId;
       }
       if (req.user?.role === 'dealer') {
         // Verify child org belongs to dealer
-        const db = require('../../../config/db');
         const check = await db.query(
           'SELECT id FROM organizations WHERE id = $1 AND (id = $2 OR parent_id = $2)',
           [req.query.orgId, req.user.orgId]
@@ -20,9 +20,32 @@ class ProfileController {
       }
     }
     if (req.user?.role === 'superadmin') {
-      return 'a0000000-0000-0000-0000-000000000001';
+      const saCheck = await db.query("SELECT id FROM organizations WHERE id = 'a0000000-0000-0000-0000-000000000001'");
+      if (saCheck.rows.length > 0) {
+        return 'a0000000-0000-0000-0000-000000000001';
+      }
+      if (req.user?.orgId) {
+        return req.user.orgId;
+      }
     }
-    return req.user.orgId;
+
+    // Verify if user's token orgId exists in organizations table
+    if (req.user?.orgId) {
+      const orgCheck = await db.query('SELECT id FROM organizations WHERE id = $1', [req.user.orgId]);
+      if (orgCheck.rows.length > 0) {
+        return req.user.orgId;
+      }
+    }
+
+    // Fallback: look up user's active org_id directly from users table
+    if (req.user?.userId) {
+      const uCheck = await db.query('SELECT org_id FROM users WHERE id = $1', [req.user.userId]);
+      if (uCheck.rows.length > 0 && uCheck.rows[0].org_id) {
+        return uCheck.rows[0].org_id;
+      }
+    }
+
+    return req.user?.orgId || null;
   }
 
   getUserContext(req) {

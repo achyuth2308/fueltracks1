@@ -26,18 +26,26 @@ class ProfileRepository {
   /**
    * Upsert profile data
    */
-  async upsertProfile(organizationId, updateData, userId = null) {
-    // Separate organization table fields (name, phone, email, contact_person, address) if provided
+  async upsertProfile(organizationId, updateData, userId = null, userRole = null) {
+    // Only update organization company name if company_name is explicitly provided,
+    // or if the actor is a dealer/superadmin updating their org brand name.
+    // Never let a customer personal profile edit rename the company in the organizations table.
     const orgFields = {};
-    if (updateData.name !== undefined) orgFields.name = updateData.name;
-    if (updateData.company_name !== undefined && !orgFields.name) orgFields.name = updateData.company_name;
-
-    if (Object.keys(orgFields).length > 0) {
-      const setOrg = Object.keys(orgFields).map((k, i) => `${k} = $${i + 2}`).join(', ');
-      await db.query(`UPDATE organizations SET ${setOrg} WHERE id = $1`, [organizationId, ...Object.values(orgFields)]);
+    if (updateData.company_name !== undefined) {
+      orgFields.name = updateData.company_name;
+    } else if (updateData.name !== undefined && (userRole === 'dealer' || userRole === 'superadmin')) {
+      orgFields.name = updateData.name;
     }
 
-    // Also sync email/name/phone to users table if provided
+    if (organizationId && Object.keys(orgFields).length > 0) {
+      const orgExists = await db.query('SELECT id FROM organizations WHERE id = $1', [organizationId]);
+      if (orgExists.rows.length > 0) {
+        const setOrg = Object.keys(orgFields).map((k, i) => `${k} = $${i + 2}`).join(', ');
+        await db.query(`UPDATE organizations SET ${setOrg} WHERE id = $1`, [organizationId, ...Object.values(orgFields)]);
+      }
+    }
+
+    // Always sync personal details (name, phone, email) to users table
     if (updateData.email || updateData.contact_person || updateData.mobile || updateData.phone || updateData.name) {
       const userUpdates = [];
       const userVals = [];
@@ -54,7 +62,7 @@ class ProfileRepository {
         if (userId) {
           userVals.push(userId);
           await db.query(`UPDATE users SET ${userUpdates.join(', ')}, updated_at = NOW() WHERE id = $${uIdx}`, userVals);
-        } else {
+        } else if (organizationId) {
           userVals.push(organizationId);
           await db.query(
             `UPDATE users SET ${userUpdates.join(', ')}, updated_at = NOW() 
@@ -67,6 +75,18 @@ class ProfileRepository {
           );
         }
       }
+    }
+
+    // If no organizationId or if organization does not exist in organizations table,
+    // safely skip organization_profiles upsert and return basic profile
+    if (!organizationId) {
+      return { organization_id: null, name: updateData.name, phone: updateData.phone };
+    }
+
+    const orgCheck = await db.query('SELECT id FROM organizations WHERE id = $1', [organizationId]);
+    if (orgCheck.rows.length === 0) {
+      console.warn(`[ProfileRepository] Organization '${organizationId}' does not exist in organizations table. Skipping organization_profiles upsert.`);
+      return { organization_id: organizationId, name: updateData.name, phone: updateData.phone };
     }
 
     // Filter fields that belong to organization_profiles
