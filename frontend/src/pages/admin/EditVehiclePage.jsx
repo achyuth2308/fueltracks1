@@ -1321,7 +1321,7 @@ const EditVehiclePage = () => {
             type="button"
             onClick={() => {
               if (id) {
-                navigate(`/vehicles/${id}`);
+                navigate(`/admin/vehicles/calibrate/${id}`);
               } else {
                 alert('Please register the vehicle first before configuring fuel calibration.');
               }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio, Users, Truck, ChevronRight } from 'lucide-react';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio, Users, Truck, ChevronRight, Bell } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
 const OrgsAdminPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   if (user?.role !== 'superadmin' && user?.role !== 'dealer') {
     return <Navigate to="/dashboard" replace />;
@@ -17,6 +18,18 @@ const OrgsAdminPage = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
+  const [activeActionOrgId, setActiveActionOrgId] = useState(null);
+
+  // Close Action dropdown when clicking anywhere outside
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (!e.target.closest('.action-dropdown-container')) {
+        setActiveActionOrgId(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   // Tab state
   const [activeTab, setActiveTab] = useState('general');
@@ -60,9 +73,9 @@ const OrgsAdminPage = () => {
     fetchOrgsAndUsers();
   }, []);
 
-  const handleOpenModal = async (org = null) => {
+  const handleOpenModal = async (org = null, tab = 'general') => {
     setEditingOrg(org);
-    setActiveTab('general');
+    setActiveTab(tab);
     setModalError(null);
     setOrgResources([]);
 
@@ -177,7 +190,7 @@ const OrgsAdminPage = () => {
     }
   };
 
-  const visibleOrgs = orgs.filter(org => org.id !== 'a0000000-0000-0000-0000-000000000001');
+  const visibleOrgs = orgs;
 
   return (
     <div className="pastel-page-bg" style={{ padding: '32px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -209,7 +222,7 @@ const OrgsAdminPage = () => {
       {/* Main List */}
       <div style={{
         background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
-        boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'hidden', flex: 1
+        boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'visible', flex: 1
       }}>
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
@@ -223,63 +236,348 @@ const OrgsAdminPage = () => {
             <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table className="pastel-table" style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div style={{ overflowX: 'visible', minHeight: '320px' }}>
+            <table className="pastel-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                  {['Organization', 'Contact', 'Users', 'Groups', 'Vehicles', 'Devices', 'Status', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      {h}
-                    </th>
-                  ))}
+                <tr style={{ background: '#1e1b4b', borderBottom: '1px solid #E2E8F0' }}>
+                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                    SNO
+                  </th>
+                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                    ORGANIZATION NAME
+                  </th>
+                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                    ACTIONS
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {visibleOrgs.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ padding: '40px', textAlign: 'center' }}>
+                    <td colSpan="3" style={{ padding: '40px', textAlign: 'center' }}>
                       <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>No organizations available</div>
                     </td>
                   </tr>
-                ) : visibleOrgs.map((org) => (
+                ) : visibleOrgs.map((org, index) => (
                   <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '16px 20px' }}>
-                      <div 
-                        onClick={() => handleOpenModal(org)} 
-                        style={{ fontSize: '14px', fontWeight: 700, color: '#111827', cursor: 'pointer', transition: 'color 0.15s' }}
+                    <td style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '14px', width: '33.33%' }}>
+                      {index + 1}
+                    </td>
+                    <td style={{ padding: '16px 20px', textAlign: 'center', width: '33.33%' }}>
+                      <div
+                        onClick={() => navigate(`/admin/organizations/edit/${org.id}`)}
+                        style={{ fontSize: '14px', fontWeight: 700, color: '#111827', cursor: 'pointer', transition: 'color 0.15s', display: 'inline-block' }}
                         onMouseEnter={e => e.currentTarget.style.color = '#f97316'}
                         onMouseLeave={e => e.currentTarget.style.color = '#111827'}
                         title="Click to edit organization"
                       >
                         {org.name}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px', textTransform: 'capitalize' }}>{org.type}</div>
                     </td>
-                    <td style={{ padding: '16px 20px' }}>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>{org.contact_person || org.primary_user_name || '—'}</div>
-                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>{org.phone || org.primary_user_phone || '—'}</div>
-                      {(org.email || org.primary_user_email) && <div style={{ fontSize: '12px', color: '#6B7280' }}>{org.email || org.primary_user_email}</div>}
-                    </td>
-                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.user_count || 0}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.groups_count || 0}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.vehicle_count || 0}</td>
-                    <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 600, color: '#475569' }}>{org.devices_count || 0}</td>
-                    <td style={{ padding: '16px 20px' }}>
-                      <span style={{
-                        padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
-                        background: org.is_active === false ? '#FEE2E2' : '#D1FAE5',
-                        color: org.is_active === false ? '#DC2626' : '#059669'
-                      }}>
-                        {org.is_active === false ? 'Suspended' : 'Active'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px 20px' }}>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleOpenModal(org)} title="Edit Organization" style={{ padding: '6px 10px', background: '#FFF7ED', border: '1px solid #FFEDD5', borderRadius: '6px', color: '#f97316', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 600 }}>
-                          <Edit size={14} /> Edit
+                    <td style={{ padding: '16px 20px', textAlign: 'center', width: '33.33%' }}>
+                      <div className="action-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveActionOrgId(activeActionOrgId === org.id ? null : org.id);
+                          }}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '6px',
+                            padding: '7px 18px',
+                            background: '#f97316',
+                            color: '#FFFFFF',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            border: 'none',
+                            cursor: 'pointer',
+                            boxShadow: '0 2px 6px rgba(249,115,22,0.25)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#ea580c';
+                            e.currentTarget.style.boxShadow = '0 4px 10px rgba(249,115,22,0.35)';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#f97316';
+                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(249,115,22,0.25)';
+                          }}
+                        >
+                          <span>Actions</span>
+                          <span style={{ fontSize: '10px' }}>▸</span>
                         </button>
-                        {org.id !== 'a0000000-0000-0000-0000-000000000001' && parseInt(org.superadmin_count || 0) === 0 && (
-                          <button onClick={() => handleDelete(org)} title="Delete Organization" style={{ padding: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', borderRadius: '6px', color: '#EF4444', cursor: 'pointer' }}><Trash2 size={16} /></button>
+
+                        {activeActionOrgId === org.id && (
+                          <div
+                            style={{
+                              position: 'absolute',
+                              right: 'calc(100% + 10px)',
+                              top: '0',
+                              background: '#FFFFFF',
+                              borderRadius: '12px',
+                              padding: '6px',
+                              boxShadow: '0 12px 32px rgba(15, 23, 42, 0.15), 0 4px 10px rgba(15, 23, 42, 0.05)',
+                              zIndex: 100,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '3px',
+                              minWidth: '205px',
+                              border: '1px solid #E2E8F0',
+                              textAlign: 'left'
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          >
+                            {/* 1. Edit Organization */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveActionOrgId(null);
+                                navigate(`/admin/organizations/edit/${org.id}`);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                width: '100%',
+                                padding: '9px 12px',
+                                background: 'transparent',
+                                color: '#1E293B',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#FFF7ED';
+                                e.currentTarget.style.color = '#EA580C';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#1E293B';
+                              }}
+                            >
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                background: '#FFF7ED',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#F97316',
+                                flexShrink: 0
+                              }}>
+                                <Building2 size={15} />
+                              </div>
+                              <span>Edit Organization</span>
+                            </button>
+
+                            {/* 2. Edit Alerts */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveActionOrgId(null);
+                                navigate(`/admin/organizations/alerts/${org.id}`);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                width: '100%',
+                                padding: '9px 12px',
+                                background: 'transparent',
+                                color: '#1E293B',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#EEF2FF';
+                                e.currentTarget.style.color = '#4F46E5';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#1E293B';
+                              }}
+                            >
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                background: '#EEF2FF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#4F46E5',
+                                flexShrink: 0
+                              }}>
+                                <Shield size={15} />
+                              </div>
+                              <span>Edit Alerts</span>
+                            </button>
+
+                            {/* 3. Site Notification */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveActionOrgId(null);
+                                navigate(`/admin/organizations/site-notifications/${org.id}`);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                width: '100%',
+                                padding: '9px 12px',
+                                background: 'transparent',
+                                color: '#1E293B',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#F0F9FF';
+                                e.currentTarget.style.color = '#0284C7';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#1E293B';
+                              }}
+                            >
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                background: '#F0F9FF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#0284C7',
+                                flexShrink: 0
+                              }}>
+                                <Bell size={15} />
+                              </div>
+                              <span>Site Notification</span>
+                            </button>
+
+                            {/* 4. Organization Track */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveActionOrgId(null);
+                                navigate(`/admin/organizations/track/${org.id}`);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                width: '100%',
+                                padding: '9px 12px',
+                                background: 'transparent',
+                                color: '#1E293B',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#ECFDF5';
+                                e.currentTarget.style.color = '#059669';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#1E293B';
+                              }}
+                            >
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                background: '#ECFDF5',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#059669',
+                                flexShrink: 0
+                              }}>
+                                <MapPin size={15} />
+                              </div>
+                              <span>Organization Track</span>
+                            </button>
+
+                            <div style={{ height: '1px', background: '#F1F5F9', margin: '4px 0' }} />
+
+                            {/* 5. Delete Organization */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveActionOrgId(null);
+                                handleDelete(org);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '10px',
+                                width: '100%',
+                                padding: '9px 12px',
+                                background: 'transparent',
+                                color: '#EF4444',
+                                border: 'none',
+                                borderRadius: '8px',
+                                fontSize: '13px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                textAlign: 'left',
+                                transition: 'all 0.15s ease',
+                                whiteSpace: 'nowrap'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#FEF2F2';
+                                e.currentTarget.style.color = '#DC2626';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = 'transparent';
+                                e.currentTarget.style.color = '#EF4444';
+                              }}
+                            >
+                              <div style={{
+                                width: '28px',
+                                height: '28px',
+                                borderRadius: '6px',
+                                background: '#FEF2F2',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#EF4444',
+                                flexShrink: 0
+                              }}>
+                                <Trash2 size={15} />
+                              </div>
+                              <span>Delete Organization</span>
+                            </button>
+                          </div>
                         )}
                       </div>
                     </td>

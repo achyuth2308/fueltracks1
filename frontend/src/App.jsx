@@ -18,10 +18,17 @@ import TrackingPage from './pages/user/TrackingPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
 import UsersAdminPage from './pages/admin/UsersAdminPage';
+import EditOrganizationPage from './pages/admin/EditOrganizationPage';
+import EditOrgAlertsPage from './pages/admin/EditOrgAlertsPage';
+import SiteNotificationPage from './pages/admin/SiteNotificationPage';
+import OrgTrackAdminPage from './pages/admin/OrgTrackAdminPage';
 import GroupsAdminPage from './pages/admin/GroupsAdminPage';
 import DevicesAdminPage from './pages/admin/DevicesAdminPage';
 import EditVehiclePage from './pages/admin/EditVehiclePage';
 import MigrationPage from './pages/admin/MigrationPage';
+import AddUserVehiclePage from './pages/admin/AddUserVehiclePage';
+import EditCalibratePage from './pages/admin/EditCalibratePage';
+import RenameVehiclePage from './pages/admin/RenameVehiclePage';
 import DeviceOnboardingPage from './pages/admin/DeviceOnboardingPage';
 import OnBoardDevicePage from './pages/admin/OnBoardDevicePage';
 import FuelAdminPage from './pages/admin/FuelAdminPage';
@@ -84,6 +91,10 @@ function App() {
                 <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']} />}>
                   {/* Admin roster management grids */}
                   <Route path="organizations" element={<OrgsAdminPage />} />
+                  <Route path="organizations/edit/:id" element={<EditOrganizationPage />} />
+                  <Route path="organizations/alerts/:id" element={<EditOrgAlertsPage />} />
+                  <Route path="organizations/site-notifications/:id" element={<SiteNotificationPage />} />
+                  <Route path="organizations/track/:id" element={<OrgTrackAdminPage />} />
                   <Route path="users" element={<UsersAdminPage />} />
                   <Route path="groups" element={<GroupsAdminPage />} />
                   <Route path="vehicles" element={<VehiclesAdminPage />} />
@@ -91,6 +102,14 @@ function App() {
                   <Route path="vehicles/new" element={<EditVehiclePage />} />
                   <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
                   <Route path="vehicles/migration/:id" element={<MigrationPage />} />
+                  <Route path="vehicles/add-user/:id" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/:id/add-user" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/add-user" element={<AddUserVehiclePage />} />
+                  <Route path="users/add" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/calibrate/:id" element={<EditCalibratePage />} />
+                  <Route path="vehicles/edit-calibrate/:id" element={<EditCalibratePage />} />
+                  <Route path="vehicles/rename/:id" element={<RenameVehiclePage />} />
+                  <Route path="vehicles/:id/rename" element={<RenameVehiclePage />} />
                   <Route path="devices" element={<DevicesAdminPage />} />
                   <Route path="billing" element={<BillingAdminPage />} />
 

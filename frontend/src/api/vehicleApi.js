@@ -66,3 +66,23 @@ export const setVehicleImmobilizer = async (id, action) => {
   const response = await axiosInstance.post(`/api/vehicles/${id}/immobilizer`, { action });
   return response.data;
 };
+
+export const addUserToVehicle = async (id, data) => {
+  const response = await axiosInstance.post(`/api/vehicles/${id}/add-user`, data);
+  return response.data;
+};
+
+export const calibrateVehicle = async (id, data) => {
+  const response = await axiosInstance.post(`/api/vehicles/${id}/calibrate`, data);
+  return response.data;
+};
+
+export const renameVehicle = async (id, name) => {
+  const response = await axiosInstance.post(`/api/vehicles/${id}/rename`, { name });
+  return response.data;
+};
+
+export const reprocessVehicle = async (id, date) => {
+  const response = await axiosInstance.post(`/api/vehicles/${id}/reprocess`, { date });
+  return response.data;
+};

@@ -6,7 +6,8 @@ import {
   Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, X, Building2, Users2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
   Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown, Copy, Check,
-  Cpu, Calendar, User, Fuel, Settings, FileText
+  Cpu, Calendar, User, Fuel, Settings, FileText,
+  Shuffle, UserPlus, Sliders, RotateCw
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
@@ -14,6 +15,8 @@ import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
+import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
+import ReprocessModal from '../../components/modals/ReprocessModal';
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
@@ -60,15 +63,24 @@ const VehiclesAdminPage = () => {
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
+  const [reprocessingVehicle, setReprocessingVehicle] = useState(null);
   const [activeActionDropdownId, setActiveActionDropdownId] = useState(null);
+  const [dropdownCoords, setDropdownCoords] = useState(null);
 
-  // Close Action dropdown when clicking anywhere outside
+  // Close Action dropdown when clicking anywhere outside or scrolling
   useEffect(() => {
-    const handleOutsideClick = () => setActiveActionDropdownId(null);
+    const handleDismiss = () => {
+      setActiveActionDropdownId(null);
+      setDropdownCoords(null);
+    };
     if (activeActionDropdownId) {
-      document.addEventListener('click', handleOutsideClick);
+      document.addEventListener('click', handleDismiss);
+      window.addEventListener('scroll', handleDismiss, true);
     }
-    return () => document.removeEventListener('click', handleOutsideClick);
+    return () => {
+      document.removeEventListener('click', handleDismiss);
+      window.removeEventListener('scroll', handleDismiss, true);
+    };
   }, [activeActionDropdownId]);
 
   const handleCopy = (text, key) => {
@@ -374,32 +386,34 @@ const VehiclesAdminPage = () => {
 
           {/* Org Filter (for Superadmin/Dealer) */}
           {(isSuperAdmin || user?.role === 'dealer') && orgs.length > 0 && (
-            <select
-              value={selectedOrgId}
-              onChange={e => setSelectedOrgId(e.target.value)}
-              style={{
-                padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1',
-                fontSize: '12px', background: '#FFFFFF', color: '#0F172A', outline: 'none', cursor: 'pointer', fontWeight: 600
-              }}
-            >
-              <option value="all">All Organizations</option>
-              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
-            </select>
+            <div style={{ width: '190px' }}>
+              <FuelTracksSelect
+                height={34}
+                value={selectedOrgId}
+                onChange={setSelectedOrgId}
+                placeholder="All Organizations"
+                options={[
+                  { value: 'all', label: 'All Organizations' },
+                  ...orgs.map(o => ({ value: o.id, label: o.name }))
+                ]}
+              />
+            </div>
           )}
 
           {/* Group Filter */}
           {groups.length > 0 && (
-            <select
-              value={selectedGroupId}
-              onChange={e => setSelectedGroupId(e.target.value)}
-              style={{
-                padding: '6px 10px', borderRadius: '6px', border: '1px solid #CBD5E1',
-                fontSize: '12px', background: '#FFFFFF', color: '#0F172A', outline: 'none', cursor: 'pointer', fontWeight: 600
-              }}
-            >
-              <option value="all">All Groups</option>
-              {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
+            <div style={{ width: '170px' }}>
+              <FuelTracksSelect
+                height={34}
+                value={selectedGroupId}
+                onChange={setSelectedGroupId}
+                placeholder="All Groups"
+                options={[
+                  { value: 'all', label: 'All Groups' },
+                  ...groups.map(g => ({ value: g.id, label: g.name }))
+                ]}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -713,13 +727,33 @@ const VehiclesAdminPage = () => {
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setActiveActionDropdownId(activeActionDropdownId === v.id ? null : v.id);
+                                if (activeActionDropdownId === v.id) {
+                                  setActiveActionDropdownId(null);
+                                  setDropdownCoords(null);
+                                } else {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const menuHeight = 315;
+                                  const menuWidth = 195;
+                                  
+                                  // Prevent bottom cut-off: if not enough space below, shift upward
+                                  const spaceBelow = window.innerHeight - rect.bottom;
+                                  let top = rect.top;
+                                  if (spaceBelow < menuHeight) {
+                                    top = Math.max(10, rect.bottom - menuHeight);
+                                  }
+                                  
+                                  // Position to the left of the button
+                                  const left = Math.max(10, rect.left - menuWidth - 8);
+
+                                  setDropdownCoords({ top, left });
+                                  setActiveActionDropdownId(v.id);
+                                }
                               }}
                               title="Click to choose vehicle action"
                               style={{
                                 padding: '6px 14px',
-                                borderRadius: '6px',
-                                background: '#1d4ed8',
+                                borderRadius: '8px',
+                                background: '#f97316',
                                 border: 'none',
                                 color: '#ffffff',
                                 display: 'inline-flex',
@@ -728,35 +762,41 @@ const VehiclesAdminPage = () => {
                                 fontSize: '12px',
                                 fontWeight: 700,
                                 cursor: 'pointer',
-                                transition: 'all 0.15s',
-                                boxShadow: '0 2px 4px rgba(29, 78, 216, 0.35)'
+                                transition: 'all 0.15s ease',
+                                boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)'
                               }}
-                              onMouseEnter={e => { e.currentTarget.style.background = '#1e40af'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = '#1d4ed8'; }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.background = '#ea580c';
+                                e.currentTarget.style.boxShadow = '0 4px 10px rgba(249, 115, 22, 0.35)';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.background = '#f97316';
+                                e.currentTarget.style.boxShadow = '0 2px 6px rgba(249, 115, 22, 0.25)';
+                              }}
                             >
                               <span style={{ fontSize: '10px' }}>◀</span>
                               <span>Actions</span>
                             </button>
 
-                            {/* Dropdown Menu matching reference screenshot */}
+                            {/* Dropdown Menu - Fixed positioning escapes table overflow to prevent cut-off */}
                             {activeActionDropdownId === v.id && (
                               <div
                                 onClick={(e) => e.stopPropagation()}
                                 style={{
-                                  position: 'absolute',
-                                  right: 'calc(100% + 8px)',
-                                  top: '0',
-                                  width: '165px',
+                                  position: 'fixed',
+                                  left: `${dropdownCoords?.left || 0}px`,
+                                  top: `${dropdownCoords?.top || 0}px`,
+                                  background: '#FFFFFF',
                                   borderRadius: '12px',
-                                  boxShadow: '0 12px 30px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.15)',
-                                  zIndex: 99999,
-                                  overflow: 'hidden',
+                                  padding: '6px',
+                                  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.2), 0 4px 10px rgba(15, 23, 42, 0.08)',
+                                  zIndex: 999999,
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  fontSize: '13.5px',
-                                  fontWeight: 700,
-                                  textAlign: 'left',
-                                  animation: 'fadeIn 0.12s ease-out'
+                                  gap: '2px',
+                                  minWidth: '195px',
+                                  border: '1px solid #fed7aa',
+                                  textAlign: 'left'
                                 }}
                               >
                                 {/* 1. Migration */}
@@ -767,26 +807,48 @@ const VehiclesAdminPage = () => {
                                     navigate(`/admin/vehicles/migration/${v.id}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#22c55e',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Migration
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <Shuffle size={14} />
+                                  </div>
+                                  <span>Migration</span>
                                 </button>
 
-                                {/* 2. Edit - Navigates directly to full Edit Vehicle page with all 5 sections */}
+                                {/* 2. Edit */}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -794,23 +856,45 @@ const VehiclesAdminPage = () => {
                                     navigate(`/admin/vehicles/edit/${v.id}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#0284c7',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Edit
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#F97316',
+                                    flexShrink: 0
+                                  }}>
+                                    <Edit2 size={14} />
+                                  </div>
+                                  <span>Edit</span>
                                 </button>
 
                                 {/* 3. Add User */}
@@ -818,26 +902,48 @@ const VehiclesAdminPage = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionDropdownId(null);
-                                    navigate(`/admin/users`);
+                                    navigate(`/admin/vehicles/add-user/${v.id}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#2563eb',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Add User
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <UserPlus size={14} />
+                                  </div>
+                                  <span>Add User</span>
                                 </button>
 
                                 {/* 4. Calibrate */}
@@ -845,26 +951,48 @@ const VehiclesAdminPage = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionDropdownId(null);
-                                    navigate(`/admin/vehicles/edit/${v.id}`);
+                                    navigate(`/admin/vehicles/calibrate/${v.id}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#f97316',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Calibrate
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <Sliders size={14} />
+                                  </div>
+                                  <span>Calibrate</span>
                                 </button>
 
                                 {/* 5. Audit Report */}
@@ -875,23 +1003,45 @@ const VehiclesAdminPage = () => {
                                     navigate(`/admin/audit-logs?search=${encodeURIComponent(v.plate || v.name || v.imei || '')}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#16a34a',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Audit Report
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <FileText size={14} />
+                                  </div>
+                                  <span>Audit Report</span>
                                 </button>
 
                                 {/* 6. Rename */}
@@ -899,26 +1049,48 @@ const VehiclesAdminPage = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionDropdownId(null);
-                                    navigate(`/admin/vehicles/edit/${v.id}`);
+                                    navigate(`/admin/vehicles/rename/${v.id}`);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#29b6f6',
-                                    color: '#000000',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Rename
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <Tag size={14} />
+                                  </div>
+                                  <span>Rename</span>
                                 </button>
 
                                 {/* 7. Reprocess */}
@@ -926,26 +1098,48 @@ const VehiclesAdminPage = () => {
                                   type="button"
                                   onClick={() => {
                                     setActiveActionDropdownId(null);
-                                    setViewingVehicle(v);
+                                    setReprocessingVehicle(v);
                                   }}
                                   style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
                                     width: '100%',
-                                    padding: '9px 18px',
-                                    background: '#6366f1',
-                                    color: '#ffffff',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
                                     border: 'none',
-                                    outline: 'none',
-                                    textAlign: 'left',
-                                    fontSize: '13.5px',
-                                    fontWeight: 700,
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
                                     cursor: 'pointer',
-                                    transition: 'filter 0.1s ease',
-                                    display: 'block'
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
                                   }}
-                                  onMouseEnter={e => e.currentTarget.style.filter = 'brightness(0.92)'}
-                                  onMouseLeave={e => e.currentTarget.style.filter = 'none'}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#FFF7ED';
+                                    e.currentTarget.style.color = '#EA580C';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
                                 >
-                                  Reprocess
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#FFF7ED',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#EA580C',
+                                    flexShrink: 0
+                                  }}>
+                                    <RotateCw size={14} />
+                                  </div>
+                                  <span>Reprocess</span>
                                 </button>
                               </div>
                             )}
@@ -1539,6 +1733,14 @@ const VehiclesAdminPage = () => {
       <GoogleFormModal
         isOpen={isGoogleFormModalOpen}
         onClose={() => setIsGoogleFormModalOpen(false)}
+      />
+
+      {/* Reprocess for Vehicle Modal */}
+      <ReprocessModal
+        isOpen={Boolean(reprocessingVehicle)}
+        vehicle={reprocessingVehicle}
+        onClose={() => setReprocessingVehicle(null)}
+        onSuccess={fetchVehicles}
       />
     </div>
   );

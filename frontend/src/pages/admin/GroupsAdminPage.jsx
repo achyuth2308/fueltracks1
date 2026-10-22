@@ -186,13 +186,13 @@ const GroupsAdminPage = () => {
                         )}
                       </td>
                       <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#e0e7ff', color: '#3730a3', fontSize: '12px', fontWeight: 800 }}>
+                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#FFF7ED', color: '#EA580C', border: '1px solid #FFEDD5', fontSize: '12px', fontWeight: 800 }}>
                           {g.vehicle_count || (g.vehicles ? g.vehicles.length : 0)}
                         </span>
                       </td>
                       <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center' }}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#EEF2FF', border: '1px solid #C7D2FE', color: '#4338CA', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#C7D2FE'} onMouseLeave={e => e.currentTarget.style.background = '#EEF2FF'}>
+                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#EA580C', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FFEDD5'} onMouseLeave={e => e.currentTarget.style.background = '#FFF7ED'}>
                             Edit
                           </button>
                           <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'} onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}>

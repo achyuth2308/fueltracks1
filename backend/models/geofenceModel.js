@@ -18,12 +18,12 @@ const GeofenceModel = {
     return result.rows[0] || null;
   },
 
-  async create({ orgId, name, type, coordinates, radius, center_lat, center_lng }) {
+  async create({ orgId, name, type, coordinates, radius, center_lat, center_lng, is_active = true, notification_time = '00:00' }) {
     const result = await db.query(
-      `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [orgId, name, type || 'polygon', JSON.stringify(coordinates), radius || null, center_lat || null, center_lng || null]
+      [orgId, name, type || 'polygon', JSON.stringify(coordinates), radius || null, center_lat || null, center_lng || null, is_active, notification_time]
     );
     return result.rows[0];
   },
@@ -40,6 +40,7 @@ const GeofenceModel = {
     if (center_lat !== undefined) { fields.push(`center_lat = $${idx++}`); values.push(center_lat); }
     if (center_lng !== undefined) { fields.push(`center_lng = $${idx++}`); values.push(center_lng); }
     if (is_active !== undefined) { fields.push(`is_active = $${idx++}`); values.push(is_active); }
+    if (notification_time !== undefined) { fields.push(`notification_time = $${idx++}`); values.push(notification_time); }
 
     if (fields.length === 0) return this.findById(id);
 
@@ -48,6 +49,33 @@ const GeofenceModel = {
       `UPDATE geofences SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
       values
     );
+    return result.rows[0] || null;
+  },
+
+  async updateSiteNotification(id, { is_active, notification_time }) {
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (is_active !== undefined) { fields.push(`is_active = $${idx++}`); values.push(is_active); }
+    if (notification_time !== undefined) { fields.push(`notification_time = $${idx++}`); values.push(notification_time); }
+
+    if (fields.length === 0) return this.findById(id);
+
+    values.push(id);
+    const result = await db.query(
+      `UPDATE geofences SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      values
+    );
+
+    // Invalidate vehicle cache for assigned vehicles
+    try {
+      const vRows = await this.findVehiclesForGeofence(id);
+      for (const v of vRows) {
+        await redis.del(`vehicle:geofences:${v.id}`);
+      }
+    } catch (_) {}
+
     return result.rows[0] || null;
   },
 

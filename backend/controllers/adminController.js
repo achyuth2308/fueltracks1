@@ -79,7 +79,7 @@ const AdminController = {
 
   async createOrg(req, res, next) {
     try {
-      const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds } = req.body;
+      const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds, settings } = req.body;
 
       if (!name || !type) {
         return res.status(400).json({
@@ -110,7 +110,8 @@ const AdminController = {
         address,
         phone,
         contactPerson,
-        email
+        email,
+        settings: settings || {}
       });
 
       // Handle user assignments
@@ -146,7 +147,7 @@ const AdminController = {
   async updateOrg(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, address, phone, isActive, contactPerson, email, assignedUserIds } = req.body;
+      const { name, type, address, phone, isActive, contactPerson, email, assignedUserIds, settings } = req.body;
 
       // Fetch old org
       const oldOrg = await OrgModel.findById(id);
@@ -158,7 +159,7 @@ const AdminController = {
         });
       }
 
-      if (req.user.role !== 'superadmin' && id !== req.user.orgId) {
+      if (req.user && req.user.role !== 'superadmin' && id !== req.user.orgId) {
         // Dealers can only update their child orgs
         if (oldOrg.parent_id !== req.user.orgId) {
           return res.status(403).json({
@@ -179,7 +180,7 @@ const AdminController = {
         email: oldOrg.email
       };
 
-      const updated = await OrgModel.update(id, { name, type, address, phone, isActive, contactPerson, email });
+      const updated = await OrgModel.update(id, { name, type, address, phone, isActive, contactPerson, email, settings });
 
       res.status(200).json({
         success: true,
@@ -213,7 +214,7 @@ const AdminController = {
           entityId: id, entityName: updated.name, action: 'UPDATED',
           oldData,
           newData,
-          performedById: req.user.userId, performedByRole: req.user.role,
+          performedById: req.user?.userId || 'system', performedByRole: req.user?.role || 'admin',
           orgId: id, orgName: updated.name,
           ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
         });
@@ -1393,6 +1394,270 @@ const AdminController = {
       const GpsModel = require('../models/gpsModel');
       const alerts = await GpsModel.getRecentAlerts(orgId);
       res.json({ success: true, data: alerts });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ============================================================
+  // SITE NOTIFICATIONS
+  // ============================================================
+
+  async getOrgSiteNotifications(req, res, next) {
+    try {
+      const { id } = req.params;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (req.user.role !== 'superadmin' && id !== req.user.orgId && org.parent_id !== req.user.orgId) {
+        return res.status(403).json({ success: false, error: 'Access denied.' });
+      }
+
+      const geofences = await GeofenceModel.findAll(id);
+      const settings = org.settings || {};
+      const siteSettings = settings.site_notifications || {};
+
+      const sites = geofences.map(g => {
+        const saved = siteSettings[g.id] || {};
+        return {
+          id: g.id,
+          name: g.name,
+          time: saved.time !== undefined ? saved.time : (g.notification_time || '00:00'),
+          enabled: saved.enabled !== undefined ? saved.enabled : (g.is_active !== false),
+          created_at: g.created_at
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          org: {
+            id: org.id,
+            name: org.name,
+            phone: org.phone || org.primary_user_phone || ''
+          },
+          sites
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateOrgSiteNotifications(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { sites } = req.body;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (req.user.role !== 'superadmin' && id !== req.user.orgId && org.parent_id !== req.user.orgId) {
+        return res.status(403).json({ success: false, error: 'Access denied.' });
+      }
+
+      if (!Array.isArray(sites)) {
+        return res.status(400).json({ success: false, error: 'Sites array is required.' });
+      }
+
+      const settings = org.settings || {};
+      const currentSiteSettings = settings.site_notifications || {};
+      const updatedSiteSettings = { ...currentSiteSettings };
+
+      for (const item of sites) {
+        if (!item.id) continue;
+        const timeVal = item.time !== undefined ? String(item.time) : '00:00';
+        const enabledVal = !!item.enabled;
+
+        updatedSiteSettings[item.id] = {
+          time: timeVal,
+          enabled: enabledVal
+        };
+
+        // Update in geofences table as well
+        await GeofenceModel.updateSiteNotification(item.id, {
+          is_active: enabledVal,
+          notification_time: timeVal
+        });
+      }
+
+      // Persist in org settings
+      await OrgModel.update(id, {
+        settings: {
+          ...settings,
+          site_notifications: updatedSiteSettings
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Site notifications updated successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createOrgSite(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, time = '00:00', enabled = true, coordinates, radius, center_lat, center_lng, type = 'circle' } = req.body;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Site name is required.' });
+      }
+
+      const newSite = await GeofenceModel.create({
+        orgId: id,
+        name,
+        type: type || 'circle',
+        coordinates: coordinates || [{ lat: center_lat || 17.385, lng: center_lng || 78.4867 }],
+        radius: radius || 500,
+        center_lat: center_lat || 17.385,
+        center_lng: center_lng || 78.4867
+      });
+
+      await GeofenceModel.updateSiteNotification(newSite.id, {
+        is_active: enabled,
+        notification_time: time
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          id: newSite.id,
+          name: newSite.name,
+          time: time,
+          enabled: enabled,
+          created_at: newSite.created_at
+        },
+        message: 'Site created successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getOrgTracks(req, res, next) {
+    try {
+      const { id } = req.params;
+      const RouteModel = require('../models/routeModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      const routes = await RouteModel.findAll(id);
+      const enriched = await Promise.all(routes.map(async (r) => {
+        const vehicles = await RouteModel.findVehiclesForRoute(r.id);
+        return {
+          ...r,
+          vehicles,
+          vehicle: vehicles[0] || null
+        };
+      }));
+
+      // Fetch vehicles belonging to this org
+      const vehRes = await db.query(
+        `SELECT id, name, plate, imei FROM vehicles WHERE org_id = $1 AND is_active = TRUE ORDER BY name ASC`,
+        [id]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          organization: {
+            id: org.id,
+            name: org.name,
+            phone: org.phone
+          },
+          tracks: enriched,
+          vehicles: vehRes.rows
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createOrgTrack(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, vehicle_id, coordinates, tolerance = 100 } = req.body;
+      const RouteModel = require('../models/routeModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (!name || !name.trim()) {
+        return res.status(400).json({ success: false, error: 'Track name is required.' });
+      }
+
+      const coords = Array.isArray(coordinates) && coordinates.length > 0
+        ? coordinates
+        : [{ lat: 17.3850, lng: 78.4867 }, { lat: 17.3900, lng: 78.4900 }];
+
+      const route = await RouteModel.create({
+        orgId: id,
+        name: name.trim(),
+        coordinates: coords,
+        tolerance: parseInt(tolerance) || 100
+      });
+
+      if (vehicle_id) {
+        await RouteModel.assignToVehicles(route.id, [vehicle_id]);
+      }
+
+      // Also persist track in org settings
+      try {
+        const currentSettings = org.settings || {};
+        const tracks = currentSettings.organization_tracks || [];
+        tracks.push({
+          id: route.id,
+          name: route.name,
+          vehicle_id: vehicle_id || null,
+          created_at: new Date().toISOString()
+        });
+        await OrgModel.update(id, {
+          settings: {
+            ...currentSettings,
+            organization_tracks: tracks
+          }
+        });
+      } catch (_) {}
+
+      res.status(201).json({
+        success: true,
+        data: route,
+        message: 'Organization track created successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteOrgTrack(req, res, next) {
+    try {
+      const { id, trackId } = req.params;
+      const RouteModel = require('../models/routeModel');
+      await RouteModel.delete(trackId);
+      res.json({ success: true, message: 'Track deleted successfully.' });
     } catch (err) {
       next(err);
     }

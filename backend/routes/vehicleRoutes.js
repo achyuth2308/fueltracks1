@@ -25,6 +25,12 @@ router.patch('/:id/settings', authorize('customer', 'superadmin', 'dealer'), Veh
 router.post('/bulk-assign-groups', authorize('superadmin', 'dealer'), VehicleController.bulkAssignGroups);
 router.delete('/:id', authorize('superadmin'), VehicleController.deleteVehicle);
 router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController.migrateVehicle);
+router.post('/:id/add-user', authorize('superadmin', 'dealer'), VehicleController.addUserToVehicle);
+router.post('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
+router.put('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
+router.post('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
+router.put('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
+router.post('/:id/reprocess', authorize('superadmin', 'dealer'), VehicleController.reprocessVehicle);
 
 // Analytics, History & Live Route
 router.get('/:id/history', VehicleController.getVehicleHistory);

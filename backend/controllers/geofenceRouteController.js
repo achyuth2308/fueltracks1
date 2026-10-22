@@ -18,13 +18,13 @@ const GeofenceRouteController = {
 
   async createGeofence(req, res, next) {
     try {
-      const orgId = req.user.orgId;
-      const { name, type, coordinates, radius, center_lat, center_lng } = req.body;
+      const orgId = req.body.org_id || req.body.orgId || req.user.orgId;
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time } = req.body;
       if (!name || !coordinates) {
         return res.status(400).json({ success: false, error: 'Name and coordinates are required.' });
       }
       const geofence = await GeofenceModel.create({
-        orgId, name, type, coordinates, radius, center_lat, center_lng
+        orgId, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time
       });
       res.status(201).json({ success: true, data: geofence });
     } catch (err) {
@@ -35,9 +35,9 @@ const GeofenceRouteController = {
   async updateGeofence(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, coordinates, radius, center_lat, center_lng, is_active } = req.body;
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time } = req.body;
       const updated = await GeofenceModel.update(id, {
-        name, type, coordinates, radius, center_lat, center_lng, is_active
+        name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time
       });
       res.json({ success: true, data: updated });
     } catch (err) {
@@ -87,9 +87,17 @@ const GeofenceRouteController = {
 
   async getRoutes(req, res, next) {
     try {
-      const orgId = req.user.orgId;
+      const orgId = req.query.org_id || req.query.orgId || req.user.orgId;
       const routes = await RouteModel.findAll(orgId);
-      res.json({ success: true, data: routes });
+      const enriched = await Promise.all(routes.map(async (r) => {
+        const vehicles = await RouteModel.findVehiclesForRoute(r.id);
+        return {
+          ...r,
+          vehicles,
+          vehicle: vehicles[0] || null
+        };
+      }));
+      res.json({ success: true, data: enriched });
     } catch (err) {
       next(err);
     }
@@ -97,12 +105,19 @@ const GeofenceRouteController = {
 
   async createRoute(req, res, next) {
     try {
-      const orgId = req.user.orgId;
-      const { name, coordinates, tolerance } = req.body;
-      if (!name || !coordinates) {
-        return res.status(400).json({ success: false, error: 'Name and coordinates are required.' });
+      const orgId = req.body.org_id || req.body.orgId || req.user.orgId;
+      const { name, coordinates, tolerance, vehicle_id, vehicleId } = req.body;
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Name is required.' });
       }
-      const route = await RouteModel.create({ orgId, name, coordinates, tolerance });
+      const coords = Array.isArray(coordinates) && coordinates.length > 0
+        ? coordinates
+        : [{ lat: 17.3850, lng: 78.4867 }, { lat: 17.3900, lng: 78.4900 }];
+      const route = await RouteModel.create({ orgId, name: name.trim(), coordinates: coords, tolerance: tolerance || 100 });
+      const targetVehId = vehicle_id || vehicleId;
+      if (targetVehId) {
+        await RouteModel.assignToVehicles(route.id, [targetVehId]);
+      }
       res.status(201).json({ success: true, data: route });
     } catch (err) {
       next(err);

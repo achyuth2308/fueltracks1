@@ -5,6 +5,7 @@
 // ============================================================
 
 const { createSubscriber } = require('../config/redis');
+const OrgModel = require('../models/orgModel');
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const profileRepository = require('../modules/profile/repositories/profileRepository');
@@ -73,11 +74,10 @@ async function start(io) {
         return;
       }
 
-      // Filter to only allow actionable alerts — routine 'general' (Location Update / Location Update History)
-      // packets are dropped because they fire on every GPS ping while moving and create alert noise.
-      const allowedAlerts = ['overspeed', 'geofence', 'geofence_enter', 'geofence_exit', 'ignition_on', 'ignition_off', 'stoppage', 'parking', 'safety_park', 'trip_started', 'trip_ended', 'route_deviation', 'excessive_idle', 'sos', 'battery', 'harsh_driving', 'harsh_braking', 'harsh_acceleration', 'box_open', 'power_cut', 'crash', 'tow', 'panic', 'theft', 'theft_alarm', 'tamper', 'moving', 'start_moving', 'stopped', 'idle'];
-      if (!allowedAlerts.includes(alertType.toLowerCase())) {
-        return; // Drop unwanted alerts silently
+      // Filter to only drop routine GPS ping noise ('general', 'location_update', 'heartbeat')
+      const droppedNoise = ['general', 'location_update', 'location', 'heartbeat', 'ping', 'periodic_report'];
+      if (droppedNoise.includes(alertType.toLowerCase())) {
+        return; // Drop routine location pings silently
       }
 
       const vehicleId = vehicle.id;
@@ -102,14 +102,16 @@ async function start(io) {
       // Fire-and-forget geocode in background
       queueGeocode(lat, lng, alert.id).catch(() => {});
 
-      // Dispatch external notification (Email/WhatsApp) based on org preferences
+      // Dispatch external notifications (Email, SMS, Telegram, WhatsApp) based on org alert matrix & settings
       try {
-        const profile = await profileRepository.getProfile(orgId);
-        if (profile) {
-          await NotificationService.dispatchAlert(profile, alertType, alertText, {
+        const org = await OrgModel.findById(orgId);
+        if (org) {
+          await NotificationService.dispatchAlertWithMatrix(org, alertType, alertText, {
             name: vehicle.name,
             plate: vehicle.plate,
-            imei: vehicle.imei
+            imei: vehicle.imei,
+            address,
+            deviceTime
           });
         }
       } catch (notifyErr) {

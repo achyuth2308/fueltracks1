@@ -155,3 +155,76 @@ export const bulkOnboardExcel = async (data) => {
   const response = await axiosInstance.post('/api/admin/onboard/bulk-excel', data);
   return response.data;
 };
+
+// Site Notifications
+export const getOrgSiteNotifications = async (orgId) => {
+  const response = await axiosInstance.get(`/api/admin/orgs/${orgId}/site-notifications`);
+  return response.data;
+};
+
+export const updateOrgSiteNotifications = async (orgId, data) => {
+  const response = await axiosInstance.put(`/api/admin/orgs/${orgId}/site-notifications`, data);
+  return response.data;
+};
+
+export const createOrgSite = async (orgId, data) => {
+  const response = await axiosInstance.post(`/api/admin/orgs/${orgId}/sites`, data);
+  return response.data;
+};
+
+export const getGeofences = async () => {
+  const response = await axiosInstance.get(`/api/admin/geofences`);
+  return response.data;
+};
+
+export const createGeofence = async (data) => {
+  const response = await axiosInstance.post(`/api/admin/geofences`, data);
+  return response.data;
+};
+
+export const updateGeofence = async (id, data) => {
+  const response = await axiosInstance.put(`/api/admin/geofences/${id}`, data);
+  return response.data;
+};
+
+// Organization Tracks & Routes
+export const getOrgTracks = async (orgId) => {
+  const response = await axiosInstance.get(`/api/admin/orgs/${orgId}/tracks`);
+  return response.data;
+};
+
+export const createOrgTrack = async (orgId, data) => {
+  const response = await axiosInstance.post(`/api/admin/orgs/${orgId}/tracks`, data);
+  return response.data;
+};
+
+export const deleteOrgTrack = async (orgId, trackId) => {
+  const response = await axiosInstance.delete(`/api/admin/orgs/${orgId}/tracks/${trackId}`);
+  return response.data;
+};
+
+export const getRoutes = async (params = {}) => {
+  const response = await axiosInstance.get(`/api/admin/routes`, { params });
+  return response.data;
+};
+
+export const createRoute = async (data) => {
+  const response = await axiosInstance.post(`/api/admin/routes`, data);
+  return response.data;
+};
+
+export const deleteRoute = async (id) => {
+  const response = await axiosInstance.delete(`/api/admin/routes/${id}`);
+  return response.data;
+};
+
+export const assignRoute = async (id, vehicleIds) => {
+  const response = await axiosInstance.post(`/api/admin/routes/${id}/assign`, { vehicleIds });
+  return response.data;
+};
+
+export const getRouteVehicles = async (id) => {
+  const response = await axiosInstance.get(`/api/admin/routes/${id}/vehicles`);
+  return response.data;
+};
+

@@ -1130,3 +1130,46 @@ option {
   margin-top: -12px;
   font-size: 18px !important;
 }
+
+/* ============================================================
+   FUELTRACKS BRAND THEME - ZERO BLUE, STRICT ORANGE SELECTION
+   ============================================================ */
+:root {
+  accent-color: #f97316 !important;
+}
+
+::selection {
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+::-moz-selection {
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+/* Global select styling overrides for any native select */
+select {
+  accent-color: #f97316 !important;
+  color-scheme: light;
+}
+
+select:focus,
+select:focus-visible {
+  border-color: #f97316 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22) !important;
+}
+
+select option:checked {
+  background: #f97316 linear-gradient(0deg, #f97316 0%, #f97316 100%) !important;
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+select option:hover,
+select option:focus {
+  background: #fff7ed !important;
+  background-color: #fff7ed !important;
+  color: #ea580c !important;
+}

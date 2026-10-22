@@ -171,12 +171,12 @@ const OrgModel = {
   /**
    * Create organization
    */
-  async create({ name, type, parentId, address, phone, contactPerson, email }) {
+  async create({ name, type = 'customer', parentId, address, phone, contactPerson, email, settings = {} }) {
     const result = await db.query(
-      `INSERT INTO organizations (name, type, parent_id, address, phone, contact_person, email)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO organizations (name, type, parent_id, address, phone, contact_person, email, settings)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [name, type, parentId, address, phone, contactPerson, email]
+      [name, type || 'customer', parentId, address, phone, contactPerson, email, typeof settings === 'string' ? settings : JSON.stringify(settings || {})]
     );
     return result.rows[0];
   },
@@ -184,7 +184,7 @@ const OrgModel = {
   /**
    * Update organization
    */
-  async update(orgId, { name, type, address, phone, isActive, contactPerson, email }) {
+  async update(orgId, { name, type, address, phone, isActive, contactPerson, email, settings }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -196,6 +196,7 @@ const OrgModel = {
     if (contactPerson !== undefined) { fields.push(`contact_person = $${paramIndex++}`); values.push(contactPerson); }
     if (email !== undefined) { fields.push(`email = $${paramIndex++}`); values.push(email); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
+    if (settings !== undefined) { fields.push(`settings = $${paramIndex++}`); values.push(typeof settings === 'string' ? settings : JSON.stringify(settings)); }
 
     if (fields.length === 0) return null;
 
