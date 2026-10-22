@@ -993,6 +993,115 @@ const VehicleController = {
   },
 
   /**
+   * Save vehicle fuel calibration & fuel configuration details
+   */
+  async calibrateVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const {
+        name,
+        tankNo = 1,
+        modeOfVehicle,
+        fuelType,
+        tankSize,
+        minAdc,
+        maxAdc,
+        fuelTankShape,
+        fuelTankPosition,
+        noOfTank,
+        noOfSensor,
+        minTheft,
+        minFilling,
+        calibrateType,
+        sensorDetails
+      } = req.body;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+
+      const currentMeta = vehicle.metadata || {};
+      const fuelCal = currentMeta.fuelCalibration || {};
+      const fuelConfig = currentMeta.fuelConfig || {};
+
+      const updatedMeta = {
+        ...currentMeta,
+        modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : currentMeta.modeOfVehicle,
+        fuelType: fuelType !== undefined ? fuelType : currentMeta.fuelType,
+        tankSize: tankSize !== undefined ? tankSize : currentMeta.tankSize,
+        fuelEmptyAdc: minAdc !== undefined ? minAdc : currentMeta.fuelEmptyAdc,
+        fuelFullAdc: maxAdc !== undefined ? maxAdc : currentMeta.fuelFullAdc,
+        fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : currentMeta.fuelTankShape,
+        fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : currentMeta.fuelTankPosition,
+        fuelCalibration: {
+          ...fuelCal,
+          tankNo,
+          modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : fuelCal.modeOfVehicle,
+          fuelType: fuelType !== undefined ? fuelType : fuelCal.fuelType,
+          tankSize: tankSize !== undefined ? tankSize : fuelCal.tankSize,
+          minAdc: minAdc !== undefined ? minAdc : fuelCal.minAdc,
+          maxAdc: maxAdc !== undefined ? maxAdc : fuelCal.maxAdc,
+          fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : fuelCal.fuelTankShape,
+          fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : fuelCal.fuelTankPosition,
+          updatedAt: new Date().toISOString()
+        },
+        fuelConfig: {
+          ...fuelConfig,
+          noOfTank: noOfTank !== undefined ? noOfTank : (fuelConfig.noOfTank ?? 1),
+          noOfSensor: noOfSensor !== undefined ? noOfSensor : (fuelConfig.noOfSensor ?? 1),
+          minTheft: minTheft !== undefined ? minTheft : (fuelConfig.minTheft ?? 5),
+          minFilling: minFilling !== undefined ? minFilling : (fuelConfig.minFilling ?? 9),
+          tankSize: tankSize !== undefined ? tankSize : (fuelConfig.tankSize ?? 0),
+          calibrateType: calibrateType !== undefined ? calibrateType : (fuelConfig.calibrateType || 'Auto'),
+          sensorDetails: sensorDetails !== undefined ? sensorDetails : (fuelConfig.sensorDetails || ''),
+          updatedAt: new Date().toISOString()
+        }
+      };
+
+      const updatePayload = { metadata: updatedMeta };
+      if (name && name.trim() && name.trim() !== vehicle.name) {
+        updatePayload.name = name.trim();
+      }
+
+      const updated = await VehicleModel.update(id, updatePayload);
+
+      // Audit log
+      await AuditService.log({
+        auditType: 'vehicle',
+        entityType: 'Vehicle',
+        entityId: vehicle.id,
+        entityName: updated?.name || vehicle.name,
+        action: 'VEHICLE_CALIBRATE',
+        performedById: req.user.userId,
+        orgId: vehicle.org_id,
+        vehicleId: vehicle.id,
+        vehicleName: updated?.name || vehicle.name,
+        deviceId: vehicle.imei,
+        details: { metadata: updatedMeta },
+        ipAddress: AuditService.getIp(req),
+        userAgent: AuditService.getUserAgent(req)
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Fuel calibration settings saved successfully.',
+        data: updated
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
    * Get paginated GPS history
    */
   async getVehicleHistory(req, res, next) {
