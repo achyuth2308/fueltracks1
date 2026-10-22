@@ -127,7 +127,7 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
       style={{
         position: 'fixed',
         inset: 0,
-        zIndex: 50,
+        zIndex: 100000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
