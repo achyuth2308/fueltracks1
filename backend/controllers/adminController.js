@@ -569,13 +569,15 @@ const AdminController = {
     try {
       const { id } = req.params;
       const result = await db.query(
-        `SELECT v.id, v.name, v.plate, v.imei, vls.is_online
+        `SELECT DISTINCT v.id, v.name, v.plate, v.imei, vls.is_online,
+                g.id AS group_id, g.name AS group_name
          FROM vehicles v
          JOIN vehicle_groups vg ON v.id = vg.vehicle_id
          JOIN user_groups ug ON vg.group_id = ug.group_id
+         JOIN groups g ON vg.group_id = g.id
          LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
          WHERE ug.user_id = $1 AND v.is_active = TRUE
-         ORDER BY v.name ASC`,
+         ORDER BY g.name ASC, v.name ASC`,
         [id]
       );
       res.status(200).json({ success: true, data: result.rows });

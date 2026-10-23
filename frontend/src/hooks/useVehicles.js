@@ -140,6 +140,11 @@ export const useVehicles = (initialParams = {}) => {
     });
   }, [fetchVehicles]);
 
+  const refetch = useCallback(() => {
+    fetchVehicles();
+    fetchGroups();
+  }, [fetchVehicles, fetchGroups]);
+
   return {
     vehicles,
     groups,
@@ -148,6 +153,6 @@ export const useVehicles = (initialParams = {}) => {
     params,
     pagination,
     updateParams,
-    refetch: fetchVehicles,
+    refetch,
   };
 };

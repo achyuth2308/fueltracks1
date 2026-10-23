@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight, Users2, X, AlertTriangle, User, Compass, Shield, Cpu, Search } from 'lucide-react';
+import { Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight, ChevronDown, Users2, X, AlertTriangle, User, Compass, Shield, Cpu, Search } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useAuth } from '../../hooks/useAuth';
@@ -64,7 +64,9 @@ const StatusPill = ({ label, count, color, active, onClick }) => (
 const CustomerDashboard = ({ setAppVehicles }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { vehicles, loading, error, refetch } = useVehicles();
+  const { vehicles, groups, loading, error, refetch } = useVehicles();
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const toggleGroupCollapse = (groupId) => setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -169,6 +171,42 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return result;
   }, [vehicles, statusFilter, searchQuery]);
 
+  const groupedVehicles = useMemo(() => {
+    if (!groups || groups.length === 0) return null;
+
+    const groupMap = groups.map(g => {
+      const gVehicles = filtered.filter(v =>
+        (Array.isArray(v.groups) && v.groups.some(vg => vg.id === g.id || vg.name === g.name)) ||
+        (Array.isArray(g.vehicles) && g.vehicles.some(gv => gv.id === v.id)) ||
+        (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(g.name?.trim()?.toLowerCase()))
+      );
+
+      const onlineCount = gVehicles.filter(v => v.is_online).length;
+      return {
+        group: g,
+        vehicles: gVehicles,
+        totalCount: gVehicles.length,
+        onlineCount
+      };
+    });
+
+    // Check for any unassigned vehicles that don't belong to any of the user's groups
+    const assignedIds = new Set();
+    groupMap.forEach(gm => gm.vehicles.forEach(v => assignedIds.add(v.id)));
+    const unassigned = filtered.filter(v => !assignedIds.has(v.id));
+
+    if (unassigned.length > 0) {
+      groupMap.push({
+        group: { id: '__unassigned__', name: 'Other / Unassigned' },
+        vehicles: unassigned,
+        totalCount: unassigned.length,
+        onlineCount: unassigned.filter(v => v.is_online).length
+      });
+    }
+
+    return groupMap;
+  }, [groups, filtered]);
+
   const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unreachable: '#94a3b8', unavailable: '#94a3b8' };
   const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
 
@@ -198,6 +236,146 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   }, [isNearbyActive, currentSelected, vehicles, nearbyRadius]);
 
   const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
+
+  const renderVehicleCard = (v, groupKey = '') => {
+    const vWarning = getExpiryWarning(v);
+    const isExpired = vWarning && vWarning.type === 'expired';
+    const status = getStatus(v);
+    const isSelected = currentSelected?.id === v.id;
+    const sc = isExpired ? '#DC2626' : statusColors[status];
+
+    return (
+      <div
+        key={`${groupKey}-${v.id}`}
+        onClick={(e) => {
+          if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
+            const container = e.currentTarget.closest('.tracking-container');
+            if (container) {
+              const containerRect = container.getBoundingClientRect();
+              const itemRect = e.currentTarget.getBoundingClientRect();
+              setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+            }
+          }
+          setSelectedVehicle(prev => prev?.id === v.id ? null : v);
+          if (isExpired) {
+            setExpiredModalVehicle(prev => prev?.id === v.id ? null : v);
+          } else {
+            setExpiredModalVehicle(null);
+          }
+        }}
+        title={vWarning ? vWarning.text : undefined}
+        style={{
+          background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
+          borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
+          borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
+          padding: '12px 14px',
+          cursor: 'pointer',
+          transition: 'background 0.15s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px'
+        }}
+        onMouseEnter={e => {
+          setHoveredVehicleId(v.id);
+          if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
+            const container = e.currentTarget.closest('.tracking-container');
+            if (container) {
+              const containerRect = container.getBoundingClientRect();
+              const itemRect = e.currentTarget.getBoundingClientRect();
+              setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+            }
+          }
+          if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
+          if (isExpired) e.currentTarget.style.background = '#FEE2E2';
+        }}
+        onMouseLeave={e => {
+          setHoveredVehicleId(null);
+          if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
+          if (isExpired) e.currentTarget.style.background = '#FEF2F2';
+        }}
+      >
+        {/* Vehicle Icon Graphic */}
+        <div style={{
+          width: '38px',
+          height: '38px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          {(() => {
+            const vType = getVehicleType(v);
+            if (vType === 'bike') {
+              return (
+                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                  <path d="M10 24L18 10H26L30 16H36" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M18 10H24" stroke={isSelected ? '#38BDF8' : '#0EA5E9'} strokeWidth="2.5" strokeLinecap="round"/>
+                  <circle cx="12" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
+                  <circle cx="12" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
+                  <circle cx="34" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
+                  <circle cx="34" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
+                  <path d="M16 16C16 14 19 13 23 13C26 13 28 15 29 17" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+              );
+            }
+            if (vType === 'car') {
+              return (
+                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                  <path d="M8 20C8 16 12 13 16 13H28C32 13 36 16 38 20V25H8V20Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
+                  <circle cx="14" cy="25" r="3.5" fill="#1E293B"/>
+                  <circle cx="32" cy="25" r="3.5" fill="#1E293B"/>
+                </svg>
+              );
+            }
+            if (vType === 'van') {
+              return (
+                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                  <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
+                  <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
+                  <circle cx="14" cy="27" r="4" fill="#334155"/>
+                  <circle cx="34" cy="27" r="4" fill="#334155"/>
+                  <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
+                </svg>
+              );
+            }
+            return (
+              <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+                <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
+                <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
+                <circle cx="12" cy="26" r="4" fill="#1E293B"/>
+                <circle cx="34" cy="26" r="4" fill="#1E293B"/>
+              </svg>
+            );
+          })()}
+        </div>
+
+        {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.name}
+          </div>
+          <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.plate || v.name}
+          </div>
+          <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <span>{formatSpeed(v.current_speed, v.is_online)}</span>
+            <span>·</span>
+            <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
+          </div>
+        </div>
+
+        {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+            <span>{isExpired ? 'EXPIRED' : statusLabels[status]}</span>
+          </div>
+          <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
+        </div>
+      </div>
+    );
+  };
 
 
   return (
@@ -559,7 +737,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                   Fleet Vehicles
                 </h2>
                 <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-                  {filtered.length} vehicles
+                  {filtered.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
                 </div>
               </div>
               <button
@@ -656,146 +834,97 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                   {vehicles.length === 0 ? 'No vehicles assigned' : 'No vehicles match search'}
                 </span>
               </div>
-            ) : (
-              filtered.map(v => {
-                const warning = getExpiryWarning(v);
-                const isExpired = warning && warning.type === 'expired';
-                const status = getStatus(v);
-                const isSelected = currentSelected?.id === v.id;
-                const sc = isExpired ? '#DC2626' : statusColors[status];
-                const isVan = (v.name || '').toLowerCase().includes('van');
+            ) : groupedVehicles ? (
+              groupedVehicles.map(gm => {
+                // If search is active and group has 0 matches, hide the group
+                if (searchQuery.trim() && gm.vehicles.length === 0) return null;
+                const isCollapsed = !!collapsedGroups[gm.group.id];
+
                 return (
-                  <div
-                    key={v.id}
-                    onClick={(e) => {
-                      if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
-                        const container = e.currentTarget.closest('.tracking-container');
-                        if (container) {
-                          const containerRect = container.getBoundingClientRect();
-                          const itemRect = e.currentTarget.getBoundingClientRect();
-                          setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
-                        }
-                      }
-                      setSelectedVehicle(prev => prev?.id === v.id ? null : v);
-                      if (isExpired) {
-                        setExpiredModalVehicle(prev => prev?.id === v.id ? null : v);
-                      } else {
-                        setExpiredModalVehicle(null);
-                      }
-                    }}
-                    title={warning ? warning.text : undefined}
-                    style={{
-                      background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
-                      borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
-                      borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
-                      padding: '12px 14px',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s ease',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '10px'
-                    }}
-                    onMouseEnter={e => {
-                      setHoveredVehicleId(v.id);
-                      if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
-                        const container = e.currentTarget.closest('.tracking-container');
-                        if (container) {
-                          const containerRect = container.getBoundingClientRect();
-                          const itemRect = e.currentTarget.getBoundingClientRect();
-                          setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
-                        }
-                      }
-                      if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
-                      if (isExpired) e.currentTarget.style.background = '#FEE2E2';
-                    }}
-                    onMouseLeave={e => {
-                      setHoveredVehicleId(null);
-                      if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
-                      if (isExpired) e.currentTarget.style.background = '#FEF2F2';
-                    }}
-                  >
-                    {/* Vehicle Icon Graphic */}
-                    <div style={{
-                      width: '38px',
-                      height: '38px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}>
-                      {(() => {
-                        const vType = getVehicleType(v);
-                        if (vType === 'bike') {
-                          return (
-                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                              <path d="M10 24L18 10H26L30 16H36" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                              <path d="M18 10H24" stroke={isSelected ? '#38BDF8' : '#0EA5E9'} strokeWidth="2.5" strokeLinecap="round"/>
-                              <circle cx="12" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
-                              <circle cx="12" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
-                              <circle cx="34" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
-                              <circle cx="34" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
-                              <path d="M16 16C16 14 19 13 23 13C26 13 28 15 29 17" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round"/>
-                            </svg>
-                          );
-                        }
-                        if (vType === 'car') {
-                          return (
-                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                              <path d="M8 20C8 16 12 13 16 13H28C32 13 36 16 38 20V25H8V20Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                              <circle cx="14" cy="25" r="3.5" fill="#1E293B"/>
-                              <circle cx="32" cy="25" r="3.5" fill="#1E293B"/>
-                            </svg>
-                          );
-                        }
-                        if (vType === 'van') {
-                          return (
-                            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                              <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
-                              <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
-                              <circle cx="14" cy="27" r="4" fill="#334155"/>
-                              <circle cx="34" cy="27" r="4" fill="#334155"/>
-                              <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
-                            </svg>
-                          );
-                        }
-                        return (
-                          <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                            <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
-                            <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                            <circle cx="12" cy="26" r="4" fill="#1E293B"/>
-                            <circle cx="34" cy="26" r="4" fill="#1E293B"/>
-                          </svg>
-                        );
-                      })()}
-                    </div>
+                  <div key={gm.group.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                    {/* Modern Group Header */}
+                    <div
+                      onClick={() => toggleGroupCollapse(gm.group.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 14px',
+                        background: '#F8FAFC',
+                        borderTop: '1px solid #E2E8F0',
+                        borderBottom: '1px solid #E2E8F0',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 5,
+                        transition: 'background 0.15s ease'
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                        <span style={{
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: '#0F172A',
+                          letterSpacing: '0.02em',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {gm.group.name}
+                        </span>
+                      </div>
 
-                    {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {v.name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {v.plate || v.name}
-                      </div>
-                      <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <span>{formatSpeed(v.current_speed, v.is_online)}</span>
-                        <span>·</span>
-                        <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          background: '#FFFFFF',
+                          border: '1px solid #E2E8F0',
+                          color: '#475569'
+                        }}>
+                          {gm.vehicles.length} {gm.vehicles.length === 1 ? 'veh' : 'vehs'}
+                        </span>
+                        {gm.onlineCount > 0 && (
+                          <span style={{
+                            fontSize: '10.5px',
+                            fontWeight: 600,
+                            padding: '2px 6px',
+                            borderRadius: '10px',
+                            background: '#F0FDF4',
+                            border: '1px solid #BBF7D0',
+                            color: '#16A34A',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}>
+                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16A34A' }} />
+                            {gm.onlineCount}
+                          </span>
+                        )}
+                        {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
                       </div>
                     </div>
 
-                    {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
-                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
-                        <span>{isExpired ? 'EXPIRED' : statusLabels[status]}</span>
-                      </div>
-                      <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
-                    </div>
+                    {/* Group Vehicles List */}
+                    {!isCollapsed && (
+                      gm.vehicles.length === 0 ? (
+                        <div style={{ padding: '12px 16px', fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', background: '#FAFAFA', textAlign: 'center' }}>
+                          No vehicles match filters in this group
+                        </div>
+                      ) : (
+                        gm.vehicles.map(v => renderVehicleCard(v, gm.group.id))
+                      )
+                    )}
                   </div>
                 );
               })
+            ) : (
+              filtered.map(v => renderVehicleCard(v, 'all'))
             )}
           </div>
         </div>
