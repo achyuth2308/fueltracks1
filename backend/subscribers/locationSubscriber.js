@@ -372,23 +372,104 @@ async function start(io) {
         statusSince = deviceTime;
       }
 
-      // 2c. Compute Fuel in Liters (Quick Calibration Interpolation)
+      // 2c. Compute Fuel in Liters (Auto, Manual, or Direct Calibration)
       let finalFuelLiters = fuel; // Default to raw if no calibration exists
       if (vehicle.metadata) {
-        const capacity = parseFloat(vehicle.metadata.tankSize);
-        const emptyAdc = parseFloat(vehicle.metadata.fuelEmptyAdc);
-        const fullAdc = parseFloat(vehicle.metadata.fuelFullAdc);
-        
-        // Only interpolate if capacity is defined and valid
-        if (capacity > 0 && !isNaN(emptyAdc) && !isNaN(fullAdc) && fullAdc !== emptyAdc) {
-          // Linear interpolation: (current - empty) / (full - empty) * capacity
-          let liters = ((fuel - emptyAdc) / (fullAdc - emptyAdc)) * capacity;
-          
-          // Clamp to [0, capacity]
-          if (liters < 0) liters = 0;
-          if (liters > capacity) liters = capacity;
-          
-          finalFuelLiters = liters;
+        const fuelCal = vehicle.metadata.fuelCalibration || {};
+        const tank1Cal = fuelCal.tanks?.[1] || fuelCal;
+        const capacity = parseFloat(tank1Cal.tankSize || vehicle.metadata.tankSize);
+        const calType = vehicle.metadata.fuelConfig?.calibrateType || tank1Cal.calibrateType || 'Auto';
+
+        if (calType === 'Direct') {
+          // Direct Mode: Sensor transmits actual volume or percentage directly
+          const mult = parseFloat(tank1Cal.directMultiplier ?? 1.0);
+          const offset = parseFloat(tank1Cal.directOffset ?? 0.0);
+          const unit = tank1Cal.directUnit || 'Litres';
+          const validMult = !isNaN(mult) ? mult : 1.0;
+          const validOffset = !isNaN(offset) ? offset : 0.0;
+          const rawScaled = (fuel * validMult) + validOffset;
+
+          if (unit === 'Percentage' && capacity > 0) {
+            finalFuelLiters = Math.max(0, Math.min(capacity, (rawScaled / 100) * capacity));
+          } else {
+            finalFuelLiters = Math.max(0, capacity > 0 ? Math.min(capacity, rawScaled) : rawScaled);
+          }
+        } else if (calType === 'Manual' && Array.isArray(tank1Cal.calibrationPoints) && tank1Cal.calibrationPoints.length >= 2) {
+          // Manual Mode: Piecewise Linear Interpolation across user-calibrated points
+          const rawFuel = fuel;
+          const altVolt = voltage != null && !isNaN(voltage) ? parseFloat(voltage) : null;
+
+          const points = tank1Cal.calibrationPoints
+            .map(p => {
+              const l = parseFloat(p.litres);
+              const adc = parseFloat(p.adcValue);
+              const v = parseFloat(p.volt);
+              const f = parseFloat(p.frequency);
+              return {
+                litres: l,
+                adcValue: !isNaN(adc) ? adc : (!isNaN(f) && f > 0 ? f : v),
+                volt: !isNaN(v) ? v : 0,
+                frequency: !isNaN(f) ? f : 0
+              };
+            })
+            .filter(p => !isNaN(p.litres) && !isNaN(p.adcValue))
+            .sort((a, b) => a.adcValue - b.adcValue);
+
+          if (points.length >= 2) {
+            // Check if sensor is calibrated in low voltage (< 36V) and incoming voltage matches
+            const isVoltageSensor = points.some(p => p.volt > 0) && points.every(p => p.adcValue <= 36.0);
+            const inputVal = (isVoltageSensor && altVolt != null && altVolt > 0 && altVolt <= 36.0) ? altVolt : rawFuel;
+
+            if (inputVal <= points[0].adcValue) {
+              finalFuelLiters = points[0].litres;
+            } else if (inputVal >= points[points.length - 1].adcValue) {
+              finalFuelLiters = points[points.length - 1].litres;
+            } else {
+              for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                if (inputVal >= p1.adcValue && inputVal <= p2.adcValue) {
+                  const range = p2.adcValue - p1.adcValue;
+                  const ratio = range !== 0 ? (inputVal - p1.adcValue) / range : 0;
+                  finalFuelLiters = Math.round((p1.litres + ratio * (p2.litres - p1.litres)) * 100) / 100;
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          // Auto Mode: Dynamic geometry-aware calculation (Rectangle vs Cylinder Horizontal vs Vertical)
+          const emptyAdcRaw = parseFloat(tank1Cal.minAdc ?? vehicle.metadata.fuelEmptyAdc);
+          const fullAdcRaw = parseFloat(tank1Cal.maxAdc ?? vehicle.metadata.fuelFullAdc);
+          const emptyAdc = !isNaN(emptyAdcRaw) ? emptyAdcRaw : 0;
+          const fullAdc = !isNaN(fullAdcRaw) ? fullAdcRaw : 4095;
+          const shape = tank1Cal.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
+          const position = tank1Cal.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
+
+          if (capacity > 0 && fullAdc !== emptyAdc) {
+            // Liquid depth fraction: 0.0 (empty) to 1.0 (full)
+            let heightFraction = (fuel - emptyAdc) / (fullAdc - emptyAdc);
+            if (heightFraction < 0) heightFraction = 0;
+            if (heightFraction > 1) heightFraction = 1;
+
+            if (shape === 'Cylinder' && position === 'Horizontal') {
+              // Real-world horizontal cylinder geometry: volume varies by circular segment area
+              const f = heightFraction;
+              if (f <= 0) {
+                finalFuelLiters = 0;
+              } else if (f >= 1) {
+                finalFuelLiters = capacity;
+              } else {
+                const term1 = Math.acos(1 - 2 * f);
+                const term2 = (1 - 2 * f) * Math.sqrt(4 * f * (1 - f));
+                const volumeFraction = (term1 - term2) / Math.PI;
+                finalFuelLiters = Math.round(capacity * volumeFraction * 100) / 100;
+              }
+            } else {
+              // Rectangle or Vertical Cylinder (uniform cross section along height)
+              finalFuelLiters = Math.round(capacity * heightFraction * 100) / 100;
+            }
+          }
         }
       }
 

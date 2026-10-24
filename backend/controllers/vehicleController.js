@@ -777,70 +777,6 @@ const VehicleController = {
     }
   },
 
-  /**
-   * Update fuel calibration settings for vehicle
-   */
-  async calibrateVehicle(req, res, next) {
-    try {
-      const { id } = req.params;
-      const {
-        modeOfVehicle,
-        fuelType,
-        tankSize,
-        minAdc,
-        maxAdc,
-        fuelTankShape,
-        fuelTankPosition,
-        tankNo = 1
-      } = req.body;
-
-      // Ownership check
-      if (req.user.role !== 'superadmin') {
-        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
-        if (!belongs) {
-          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
-        }
-      }
-
-      const vehicle = await VehicleModel.findById(id);
-      if (!vehicle) {
-        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
-      }
-
-      const currentMetadata = vehicle.metadata || {};
-      const newMetadata = {
-        ...currentMetadata,
-        modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : currentMetadata.modeOfVehicle,
-        fuelType: fuelType !== undefined ? fuelType : currentMetadata.fuelType,
-        tankSize: (tankSize !== undefined && tankSize !== '') ? parseFloat(tankSize) : currentMetadata.tankSize,
-        fuelEmptyAdc: (minAdc !== undefined && minAdc !== '') ? parseFloat(minAdc) : currentMetadata.fuelEmptyAdc,
-        fuelFullAdc: (maxAdc !== undefined && maxAdc !== '') ? parseFloat(maxAdc) : currentMetadata.fuelFullAdc,
-        fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : currentMetadata.fuelTankShape,
-        fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : currentMetadata.fuelTankPosition,
-        fuelCalibration: {
-          tankNo: parseInt(tankNo) || 1,
-          modeOfVehicle: modeOfVehicle || '',
-          fuelType: fuelType || 'Analog',
-          tankSize: parseFloat(tankSize) || 0,
-          minAdc: parseFloat(minAdc) || 0,
-          maxAdc: parseFloat(maxAdc) || 0,
-          fuelTankShape: fuelTankShape || '',
-          fuelTankPosition: fuelTankPosition || '',
-          updatedAt: new Date().toISOString()
-        }
-      };
-
-      const updated = await VehicleModel.update(id, { metadata: newMetadata });
-
-      res.status(200).json({
-        success: true,
-        data: updated,
-        message: 'Fuel calibration updated successfully.'
-      });
-    } catch (err) {
-      next(err);
-    }
-  },
 
   /**
    * Rename vehicle (Vehicle Id / Name)
@@ -1008,12 +944,23 @@ const VehicleController = {
         maxAdc,
         fuelTankShape,
         fuelTankPosition,
+        calculate,
+        tankLength,
+        tankHeight,
+        tankWidth,
+        tankRadius,
         noOfTank,
         noOfSensor,
+        sensorType,
         minTheft,
         minFilling,
         calibrateType,
-        sensorDetails
+        sensorDetails,
+        calibrationPoints,
+        directSensorType,
+        directUnit,
+        directMultiplier,
+        directOffset
       } = req.body;
 
       // Ownership check
@@ -1033,6 +980,36 @@ const VehicleController = {
       const fuelCal = currentMeta.fuelCalibration || {};
       const fuelConfig = currentMeta.fuelConfig || {};
 
+      const currentTanks = fuelCal.tanks || {};
+      const thisTankNo = Number(tankNo) || 1;
+      const thisTankData = {
+        tankNo: thisTankNo,
+        modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : fuelCal.modeOfVehicle,
+        fuelType: fuelType !== undefined ? fuelType : fuelCal.fuelType,
+        tankSize: tankSize !== undefined ? tankSize : fuelCal.tankSize,
+        minAdc: minAdc !== undefined ? minAdc : fuelCal.minAdc,
+        maxAdc: maxAdc !== undefined ? maxAdc : fuelCal.maxAdc,
+        fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : fuelCal.fuelTankShape,
+        fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : fuelCal.fuelTankPosition,
+        calculate: calculate !== undefined ? calculate : fuelCal.calculate,
+        tankLength: tankLength !== undefined ? tankLength : fuelCal.tankLength,
+        tankHeight: tankHeight !== undefined ? tankHeight : fuelCal.tankHeight,
+        tankWidth: tankWidth !== undefined ? tankWidth : fuelCal.tankWidth,
+        tankRadius: tankRadius !== undefined ? tankRadius : fuelCal.tankRadius,
+        calibrateType: calibrateType !== undefined ? calibrateType : (fuelCal.calibrateType || 'Auto'),
+        calibrationPoints: Array.isArray(calibrationPoints) ? calibrationPoints : (fuelCal.calibrationPoints || []),
+        directSensorType: directSensorType !== undefined ? directSensorType : (fuelCal.directSensorType || fuelType || 'Analog'),
+        directUnit: directUnit !== undefined ? directUnit : (fuelCal.directUnit || 'Litres'),
+        directMultiplier: directMultiplier !== undefined ? directMultiplier : (fuelCal.directMultiplier ?? 1.0),
+        directOffset: directOffset !== undefined ? directOffset : (fuelCal.directOffset ?? 0.0),
+        updatedAt: new Date().toISOString()
+      };
+
+      const updatedTanks = {
+        ...currentTanks,
+        [thisTankNo]: thisTankData
+      };
+
       const updatedMeta = {
         ...currentMeta,
         modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : currentMeta.modeOfVehicle,
@@ -1044,20 +1021,33 @@ const VehicleController = {
         fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : currentMeta.fuelTankPosition,
         fuelCalibration: {
           ...fuelCal,
-          tankNo,
-          modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : fuelCal.modeOfVehicle,
-          fuelType: fuelType !== undefined ? fuelType : fuelCal.fuelType,
-          tankSize: tankSize !== undefined ? tankSize : fuelCal.tankSize,
-          minAdc: minAdc !== undefined ? minAdc : fuelCal.minAdc,
-          maxAdc: maxAdc !== undefined ? maxAdc : fuelCal.maxAdc,
-          fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : fuelCal.fuelTankShape,
-          fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : fuelCal.fuelTankPosition,
+          tankNo: thisTankNo,
+          modeOfVehicle: thisTankData.modeOfVehicle,
+          fuelType: thisTankData.fuelType,
+          tankSize: thisTankData.tankSize,
+          minAdc: thisTankData.minAdc,
+          maxAdc: thisTankData.maxAdc,
+          fuelTankShape: thisTankData.fuelTankShape,
+          fuelTankPosition: thisTankData.fuelTankPosition,
+          calculate: thisTankData.calculate,
+          tankLength: thisTankData.tankLength,
+          tankHeight: thisTankData.tankHeight,
+          tankWidth: thisTankData.tankWidth,
+          tankRadius: thisTankData.tankRadius,
+          calibrateType: thisTankData.calibrateType,
+          calibrationPoints: thisTankData.calibrationPoints,
+          directSensorType: thisTankData.directSensorType,
+          directUnit: thisTankData.directUnit,
+          directMultiplier: thisTankData.directMultiplier,
+          directOffset: thisTankData.directOffset,
+          tanks: updatedTanks,
           updatedAt: new Date().toISOString()
         },
         fuelConfig: {
           ...fuelConfig,
           noOfTank: noOfTank !== undefined ? noOfTank : (fuelConfig.noOfTank ?? 1),
           noOfSensor: noOfSensor !== undefined ? noOfSensor : (fuelConfig.noOfSensor ?? 1),
+          sensorType: sensorType !== undefined ? sensorType : (fuelConfig.sensorType || ''),
           minTheft: minTheft !== undefined ? minTheft : (fuelConfig.minTheft ?? 5),
           minFilling: minFilling !== undefined ? minFilling : (fuelConfig.minFilling ?? 9),
           tankSize: tankSize !== undefined ? tankSize : (fuelConfig.tankSize ?? 0),
