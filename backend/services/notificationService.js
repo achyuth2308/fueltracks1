@@ -208,8 +208,9 @@ const NotificationService = {
       'tow': ['moving_unauthorised_movement', 'moving'],
       'towing': ['moving_unauthorised_movement', 'moving'],
 
-      'battery': ['device_alerts', 'device_alerts_vehicle_status', 'alarm_low_battery'],
-      'low_battery': ['alarm_low_battery', 'device_alerts_vehicle_status'],
+      'battery': ['device_alerts', 'device_alerts_vehicle_status'],
+      'main_battery_disconnected': ['alarm_power_cut_off', 'device_alerts_vehicle_status', 'device_alerts'],
+      'main_battery_connected': ['alarm_power_cut_off', 'device_alerts_back_to_online', 'device_alerts_vehicle_status', 'device_alerts'],
       'power_cut': ['alarm_power_cut_off', 'device_alerts_vehicle_status'],
       'power_cut_off': ['alarm_power_cut_off'],
       'back_to_online': ['device_alerts_back_to_online', 'device_alerts'],

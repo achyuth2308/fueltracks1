@@ -83,6 +83,110 @@ class ReportRepository {
   }
 
   /**
+   * Daily Total Trip Report (Full Day Journey from first start to final stop)
+   * Collapses intermediate stoppages and summarizes total day journey.
+   */
+  async getDailyTrips(vehicleId, startDate, endDate) {
+    // 1. Fetch all trip segments
+    const legs = await this.getTrips(vehicleId, startDate, endDate);
+    if (!legs || legs.length === 0) return [];
+
+    // 2. Group legs by IST date
+    const dayGroups = {};
+    for (const leg of legs) {
+      const legDate = new Date(leg.start_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+      if (!dayGroups[legDate]) {
+        dayGroups[legDate] = [];
+      }
+      dayGroups[legDate].push(leg);
+    }
+
+    // 3. Aggregate each day's journey
+    const dailyJourneys = [];
+    for (const [dateStr, dayLegs] of Object.entries(dayGroups)) {
+      if (dayLegs.length === 0) continue;
+
+      dayLegs.sort((a, b) => new Date(a.start_time) - new Date(b.start_time));
+      const firstLeg = dayLegs[0];
+      const lastLeg = dayLegs[dayLegs.length - 1];
+
+      const startTime = firstLeg.start_time;
+      const endTime = lastLeg.end_time;
+      const startLat = firstLeg.start_lat;
+      const startLng = firstLeg.start_lng;
+      const endLat = lastLeg.end_lat;
+      const endLng = lastLeg.end_lng;
+
+      const totalDistance = Math.round(dayLegs.reduce((sum, l) => sum + (parseFloat(l.distance) || 0), 0) * 100) / 100;
+      const drivingSeconds = Math.round(dayLegs.reduce((sum, l) => sum + (parseFloat(l.duration_seconds) || 0), 0));
+      const totalSpanSeconds = Math.max(drivingSeconds, Math.round((new Date(endTime) - new Date(startTime)) / 1000));
+      const stoppageSeconds = Math.max(0, totalSpanSeconds - drivingSeconds);
+      const maxSpeed = Math.max(0, ...dayLegs.map(l => parseFloat(l.max_speed) || 0));
+      const avgSpeed = drivingSeconds > 0
+        ? Math.round((totalDistance / (drivingSeconds / 3600)) * 10) / 10
+        : 0;
+
+      // Build intermediate timeline items (legs + intermediate stops)
+      const timeline = [];
+      for (let i = 0; i < dayLegs.length; i++) {
+        const curLeg = dayLegs[i];
+        timeline.push({
+          type: 'leg',
+          legNumber: i + 1,
+          startTime: curLeg.start_time,
+          endTime: curLeg.end_time,
+          startLat: curLeg.start_lat,
+          startLng: curLeg.start_lng,
+          endLat: curLeg.end_lat,
+          endLng: curLeg.end_lng,
+          distance: parseFloat(curLeg.distance) || 0,
+          durationSeconds: parseFloat(curLeg.duration_seconds) || 0,
+          maxSpeed: curLeg.max_speed || 0,
+          avgSpeed: curLeg.avg_speed || 0
+        });
+
+        // If there is a next leg, add the intermediate stop between them
+        if (i < dayLegs.length - 1) {
+          const nextLeg = dayLegs[i + 1];
+          const stopStart = curLeg.end_time;
+          const stopEnd = nextLeg.start_time;
+          const stopSec = Math.max(0, Math.round((new Date(stopEnd) - new Date(stopStart)) / 1000));
+          timeline.push({
+            type: 'stop',
+            stopNumber: i + 1,
+            startTime: stopStart,
+            endTime: stopEnd,
+            lat: curLeg.end_lat,
+            lng: curLeg.end_lng,
+            durationSeconds: stopSec
+          });
+        }
+      }
+
+      dailyJourneys.push({
+        date: dateStr,
+        start_time: startTime,
+        end_time: endTime,
+        start_lat: startLat,
+        start_lng: startLng,
+        end_lat: endLat,
+        end_lng: endLng,
+        total_distance: totalDistance,
+        driving_seconds: drivingSeconds,
+        stoppage_seconds: stoppageSeconds,
+        total_span_seconds: totalSpanSeconds,
+        stops_count: Math.max(0, dayLegs.length - 1),
+        legs_count: dayLegs.length,
+        max_speed: maxSpeed,
+        avg_speed: avgSpeed,
+        timeline
+      });
+    }
+
+    return dailyJourneys.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }
+
+  /**
    * Daily Distance Report
    * Uses Haversine per-point with LAG() partitioned by IST date.
    */
@@ -191,7 +295,26 @@ class ReportRepository {
       ORDER BY device_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
-    return res.rows;
+    const rawEvents = res.rows;
+    if (rawEvents.length <= 1) return rawEvents;
+
+    // Filter out momentary electrical bounces (< 3 minutes between OFF and ON or ON and OFF)
+    const cleaned = [];
+    for (let i = 0; i < rawEvents.length; i++) {
+      const cur = rawEvents[i];
+      const next = rawEvents[i + 1];
+
+      if (next && cur.event_type !== next.event_type) {
+        const diffMs = new Date(next.device_time).getTime() - new Date(cur.device_time).getTime();
+        // If state flipped and reverted back within 3 minutes (180s), absorb the electrical bounce
+        if (diffMs > 0 && diffMs < 180 * 1000) {
+          i++; // Skip both the transient flip and its immediate recovery
+          continue;
+        }
+      }
+      cleaned.push(cur);
+    }
+    return cleaned;
   }
 
   /**
@@ -251,8 +374,8 @@ class ReportRepository {
       WITH flagged AS (
           SELECT lat, lng, speed, device_time, ignition,
                  CASE
-                   WHEN speed > 0 THEN 'Moving'
-                   WHEN speed = 0 AND ignition = true THEN 'Idle'
+                   WHEN COALESCE(speed, 0) > 2 THEN 'Moving'
+                   WHEN COALESCE(speed, 0) <= 2 AND ignition = true THEN 'Idle'
                    ELSE 'Parked'
                  END AS status
           FROM gps_points

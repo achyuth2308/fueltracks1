@@ -135,3 +135,31 @@ export const getVehicleExpiryStatus = (expireDateStr, issuedDateStr = null, meta
   }
 };
 
+// Converts Date to local YYYY-MM-DD
+export const getLocalDateString = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Converts Date to local YYYY-MM-DDTHH:mm
+export const getLocalISOString = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+// Returns start of today (00:00) and current time (now) in local ISO strings
+export const getTodayReportRange = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  return {
+    startDate: getLocalISOString(start),
+    endDate: getLocalISOString(now)
+  };
+};
+

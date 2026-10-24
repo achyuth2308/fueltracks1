@@ -9,7 +9,7 @@ import { formatSpeed, formatFuel, formatVoltage, formatOdometer, formatDirection
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
-import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
+import { getVehicleStatus, STATUS_CONFIG, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
@@ -169,10 +169,20 @@ const TrackingPage = ({ setAppVehicles }) => {
     return selectedVehicles.map(sv => vehicles.find(v => v.id === sv.id) || sv);
   }, [vehicles, selectedVehicles]);
 
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
+
   const metrics = useMemo(() => {
     let running = 0, idle = 0, parked = 0, noData = 0, unreachable = 0;
     vehicles.forEach(v => {
-      const status = getVehicleStatus(v);
+      const status = getVehicleStatus(v, noDataThreshold);
       if (status === 'running') running++;
       else if (status === 'idle') idle++;
       else if (status === 'parked') parked++;
@@ -180,14 +190,14 @@ const TrackingPage = ({ setAppVehicles }) => {
       else noData++;
     });
     return { running, idle, parked, noData, unreachable, offline: noData, total: vehicles.length };
-  }, [vehicles]);
+  }, [vehicles, noDataThreshold]);
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
       if (statusFilter) {
-        const s = getVehicleStatus(v);
+        const s = getVehicleStatus(v, noDataThreshold);
         if (statusFilter === 'offline' || statusFilter === 'nodata') {
           if (s !== 'offline' && s !== 'nodata') return false;
         } else if (statusFilter === 'unreachable' || statusFilter === 'unavailable') {
@@ -204,7 +214,7 @@ const TrackingPage = ({ setAppVehicles }) => {
       }
       return true;
     });
-  }, [vehicles, statusFilter, searchQuery]);
+  }, [vehicles, statusFilter, searchQuery, noDataThreshold]);
 
   const groupedVehicles = useMemo(() => {
     if (!groups || groups.length === 0) return null;
@@ -681,27 +691,52 @@ const TrackingPage = ({ setAppVehicles }) => {
               const active = statusFilter === pill.key;
               const isAllPill = pill.key === null;
               return (
-                <button
-                  key={pill.key || 'all'}
-                  onClick={() => setStatusFilter(pill.key)}
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    padding: '4px 10px',
-                    borderRadius: '14px',
-                    border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
-                    background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
-                    color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
-                  {pill.label}
-                </button>
+                <div key={pill.key || 'all'} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <button
+                    onClick={() => setStatusFilter(pill.key)}
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '14px',
+                      border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
+                      background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
+                      color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
+                    {pill.label}
+                  </button>
+                  {pill.key === 'offline' && (
+                    <select
+                      value={noDataThreshold}
+                      onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #CBD5E1',
+                        color: '#0F172A',
+                        borderRadius: '10px',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        padding: '2px 4px',
+                        cursor: 'pointer',
+                        outline: 'none',
+                      }}
+                      title="No Data Rule: Keep in last state for selected time before marking as No Data"
+                    >
+                      {NO_DATA_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               );
             })}
           </div>

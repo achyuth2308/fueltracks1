@@ -274,7 +274,7 @@ async function bootstrap() {
       -- Per-user alert type preferences
       CREATE TABLE IF NOT EXISTS user_alert_preferences (
         user_id     UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-        preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"stoppage":false,"trip_started":true,"trip_ended":true,"route_deviation":true,"stopped":false}',
+        preferences JSONB NOT NULL DEFAULT '{"sos":true,"panic":true,"crash":true,"accident":true,"tow":true,"power_cut":true,"theft":true,"theft_alarm":true,"overspeed":true,"harsh_braking":true,"harsh_acceleration":true,"geofence_enter":true,"geofence_exit":true,"low_battery":true,"ignition_on":true,"ignition_off":true,"idle":false,"parking":true,"trip_started":true,"trip_ended":true,"route_deviation":true,"stopped":false,"idle_duration_mins":60,"parking_duration_mins":60}',
         updated_at  TIMESTAMP DEFAULT NOW()
       );
 
@@ -452,7 +452,7 @@ async function bootstrap() {
             FROM vehicles v
             WHERE vls.vehicle_id = v.id
               AND vls.is_online = TRUE 
-              AND vls.last_seen < NOW() - INTERVAL '15 minutes'
+              AND vls.last_seen < NOW() - INTERVAL '1 hour'
               AND NOT (
                 (vls.ignition = FALSE OR vls.ignition IS NULL)
                 AND (vls.speed <= 2.0 OR vls.speed IS NULL)

@@ -36,6 +36,7 @@ import AlertsAdminPage from './pages/admin/AlertsAdminPage';
 import GeofencesAdminPage from './pages/admin/GeofencesAdminPage';
 import ReportsAdminPage from './pages/admin/ReportsAdminPage';
 import TripReportPage from './pages/reports/TripReportPage';
+import DailyTripReportPage from './pages/reports/DailyTripReportPage';
 import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
 import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
@@ -46,6 +47,7 @@ import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
 import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
+import GeofenceTransitReportPage from './pages/reports/GeofenceTransitReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import DealerProfilePage from './modules/profile/DealerProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
@@ -131,16 +133,19 @@ function App() {
                     <Route index element={<Navigate to="trip" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
+                    <Route path="daily-trip" element={<DailyTripReportPage />} />
                     <Route path="distance" element={<DailyDistanceReportPage />} />
                     <Route path="route" element={<RouteHistoryReportPage />} />
                     <Route path="overspeeding" element={<OverspeedingReportPage />} />
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
-                    <Route path="consolidated" element={<ConsolidatedReportPage />} />
+                    <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
+                    <Route path="fuel-consolidated" element={<ConsolidatedReportPage defaultMode="fuel" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
+                    <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
                   </Route>
                 </Route>
               </Route>

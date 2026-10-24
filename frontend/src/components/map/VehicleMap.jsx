@@ -117,12 +117,23 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   const statusColor = isOnline ? (isMoving ? '#10b981' : (ignition ? '#f59e0b' : '#ef4444')) : '#64748b';
 
   return (
-    <div className="w-full h-full border border-slate-200 rounded-xl overflow-hidden shadow-sm relative">
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: '12px',
+        isolation: 'isolate',
+        contain: 'paint'
+      }}
+      className="border border-slate-200 shadow-sm"
+    >
       <MapContainer
         key={location.pathname}
         center={center}
         zoom={15}
-        className="w-full h-full"
+        style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         zoomControl={false}
       >
         <ResizeMap />

@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, AlertCircle, Loader2, MapPin,
   CheckCircle2, PlayCircle, PauseCircle, StopCircle,
   AlertOctagon, Navigation, RefreshCcw, Gauge, Users, UserCircle,
-  Building, Calendar, Wifi, WifiOff, Clock, AlertTriangle, Filter, MoreVertical
+  Building, Calendar, Wifi, WifiOff, Clock, AlertTriangle, Filter, MoreVertical, Shield, Fuel
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -19,13 +19,16 @@ const formatDateTime = (isoString) => {
 };
 
 const REPORT_TABS = [
+  { title: "Full Day Trips (Consolidated)", path: "/admin/reports/daily-trip", icon: Route, color: "#10B981", bg: "#ECFDF5" },
   { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
+  { title: "Vehicle Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
+  { title: "Fuel Consolidated", path: "/admin/reports/fuel-consolidated", icon: Fuel, color: "#EA580C", bg: "#FFF7ED" },
+  { title: "Geofence Transit", path: "/admin/reports/geofence-transit", icon: Shield, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
   { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
   { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },
-  { title: "Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
   { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
   { title: "Manual Trips", path: "/admin/reports/manual-trips", icon: Route, color: "#7C3AED", bg: "#EDE9FE" },
 ];

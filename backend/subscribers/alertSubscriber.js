@@ -4,7 +4,7 @@
 // Writes alerts to database and broadcasts notifications over Socket.io
 // ============================================================
 
-const { createSubscriber } = require('../config/redis');
+const { redis, createSubscriber } = require('../config/redis');
 const OrgModel = require('../models/orgModel');
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
@@ -74,10 +74,132 @@ async function start(io) {
         return;
       }
 
-      // Filter to only drop routine GPS ping noise ('general', 'location_update', 'heartbeat')
-      const droppedNoise = ['general', 'location_update', 'location', 'heartbeat', 'ping', 'periodic_report'];
-      if (droppedNoise.includes(alertType.toLowerCase())) {
-        return; // Drop routine location pings silently
+      const rawType = (alertType || '').toLowerCase().trim();
+      const rawText = (alertText || '').toLowerCase().trim();
+
+      // 1. Filter routine ping noise and spurious battery alerts
+      const droppedNoise = [
+        'general', 'location_update', 'location', 'heartbeat', 'ping', 'periodic_report',
+        // Drop noisy/routine internal battery chatter
+        'internal_battery_low', 'low_battery', 'low_battery_removed', 'battery_low', 'battery_charged',
+        // Drop non-alert emergency state clear / stop messages
+        'emergency_off', 'sos_cleared'
+      ];
+      if (droppedNoise.includes(rawType)) {
+        return; // Drop routine location pings and battery noise silently
+      }
+
+      // Filter spurious battery text patterns (fluctuating internal battery, charge restore pings)
+      if (
+        rawText.includes('low battery') ||
+        rawText.includes('internal battery charged') ||
+        rawText.includes('internal battery low') ||
+        rawText.includes('battery low') ||
+        rawText.includes('low battery removed')
+      ) {
+        return; // Drop spurious battery alerts
+      }
+
+      // 1b. Filter raw momentary ignition bounces (< 3 min glitches)
+      // If an instant raw alert arrives from TCP (e.g. BSTPL$2 or AIS-140) but the vehicle's
+      // stable debounced state in Redis disagrees, drop the momentary glitch (< 3 mins).
+      if (rawType === 'ignition_off' || rawType === 'ignition_on') {
+        const stableIgnKey = `vehicle:stable_ignition:${vehicle.id}`;
+        let stableIgnStr = null;
+        try {
+          stableIgnStr = await redis.get(stableIgnKey);
+        } catch (e) {}
+
+        // If vehicle is stably ON and an isolated OFF alert packet arrives, drop the dip
+        if (rawType === 'ignition_off' && stableIgnStr === '1') {
+          return;
+        }
+        // If vehicle is stably OFF and an isolated ON alert packet arrives, drop the surge
+        if (rawType === 'ignition_on' && stableIgnStr === '0') {
+          return;
+        }
+      }
+
+      // 2. Identify Main Battery Disconnected and Connected events
+      const isMainBatteryDisconnect = (
+        rawType === 'main_battery_disconnected' ||
+        rawType === 'power_cut' ||
+        rawType === 'power_disconnected' ||
+        rawText.includes('disconnected from main battery') ||
+        rawText.includes('disconnect from main battery') ||
+        rawText.includes('main battery disconnected') ||
+        rawText.includes('mains off') ||
+        rawText.includes('power cut') ||
+        (rawType === 'battery' && (rawText.includes('disconnect') || rawText.includes('off')))
+      );
+
+      const isMainBatteryConnect = (
+        rawType === 'main_battery_connected' ||
+        rawText.includes('connected to main battery') ||
+        rawText.includes('connect back to main battery') ||
+        rawText.includes('main battery connected') ||
+        rawText.includes('mains on') ||
+        (rawType === 'battery' && (rawText.includes('connect') || rawText.includes('on')))
+      );
+
+      // If it's another generic 'battery' type alert that isn't a main battery event, drop it
+      if (rawType === 'battery' && !isMainBatteryDisconnect && !isMainBatteryConnect) {
+        return;
+      }
+
+      let finalAlertType = alertType;
+      let finalAlertText = alertText;
+
+      // 3. State-latch Main Battery Disconnected / Connected alerts:
+      // - Disconnected alert triggers ONCE upon disconnection, and remains silent until reconnected.
+      // - Connected alert triggers ONCE upon reconnection, only if previously disconnected.
+      // - Drops all continuous/repeated alerts while remaining in the same state.
+      if (isMainBatteryDisconnect || isMainBatteryConnect) {
+        const batteryStateKey = `vehicle:main_battery_state:${vehicle.id}`;
+        let lastState = null;
+        try {
+          lastState = await redis.get(batteryStateKey);
+        } catch (rErr) {
+          console.warn('[SUBSCRIBER] Redis battery state lookup warning:', rErr.message);
+        }
+
+        if (isMainBatteryDisconnect) {
+          if (lastState === 'disconnected') {
+            // Already disconnected; drop continuous duplicate alert packets
+            return;
+          }
+          // State transition: connected/unknown -> disconnected
+          try {
+            await redis.set(batteryStateKey, 'disconnected');
+          } catch (rErr) {
+            console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
+          }
+          finalAlertType = 'main_battery_disconnected';
+          finalAlertText = 'Main Battery Disconnected';
+        } else if (isMainBatteryConnect) {
+          if (lastState === 'connected') {
+            // Already connected; drop continuous duplicate alert packets
+            return;
+          }
+          if (!lastState) {
+            // Initial state: device startup with battery already connected.
+            // Latch state without firing an alert since it was never disconnected.
+            try {
+              await redis.set(batteryStateKey, 'connected');
+            } catch (rErr) {
+              console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
+            }
+            return;
+          }
+          // State transition: disconnected -> connected
+          try {
+            await redis.set(batteryStateKey, 'connected');
+          } catch (rErr) {
+            console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
+          }
+          finalAlertType = 'main_battery_connected';
+          finalAlertText = 'Main Battery Connected';
+        }
       }
 
       const vehicleId = vehicle.id;
@@ -89,11 +211,11 @@ async function start(io) {
       const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
       const timeStr = dateObj.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
 
-      // 2. Save alert to database
+      // 4. Save alert to database
       const alert = await GpsModel.saveAlert({
         vehicleId,
-        alertType,
-        alertText,
+        alertType: finalAlertType,
+        alertText: finalAlertText,
         lat,
         lng,
         deviceTime
@@ -106,7 +228,7 @@ async function start(io) {
       try {
         const org = await OrgModel.findById(orgId);
         if (org) {
-          await NotificationService.dispatchAlertWithMatrix(org, alertType, alertText, {
+          await NotificationService.dispatchAlertWithMatrix(org, finalAlertType, finalAlertText, {
             name: vehicle.name,
             plate: vehicle.plate,
             imei: vehicle.imei,
@@ -118,15 +240,15 @@ async function start(io) {
         console.error('[SUBSCRIBER] Error sending alert notifications:', notifyErr.message);
       }
 
-      // 3. Emit real-time alert over Socket.io
+      // 5. Emit real-time alert over Socket.io
       const payload = {
         id: alert.id,
         vehicleId,
         imei,
         vehicleName: vehicle.name,
         plate: vehicle.plate,
-        alertType,
-        alertText,
+        alertType: finalAlertType,
+        alertText: finalAlertText,
         lat,
         lng,
         address,
@@ -140,9 +262,8 @@ async function start(io) {
       // Emit to organization room
       io.to(`org:${orgId}`).emit('alert:new', payload);
 
-      // 3.5 Cache in Redis for instant Topbar retrieval
+      // 5.5 Cache in Redis for instant Topbar retrieval
       try {
-        const { redis } = require('../config/redis');
         const redisKey = `org:alerts:${orgId}`;
         const cachePayload = { ...payload, isRead: false };
         await redis.lpush(redisKey, JSON.stringify(cachePayload));
@@ -152,11 +273,11 @@ async function start(io) {
         console.warn('[SUBSCRIBER] Error caching alert to Redis:', redisErr.message);
       }
 
-      // 4. Dispatch FCM push to users who have this alert type enabled
+      // 6. Dispatch FCM push to users who have this alert type enabled
       try {
-        const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, vehicleId, alertType.toLowerCase());
+        const fcmTokens = await GpsModel.getFcmTokensForAlert(orgId, vehicleId, finalAlertType.toLowerCase());
         if (fcmTokens.length > 0) {
-          let typeUpper = alertType.toUpperCase().replace(/_/g, ' ');
+          let typeUpper = finalAlertType.toUpperCase().replace(/_/g, ' ');
           if (typeUpper === 'IGNITION ON') typeUpper = 'ENGINE ON';
           if (typeUpper === 'IGNITION OFF') typeUpper = 'ENGINE OFF';
           
@@ -166,11 +287,9 @@ async function start(io) {
           let fcmTitle = `${typeUpper}-${vehicleDisplay}`;
           let fcmBody = '';
           
-          if (alertType.toLowerCase() === 'overspeed') {
-             // alertText usually contains the speed info e.g. "Overspeeding at 75 km/h"
-             // Or we can parse data.alertPayload if it exists in the message
-             const payload = data.alertPayload || {};
-             const spd = payload.speed ? Math.round(payload.speed) : 0;
+          if (finalAlertType.toLowerCase() === 'overspeed') {
+             const pld = data.alertPayload || {};
+             const spd = pld.speed ? Math.round(pld.speed) : 0;
              const spdStr = spd > 0 ? ` - ${spd} Km/h` : '';
              fcmBody = `${typeUpper}${spdStr} - ${vehicleDisplay} ${dateStr} (${timeStr}) ${shortAddress}`;
           } else {
@@ -182,7 +301,7 @@ async function start(io) {
             body: fcmBody,
             data: {
               vehicleId: String(vehicleId),
-              alertType,
+              alertType: finalAlertType,
               alertId: String(alert.id),
               lat: String(lat),
               lng: String(lng)

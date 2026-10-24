@@ -213,9 +213,9 @@ const EditOrganizationPage = () => {
 
   // Alert Configuration
   const [parkingAlert, setParkingAlert] = useState('NO');
-  const [parkDurationMins, setParkDurationMins] = useState('');
+  const [parkDurationMins, setParkDurationMins] = useState('60');
   const [idleAlert, setIdleAlert] = useState('NO');
-  const [idleDurationMins, setIdleDurationMins] = useState('');
+  const [idleDurationMins, setIdleDurationMins] = useState('60');
   const [overspeedAlert, setOverspeedAlert] = useState('NO');
   const [overspeedAlertDurationMins, setOverspeedAlertDurationMins] = useState('');
   const [unauthorisedMovementAlert, setUnauthorisedMovementAlert] = useState('NO');
@@ -701,7 +701,7 @@ const EditOrganizationPage = () => {
             label="Park Duration (Mins)"
             value={parkDurationMins}
             onChange={e => setParkDurationMins(e.target.value)}
-            placeholder="Park Duration (Mins)"
+            placeholder="60 (1 hr default)"
             focused={focusedField === 'parkDuration'}
             onFocus={() => setFocusedField('parkDuration')}
             onBlur={() => setFocusedField(null)}
@@ -716,7 +716,7 @@ const EditOrganizationPage = () => {
             label="Idle Duration (Mins)"
             value={idleDurationMins}
             onChange={e => setIdleDurationMins(e.target.value)}
-            placeholder="Idle Duration (Mins)"
+            placeholder="60 (1 hr default)"
             focused={focusedField === 'idleDuration'}
             onFocus={() => setFocusedField('idleDuration')}
             onBlur={() => setFocusedField(null)}

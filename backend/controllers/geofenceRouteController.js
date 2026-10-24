@@ -1,14 +1,15 @@
 const GeofenceModel = require('../models/geofenceModel');
 const RouteModel = require('../models/routeModel');
+const VehicleModel = require('../models/vehicleModel');
 
 const GeofenceRouteController = {
   // ══════════════════════════════════════════════════════════
-  // GEOFENCES (admin-only, called from adminRoutes)
+  // GEOFENCES (admin & organization level)
   // ══════════════════════════════════════════════════════════
 
   async getGeofences(req, res, next) {
     try {
-      const orgId = req.user.orgId;
+      const orgId = req.query.org_id || req.query.orgId || req.user.orgId;
       const geofences = await GeofenceModel.findAll(orgId);
       res.json({ success: true, data: geofences });
     } catch (err) {
@@ -19,12 +20,13 @@ const GeofenceRouteController = {
   async createGeofence(req, res, next) {
     try {
       const orgId = req.body.org_id || req.body.orgId || req.user.orgId;
-      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time } = req.body;
-      if (!name || !coordinates) {
-        return res.status(400).json({ success: false, error: 'Name and coordinates are required.' });
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit } = req.body;
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Name is required.' });
       }
       const geofence = await GeofenceModel.create({
-        orgId, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time
+        orgId, name, type, coordinates: coordinates || [], radius, center_lat, center_lng, is_active, notification_time,
+        color: color || '#3B82F6', alert_on_enter: alert_on_enter !== false, alert_on_exit: alert_on_exit !== false
       });
       res.status(201).json({ success: true, data: geofence });
     } catch (err) {
@@ -35,10 +37,224 @@ const GeofenceRouteController = {
   async updateGeofence(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time } = req.body;
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit } = req.body;
       const updated = await GeofenceModel.update(id, {
-        name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time
+        name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time,
+        color, alert_on_enter, alert_on_exit
       });
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // VEHICLE-CENTRIC GEOFENCES (Per Single Vehicle)
+  // ══════════════════════════════════════════════════════════
+
+  async getVehicleGeofences(req, res, next) {
+    try {
+      const { id: vehicleId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+      const geofences = await GeofenceModel.findGeofencesByVehicleId(vehicleId, true);
+      res.json({ success: true, data: geofences });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createVehicleGeofence(req, res, next) {
+    try {
+      const { id: vehicleId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit } = req.body;
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Geofence name is required.' });
+      }
+
+      const geofence = await GeofenceModel.create({
+        orgId: vehicle.org_id,
+        name,
+        type: type || 'circle',
+        coordinates: coordinates || [],
+        radius: radius != null ? parseFloat(radius) : null,
+        center_lat: center_lat != null ? parseFloat(center_lat) : null,
+        center_lng: center_lng != null ? parseFloat(center_lng) : null,
+        is_active: is_active !== false,
+        color: color || '#3B82F6',
+        alert_on_enter: alert_on_enter !== false,
+        alert_on_exit: alert_on_exit !== false
+      });
+
+      // Directly link this geofence to the single vehicle
+      await GeofenceModel.assignToVehicles(geofence.id, [vehicleId]);
+
+      res.status(201).json({ success: true, data: geofence });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateVehicleGeofence(req, res, next) {
+    try {
+      const { id: vehicleId, geofenceId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit } = req.body;
+      const updated = await GeofenceModel.update(geofenceId, {
+        name,
+        type,
+        coordinates,
+        radius: radius != null ? parseFloat(radius) : undefined,
+        center_lat: center_lat != null ? parseFloat(center_lat) : undefined,
+        center_lng: center_lng != null ? parseFloat(center_lng) : undefined,
+        is_active,
+        color,
+        alert_on_enter,
+        alert_on_exit
+      });
+
+      res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteVehicleGeofence(req, res, next) {
+    try {
+      const { id: vehicleId, geofenceId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      // Unlink vehicle from this geofence (preserves the master geofence for other vehicles)
+      await GeofenceModel.unlinkVehicle(geofenceId, vehicleId);
+
+      // If explicitly requested to delete master and no other vehicles are assigned
+      if (req.query.deleteMaster === 'true') {
+        const otherVehicles = await GeofenceModel.findVehiclesForGeofence(geofenceId);
+        if (otherVehicles.length === 0) {
+          await GeofenceModel.delete(geofenceId);
+        }
+      }
+
+      res.json({ success: true, message: 'Geofence unlinked from vehicle successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getAvailableGeofences(req, res, next) {
+    try {
+      const { id: vehicleId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const allGeofences = await GeofenceModel.findAllWithStats(vehicle.org_id);
+      const current = await GeofenceModel.findGeofencesByVehicleId(vehicleId, false);
+      const currentIds = new Set(current.map(g => g.id));
+
+      const enriched = allGeofences.map(g => ({
+        ...g,
+        is_assigned_to_vehicle: currentIds.has(g.id)
+      }));
+
+      res.json({ success: true, data: enriched });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async linkVehicleGeofence(req, res, next) {
+    try {
+      const { id: vehicleId } = req.params;
+      const { geofenceId, replaceGeofenceId } = req.body;
+      if (!geofenceId) {
+        return res.status(400).json({ success: false, error: 'geofenceId is required.' });
+      }
+
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      // If replacing an old geofence (e.g. replacing Guntur with Nellore)
+      if (replaceGeofenceId) {
+        await GeofenceModel.unlinkVehicle(replaceGeofenceId, vehicleId);
+      }
+
+      await GeofenceModel.linkVehicle(geofenceId, vehicleId);
+      res.json({ success: true, message: 'Geofence linked to vehicle successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async toggleVehicleGeofence(req, res, next) {
+    try {
+      const { id: vehicleId, geofenceId } = req.params;
+      const vehicle = await VehicleModel.findById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const { is_active } = req.body;
+      const updated = await GeofenceModel.update(geofenceId, { is_active });
       res.json({ success: true, data: updated });
     } catch (err) {
       next(err);

@@ -499,7 +499,7 @@ const VehicleController = {
   async updateVehicleSettings(req, res, next) {
     try {
       const { id } = req.params;
-      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, stoppageThreshold, alertConfig } = req.body;
+      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark } = req.body;
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -530,11 +530,42 @@ const VehicleController = {
       if (overSpeedLimit !== undefined) newMetadata.overSpeedLimit = parseFloat(overSpeedLimit);
       if (overspeedDurationAlert !== undefined) newMetadata.overspeedDurationAlert = parseFloat(overspeedDurationAlert);
       if (idleDurationAlert !== undefined) newMetadata.idleDurationAlert = parseFloat(idleDurationAlert);
+      if (parkingDurationAlert !== undefined) newMetadata.parkingDurationAlert = parseFloat(parkingDurationAlert);
+      if (parkDurationAlert !== undefined) newMetadata.parkDurationAlert = parseFloat(parkDurationAlert);
+      if (movingDurationAlert !== undefined) newMetadata.movingDurationAlert = Math.max(5, parseFloat(movingDurationAlert));
       if (stoppageThreshold !== undefined) newMetadata.stoppageThreshold = parseFloat(stoppageThreshold);
       if (alertConfig !== undefined && typeof alertConfig === 'object') newMetadata.alertConfig = alertConfig;
+      if (safetyPark !== undefined) {
+        const isSafetyParkOn = safetyPark === 'YES' || safetyPark === true;
+        newMetadata.safetyPark = isSafetyParkOn ? 'YES' : 'NO';
+        if (!isSafetyParkOn) {
+          await redis.del(`vehicle:safety_park_fired:${id}`);
+          await redis.del(`vehicle:safety_park_breach:${id}`);
+        }
+      }
 
       // Perform update
       const updated = await VehicleModel.update(id, { metadata: newMetadata });
+
+      // Invalidate vehicle caches
+      try {
+        await redis.del('vehicles:all');
+        await redis.del(`vehicle:obj:${id}`);
+        if (vehicle.imei) await redis.del(`vehicle:imei:${vehicle.imei}`);
+      } catch (cErr) {}
+
+      // Emit real-time Socket.io update for safety park state
+      const io = req.app.get('io');
+      if (io && safetyPark !== undefined) {
+        io.to(`vehicle:${id}`).emit('vehicle:safety_park', {
+          vehicleId: id,
+          safetyPark: newMetadata.safetyPark
+        });
+        io.to(`org:${vehicle.org_id}`).emit('vehicle:safety_park', {
+          vehicleId: id,
+          safetyPark: newMetadata.safetyPark
+        });
+      }
 
       res.status(200).json({
         success: true,

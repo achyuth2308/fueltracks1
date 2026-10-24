@@ -45,6 +45,17 @@ router.get('/:id/messages', VehicleController.getVehicleMessages);
 router.post('/:id/immobilizer', VehicleController.toggleImmobilizer);
 
 // ══════════════════════════════════════════════════════════
+// GEOFENCE MANAGEMENT (Per Single Vehicle - accessible by users & fleet operators)
+// ══════════════════════════════════════════════════════════
+router.get('/:id/geofences', GeofenceRouteController.getVehicleGeofences);
+router.get('/:id/available-geofences', GeofenceRouteController.getAvailableGeofences);
+router.post('/:id/geofences/link', GeofenceRouteController.linkVehicleGeofence);
+router.post('/:id/geofences', GeofenceRouteController.createVehicleGeofence);
+router.put('/:id/geofences/:geofenceId', GeofenceRouteController.updateVehicleGeofence);
+router.patch('/:id/geofences/:geofenceId/toggle', GeofenceRouteController.toggleVehicleGeofence);
+router.delete('/:id/geofences/:geofenceId', GeofenceRouteController.deleteVehicleGeofence);
+
+// ══════════════════════════════════════════════════════════
 // ROUTE MANAGEMENT (accessible by all authenticated users including customers)
 // Customers can set routes for their own vehicles and receive
 // trip_started, route_deviation, and trip_ended alerts automatically.

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
-import { MapPin, Plus, Trash2, ShieldAlert, Loader2, Navigation, CheckSquare, Square } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { MapPin, Plus, Trash2, ShieldAlert, Loader2, Navigation, CheckSquare, Square, Truck, Car, Shield, BarChart2 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { getVehicles } from '../../api/vehicleApi';
+import VehicleGeofenceManager from '../../components/geofence/VehicleGeofenceManager';
 import { MapContainer, TileLayer, Circle, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -70,8 +71,10 @@ const ResizeMap = () => {
 
 const GeofencesAdminPage = () => {
   const location = useLocation();
-  const [activeTab, setActiveTab] = useState('geofences');
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('vehicle_geofences');
   const [vehicles, setVehicles] = useState([]);
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [geofences, setGeofences] = useState([]);
   const [routes, setRoutes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -102,7 +105,13 @@ const GeofencesAdminPage = () => {
     try {
       // 1. Fetch Vehicles
       const vehRes = await getVehicles();
-      if (vehRes.success) setVehicles(vehRes.data || []);
+      if (vehRes.success) {
+        const vList = vehRes.data || [];
+        setVehicles(vList);
+        if (vList.length > 0 && !selectedVehicleId) {
+          setSelectedVehicleId(vList[0].id);
+        }
+      }
 
       // 2. Fetch Geofences
       const geoRes = await axiosInstance.get('/api/admin/geofences');
@@ -294,59 +303,156 @@ const GeofencesAdminPage = () => {
   };
 
   return (
-    <div style={{ padding: '20px 24px', background: '#f5efe4', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '24px 28px', background: '#F8FAFC', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0">
         <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Geofence & Route Settings</h1>
-          <p style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px', margin: 0 }}>Define virtual boundaries and paths to trigger route-deviation and boundary alerts.</p>
+          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
+            Geofence & Route Settings
+          </h1>
+          <p style={{ fontSize: '13px', color: '#64748B', marginTop: '4px', margin: 0 }}>
+            Configure real-time virtual perimeters, corridor tolerances, and vehicle entry/exit alerts.
+          </p>
         </div>
-        <button
-          onClick={() => handleOpenModal(activeTab === 'geofences' ? 'geofence' : 'route')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: '6px',
-            background: '#8ba0b5', color: '#FFFFFF',
-            padding: '8px 16px', borderRadius: '8px',
-            fontSize: '13px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 2px 6px rgba(139,160,181,0.2)',
-            transition: 'all 0.2s ease'
-          }}
-        >
-          <Plus size={16} />
-          <span>New {activeTab === 'geofences' ? 'Geofence' : 'Route'}</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={() => navigate('/admin/reports/geofence-transit')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: '#FFFFFF', color: '#0284C7',
+              padding: '9px 16px', borderRadius: '10px',
+              fontSize: '13px', fontWeight: 700, border: '1px solid #BAE6FD',
+              cursor: 'pointer', boxShadow: '0 2px 6px rgba(2, 132, 199, 0.08)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#F0F9FF')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+          >
+            <BarChart2 size={16} color="#0284C7" />
+            <span>3-Type Transit Reports</span>
+          </button>
+
+          <button
+            onClick={() => handleOpenModal(activeTab === 'geofences' ? 'geofence' : 'route')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: '#0284C7', color: '#FFFFFF',
+              padding: '9px 18px', borderRadius: '10px',
+              fontSize: '13px', fontWeight: 700, border: 'none',
+              cursor: 'pointer', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#0369A1')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#0284C7')}
+          >
+            <Plus size={16} />
+            <span>New {activeTab === 'geofences' ? 'Geofence' : 'Route'}</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', borderBottom: '1px solid #dfd0bf', paddingBottom: '4px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: '#E2E8F0', padding: '4px', borderRadius: '12px', width: 'fit-content' }}>
+        <button
+          onClick={() => setActiveTab('vehicle_geofences')}
+          style={{
+            padding: '8px 16px', background: activeTab === 'vehicle_geofences' ? '#FFFFFF' : 'transparent', border: 'none',
+            borderRadius: '8px',
+            fontSize: '13px', fontWeight: activeTab === 'vehicle_geofences' ? 700 : 500,
+            color: activeTab === 'vehicle_geofences' ? '#0F172A' : '#64748B',
+            boxShadow: activeTab === 'vehicle_geofences' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Truck size={15} color={activeTab === 'vehicle_geofences' ? '#0284C7' : '#64748B'} />
+          <span>Per-Vehicle Geofences</span>
+        </button>
         <button
           onClick={() => setActiveTab('geofences')}
           style={{
-            padding: '6px 12px', background: 'none', border: 'none',
-            fontSize: '14px', fontWeight: activeTab === 'geofences' ? 700 : 500,
-            color: activeTab === 'geofences' ? '#8ba0b5' : '#64748B',
-            borderBottom: activeTab === 'geofences' ? '2px solid #8ba0b5' : 'none',
-            cursor: 'pointer'
+            padding: '8px 16px', background: activeTab === 'geofences' ? '#FFFFFF' : 'transparent', border: 'none',
+            borderRadius: '8px',
+            fontSize: '13px', fontWeight: activeTab === 'geofences' ? 700 : 500,
+            color: activeTab === 'geofences' ? '#0F172A' : '#64748B',
+            boxShadow: activeTab === 'geofences' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+            transition: 'all 0.15s ease'
           }}
         >
-          Geofences (Virtual Boundaries)
+          <Shield size={15} color={activeTab === 'geofences' ? '#0284C7' : '#64748B'} />
+          <span>Organization Geofences</span>
         </button>
         <button
           onClick={() => setActiveTab('routes')}
           style={{
-            padding: '6px 12px', background: 'none', border: 'none',
-            fontSize: '14px', fontWeight: activeTab === 'routes' ? 700 : 500,
-            color: activeTab === 'routes' ? '#8ba0b5' : '#64748B',
-            borderBottom: activeTab === 'routes' ? '2px solid #8ba0b5' : 'none',
-            cursor: 'pointer'
+            padding: '8px 16px', background: activeTab === 'routes' ? '#FFFFFF' : 'transparent', border: 'none',
+            borderRadius: '8px',
+            fontSize: '13px', fontWeight: activeTab === 'routes' ? 700 : 500,
+            color: activeTab === 'routes' ? '#0F172A' : '#64748B',
+            boxShadow: activeTab === 'routes' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+            transition: 'all 0.15s ease'
           }}
         >
-          Routes (Path Tolerances)
+          <Navigation size={15} color={activeTab === 'routes' ? '#0284C7' : '#64748B'} />
+          <span>Routes & Corridors</span>
         </button>
       </div>
 
-      {/* Roster lists */}
+      {activeTab === 'vehicle_geofences' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Vehicle Selector Bar */}
+          <div style={{ background: '#FFFFFF', padding: '14px 20px', borderRadius: '12px', border: '1px solid #E2E8F0', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, minWidth: '280px' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }}>
+                Select Vehicle:
+              </div>
+              <select
+                value={selectedVehicleId}
+                onChange={e => setSelectedVehicleId(e.target.value)}
+                style={{
+                  padding: '8px 12px', borderRadius: '8px', border: '1px solid #CBD5E1',
+                  fontSize: '13px', fontWeight: 600, color: '#0F172A', background: '#F8FAFC',
+                  maxWidth: '420px', width: '100%', cursor: 'pointer'
+                }}
+              >
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {v.name} ({v.plate || 'No Plate'}) {v.imei ? `— IMEI: ${v.imei}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {(() => {
+              const currentV = vehicles.find(v => v.id === selectedVehicleId) || vehicles[0];
+              if (!currentV) return null;
+              return (
+                <div style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span>Plate: <b style={{ color: '#0F172A' }}>{currentV.plate || '—'}</b></span>
+                  <span>•</span>
+                  <span>GPS: <b style={{ color: '#0F172A' }}>{currentV.lat ? `${Number(currentV.lat).toFixed(4)}, ${Number(currentV.lng).toFixed(4)}` : 'No GPS Fix'}</b></span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {(() => {
+            const currentV = vehicles.find(v => v.id === selectedVehicleId) || vehicles[0];
+            if (!currentV) {
+              return (
+                <div style={{ padding: '40px', textAlign: 'center', background: '#FFFFFF', borderRadius: '12px', color: '#64748B' }}>
+                  No vehicles available to configure geofences.
+                </div>
+              );
+            }
+            return <VehicleGeofenceManager vehicle={currentV} />;
+          })()}
+        </div>
+      ) : (
+      /* Roster lists */
       <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', flex: 1, overflow: 'hidden' }}>
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
@@ -428,6 +534,7 @@ const GeofencesAdminPage = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Creation Modal */}
       {modalOpen && (

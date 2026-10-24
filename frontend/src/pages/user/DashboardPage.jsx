@@ -11,7 +11,7 @@ import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
-import { getVehicleStatus } from '../../utils/markerUtils';
+import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 
 /* Modern Stat Card with Top Color Accent */
 const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
@@ -241,6 +241,15 @@ const DashboardPage = ({ setAppVehicles }) => {
   const [quota, setQuota] = useState(null);
   const [apiStats, setApiStats] = useState(null);
   const isDealer = user?.role === 'dealer';
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
 
   // Customer role gets the map-based fleet dashboard
   if (user?.role === 'customer') {
@@ -314,7 +323,7 @@ const DashboardPage = ({ setAppVehicles }) => {
       let offline = 0;
 
       vehList.forEach(v => {
-        const status = getVehicleStatus(v);
+        const status = getVehicleStatus(v, noDataThreshold);
         if (status === 'running') {
           moving++;
           online++;
@@ -323,8 +332,7 @@ const DashboardPage = ({ setAppVehicles }) => {
           online++;
         } else if (status === 'parked') {
           parked++;
-          if (v.is_online) online++;
-          else offline++;
+          online++;
         } else {
           offline++;
         }
@@ -375,7 +383,7 @@ const DashboardPage = ({ setAppVehicles }) => {
       voltyStats: volty,
       otherDeviceCards: otherCards
     };
-  }, [vehicles, apiStats]);
+  }, [vehicles, apiStats, noDataThreshold]);
 
   const getTierStats = (type) => {
     if (isDealer && quota) {

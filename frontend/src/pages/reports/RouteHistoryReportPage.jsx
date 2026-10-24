@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
+import { formatLocalDate, formatLocalTime, getTodayReportRange } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, Play, Pause, Square, Search, ChevronRight, ChevronLeft } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -19,25 +19,8 @@ const RouteHistoryReportPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState('Normal');
 
-  // Date range defaults: Today
-  const getTodayRange = () => {
-    const today = new Date();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0);
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
-    
-    const toLocalISO = (d) => {
-      const offsetMs = d.getTimezoneOffset() * 60000;
-      return new Date(d.getTime() - offsetMs).toISOString().slice(0, 16);
-    };
-
-    return {
-      start: toLocalISO(start),
-      end: toLocalISO(end)
-    };
-  };
-
-  const [startDate, setStartDate] = useState(getTodayRange().start);
-  const [endDate, setEndDate] = useState(getTodayRange().end);
+  const [startDate, setStartDate] = useState(() => getTodayReportRange().startDate);
+  const [endDate, setEndDate] = useState(() => getTodayReportRange().endDate);
 
   useEffect(() => {
     vehicleApi.getVehicles({ t: Date.now() })

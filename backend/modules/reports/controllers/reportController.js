@@ -1,4 +1,5 @@
 const reportService = require('../services/reportService');
+const geofenceTransitService = require('../services/geofenceTransitService');
 const VehicleModel = require('../../../models/vehicleModel');
 
 class ReportController {
@@ -33,6 +34,17 @@ class ReportController {
       const { start, end } = this.parseDates(req);
       const filters = this.enrichFilters(req);
       const data = await reportService.getTripReport(filters, start, end);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getDailyTripReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      const data = await reportService.getDailyTripReport(filters, start, end);
       res.json({ success: true, data });
     } catch (err) {
       next(err);
@@ -156,6 +168,17 @@ class ReportController {
     try {
       const orgId = req.user?.role === 'superadmin' ? req.query.orgId : req.user?.orgId;
       const data = await reportService.getDashboardStats(orgId);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getGeofenceTransitReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      const data = await geofenceTransitService.getTransitReport(filters, start, end);
       res.json({ success: true, data });
     } catch (err) {
       next(err);

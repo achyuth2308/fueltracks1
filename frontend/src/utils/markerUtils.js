@@ -25,44 +25,63 @@ export const getVehicleType = (vehicle = {}) => {
   return 'lorry';
 };
 
-export const getVehicleStatus = (vehicle = {}) => {
-  const speed = parseFloat(vehicle.current_speed || vehicle.speed || 0);
-  const ignition = !!vehicle.current_ignition;
-  const isOnline = !!vehicle.is_online;
+export const NO_DATA_OPTIONS = [
+  { label: '1 hr (Default)', value: 1 },
+  { label: '3 hrs', value: 3 },
+  { label: '6 hrs', value: 6 },
+  { label: '12 hrs', value: 12 },
+  { label: '24 hrs', value: 24 },
+];
 
-  if (!vehicle.last_seen) return 'unreachable';
+export const getNoDataThresholdHours = () => {
+  try {
+    const val = parseFloat(localStorage.getItem('ft_nodata_threshold_hours'));
+    if (!isNaN(val) && val > 0) return val;
+  } catch (_) {}
+  return 1; // Default 1 hour
+};
+
+export const setNoDataThresholdHours = (hours) => {
+  try {
+    const val = Math.max(1, parseFloat(hours) || 1);
+    localStorage.setItem('ft_nodata_threshold_hours', val.toString());
+    window.dispatchEvent(new CustomEvent('nodata-threshold-changed', { detail: val }));
+  } catch (_) {}
+};
+
+export const getVehicleStatus = (vehicle = {}, overrideThresholdHours) => {
+  const speed = parseFloat(vehicle.current_speed !== undefined ? vehicle.current_speed : (vehicle.speed || 0));
+  const ignition = !!(vehicle.current_ignition !== undefined ? vehicle.current_ignition : vehicle.ignition);
+
+  if (!vehicle.last_seen) return 'offline';
 
   const lastSeenMs = new Date(vehicle.last_seen).getTime();
-  const diffMs = !isNaN(lastSeenMs) ? (Date.now() - lastSeenMs) : Infinity;
+  if (isNaN(lastSeenMs)) return 'offline';
 
-  // 1. PARKED STATE PRESERVATION (Universal 24h Sleep Mode for ALL vehicles):
-  // When ignition is OFF and vehicle is stationary (speed <= 2 km/h),
-  // devices enter deep sleep / power save mode. Preserve 'parked' for up to 24 hours.
-  if (!ignition && speed <= 2.0 && diffMs < 24 * 60 * 60 * 1000) {
+  const diffMs = Date.now() - lastSeenMs;
+  const thresholdHours = (overrideThresholdHours !== undefined && overrideThresholdHours > 0)
+    ? overrideThresholdHours
+    : getNoDataThresholdHours();
+  const thresholdMs = thresholdHours * 60 * 60 * 1000;
+
+  // ── NO DATA RULE ──────────────────────────────────────────────
+  // When telemetry is NOT coming from the device, keep the vehicle
+  // in its exact SAME STATE (Running, Idle, Parked) until the elapsed
+  // time exceeds the user's selected threshold (default: 1 hr, or 3h/6h/12h/24h).
+  //
+  // Even if within that window new data arrives, it immediately updates
+  // and continues with the new packet.
+  //
+  // Only after the threshold duration has fully elapsed without any
+  // packets arriving from the device, transition to 'offline' (No Data).
+  if (diffMs < thresholdMs) {
+    if (speed > 2.0) return 'running';
+    if (ignition) return 'idle';
     return 'parked';
   }
 
-  // 2. IDLE STATE PRESERVATION:
-  // When engine is running (ignition ON) but vehicle is stationary (speed <= 2 km/h),
-  // devices throttle reporting to save data (often 2-3 min intervals).
-  // Preserve 'idle' for up to 5 minutes before treating as No Data.
-  if (ignition && speed <= 2.0 && diffMs < 5 * 60 * 1000) {
-    return 'idle';
-  }
-
-  // 3. MOVING STATE PRESERVATION:
-  // When speed > 2 km/h and telemetry arrived within 3 minutes, vehicle is moving.
-  if (speed > 2.0 && diffMs < 3 * 60 * 1000) {
-    return 'running';
-  }
-
-  // 4. Stale / Lost Signal:
-  // If connection is lost or beyond grace period, vehicle enters 'No Data'.
-  if (!isOnline || diffMs >= 3 * 60 * 1000) return 'offline';
-
-  if (speed > 2.0) return 'running';
-  if (ignition) return 'idle';
-  return 'parked';
+  // Threshold exceeded with no data -> display No Data
+  return 'offline';
 };
 
 export const STATUS_CONFIG = {

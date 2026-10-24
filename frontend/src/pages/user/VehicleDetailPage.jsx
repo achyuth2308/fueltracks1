@@ -5,11 +5,15 @@ import {
   Battery, Wifi, Compass, Radio, MapPin, AlertTriangle,
   Truck, Building2, Users2, User, Key, Fuel, Activity,
   Calendar, Cpu, WifiOff, Server, Navigation, Clock,
-  ShieldAlert, ShieldCheck, Power, Lock, Unlock, AlertCircle, CheckCircle2, X
+  ShieldAlert, ShieldCheck, Shield, Power, Lock, Unlock, AlertCircle, CheckCircle2, X,
+  Volume2, Bell
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
+import axiosInstance from '../../api/axios';
 import VehicleMap from '../../components/map/VehicleMap';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
+import VehicleAlertSettingsModal from '../../components/modals/VehicleAlertSettingsModal';
+import VehicleGeofenceManager from '../../components/geofence/VehicleGeofenceManager';
 import { formatLocalTime, formatLocalDate, getRelativeTime, getVehicleExpiryStatus } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
@@ -119,6 +123,7 @@ const VehicleDetailPage = () => {
   const [error, setError] = useState(null);
   const [alerts, setAlerts] = useState([]);
   const [reportSummary, setReportSummary] = useState(null);
+  const [todayTrips, setTodayTrips] = useState([]);
   const [showPayModal, setShowPayModal] = useState(false);
   const [selectedVehicleForPay, setSelectedVehicleForPay] = useState(null);
   const [currentAddress, setCurrentAddress] = useState(null);
@@ -127,6 +132,32 @@ const VehicleDetailPage = () => {
   const [showImmobilizerModal, setShowImmobilizerModal] = useState(false);
   const [immobilizerLoading, setImmobilizerLoading] = useState(false);
   const [immobilizerFeedback, setImmobilizerFeedback] = useState(null);
+
+  // Alert Settings Modal State
+  const [showAlertSettingsModal, setShowAlertSettingsModal] = useState(false);
+  const [safetyParkLoading, setSafetyParkLoading] = useState(false);
+
+  const handleToggleSafetyPark = async () => {
+    const isCurrentlyArmed = vehicle?.metadata?.safetyPark === 'YES';
+    const nextVal = !isCurrentlyArmed;
+    setSafetyParkLoading(true);
+    try {
+      const res = await vehicleApi.updateVehicleSettings(id, { safetyPark: nextVal ? 'YES' : 'NO' });
+      if (res.success) {
+        setVehicle(prev => prev ? {
+          ...prev,
+          metadata: {
+            ...(prev.metadata || {}),
+            safetyPark: nextVal ? 'YES' : 'NO'
+          }
+        } : prev);
+      }
+    } catch (err) {
+      alert('Failed to update Safety Parking state');
+    } finally {
+      setSafetyParkLoading(false);
+    }
+  };
 
   const handleToggleImmobilizer = async (action) => {
     setImmobilizerLoading(true);
@@ -172,10 +203,11 @@ const VehicleDetailPage = () => {
         const endToday = new Date();
         endToday.setHours(23, 59, 59, 999);
 
-        const [vRes, aRes, rRes] = await Promise.allSettled([
+        const [vRes, aRes, rRes, tRes] = await Promise.allSettled([
           vehicleApi.getVehicleById(id),
           vehicleApi.getVehicleAlerts(id, { limit: 8 }),
           vehicleApi.getVehicleReport(id, { startDate: today.toISOString(), endDate: endToday.toISOString() }),
+          axiosInstance.get(`/api/reports/trip?vehicleId=${id}&startDate=${today.toISOString()}&endDate=${endToday.toISOString()}`)
         ]);
         
         if (vRes.status === 'fulfilled' && vRes.value.success) {
@@ -187,6 +219,9 @@ const VehicleDetailPage = () => {
 
         if (aRes.status === 'fulfilled' && aRes.value.success) setAlerts(aRes.value.data);
         if (rRes.status === 'fulfilled' && rRes.value.success && rRes.value.data.summary) setReportSummary(rRes.value.data.summary);
+        if (tRes.status === 'fulfilled' && tRes.value.data?.success) {
+          setTodayTrips(Array.isArray(tRes.value.data?.data) ? tRes.value.data.data : []);
+        }
       } catch (err) {
         setError(err.response?.data?.error || err.message || 'Failed to fetch vehicle data');
       } finally { setLoading(false); }
@@ -271,9 +306,75 @@ const VehicleDetailPage = () => {
     </div>
   );
 
-  const speed = vehicle.is_online ? (vehicle.current_speed || 0) : 0;
-  const ignitionOn = vehicle.is_online ? !!vehicle.current_ignition : false;
-  const batteryStatus = getBatteryStatus(vehicle.current_voltage || vehicle.metadata?.batteryVoltage, vehicle.current_ignition);
+  const speed = vehicle?.is_online ? (vehicle.current_speed || 0) : 0;
+  const ignitionOn = vehicle?.is_online ? !!vehicle.current_ignition : false;
+  const batteryStatus = getBatteryStatus(vehicle?.current_voltage ?? vehicle?.metadata?.batteryVoltage, vehicle?.current_ignition);
+
+  // Dynamically compute real vehicle activity events for today (trips, alerts, latest status)
+  const timelineItems = (() => {
+    const events = [];
+
+    // 1. Trips today
+    if (Array.isArray(todayTrips) && todayTrips.length > 0) {
+      todayTrips.forEach((trip, idx) => {
+        if (trip.start_time) {
+          events.push({
+            timestamp: new Date(trip.start_time).getTime(),
+            time: formatLocalTime(trip.start_time),
+            label: `Trip ${idx + 1} Started`,
+            color: '#2563EB'
+          });
+        }
+        if (trip.end_time) {
+          events.push({
+            timestamp: new Date(trip.end_time).getTime(),
+            time: formatLocalTime(trip.end_time),
+            label: `Stopped (${trip.distance_km ? `${parseFloat(trip.distance_km).toFixed(1)} km` : 'End'})`,
+            color: '#D97706'
+          });
+        }
+      });
+    }
+
+    // 2. Real alerts today
+    if (Array.isArray(alerts) && alerts.length > 0) {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      alerts.forEach((alert) => {
+        const aTime = new Date(alert.device_time || alert.created_at);
+        if (!isNaN(aTime.getTime()) && aTime >= todayStart) {
+          events.push({
+            timestamp: aTime.getTime(),
+            time: formatLocalTime(aTime),
+            label: alert.alert_type || 'Alert',
+            color: '#DC2626'
+          });
+        }
+      });
+    }
+
+    // 3. Current vehicle telemetry / last update
+    if (vehicle?.last_seen) {
+      const lTime = new Date(vehicle.last_seen);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      if (!isNaN(lTime.getTime()) && lTime >= todayStart) {
+        const statusLabel = vehicle.is_online
+          ? (vehicle.current_speed > 3 ? `Moving (${Math.round(vehicle.current_speed)} km/h)` : (vehicle.current_ignition ? 'Idling' : 'Stopped'))
+          : 'Last Update';
+        events.push({
+          timestamp: lTime.getTime(),
+          time: formatLocalTime(vehicle.last_seen),
+          label: statusLabel,
+          color: vehicle.is_online ? '#16A34A' : '#64748B'
+        });
+      }
+    }
+
+    // Deduplicate timestamps and sort chronologically
+    events.sort((a, b) => a.timestamp - b.timestamp);
+    return events.slice(-7);
+  })();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: '#EEF5F8', overflow: 'hidden', position: 'relative' }}>
@@ -296,6 +397,7 @@ const VehicleDetailPage = () => {
           <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {/* Immobilizer Action Button */}
           <button
             onClick={() => {
               setImmobilizerFeedback(null);
@@ -328,6 +430,95 @@ const VehicleDetailPage = () => {
                 <span>Immobilizer</span>
               </>
             )}
+          </button>
+
+          {/* Safety Parking (Theft Alarm) Action Button */}
+          <button
+            onClick={handleToggleSafetyPark}
+            disabled={safetyParkLoading}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: vehicle.metadata?.safetyPark === 'YES' ? '#EFF6FF' : '#F8FAFC',
+              color: vehicle.metadata?.safetyPark === 'YES' ? '#1D4ED8' : '#475569',
+              border: vehicle.metadata?.safetyPark === 'YES' ? '1px solid #BFDBFE' : '1px solid #CBD5E1',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: safetyParkLoading ? 'wait' : 'pointer',
+              boxShadow: vehicle.metadata?.safetyPark === 'YES' ? '0 0 0 2px rgba(59, 130, 246, 0.25)' : 'none',
+              transition: 'all 0.15s'
+            }}
+            title={vehicle.metadata?.safetyPark === 'YES' ? "Safety Parking is ARMED: Police siren will trigger if engine turns ON or vehicle moves >1 km/h!" : "Click to arm Safety Parking"}
+          >
+            {safetyParkLoading ? (
+              <Loader2 size={15} className="animate-spin" />
+            ) : vehicle.metadata?.safetyPark === 'YES' ? (
+              <>
+                <ShieldCheck size={15} color="#2563EB" />
+                <span>Safety Park: ARMED</span>
+              </>
+            ) : (
+              <>
+                <Shield size={15} color="#64748B" />
+                <span>Safety Park: OFF</span>
+              </>
+            )}
+          </button>
+
+          {/* Test Police Siren Button */}
+          <button
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('test-police-siren', {
+                detail: {
+                  vehicleId: vehicle.id,
+                  vehicleName: vehicle.name,
+                  plate: vehicle.plate,
+                  alertText: `🚨 THEFT ALARM: ${vehicle.name} (${vehicle.plate}) — Engine turned ON while Safety Parking was ACTIVE!`
+                }
+              }));
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              background: '#FEF2F2',
+              color: '#DC2626',
+              border: '1px solid #FECACA',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+            title="Click to test the authentic Police Siren sound and emergency alert banner"
+          >
+            <Volume2 size={15} color="#DC2626" />
+            <span>Test Siren 🚨</span>
+          </button>
+          <button
+            onClick={() => setShowAlertSettingsModal(true)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              background: '#FFF7ED',
+              border: '1px solid #FFEDD5',
+              color: '#EA580C',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s'
+            }}
+            title="Configure Idling & Alert Settings for this vehicle"
+          >
+            <Clock size={15} />
+            <span>Idling & Alerts</span>
           </button>
           <Link to={`/vehicles/${id}/history`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
             <History size={15} /> Route History
@@ -406,18 +597,18 @@ const VehicleDetailPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
             <div>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Building2 size={13} /> Organization</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || 'ABC Logistics'}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || 'N/A'}</div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Users2 size={13} /> Group</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                {vehicle.groups && vehicle.groups.length > 0 ? vehicle.groups.map(g => g.name).join(', ') : 'Delivery Fleet, North Region'}
+                {vehicle.groups && vehicle.groups.length > 0 ? vehicle.groups.map(g => g.name).join(', ') : 'Unassigned'}
               </div>
             </div>
             <div>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><User size={13} /> Owner Name</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>
-                {vehicle.driver_name || 'Ramesh Kumar'}
+                {vehicle.driver_name || vehicle.owner_name || 'Unassigned'}
               </div>
             </div>
             <div>
@@ -511,7 +702,11 @@ const VehicleDetailPage = () => {
             </div>
             <div>
               <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>BATTERY</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatVoltage(vehicle.current_voltage || vehicle.metadata?.batteryVoltage || 12.15)}</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>
+                {vehicle.current_voltage != null || vehicle.metadata?.batteryVoltage != null
+                  ? formatVoltage(vehicle.current_voltage ?? vehicle.metadata?.batteryVoltage)
+                  : 'N/A'}
+              </div>
               <div style={{ fontSize: '11px', fontWeight: 600, color: batteryStatus.color }}>● {batteryStatus.status}</div>
             </div>
           </div>
@@ -535,8 +730,10 @@ const VehicleDetailPage = () => {
             </div>
             <div>
               <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>ODOMETER</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatOdometer(vehicle.current_odometer || 0)}</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>● Not Available</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatOdometer(vehicle.current_odometer)}</div>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: vehicle.current_odometer && Number(vehicle.current_odometer) > 0 ? '#16A34A' : '#64748B' }}>
+                ● {vehicle.current_odometer && Number(vehicle.current_odometer) > 0 ? 'Active' : 'Not Available'}
+              </div>
             </div>
           </div>
 
@@ -554,36 +751,54 @@ const VehicleDetailPage = () => {
         </div>
 
         {/* 3. Main Content Grid: Left Map (~65%), Right Live Device Status & Alerts (~35%) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px', flex: 1, minHeight: '340px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px', height: '480px', minHeight: '480px' }}>
           {/* Map */}
-          <div style={{ background: '#FFFFFF', borderRadius: '12px', overflow: 'hidden', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', position: 'relative', minHeight: '340px' }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+            position: 'relative',
+            height: '100%',
+            isolation: 'isolate',
+            contain: 'paint'
+          }}>
             <VehicleMap vehicle={vehicle} vehicleId={id} initialLat={vehicle.lat} initialLng={vehicle.lng} initialIgnition={ignitionOn} initialSpeed={speed} />
           </div>
 
           {/* Right Column Cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%', maxHeight: '480px' }}>
             {/* Live Device Status */}
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', borderBottom: '1px solid #F1F5F9', paddingBottom: '8px' }}>
-                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+                <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: vehicle.is_online ? '#16A34A' : '#94A3B8', display: 'inline-block' }} />
                 <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Live Device Status</h3>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Wifi size={14} color="#2563EB" /> GSM Signal</span>
-                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_gsm_signal || 31}/31</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>
+                    {vehicle.current_gsm_signal !== null && vehicle.current_gsm_signal !== undefined ? `${vehicle.current_gsm_signal}/31` : 'N/A'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Radio size={14} color="#2563EB" /> GPS Fix</span>
-                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_satellites || 12}</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>
+                    {vehicle.current_satellites !== null && vehicle.current_satellites !== undefined ? vehicle.current_satellites : 'N/A'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Compass size={14} color="#2563EB" /> Heading</span>
-                  <span style={{ fontWeight: 800, color: '#111827' }}>{vehicle.current_direction || 180}°</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>
+                    {vehicle.current_direction !== null && vehicle.current_direction !== undefined ? `${vehicle.current_direction}°` : 'N/A'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Battery size={14} color="#2563EB" /> Battery Voltage</span>
-                  <span style={{ fontWeight: 800, color: '#111827' }}>{formatVoltage(vehicle.current_voltage || 12.15)}</span>
+                  <span style={{ fontWeight: 800, color: '#111827' }}>
+                    {vehicle.current_voltage != null || vehicle.metadata?.batteryVoltage != null ? formatVoltage(vehicle.current_voltage ?? vehicle.metadata?.batteryVoltage) : 'N/A'}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Key size={14} color="#2563EB" /> Ignition</span>
@@ -591,14 +806,28 @@ const VehicleDetailPage = () => {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
                   <span style={{ color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}><Activity size={14} color="#2563EB" /> Device Status</span>
-                  <span style={{ fontWeight: 800, color: '#16A34A', display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#16A34A' }} /> Online</span>
+                  <span style={{
+                    fontWeight: 800,
+                    color: vehicle.is_online ? '#16A34A' : '#64748B',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: vehicle.is_online ? '#16A34A' : '#94A3B8'
+                    }} />
+                    {vehicle.is_online ? (speed > 0 ? 'Moving' : (ignitionOn ? 'Idle' : 'Online')) : 'Offline'}
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Recent Alerts */}
-            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', flexShrink: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <AlertTriangle size={15} color="#DC2626" />
                   <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Recent Alerts</h3>
@@ -606,27 +835,19 @@ const VehicleDetailPage = () => {
                 <Link to={`/vehicles/${id}/messages`} style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}>View All</Link>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', maxHeight: '160px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
                 {alerts.length === 0 ? (
-                  <>
-                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>Overspeed Alert</div>
-                      <div style={{ fontSize: '11px', color: '#7F1D1D', marginTop: '2px' }}>Vehicle exceeded 60 km/h • 2 days ago</div>
-                    </div>
-                    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: '8px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#92400E' }}>Ignition Alert</div>
-                      <div style={{ fontSize: '11px', color: '#78350F', marginTop: '2px' }}>Ignition turned ON • 3 days ago</div>
-                    </div>
-                    <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: '8px', padding: '8px 10px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#1E40AF' }}>Low Battery</div>
-                      <div style={{ fontSize: '11px', color: '#1E3A8A', marginTop: '2px' }}>Battery voltage below threshold • 4 days ago</div>
-                    </div>
-                  </>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94A3B8', textAlign: 'center', padding: '16px 8px' }}>
+                    <ShieldCheck size={28} color="#94A3B8" style={{ marginBottom: '6px' }} />
+                    <span style={{ fontSize: '12px', fontWeight: 600 }}>No active or recent alerts</span>
+                  </div>
                 ) : (
-                  alerts.slice(0, 3).map((a, i) => (
-                    <div key={i} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '8px 10px' }}>
+                  alerts.slice(0, 5).map((a, i) => (
+                    <div key={i} style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '8px 10px', flexShrink: 0 }}>
                       <div style={{ fontSize: '12px', fontWeight: 700, color: '#991B1B' }}>{a.alert_type || 'Alert'}</div>
-                      <div style={{ fontSize: '11px', color: '#7F1D1D', marginTop: '2px' }}>{a.alert_text || a.alertText} • {getRelativeTime(a.device_time)}</div>
+                      <div style={{ fontSize: '11px', color: '#7F1D1D', marginTop: '2px', wordBreak: 'break-word', lineHeight: 1.3 }}>
+                        {a.alert_text || a.alertText} • {getRelativeTime(a.device_time || a.created_at)}
+                      </div>
                     </div>
                   ))
                 )}
@@ -635,7 +856,10 @@ const VehicleDetailPage = () => {
           </div>
         </div>
 
-        {/* 4. Bottom Section: Timeline & Today's Summary */}
+        {/* 4. Vehicle Geofences Management (Interactive Circle / Polygon per single vehicle) */}
+        <VehicleGeofenceManager vehicle={vehicle} />
+
+        {/* 5. Bottom Section: Timeline & Today's Summary */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px' }}>
           {/* Today's Vehicle Activity Timeline */}
           <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
@@ -644,27 +868,28 @@ const VehicleDetailPage = () => {
                 <Calendar size={15} color="#2563EB" />
                 <h3 style={{ fontSize: '13px', fontWeight: 800, color: '#111827', margin: 0 }}>Today's Vehicle Activity</h3>
               </div>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', cursor: 'pointer' }}>View All</span>
+              <Link to={`/vehicles/${id}/history`} style={{ fontSize: '11px', fontWeight: 700, color: '#2563EB', textDecoration: 'none' }}>Route History</Link>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative', padding: '8px 0' }}>
-              <div style={{ position: 'absolute', top: '14px', left: '20px', right: '20px', height: '2px', background: '#E2E8F0', zIndex: 1 }} />
-              {[
-                { time: '08:10', label: 'Ignition ON', color: '#16A34A' },
-                { time: '08:12', label: 'Trip Started', color: '#2563EB' },
-                { time: '08:45', label: 'Stopped', color: '#D97706' },
-                { time: '09:20', label: 'Ignition ON', color: '#16A34A' },
-                { time: '09:55', label: 'Overspeed Alert', color: '#DC2626' },
-                { time: '10:20', label: 'Stopped', color: '#D97706' },
-                { time: '10:52', label: 'Last Update', color: '#2563EB' },
-              ].map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color, border: '2px solid #FFFFFF', boxShadow: '0 0 0 2px rgba(0,0,0,0.05)', marginBottom: '6px' }} />
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: item.color }}>{item.time}</div>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', marginTop: '2px' }}>{item.label}</div>
-                </div>
-              ))}
-            </div>
+            {timelineItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '24px 12px', color: '#94A3B8', fontSize: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                <Clock size={24} color="#CBD5E1" />
+                <span>No trips or activity recorded yet today</span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: timelineItems.length === 1 ? 'center' : 'space-between', position: 'relative', padding: '8px 0' }}>
+                {timelineItems.length > 1 && (
+                  <div style={{ position: 'absolute', top: '14px', left: '20px', right: '20px', height: '2px', background: '#E2E8F0', zIndex: 1 }} />
+                )}
+                {timelineItems.map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', zIndex: 2 }}>
+                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: item.color, border: '2px solid #FFFFFF', boxShadow: '0 0 0 2px rgba(0,0,0,0.05)', marginBottom: '6px' }} />
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: item.color }}>{item.time}</div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B', whiteSpace: 'nowrap', marginTop: '2px', maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', textAlign: 'center' }}>{item.label}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Today's Summary */}
@@ -678,25 +903,25 @@ const VehicleDetailPage = () => {
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Distance Traveled</div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
-                  {reportSummary?.total_distance ? `${parseFloat(reportSummary.total_distance).toFixed(1)} km` : '0 km'}
+                  {reportSummary?.total_distance ? `${parseFloat(reportSummary.total_distance).toFixed(1)} km` : (vehicle.today_distance ? `${parseFloat(vehicle.today_distance).toFixed(1)} km` : '0 km')}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Peak Speed</div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
-                  {reportSummary ? formatSpeed(reportSummary.max_speed) : 'N/A'}
+                  {reportSummary && reportSummary.max_speed !== null ? formatSpeed(reportSummary.max_speed) : (speed > 0 ? formatSpeed(speed) : '0 km/h')}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Average Speed</div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
-                  {reportSummary ? formatSpeed(Math.round(reportSummary.avg_speed)) : '0 km/h'}
+                  {reportSummary && reportSummary.avg_speed !== null ? formatSpeed(Math.round(reportSummary.avg_speed)) : '0 km/h'}
                 </div>
               </div>
               <div>
                 <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>Trips</div>
                 <div style={{ fontSize: '13px', fontWeight: 800, color: '#111827', marginTop: '2px' }}>
-                  {reportSummary?.total_trips || '0'}
+                  {Array.isArray(todayTrips) ? todayTrips.length : 0}
                 </div>
               </div>
             </div>
@@ -944,6 +1169,19 @@ const VehicleDetailPage = () => {
           </div>
         </div>
       )}
+
+      {/* Vehicle Alert & Idling Settings Modal */}
+      <VehicleAlertSettingsModal
+        isOpen={showAlertSettingsModal}
+        onClose={() => setShowAlertSettingsModal(false)}
+        vehicle={vehicle}
+        onSaved={(updated) => {
+          setVehicle(prev => ({
+            ...prev,
+            metadata: updated.metadata || { ...prev.metadata, ...updated }
+          }));
+        }}
+      />
     </div>
   );
 };

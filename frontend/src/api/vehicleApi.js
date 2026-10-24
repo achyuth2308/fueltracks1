@@ -86,3 +86,8 @@ export const reprocessVehicle = async (id, date) => {
   const response = await axiosInstance.post(`/api/vehicles/${id}/reprocess`, { date });
   return response.data;
 };
+
+export const updateVehicleSettings = async (id, data) => {
+  const response = await axiosInstance.patch(`/api/vehicles/${id}/settings`, data);
+  return response.data;
+};

@@ -10,7 +10,7 @@ import { formatSpeed, formatVoltage, formatDirection } from '../../utils/formatU
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
-import { getVehicleStatus, getVehicleType } from '../../utils/markerUtils';
+import { getVehicleStatus, getVehicleType, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
@@ -138,8 +138,18 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     }
   }, [vehicles, setAppVehicles]);
 
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
+
   const getStatus = (v) => {
-    return getVehicleStatus(v);
+    return getVehicleStatus(v, noDataThreshold);
   };
 
   const metrics = useMemo(() => {
@@ -149,7 +159,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       m[s] = (m[s] || 0) + 1;
     });
     return m;
-  }, [vehicles]);
+  }, [vehicles, noDataThreshold]);
 
   const filtered = useMemo(() => {
     let result = vehicles;
@@ -564,11 +574,38 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
           {/* Status filter pills */}
           {['running', 'idle', 'parked', 'offline', 'unreachable'].map(s => (
-            <StatusPill
-              key={s} label={statusLabels[s]} count={metrics[s] || (s === 'unreachable' ? metrics.unavailable : 0) || 0}
-              color={statusColors[s]} active={statusFilter === s || (s === 'unreachable' && statusFilter === 'unavailable')}
-              onClick={() => setStatusFilter(prev => prev === s ? null : s)}
-            />
+            <div key={s} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <StatusPill
+                label={statusLabels[s]} count={metrics[s] || (s === 'unreachable' ? metrics.unavailable : 0) || 0}
+                color={statusColors[s]} active={statusFilter === s || (s === 'unreachable' && statusFilter === 'unavailable')}
+                onClick={() => setStatusFilter(prev => prev === s ? null : s)}
+              />
+              {s === 'offline' && (
+                <select
+                  value={noDataThreshold}
+                  onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
+                  style={{
+                    background: '#F1F5F9',
+                    border: '1px solid #CBD5E1',
+                    color: '#0F172A',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 6px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                  }}
+                  title="No Data Rule: Keep vehicle in same state for this duration before marking as No Data"
+                >
+                  {NO_DATA_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
           ))}
 
           <div style={{

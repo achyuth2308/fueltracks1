@@ -1,22 +1,85 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { formatLocalDate } from '../../utils/dateUtils';
-import { Menu, Wifi, WifiOff, Bell, Clock as ClockIcon } from 'lucide-react';
+import { Menu, Wifi, WifiOff, Bell, Clock as ClockIcon, ShieldAlert, VolumeX, AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
+import * as vehicleApi from '../../api/vehicleApi';
 import axiosInstance from '../../api/axios';
 import { applyBrowserBranding, getFullImageUrl } from '../../utils/branding';
+import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user } = useAuth();
   const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [time, setTime] = useState(new Date());
   const [brandProfile, setBrandProfile] = useState(null);
 
   const [alerts, setAlerts] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [latestToast, setLatestToast] = useState(null);
+  const [activeSirenAlert, setActiveSirenAlert] = useState(null);
+  const sirenControllerRef = useRef(null);
+
+  const stopPoliceSiren = () => {
+    if (sirenControllerRef.current) {
+      try {
+        sirenControllerRef.current.stop();
+      } catch (e) {}
+      sirenControllerRef.current = null;
+    }
+    setActiveSirenAlert(null);
+  };
+
+  const startPoliceSiren = (alarmData) => {
+    setActiveSirenAlert(alarmData);
+    if (sirenControllerRef.current) return; // Already sounding
+
+    try {
+      // 1. Play authentic multi-harmonic police siren audio
+      const audio = new Audio('/sounds/police_siren.wav');
+      audio.loop = true;
+      audio.volume = 1.0;
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.warn('[SIREN] Autoplay policy prevented immediate playback, unlocking on next click...', e);
+          const unlock = () => {
+            audio.play().catch(() => {});
+            window.removeEventListener('click', unlock);
+          };
+          window.addEventListener('click', unlock);
+        });
+      }
+
+      sirenControllerRef.current = {
+        stop: () => {
+          try {
+            audio.pause();
+            audio.currentTime = 0;
+          } catch (e) {}
+        }
+      };
+    } catch (err) {
+      console.warn('[SIREN] Could not start audio:', err);
+    }
+  };
+
+  // Listen for manual siren test events from anywhere in the app
+  useEffect(() => {
+    const handleManualTestSiren = (e) => {
+      startPoliceSiren(e.detail || {
+        vehicleName: 'Test Vehicle',
+        plate: 'POLICE-01',
+        alertText: '🚨 TEST THEFT ALARM: Police Siren Sound Test'
+      });
+    };
+    window.addEventListener('test-police-siren', handleManualTestSiren);
+    return () => window.removeEventListener('test-police-siren', handleManualTestSiren);
+  }, []);
 
   useEffect(() => {
     const loadProfile = () => {
@@ -81,10 +144,21 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         setPreferences(fetchedPrefs);
       }
       
+      const isAlertAllowed = (prefObj, type) => {
+        if (!type) return false;
+        const lower = type.toLowerCase();
+        if (lower === 'low_battery' || lower === 'internal_battery_low') return false;
+        if (!prefObj) return true;
+        if (lower === 'main_battery_disconnected' || lower === 'main_battery_connected') {
+          return prefObj.power_cut !== false;
+        }
+        return prefObj[lower] !== false;
+      };
+
       if (alertsRes?.data && alertsRes.data.success) {
         let fetchedAlerts = alertsRes.data.alerts || alertsRes.data.data || [];
         if (fetchedPrefs) {
-          fetchedAlerts = fetchedAlerts.filter(a => fetchedPrefs[a.alertType] !== false);
+          fetchedAlerts = fetchedAlerts.filter(a => isAlertAllowed(fetchedPrefs, a.alertType));
         }
         setAlerts(fetchedAlerts);
       }
@@ -93,7 +167,17 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     const handlePrefsUpdated = (e) => {
       const newPrefs = e.detail;
       setPreferences(newPrefs);
-      setAlerts(prev => prev.filter(a => newPrefs[a.alertType] !== false));
+      const isAlertAllowed = (prefObj, type) => {
+        if (!type) return false;
+        const lower = type.toLowerCase();
+        if (lower === 'low_battery' || lower === 'internal_battery_low') return false;
+        if (!prefObj) return true;
+        if (lower === 'main_battery_disconnected' || lower === 'main_battery_connected') {
+          return prefObj.power_cut !== false;
+        }
+        return prefObj[lower] !== false;
+      };
+      setAlerts(prev => prev.filter(a => isAlertAllowed(newPrefs, a.alertType)));
     };
     window.addEventListener('preferences-updated', handlePrefsUpdated);
     return () => window.removeEventListener('preferences-updated', handlePrefsUpdated);
@@ -103,8 +187,27 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   useEffect(() => {
     if (!socket) return;
     const handleNewAlert = (data) => {
+      const type = (data.alertType || '').toLowerCase();
+      if (type === 'low_battery' || type === 'internal_battery_low') {
+        return; // Suppress noisy battery chatter
+      }
+
+      // CRITICAL: Emergency Safety Parking Theft Alarms bypass all role and preference filters!
+      if (type === 'safety_park') {
+        setAlerts((prev) => [data, ...prev]);
+        setLatestToast(data);
+        setTimeout(() => setLatestToast(null), 8000);
+        startPoliceSiren(data);
+        return;
+      }
+
       // If preferences aren't loaded yet, or user opted out, ignore it for live push/toast
-      if (!preferences || preferences[data.alertType] === false) {
+      const isAllowed = !preferences || (
+        (type === 'main_battery_disconnected' || type === 'main_battery_connected')
+          ? preferences.power_cut !== false
+          : preferences[type] !== false
+      );
+      if (!isAllowed) {
         return; 
       }
 
@@ -118,6 +221,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       // Play Sound
       try {
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
         const now = audioContext.currentTime;
 
         const playTone = (freq, type, startTime, duration, vol) => {
@@ -133,13 +239,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           osc.stop(startTime + duration);
         };
 
-        if (data.alertType === 'safety_park') {
-          // Dramatic Alert for Parking/Theft
-          for (let i = 0; i < 6; i++) {
-            playTone(800, 'square', now + i * 0.3, 0.25, 0.15);
-            playTone(600, 'square', now + i * 0.3 + 0.15, 0.25, 0.15);
-          }
-        } else if (data.alertType === 'overspeed') {
+        if (data.alertType === 'overspeed') {
           // Rapid triple beep for warning
           playTone(900, 'sine', now, 0.1, 0.2);
           playTone(900, 'sine', now + 0.15, 0.1, 0.2);
@@ -159,8 +259,20 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       setTimeout(() => setLatestToast(null), 5000); // Hide after 5 seconds
     };
     
+    // Listen for vehicle safety park toggle changes: if safety park is turned OFF, immediately stop police siren!
+    const handleSafetyParkStateChange = (payload) => {
+      if (payload?.safetyPark === 'NO') {
+        stopPoliceSiren();
+      }
+    };
+
     socket.on('alert:new', handleNewAlert);
-    return () => socket.off('alert:new', handleNewAlert);
+    socket.on('vehicle:safety_park', handleSafetyParkStateChange);
+
+    return () => {
+      socket.off('alert:new', handleNewAlert);
+      socket.off('vehicle:safety_park', handleSafetyParkStateChange);
+    };
   }, [socket, preferences]);
 
   // Live clock
@@ -169,11 +281,21 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     return () => clearInterval(t);
   }, []);
 
+  // Listen for No Data threshold changes from anywhere in the app
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
+
   // Fleet stats from vehicles prop or API fallback
   useEffect(() => {
     if (vehicles.length > 0) {
-      const online = vehicles.filter(v => v.is_online).length;
-      setStats({ total: vehicles.length, online, offline: Math.max(0, vehicles.length - online) });
+      const offlineCount = vehicles.filter(v => getVehicleStatus(v, noDataThreshold) === 'offline').length;
+      const onlineCount = Math.max(0, vehicles.length - offlineCount);
+      setStats({ total: vehicles.length, online: onlineCount, offline: offlineCount });
     } else {
       adminApi.getDashboardStats().then(res => {
         if (res?.success && res?.data) {
@@ -190,7 +312,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         }
       }).catch(() => { });
     }
-  }, [vehicles.length]);
+  }, [vehicles, noDataThreshold]);
 
   const timeStr = time.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
   const dateStr = formatLocalDate(time);
@@ -290,8 +412,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           {[
             { label: 'Total', value: stats.total, color: '#f1f5f9' },
             { label: 'Online', value: stats.online, color: '#f97316', dot: true },
-            { label: 'No Data', value: stats.offline, color: '#0ea5e9', dot: true },
-          ].map(({ label, value, color, dot }) => (
+            { label: 'No Data', value: stats.offline, color: '#0ea5e9', dot: true, isNoData: true },
+          ].map(({ label, value, color, dot, isNoData }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (
                 <div style={{
@@ -306,6 +428,31 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               }}>
                 {value}
               </span>
+              {isNoData && (
+                <select
+                  value={noDataThreshold}
+                  onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
+                  style={{
+                    marginLeft: '3px',
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    color: '#bae6fd',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '1px 4px',
+                    cursor: 'pointer',
+                    outline: 'none',
+                  }}
+                  title="No Data Rule: Keep vehicle in same state for this duration before marking as No Data"
+                >
+                  {NO_DATA_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value} style={{ background: '#1e1b4b', color: '#ffffff' }}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           ))}
         </div>
@@ -403,13 +550,104 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
       </div>
 
+      {/* Active Police Siren Emergency Theft Banner */}
+      {activeSirenAlert && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 9999999,
+          background: 'linear-gradient(90deg, #DC2626, #B91C1C, #7F1D1D)',
+          color: '#FFFFFF',
+          padding: '12px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 8px 30px rgba(220, 38, 38, 0.7)',
+          borderBottom: '3px solid #EF4444',
+          animation: 'sirenPulse 1s ease-in-out infinite'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: 'rgba(255, 255, 255, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 15px rgba(255,255,255,0.4)',
+              flexShrink: 0
+            }}>
+              <ShieldAlert size={24} color="#FFFFFF" />
+            </div>
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 900, letterSpacing: '0.05em', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🚨 THEFT ALARM (POLICE SIREN ACTIVE):</span>
+                <span style={{ textDecoration: 'underline' }}>{activeSirenAlert.vehicleName || 'Vehicle'}</span>
+                <span>({activeSirenAlert.plate || ''})</span>
+              </div>
+              <div style={{ fontSize: '12px', opacity: 0.95, marginTop: '2px', fontWeight: 500 }}>
+                {activeSirenAlert.alertText || 'Vehicle moved (> 1 km/h) or Engine turned ON while Safety Parking was ACTIVE!'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            <button
+              onClick={async () => {
+                if (activeSirenAlert.vehicleId) {
+                  try {
+                    await vehicleApi.updateVehicleSettings(activeSirenAlert.vehicleId, { safetyPark: 'NO' });
+                  } catch (e) {}
+                }
+                stopPoliceSiren();
+              }}
+              style={{
+                padding: '8px 18px',
+                borderRadius: '8px',
+                background: '#FFFFFF',
+                color: '#DC2626',
+                border: 'none',
+                fontSize: '12px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+              }}
+            >
+              Turn OFF Safety Parking & Stop Siren
+            </button>
+            <button
+              onClick={stopPoliceSiren}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                background: 'rgba(0,0,0,0.3)',
+                color: '#FFFFFF',
+                border: '1px solid rgba(255,255,255,0.4)',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              <VolumeX size={15} />
+              Mute Siren
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Global Live Toast Notification */}
       {latestToast && (
         <div style={{
           position: 'fixed', top: '70px', right: '20px', zIndex: 1000,
           background: 'rgba(15, 23, 42, 0.85)', backdropFilter: 'blur(12px)',
           borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderLeft: `4px solid ${latestToast.alertType === 'safety_park' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#3b82f6'}`,
+          borderLeft: `4px solid ${latestToast.alertType === 'safety_park' || latestToast.alertType === 'main_battery_disconnected' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#3b82f6'}`,
           boxShadow: '0 20px 40px rgba(0,0,0,0.4)', padding: '16px 20px',
           display: 'flex', gap: '16px', width: '340px', animation: 'fadeInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
         }}>
@@ -419,11 +657,11 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             boxShadow: 'inset 0 2px 4px rgba(255,255,255,0.05)'
           }}>
-            <Bell size={22} color={latestToast.alertType === 'safety_park' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#60a5fa'} />
+            <Bell size={22} color={latestToast.alertType === 'safety_park' || latestToast.alertType === 'main_battery_disconnected' ? '#ef4444' : latestToast.alertType === 'overspeed' ? '#f97316' : '#60a5fa'} />
           </div>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '13px', fontWeight: 800, color: '#f8fafc', marginBottom: '3px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-              {latestToast.alertType.replace('_', ' ')}
+              {latestToast.alertType.replace(/_/g, ' ')}
             </div>
             <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '6px' }}>
               <span style={{ fontWeight: 700, color: '#e2e8f0' }}>{latestToast.vehicleName}</span> ({latestToast.plate})
@@ -448,6 +686,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         @keyframes fadeInDown {
           from { opacity: 0; transform: translateY(-20px); }
           to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes sirenPulse {
+          0%, 100% { filter: brightness(1); }
+          50% { filter: brightness(1.3); }
         }
       `}} />
     </header>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { formatLocalTime } from '../../utils/dateUtils';
+import { formatLocalTime, getTodayReportRange } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Search, Loader2, Map, Filter, FileText, FileSpreadsheet, Truck, Calendar } from 'lucide-react';
 import axiosInstance from '../../api/axios';
@@ -39,10 +39,13 @@ const TripReportPage = () => {
 
   // Filters
   const [vehicles, setVehicles] = useState([]);
-  const [filters, setFilters] = useState({
-    vehicleId: '',
-    startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString().slice(0, 16),
-    endDate: new Date(new Date().setHours(23, 59, 59, 999)).toISOString().slice(0, 16)
+  const [filters, setFilters] = useState(() => {
+    const range = getTodayReportRange();
+    return {
+      vehicleId: '',
+      startDate: range.startDate,
+      endDate: range.endDate
+    };
   });
 
   useEffect(() => {
@@ -103,6 +106,41 @@ const TripReportPage = () => {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
 
 
+
+      {/* Quick link to Full Day Trips Report */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 16px',
+        marginBottom: '12px',
+        background: 'linear-gradient(90deg, #ECFDF5 0%, #F0FDF4 100%)',
+        border: '1px solid #A7F3D0',
+        borderRadius: '10px',
+        fontSize: '13px',
+        color: '#065F46'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '16px' }}>💡</span>
+          <span><strong>Looking for full-day journey summary?</strong> Automated trips split every time the vehicle stops. To see the entire day from initial departure to final arrival with all stops consolidated, use <strong>Full Day Trips (Consolidated)</strong>.</span>
+        </div>
+        <button
+          onClick={() => navigate('/admin/reports/daily-trip')}
+          style={{
+            padding: '6px 14px',
+            background: '#10B981',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '6px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            fontSize: '12px',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          View Full Day Trips →
+        </button>
+      </div>
 
       {/* Filters Bar */}
       <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', padding: '10px 16px', background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0' }}>

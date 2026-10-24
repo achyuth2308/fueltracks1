@@ -10,6 +10,19 @@ const GeofenceModel = {
     return result.rows;
   },
 
+  async findAllWithStats(orgId) {
+    const result = await db.query(
+      `SELECT g.*, COUNT(vg.vehicle_id)::int AS assigned_vehicles_count
+       FROM geofences g
+       LEFT JOIN vehicle_geofences vg ON g.id = vg.geofence_id
+       WHERE g.org_id = $1
+       GROUP BY g.id
+       ORDER BY g.name ASC`,
+      [orgId]
+    );
+    return result.rows;
+  },
+
   async findById(id) {
     const result = await db.query(
       `SELECT * FROM geofences WHERE id = $1`,
@@ -18,17 +31,17 @@ const GeofenceModel = {
     return result.rows[0] || null;
   },
 
-  async create({ orgId, name, type, coordinates, radius, center_lat, center_lng, is_active = true, notification_time = '00:00' }) {
+  async create({ orgId, name, type, coordinates, radius, center_lat, center_lng, is_active = true, notification_time = '00:00', color = '#3B82F6', alert_on_enter = true, alert_on_exit = true }) {
     const result = await db.query(
-      `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
-      [orgId, name, type || 'polygon', JSON.stringify(coordinates), radius || null, center_lat || null, center_lng || null, is_active, notification_time]
+      [orgId, name, type || 'polygon', JSON.stringify(coordinates), radius || null, center_lat || null, center_lng || null, is_active, notification_time, color || '#3B82F6', alert_on_enter !== false, alert_on_exit !== false]
     );
     return result.rows[0];
   },
 
-  async update(id, { name, type, coordinates, radius, center_lat, center_lng, is_active }) {
+  async update(id, { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit }) {
     const fields = [];
     const values = [];
     let idx = 1;
@@ -41,6 +54,9 @@ const GeofenceModel = {
     if (center_lng !== undefined) { fields.push(`center_lng = $${idx++}`); values.push(center_lng); }
     if (is_active !== undefined) { fields.push(`is_active = $${idx++}`); values.push(is_active); }
     if (notification_time !== undefined) { fields.push(`notification_time = $${idx++}`); values.push(notification_time); }
+    if (color !== undefined) { fields.push(`color = $${idx++}`); values.push(color); }
+    if (alert_on_enter !== undefined) { fields.push(`alert_on_enter = $${idx++}`); values.push(alert_on_enter); }
+    if (alert_on_exit !== undefined) { fields.push(`alert_on_exit = $${idx++}`); values.push(alert_on_exit); }
 
     if (fields.length === 0) return this.findById(id);
 
@@ -49,7 +65,28 @@ const GeofenceModel = {
       `UPDATE geofences SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
       values
     );
+
+    // Invalidate vehicle cache for assigned vehicles
+    try {
+      const vRows = await this.findVehiclesForGeofence(id);
+      for (const v of vRows) {
+        await redis.del(`vehicle:geofences:${v.id}`);
+      }
+    } catch (_) {}
+
     return result.rows[0] || null;
+  },
+
+  async findGeofencesByVehicleId(vehicleId, includeInactive = true) {
+    const query = includeInactive
+      ? `SELECT g.*, vg.assigned_at FROM geofences g
+         JOIN vehicle_geofences vg ON g.id = vg.geofence_id
+         WHERE vg.vehicle_id = $1 ORDER BY g.created_at DESC`
+      : `SELECT g.*, vg.assigned_at FROM geofences g
+         JOIN vehicle_geofences vg ON g.id = vg.geofence_id
+         WHERE vg.vehicle_id = $1 AND g.is_active = TRUE ORDER BY g.created_at DESC`;
+    const result = await db.query(query, [vehicleId]);
+    return result.rows;
   },
 
   async updateSiteNotification(id, { is_active, notification_time }) {
@@ -111,6 +148,30 @@ const GeofenceModel = {
     } finally {
       client.release();
     }
+  },
+
+  async linkVehicle(geofenceId, vehicleId) {
+    await db.query(
+      `INSERT INTO vehicle_geofences (vehicle_id, geofence_id)
+       VALUES ($1, $2)
+       ON CONFLICT (vehicle_id, geofence_id) DO NOTHING`,
+      [vehicleId, geofenceId]
+    );
+    try {
+      await redis.del(`vehicle:geofences:${vehicleId}`);
+    } catch (_) {}
+    return true;
+  },
+
+  async unlinkVehicle(geofenceId, vehicleId) {
+    await db.query(
+      `DELETE FROM vehicle_geofences WHERE vehicle_id = $1 AND geofence_id = $2`,
+      [vehicleId, geofenceId]
+    );
+    try {
+      await redis.del(`vehicle:geofences:${vehicleId}`);
+    } catch (_) {}
+    return true;
   },
 
   async findVehiclesForGeofence(geofenceId) {

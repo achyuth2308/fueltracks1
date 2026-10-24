@@ -1407,7 +1407,7 @@ const VehiclesAdminPage = () => {
           'aadharNo', 'panNo', 'email', 'username', 'password', 'fuelType', 'tankSize', 'fuelEmptyAdc',
           'fuelFullAdc', 'expectedMileage', 'deviceOdo', 'assetTrack', 'safetyPark', 'rigMode', 'acToggle',
           'externalDevice', 'secondaryEngine', 'odometerReading', 'odoDistance', 'overSpeedLimit',
-          'overspeedDurationAlert', 'idleDurationAlert', 'enableDebugs', 'ipAddress', 'portNo', 'lowBattery',
+          'overspeedDurationAlert', 'idleDurationAlert', 'parkingDurationAlert', 'enableDebugs', 'ipAddress', 'portNo', 'lowBattery',
           'serverName', 'timezone', 'lastCommTime', 'plan_duration_months', 'odometerSnapshot'
         ]);
 
@@ -1694,8 +1694,9 @@ const VehiclesAdminPage = () => {
                   renderField('Expected Mileage', meta.expectedMileage ? `${meta.expectedMileage} km/L` : '-'),
                   renderField('Fuel Calibration ADC', meta.fuelEmptyAdc || meta.fuelFullAdc ? `Empty: ${meta.fuelEmptyAdc || '0'} | Full: ${meta.fuelFullAdc || '0'}` : '-'),
                   renderField('Over Speed Limit', meta.overSpeedLimit ? `${meta.overSpeedLimit} km/h` : '-'),
-                  renderField('Overspeed Duration Alert', meta.overspeedDurationAlert ? `${meta.overspeedDurationAlert} s` : '-'),
-                  renderField('Idle Duration Alert', meta.idleDurationAlert ? `${meta.idleDurationAlert} min` : '-'),
+                  renderField('Overspeed Duration Alert', meta.overspeedDurationAlert ? `${meta.overspeedDurationAlert} min` : '-'),
+                  renderField('Idle Duration Alert', meta.idleDurationAlert ? `${meta.idleDurationAlert} min` : '60 min (default 1 hr)'),
+                  renderField('Parking Duration Alert', meta.parkingDurationAlert ? `${meta.parkingDurationAlert} min` : '60 min (default 1 hr)'),
                   renderField('Low Battery Alert Threshold', meta.lowBattery ? `${meta.lowBattery} V` : '-')
                 ])}
 

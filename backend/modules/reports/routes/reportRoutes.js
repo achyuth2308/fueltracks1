@@ -7,6 +7,7 @@ const { authenticate } = require('../../../middleware/auth'); // Check path
 router.use(authenticate);
 
 router.get('/trip', (req, res, next) => reportController.getTripReport(req, res, next));
+router.get('/daily-trip', (req, res, next) => reportController.getDailyTripReport(req, res, next));
 router.get('/distance', (req, res, next) => reportController.getDailyDistanceReport(req, res, next));
 router.get('/activity', (req, res, next) => reportController.getVehicleActivityReport(req, res, next));
 router.get('/route-history', (req, res, next) => reportController.getRouteHistoryReport(req, res, next));
@@ -16,5 +17,6 @@ router.get('/stoppages', (req, res, next) => reportController.getStoppagesReport
 router.get('/consolidated', (req, res, next) => reportController.getConsolidatedReport(req, res, next));
 router.get('/individual', (req, res, next) => reportController.getIndividualReport(req, res, next));
 router.get('/dashboard', (req, res, next) => reportController.getDashboardStats(req, res, next));
+router.get('/geofence-transit', (req, res, next) => reportController.getGeofenceTransitReport(req, res, next));
 
 module.exports = router;

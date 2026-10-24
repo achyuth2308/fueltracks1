@@ -26,12 +26,12 @@ const ALERT_MAP = {
   '08': { type: 'ignition_off',  text: 'Alert – Ignition OFF' },
   '09': { type: 'box_open',      text: 'Alert – Box Opened (Tamper)' },
   '10': { type: 'sos',           text: 'Alert – Emergency State ON' },
-  '11': { type: 'sos',           text: 'Alert – Emergency State OFF' },
+  '11': { type: 'emergency_off', text: 'Alert – Emergency State OFF' },
   '12': { type: 'general',       text: 'Alert – Over-The-Air Parameter Change' },
   '13': { type: 'harsh_driving', text: 'Alert – Harsh Braking' },
   '14': { type: 'harsh_driving', text: 'Alert – Harsh Acceleration' },
   '15': { type: 'harsh_driving', text: 'Alert – Rash Turning' },
-  '16': { type: 'sos',           text: 'Alert – Device Tampered' },
+  '16': { type: 'tamper',        text: 'Alert – Device Tampered / Wire Disconnect' },
   '17': { type: 'overspeed',     text: 'Alert – Over Speed' },
   '18': { type: 'general',       text: 'Alert – Tilt' },
   // Numeric string aliases (single-digit without leading zero)
@@ -373,7 +373,7 @@ function parseAis140V2EmergencyPacket(raw) {
     emgReplyNo:   parseInt(emgReplyNo) || 0,
     msgType,
     alertText,
-    alertType:    'sos',
+    alertType:    isSosOn ? 'sos' : 'sos_cleared',
     ignition:     true,    // Emergency typically has ignition active
     odometer:     0,
     direction:    0,

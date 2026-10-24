@@ -14,12 +14,12 @@ const ALERT_MAP = {
   '8': { type: 'ignition_off', text: 'Ignition Off' },
   '9': { type: 'box_open', text: 'Tamper Alert (Box Open)' },
   '10': { type: 'sos', text: 'Emergency On (SOS)' },
-  '11': { type: 'sos', text: 'Emergency Off (SOS)' },
+  '11': { type: 'emergency_off', text: 'Emergency Off (SOS)' },
   '12': { type: 'general', text: 'OTA Alert' },
   '13': { type: 'harsh_driving', text: 'Harsh Braking Alert' },
   '14': { type: 'harsh_driving', text: 'Harsh Acceleration Alert' },
   '15': { type: 'harsh_driving', text: 'Rash Turning Alert' },
-  '16': { type: 'sos', text: 'SOS Button Wire Disconnect Alert' },
+  '16': { type: 'tamper', text: 'SOS Button Wire Disconnect Alert' },
   '17': { type: 'overspeed', text: 'Overspeed Alert' },
   '18': { type: 'geofence', text: 'Geofence In Alert' },
   '19': { type: 'geofence', text: 'Geofence Out Alert' },
@@ -213,7 +213,8 @@ function parseAis140EmergencyPacket(raw) {
   const lng = convertCoords(rawLng, lngDir);
   const deviceTime = parseAis140MergedTime(dateTimeStr);
 
-  const alertText = packetType === 'SEM' ? 'Stop Message (Emergency Ended)' : 'Emergency Message (SOS Pressed)';
+  const isSosOn = packetType === 'EMR';
+  const alertText = isSosOn ? 'Emergency Message (SOS Pressed)' : 'Stop Message (Emergency Ended)';
 
   // We return a parsed structure resembling location updates for mapping
   // as well as alert information so it can trigger notifications.
@@ -239,7 +240,7 @@ function parseAis140EmergencyPacket(raw) {
     isLive: status === 'NM',
     deviceTime,
     alertText,
-    alertType: 'sos',
+    alertType: isSosOn ? 'sos' : 'sos_cleared',
     rawPacket: raw
   };
 }
