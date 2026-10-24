@@ -495,7 +495,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               )}
             {showDropdown && (
               <div style={{
-                position: 'absolute', top: '30px', right: '0', width: '300px', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, border: '1px solid #e5e7eb', overflow: 'hidden'
+                position: 'absolute', top: '30px', right: '0', width: '300px', maxWidth: 'calc(100vw - 24px)', background: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', zIndex: 100, border: '1px solid #e5e7eb', overflow: 'hidden'
               }} onClick={(e) => e.stopPropagation()}>
                 <div style={{ padding: '12px 16px', borderBottom: '1px solid #e5e7eb', fontWeight: 700, fontSize: '13px', background: '#f8fafc', color: '#111827', display: 'flex', justifyContent: 'space-between' }}>
                   <span>Recent Alerts</span>

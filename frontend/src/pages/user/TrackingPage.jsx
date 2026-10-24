@@ -24,9 +24,9 @@ const getExpiryWarning = (vehicle) => {
   );
 
   if (status.isExpired) {
-    return { type: 'expired', text: `Licence Expired` };
+    return { type: 'expired', text: `License Expired` };
   } else if (status.isExpiring) {
-    return { type: 'expiring', text: `Licence Expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
+    return { type: 'expiring', text: `Your license is going to expire in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
   }
   return null;
 };
@@ -65,6 +65,7 @@ const TrackingPage = ({ setAppVehicles }) => {
   const toggleGroupCollapse = (groupId) => setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
   const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
@@ -260,6 +261,9 @@ const TrackingPage = ({ setAppVehicles }) => {
         setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
       }
     }
+    if (window.innerWidth <= 768) {
+      setMobileTab('map');
+    }
     const warning = getExpiryWarning(vehicle);
     if (warning && warning.type === 'expired') {
       setExpiredModalVehicle(prev => prev?.id === vehicle.id ? null : vehicle);
@@ -414,10 +418,12 @@ const TrackingPage = ({ setAppVehicles }) => {
             exit={{ opacity: 0, scale: 0.95, x: -10 }}
             style={{
               position: 'absolute',
-              top: `${hoverPosY}px`,
-              left: '315px',
+              top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
+              left: window.innerWidth > 768 ? '315px' : '12px',
+              right: window.innerWidth > 768 ? 'auto' : '12px',
               zIndex: 10000,
-              width: '360px',
+              width: window.innerWidth > 768 ? '360px' : 'auto',
+              maxWidth: 'calc(100vw - 24px)',
               background: '#FFFFFF',
               borderRadius: '8px',
               overflow: 'hidden',
@@ -502,10 +508,12 @@ const TrackingPage = ({ setAppVehicles }) => {
       {hoveredVehicle && (
         <div style={{
           position: 'absolute',
-          top: `${hoverPosY}px`,
-          left: '320px',
-          width: '360px',
-          background: 'rgba(241, 245, 249, 0.88)',
+          top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
+          left: window.innerWidth > 768 ? '320px' : '12px',
+          right: window.innerWidth > 768 ? 'auto' : '12px',
+          width: window.innerWidth > 768 ? '360px' : 'auto',
+          maxWidth: 'calc(100vw - 24px)',
+          background: 'rgba(241, 245, 249, 0.95)',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           border: '1px solid rgba(203, 213, 225, 0.8)',
@@ -621,16 +629,12 @@ const TrackingPage = ({ setAppVehicles }) => {
       )}
 
       {/* ═══════════ LEFT PANEL: Vehicle List (Docked seamlessly matching Image 2) ═══════════ */}
-      <div style={{
-        width: '310px',
-        height: '100%',
-        background: '#FFFFFF',
-        borderRight: '1px solid #E2E8F0',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 10,
-        flexShrink: 0
-      }}>
+      <div
+        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[310px] ${
+          mobileTab === 'list' ? 'flex' : 'hidden md:flex'
+        }`}
+        style={{ height: '100%', position: 'relative' }}
+      >
         {/* Header Section */}
         <div style={{ padding: '14px 14px 10px 14px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
@@ -850,11 +854,27 @@ const TrackingPage = ({ setAppVehicles }) => {
           ) : (
             filteredVehicles.map(v => renderVehicleCard(v, 'all'))
           )}
+          {/* Mobile Floating Button to switch to Map */}
+          <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 100 }}>
+            <button
+              onClick={() => setMobileTab('map')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 16px', borderRadius: '30px',
+                background: '#0284C7', color: '#FFFFFF',
+                fontSize: '12px', fontWeight: 700, border: 'none',
+                boxShadow: '0 4px 14px rgba(2,132,199,0.4)', cursor: 'pointer'
+              }}
+            >
+              <MapPin size={15} color="#FFFFFF" />
+              <span>View Map</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ═══════════ MAP AREA (Full remaining width) ═══════════ */}
-      <div style={{ flex: 1, height: '100%', position: 'relative', background: '#e5e7eb' }}>
+      <div className={`flex-1 h-full relative bg-slate-200 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
         <FleetMap
           vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehicles] : currentSelectedVehicles) : filteredVehicles}
           selectedVehicles={currentSelectedVehicles}
@@ -867,10 +887,27 @@ const TrackingPage = ({ setAppVehicles }) => {
           liveRouteMetrics={liveRouteMetrics}
         />
 
+        {/* Mobile Floating Button to switch back to List */}
+        <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>
+          <button
+            onClick={() => setMobileTab('list')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '9px 16px', borderRadius: '30px',
+              background: '#0F172A', color: '#FFFFFF',
+              fontSize: '12px', fontWeight: 700, border: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.35)', cursor: 'pointer'
+            }}
+          >
+            <Truck size={15} color="#38BDF8" />
+            <span>Vehicles ({filteredVehicles.length})</span>
+          </button>
+        </div>
+
         {/* ── Floating Status Pills (top-right of map) ── */}
         <div style={{
           position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
-          display: 'flex', gap: '6px', flexWrap: 'wrap'
+          display: 'flex', gap: '6px', maxWidth: 'calc(100vw - 24px)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px'
         }}>
           {[
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },

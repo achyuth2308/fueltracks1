@@ -386,7 +386,7 @@ const VehicleDetailPage = () => {
       )}
 
       {/* Top Navigation Bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 24px', background: '#FFFFFF', borderBottom: '1px solid #E2E8F0', flexShrink: 0 }}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-3 py-2.5 sm:px-6 sm:py-3 bg-white border-b border-slate-200 shrink-0">
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => navigate(-1)}
@@ -396,7 +396,7 @@ const VehicleDetailPage = () => {
           </button>
           <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', margin: 0 }}>Vehicle Detail</h1>
         </div>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="flex flex-wrap items-center gap-2">
           {/* Immobilizer Action Button */}
           <button
             onClick={() => {
@@ -532,7 +532,7 @@ const VehicleDetailPage = () => {
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="flex-1 overflow-y-auto p-3 sm:p-5 flex flex-col gap-4">
 
         {/* Expiry Warning */}
         {(() => {
@@ -551,12 +551,28 @@ const VehicleDetailPage = () => {
               <AlertTriangle size={20} color={isExpired ? '#EF4444' : '#F59E0B'} style={{ flexShrink: 0 }} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: isExpired ? '#991B1B' : '#B45309' }}>
-                  {isExpired ? 'License Expired' : 'License Expiring Soon'}
+                  {isExpired ? 'License Expired' : 'License Expiring Soon!'}
                 </div>
                 <div style={{ fontSize: '12px', color: isExpired ? '#B91C1C' : '#D97706', marginTop: '2px' }}>
                   {status.type === 'expired' 
-                    ? `Licence expired on ${formatLocalDate(vehicle.licence_expire_date)}.` 
-                    : `Licence expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'} on ${formatLocalDate(vehicle.licence_expire_date)}.`}
+                    ? `Your license has expired on ${formatLocalDate(vehicle.licence_expire_date)}.` 
+                    : `Your license is going to expire in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'} on ${formatLocalDate(vehicle.licence_expire_date)}.`}
+                  {(() => {
+                    const ren = vehicle.metadata?.renewal_price;
+                    const disc = vehicle.metadata?.discount_price;
+                    if (disc && ren && parseFloat(disc) < parseFloat(ren)) {
+                      return (
+                        <span style={{ marginLeft: '8px', fontWeight: 700, color: '#047857' }}>
+                          Renew today for <span style={{ textDecoration: 'line-through', color: '#6B7280' }}>₹{parseFloat(ren).toFixed(2)}</span>{' '}
+                          <span style={{ fontWeight: 800, color: '#059669' }}>₹{parseFloat(disc).toFixed(2)}</span>{' '}
+                          (Save ₹{(parseFloat(ren) - parseFloat(disc)).toFixed(2)})!
+                        </span>
+                      );
+                    } else if (ren) {
+                      return <span style={{ marginLeft: '8px', fontWeight: 700 }}>Renewal price: ₹{parseFloat(ren).toFixed(2)}</span>;
+                    }
+                    return null;
+                  })()}
                 </div>
               </div>
               <button
@@ -574,7 +590,7 @@ const VehicleDetailPage = () => {
         })()}
 
         {/* 1. Compact Vehicle Summary Header */}
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '16px 20px', border: '1px solid #E2E8F0', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px' }}>
+        <div className="bg-white rounded-xl p-4 sm:p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Truck size={24} color="#D97706" />
@@ -592,9 +608,9 @@ const VehicleDetailPage = () => {
             </div>
           </div>
 
-          <div style={{ height: '36px', width: '1px', background: '#E2E8F0' }} />
+          <div className="hidden md:block h-9 w-[1px] bg-slate-200" />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '32px' }}>
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
             <div>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}><Building2 size={13} /> Organization</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#111827' }}>{vehicle.org_name || 'N/A'}</div>
@@ -666,7 +682,7 @@ const VehicleDetailPage = () => {
         </div>
 
         {/* 2. KPI Strip (6 Horizontal Divided Metrics) */}
-        <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '12px 20px', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+        <div className="bg-white rounded-xl border border-slate-200 p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 shadow-xs">
           {/* Speed */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -751,7 +767,7 @@ const VehicleDetailPage = () => {
         </div>
 
         {/* 3. Main Content Grid: Left Map (~65%), Right Live Device Status & Alerts (~35%) */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px', height: '480px', minHeight: '480px' }}>
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4 min-h-[480px] lg:h-[480px]">
           {/* Map */}
           <div style={{
             background: '#FFFFFF',

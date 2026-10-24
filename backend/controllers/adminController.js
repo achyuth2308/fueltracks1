@@ -941,7 +941,8 @@ const AdminController = {
           durationMonths = totalDays >= 180 ? 12 : 1;
         }
 
-        const thresholdDays = durationMonths >= 6 ? 30 : 7;
+        // User requirement: "alerts should go from one week only"
+        const thresholdDays = 7;
         let status = 'Active';
         let diffDays = null;
 
@@ -978,7 +979,8 @@ const AdminController = {
           diffDays: diffDays,
           durationMonths: durationMonths,
           thresholdDays: thresholdDays,
-          renewalPrice: metadata.renewal_price !== undefined && metadata.renewal_price !== null ? parseFloat(metadata.renewal_price) : null
+          renewalPrice: metadata.renewal_price !== undefined && metadata.renewal_price !== null ? parseFloat(metadata.renewal_price) : null,
+          discountPrice: metadata.discount_price !== undefined && metadata.discount_price !== null && metadata.discount_price !== '' ? parseFloat(metadata.discount_price) : null
         };
       });
 
@@ -991,12 +993,12 @@ const AdminController = {
 
   async setVehicleBillingAmount(req, res, next) {
     try {
-      const { vehicleId, price, durationMonths } = req.body;
+      const { vehicleId, price, discountPrice, durationMonths, startDate, expiryDate } = req.body;
       if (!vehicleId || price === undefined || price === null) {
         return res.status(400).json({ success: false, error: 'vehicleId and price are required.' });
       }
 
-      let checkQuery = `SELECT id, org_id, metadata FROM vehicles WHERE (id::text = $1 OR metadata->>'vehicleId' = $1 OR imei = $1)`;
+      let checkQuery = `SELECT id, org_id, metadata, licence_issued_date, licence_expire_date FROM vehicles WHERE (id::text = $1 OR metadata->>'vehicleId' = $1 OR imei = $1)`;
       let params = [vehicleId];
       if (req.user.role !== 'superadmin') {
         checkQuery += ` AND (org_id = $2 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $2))`;
@@ -1008,24 +1010,61 @@ const AdminController = {
         return res.status(400).json({ success: false, error: 'Vehicle record not found or permission denied.' });
       }
 
-
       const vehicle = checkRes.rows[0];
       const existingMeta = vehicle.metadata || {};
+
+      let calcMonths = parseInt(durationMonths, 10);
+      if (startDate && expiryDate) {
+        const s = new Date(startDate);
+        const e = new Date(expiryDate);
+        if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+          const days = Math.round((e - s) / (1000 * 60 * 60 * 24));
+          calcMonths = Math.max(1, Math.round(days / 30));
+        }
+      }
+      if (isNaN(calcMonths) || calcMonths <= 0) calcMonths = 12;
+
+      const parsedDiscount = (discountPrice !== undefined && discountPrice !== null && discountPrice !== '')
+        ? parseFloat(discountPrice)
+        : null;
+
       const updatedMeta = {
         ...existingMeta,
         renewal_price: parseFloat(price),
-        plan_duration_months: parseInt(durationMonths || 12, 10)
+        discount_price: parsedDiscount,
+        plan_duration_months: calcMonths,
+        plan_start_date: startDate || existingMeta.plan_start_date || null,
+        plan_expiry_date: expiryDate || existingMeta.plan_expiry_date || null
       };
 
-      await db.query(`UPDATE vehicles SET metadata = $1, updated_at = NOW() WHERE id = $2`, [JSON.stringify(updatedMeta), vehicle.id]);
+      let updateSql = `UPDATE vehicles SET metadata = $1, updated_at = NOW()`;
+      const updateParams = [JSON.stringify(updatedMeta), vehicle.id];
+      let pIdx = 3;
+
+      if (startDate && !isNaN(new Date(startDate).getTime())) {
+        updateSql += `, licence_issued_date = $${pIdx}`;
+        updateParams.push(startDate);
+        pIdx++;
+      }
+      if (expiryDate && !isNaN(new Date(expiryDate).getTime())) {
+        updateSql += `, licence_expire_date = $${pIdx}`;
+        updateParams.push(expiryDate);
+        pIdx++;
+      }
+
+      updateSql += ` WHERE id = $2`;
+      await db.query(updateSql, updateParams);
 
       res.status(200).json({
         success: true,
-        message: 'Vehicle renewal amount and plan duration updated successfully.',
+        message: 'Vehicle renewal amount, discount price, and custom date range updated successfully.',
         data: {
           vehicleId: vehicle.id,
           renewalPrice: parseFloat(price),
-          durationMonths: parseInt(durationMonths || 12, 10)
+          discountPrice: parsedDiscount,
+          durationMonths: calcMonths,
+          startDate,
+          expiryDate
         }
       });
     } catch (err) {

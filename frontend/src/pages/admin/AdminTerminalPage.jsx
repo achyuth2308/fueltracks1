@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Terminal as TerminalIcon, Search, RefreshCw, Download,
   MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown,
-  FileCode, Copy, Check, Maximize2
+  FileCode, Copy, Check, Maximize2, Eye, Zap, KeyRound, Activity
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
@@ -59,7 +59,64 @@ function extractFields(m) {
     : (p.fuel != null ? parseFloat(p.fuel)
       : (p.fuelLevel != null ? parseFloat(p.fuelLevel) : null));
 
-  return { lat, lng, speed, fuel };
+  // voltage: prefer m.voltage, then p.voltage / p.mainVoltage, then raw packet fallback
+  let voltage = m.voltage != null ? parseFloat(m.voltage)
+    : (p.voltage != null ? parseFloat(p.voltage)
+      : (p.mainVoltage != null ? parseFloat(p.mainVoltage) : null));
+
+  // ignition: prefer m.ignition, then p.ignition, then raw packet fallback
+  let ignition = m.ignition != null
+    ? (m.ignition === true || m.ignition === 'true' || m.ignition === 1 || m.ignition === '1')
+    : (p.ignition != null
+      ? (p.ignition === true || p.ignition === 'true' || p.ignition === 1 || p.ignition === '1')
+      : null);
+
+  // Raw packet fallback if voltage or ignition is still missing
+  if (voltage == null || ignition == null) {
+    const rawStr = m.raw_hex || m.raw || '';
+    if (rawStr.includes(';')) {
+      const parts = rawStr.replace(/\*/g, '').split(';');
+      const imeiIdx = parts.findIndex(part => /^\d{14,16}$/.test(part.trim()));
+      if (imeiIdx !== -1) {
+        if (ignition == null && parts[imeiIdx + 16] !== undefined) {
+          const ignChar = parts[imeiIdx + 16].trim();
+          ignition = ignChar === '1' ? true : (ignChar === '0' ? false : null);
+        }
+        if (voltage == null) {
+          const vRaw = parts[imeiIdx + 18] || parts[imeiIdx + 17];
+          if (vRaw && !isNaN(parseFloat(vRaw))) {
+            voltage = parseFloat(vRaw);
+          }
+        }
+      }
+    } else if (rawStr.includes(',')) {
+      const parts = rawStr.replace(/\*/g, '').split(',');
+      if (parts[0] === '$10' || parts[0] === '$11') {
+        if (ignition == null && parts[9] !== undefined) {
+          ignition = parts[9].trim() === '1';
+        }
+        if (voltage == null && parts[10] && !isNaN(parseFloat(parts[10]))) {
+          voltage = parseFloat(parts[10]);
+        }
+      }
+    }
+  }
+
+  // engineStatus: compute from speed and ignition
+  let engineStatus = m.engine_status || null;
+  if (!engineStatus) {
+    if (speed > 2.0) {
+      engineStatus = 'ON (Moving)';
+    } else if (ignition === true) {
+      engineStatus = 'ON (Idle)';
+    } else if (ignition === false) {
+      engineStatus = 'OFF';
+    } else {
+      engineStatus = '—';
+    }
+  }
+
+  return { lat, lng, speed, fuel, voltage, ignition, engineStatus };
 }
 
 const AdminTerminalPage = () => {
@@ -181,7 +238,7 @@ const AdminTerminalPage = () => {
   const handleExport = () => {
     if (!packets.length) return;
     const rows = packets.map((p, idx) => {
-      const { lat, lng, speed, fuel } = extractFields(p);
+      const { lat, lng, speed, fuel, voltage, ignition, engineStatus } = extractFields(p);
       const mapsUrl = (lat && lng && lat !== 0 && lng !== 0)
         ? `https://www.google.com/maps?q=${lat},${lng}` : '';
       return {
@@ -191,6 +248,9 @@ const AdminTerminalPage = () => {
         'Device / GPS Time (IST)': formatIST(p.device_time),
         'Speed (km/h)': speed != null ? Math.round(speed) : 0,
         'Fuel (L)': fuel != null ? Number(fuel).toFixed(2) : '',
+        'Voltage (V)': voltage != null ? Number(voltage).toFixed(1) : '',
+        'Ignition Status': ignition != null ? (ignition ? 'ON' : 'OFF') : '',
+        'Engine Status': engineStatus || '',
         'Location (Google Maps)': mapsUrl,
         'Raw Packet': p.raw_hex || p.raw || ''
       };
@@ -406,7 +466,7 @@ const AdminTerminalPage = () => {
           </div>
 
           {/* Buttons */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '24px' }}>
+          <div className="mt-2 sm:mt-6 flex gap-2.5 items-center">
             <button
               onClick={() => fetchPackets(1)}
               disabled={loading || !activeIdentifier}
@@ -500,38 +560,53 @@ const AdminTerminalPage = () => {
         overflow: 'hidden'
       }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: '1200px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', minWidth: '1130px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', tableLayout: 'fixed' }}>
             <thead>
               <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
                 <th style={{ padding: '13px 12px', fontWeight: 700, width: '45px', textAlign: 'center', fontSize: '12px' }}>#</th>
-                <th style={{ padding: '13px 14px', fontWeight: 700, width: '145px', fontSize: '12px' }}>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '140px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Cpu size={13} color="#7DD3FC" /> IMEI
                   </div>
                 </th>
-                <th style={{ padding: '13px 14px', fontWeight: 700, width: '190px', fontSize: '12px' }}>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '180px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Clock size={13} color="#7DD3FC" /> Server Time (IST)
                   </div>
                 </th>
-                <th style={{ padding: '13px 12px', fontWeight: 700, width: '100px', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '95px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Navigation size={13} color="#7DD3FC" /> Speed
                   </div>
                 </th>
-                <th style={{ padding: '13px 12px', fontWeight: 700, width: '100px', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '95px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span role="img" aria-label="fuel">⛽</span> Fuel (L)
                   </div>
                 </th>
-                <th style={{ padding: '13px 14px', fontWeight: 700, width: '150px', fontSize: '12px' }}>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '105px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Zap size={13} color="#FBBF24" /> Voltage
+                  </div>
+                </th>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '110px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <KeyRound size={13} color="#7DD3FC" /> Ignition
+                  </div>
+                </th>
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '130px', fontSize: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Activity size={13} color="#7DD3FC" /> Engine Status
+                  </div>
+                </th>
+                <th style={{ padding: '13px 14px', fontWeight: 700, width: '140px', fontSize: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <MapPin size={13} color="#7DD3FC" /> Location
                   </div>
                 </th>
-                <th style={{ padding: '13px 14px', fontWeight: 700, width: '380px', fontSize: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <FileCode size={13} color="#7DD3FC" /> Raw Packet
+                <th style={{ padding: '13px 12px', fontWeight: 700, width: '90px', fontSize: '12px', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <FileCode size={13} color="#7DD3FC" /> Raw
                   </div>
                 </th>
               </tr>
@@ -539,14 +614,14 @@ const AdminTerminalPage = () => {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
+                  <td colSpan="10" style={{ padding: '60px 20px', textAlign: 'center', color: '#64748B' }}>
                     <Loader2 size={30} className="animate-spin" style={{ margin: '0 auto 12px', color: '#1E3A5F', display: 'block' }} />
                     <div style={{ fontSize: '14px', fontWeight: 600 }}>Loading telemetry packets...</div>
                   </td>
                 </tr>
               ) : packets.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
+                  <td colSpan="10" style={{ padding: '60px 20px', textAlign: 'center', color: '#94A3B8' }}>
                     <TerminalIcon size={36} style={{ margin: '0 auto 12px', opacity: 0.35, display: 'block' }} />
                     <div style={{ fontSize: '15px', fontWeight: 600, color: '#475569' }}>No telemetry packets found</div>
                     <div style={{ fontSize: '13px', marginTop: '4px', color: '#64748B' }}>
@@ -556,7 +631,7 @@ const AdminTerminalPage = () => {
                 </tr>
               ) : (
                 packets.map((p, idx) => {
-                  const { lat, lng, speed, fuel } = extractFields(p);
+                  const { lat, lng, speed, fuel, voltage, ignition, engineStatus } = extractFields(p);
                   const hasGps = lat != null && lng != null && lat !== 0 && lng !== 0;
                   const mapsUrl = hasGps
                     ? `https://www.google.com/maps?q=${Number(lat).toFixed(6)},${Number(lng).toFixed(6)}`
@@ -622,6 +697,68 @@ const AdminTerminalPage = () => {
                         )}
                       </td>
 
+                      {/* Voltage */}
+                      <td style={{ padding: '12px 12px' }}>
+                        {voltage != null ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '4px',
+                            padding: '4px 8px', borderRadius: '20px',
+                            background: voltage > 11.5 ? '#FEF3C7' : '#FEE2E2',
+                            color: voltage > 11.5 ? '#92400E' : '#991B1B',
+                            fontWeight: 700, fontSize: '12px', whiteSpace: 'nowrap'
+                          }}>
+                            ⚡ {Number(voltage).toFixed(1)} V
+                          </span>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Ignition Status */}
+                      <td style={{ padding: '12px 12px' }}>
+                        {ignition != null ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 10px', borderRadius: '20px',
+                            background: ignition ? '#DCFCE7' : '#F1F5F9',
+                            color: ignition ? '#15803D' : '#64748B',
+                            fontWeight: 700, fontSize: '12px'
+                          }}>
+                            <span style={{
+                              width: '6px', height: '6px', borderRadius: '50%',
+                              background: ignition ? '#22C55E' : '#94A3B8'
+                            }} />
+                            {ignition ? 'ON' : 'OFF'}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
+                        )}
+                      </td>
+
+                      {/* Engine Status */}
+                      <td style={{ padding: '12px 12px' }}>
+                        {engineStatus && engineStatus !== '—' ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 10px', borderRadius: '20px',
+                            background: engineStatus.includes('Moving') ? '#DCFCE7'
+                              : (engineStatus.includes('Idle') ? '#FEF9C3' : '#F1F5F9'),
+                            color: engineStatus.includes('Moving') ? '#15803D'
+                              : (engineStatus.includes('Idle') ? '#854D0E' : '#64748B'),
+                            fontWeight: 700, fontSize: '11.5px', whiteSpace: 'nowrap'
+                          }}>
+                            <span style={{
+                              width: '6px', height: '6px', borderRadius: '50%',
+                              background: engineStatus.includes('Moving') ? '#22C55E'
+                                : (engineStatus.includes('Idle') ? '#EAB308' : '#94A3B8')
+                            }} />
+                            {engineStatus}
+                          </span>
+                        ) : (
+                          <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
+                        )}
+                      </td>
+
                       {/* Location */}
                       <td style={{ padding: '12px 14px' }}>
                         {hasGps ? (
@@ -665,56 +802,30 @@ const AdminTerminalPage = () => {
                       {/* Raw Packet */}
                       <td style={{ padding: '10px 14px' }}>
                         {rawPacketStr ? (
-                          <div style={{
-                            display: 'flex', alignItems: 'flex-start', gap: '8px',
-                            background: '#F8FAFC', border: '1px solid #E2E8F0',
-                            borderRadius: '6px', padding: '6px 10px', maxWidth: '100%'
-                          }}>
-                            <div style={{
-                              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                              fontSize: '11px', color: '#1E293B',
-                              wordBreak: 'break-all', whiteSpace: 'normal',
-                              lineHeight: '1.45', letterSpacing: '0.02em',
-                              flex: 1
-                            }}>
-                              {rawPacketStr}
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flexShrink: 0 }}>
-                              <button
-                                type="button"
-                                onClick={() => handleCopy(p.id || idx, rawPacketStr)}
-                                title="Copy Raw Packet"
-                                style={{
-                                  background: isCopied ? '#DCFCE7' : '#FFFFFF',
-                                  border: `1px solid ${isCopied ? '#86EFAC' : '#CBD5E1'}`,
-                                  borderRadius: '4px', padding: '3px 7px',
-                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px',
-                                  fontSize: '11px', fontWeight: 600,
-                                  color: isCopied ? '#15803D' : '#475569',
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                {isCopied ? <Check size={11} color="#16A34A" /> : <Copy size={11} />}
-                                {isCopied ? 'Copied' : 'Copy'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setModalPacket(p)}
-                                title="View Full Packet In Modal"
-                                style={{
-                                  background: '#EFF6FF',
-                                  border: '1px solid #BFDBFE',
-                                  borderRadius: '4px', padding: '3px 7px',
-                                  cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '3px',
-                                  fontSize: '11px', fontWeight: 600,
-                                  color: '#1D4ED8',
-                                  transition: 'all 0.15s ease'
-                                }}
-                              >
-                                <Maximize2 size={11} /> View
-                              </button>
-                            </div>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setModalPacket(p)}
+                            title="View Full Raw Packet"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: '#EFF6FF',
+                              border: '1px solid #BFDBFE',
+                              borderRadius: '7px',
+                              padding: '5px 12px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              color: '#1D4ED8',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#DBEAFE'; e.currentTarget.style.borderColor = '#93C5FD'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#EFF6FF'; e.currentTarget.style.borderColor = '#BFDBFE'; }}
+                          >
+                            <Eye size={13} color="#2563EB" />
+                            View
+                          </button>
                         ) : (
                           <span style={{ color: '#CBD5E1', fontSize: '12px' }}>—</span>
                         )}
@@ -775,8 +886,9 @@ const AdminTerminalPage = () => {
           background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(3px)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px'
         }}>
-          <div style={{
+          <div className="modal-box" style={{
             background: '#FFFFFF', borderRadius: '14px', width: '100%', maxWidth: '780px',
+            maxHeight: '90vh', overflowY: 'auto',
             boxShadow: '0 20px 40px rgba(0,0,0,0.2)', border: '1px solid #E2E8F0',
             overflow: 'hidden', display: 'flex', flexDirection: 'column'
           }}>
@@ -803,12 +915,20 @@ const AdminTerminalPage = () => {
 
             {/* Body */}
             <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12.5px', color: '#475569' }}>
-                <div><b>IMEI:</b> <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{modalPacket.imei}</span></div>
-                <div><b>Server Time:</b> {formatIST(modalPacket.received_at)}</div>
-                {modalPacket.device_time && <div><b>GPS Time:</b> {formatIST(modalPacket.device_time)}</div>}
-                <div><b>Packet Length:</b> {(modalPacket.raw_hex || modalPacket.raw || '').length} characters ({(modalPacket.raw_hex || modalPacket.raw || '').length / 2} bytes)</div>
-              </div>
+              {(() => {
+                const modalFields = extractFields(modalPacket);
+                return (
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '12.5px', color: '#475569' }}>
+                    <div><b>IMEI:</b> <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{modalPacket.imei}</span></div>
+                    <div><b>Server Time:</b> {formatIST(modalPacket.received_at)}</div>
+                    {modalPacket.device_time && <div><b>GPS Time:</b> {formatIST(modalPacket.device_time)}</div>}
+                    {modalFields.voltage != null && <div><b>Voltage:</b> {Number(modalFields.voltage).toFixed(1)} V</div>}
+                    {modalFields.ignition != null && <div><b>Ignition:</b> {modalFields.ignition ? 'ON' : 'OFF'}</div>}
+                    {modalFields.engineStatus && modalFields.engineStatus !== '—' && <div><b>Engine:</b> {modalFields.engineStatus}</div>}
+                    <div><b>Packet Length:</b> {(modalPacket.raw_hex || modalPacket.raw || '').length} characters</div>
+                  </div>
+                );
+              })()}
 
               <div style={{
                 background: '#0F172A', color: '#38BDF8', padding: '14px 16px',

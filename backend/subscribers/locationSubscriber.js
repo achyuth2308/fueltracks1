@@ -189,6 +189,18 @@ async function start(io) {
         if (io) {
           const vehicle = await VehicleModel.findByImei(data.imei);
           if (vehicle) {
+            const rawVoltage = (data.parsedJson && data.parsedJson.voltage != null) ? data.parsedJson.voltage : (data.voltage != null ? data.voltage : null);
+            const rawIgnition = (data.parsedJson && data.parsedJson.ignition != null) ? data.parsedJson.ignition : (data.ignition != null ? data.ignition : null);
+            const rawSpeed = (data.parsedJson && data.parsedJson.speed != null) ? parseFloat(data.parsedJson.speed) : (data.speed != null ? parseFloat(data.speed) : 0);
+            let engineStatus = null;
+            if (rawSpeed > 2.0) {
+              engineStatus = 'ON (Moving)';
+            } else if (rawIgnition === true) {
+              engineStatus = 'ON (Idle)';
+            } else if (rawIgnition === false) {
+              engineStatus = 'OFF';
+            }
+
             io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
               id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               vehicleId: vehicle.id,
@@ -200,7 +212,10 @@ async function start(io) {
               raw_hex: data.rawHex || actualRaw,
               raw: actualRaw,
               error: errorMsg,
-              parsed_data: data.parsedJson || data
+              parsed_data: data.parsedJson || data,
+              voltage: rawVoltage,
+              ignition: rawIgnition,
+              engine_status: engineStatus
             });
           }
         }

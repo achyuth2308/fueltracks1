@@ -78,7 +78,7 @@ export const getNoDataDuration = (isoString) => {
 
 export const getVehicleExpiryStatus = (expireDateStr, issuedDateStr = null, metadata = null) => {
   if (!expireDateStr) {
-    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 30 };
+    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 7 };
   }
 
   try {
@@ -97,7 +97,8 @@ export const getVehicleExpiryStatus = (expireDateStr, issuedDateStr = null, meta
       durationMonths = totalDays >= 180 ? 12 : 1;
     }
 
-    const thresholdDays = durationMonths >= 6 ? 30 : 7;
+    // Alerts go from 1 week (7 days) only
+    const thresholdDays = 7;
 
     if (diffDays < 0) {
       return {
@@ -131,7 +132,7 @@ export const getVehicleExpiryStatus = (expireDateStr, issuedDateStr = null, meta
       };
     }
   } catch (err) {
-    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 30 };
+    return { type: 'unknown', text: 'Unknown', isExpiring: false, isExpired: false, diffDays: null, durationMonths: 12, thresholdDays: 7 };
   }
 };
 

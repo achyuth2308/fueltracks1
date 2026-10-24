@@ -819,7 +819,21 @@ const GpsModel = {
                 CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
                 CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
                 NULL
-              ) as fuel
+              ) as fuel,
+              COALESCE(
+                CASE WHEN parsed_data->>'voltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'voltage')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'mainVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'mainVoltage')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'battVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'battVoltage')::numeric ELSE NULL END,
+                NULL
+              ) as voltage,
+              COALESCE(
+                CASE 
+                  WHEN parsed_data->>'ignition' IN ('true', '1', 't') THEN true
+                  WHEN parsed_data->>'ignition' IN ('false', '0', 'f') THEN false
+                  ELSE NULL 
+                END,
+                NULL
+              ) as ignition
        FROM raw_packets
        ${whereClause}
        ORDER BY received_at DESC, id DESC
@@ -827,8 +841,68 @@ const GpsModel = {
       queryParams
     );
 
+    // Fallback extraction helper for raw packet string
+    const extractPacketFallback = (rawStr) => {
+      if (!rawStr || typeof rawStr !== 'string') return {};
+      const trimmed = rawStr.trim();
+      // Volty semicolon-delimited packet
+      if (trimmed.includes(';') && (trimmed.includes('VLT') || trimmed.includes('DL1') || trimmed.includes('M1.'))) {
+        const parts = trimmed.replace(/\*/g, '').split(';');
+        const imeiIdx = parts.findIndex(p => /^\d{14,16}$/.test(p.trim()));
+        if (imeiIdx !== -1) {
+          const ignVal = parts[imeiIdx + 16] ? parts[imeiIdx + 16].trim() : '';
+          const voltVal = parts[imeiIdx + 18] ? parts[imeiIdx + 18].trim() : (parts[imeiIdx + 17] ? parts[imeiIdx + 17].trim() : '');
+          return {
+            ignition: ignVal === '1' ? true : (ignVal === '0' ? false : null),
+            voltage: voltVal && !isNaN(parseFloat(voltVal)) ? parseFloat(voltVal) : null
+          };
+        }
+      }
+      // AIS140 / BSTPL comma-delimited packets
+      if (trimmed.includes(',')) {
+        const parts = trimmed.replace(/\*/g, '').split(',');
+        if (parts[0] === '$10' || parts[0] === '$11') {
+          const ignVal = parts[9];
+          const voltVal = parts[10];
+          return {
+            ignition: ignVal === '1' ? true : (ignVal === '0' ? false : null),
+            voltage: voltVal && !isNaN(parseFloat(voltVal)) ? parseFloat(voltVal) : null
+          };
+        }
+      }
+      return {};
+    };
+
+    const enrichedMessages = result.rows.map(row => {
+      let voltage = row.voltage != null ? parseFloat(row.voltage) : null;
+      let ignition = row.ignition != null ? (row.ignition === true || row.ignition === 'true' || row.ignition === 1) : null;
+
+      if (voltage == null || ignition == null) {
+        const fallback = extractPacketFallback(row.raw_hex || row.raw);
+        if (voltage == null && fallback.voltage != null) voltage = fallback.voltage;
+        if (ignition == null && fallback.ignition != null) ignition = fallback.ignition;
+      }
+
+      const speed = row.speed != null ? parseFloat(row.speed) : 0;
+      let engine_status = null;
+      if (speed > 2.0) {
+        engine_status = 'ON (Moving)';
+      } else if (ignition === true) {
+        engine_status = 'ON (Idle)';
+      } else if (ignition === false) {
+        engine_status = 'OFF';
+      }
+
+      return {
+        ...row,
+        voltage,
+        ignition,
+        engine_status
+      };
+    });
+
     return {
-      messages: result.rows,
+      messages: enrichedMessages,
       pagination: {
         page,
         limit,

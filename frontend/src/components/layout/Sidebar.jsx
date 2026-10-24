@@ -23,6 +23,7 @@ import {
   Sparkles,
   Palette,
   Terminal,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -104,11 +105,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
 
   return (
     <>
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-[9998] md:hidden backdrop-blur-xs transition-opacity duration-300"
+          onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <aside
         style={{
           background: user?.role === 'superadmin' ? '#1e1b4b' : (brandProfile?.secondary_color || '#1e1b4b'),
           borderRight: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '4px 0 24px rgba(0,0,0,0.1)',
+          boxShadow: '4px 0 24px rgba(0,0,0,0.2)',
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
@@ -116,17 +126,21 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           zIndex: 10000,
           overflow: 'hidden'
         }}
-        className={`transition-all duration-300 ease-in-out ${isOpen ? 'ml-0' : '-ml-[185px]'} w-[185px]`}
+        className={`transition-all duration-300 ease-in-out fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[185px] ${
+          isOpen ? 'translate-x-0 ml-0' : '-translate-x-full md:translate-x-0 md:-ml-[185px]'
+        }`}
       >
         {/* User Profile Header */}
         <div
           className="p-3 pb-3"
           style={{
             borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-            display: 'flex', flexDirection: 'column', gap: '10px',
-            alignItems: collapsed ? 'center' : 'flex-start',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '10px'
           }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
             <div style={{
               width: '36px', height: '36px', borderRadius: '50%', flexShrink: 0,
               background: user?.role === 'superadmin' ? '#6366f1' : (brandProfile?.primary_color || '#6366f1'), color: 'white',
@@ -147,6 +161,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
               </div>
             )}
           </div>
+
+          {/* Close button for mobile */}
+          <button
+            onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
+            className="md:hidden p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer border-none bg-transparent"
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
         </div>
 
         {/* Navigation */}
@@ -190,6 +213,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         const currentPath = window.location.pathname;
                         if (currentPath === '/dashboard' || currentPath === '/tracking') {
                           e.preventDefault();
+                          if (toggleMobileSidebar) toggleMobileSidebar(false);
                           window.location.href = item.path;
                           return;
                         }
