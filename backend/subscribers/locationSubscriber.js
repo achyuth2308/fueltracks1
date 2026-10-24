@@ -948,34 +948,60 @@ async function start(io) {
           await redis.del(`vehicle:overspeed_sustained_step:${vehicleId}`);
         }
 
-        // Check E: Geofence checks
+        // Check E: Geofence checks with Anti-Jitter Hysteresis Buffer
         if (evalLat != null && evalLng != null) {
           try {
             const geofences = await GeofenceModel.findGeofencesForVehicle(vehicleId);
             for (const geofence of geofences) {
-              let isInsideNow = false;
-
-              if (geofence.type === 'circle') {
-                const dist = getHaversineDistance(evalLat, evalLng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
-                isInsideNow = dist <= parseFloat(geofence.radius);
-              } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates)) {
-                isInsideNow = isPointInPolygon(evalLat, evalLng, geofence.coordinates);
-              }
+              if (geofence.is_active === false) continue;
 
               const geoStateKey = `vehicle:geofence:${geofence.id}:${vehicleId}`;
               const wasInsideRaw = await redis.get(geoStateKey);
               const wasInside = wasInsideRaw === 'inside';
 
+              let isInsideNow = false;
+
+              if (geofence.type === 'circle') {
+                const dist = getHaversineDistance(evalLat, evalLng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
+                const radius = parseFloat(geofence.radius);
+                // Hysteresis buffer: 25 meters or 5% of radius (whichever is larger)
+                // Prevents GPS drift near boundary from rapid entry/exit flapping
+                const exitBufferMeters = Math.max(25, radius * 0.05);
+
+                if (wasInside) {
+                  // To exit: vehicle must strictly exceed radius + buffer
+                  isInsideNow = dist <= (radius + exitBufferMeters);
+                } else {
+                  // To enter: vehicle must be within radius
+                  isInsideNow = dist <= radius;
+                }
+              } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates) && geofence.coordinates.length >= 3) {
+                const insideStrict = isPointInPolygon(evalLat, evalLng, geofence.coordinates);
+                if (wasInside) {
+                  // If stationary near border, don't flap outside on GPS jitter
+                  isInsideNow = insideStrict || (evalSpeed < 2);
+                } else {
+                  isInsideNow = insideStrict;
+                }
+              }
+
+              // Initial boot latching: If no prior state existed in Redis,
+              // latch current state without firing a false arrival alert.
+              if (wasInsideRaw === null) {
+                await redis.set(geoStateKey, isInsideNow ? 'inside' : 'outside', 'EX', 86400 * 7);
+                continue;
+              }
+
               if (isInsideNow && !wasInside) {
                 if (geofence.alert_on_enter !== false) {
                   alertsToTrigger.push({ type: 'geofence', text: `Geofence In Alert: Entered geofence "${geofence.name}".` });
                 }
-                await redis.set(geoStateKey, 'inside');
+                await redis.set(geoStateKey, 'inside', 'EX', 86400 * 7);
               } else if (!isInsideNow && wasInside) {
                 if (geofence.alert_on_exit !== false) {
                   alertsToTrigger.push({ type: 'geofence', text: `Geofence Out Alert: Exited geofence "${geofence.name}".` });
                 }
-                await redis.set(geoStateKey, 'outside');
+                await redis.set(geoStateKey, 'outside', 'EX', 86400 * 7);
               }
             }
           } catch (geoErr) {

@@ -12,6 +12,8 @@ import {
   calculateCircleAreaM2,
   calculateHaversineDistanceMeters,
   formatRadius,
+  formatArea,
+  getPolygonCentroid,
   GEOFENCE_COLOR_PALETTE
 } from '../../utils/geofenceUtils';
 
@@ -470,8 +472,14 @@ const VehicleGeofenceEditorModal = ({
       return;
     }
 
+    if (shape === 'polygon' && polygonPoints.length < 3) {
+      setFormError('A polygon geofence requires at least 3 boundary points. Click on the map to add points.');
+      return;
+    }
+
     const cLat = parseFloat(centerLat) || defaultLat;
     const cLng = parseFloat(centerLng) || defaultLng;
+    const centroid = shape === 'polygon' ? getPolygonCentroid(polygonPoints) : { lat: cLat, lng: cLng };
 
     setIsSubmitting(true);
     try {
@@ -479,9 +487,9 @@ const VehicleGeofenceEditorModal = ({
         id: geofenceToEdit?.id,
         name: name.trim(),
         type: shape,
-        center_lat: cLat,
-        center_lng: cLng,
-        radius: Number(radius),
+        center_lat: centroid.lat,
+        center_lng: centroid.lng,
+        radius: shape === 'circle' ? Number(radius) : null,
         coordinates: shape === 'circle' ? [{ lat: cLat, lng: cLng }] : polygonPoints,
         color,
         alert_on_enter: alertOnEnter,
@@ -1067,41 +1075,156 @@ const VehicleGeofenceEditorModal = ({
                     />
                   </div>
 
+                  {/* Shape Selector: Circle vs Polygon */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
-                        Size of Safe Area:
-                      </span>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: color, background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
-                        {formatRadius(radius)}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
-                      {[
-                        { label: 'Small', sub: '100m Gate', r: 100 },
-                        { label: 'Medium', sub: '250m Yard', r: 250 },
-                        { label: 'Large', sub: '1km Area', r: 1000 },
-                      ].map((opt) => (
-                        <button
-                          key={opt.r}
-                          type="button"
-                          onClick={() => setRadius(opt.r)}
-                          style={{
-                            padding: '8px 4px',
-                            borderRadius: '8px',
-                            border: radius === opt.r ? `2px solid ${color}` : '1px solid #CBD5E1',
-                            background: radius === opt.r ? '#F0F9FF' : '#FFFFFF',
-                            cursor: 'pointer',
-                            textAlign: 'center',
-                          }}
-                        >
-                          <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A' }}>{opt.label}</div>
-                          <div style={{ fontSize: '10px', color: '#64748B' }}>{opt.sub}</div>
-                        </button>
-                      ))}
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: '6px' }}>
+                      Boundary Shape:
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                      <button
+                        type="button"
+                        onClick={() => setShape('circle')}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: shape === 'circle' ? `2px solid ${color}` : '1px solid #CBD5E1',
+                          background: shape === 'circle' ? '#F0F9FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: shape === 'circle' ? '#0369A1' : '#475569',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span>⭕ Circle (Radius)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShape('polygon')}
+                        style={{
+                          padding: '8px 10px',
+                          borderRadius: '8px',
+                          border: shape === 'polygon' ? `2px solid ${color}` : '1px solid #CBD5E1',
+                          background: shape === 'polygon' ? '#F0F9FF' : '#FFFFFF',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          color: shape === 'polygon' ? '#0369A1' : '#475569',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <span>⬡ Custom Polygon</span>
+                      </button>
                     </div>
                   </div>
+
+                  {shape === 'polygon' ? (
+                    /* POLYGON BOUNDARY CONTROLS */
+                    <div style={{ background: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
+                          Boundary Points:
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: polygonPoints.length >= 3 ? '#059669' : '#DC2626', background: '#FFFFFF', padding: '2px 8px', borderRadius: '6px', border: '1px solid #E2E8F0' }}>
+                          {polygonPoints.length} point{polygonPoints.length === 1 ? '' : 's'} {polygonPoints.length >= 3 ? '✅' : '(Need 3+)'}
+                        </span>
+                      </div>
+
+                      <div style={{ fontSize: '11px', color: '#64748B', lineHeight: '1.4' }}>
+                        💡 Click anywhere on the map to add boundary corners around your yard or facility.
+                      </div>
+
+                      {polygonPoints.length >= 3 && (
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#0369A1', background: '#E0F2FE', padding: '6px 10px', borderRadius: '6px' }}>
+                          📐 Enclosed Area: <b>{formatArea(calculatePolygonAreaM2(polygonPoints))}</b>
+                        </div>
+                      )}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '4px' }}>
+                        <button
+                          type="button"
+                          disabled={polygonPoints.length === 0}
+                          onClick={() => setPolygonPoints(prev => prev.slice(0, -1))}
+                          style={{
+                            padding: '7px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #CBD5E1',
+                            background: '#FFFFFF',
+                            color: '#475569',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: polygonPoints.length === 0 ? 'not-allowed' : 'pointer',
+                            opacity: polygonPoints.length === 0 ? 0.5 : 1,
+                          }}
+                        >
+                          ↩ Undo Point
+                        </button>
+                        <button
+                          type="button"
+                          disabled={polygonPoints.length === 0}
+                          onClick={() => setPolygonPoints([])}
+                          style={{
+                            padding: '7px 8px',
+                            borderRadius: '6px',
+                            border: '1px solid #FCA5A5',
+                            background: '#FEF2F2',
+                            color: '#DC2626',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: polygonPoints.length === 0 ? 'not-allowed' : 'pointer',
+                            opacity: polygonPoints.length === 0 ? 0.5 : 1,
+                          }}
+                        >
+                          🗑️ Clear All
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* CIRCLE RADIUS CONTROLS */
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase' }}>
+                          Size of Safe Area:
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: color, background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px' }}>
+                          {formatRadius(radius)}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px' }}>
+                        {[
+                          { label: 'Small', sub: '100m Gate', r: 100 },
+                          { label: 'Medium', sub: '250m Yard', r: 250 },
+                          { label: 'Large', sub: '1km Area', r: 1000 },
+                        ].map((opt) => (
+                          <button
+                            key={opt.r}
+                            type="button"
+                            onClick={() => setRadius(opt.r)}
+                            style={{
+                              padding: '8px 4px',
+                              borderRadius: '8px',
+                              border: radius === opt.r ? `2px solid ${color}` : '1px solid #CBD5E1',
+                              background: radius === opt.r ? '#F0F9FF' : '#FFFFFF',
+                              cursor: 'pointer',
+                              textAlign: 'center',
+                            }}
+                          >
+                            <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A' }}>{opt.label}</div>
+                            <div style={{ fontSize: '10px', color: '#64748B' }}>{opt.sub}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div>
                     <span style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: '#334155', textTransform: 'uppercase', marginBottom: '6px' }}>
@@ -1536,26 +1659,68 @@ const VehicleGeofenceEditorModal = ({
                 ) : (
                   /* SINGLE GEOFENCE MAP RENDER */
                   <>
-                    <Marker
-                      position={[parseFloat(centerLat) || defaultLat, parseFloat(centerLng) || defaultLng]}
-                      icon={createSleekPin('📍', color, true)}
-                    >
-                      <Tooltip permanent direction="top" offset={[0, -42]}>
-                        <span style={{ fontSize: '11px', fontWeight: 800, color: color }}>
-                          {name}
-                        </span>
-                      </Tooltip>
-                    </Marker>
-                    <Circle
-                      center={[parseFloat(centerLat) || defaultLat, parseFloat(centerLng) || defaultLng]}
-                      radius={radius}
-                      pathOptions={{
-                        color: color,
-                        fillColor: color,
-                        fillOpacity: 0.25,
-                        weight: 3,
-                      }}
-                    />
+                    {shape === 'polygon' ? (
+                      <>
+                        {/* Numbered Vertex Badges */}
+                        {polygonPoints.map((pt, idx) => (
+                          <Marker
+                            key={`vertex-${idx}`}
+                            position={[pt.lat, pt.lng]}
+                            icon={createVertexIcon(idx + 1, color)}
+                          />
+                        ))}
+
+                        {/* Completed Polygon */}
+                        {polygonPoints.length >= 3 && (
+                          <Polygon
+                            positions={polygonPoints.map((p) => [p.lat, p.lng])}
+                            pathOptions={{
+                              color: color,
+                              fillColor: color,
+                              fillOpacity: 0.25,
+                              weight: 3,
+                            }}
+                          >
+                            <Tooltip permanent direction="center">
+                              <span style={{ fontSize: '11px', fontWeight: 800, color: color }}>
+                                {name || 'Yard'} ({formatArea(calculatePolygonAreaM2(polygonPoints))})
+                              </span>
+                            </Tooltip>
+                          </Polygon>
+                        )}
+
+                        {/* Connecting line while drafting first 2 points */}
+                        {polygonPoints.length === 2 && (
+                          <Polyline
+                            positions={polygonPoints.map((p) => [p.lat, p.lng])}
+                            pathOptions={{ color: color, weight: 3, dashArray: '6, 6' }}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <Marker
+                          position={[parseFloat(centerLat) || defaultLat, parseFloat(centerLng) || defaultLng]}
+                          icon={createSleekPin('📍', color, true)}
+                        >
+                          <Tooltip permanent direction="top" offset={[0, -42]}>
+                            <span style={{ fontSize: '11px', fontWeight: 800, color: color }}>
+                              {name}
+                            </span>
+                          </Tooltip>
+                        </Marker>
+                        <Circle
+                          center={[parseFloat(centerLat) || defaultLat, parseFloat(centerLng) || defaultLng]}
+                          radius={radius}
+                          pathOptions={{
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.25,
+                            weight: 3,
+                          }}
+                        />
+                      </>
+                    )}
                   </>
                 )}
               </MapContainer>
@@ -1579,6 +1744,10 @@ const VehicleGeofenceEditorModal = ({
               {editorMode === 'pair' ? (
                 <span>
                   🟢 <b>{nameA}</b> ➔ 🔴 <b>{nameB}</b> • <b>{formatRadius(corridorDistance)}</b> direct
+                </span>
+              ) : shape === 'polygon' ? (
+                <span>
+                  ⬡ Yard Polygon: <b>{name || 'Custom Yard'}</b> ({polygonPoints.length} points • {formatArea(calculatePolygonAreaM2(polygonPoints))})
                 </span>
               ) : (
                 <span>📍 Safe Zone: <b>{name}</b> ({formatRadius(radius)})</span>

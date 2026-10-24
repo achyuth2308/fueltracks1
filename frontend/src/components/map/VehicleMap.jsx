@@ -1,8 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap, LayersControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, Circle, Polygon, Tooltip, useMap, LayersControl } from 'react-leaflet';
 import L from 'leaflet';
 import { useSocket } from '../../hooks/useSocket';
 import { useLocation } from 'react-router-dom';
+import axiosInstance from '../../api/axios';
+import { normalizeCoordinates } from '../../utils/geofenceUtils';
 
 const { BaseLayer } = LayersControl;
 
@@ -58,6 +60,22 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
   const [speed, setSpeed] = useState(initialSpeed || 0);
   const [direction, setDirection] = useState(vehicle?.current_direction || 0);
   const isOnline = vehicle?.is_online !== false;
+
+  const [geofences, setGeofences] = useState([]);
+  const [showGeofences, setShowGeofences] = useState(true);
+
+  // Fetch assigned geofences for this vehicle
+  useEffect(() => {
+    const vId = vehicleId || vehicle?.id;
+    if (!vId) return;
+    axiosInstance.get(`/api/vehicles/${vId}/geofences`)
+      .then((res) => {
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setGeofences(res.data.data);
+        }
+      })
+      .catch(() => {});
+  }, [vehicleId, vehicle?.id]);
 
   const { profile } = useProfile();
   const apiKey = profile?.api_key || '';
@@ -186,7 +204,86 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
             })}
           />
         )}
+
+        {/* Assigned Geofences Overlay */}
+        {showGeofences && geofences.map((geo) => {
+          const color = geo.color || '#3B82F6';
+          if (geo.type === 'circle' && geo.center_lat && geo.center_lng) {
+            return (
+              <Circle
+                key={geo.id}
+                center={[parseFloat(geo.center_lat), parseFloat(geo.center_lng)]}
+                radius={parseFloat(geo.radius) || 200}
+                pathOptions={{
+                  color: color,
+                  fillColor: color,
+                  fillOpacity: 0.18,
+                  weight: 2,
+                }}
+              >
+                <Tooltip permanent direction="center">
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: color }}>
+                    {geo.name}
+                  </span>
+                </Tooltip>
+              </Circle>
+            );
+          } else if (geo.type === 'polygon' && geo.coordinates) {
+            const pts = normalizeCoordinates(geo.coordinates);
+            if (pts.length >= 3) {
+              return (
+                <Polygon
+                  key={geo.id}
+                  positions={pts.map((p) => [p.lat, p.lng])}
+                  pathOptions={{
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.18,
+                    weight: 2,
+                  }}
+                >
+                  <Tooltip permanent direction="center">
+                    <span style={{ fontSize: '11px', fontWeight: 800, color: color }}>
+                      {geo.name}
+                    </span>
+                  </Tooltip>
+                </Polygon>
+              );
+            }
+          }
+          return null;
+        })}
       </MapContainer>
+
+      {/* Geofences Toggle Button */}
+      {geofences.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowGeofences(!showGeofences)}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            zIndex: 1000,
+            background: showGeofences ? '#0284C7' : '#FFFFFF',
+            color: showGeofences ? '#FFFFFF' : '#334155',
+            border: '1px solid #CBD5E1',
+            borderRadius: '8px',
+            padding: '6px 12px',
+            fontSize: '11px',
+            fontWeight: 800,
+            cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease',
+          }}
+          title={showGeofences ? "Hide geofences on map" : "Show geofences on map"}
+        >
+          <span>🛡️ Geofences ({geofences.length})</span>
+        </button>
+      )}
     </div>
   );
 };
