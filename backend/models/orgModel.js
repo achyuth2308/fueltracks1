@@ -172,11 +172,22 @@ const OrgModel = {
    * Create organization
    */
   async create({ name, type = 'customer', parentId, address, phone, contactPerson, email, settings = {} }) {
+    const cleanParentId = (parentId && typeof parentId === 'string' && parentId.trim()) ? parentId.trim() : null;
+    const cleanType = type ? type.toLowerCase() : 'customer';
     const result = await db.query(
       `INSERT INTO organizations (name, type, parent_id, address, phone, contact_person, email, settings)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [name, type || 'customer', parentId, address, phone, contactPerson, email, typeof settings === 'string' ? settings : JSON.stringify(settings || {})]
+      [
+        name,
+        cleanType,
+        cleanParentId,
+        address || null,
+        phone || null,
+        contactPerson || null,
+        email || null,
+        typeof settings === 'string' ? settings : JSON.stringify(settings || {})
+      ]
     );
     return result.rows[0];
   },
@@ -190,11 +201,11 @@ const OrgModel = {
     let paramIndex = 1;
 
     if (name !== undefined) { fields.push(`name = $${paramIndex++}`); values.push(name); }
-    if (type !== undefined) { fields.push(`type = $${paramIndex++}`); values.push(type); }
-    if (address !== undefined) { fields.push(`address = $${paramIndex++}`); values.push(address); }
-    if (phone !== undefined) { fields.push(`phone = $${paramIndex++}`); values.push(phone); }
-    if (contactPerson !== undefined) { fields.push(`contact_person = $${paramIndex++}`); values.push(contactPerson); }
-    if (email !== undefined) { fields.push(`email = $${paramIndex++}`); values.push(email); }
+    if (type !== undefined) { fields.push(`type = $${paramIndex++}`); values.push(type.toLowerCase()); }
+    if (address !== undefined) { fields.push(`address = $${paramIndex++}`); values.push(address || null); }
+    if (phone !== undefined) { fields.push(`phone = $${paramIndex++}`); values.push(phone || null); }
+    if (contactPerson !== undefined) { fields.push(`contact_person = $${paramIndex++}`); values.push(contactPerson || null); }
+    if (email !== undefined) { fields.push(`email = $${paramIndex++}`); values.push(email || null); }
     if (isActive !== undefined) { fields.push(`is_active = $${paramIndex++}`); values.push(isActive); }
     if (settings !== undefined) { fields.push(`settings = $${paramIndex++}`); values.push(typeof settings === 'string' ? settings : JSON.stringify(settings)); }
 
