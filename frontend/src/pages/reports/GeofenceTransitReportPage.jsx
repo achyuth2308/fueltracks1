@@ -431,7 +431,7 @@ const GeofenceTransitReportPage = () => {
               <option value="">All Fleet Vehicles</option>
               {vehicles.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {v.name} ({v.plate || 'No Plate'})
+                  {v.name || 'Vehicle'}
                 </option>
               ))}
             </select>
@@ -656,7 +656,6 @@ const GeofenceTransitReportPage = () => {
                     {/* Vehicle */}
                     <td style={{ padding: '14px 16px' }}>
                       <div style={{ fontWeight: 700, fontSize: '13px', color: '#0F172A' }}>{row.vehicle_name}</div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontFamily: 'monospace' }}>{row.plate || 'No Plate'}</div>
                     </td>
 
                     {/* Trip Type Badge */}
@@ -789,7 +788,7 @@ const GeofenceTransitReportPage = () => {
                   Trip Path: {previewTrip.from_geofence_name} $\rightarrow$ {previewTrip.to_geofence_name}
                 </h3>
                 <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
-                  {previewTrip.vehicle_name} ({previewTrip.plate}) • {previewTrip.distance_km} km in {previewTrip.duration_formatted}
+                  {previewTrip.vehicle_name} • {previewTrip.distance_km} km in {previewTrip.duration_formatted}
                 </div>
               </div>
               <button

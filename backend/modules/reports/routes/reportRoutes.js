@@ -18,5 +18,9 @@ router.get('/consolidated', (req, res, next) => reportController.getConsolidated
 router.get('/individual', (req, res, next) => reportController.getIndividualReport(req, res, next));
 router.get('/dashboard', (req, res, next) => reportController.getDashboardStats(req, res, next));
 router.get('/geofence-transit', (req, res, next) => reportController.getGeofenceTransitReport(req, res, next));
+router.get('/geofence-single-place', (req, res, next) => reportController.getGeofenceSinglePlaceReport(req, res, next));
+router.get('/geofence-one-way', (req, res, next) => reportController.getGeofenceOneWayReport(req, res, next));
+router.get('/geofence-two-way', (req, res, next) => reportController.getGeofenceTwoWayReport(req, res, next));
+router.get('/geofence-round-trip', (req, res, next) => reportController.getGeofenceRoundTripReport(req, res, next));
 
 module.exports = router;

@@ -184,6 +184,61 @@ class ReportController {
       next(err);
     }
   }
+
+  async getGeofenceSinglePlaceReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      if (req.query.geofenceId) {
+        filters.geofenceId = req.query.geofenceId;
+      }
+      const result = await geofenceTransitService.getSinglePlaceActivityReport(filters, start, end);
+      res.json({ success: true, data: result.rows, summary: result.summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getGeofenceOneWayReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      if (req.query.fromGeofenceId) filters.fromGeofenceId = req.query.fromGeofenceId;
+      if (req.query.toGeofenceId) filters.toGeofenceId = req.query.toGeofenceId;
+
+      const result = await geofenceTransitService.getOneWayActivityReport(filters, start, end);
+      res.json({ success: true, data: result.rows, summary: result.summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getGeofenceTwoWayReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      if (req.query.fromGeofenceId) filters.fromGeofenceId = req.query.fromGeofenceId;
+      if (req.query.toGeofenceId) filters.toGeofenceId = req.query.toGeofenceId;
+
+      const result = await geofenceTransitService.getTwoWayActivityReport(filters, start, end);
+      res.json({ success: true, data: result.rows, summary: result.summary });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async getGeofenceRoundTripReport(req, res, next) {
+    try {
+      const { start, end } = this.parseDates(req);
+      const filters = this.enrichFilters(req);
+      if (req.query.geofenceId) filters.geofenceId = req.query.geofenceId;
+
+      const result = await geofenceTransitService.getRoundTripActivityReport(filters, start, end);
+      res.json({ success: true, data: result.rows, summary: result.summary });
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = new ReportController();

@@ -91,8 +91,13 @@ const GeofenceRouteController = {
         return res.status(400).json({ success: false, error: 'Geofence name is required.' });
       }
 
+      const effectiveOrgId = vehicle.org_id || req.user?.orgId || req.user?.org_id;
+      if (!effectiveOrgId) {
+        return res.status(400).json({ success: false, error: 'Vehicle organization could not be resolved.' });
+      }
+
       const geofence = await GeofenceModel.create({
-        orgId: vehicle.org_id,
+        orgId: effectiveOrgId,
         name,
         type: type || 'circle',
         coordinates: coordinates || [],

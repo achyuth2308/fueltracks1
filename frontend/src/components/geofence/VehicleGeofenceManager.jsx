@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield, Plus, RefreshCw, Loader2, AlertCircle, Compass,
-  CheckCircle2, Filter, Layers, Navigation, BarChart2, FolderPlus,
+  CheckCircle2, Filter, Layers, Navigation, FolderPlus,
   ArrowRightLeft, Zap, Check
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
@@ -23,7 +23,6 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
   const [replacingGeofence, setReplacingGeofence] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [filterType, setFilterType] = useState('all'); // 'all', 'circle', 'polygon', 'active'
-  const [viewMode, setViewMode] = useState('unified'); // 'unified' | 'grid'
   const [copyModalOpen, setCopyModalOpen] = useState(false);
   const [copyModalMode, setCopyModalMode] = useState('copy_from');
   const [toastMessage, setToastMessage] = useState('');
@@ -74,12 +73,16 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
         await axiosInstance.post(`/api/vehicles/${vehicleId}/geofences/link`, {
           geofenceId: formData.fromGeofence.id,
           vehicleIds: formData.vehicleIds,
+        }).catch((err) => {
+          throw new Error(err.response?.data?.error || err.message || 'Failed to link Location A geofence.');
         });
       } else if (formData.fromGeofence) {
         const resA = await axiosInstance.post(
           `/api/vehicles/${vehicleId}/geofences`,
           formData.fromGeofence
-        );
+        ).catch((err) => {
+          throw new Error(err.response?.data?.error || err.message || 'Failed to create Location A geofence.');
+        });
         if (!resA.data?.success) {
           throw new Error(resA.data?.error || 'Failed to create Location A geofence.');
         }
@@ -91,12 +94,16 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
           await axiosInstance.post(`/api/vehicles/${vehicleId}/geofences/link`, {
             geofenceId: formData.toGeofence.id,
             vehicleIds: formData.vehicleIds,
+          }).catch((err) => {
+            throw new Error(err.response?.data?.error || err.message || 'Failed to link Location B geofence.');
           });
         } else {
           const resB = await axiosInstance.post(
             `/api/vehicles/${vehicleId}/geofences`,
             formData.toGeofence
-          );
+          ).catch((err) => {
+            throw new Error(err.response?.data?.error || err.message || 'Failed to create Location B geofence.');
+          });
           if (!resB.data?.success) {
             throw new Error(resB.data?.error || 'Failed to create Location B geofence.');
           }
@@ -216,7 +223,7 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
               </span>
             </div>
             <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#64748B' }}>
-              Virtual boundaries and alert zones configured specifically for {vehicle?.name || vehicle?.plate}.
+              Virtual boundaries and alert zones configured specifically for {vehicle?.name || 'this vehicle'}.
             </p>
           </div>
         </div>
@@ -247,54 +254,6 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
             ))}
           </div>
 
-          {/* View Mode Toggle when 2 geofences are present */}
-          {geofences.length === 2 && (
-            <div style={{ display: 'flex', background: '#F1F5F9', padding: '3px', borderRadius: '8px', gap: '2px' }}>
-              <button
-                type="button"
-                onClick={() => setViewMode('unified')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '11px',
-                  fontWeight: viewMode === 'unified' ? 800 : 500,
-                  background: viewMode === 'unified' ? '#FFFFFF' : 'transparent',
-                  color: viewMode === 'unified' ? '#0284C7' : '#64748B',
-                  boxShadow: viewMode === 'unified' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <span>⇄</span>
-                <span>Unified Trip Card</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode('grid')}
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '11px',
-                  fontWeight: viewMode === 'grid' ? 800 : 500,
-                  background: viewMode === 'grid' ? '#FFFFFF' : 'transparent',
-                  color: viewMode === 'grid' ? '#0F172A' : '#64748B',
-                  boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-              >
-                <span>⬡</span>
-                <span>Separate Cards</span>
-              </button>
-            </div>
-          )}
-
           <button
             type="button"
             onClick={fetchGeofences}
@@ -312,32 +271,6 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
             title="Refresh geofences"
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => navigate(`/admin/reports/geofence-transit?vehicleId=${vehicleId}`)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              background: '#FFFFFF',
-              color: '#0284C7',
-              border: '1px solid #BAE6FD',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.08)',
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#F0F9FF')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
-            title="View 3-type transit reports for this vehicle"
-          >
-            <BarChart2 size={15} color="#0284C7" />
-            <span>Transit Report</span>
           </button>
 
           {/* 1-Click Set Same As Another Vehicle */}
@@ -603,8 +536,8 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {/* Unified Transit Pair Card when 2 geofences are attached and viewMode is unified */}
-          {filteredGeofences.length === 2 && viewMode === 'unified' ? (
+          {/* Unified Transit Pair Card when 2 geofences are attached */}
+          {filteredGeofences.length === 2 ? (
             <div style={{ maxWidth: '640px' }}>
               <VehicleTransitPairCard
                 vehicle={vehicle}

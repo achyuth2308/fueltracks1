@@ -265,23 +265,6 @@ const GeofencesAdminPage = () => {
             <BarChart2 size={16} color="#0284C7" />
             <span>Transit Reports</span>
           </button>
-
-          <button
-            onClick={() => handleOpenModal()}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              background: '#0284C7', color: '#FFFFFF',
-              padding: '9px 18px', borderRadius: '10px',
-              fontSize: '13px', fontWeight: 700, border: 'none',
-              cursor: 'pointer', boxShadow: '0 4px 12px rgba(2, 132, 199, 0.25)',
-              transition: 'all 0.2s ease'
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.background = '#0369A1')}
-            onMouseLeave={(e) => (e.currentTarget.style.background = '#0284C7')}
-          >
-            <Plus size={16} />
-            <span>New Geofence</span>
-          </button>
         </div>
       </div>
 
@@ -338,7 +321,7 @@ const GeofencesAdminPage = () => {
               >
                 {vehicles.map(v => (
                   <option key={v.id} value={v.id}>
-                    {v.name} ({v.plate || 'No Plate'}) {v.imei ? `— IMEI: ${v.imei}` : ''}
+                    {v.name || 'Vehicle'}
                   </option>
                 ))}
               </select>
@@ -376,6 +359,26 @@ const GeofencesAdminPage = () => {
         </div>
       ) : (
         <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.02)' }}>
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#F8FAFC' }}>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#0F172A' }}>Saved Organization Places & Geofences</div>
+              <div style={{ fontSize: '12px', color: '#64748B' }}>Shared hubs and warehouse perimeters available for fleet assignment</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleOpenModal()}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                background: '#0284C7', color: '#FFFFFF',
+                padding: '8px 14px', borderRadius: '8px',
+                fontSize: '12px', fontWeight: 700, border: 'none',
+                cursor: 'pointer', boxShadow: '0 2px 6px rgba(2, 132, 199, 0.2)'
+              }}
+            >
+              <Plus size={14} />
+              <span>+ New Geofence</span>
+            </button>
+          </div>
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '240px' }}>
               <Loader2 className="animate-spin" size={24} color="#0284C7" />
@@ -524,7 +527,7 @@ const GeofencesAdminPage = () => {
                             style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '13px', color: '#475569', padding: '6px 8px', borderRadius: '6px', transition: 'background 0.2s', background: isChecked ? '#E0F2FE' : 'transparent' }}
                           >
                             {isChecked ? <CheckSquare size={16} color="#0284C7" /> : <Square size={16} color="#94A3B8" />}
-                            <span style={{ fontWeight: isChecked ? 600 : 400, color: isChecked ? '#0369A1' : '#475569' }}>{v.name} ({v.plate})</span>
+                            <span style={{ fontWeight: isChecked ? 600 : 400, color: isChecked ? '#0369A1' : '#475569' }}>{v.name || 'Vehicle'}</span>
                           </div>
                         );
                       })}

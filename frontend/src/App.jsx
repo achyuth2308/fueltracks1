@@ -49,6 +49,10 @@ import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
 import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
 import GeofenceTransitReportPage from './pages/reports/GeofenceTransitReportPage';
+import GeofenceSinglePlaceReportPage from './pages/reports/GeofenceSinglePlaceReportPage';
+import GeofenceOneWayReportPage from './pages/reports/GeofenceOneWayReportPage';
+import GeofenceTwoWayReportPage from './pages/reports/GeofenceTwoWayReportPage';
+import GeofenceRoundTripReportPage from './pages/reports/GeofenceRoundTripReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import DealerProfilePage from './modules/profile/DealerProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
@@ -150,6 +154,10 @@ function App() {
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
                     <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
+                    <Route path="geofence-single-place" element={<GeofenceSinglePlaceReportPage />} />
+                    <Route path="geofence-one-way" element={<GeofenceOneWayReportPage />} />
+                    <Route path="geofence-two-way" element={<GeofenceTwoWayReportPage />} />
+                    <Route path="geofence-round-trip" element={<GeofenceRoundTripReportPage />} />
                   </Route>
                 </Route>
               </Route>

@@ -4,6 +4,7 @@ export const getVehicles = async (params = {}) => {
   const response = await axiosInstance.get('/api/vehicles', { params });
   return response.data;
 };
+export const fetchVehicles = getVehicles;
 
 export const getTodayMetrics = async () => {
   const response = await axiosInstance.get('/api/vehicles/today-metrics');

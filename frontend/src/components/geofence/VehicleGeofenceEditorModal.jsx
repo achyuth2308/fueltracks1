@@ -595,7 +595,7 @@ const VehicleGeofenceEditorModal = ({
           transitDirection, // 'two_way' | 'round_trip' | 'one_way'
           vehicleIds: targetVehicleIds,
           fromGeofence: {
-            id: selectedSavedPlaceIdA ? Number(selectedSavedPlaceIdA) : undefined,
+            id: selectedSavedPlaceIdA || undefined,
             name: nameA.trim(),
             type: 'circle',
             center_lat: parsedLatA,
@@ -612,7 +612,7 @@ const VehicleGeofenceEditorModal = ({
             transitDirection === 'round_trip'
               ? null
               : {
-                  id: selectedSavedPlaceIdB ? Number(selectedSavedPlaceIdB) : undefined,
+                  id: selectedSavedPlaceIdB || undefined,
                   name: nameB.trim(),
                   type: 'circle',
                   center_lat: parsedLatB,
@@ -628,7 +628,7 @@ const VehicleGeofenceEditorModal = ({
         });
         onClose();
       } catch (err) {
-        setFormError(err.message || 'Failed to save trip geofences.');
+        setFormError(err.response?.data?.error || err.message || 'Failed to save trip geofences.');
       } finally {
         setIsSubmitting(false);
       }
@@ -761,9 +761,8 @@ const VehicleGeofenceEditorModal = ({
               <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span>Primary Vehicle:</span>
                 <span style={{ color: '#F8FAFC', fontWeight: 700 }}>
-                  {vehicle?.name || vehicle?.plate || 'Active Vehicle'}
+                  {vehicle?.name || 'Active Vehicle'}
                 </span>
-                <span>({vehicle?.plate || '—'})</span>
               </div>
             </div>
           </div>
@@ -1658,7 +1657,7 @@ const VehicleGeofenceEditorModal = ({
                               <Square size={13} color="#94A3B8" />
                             )}
                             <span style={{ fontWeight: isChecked ? 700 : 500, color: isChecked ? '#0369A1' : '#334155' }}>
-                              {v.name} ({v.plate || 'No Plate'})
+                              {v.name || 'Vehicle'}
                             </span>
                           </div>
                           {isCurrent && (

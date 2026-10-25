@@ -32,13 +32,27 @@ const GeofenceModel = {
   },
 
   async create({ orgId, name, type, coordinates, radius, center_lat, center_lng, is_active = true, notification_time = '00:00', color = '#3B82F6', alert_on_enter = true, alert_on_exit = true }) {
-    const result = await db.query(
-      `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *`,
-      [orgId, name, type || 'polygon', JSON.stringify(coordinates), radius || null, center_lat || null, center_lng || null, is_active, notification_time, color || '#3B82F6', alert_on_enter !== false, alert_on_exit !== false]
-    );
-    return result.rows[0];
+    const coordsJson = typeof coordinates === 'string' ? coordinates : JSON.stringify(coordinates || []);
+    try {
+      const result = await db.query(
+        `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING *`,
+        [orgId, name, type || 'polygon', coordsJson, radius || null, center_lat || null, center_lng || null, is_active, notification_time, color || '#3B82F6', alert_on_enter !== false, alert_on_exit !== false]
+      );
+      return result.rows[0];
+    } catch (err) {
+      if (err.code === '42703') { // undefined column error
+        const result = await db.query(
+          `INSERT INTO geofences (org_id, name, type, coordinates, radius, center_lat, center_lng, is_active)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+           RETURNING *`,
+          [orgId, name, type || 'polygon', coordsJson, radius || null, center_lat || null, center_lng || null, is_active]
+        );
+        return result.rows[0];
+      }
+      throw err;
+    }
   },
 
   async update(id, { name, type, coordinates, radius, center_lat, center_lng, is_active, notification_time, color, alert_on_enter, alert_on_exit }) {
@@ -129,7 +143,12 @@ const GeofenceModel = {
     try {
       await client.query('BEGIN');
       await client.query('DELETE FROM vehicle_geofences WHERE geofence_id = $1', [geofenceId]);
-      for (const vehicleId of vehicleIds) {
+
+      const cleanVehicleIds = (Array.isArray(vehicleIds) ? vehicleIds : [vehicleIds])
+        .map(v => typeof v === 'object' && v !== null ? (v.id || v.vehicle_id) : v)
+        .filter(v => typeof v === 'string' && v.trim().length > 0);
+
+      for (const vehicleId of cleanVehicleIds) {
         await client.query(
           'INSERT INTO vehicle_geofences (vehicle_id, geofence_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
           [vehicleId, geofenceId]
@@ -139,7 +158,7 @@ const GeofenceModel = {
 
       // Invalidate geofence list cache for every affected vehicle so the
       // location subscriber picks up the new assignment on the next packet.
-      for (const vehicleId of vehicleIds) {
+      for (const vehicleId of cleanVehicleIds) {
         try { await redis.del(`vehicle:geofences:${vehicleId}`); } catch (_) {}
       }
     } catch (err) {
