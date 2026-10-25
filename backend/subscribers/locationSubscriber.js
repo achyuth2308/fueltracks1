@@ -462,7 +462,7 @@ async function start(io) {
       // 2c. Compute Fuel in Liters (Auto, Manual, or Direct Calibration)
       let finalFuelLiters = fuel; // Default to raw if no calibration exists
       if (vehicle.metadata) {
-        const fuelCal = vehicle.metadata.fuelCalibration || {};
+        const fuelCal = vehicle.metadata.fuelCalibration || vehicle.metadata.fuel || {};
         const tanksMap = (fuelCal.tanks && typeof fuelCal.tanks === 'object' && Object.keys(fuelCal.tanks).length > 0)
           ? fuelCal.tanks
           : { 1: fuelCal };

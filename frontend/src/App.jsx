@@ -15,6 +15,7 @@ import HistoryPage from './pages/user/HistoryPage';
 import ReportPage from './pages/user/ReportPage';
 import SensorLogsPage from './pages/user/SensorLogsPage';
 import TrackingPage from './pages/user/TrackingPage';
+import FuelAnalyticsPage from './pages/user/FuelAnalyticsPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
 import UsersAdminPage from './pages/admin/UsersAdminPage';
@@ -86,6 +87,7 @@ function App() {
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage setAppVehicles={setVehicles} />} />
               <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
+              <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />
