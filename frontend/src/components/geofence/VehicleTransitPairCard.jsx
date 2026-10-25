@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   CheckCircle2,
   XCircle,
-  Navigation
+  Navigation,
+  ArrowRight,
+  Repeat
 } from 'lucide-react';
 import {
   formatRadius,
@@ -177,31 +179,87 @@ const VehicleTransitPairCard = ({
         </div>
 
         {/* Analytics Shortcut Button */}
-        <button
-          type="button"
-          onClick={() => {
-            const vId = vehicle?.id;
-            navigate(`/admin/reports/geofence-transit?vehicleId=${vId || ''}&mode=two_way`);
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: '#0284C7',
-            color: '#FFFFFF',
-            border: 'none',
-            padding: '4px 10px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            flexShrink: 0,
-            boxShadow: '0 1px 4px rgba(2, 132, 199, 0.3)',
-          }}
-        >
-          <TrendingUp size={12} />
-          <span>Transit Analytics</span>
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              const vId = vehicle?.id;
+              navigate(`/admin/reports/geofence-one-way?vehicleId=${vId || ''}&fromId=${geofenceA.id}&toId=${geofenceB.id}`);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: '#2563EB',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(37, 99, 235, 0.3)',
+            }}
+            title="View One-Way Trip & Stoppage Report for A ➔ B"
+          >
+            <ArrowRight size={12} />
+            <span>One-Way Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const vId = vehicle?.id;
+              navigate(`/admin/reports/geofence-two-way?vehicleId=${vId || ''}&fromId=${geofenceA.id}&toId=${geofenceB.id}`);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: '#059669',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(5, 150, 105, 0.3)',
+            }}
+            title="View Two-Way (A ⇄ B) Round Cycle Report"
+          >
+            <Repeat size={12} />
+            <span>Two-Way Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const vId = vehicle?.id;
+              navigate(`/admin/reports/geofence-transit?vehicleId=${vId || ''}&mode=two_way`);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              background: '#0284C7',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(2, 132, 199, 0.3)',
+            }}
+          >
+            <TrendingUp size={12} />
+            <span>Transit Analytics</span>
+          </button>
+        </div>
       </div>
 
       {/* Slim 110px Mini-Map Strip */}

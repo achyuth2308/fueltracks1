@@ -180,7 +180,7 @@ const AssignSavedGeofenceModal = ({
                 {replacingGeofence ? 'Switch / Reassign Geofence' : 'Choose From Saved Places'}
               </h2>
               <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#94A3B8' }}>
-                Vehicle: <strong style={{ color: '#FFFFFF' }}>{vehicle?.name || vehicle?.plate || 'Selected Vehicle'}</strong>
+                Vehicle: <strong style={{ color: '#FFFFFF' }}>{vehicle?.name || 'Selected Vehicle'}</strong>
                 {replacingGeofence && (
                   <span> • Replacing: <strong style={{ color: '#F87171' }}>{replacingGeofence.name}</strong></span>
                 )}

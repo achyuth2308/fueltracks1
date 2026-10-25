@@ -179,6 +179,23 @@ export function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+/**
+ * Checks if a point (lat, lng) is inside a polygon using ray-casting.
+ */
+export function isPointInPolygon(lat, lng, rawPolygon) {
+  const polygon = normalizeCoordinates(rawPolygon);
+  if (!polygon || polygon.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i].lat, yi = polygon[i].lng;
+    const xj = polygon[j].lat, yj = polygon[j].lng;
+    const intersect = ((yi > lng) !== (yj > lng))
+      && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
 export const GEOFENCE_COLOR_PALETTE = [
   { hex: '#3B82F6', label: 'Blue', border: '#1D4ED8' },
   { hex: '#10B981', label: 'Green', border: '#047857' },

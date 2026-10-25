@@ -288,6 +288,21 @@ async function bootstrap() {
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_distance_date DATE;
       ALTER TABLE vehicle_latest_state ADD COLUMN IF NOT EXISTS today_start_odometer NUMERIC(15,3);
 
+      -- Geofences columns and vehicle_geofences mapping table
+      ALTER TABLE geofences ADD COLUMN IF NOT EXISTS color VARCHAR(50) DEFAULT '#3B82F6';
+      ALTER TABLE geofences ADD COLUMN IF NOT EXISTS alert_on_enter BOOLEAN DEFAULT TRUE;
+      ALTER TABLE geofences ADD COLUMN IF NOT EXISTS alert_on_exit BOOLEAN DEFAULT TRUE;
+      ALTER TABLE geofences ADD COLUMN IF NOT EXISTS notification_time VARCHAR(50) DEFAULT '00:00';
+
+      CREATE TABLE IF NOT EXISTS vehicle_geofences (
+        vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+        geofence_id UUID NOT NULL REFERENCES geofences(id) ON DELETE CASCADE,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (vehicle_id, geofence_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_vehicle_geofences_vehicle ON vehicle_geofences(vehicle_id);
+      CREATE INDEX IF NOT EXISTS idx_vehicle_geofences_geofence ON vehicle_geofences(geofence_id);
+
       -- User-defined trips table
       CREATE TABLE IF NOT EXISTS trips (
         id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),

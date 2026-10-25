@@ -137,7 +137,7 @@ const CopyVehicleGeofenceModal = ({
 
   if (!isOpen) return null;
 
-  const currentVehicleName = vehicle?.name || vehicle?.plate || 'Current Vehicle';
+  const currentVehicleName = vehicle?.name || 'Current Vehicle';
 
   // Vehicles eligible as sources (have geofences, not current vehicle)
   const eligibleSources = vehiclesSummary.filter(
@@ -159,9 +159,7 @@ const CopyVehicleGeofenceModal = ({
       ? sourceGeofences.length
       : (v.geofence_count || 0);
 
-    const displayName = v.name && v.plate && v.name !== v.plate
-      ? `${v.name} (${v.plate})`
-      : (v.name || v.plate || 'Vehicle');
+    const displayName = v.name || 'Vehicle';
 
     if (count === 2) {
       return `${displayName} — 2 Geofences (Two-Way Transit Pair)`;
@@ -536,7 +534,7 @@ const CopyVehicleGeofenceModal = ({
                 <div style={{ fontSize: '13px', color: '#166534' }}>
                   Target Vehicle:{' '}
                   <strong style={{ color: '#0F172A' }}>
-                    {currentVehicleName} {vehicle?.plate ? `(${vehicle.plate})` : ''}
+                    {currentVehicleName}
                   </strong>
                 </div>
               </div>
@@ -788,7 +786,7 @@ const CopyVehicleGeofenceModal = ({
                     type="text"
                     value={targetSearch}
                     onChange={(e) => setTargetSearch(e.target.value)}
-                    placeholder="Search vehicles by name, plate, or IMEI..."
+                    placeholder="Search vehicles by name..."
                     style={{
                       width: '100%',
                       padding: '8px 12px 8px 34px',
@@ -870,9 +868,6 @@ const CopyVehicleGeofenceModal = ({
                           <div>
                             <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
                               {v.name}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#64748B' }}>
-                              {v.plate || 'No plate'} {v.imei ? `• IMEI: ${v.imei}` : ''}
                             </div>
                           </div>
                         </div>
