@@ -465,7 +465,7 @@ export default function FuelAnalyticsPage() {
       <div className="max-w-7xl mx-auto space-y-6">
 
         {/* ── TOP HEADER & VEHICLE PICKER ── */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
+        <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
           
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20 text-white">
@@ -485,7 +485,7 @@ export default function FuelAnalyticsPage() {
           <div className="flex flex-wrap items-center gap-3">
             
             {/* Custom Searchable Dropdown */}
-            <div className="relative min-w-[260px] sm:min-w-[300px]" ref={dropdownRef}>
+            <div className="relative min-w-[260px] sm:min-w-[320px]" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -496,11 +496,11 @@ export default function FuelAnalyticsPage() {
                     selectedVehicle?.is_online ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-400'
                   }`} />
                   <span className="font-semibold truncate">
-                    {selectedVehicle ? (selectedVehicle.plate || selectedVehicle.name || selectedVehicle.imei) : 'Select Vehicle...'}
+                    {selectedVehicle ? (selectedVehicle.name || selectedVehicle.plate || selectedVehicle.imei) : 'Select Vehicle...'}
                   </span>
                   {selectedVehicle?.name && selectedVehicle?.plate && (
                     <span className="text-xs text-slate-400 truncate hidden sm:inline">
-                      ({selectedVehicle.name})
+                      ({selectedVehicle.plate})
                     </span>
                   )}
                 </div>
@@ -514,27 +514,27 @@ export default function FuelAnalyticsPage() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute z-50 left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl overflow-hidden max-h-80 flex flex-col"
+                    className="absolute z-[9999] right-0 w-full sm:w-[380px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
                   >
                     {/* Search inside dropdown */}
-                    <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40">
+                    <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
                       <div className="relative">
                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          placeholder="Search vehicle or IMEI..."
-                          className="w-full pl-9 pr-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                          placeholder="Search vehicle name, plate or IMEI..."
+                          className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
                           autoFocus
                         />
                       </div>
                     </div>
 
                     {/* Vehicle list */}
-                    <div className="overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/60 p-1">
+                    <div className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
                       {filteredVehicles.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-slate-400">No vehicles found</div>
+                        <div className="p-6 text-center text-xs text-slate-400">No vehicles match your search</div>
                       ) : (
                         filteredVehicles.map((v) => {
                           const isSelected = selectedVehicle?.id === v.id;
@@ -547,18 +547,25 @@ export default function FuelAnalyticsPage() {
                                 setIsDropdownOpen(false);
                                 setSearchQuery('');
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-lg transition-colors ${
+                              className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left rounded-xl transition-all ${
                                 isSelected 
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' 
                                   : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                               }`}
                             >
-                              <div className="flex items-center gap-2 truncate">
-                                <span className={`w-2 h-2 rounded-full ${v.is_online ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                                <span className="font-medium truncate">{v.plate || v.name}</span>
-                                {v.plate && v.name && <span className="text-slate-400 text-[10px] truncate">({v.name})</span>}
+                              <div className="flex items-center gap-3 truncate">
+                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
+                                <div className="truncate">
+                                  <div className="font-semibold text-slate-900 dark:text-white truncate">
+                                    {v.name || v.plate || v.imei}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    {v.plate && <span>{v.plate}</span>}
+                                    <span>IMEI: {v.imei}</span>
+                                  </div>
+                                </div>
                               </div>
-                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                              {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
                             </button>
                           );
                         })
@@ -894,6 +901,7 @@ export default function FuelAnalyticsPage() {
                       strokeWidth={2.5}
                       fillOpacity={1}
                       fill="url(#fuelGradient)"
+                      connectNulls={true}
                       name="Fuel (L)"
                     />
                   )}
