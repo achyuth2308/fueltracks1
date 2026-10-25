@@ -284,52 +284,109 @@ const GpsModel = {
 
   /**
    * Compute today's travel distance for a vehicle from gps_points using
-   * the SAME algorithm as the History page (drift filter + Haversine segments
-   * >10m and <10km). Writes the result back to vehicle_latest_state so that
-   * the Dashboard "Today Distance" matches the History "Total Dist" exactly.
+   * the EXACT SAME algorithm as the History page (anomaly filter + drift filter
+   * + Haversine segments >10m and <5km). Writes the result back to vehicle_latest_state
+   * so that the Dashboard "Today Distance" matches the History page exactly.
    *
-   * Called from locationSubscriber on every LIVE packet.
-   *
-   * @param {number} vehicleId
+   * @param {number|string} vehicleId
    * @returns {number} today_distance in km (3 decimal places)
    */
   async getTodayDistanceFromHistory(vehicleId) {
-    // Fetch all of today's points (IST midnight → now) ordered chronologically
+    // 1. Calculate today's start and end boundaries in Asia/Kolkata (IST = UTC+5:30) converted to UTC
+    const now = new Date();
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const istNow = new Date(now.getTime() + istOffsetMs);
+    const istYear = istNow.getUTCFullYear();
+    const istMonth = istNow.getUTCMonth();
+    const istDate = istNow.getUTCDate();
+
+    // 00:00:00.000 IST converted to UTC ISO string
+    const istStartUtc = new Date(Date.UTC(istYear, istMonth, istDate, 0, 0, 0) - istOffsetMs).toISOString();
+    // 23:59:59.999 IST converted to UTC ISO string (+ 10 min margin for device clock skew)
+    const istEndUtc = new Date(Date.UTC(istYear, istMonth, istDate, 23, 59, 59, 999) - istOffsetMs + (10 * 60 * 1000)).toISOString();
+
+    // 2. Fetch all of today's points ordered chronologically
     const result = await gpsQuery(
       `SELECT lat, lng, speed, ignition, device_time
        FROM gps_points
        WHERE vehicle_id = $1
-         AND device_time >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date
-         AND device_time <= NOW()
+         AND device_time >= $2
+         AND device_time <= $3
          AND lat IS NOT NULL AND lng IS NOT NULL
          AND lat != 0 AND lng != 0
          AND lat BETWEEN 6.0 AND 38.0
          AND lng BETWEEN 65.0 AND 100.0
        ORDER BY device_time ASC`,
-      [vehicleId]
+      [vehicleId, istStartUtc, istEndUtc]
     );
 
     const rows = result.rows;
     if (rows.length < 2) return 0;
 
-    // Smart Drift Filter (identical to HistoryPage.jsx)
-    const driftFiltered = [];
-    let lastValid = null;
-    for (const p of rows) {
-      if (!lastValid) {
-        driftFiltered.push(p);
-        lastValid = p;
-        continue;
-      }
-      const lat1 = parseFloat(lastValid.lat), lon1 = parseFloat(lastValid.lng);
-      const lat2 = parseFloat(p.lat), lon2 = parseFloat(p.lng);
+    // Haversine formula in km
+    function calcDist(lat1, lon1, lat2, lon2) {
       const R = 6371;
       const dLat = (lat2 - lat1) * Math.PI / 180;
       const dLon = (lon2 - lon1) * Math.PI / 180;
       const a = Math.sin(dLat / 2) ** 2 +
                 Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                 Math.sin(dLon / 2) ** 2;
-      const distKm = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    // 3. Anomaly Filter: Removes LBS teleports and GPS jumps (identical to HistoryPage.jsx lines 244-285)
+    const anomalyFiltered = [];
+    let consecutiveRejects = 0;
+    for (let i = 0; i < rows.length; i++) {
+      const p = rows[i];
+      if (anomalyFiltered.length === 0) {
+        anomalyFiltered.push(p);
+        continue;
+      }
+      const prev = anomalyFiltered[anomalyFiltered.length - 1];
+      const dist = calcDist(parseFloat(prev.lat), parseFloat(prev.lng), parseFloat(p.lat), parseFloat(p.lng));
+      const timeDiffMin = (new Date(p.device_time).getTime() - new Date(prev.device_time).getTime()) / 60000;
+      const impliedSpeedKmph = timeDiffMin > 0 ? (dist / (timeDiffMin / 60)) : (dist > 0.05 ? Infinity : 0);
+
+      const isImpossible = (impliedSpeedKmph > 150 && dist > 0.2) || (impliedSpeedKmph > 80 && (parseFloat(p.speed) || 0) < 20 && dist > 0.5);
+
+      if (isImpossible) {
+        if (anomalyFiltered.length >= 2) {
+          const prevPrev = anomalyFiltered[anomalyFiltered.length - 2];
+          const distPrevPrev = calcDist(parseFloat(prevPrev.lat), parseFloat(prevPrev.lng), parseFloat(p.lat), parseFloat(p.lng));
+          const timeDiffPrevPrev = (new Date(p.device_time).getTime() - new Date(prevPrev.device_time).getTime()) / 60000;
+          const speedPrevPrev = timeDiffPrevPrev > 0 ? (distPrevPrev / (timeDiffPrevPrev / 60)) : (distPrevPrev > 0.05 ? Infinity : 0);
+
+          if (speedPrevPrev < 150) {
+            anomalyFiltered.pop();
+            anomalyFiltered.push(p);
+            consecutiveRejects = 0;
+            continue;
+          }
+        }
+
+        consecutiveRejects++;
+        if (consecutiveRejects > 3) {
+          anomalyFiltered.push(p);
+          consecutiveRejects = 0;
+        }
+        continue;
+      }
+
+      consecutiveRejects = 0;
+      anomalyFiltered.push(p);
+    }
+
+    // 4. Static Drift Filter: Removes stationary GPS starburst clusters (identical to HistoryPage.jsx lines 289-309)
+    const driftFiltered = [];
+    let lastValid = null;
+    for (const p of anomalyFiltered) {
+      if (!lastValid) {
+        driftFiltered.push(p);
+        lastValid = p;
+        continue;
+      }
+      const distKm = calcDist(parseFloat(lastValid.lat), parseFloat(lastValid.lng), parseFloat(p.lat), parseFloat(p.lng));
       const timeDiffMin = (new Date(p.device_time).getTime() - new Date(lastValid.device_time).getTime()) / 60000;
 
       if (distKm >= 0.005 || (p.speed && parseFloat(p.speed) > 0) || p.ignition || timeDiffMin >= 3) {
@@ -338,34 +395,28 @@ const GpsModel = {
       }
     }
 
-    // --- Haversine accumulation (same as HistoryPage.jsx lines 264-278) ---
-    // Segments < 10 m are GPS jitter, segments > 10 km are teleport glitches.
+    // 5. Haversine accumulation: Segments >10m and <5km (identical to HistoryPage.jsx lines 314-322)
     let totalKm = 0;
     for (let i = 1; i < driftFiltered.length; i++) {
       const prev = driftFiltered[i - 1];
       const curr = driftFiltered[i];
-      const lat1 = parseFloat(prev.lat), lon1 = parseFloat(prev.lng);
-      const lat2 = parseFloat(curr.lat), lon2 = parseFloat(curr.lng);
+      const segDist = calcDist(
+        parseFloat(prev.lat), parseFloat(prev.lng),
+        parseFloat(curr.lat), parseFloat(curr.lng)
+      );
 
-      const R = 6371;
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) ** 2;
-      const segDist = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-      if (segDist > 0.01 && segDist < 10) {
+      if (segDist > 0.01 && segDist < 5) {
         totalKm += segDist;
       }
     }
 
     const finalKm = parseFloat(totalKm.toFixed(3));
 
-    // Write back to vehicle_latest_state so dashboard reads the correct value
+    // 6. Write back to vehicle_latest_state with today's date so dashboard reads matching value
     await gpsQuery(
       `UPDATE vehicle_latest_state
-       SET today_distance = $2
+       SET today_distance = $2,
+           today_distance_date = (NOW() AT TIME ZONE 'Asia/Kolkata')::date
        WHERE vehicle_id = $1`,
       [vehicleId, finalKm]
     );

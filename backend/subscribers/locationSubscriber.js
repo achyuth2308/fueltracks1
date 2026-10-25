@@ -22,8 +22,8 @@ const distQueue = [];
 const distQueueSet = new Set();
 let distQueueRunning = 0;
 let distQueueDrops = 0;
-const MAX_DIST_CONCURRENCY = 2;
-const MAX_DIST_QUEUE_LEN = 1000;
+const MAX_DIST_CONCURRENCY = 4;
+const MAX_DIST_QUEUE_LEN = 5000;
 
 setInterval(() => {
   console.log(`[DIST_QUEUE] Length: ${distQueue.length}, Running: ${distQueueRunning}, Drops (last min): ${distQueueDrops}`);
@@ -37,6 +37,7 @@ function queueDistanceRecompute(vehicleId, imei) {
   if (distQueue.length >= MAX_DIST_QUEUE_LEN) {
     distQueueDrops++;
     console.warn(`[SUBSCRIBER] distQueue full, dropping ${imei}`);
+    redis.del(`dist:throttle:${vehicleId}`).catch(() => {});
     return;
   }
   distQueue.push({ vehicleId, imei });
@@ -743,6 +744,15 @@ async function start(io) {
           // Arm the throttle — expires in 60s so next full recompute fires then
           await redis.set(throttleKey, '1', 'EX', 60);
           // Run the heavy full-history recompute in the background via queue
+          queueDistanceRecompute(vehicleId, imei);
+        }
+      } else if (!isLive && hasValidGps) {
+        // 5c. For buffered packets (isLive === false), queue a background distance recompute
+        // so distance accumulated during cellular dead zones is fully recovered.
+        const throttleKey = `dist:throttle:${vehicleId}`;
+        const alreadyQueued = await redis.exists(throttleKey);
+        if (!alreadyQueued) {
+          await redis.set(throttleKey, '1', 'EX', 60);
           queueDistanceRecompute(vehicleId, imei);
         }
       }
