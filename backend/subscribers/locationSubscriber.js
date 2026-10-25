@@ -462,99 +462,147 @@ async function start(io) {
       let finalFuelLiters = fuel; // Default to raw if no calibration exists
       if (vehicle.metadata) {
         const fuelCal = vehicle.metadata.fuelCalibration || {};
-        const tank1Cal = fuelCal.tanks?.[1] || fuelCal;
-        const capacity = parseFloat(tank1Cal.tankSize || vehicle.metadata.tankSize);
-        const calType = vehicle.metadata.fuelConfig?.calibrateType || tank1Cal.calibrateType || 'Auto';
+        const tanksMap = (fuelCal.tanks && typeof fuelCal.tanks === 'object' && Object.keys(fuelCal.tanks).length > 0)
+          ? fuelCal.tanks
+          : { 1: fuelCal };
 
-        if (calType === 'Direct') {
-          // Direct Mode: Sensor transmits actual volume or percentage directly
-          const mult = parseFloat(tank1Cal.directMultiplier ?? 1.0);
-          const offset = parseFloat(tank1Cal.directOffset ?? 0.0);
-          const unit = tank1Cal.directUnit || 'Litres';
-          const validMult = !isNaN(mult) ? mult : 1.0;
-          const validOffset = !isNaN(offset) ? offset : 0.0;
-          const rawScaled = (fuel * validMult) + validOffset;
+        const totalTanks = parseInt(vehicle.metadata.fuelConfig?.noOfTank || fuelCal.noOfTank) || Object.keys(tanksMap).length || 1;
 
-          if (unit === 'Percentage' && capacity > 0) {
-            finalFuelLiters = Math.max(0, Math.min(capacity, (rawScaled / 100) * capacity));
-          } else {
-            finalFuelLiters = Math.max(0, capacity > 0 ? Math.min(capacity, rawScaled) : rawScaled);
-          }
-        } else if (calType === 'Manual' && Array.isArray(tank1Cal.calibrationPoints) && tank1Cal.calibrationPoints.length >= 2) {
-          // Manual Mode: Piecewise Linear Interpolation across user-calibrated points
-          const rawFuel = fuel;
-          const altVolt = voltage != null && !isNaN(voltage) ? parseFloat(voltage) : null;
+        // Helper to evaluate fuel in litres for a given sensor calibration config
+        const evaluateSensorLiters = (cfg, rawVal, cap, shp, pos) => {
+          if (!cfg || rawVal == null || isNaN(rawVal)) return null;
+          const sCalType = cfg.calibrateType || 'Auto';
 
-          const points = tank1Cal.calibrationPoints
-            .map(p => {
-              const l = parseFloat(p.litres);
-              const adc = parseFloat(p.adcValue);
-              const v = parseFloat(p.volt);
-              const f = parseFloat(p.frequency);
-              return {
-                litres: l,
-                adcValue: !isNaN(adc) ? adc : (!isNaN(f) && f > 0 ? f : v),
-                volt: !isNaN(v) ? v : 0,
-                frequency: !isNaN(f) ? f : 0
-              };
-            })
-            .filter(p => !isNaN(p.litres) && !isNaN(p.adcValue))
-            .sort((a, b) => a.adcValue - b.adcValue);
+          if (sCalType === 'Direct') {
+            const mult = parseFloat(cfg.directMultiplier ?? 1.0);
+            const offset = parseFloat(cfg.directOffset ?? 0.0);
+            const unit = cfg.directUnit || 'Litres';
+            const validMult = !isNaN(mult) ? mult : 1.0;
+            const validOffset = !isNaN(offset) ? offset : 0.0;
+            const rawScaled = (parseFloat(rawVal) * validMult) + validOffset;
+            if (unit === 'Percentage' && cap > 0) {
+              return Math.max(0, Math.min(cap, (rawScaled / 100) * cap));
+            }
+            return Math.max(0, cap > 0 ? Math.min(cap, rawScaled) : rawScaled);
+          } else if (sCalType === 'Manual' && Array.isArray(cfg.calibrationPoints) && cfg.calibrationPoints.length >= 2) {
+            const points = cfg.calibrationPoints
+              .map(p => {
+                const l = parseFloat(p.litres);
+                const adc = parseFloat(p.adcValue);
+                const v = parseFloat(p.volt);
+                const f = parseFloat(p.frequency);
+                return {
+                  litres: l,
+                  adcValue: !isNaN(adc) ? adc : (!isNaN(f) && f > 0 ? f : v),
+                  volt: !isNaN(v) ? v : 0,
+                  frequency: !isNaN(f) ? f : 0
+                };
+              })
+              .filter(p => !isNaN(p.litres) && !isNaN(p.adcValue))
+              .sort((a, b) => a.adcValue - b.adcValue);
 
-          if (points.length >= 2) {
-            // Check if sensor is calibrated in low voltage (< 36V) and incoming voltage matches
-            const isVoltageSensor = points.some(p => p.volt > 0) && points.every(p => p.adcValue <= 36.0);
-            const inputVal = (isVoltageSensor && altVolt != null && altVolt > 0 && altVolt <= 36.0) ? altVolt : rawFuel;
+            if (points.length >= 2) {
+              const inputVal = parseFloat(rawVal);
+              if (isNaN(inputVal)) return null;
 
-            if (inputVal <= points[0].adcValue) {
-              finalFuelLiters = points[0].litres;
-            } else if (inputVal >= points[points.length - 1].adcValue) {
-              finalFuelLiters = points[points.length - 1].litres;
-            } else {
+              if (inputVal <= points[0].adcValue) return points[0].litres;
+              if (inputVal >= points[points.length - 1].adcValue) return points[points.length - 1].litres;
+
               for (let i = 0; i < points.length - 1; i++) {
                 const p1 = points[i];
                 const p2 = points[i + 1];
                 if (inputVal >= p1.adcValue && inputVal <= p2.adcValue) {
                   const range = p2.adcValue - p1.adcValue;
                   const ratio = range !== 0 ? (inputVal - p1.adcValue) / range : 0;
-                  finalFuelLiters = Math.round((p1.litres + ratio * (p2.litres - p1.litres)) * 100) / 100;
-                  break;
+                  return Math.round((p1.litres + ratio * (p2.litres - p1.litres)) * 100) / 100;
                 }
               }
             }
-          }
-        } else {
-          // Auto Mode: Dynamic geometry-aware calculation (Rectangle vs Cylinder Horizontal vs Vertical)
-          const emptyAdcRaw = parseFloat(tank1Cal.minAdc ?? vehicle.metadata.fuelEmptyAdc);
-          const fullAdcRaw = parseFloat(tank1Cal.maxAdc ?? vehicle.metadata.fuelFullAdc);
-          const emptyAdc = !isNaN(emptyAdcRaw) ? emptyAdcRaw : 0;
-          const fullAdc = !isNaN(fullAdcRaw) ? fullAdcRaw : 4095;
-          const shape = tank1Cal.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
-          const position = tank1Cal.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
+          } else {
+            // Auto Mode
+            const emptyAdcRaw = parseFloat(cfg.minAdc ?? vehicle.metadata.fuelEmptyAdc);
+            const fullAdcRaw = parseFloat(cfg.maxAdc ?? vehicle.metadata.fuelFullAdc);
+            const emptyAdc = !isNaN(emptyAdcRaw) ? emptyAdcRaw : 0;
+            const fullAdc = !isNaN(fullAdcRaw) ? fullAdcRaw : 4095;
+            const numRaw = parseFloat(rawVal);
 
-          if (capacity > 0 && fullAdc !== emptyAdc) {
-            // Liquid depth fraction: 0.0 (empty) to 1.0 (full)
-            let heightFraction = (fuel - emptyAdc) / (fullAdc - emptyAdc);
-            if (heightFraction < 0) heightFraction = 0;
-            if (heightFraction > 1) heightFraction = 1;
+            if (cap > 0 && fullAdc !== emptyAdc && !isNaN(numRaw)) {
+              let heightFraction = (numRaw - emptyAdc) / (fullAdc - emptyAdc);
+              if (heightFraction < 0) heightFraction = 0;
+              if (heightFraction > 1) heightFraction = 1;
 
-            if (shape === 'Cylinder' && position === 'Horizontal') {
-              // Real-world horizontal cylinder geometry: volume varies by circular segment area
-              const f = heightFraction;
-              if (f <= 0) {
-                finalFuelLiters = 0;
-              } else if (f >= 1) {
-                finalFuelLiters = capacity;
-              } else {
+              if (shp === 'Cylinder' && pos === 'Horizontal') {
+                const f = heightFraction;
+                if (f <= 0) return 0;
+                if (f >= 1) return cap;
                 const term1 = Math.acos(1 - 2 * f);
                 const term2 = (1 - 2 * f) * Math.sqrt(4 * f * (1 - f));
                 const volumeFraction = (term1 - term2) / Math.PI;
-                finalFuelLiters = Math.round(capacity * volumeFraction * 100) / 100;
+                return Math.round(cap * volumeFraction * 100) / 100;
+              } else {
+                return Math.round(cap * heightFraction * 100) / 100;
               }
-            } else {
-              // Rectangle or Vertical Cylinder (uniform cross section along height)
-              finalFuelLiters = Math.round(capacity * heightFraction * 100) / 100;
             }
+          }
+          return parseFloat(rawVal) || 0;
+        };
+
+        // Helper to evaluate a single tank (with single or multiple sensors)
+        const evaluateTankLiters = (tankCfg, tankIndex) => {
+          if (!tankCfg) return 0;
+          const capacity = parseFloat(tankCfg.tankSize || (tankIndex === 1 ? vehicle.metadata.tankSize : 0));
+          const shape = tankCfg.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
+          const position = tankCfg.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
+
+          const configuredSensors = tankCfg.sensors || {};
+          const sensorKeys = Object.keys(configuredSensors).filter(k => configuredSensors[k]);
+
+          if (sensorKeys.length > 1) {
+            // Multi-sensor for this tank (e.g. 2 sensors in 1 large tank)
+            const s1Raw = tankIndex === 1 ? fuel : (data[`fuel${tankIndex}`] ?? data[`fuel_${tankIndex}`] ?? fuel);
+            const s2Raw = data.fuel2 ?? data.fuel_2 ?? data.ble_fuel_2 ?? data.lls2 ?? fuel;
+            const s1Litres = evaluateSensorLiters(configuredSensors[1] || tankCfg, s1Raw, capacity, shape, position);
+            const s2Litres = evaluateSensorLiters(configuredSensors[2], s2Raw, capacity, shape, position);
+
+            const formula = tankCfg.sensorFormula || 'Average';
+            if (formula === 'Average' && s1Litres != null && s2Litres != null) {
+              return Math.round(((s1Litres + s2Litres) / 2) * 100) / 100;
+            } else if (formula === 'Sum' && s1Litres != null && s2Litres != null) {
+              return Math.round((s1Litres + s2Litres) * 100) / 100;
+            } else if (formula === 'Failover') {
+              return s1Litres != null ? s1Litres : s2Litres;
+            } else {
+              return s1Litres != null ? s1Litres : (s2Litres != null ? s2Litres : fuel);
+            }
+          } else {
+            // Single sensor for this tank
+            const raw = tankIndex === 1 ? fuel : (data[`fuel${tankIndex}`] ?? data[`fuel_${tankIndex}`] ?? data.fuel2 ?? data.fuel_2 ?? data.lls2 ?? fuel);
+            const activeSensorCfg = configuredSensors[1] || tankCfg;
+            return evaluateSensorLiters(activeSensorCfg, raw, capacity, shape, position);
+          }
+        };
+
+        if (totalTanks > 1) {
+          let combinedLiters = 0;
+          let calculatedAny = false;
+          for (let t = 1; t <= totalTanks; t++) {
+            const tCfg = tanksMap[t];
+            if (tCfg) {
+              const tLitres = evaluateTankLiters(tCfg, t);
+              if (tLitres != null && !isNaN(tLitres)) {
+                combinedLiters += tLitres;
+                calculatedAny = true;
+              }
+            }
+          }
+          if (calculatedAny) {
+            finalFuelLiters = Math.round(combinedLiters * 100) / 100;
+          }
+        } else {
+          const t1 = tanksMap[1] || fuelCal;
+          const t1Litres = evaluateTankLiters(t1, 1);
+          if (t1Litres != null && !isNaN(t1Litres)) {
+            finalFuelLiters = t1Litres;
           }
         }
       }
@@ -564,26 +612,36 @@ async function start(io) {
         const prevFuel = parseFloat(prevState.fuel);
         const currFuel = parseFloat(finalFuelLiters);
         const capacity = parseFloat(vehicle.metadata?.tankSize) || 100;
+        const fuelCfg = vehicle.metadata?.fuelConfig || {};
         
-        // Threshold: 5% of tank or 10L, min 5L, max 30L jump
-        const threshold = Math.max(5, Math.min(30, capacity * 0.05)); 
+        const configuredMinTheft = parseFloat(fuelCfg.minTheft);
+        const configuredMinFilling = parseFloat(fuelCfg.minFilling);
+
+        // Thresholds: Use technician configured values if present, else safe dynamic default
+        const theftThreshold = !isNaN(configuredMinTheft) && configuredMinTheft > 0
+          ? configuredMinTheft
+          : Math.max(5, Math.min(30, capacity * 0.05));
+
+        const refillThreshold = !isNaN(configuredMinFilling) && configuredMinFilling > 0
+          ? configuredMinFilling
+          : Math.max(5, Math.min(30, capacity * 0.05));
+
         const diff = currFuel - prevFuel;
         
-        // We only trigger alert if there was a real jump AND the engine is OFF (for theft) or ON/OFF (for refill).
-        // Actually, fuel sloshing while moving can cause false alerts. Usually fuel alerts are suppressed while moving.
+        // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
         const isSloshing = speed > 5;
         
         if (!isSloshing) {
-          if (diff <= -threshold) {
+          if (diff <= -theftThreshold) {
             redis.publish('alerts', JSON.stringify({
               imei: vehicle.imei, alertType: 'fuel_theft',
-              alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L. Possible theft or leak.`,
+              alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
               lat, lng, deviceTime
             }));
-          } else if (diff >= threshold) {
+          } else if (diff >= refillThreshold) {
             redis.publish('alerts', JSON.stringify({
               imei: vehicle.imei, alertType: 'fuel_refill',
-              alertText: `Fuel refilled by ${diff.toFixed(1)}L.`,
+              alertText: `Fuel refilled by ${diff.toFixed(1)}L (threshold: ${refillThreshold}L).`,
               lat, lng, deviceTime
             }));
           }
@@ -1115,7 +1173,10 @@ async function start(io) {
 
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
-          lat: emitLat, lng: emitLng, speed, direction, fuel, ignition: finalIgnition, voltage,
+          lat: emitLat, lng: emitLng, speed, direction,
+          fuel: (finalFuelLiters !== undefined && finalFuelLiters !== null) ? finalFuelLiters : fuel,
+          rawFuel: fuel,
+          ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true,
           // today_distance included so the mobile app can display live covered distance

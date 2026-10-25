@@ -37,6 +37,16 @@ window.addEventListener('unhandledrejection', (e) => {
   }
 });
 
+// Globally disable mouse wheel from changing values on number inputs across the entire application
+window.addEventListener('wheel', (e) => {
+  if (e.target && (e.target.type === 'number' || (e.target.tagName === 'INPUT' && e.target.type === 'number'))) {
+    e.target.blur();
+  }
+  if (document.activeElement && document.activeElement.tagName === 'INPUT' && document.activeElement.type === 'number') {
+    document.activeElement.blur();
+  }
+}, { passive: true });
+
 try {
   ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>

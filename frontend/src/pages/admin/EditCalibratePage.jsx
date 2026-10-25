@@ -3,11 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, RotateCw, Download,
   Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, Box,
-  Table, Plus, Trash2, Upload, FileSpreadsheet, Activity, Cpu, Sparkles, Check, Info
+  Table, Plus, Trash2, Upload, FileSpreadsheet, Activity, Cpu, Sparkles, Check, Info,
+  ChevronDown, Gauge
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as vehicleApi from '../../api/vehicleApi';
 import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
+import LiveFuelModal from '../../components/modals/LiveFuelModal';
 
 const EditCalibratePage = () => {
   const { id } = useParams();
@@ -21,6 +23,12 @@ const EditCalibratePage = () => {
   const [activeTank, setActiveTank] = useState(1);
   const [tanksData, setTanksData] = useState({});
   const [showFrequencyModal, setShowFrequencyModal] = useState(false);
+  const [freqModalViewMode, setFreqModalViewMode] = useState('volt'); // 'volt' | 'frequency'
+  const [showLiveFuelModal, setShowLiveFuelModal] = useState(false);
+
+  // Active Sensor Tab (Sensor 1, Sensor 2, etc.) inside Active Tank
+  const [activeSensor, setActiveSensor] = useState(1);
+  const [sensorFormula, setSensorFormula] = useState('Average'); // 'Average' | 'Sum' | 'Failover'
 
   // General Configuration Fields
   const [vehicleName, setVehicleName] = useState('');
@@ -62,7 +70,8 @@ const EditCalibratePage = () => {
   const [directUnit, setDirectUnit] = useState('Litres'); // 'Litres' | 'Percentage'
   const [directMultiplier, setDirectMultiplier] = useState('1.0');
   const [directOffset, setDirectOffset] = useState('0.0');
-  const [directTestInput, setDirectTestInput] = useState('250');
+  const [directTestInput, setDirectTestInput] = useState('35');
+  const [showDirectAdvanced, setShowDirectAdvanced] = useState(false);
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -138,8 +147,11 @@ const EditCalibratePage = () => {
 
         // General settings
         setVehicleName(v.name || '');
-        setNoOfTank(fuelCfg.noOfTank ?? 1);
-        setNoOfSensor(fuelCfg.noOfSensor ?? 1);
+        const loadedNoOfTank = fuelCfg.noOfTank ?? cal.noOfTank ?? 1;
+        const loadedNoOfSensor = fuelCfg.noOfSensor ?? cal.noOfSensor ?? 1;
+        setNoOfTank(loadedNoOfTank);
+        setNoOfSensor(loadedNoOfSensor);
+        setSensorFormula(cal.sensorFormula || fuelCfg.sensorFormula || 'Average');
         setSensorType(fuelCfg.sensorType || cal.sensorType || meta.sensorType || '');
         setMinTheft(fuelCfg.minTheft !== undefined && fuelCfg.minTheft !== null ? fuelCfg.minTheft : '');
         setMinFilling(fuelCfg.minFilling !== undefined && fuelCfg.minFilling !== null ? fuelCfg.minFilling : '');
@@ -182,9 +194,35 @@ const EditCalibratePage = () => {
         setDirectSensorType(cal.directSensorType || cal.fuelType || 'BLE Fuel Level 1');
         setDirectUnit(cal.directUnit || 'Litres');
         setDirectMultiplier(cal.directMultiplier !== undefined ? String(cal.directMultiplier) : '1.0');
-        if (cal.tanks) {
-          setTanksData(cal.tanks);
+        setDirectOffset(cal.directOffset !== undefined ? String(cal.directOffset) : '0.0');
+
+        // Initialize tanks and sensors state safely with 100% backward compatibility
+        const rawTanks = cal.tanks ? { ...cal.tanks } : {};
+        const tank1 = rawTanks[1] ? { ...rawTanks[1] } : {};
+        const tank1Sensors = tank1.sensors ? { ...tank1.sensors } : (cal.sensors ? { ...cal.sensors } : {});
+
+        if (!tank1Sensors[1]) {
+          tank1Sensors[1] = {
+            sensorType: fuelCfg.sensorType || cal.sensorType || meta.sensorType || '',
+            fuelType: cal.fuelType || meta.fuelType || 'LLS Fuel 1(Serial)',
+            calibrateType: cal.calibrateType || fuelCfg.calibrateType || 'Auto',
+            minAdc: cal.minAdc !== undefined && cal.minAdc !== '' ? String(cal.minAdc) : (meta.fuelEmptyAdc !== undefined && meta.fuelEmptyAdc !== null ? String(meta.fuelEmptyAdc) : ''),
+            maxAdc: cal.maxAdc !== undefined && cal.maxAdc !== '' ? String(cal.maxAdc) : (meta.fuelFullAdc !== undefined && meta.fuelFullAdc !== null ? String(meta.fuelFullAdc) : ''),
+            calibrationPoints: Array.isArray(cal.calibrationPoints) ? cal.calibrationPoints : [],
+            directSensorType: cal.directSensorType || cal.fuelType || 'BLE Fuel Level 1',
+            directUnit: cal.directUnit || 'Litres',
+            directMultiplier: cal.directMultiplier !== undefined ? String(cal.directMultiplier) : '1.0',
+            directOffset: cal.directOffset !== undefined ? String(cal.directOffset) : '0.0'
+          };
         }
+
+        rawTanks[1] = {
+          ...tank1,
+          sensorFormula: cal.sensorFormula || fuelCfg.sensorFormula || 'Average',
+          sensors: tank1Sensors
+        };
+        setTanksData(rawTanks);
+        setActiveSensor(1);
 
         setLoading(false);
       })
@@ -195,11 +233,126 @@ const EditCalibratePage = () => {
       });
   };
 
+  const handleSwitchSensor = (newSensorNum) => {
+    if (newSensorNum === activeSensor) return;
+
+    // 1. Snapshot current active sensor
+    const currentSensorSnapshot = {
+      sensorType,
+      fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || ''),
+      calibrateType,
+      minAdc,
+      maxAdc,
+      differenceOfLtrs,
+      addCount,
+      calibrationPoints,
+      directSensorType,
+      directUnit,
+      directMultiplier,
+      directOffset
+    };
+
+    // 2. Persist into tanksData for activeTank
+    const currentTank = tanksData[activeTank] || {};
+    const currentSensors = currentTank.sensors || {};
+    const nextSensors = {
+      ...currentSensors,
+      [activeSensor]: currentSensorSnapshot
+    };
+
+    const nextTanks = {
+      ...tanksData,
+      [activeTank]: {
+        ...currentTank,
+        tankSize,
+        modeOfVehicle,
+        fuelTankShape,
+        fuelTankPosition,
+        calculate,
+        tankLength: lengthMm,
+        tankHeight: heightMm,
+        tankWidth: widthMm,
+        tankRadius: radiusMm,
+        sensorFormula,
+        sensors: nextSensors
+      }
+    };
+    setTanksData(nextTanks);
+
+    // 3. Load target sensor data
+    const targetSensor = nextSensors[newSensorNum] ||
+      vehicle?.metadata?.fuelCalibration?.tanks?.[activeTank]?.sensors?.[newSensorNum] ||
+      vehicle?.metadata?.fuelCalibration?.sensors?.[newSensorNum];
+
+    if (targetSensor) {
+      setSensorType(targetSensor.sensorType || sensorType || '');
+      setFuelType(targetSensor.fuelType || (newSensorNum === 2 ? 'LLS Fuel 2' : 'LLS Fuel 1(Serial)'));
+      setCalibrateType(targetSensor.calibrateType || 'Auto');
+      setMinAdc(targetSensor.minAdc !== undefined ? String(targetSensor.minAdc) : '');
+      setMaxAdc(targetSensor.maxAdc !== undefined ? String(targetSensor.maxAdc) : '');
+      setDifferenceOfLtrs(targetSensor.differenceOfLtrs || '');
+      setAddCount(targetSensor.addCount || '');
+      setCalibrationPoints(Array.isArray(targetSensor.calibrationPoints) ? targetSensor.calibrationPoints : []);
+      setDirectSensorType(targetSensor.directSensorType || (newSensorNum === 2 ? 'BLE Fuel Level 2' : 'BLE Fuel Level 1'));
+      setDirectUnit(targetSensor.directUnit || 'Litres');
+      setDirectMultiplier(targetSensor.directMultiplier !== undefined ? String(targetSensor.directMultiplier) : '1.0');
+      setDirectOffset(targetSensor.directOffset !== undefined ? String(targetSensor.directOffset) : '0.0');
+    } else {
+      // Smart default when opening Sensor 2 (or N) for the first time
+      let suggestedFuelType = 'LLS Fuel 2';
+      if (fuelType && fuelType.includes('BLE')) {
+        suggestedFuelType = `BLE Fuel Level ${newSensorNum}`;
+      } else if (fuelType && fuelType.includes('Analog')) {
+        suggestedFuelType = `Analog ${newSensorNum}`;
+      } else if (fuelType && fuelType.includes('LLS')) {
+        suggestedFuelType = `LLS Fuel ${newSensorNum}`;
+      }
+
+      setFuelType(suggestedFuelType);
+      setCalibrateType(calibrateType || 'Auto');
+      setMinAdc(minAdc || '');
+      setMaxAdc(maxAdc || '');
+      setDifferenceOfLtrs('');
+      setAddCount('');
+      setCalibrationPoints([]);
+      setDirectSensorType(`BLE Fuel Level ${newSensorNum}`);
+      setDirectUnit(directUnit || 'Litres');
+      setDirectMultiplier('1.0');
+      setDirectOffset('0.0');
+    }
+
+    setActiveSensor(newSensorNum);
+  };
+
   const handleSwitchTank = (newTankNum) => {
     if (newTankNum === activeTank) return;
 
+    // Snapshot current active sensor
+    const currentSensorSnapshot = {
+      sensorType,
+      fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || ''),
+      calibrateType,
+      minAdc,
+      maxAdc,
+      differenceOfLtrs,
+      addCount,
+      calibrationPoints,
+      directSensorType,
+      directUnit,
+      directMultiplier,
+      directOffset
+    };
+
+    const currentTank = tanksData[activeTank] || {};
+    const currentSensors = currentTank.sensors || {};
+    const updatedSensors = {
+      ...currentSensors,
+      [activeSensor]: currentSensorSnapshot
+    };
+
     // Snapshot current active tank state
     const currentSnapshot = {
+      ...currentTank,
       tankSize,
       modeOfVehicle,
       fuelType,
@@ -217,7 +370,9 @@ const EditCalibratePage = () => {
       directSensorType,
       directUnit,
       directMultiplier,
-      directOffset
+      directOffset,
+      sensorFormula,
+      sensors: updatedSensors
     };
 
     const nextTanks = {
@@ -226,14 +381,11 @@ const EditCalibratePage = () => {
     };
     setTanksData(nextTanks);
 
-    // Load target tank configuration if present
+    // Target tank
     const target = nextTanks[newTankNum] || vehicle?.metadata?.fuelCalibration?.tanks?.[newTankNum];
     if (target) {
       setTankSize(target.tankSize !== undefined ? String(target.tankSize) : '');
       setModeOfVehicle(target.modeOfVehicle || '');
-      setFuelType(target.fuelType || '');
-      setMinAdc(target.minAdc !== undefined ? String(target.minAdc) : '');
-      setMaxAdc(target.maxAdc !== undefined ? String(target.maxAdc) : '');
       setFuelTankShape(target.fuelTankShape || '');
       setFuelTankPosition(target.fuelTankPosition || '');
       setCalculate(target.calculate || '');
@@ -241,22 +393,23 @@ const EditCalibratePage = () => {
       setHeightMm(target.tankHeight || '');
       setWidthMm(target.tankWidth || '');
       setRadiusMm(target.tankRadius || '');
-      setCalibrateType(target.calibrateType || 'Auto');
-      if (Array.isArray(target.calibrationPoints) && target.calibrationPoints.length > 0) {
-        setCalibrationPoints(target.calibrationPoints);
-      } else {
-        setCalibrationPoints([]);
-      }
-      setDirectSensorType(target.directSensorType || 'BLE Fuel Level 1');
-      setDirectUnit(target.directUnit || 'Litres');
-      setDirectMultiplier(target.directMultiplier !== undefined ? String(target.directMultiplier) : '1.0');
-      setDirectOffset(target.directOffset !== undefined ? String(target.directOffset) : '0.0');
+      setSensorFormula(target.sensorFormula || 'Average');
+
+      // Load Sensor 1 of target tank
+      const targetSensor1 = target.sensors?.[1] || target;
+      setSensorType(targetSensor1.sensorType || sensorType || '');
+      setFuelType(targetSensor1.fuelType || '');
+      setMinAdc(targetSensor1.minAdc !== undefined ? String(targetSensor1.minAdc) : '');
+      setMaxAdc(targetSensor1.maxAdc !== undefined ? String(targetSensor1.maxAdc) : '');
+      setCalibrateType(targetSensor1.calibrateType || 'Auto');
+      setCalibrationPoints(Array.isArray(targetSensor1.calibrationPoints) ? targetSensor1.calibrationPoints : []);
+      setDirectSensorType(targetSensor1.directSensorType || 'BLE Fuel Level 1');
+      setDirectUnit(targetSensor1.directUnit || 'Litres');
+      setDirectMultiplier(targetSensor1.directMultiplier !== undefined ? String(targetSensor1.directMultiplier) : '1.0');
+      setDirectOffset(targetSensor1.directOffset !== undefined ? String(targetSensor1.directOffset) : '0.0');
     } else {
       setTankSize('');
       setModeOfVehicle('');
-      setFuelType('');
-      setMinAdc('');
-      setMaxAdc('');
       setFuelTankShape('');
       setFuelTankPosition('');
       setCalculate('');
@@ -264,10 +417,14 @@ const EditCalibratePage = () => {
       setHeightMm('');
       setWidthMm('');
       setRadiusMm('');
+      setFuelType('');
+      setMinAdc('');
+      setMaxAdc('');
       setCalibrationPoints([]);
     }
 
     setActiveTank(newTankNum);
+    setActiveSensor(1);
   };
 
   useEffect(() => {
@@ -351,6 +508,63 @@ const EditCalibratePage = () => {
     return { widthPx, heightPx };
   }, [fuelTankShape, lengthMm, heightMm, fuelTankPosition]);
 
+  // Dynamic calibration rows for "Show Frequency / Show Volt" dual-column modal
+  const displayCalibrationRows = useMemo(() => {
+    // 1. If manual points are available, format and use them
+    if (Array.isArray(calibrationPoints) && calibrationPoints.length > 0) {
+      return calibrationPoints.map((p, idx) => {
+        const l = parseFloat(p.litres) || 0;
+        let v = p.volt !== undefined && p.volt !== '' && p.volt !== null ? parseFloat(p.volt) : null;
+        let f = p.frequency !== undefined && p.frequency !== '' && p.frequency !== null
+          ? parseFloat(p.frequency)
+          : (p.adcValue !== undefined && p.adcValue !== '' && p.adcValue !== null ? parseFloat(p.adcValue) : null);
+
+        // Calculate missing values if one is supplied
+        if (v === null && f !== null) {
+          v = Math.round((f / 4095 * 5.0) * 100) / 100;
+        }
+        if (f === null && v !== null) {
+          f = Math.round((v / 5.0 * 4095));
+        }
+        return {
+          id: p.id || idx + 1,
+          litres: l.toFixed(2),
+          volt: v !== null ? v.toFixed(2) : '0.00',
+          frequency: f !== null ? String(f) : '0'
+        };
+      });
+    }
+
+    // 2. If in Auto mode or no manual points, synthesize points from tank dimensions or volume
+    const totalLitres = computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 50);
+    const minVal = parseFloat(minAdc) || 0;
+    const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
+    const maxVal = parseFloat(maxAdc) || (isAnalog ? 5.0 : 4095);
+
+    const steps = 10;
+    const generated = [];
+    for (let i = 0; i <= steps; i++) {
+      const frac = i / steps;
+      const l = Math.round(totalLitres * frac * 100) / 100;
+      const raw = minVal + ((maxVal - minVal) * frac);
+      let v, f;
+      if (isAnalog) {
+        v = raw.toFixed(2);
+        f = Math.round(raw / 5.0 * 4095).toString();
+      } else {
+        f = Math.round(raw).toString();
+        v = (raw / 4095 * 5.0).toFixed(2);
+      }
+      generated.push({
+        id: i + 1,
+        litres: l.toFixed(2),
+        volt: v,
+        frequency: f
+      });
+    }
+    return generated;
+  }, [calibrationPoints, computedLitres, tankSize, minAdc, maxAdc, fuelType]);
+
   // Automatically populate Min/Max voltage or RS value based on selected Fuel Type
   const handleFuelTypeChange = (selectedType) => {
     setFuelType(selectedType);
@@ -371,18 +585,13 @@ const EditCalibratePage = () => {
       const diff = parseFloat(differenceOfLtrs) || 5;
       const last = prev[prev.length - 1];
       const nextLitres = last ? (parseFloat(last.litres) || 0) + diff : diff;
-      const lastFreq = last ? (parseFloat(last.frequency) || 100) : 100;
-      const lastVolt = last ? (parseFloat(last.volt) || 0) : 0;
-      const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
-      const nextFreq = Math.round((lastFreq + 50) * 100) / 100;
-      const nextVolt = isAnalog ? (Math.round((lastVolt + 0.45) * 100) / 100).toFixed(2) : '0.00';
       return [
         ...prev,
         {
           id: Date.now(),
           litres: nextLitres,
-          volt: nextVolt,
-          frequency: String(nextFreq)
+          volt: '',
+          frequency: ''
         }
       ];
     });
@@ -398,22 +607,15 @@ const EditCalibratePage = () => {
 
     setCalibrationPoints(prev => {
       const lastLitres = prev.length > 0 ? (parseFloat(prev[prev.length - 1].litres) || 0) : 0;
-      const lastFreq = prev.length > 0 ? (parseFloat(prev[prev.length - 1].frequency) || 100) : 100;
-      const lastVolt = prev.length > 0 ? (parseFloat(prev[prev.length - 1].volt) || 0) : 0;
-      const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
       const newRows = [];
 
       for (let i = 1; i <= count; i++) {
         const nextLitres = lastLitres + (i * diff);
-        const estimatedFreq = Math.round((lastFreq + (i * 55)) * 100) / 100;
-        const estimatedVolt = isAnalog 
-          ? (Math.min(5.0, Math.round((lastVolt + (i * 0.45)) * 100) / 100)).toFixed(2) 
-          : '0.00';
         newRows.push({
           id: Date.now() + i,
           litres: nextLitres,
-          volt: estimatedVolt,
-          frequency: String(estimatedFreq)
+          volt: '',
+          frequency: ''
         });
       }
 
@@ -422,7 +624,8 @@ const EditCalibratePage = () => {
   };
 
   const handleGetVolt = (rowId) => {
-    // Capture live voltage or frequency from active vehicle/device metadata
+    // Capture live voltage or frequency from active vehicle/device metadata based on sensor type
+    const isAnalogMode = fuelType && fuelType.toLowerCase().includes('analog');
     const liveVolt = vehicle?.metadata?.fuelVolt !== undefined
       ? parseFloat(vehicle.metadata.fuelVolt).toFixed(2)
       : (vehicle?.metadata?.batteryVoltage ? parseFloat(vehicle.metadata.batteryVoltage).toFixed(2) : '0.00');
@@ -434,8 +637,8 @@ const EditCalibratePage = () => {
       if (p.id === rowId) {
         return {
           ...p,
-          volt: liveVolt,
-          frequency: liveFreq
+          volt: isAnalogMode ? liveVolt : (p.volt || '0.00'),
+          frequency: !isAnalogMode ? liveFreq : (p.frequency || '0.00')
         };
       }
       return p;
@@ -452,16 +655,39 @@ const EditCalibratePage = () => {
 
   const handleExportExcel = () => {
     try {
-      const sheetData = calibrationPoints.map((p, idx) => ({
-        'Step #': idx + 1,
-        'Litre': parseFloat(p.litres) || 0,
-        'Volt': parseFloat(p.volt) || 0,
-        'Frequency': parseFloat(p.frequency) || 0
-      }));
-      const ws = XLSX.utils.json_to_sheet(sheetData);
+      const isAnalogMode = fuelType && fuelType.toLowerCase().includes('analog');
+      const sheetData = calibrationPoints.map((p, idx) => {
+        if (isAnalogMode) {
+          return {
+            'Step #': idx + 1,
+            'Litre': parseFloat(p.litres) || 0,
+            'Volt': parseFloat(p.volt) || 0
+          };
+        } else {
+          return {
+            'Step #': idx + 1,
+            'Litre': parseFloat(p.litres) || 0,
+            'Frequency': parseFloat(p.frequency !== undefined ? p.frequency : (p.adcValue !== undefined ? p.adcValue : 0)) || 0
+          };
+        }
+      });
+
+      const dataToExport = sheetData.length > 0 ? sheetData : (
+        isAnalogMode ? [
+          { 'Step #': 1, 'Litre': 10, 'Volt': 0.45 },
+          { 'Step #': 2, 'Litre': 20, 'Volt': 0.90 },
+          { 'Step #': 3, 'Litre': 30, 'Volt': 1.35 }
+        ] : [
+          { 'Step #': 1, 'Litre': 10, 'Frequency': 155 },
+          { 'Step #': 2, 'Litre': 20, 'Frequency': 210 },
+          { 'Step #': 3, 'Litre': 30, 'Frequency': 265 }
+        ]
+      );
+
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, `Tank ${activeTank}`);
-      XLSX.writeFile(wb, `Calibration_Tank_${activeTank}_${vehicle?.plate || displayVehicleId}.xlsx`);
+      XLSX.writeFile(wb, `Calibration_${isAnalogMode ? 'Analog_Volt' : 'Serial_Frequency'}_Tank_${activeTank}_${vehicle?.plate || displayVehicleId}.xlsx`);
     } catch (err) {
       console.error('Failed to export excel:', err);
       alert('Failed to export calibration points to Excel.');
@@ -541,12 +767,12 @@ const EditCalibratePage = () => {
     const m = !isNaN(mult) ? mult : 1.0;
     const o = !isNaN(offset) ? offset : 0.0;
     const scaled = (raw * m) + o;
-    const cap = parseFloat(tankSize) || 0;
+    const cap = computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 0);
     if (directUnit === 'Percentage') {
       return cap > 0 ? Math.round(((scaled / 100) * cap) * 100) / 100 : Math.round(scaled * 100) / 100;
     }
     return Math.round(scaled * 100) / 100;
-  }, [directTestInput, directMultiplier, directOffset, directUnit, tankSize]);
+  }, [directTestInput, directMultiplier, directOffset, directUnit, tankSize, computedLitres]);
 
   const handleSave = async (e) => {
     if (e) e.preventDefault();
@@ -570,17 +796,101 @@ const EditCalibratePage = () => {
         setError('Manual calibration requires at least 2 calibration points in the table.');
         return;
       }
+      const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
+      const hasEmptyValues = calibrationPoints.some(p => {
+        if (isAnalog) {
+          return p.volt === undefined || p.volt === null || String(p.volt).trim() === '';
+        } else {
+          const freqVal = p.frequency !== undefined ? p.frequency : p.adcValue;
+          return freqVal === undefined || freqVal === null || String(freqVal).trim() === '';
+        }
+      });
+      if (hasEmptyValues) {
+        setError(`Please enter ${isAnalog ? 'voltage' : 'frequency'} values for all calibration rows (or click "Get ${isAnalog ? 'Volt' : 'Frequency'}").`);
+        return;
+      }
     }
 
     setSaving(true);
 
     try {
+      // 1. Snapshot current active sensor into updatedSensors
+      const currentSensorSnapshot = {
+        sensorType,
+        fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || 'Analog'),
+        calibrateType,
+        minAdc: minAdc !== '' ? parseFloat(minAdc) : '',
+        maxAdc: maxAdc !== '' ? parseFloat(maxAdc) : '',
+        differenceOfLtrs,
+        addCount,
+        calibrationPoints: calibrationPoints.map(p => {
+          const v = parseFloat(p.volt) || 0;
+          const f = parseFloat(p.frequency) || 0;
+          const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
+          const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
+          return {
+            litres: parseFloat(p.litres) || 0,
+            volt: v,
+            frequency: f,
+            adcValue: adc
+          };
+        }),
+        directSensorType,
+        directUnit,
+        directMultiplier: parseFloat(directMultiplier) || 1.0,
+        directOffset: parseFloat(directOffset) || 0.0
+      };
+
+      const currentTank = tanksData[activeTank] || {};
+      const currentSensors = currentTank.sensors || {};
+      const updatedSensors = {
+        ...currentSensors,
+        [activeSensor]: currentSensorSnapshot
+      };
+
+      if (!updatedSensors[1]) {
+        updatedSensors[1] = currentSensorSnapshot;
+      }
+
+      // 2. Build full active tank snapshot
+      const activeTankSnapshot = {
+        tankNo: activeTank,
+        tankSize: parsedTankSize,
+        modeOfVehicle,
+        fuelType: updatedSensors[1]?.fuelType || (fuelType || 'Analog'),
+        minAdc: updatedSensors[1]?.minAdc !== undefined ? updatedSensors[1].minAdc : (minAdc !== '' ? parseFloat(minAdc) : ''),
+        maxAdc: updatedSensors[1]?.maxAdc !== undefined ? updatedSensors[1].maxAdc : (maxAdc !== '' ? parseFloat(maxAdc) : ''),
+        fuelTankShape,
+        fuelTankPosition,
+        calculate,
+        tankLength: lengthMm,
+        tankHeight: heightMm,
+        tankWidth: widthMm,
+        tankRadius: radiusMm,
+        calibrateType: updatedSensors[1]?.calibrateType || calibrateType,
+        calibrationPoints: updatedSensors[1]?.calibrationPoints || [],
+        directSensorType: updatedSensors[1]?.directSensorType || directSensorType,
+        directUnit: updatedSensors[1]?.directUnit || directUnit,
+        directMultiplier: updatedSensors[1]?.directMultiplier !== undefined ? updatedSensors[1].directMultiplier : 1.0,
+        directOffset: updatedSensors[1]?.directOffset !== undefined ? updatedSensors[1].directOffset : 0.0,
+        noOfSensor: parseInt(noOfSensor) || 1,
+        sensorFormula,
+        sensors: updatedSensors
+      };
+
+      const finalTanks = {
+        ...tanksData,
+        [activeTank]: activeTankSnapshot
+      };
+
       const payload = {
         name: vehicleName,
         tankNo: activeTank,
         noOfTank: parseInt(noOfTank) || 1,
         noOfSensor: parseInt(noOfSensor) || 1,
         sensorType: sensorType || '',
+        sensorFormula,
+        sensors: updatedSensors,
         minTheft: parseFloat(minTheft) || 5,
         minFilling: parseFloat(minFilling) || 9,
         tankSize: parsedTankSize,
@@ -597,53 +907,12 @@ const EditCalibratePage = () => {
         tankHeight: heightMm,
         tankWidth: widthMm,
         tankRadius: radiusMm,
-        calibrationPoints: calibrationPoints.map(p => {
-          const v = parseFloat(p.volt) || 0;
-          const f = parseFloat(p.frequency) || 0;
-          const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
-          const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
-          return {
-            litres: parseFloat(p.litres) || 0,
-            volt: v,
-            frequency: f,
-            adcValue: adc
-          };
-        }),
+        calibrationPoints: currentSensorSnapshot.calibrationPoints,
         directSensorType,
         directUnit,
         directMultiplier: parseFloat(directMultiplier) || 1.0,
         directOffset: parseFloat(directOffset) || 0.0,
-        tanks: {
-          ...tanksData,
-          [activeTank]: {
-            tankNo: activeTank,
-            tankSize: parsedTankSize,
-            modeOfVehicle,
-            fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || 'Analog'),
-            minAdc: minAdc !== '' ? parseFloat(minAdc) : '',
-            maxAdc: maxAdc !== '' ? parseFloat(maxAdc) : '',
-            fuelTankShape,
-            fuelTankPosition,
-            calculate,
-            tankLength: lengthMm,
-            tankHeight: heightMm,
-            tankWidth: widthMm,
-            tankRadius: radiusMm,
-            calibrateType,
-            calibrationPoints: calibrationPoints.map(p => {
-              const v = parseFloat(p.volt) || 0;
-              const f = parseFloat(p.frequency) || 0;
-              const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
-              const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
-              return {
-                litres: parseFloat(p.litres) || 0,
-                volt: v,
-                frequency: f,
-                adcValue: adc
-              };
-            })
-          }
-        }
+        tanks: finalTanks
       };
 
       const res = await vehicleApi.calibrateVehicle(id, payload);
@@ -651,9 +920,8 @@ const EditCalibratePage = () => {
         setVehicle(res.data);
       }
       setSuccess('Vehicle fuel configuration and calibration saved successfully.');
-      setTimeout(() => {
-        navigate('/admin/vehicles');
-      }, 1500);
+      // Immediately open the Live Fuel Monitor so technician sees real-time fuel packets
+      setShowLiveFuelModal(true);
     } catch (err) {
       console.error('Calibration save error:', err);
       setError(err.response?.data?.error || err.message || 'Failed to save calibration.');
@@ -694,6 +962,8 @@ const EditCalibratePage = () => {
       `Vehicle: ${vehicle?.name || displayVehicleId}`,
       `IMEI: ${vehicle?.imei || 'N/A'}`,
       `Tank: ${activeTank}`,
+      `Sensor: ${activeSensor} of ${sensorCount}`,
+      `Multi-Sensor Formula: ${sensorFormula}`,
       `Mode: ${modeOfVehicle}`,
       `Tank Size (L): ${tankSize}`,
       modeDetails,
@@ -704,7 +974,7 @@ const EditCalibratePage = () => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `Calibration_${vehicle?.plate || displayVehicleId}_Tank${activeTank}_${calibrateType}.txt`;
+    a.download = `Calibration_${vehicle?.plate || displayVehicleId}_Tank${activeTank}_Sensor${activeSensor}_${calibrateType}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -722,6 +992,8 @@ const EditCalibratePage = () => {
 
   const displayVehicleId = vehicle?.plate || vehicle?.name || vehicle?.imei || '125KVADGNEC_00135';
   const tankCount = Math.max(1, parseInt(noOfTank) || 1);
+  const sensorCount = Math.max(1, parseInt(noOfSensor) || 1);
+  const isAnalogMode = fuelType && fuelType.toLowerCase().includes('analog');
 
   return (
     <div className="pastel-page-bg" style={{ padding: '28px 32px', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
@@ -769,6 +1041,46 @@ const EditCalibratePage = () => {
             <span style={{ color: '#64748b', fontWeight: 500 }}>Edit Calibrate</span>
             <ChevronRight size={13} color="#94a3b8" />
             <span style={{ color: '#ea580c', fontWeight: 700 }}>{displayVehicleId}</span>
+          </div>
+
+          {/* Top Right Live Fuel Action Button */}
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => setShowLiveFuelModal(true)}
+              style={{
+                background: '#ecfdf5',
+                color: '#059669',
+                border: '1px solid #a7f3d0',
+                borderRadius: '8px',
+                padding: '7px 16px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#d1fae5';
+                e.currentTarget.style.borderColor = '#6ee7b7';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#ecfdf5';
+                e.currentTarget.style.borderColor = '#a7f3d0';
+              }}
+            >
+              <span style={{
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#10b981',
+                boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+              }} />
+              Live Fuel
+            </button>
           </div>
         </div>
 
@@ -831,6 +1143,7 @@ const EditCalibratePage = () => {
             gap: '10px',
             flexWrap: 'wrap'
           }}>
+            {/* Tanks Switcher */}
             {Array.from({ length: tankCount }, (_, i) => i + 1).map(tankNum => {
               const isSelected = activeTank === tankNum;
               return (
@@ -865,6 +1178,61 @@ const EditCalibratePage = () => {
                 </button>
               );
             })}
+
+            {/* Sensors Switcher (when sensorCount > 1) */}
+            {sensorCount > 1 && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginLeft: tankCount > 0 ? '16px' : '0',
+                paddingLeft: tankCount > 0 ? '16px' : '0',
+                borderLeft: tankCount > 0 ? '1px solid #e2e8f0' : 'none',
+                flexWrap: 'wrap'
+              }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Cpu size={14} color="#ea580c" />
+                  Sensors:
+                </span>
+                <div style={{
+                  display: 'inline-flex',
+                  background: '#f1f5f9',
+                  padding: '3px',
+                  borderRadius: '8px',
+                  gap: '4px',
+                  border: '1px solid #e2e8f0'
+                }}>
+                  {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sensorNum => {
+                    const isSelected = activeSensor === sensorNum;
+                    return (
+                      <button
+                        key={sensorNum}
+                        type="button"
+                        onClick={() => handleSwitchSensor(sensorNum)}
+                        style={{
+                          background: isSelected ? '#f97316' : 'transparent',
+                          color: isSelected ? '#ffffff' : '#64748b',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Cpu size={12} />
+                        <span>{`Sensor ${sensorNum}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Form Body */}
@@ -1022,7 +1390,14 @@ const EditCalibratePage = () => {
                     min="1"
                     required
                     value={noOfSensor}
-                    onChange={e => setNoOfSensor(e.target.value)}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNoOfSensor(val);
+                      const parsed = Math.max(1, parseInt(val) || 1);
+                      if (activeSensor > parsed) {
+                        setActiveSensor(1);
+                      }
+                    }}
                     style={{
                       width: '100%',
                       height: '40px',
@@ -1049,7 +1424,7 @@ const EditCalibratePage = () => {
                 {/* Sensor Type */}
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Sensor Type
+                    {sensorCount > 1 ? `Sensor Type (Sensor ${activeSensor})` : 'Sensor Type'}
                   </label>
                   <FuelTracksSelect
                     value={sensorType}
@@ -1063,7 +1438,7 @@ const EditCalibratePage = () => {
                 {/* Calibrate Type */}
                 <div>
                   <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Calibrate Type
+                    {sensorCount > 1 ? `Calibrate Type (Sensor ${activeSensor})` : 'Calibrate Type'}
                   </label>
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     {['Auto', 'Manual', 'Direct'].map(type => {
@@ -1100,9 +1475,14 @@ const EditCalibratePage = () => {
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="any"
                     value={minTheft}
-                    onChange={e => setMinTheft(e.target.value)}
+                    onWheel={e => e.target.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) setMinTheft(val);
+                    }}
                     style={{
                       width: '100%',
                       height: '40px',
@@ -1133,9 +1513,14 @@ const EditCalibratePage = () => {
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="any"
                     value={minFilling}
-                    onChange={e => setMinFilling(e.target.value)}
+                    onWheel={e => e.target.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) setMinFilling(val);
+                    }}
                     style={{
                       width: '100%',
                       height: '40px',
@@ -1199,15 +1584,65 @@ const EditCalibratePage = () => {
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
                 marginBottom: '18px',
-                paddingBottom: '10px',
+                paddingBottom: '12px',
                 borderBottom: '1px solid #e2e8f0'
               }}>
-                <SlidersHorizontal size={16} color="#ea580c" />
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                  {`Tank ${activeTank} Parameters`}
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <SlidersHorizontal size={16} color="#ea580c" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                    {tankCount > 1 
+                      ? (sensorCount > 1 ? `Tank ${activeTank} — Sensor ${activeSensor} Calibration` : `Tank ${activeTank} Parameters`)
+                      : (sensorCount > 1 ? `Sensor ${activeSensor} Calibration Details` : 'Tank Calibration Details')
+                    }
+                  </h3>
+                </div>
+
+                {sensorCount > 1 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Configure:</span>
+                    <div style={{
+                      display: 'inline-flex',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '8px',
+                      gap: '4px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sNum => {
+                        const isSel = activeSensor === sNum;
+                        return (
+                          <button
+                            key={sNum}
+                            type="button"
+                            onClick={() => handleSwitchSensor(sNum)}
+                            style={{
+                              background: isSel ? '#f97316' : 'transparent',
+                              color: isSel ? '#ffffff' : '#64748b',
+                              border: 'none',
+                              borderRadius: '6px',
+                              padding: '5px 14px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '5px',
+                              boxShadow: isSel ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
+                              transition: 'all 0.15s ease'
+                            }}
+                          >
+                            <Cpu size={12} />
+                            <span>{`Sensor ${sNum}`}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Row 1: Mode of Vehicle, Fuel Type, Tank Size */}
@@ -1231,7 +1666,7 @@ const EditCalibratePage = () => {
 
                 <div>
                   <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                    Fuel Type
+                    {sensorCount > 1 ? `Fuel Type / Channel (Sensor ${activeSensor})` : 'Fuel Type'}
                   </label>
                   <FuelTracksSelect
                     value={fuelType}
@@ -1247,9 +1682,14 @@ const EditCalibratePage = () => {
                   </label>
                   <input
                     type="number"
+                    min="0"
                     step="any"
                     value={tankSize}
-                    onChange={e => setTankSize(e.target.value)}
+                    onWheel={e => e.target.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) setTankSize(val);
+                    }}
                     placeholder="e.g. 500"
                     style={{
                       width: '100%',
@@ -2019,8 +2459,10 @@ const EditCalibratePage = () => {
                           </span>
                           <input
                             type="number"
+                            min="0.1"
                             step="any"
                             value={differenceOfLtrs}
+                            onWheel={e => e.target.blur()}
                             onChange={e => setDifferenceOfLtrs(e.target.value)}
                             placeholder="1"
                             style={{
@@ -2056,6 +2498,7 @@ const EditCalibratePage = () => {
                             type="number"
                             min="1"
                             value={addCount}
+                            onWheel={e => e.target.blur()}
                             onChange={e => setAddCount(e.target.value)}
                             placeholder="Count"
                             style={{
@@ -2125,16 +2568,19 @@ const EditCalibratePage = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                           <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
-                              <th style={{ padding: '12px 18px', width: '28%' }}>Litre</th>
-                              <th style={{ padding: '12px 18px', width: '28%' }}>Volt</th>
-                              <th style={{ padding: '12px 18px', width: '28%' }}>Frequency</th>
+                              <th style={{ padding: '12px 18px', width: '42%' }}>Litre</th>
+                              {isAnalogMode ? (
+                                <th style={{ padding: '12px 18px', width: '42%' }}>Volt</th>
+                              ) : (
+                                <th style={{ padding: '12px 18px', width: '42%' }}>Frequency</th>
+                              )}
                               <th style={{ padding: '12px 18px', width: '16%', textAlign: 'center' }}>Action</th>
                             </tr>
                           </thead>
                           <tbody>
                             {calibrationPoints.length === 0 ? (
                               <tr>
-                                <td colSpan={4} style={{ padding: '48px 18px', textAlign: 'center', background: '#ffffff' }}>
+                                <td colSpan={3} style={{ padding: '48px 18px', textAlign: 'center', background: '#ffffff' }}>
                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                                     <Table size={32} color="#cbd5e1" />
                                     <span style={{ fontSize: '14px', fontWeight: 700, color: '#475569' }}>
@@ -2159,13 +2605,15 @@ const EditCalibratePage = () => {
                                 <td style={{ padding: '8px 18px' }}>
                                   <input
                                     type="number"
+                                    min="0"
                                     step="any"
                                     value={point.litres}
+                                    onWheel={e => e.target.blur()}
                                     onChange={e => handleUpdatePoint(point.id, 'litres', e.target.value)}
                                     placeholder="0"
                                     style={{
                                       width: '100%',
-                                      maxWidth: '220px',
+                                      maxWidth: '280px',
                                       height: '38px',
                                       padding: '0 12px',
                                       borderRadius: '6px',
@@ -2188,71 +2636,75 @@ const EditCalibratePage = () => {
                                   />
                                 </td>
 
-                                {/* Volt */}
-                                <td style={{ padding: '8px 18px' }}>
-                                  <input
-                                    type="text"
-                                    value={point.volt !== undefined ? point.volt : '0.00'}
-                                    onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value)}
-                                    placeholder="0.00"
-                                    style={{
-                                      width: '100%',
-                                      maxWidth: '220px',
-                                      height: '38px',
-                                      padding: '0 12px',
-                                      borderRadius: '6px',
-                                      border: '1px solid #cbd5e1',
-                                      background: '#ffffff',
-                                      fontSize: '13px',
-                                      fontWeight: 600,
-                                      color: '#0f172a',
-                                      outline: 'none',
-                                      boxSizing: 'border-box'
-                                    }}
-                                    onFocus={e => {
-                                      e.target.style.borderColor = '#f97316';
-                                      e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                                    }}
-                                    onBlur={e => {
-                                      e.target.style.borderColor = '#cbd5e1';
-                                      e.target.style.boxShadow = 'none';
-                                    }}
-                                  />
-                                </td>
+                                {/* Volt (ONLY for Analog) */}
+                                {isAnalogMode && (
+                                  <td style={{ padding: '8px 18px' }}>
+                                    <input
+                                      type="text"
+                                      value={point.volt !== undefined && point.volt !== null ? point.volt : ''}
+                                      onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value)}
+                                      placeholder="Enter Volt (e.g. 0.85)"
+                                      style={{
+                                        width: '100%',
+                                        maxWidth: '280px',
+                                        height: '38px',
+                                        padding: '0 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        color: '#0f172a',
+                                        outline: 'none',
+                                        boxSizing: 'border-box'
+                                      }}
+                                      onFocus={e => {
+                                        e.target.style.borderColor = '#f97316';
+                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                                      }}
+                                      onBlur={e => {
+                                        e.target.style.borderColor = '#cbd5e1';
+                                        e.target.style.boxShadow = 'none';
+                                      }}
+                                    />
+                                  </td>
+                                )}
 
-                                {/* Frequency */}
-                                <td style={{ padding: '8px 18px' }}>
-                                  <input
-                                    type="text"
-                                    value={point.frequency !== undefined ? point.frequency : (point.adcValue !== undefined ? point.adcValue : '')}
-                                    onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value)}
-                                    placeholder="0.00"
-                                    style={{
-                                      width: '100%',
-                                      maxWidth: '220px',
-                                      height: '38px',
-                                      padding: '0 12px',
-                                      borderRadius: '6px',
-                                      border: '1px solid #cbd5e1',
-                                      background: '#ffffff',
-                                      fontSize: '13px',
-                                      fontWeight: 600,
-                                      color: '#0f172a',
-                                      outline: 'none',
-                                      boxSizing: 'border-box'
-                                    }}
-                                    onFocus={e => {
-                                      e.target.style.borderColor = '#f97316';
-                                      e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                                    }}
-                                    onBlur={e => {
-                                      e.target.style.borderColor = '#cbd5e1';
-                                      e.target.style.boxShadow = 'none';
-                                    }}
-                                  />
-                                </td>
+                                {/* Frequency (ONLY for Serial / Digital) */}
+                                {!isAnalogMode && (
+                                  <td style={{ padding: '8px 18px' }}>
+                                    <input
+                                      type="text"
+                                      value={point.frequency !== undefined && point.frequency !== null ? point.frequency : (point.adcValue !== undefined && point.adcValue !== null ? point.adcValue : '')}
+                                      onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value)}
+                                      placeholder="Enter Frequency (e.g. 155)"
+                                      style={{
+                                        width: '100%',
+                                        maxWidth: '280px',
+                                        height: '38px',
+                                        padding: '0 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        color: '#0f172a',
+                                        outline: 'none',
+                                        boxSizing: 'border-box'
+                                      }}
+                                      onFocus={e => {
+                                        e.target.style.borderColor = '#f97316';
+                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                                      }}
+                                      onBlur={e => {
+                                        e.target.style.borderColor = '#cbd5e1';
+                                        e.target.style.boxShadow = 'none';
+                                      }}
+                                    />
+                                  </td>
+                                )}
 
-                                {/* Actions: Get Volt & Remove */}
+                                {/* Actions: Get Volt / Get Frequency & Remove */}
                                 <td style={{ padding: '8px 18px', textAlign: 'center' }}>
                                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
                                     <button
@@ -2283,10 +2735,10 @@ const EditCalibratePage = () => {
                                         e.currentTarget.style.color = '#ea580c';
                                         e.currentTarget.style.borderColor = '#fdba74';
                                       }}
-                                      title="Capture live reading from sensor"
+                                      title={isAnalogMode ? "Capture live voltage from sensor" : "Capture live frequency from sensor"}
                                     >
                                       <Activity size={13} />
-                                      <span>Get Volt</span>
+                                      <span>{isAnalogMode ? 'Get Volt' : 'Get Frequency'}</span>
                                     </button>
 
                                     <button
@@ -2489,258 +2941,323 @@ const EditCalibratePage = () => {
                 </div>
               )}
 
-              {/* WHEN CALIBRATE TYPE IS DIRECT: Render Digital Telemetry Settings & Simulator */}
+              {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & User-Friendly Pre-Calibrated Sensor Configuration */}
               {calibrateType === 'Direct' && (
                 <div style={{ marginTop: '20px' }}>
-                  {/* Row 2 for Direct: Direct Reading Unit, Multiplier, Offset */}
+                  
+                  {/* Clean Explanatory Header Banner */}
                   <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '18px 24px',
-                    marginBottom: '20px'
+                    background: '#fff7ed',
+                    border: '1px solid #fed7aa',
+                    borderRadius: '10px',
+                    padding: '16px 20px',
+                    marginBottom: '22px',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px'
                   }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        Direct Reading Unit
-                      </label>
-                      <FuelTracksSelect
-                        value={directUnit}
-                        onChange={setDirectUnit}
-                        options={directUnitOptions}
-                        placeholder="Select Unit"
-                      />
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '8px',
+                      background: '#ffedd5',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#ea580c',
+                      flexShrink: 0
+                    }}>
+                      <Cpu size={20} />
                     </div>
-
                     <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        Value Multiplier <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(Default 1.0)</span>
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={directMultiplier}
-                        onChange={e => setDirectMultiplier(e.target.value)}
-                        placeholder="1.0"
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13.5px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = '#f97316';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = '#cbd5e1';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        Value Offset <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(Default 0.0)</span>
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={directOffset}
-                        onChange={e => setDirectOffset(e.target.value)}
-                        placeholder="0.0"
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13.5px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = '#f97316';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = '#cbd5e1';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '14.5px', fontWeight: 800, color: '#9a3412' }}>
+                        Direct / Pre-Calibrated Digital Sensor
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#7c2d12', lineHeight: 1.5 }}>
+                        Use this mode when your sensor or vehicle computer already calculates fuel internally (such as <strong>Bluetooth BLE Probes</strong>, <strong>CAN-Bus / OBD-II</strong>, or smart digital sensors). No dip table or tank dimension calculations are needed.
+                      </p>
                     </div>
                   </div>
 
-                  {/* Direct Telemetry Architecture & Simulator Card */}
+                  {/* Step 1: Select How Sensor Sends Fuel (Two Big Visual Cards) */}
+                  <div style={{ marginBottom: '22px' }}>
+                    <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>
+                      Step 1: How does your sensor transmit fuel to the GPS tracker?
+                    </label>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                      gap: '14px'
+                    }}>
+                      {/* Option 1: Actual Volume in Litres */}
+                      <div
+                        onClick={() => setDirectUnit('Litres')}
+                        style={{
+                          border: directUnit === 'Litres' ? '2px solid #f97316' : '1px solid #cbd5e1',
+                          background: directUnit === 'Litres' ? '#fff7ed' : '#ffffff',
+                          borderRadius: '10px',
+                          padding: '16px 18px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          boxShadow: directUnit === 'Litres' ? '0 2px 8px rgba(249, 115, 22, 0.15)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: directUnit === 'Litres' ? '6px solid #f97316' : '2px solid #cbd5e1',
+                          background: '#ffffff',
+                          flexShrink: 0,
+                          marginTop: '2px'
+                        }} />
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
+                            Direct Litres (L)
+                          </div>
+                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '4px', lineHeight: 1.4 }}>
+                            The tracker receives exact fuel volume (e.g. packet value <strong>45</strong> = <strong>45.0 Litres</strong>). Most BLE probes and CAN-Bus systems use this.
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Option 2: Percentage Level */}
+                      <div
+                        onClick={() => setDirectUnit('Percentage')}
+                        style={{
+                          border: directUnit === 'Percentage' ? '2px solid #f97316' : '1px solid #cbd5e1',
+                          background: directUnit === 'Percentage' ? '#fff7ed' : '#ffffff',
+                          borderRadius: '10px',
+                          padding: '16px 18px',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          boxShadow: directUnit === 'Percentage' ? '0 2px 8px rgba(249, 115, 22, 0.15)' : 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '20px',
+                          height: '20px',
+                          borderRadius: '50%',
+                          border: directUnit === 'Percentage' ? '6px solid #f97316' : '2px solid #cbd5e1',
+                          background: '#ffffff',
+                          flexShrink: 0,
+                          marginTop: '2px'
+                        }} />
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
+                            Percentage Level (0% ~ 100%)
+                          </div>
+                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '4px', lineHeight: 1.4 }}>
+                            The tracker receives fuel as a percentage (e.g. <strong>75%</strong>). FuelTracks computes: <strong>75% × Tank Size ({computedLitres || tankSize || 100} L) = {((75 / 100) * (computedLitres || tankSize || 100)).toFixed(1)} L</strong>.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 2: Live Verification / Preview */}
                   <div style={{
                     background: '#fafbfc',
                     border: '1px solid #e2e8f0',
-                    borderRadius: '12px',
-                    padding: '24px 28px',
-                    marginBottom: '24px'
+                    borderRadius: '10px',
+                    padding: '18px 22px',
+                    marginBottom: '20px'
                   }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '10px',
-                      paddingBottom: '14px',
-                      borderBottom: '1px solid #e2e8f0',
-                      marginBottom: '18px'
-                    }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Cpu size={18} color="#ea580c" />
-                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>
-                          Pre-Calibrated Digital Telemetry Protocol
-                        </span>
-                        <span style={{
-                          fontSize: '11.5px',
-                          fontWeight: 700,
-                          color: '#16a34a',
-                          background: '#f0fdf4',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          border: '1px solid #bbf7d0'
-                        }}>
-                          Bypasses Raw ADC Curve
-                        </span>
-                      </div>
-
-                      <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>
-                        <span>
-                          Active Protocol: <strong style={{ color: '#ea580c' }}>{fuelType}</strong>
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      padding: '16px 20px',
-                      marginBottom: '20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#334155' }}>
-                        <Info size={16} color="#f97316" />
-                        <span>
-                          Digital sensors transmit calibrated fuel level directly. Ingested value formula:
-                        </span>
-                      </div>
-                      <div style={{
-                        background: '#fff7ed',
-                        border: '1px dashed #fdba74',
-                        borderRadius: '6px',
-                        padding: '10px 16px',
-                        fontSize: '13px',
-                        fontWeight: 700,
-                        color: '#c2410c'
-                      }}>
-                        {`Computed Litres = (Packet Telemetry × ${directMultiplier || 1.0}) + ${directOffset || 0.0} ${directUnit === 'Percentage' ? `× (${tankSize || 500}L ÷ 100)` : ''}`}
-                      </div>
-                    </div>
-
-                    {/* Live Interactive Telemetry Simulator */}
-                    <div style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '8px',
-                      padding: '18px 20px'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
                         <Activity size={16} color="#ea580c" />
                         <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
-                          Interactive Sensor Packet Simulator
+                          Step 2: Live Reading Preview
                         </span>
-                        <span style={{ fontSize: '12px', color: '#64748b' }}>
-                          (Simulate live packet payload to verify output)
-                        </span>
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#64748b' }}>
+                        Active Protocol: <strong style={{ color: '#ea580c' }}>{fuelType || directSensorType}</strong>
+                      </span>
+                    </div>
+
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                      gap: '16px',
+                      alignItems: 'center'
+                    }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                          Test Value from Tracker {directUnit === 'Percentage' ? '(%)' : '(Litres)'}:
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          min="0"
+                          value={directTestInput}
+                          onChange={e => setDirectTestInput(e.target.value)}
+                          placeholder={directUnit === 'Percentage' ? 'e.g. 50' : 'e.g. 35'}
+                          style={{
+                            width: '100%',
+                            height: '40px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13.5px',
+                            fontWeight: 700,
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
                       </div>
 
                       <div style={{
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '8px',
+                        padding: '12px 18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '6px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                          <span>Calculated Tank Volume:</span>
+                          <strong style={{ color: '#ea580c', fontSize: '15px' }}>{`${directComputedLitres} Litres`}</strong>
+                        </div>
+
+                        {/* Progress Bar */}
+                        <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{
+                            width: `${(computedLitres || tankSize) > 0 ? Math.min(100, Math.max(0, (directComputedLitres / (computedLitres || tankSize || 100)) * 100)) : 0}%`,
+                            height: '100%',
+                            background: '#f97316',
+                            borderRadius: '4px',
+                            transition: 'width 0.2s ease'
+                          }} />
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
+                          <span>0 L</span>
+                          <span>{`${(computedLitres || tankSize) > 0 ? Math.min(100, Math.round((directComputedLitres / (computedLitres || tankSize || 100)) * 1000) / 10) : 0}% Fill`}</span>
+                          <span>{`${computedLitres || tankSize || 100} L Capacity`}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Optional Advanced Tuning (Collapsible) */}
+                  <div style={{
+                    border: '1px dashed #cbd5e1',
+                    borderRadius: '10px',
+                    padding: '14px 18px',
+                    background: '#f8fafc'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowDirectAdvanced(prev => !prev)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Settings2 size={15} color="#ea580c" />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                          Advanced Sensor Multiplier & Offset (Optional)
+                        </span>
+                        <span style={{ fontSize: '11px', color: '#64748b' }}>
+                          {showDirectAdvanced ? '— Click to collapse' : '— Click to configure'}
+                        </span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        color="#64748b"
+                        style={{
+                          transform: showDirectAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease'
+                        }}
+                      />
+                    </button>
+
+                    {showDirectAdvanced && (
+                      <div style={{
+                        marginTop: '14px',
+                        paddingTop: '14px',
+                        borderTop: '1px solid #e2e8f0',
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                        gap: '16px',
-                        alignItems: 'center'
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                        gap: '16px'
                       }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                            Simulated Telemetry Value {directUnit === 'Percentage' ? '(%)' : '(Litres)'}:
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
+                            Value Multiplier (Default: 1.0)
                           </label>
                           <input
                             type="number"
                             step="any"
-                            value={directTestInput}
-                            onChange={e => setDirectTestInput(e.target.value)}
-                            placeholder="e.g. 250"
+                            value={directMultiplier}
+                            onChange={e => setDirectMultiplier(e.target.value)}
+                            placeholder="1.0"
                             style={{
                               width: '100%',
-                              height: '40px',
-                              padding: '0 12px',
+                              height: '38px',
+                              padding: '0 10px',
                               borderRadius: '6px',
                               border: '1px solid #cbd5e1',
                               background: '#ffffff',
-                              fontSize: '13.5px',
-                              fontWeight: 700,
-                              color: '#0f172a',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                            onFocus={e => {
-                              e.target.style.borderColor = '#f97316';
-                              e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                            }}
-                            onBlur={e => {
-                              e.target.style.borderColor = '#cbd5e1';
-                              e.target.style.boxShadow = 'none';
+                              fontSize: '13px'
                             }}
                           />
+                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '3px' }}>
+                            Use 0.1 if sensor sends decilitres (e.g. 500 = 50.0 L).
+                          </span>
                         </div>
 
-                        <div style={{
-                          background: '#fafbfc',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px',
-                          padding: '12px 18px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          gap: '6px'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-                            <span>Live Processed Output:</span>
-                            <strong style={{ color: '#ea580c', fontSize: '14px' }}>{`${directComputedLitres} Litres`}</strong>
-                          </div>
-
-                          {/* Gauge progress bar in Theme Orange */}
-                          <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                            <div style={{
-                              width: `${parseFloat(tankSize) > 0 ? Math.min(100, Math.max(0, (directComputedLitres / parseFloat(tankSize)) * 100)) : 0}%`,
-                              height: '100%',
-                              background: '#f97316',
-                              borderRadius: '4px',
-                              transition: 'width 0.2s ease'
-                            }} />
-                          </div>
-
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
-                            <span>0 L</span>
-                            <span>{`${parseFloat(tankSize) > 0 ? Math.round((directComputedLitres / parseFloat(tankSize)) * 1000) / 10 : 0}% Capacity`}</span>
-                            <span>{`${tankSize || 500} L`}</span>
-                          </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
+                            Value Offset (Default: 0.0)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={directOffset}
+                            onChange={e => setDirectOffset(e.target.value)}
+                            placeholder="0.0"
+                            style={{
+                              width: '100%',
+                              height: '38px',
+                              padding: '0 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              fontSize: '13px'
+                            }}
+                          />
+                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '3px' }}>
+                            Added or subtracted from the final calculated litres.
+                          </span>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
+
                 </div>
               )}
 
@@ -2748,7 +3265,14 @@ const EditCalibratePage = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
                 <button
                   type="button"
-                  onClick={() => setShowFrequencyModal(true)}
+                  onClick={() => {
+                    if (fuelType && fuelType.toLowerCase().includes('analog')) {
+                      setFreqModalViewMode('volt');
+                    } else {
+                      setFreqModalViewMode('frequency');
+                    }
+                    setShowFrequencyModal(true);
+                  }}
                   style={{
                     background: '#fff7ed',
                     color: '#ea580c',
@@ -2771,6 +3295,43 @@ const EditCalibratePage = () => {
                   }}
                 >
                   Show Frequency
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowLiveFuelModal(true)}
+                  style={{
+                    background: '#ecfdf5',
+                    color: '#059669',
+                    border: '1px solid #a7f3d0',
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease',
+                    boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#d1fae5';
+                    e.currentTarget.style.borderColor = '#6ee7b7';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = '#ecfdf5';
+                    e.currentTarget.style.borderColor = '#a7f3d0';
+                  }}
+                >
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                  }} />
+                  Live Fuel
                 </button>
 
                 <button
@@ -2912,89 +3473,332 @@ const EditCalibratePage = () => {
         </div>
       </div>
 
-      {/* Show Frequency Modal */}
-      {showFrequencyModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 100000,
-            background: 'rgba(15, 23, 42, 0.65)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}
-          onClick={() => setShowFrequencyModal(false)}
-        >
+      {/* Show Frequency / Litre & Volt Dual-Column Modal */}
+      {showFrequencyModal && (() => {
+        const half = Math.ceil(displayCalibrationRows.length / 2);
+        const leftHalf = displayCalibrationRows.slice(0, half);
+        const rightHalf = displayCalibrationRows.slice(half);
+
+        return (
           <div
             style={{
-              background: '#ffffff',
-              borderRadius: '12px',
-              padding: '24px',
-              width: '100%',
-              maxWidth: '460px',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-              position: 'relative'
+              position: 'fixed',
+              inset: 0,
+              zIndex: 100000,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(4px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px'
             }}
-            onClick={e => e.stopPropagation()}
+            onClick={() => setShowFrequencyModal(false)}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Radio size={18} color="#ea580c" />
-                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
-                  Live Sensor Frequency
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowFrequencyModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '16px', marginBottom: '18px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Vehicle:</span>
-                <span style={{ color: '#0f172a', fontWeight: 700 }}>{displayVehicleId}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Sensor Type:</span>
-                <span style={{ color: '#0f172a', fontWeight: 700 }}>{fuelType}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Calibrated ADC Range:</span>
-                <span style={{ color: '#ea580c', fontWeight: 800 }}>{`${minAdc || 0} ~ ${maxAdc || 4095}`}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span style={{ color: '#64748b', fontWeight: 500 }}>Tank Volume:</span>
-                <span style={{ color: '#16a34a', fontWeight: 800 }}>{`${computedLitres} Litres`}</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowFrequencyModal(false)}
+            <div
               style={{
+                background: '#ffffff',
+                borderRadius: '14px',
                 width: '100%',
-                padding: '10px',
-                borderRadius: '6px',
-                background: '#f97316',
-                color: '#ffffff',
-                border: 'none',
-                fontWeight: 700,
-                fontSize: '13.5px',
-                cursor: 'pointer'
+                maxWidth: '660px',
+                boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
               }}
+              onClick={e => e.stopPropagation()}
             >
-              Close
-            </button>
+              {/* Top Action Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 20px',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#f8fafc'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {/* Mode Toggle Button: Show Frequency <-> Show Volt */}
+                  <button
+                    type="button"
+                    onClick={() => setFreqModalViewMode(prev => prev === 'volt' ? 'frequency' : 'volt')}
+                    style={{
+                      background: '#fff7ed',
+                      color: '#ea580c',
+                      border: '1px solid #fed7aa',
+                      borderRadius: '6px',
+                      padding: '6px 14px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#ffedd5';
+                      e.currentTarget.style.borderColor = '#fdba74';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#fff7ed';
+                      e.currentTarget.style.borderColor = '#fed7aa';
+                    }}
+                  >
+                    {freqModalViewMode === 'volt' ? 'Show Frequency' : 'Show Volt'}
+                  </button>
+
+                  {/* Reload Button */}
+                  <button
+                    type="button"
+                    onClick={loadVehicleData}
+                    title="Reload Calibration Data"
+                    style={{
+                      background: '#ffffff',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.color = '#0f172a';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.color = '#475569';
+                    }}
+                  >
+                    <RotateCw size={14} />
+                  </button>
+
+                  {/* Export / Download Button */}
+                  <button
+                    type="button"
+                    onClick={handleExportExcel}
+                    title="Export Calibration to Excel"
+                    style={{
+                      background: '#ffffff',
+                      color: '#16a34a',
+                      border: '1px solid #bbf7d0',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '6px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#ffffff';
+                      e.currentTarget.style.borderColor = '#bbf7d0';
+                    }}
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
+
+                {/* Close Button */}
+                <button
+                  type="button"
+                  onClick={() => setShowFrequencyModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    padding: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderRadius: '6px',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.color = '#0f172a';
+                    e.currentTarget.style.background = '#e2e8f0';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.color = '#94a3b8';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Title Section */}
+              <div style={{
+                textAlign: 'center',
+                padding: '12px 20px 8px',
+                borderBottom: '1px solid #f1f5f9'
+              }}>
+                <h3 style={{
+                  margin: 0,
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: '#ea580c',
+                  letterSpacing: '-0.01em'
+                }}>
+                  {freqModalViewMode === 'volt' ? 'Litre and Volt' : 'Litre and Frequency'}
+                </h3>
+                <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                  {displayVehicleId} • Tank {activeTank} (Sensor {activeSensor}) • {displayCalibrationRows.length} Calibration Points
+                </div>
+              </div>
+
+              {/* Dual-Column Calibration Table */}
+              <div style={{
+                maxHeight: '400px',
+                overflowY: 'auto',
+                padding: '14px 20px'
+              }}>
+                {displayCalibrationRows.length === 0 ? (
+                  <div style={{ padding: '30px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                    No calibration points available.
+                  </div>
+                ) : (
+                  <div style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    overflow: 'hidden'
+                  }}>
+                    <table style={{
+                      width: '100%',
+                      borderCollapse: 'collapse',
+                      fontSize: '13px',
+                      textAlign: 'center'
+                    }}>
+                      <thead style={{
+                        position: 'sticky',
+                        top: 0,
+                        zIndex: 5,
+                        background: '#f8fafc',
+                        borderBottom: '2px solid #e2e8f0'
+                      }}>
+                        <tr>
+                          {/* Left Column Header */}
+                          <th style={{ padding: '8px 10px', fontWeight: 700, color: '#334155', width: '25%' }}>Litre</th>
+                          <th style={{ padding: '8px 10px', fontWeight: 700, color: '#334155', width: '25%', borderRight: '2px solid #e2e8f0' }}>
+                            {freqModalViewMode === 'volt' ? 'Volt' : 'Frequency'}
+                          </th>
+
+                          {/* Right Column Header */}
+                          <th style={{ padding: '8px 10px', fontWeight: 700, color: '#334155', width: '25%' }}>Litre</th>
+                          <th style={{ padding: '8px 10px', fontWeight: 700, color: '#334155', width: '25%' }}>
+                            {freqModalViewMode === 'volt' ? 'Volt' : 'Frequency'}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {leftHalf.map((leftRow, idx) => {
+                          const rightRow = rightHalf[idx];
+                          const isEven = idx % 2 === 0;
+                          return (
+                            <tr
+                              key={leftRow.id || idx}
+                              style={{
+                                background: isEven ? '#ffffff' : '#f8fafc',
+                                borderBottom: '1px solid #f1f5f9'
+                              }}
+                            >
+                              {/* Left Pair */}
+                              <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                                {leftRow.litres}
+                              </td>
+                              <td style={{
+                                padding: '7px 10px',
+                                fontWeight: 700,
+                                color: '#ea580c',
+                                fontVariantNumeric: 'tabular-nums',
+                                borderRight: '2px solid #e2e8f0'
+                              }}>
+                                {freqModalViewMode === 'volt' ? leftRow.volt : leftRow.frequency}
+                              </td>
+
+                              {/* Right Pair */}
+                              <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                                {rightRow ? rightRow.litres : '-'}
+                              </td>
+                              <td style={{
+                                padding: '7px 10px',
+                                fontWeight: 700,
+                                color: '#ea580c',
+                                fontVariantNumeric: 'tabular-nums'
+                              }}>
+                                {rightRow ? (freqModalViewMode === 'volt' ? rightRow.volt : rightRow.frequency) : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Footer */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                padding: '12px 20px',
+                borderTop: '1px solid #e2e8f0',
+                background: '#f8fafc'
+              }}>
+                <button
+                  type="button"
+                  onClick={() => setShowFrequencyModal(false)}
+                  style={{
+                    padding: '8px 26px',
+                    borderRadius: '8px',
+                    background: '#f97316',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 700,
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(249, 115, 22, 0.28)',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = '#ea580c';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.38)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = '#f97316';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(249, 115, 22, 0.28)';
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* Real-time Live Fuel Telemetry Modal */}
+      <LiveFuelModal
+        isOpen={showLiveFuelModal}
+        onClose={() => setShowLiveFuelModal(false)}
+        vehicleId={id}
+        vehicleName={vehicleName || vehicle?.name || displayVehicleId}
+        plate={vehicle?.plate}
+        imei={vehicle?.imei}
+        tankCapacity={computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 0)}
+        initialFuel={vehicle?.current_fuel}
+        fuelType={fuelType}
+        sensorType={sensorType}
+      />
 
       {/* Excel / CSV Import Modal for Manual Calibration */}
       {showUploadModal && (

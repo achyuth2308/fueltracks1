@@ -17,6 +17,7 @@ import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
 import ReprocessModal from '../../components/modals/ReprocessModal';
+import LiveFuelModal from '../../components/modals/LiveFuelModal';
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
@@ -64,6 +65,7 @@ const VehiclesAdminPage = () => {
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
   const [reprocessingVehicle, setReprocessingVehicle] = useState(null);
+  const [liveFuelVehicle, setLiveFuelVehicle] = useState(null);
   const [activeActionDropdownId, setActiveActionDropdownId] = useState(null);
   const [dropdownCoords, setDropdownCoords] = useState(null);
 
@@ -995,6 +997,55 @@ const VehiclesAdminPage = () => {
                                   <span>Calibrate</span>
                                 </button>
 
+                                {/* 4b. Live Fuel */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    setLiveFuelVehicle(v);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#ECFDF5';
+                                    e.currentTarget.style.color = '#059669';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
+                                >
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#ECFDF5',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#059669',
+                                    flexShrink: 0
+                                  }}>
+                                    <Fuel size={14} />
+                                  </div>
+                                  <span>Live Fuel</span>
+                                </button>
+
                                 {/* 5. Audit Report */}
                                 <button
                                   type="button"
@@ -1742,6 +1793,20 @@ const VehiclesAdminPage = () => {
         vehicle={reprocessingVehicle}
         onClose={() => setReprocessingVehicle(null)}
         onSuccess={fetchVehicles}
+      />
+
+      {/* On-Demand Live Fuel Telemetry Modal */}
+      <LiveFuelModal
+        isOpen={Boolean(liveFuelVehicle)}
+        vehicleId={liveFuelVehicle?.id}
+        vehicleName={liveFuelVehicle?.name}
+        plate={liveFuelVehicle?.plate}
+        imei={liveFuelVehicle?.imei}
+        tankCapacity={parseFloat(liveFuelVehicle?.metadata?.tankSize || liveFuelVehicle?.metadata?.fuelConfig?.tankSize || 100)}
+        initialFuel={liveFuelVehicle?.current_fuel}
+        fuelType={liveFuelVehicle?.metadata?.fuelCalibration?.fuelType || liveFuelVehicle?.metadata?.fuelType}
+        sensorType={liveFuelVehicle?.metadata?.sensorType}
+        onClose={() => setLiveFuelVehicle(null)}
       />
     </div>
   );
