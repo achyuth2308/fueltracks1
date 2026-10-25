@@ -46,9 +46,10 @@ function init() {
 async function publishLocation(parsed) {
   if (!publisher) throw new Error('Redis publisher not initialized');
 
-  let { imei, lat, lng, speed, fuel, ignition, voltage, direction,
-          odometer, satellites, gsmSignal, battery, deviceTime, isLive,
-          rawPacket, packetType } = parsed;
+  let { imei, lat, lng, speed, fuel, fuel2, fuel3, fuel4, lls2, ble_fuel_2,
+        ignition, voltage, direction,
+        odometer, satellites, gsmSignal, battery, deviceTime, isLive,
+        rawPacket, packetType } = parsed;
 
   // Validate coordinates — reject 0,0 or out-of-range values
   const isInvalidCoords = !lat || !lng
@@ -102,6 +103,11 @@ async function publishLocation(parsed) {
     lng,
     speed,
     fuel,
+    fuel2: fuel2 !== undefined ? fuel2 : (lls2 !== undefined ? lls2 : ble_fuel_2),
+    fuel3: fuel3 !== undefined ? fuel3 : null,
+    fuel4: fuel4 !== undefined ? fuel4 : null,
+    lls2: lls2 !== undefined ? lls2 : null,
+    ble_fuel_2: ble_fuel_2 !== undefined ? ble_fuel_2 : null,
     ignition,
     voltage,
     direction,

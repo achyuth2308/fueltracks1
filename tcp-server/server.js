@@ -1618,12 +1618,20 @@ function startFmb920Server(port) {
             const extVolt = record.ioMap[66] ? record.ioMap[66] / 1000 : 0;
             const odometer = record.ioMap[16] || 0;
 
+            // Teltonika Fuel Sensors (Analog, LLS, BLE, CAN):
+            // LLS Fuel 1: IO 84, BLE Fuel 1: IO 270, Analog Input 1: IO 9 (mV -> V), CAN Fuel: IO 83
+            // LLS Fuel 2: IO 85, BLE Fuel 2: IO 271, Analog Input 2: IO 10 (mV -> V)
+            const fuel1 = record.ioMap[84] ?? record.ioMap[270] ?? (record.ioMap[9] !== undefined ? (record.ioMap[9] / 1000) : (record.ioMap[83] ?? null));
+            const fuel2 = record.ioMap[85] ?? record.ioMap[271] ?? (record.ioMap[10] !== undefined ? (record.ioMap[10] / 1000) : null);
+
             const payload = {
               imei: sessionImei,
               lat,
               lng,
               speed,
               ignition,
+              fuel: fuel1,
+              fuel2,
               direction: record.direction,
               satellites: record.satellites,
               battery: batteryVolt,

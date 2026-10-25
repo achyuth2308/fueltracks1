@@ -995,6 +995,9 @@ const VehicleController = {
         noOfTank,
         noOfSensor,
         sensorType,
+        sensorFormula,
+        sensors,
+        tanks,
         minTheft,
         minFilling,
         calibrateType,
@@ -1045,10 +1048,20 @@ const VehicleController = {
         directUnit: directUnit !== undefined ? directUnit : (fuelCal.directUnit || 'Litres'),
         directMultiplier: directMultiplier !== undefined ? directMultiplier : (fuelCal.directMultiplier ?? 1.0),
         directOffset: directOffset !== undefined ? directOffset : (fuelCal.directOffset ?? 0.0),
+        noOfSensor: noOfSensor !== undefined ? Number(noOfSensor) : (fuelCal.noOfSensor ?? 1),
+        sensorFormula: sensorFormula !== undefined ? sensorFormula : (fuelCal.sensorFormula || 'Average'),
+        sensors: sensors !== undefined ? sensors : (fuelCal.tanks?.[thisTankNo]?.sensors || fuelCal.sensors || {}),
         updatedAt: new Date().toISOString()
       };
 
-      const updatedTanks = {
+      const updatedTanks = tanks && typeof tanks === 'object' && Object.keys(tanks).length > 0 ? {
+        ...currentTanks,
+        ...tanks,
+        [thisTankNo]: {
+          ...(tanks[thisTankNo] || {}),
+          ...thisTankData
+        }
+      } : {
         ...currentTanks,
         [thisTankNo]: thisTankData
       };
@@ -1062,6 +1075,7 @@ const VehicleController = {
         fuelFullAdc: maxAdc !== undefined ? maxAdc : currentMeta.fuelFullAdc,
         fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : currentMeta.fuelTankShape,
         fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : currentMeta.fuelTankPosition,
+        sensorCount: noOfSensor !== undefined ? String(noOfSensor) : currentMeta.sensorCount,
         fuelCalibration: {
           ...fuelCal,
           tankNo: thisTankNo,
@@ -1083,6 +1097,9 @@ const VehicleController = {
           directUnit: thisTankData.directUnit,
           directMultiplier: thisTankData.directMultiplier,
           directOffset: thisTankData.directOffset,
+          noOfSensor: thisTankData.noOfSensor,
+          sensorFormula: thisTankData.sensorFormula,
+          sensors: thisTankData.sensors,
           tanks: updatedTanks,
           updatedAt: new Date().toISOString()
         },
@@ -1091,6 +1108,7 @@ const VehicleController = {
           noOfTank: noOfTank !== undefined ? noOfTank : (fuelConfig.noOfTank ?? 1),
           noOfSensor: noOfSensor !== undefined ? noOfSensor : (fuelConfig.noOfSensor ?? 1),
           sensorType: sensorType !== undefined ? sensorType : (fuelConfig.sensorType || ''),
+          sensorFormula: sensorFormula !== undefined ? sensorFormula : (fuelConfig.sensorFormula || 'Average'),
           minTheft: minTheft !== undefined ? minTheft : (fuelConfig.minTheft ?? 5),
           minFilling: minFilling !== undefined ? minFilling : (fuelConfig.minFilling ?? 9),
           tankSize: tankSize !== undefined ? tankSize : (fuelConfig.tankSize ?? 0),
