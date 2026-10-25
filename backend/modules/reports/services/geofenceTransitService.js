@@ -487,6 +487,8 @@ class GeofenceTransitService {
     }
 
     return results;
+  }
+
   /**
    * Generates Single Place (Entry/Exit Activity) Report
    * S.No, Vehicle Name, Geofence Name, Entry Timestamp, Exit Timestamp, Duration, Entry Count, Exit Count
