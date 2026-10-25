@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   ArrowLeft, Download, Search, Loader2, Filter,
@@ -67,6 +67,8 @@ const GeofenceSinglePlaceReportPage = () => {
   const [vehicles, setVehicles] = useState([]);
   const [geofences, setGeofences] = useState([]);
   const [loadingInitial, setLoadingInitial] = useState(true);
+  const allGeofencesRef = useRef([]);
+  const isInitialVehicleFetch = useRef(true);
 
   // Filters
   const [selectedVehicleId, setSelectedVehicleId] = useState(qVehicleId || '');
@@ -104,32 +106,102 @@ const GeofenceSinglePlaceReportPage = () => {
 
   // Initial load
   useEffect(() => {
+    let mounted = true;
     const initData = async () => {
       setLoadingInitial(true);
       try {
         const [vRes, gRes] = await Promise.all([
           vehicleApi.getVehicles({ t: Date.now() }),
-          axiosInstance.get('/api/admin/geofences'),
+          axiosInstance.get('/api/admin/geofences').catch(() => axiosInstance.get('/api/geofences')),
         ]);
 
-        if (vRes?.success) {
-          setVehicles(vRes.data || []);
-        }
-        if (gRes?.data?.success) {
-          const list = gRes.data.data || [];
-          setGeofences(list);
-          if (list.length > 0 && !selectedGeofenceId && !qGeofenceId) {
-            setSelectedGeofenceId(String(list[0].id));
+        if (mounted) {
+          if (vRes?.success) {
+            setVehicles(vRes.data || []);
+          } else if (Array.isArray(vRes)) {
+            setVehicles(vRes);
+          }
+          const rawG = gRes?.data?.data || gRes?.data || [];
+          const list = Array.isArray(rawG) ? rawG : [];
+          allGeofencesRef.current = list;
+
+          if (selectedVehicleId) {
+            try {
+              const vgRes = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/geofences`);
+              const vListG = vgRes.data?.data || [];
+              setGeofences(vListG);
+              if (vListG.length > 0) {
+                setSelectedGeofenceId((prev) => vListG.some((g) => String(g.id) === String(prev)) ? prev : String(vListG[0].id));
+              } else {
+                setSelectedGeofenceId('');
+              }
+            } catch (vErr) {
+              console.warn('Failed to load initial vehicle geofences:', vErr);
+              setGeofences([]);
+              setSelectedGeofenceId('');
+            }
+          } else {
+            setGeofences(list);
+            if (list.length > 0 && !selectedGeofenceId && !qGeofenceId) {
+              setSelectedGeofenceId(String(list[0].id));
+            }
           }
         }
       } catch (err) {
         console.error('Failed to load initial prerequisites:', err);
       } finally {
-        setLoadingInitial(false);
+        if (mounted) setLoadingInitial(false);
       }
     };
     initData();
+    return () => { mounted = false; };
   }, []);
+
+  // Update geofences whenever user changes selected vehicle
+  useEffect(() => {
+    if (isInitialVehicleFetch.current) {
+      isInitialVehicleFetch.current = false;
+      return;
+    }
+    let active = true;
+    const fetchForVehicle = async () => {
+      if (selectedVehicleId) {
+        try {
+          const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/geofences`);
+          if (!active) return;
+          const assignedList = res.data?.data || [];
+          setGeofences(assignedList);
+          setSelectedGeofenceId((prev) => {
+            if (assignedList.some((g) => String(g.id) === String(prev))) return prev;
+            return assignedList.length > 0 ? String(assignedList[0].id) : '';
+          });
+        } catch (err) {
+          console.warn('Failed to load vehicle geofences:', err);
+          if (active) {
+            setGeofences([]);
+            setSelectedGeofenceId('');
+          }
+        }
+      } else {
+        let orgList = allGeofencesRef.current || [];
+        if (orgList.length === 0) {
+          try {
+            const res = await axiosInstance.get('/api/admin/geofences').catch(() => axiosInstance.get('/api/geofences'));
+            orgList = res?.data?.data || res?.data || [];
+            allGeofencesRef.current = orgList;
+          } catch (_) {}
+        }
+        if (!active) return;
+        setGeofences(orgList);
+        setSelectedGeofenceId((prev) => {
+          if (orgList.some((g) => String(g.id) === String(prev))) return prev;
+          return orgList.length > 0 ? String(orgList[0].id) : '';
+        });
+      }
+    };
+    fetchForVehicle();
+    return () => { active = false; };
+  }, [selectedVehicleId]);
 
   // Generate Report
   const handleGenerate = async () => {
@@ -676,12 +748,20 @@ const GeofenceSinglePlaceReportPage = () => {
               boxSizing: 'border-box',
             }}
           >
-            <option value="">All Geofences</option>
-            {geofences.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name} ({g.type === 'circle' ? `Circle • ${formatRadius(g.radius)}` : 'Polygon'})
+            {geofences.length === 0 ? (
+              <option value="">
+                {selectedVehicleId ? '-- No Geofences Assigned to This Vehicle --' : '-- No Geofences Found --'}
               </option>
-            ))}
+            ) : (
+              <>
+                <option value="">{selectedVehicleId ? 'All Assigned Geofences' : 'All Geofences'}</option>
+                {geofences.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name} ({g.type === 'circle' ? `Circle • ${formatRadius(g.radius)}` : 'Polygon'})
+                  </option>
+                ))}
+              </>
+            )}
           </select>
         </div>
 
