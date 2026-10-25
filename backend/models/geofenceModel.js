@@ -206,6 +206,142 @@ const GeofenceModel = {
     } catch (_) { /* non-critical */ }
 
     return result.rows;
+  },
+
+  async copyVehicleGeofences({ sourceVehicleId, targetVehicleId, replaceExisting = true }) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      // Fetch source geofence IDs
+      const sourceRes = await client.query(
+        `SELECT vg.geofence_id, g.name, g.type, g.is_active
+         FROM vehicle_geofences vg
+         JOIN geofences g ON g.id = vg.geofence_id
+         WHERE vg.vehicle_id = $1`,
+        [sourceVehicleId]
+      );
+      const sourceGeofences = sourceRes.rows;
+
+      if (sourceGeofences.length === 0) {
+        await client.query('ROLLBACK');
+        return { success: false, count: 0, error: 'The selected vehicle has no geofences configured.' };
+      }
+
+      if (replaceExisting) {
+        await client.query(
+          'DELETE FROM vehicle_geofences WHERE vehicle_id = $1',
+          [targetVehicleId]
+        );
+      }
+
+      for (const row of sourceGeofences) {
+        await client.query(
+          `INSERT INTO vehicle_geofences (vehicle_id, geofence_id)
+           VALUES ($1, $2)
+           ON CONFLICT (vehicle_id, geofence_id) DO NOTHING`,
+          [targetVehicleId, row.geofence_id]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      try {
+        await redis.del(`vehicle:geofences:${targetVehicleId}`);
+      } catch (_) {}
+
+      return {
+        success: true,
+        count: sourceGeofences.length,
+        geofences: sourceGeofences
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  async copyVehicleGeofencesToMultiple({ sourceVehicleId, targetVehicleIds = [], replaceExisting = true }) {
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const sourceRes = await client.query(
+        `SELECT vg.geofence_id, g.name, g.type, g.is_active
+         FROM vehicle_geofences vg
+         JOIN geofences g ON g.id = vg.geofence_id
+         WHERE vg.vehicle_id = $1`,
+        [sourceVehicleId]
+      );
+      const sourceGeofences = sourceRes.rows;
+
+      if (sourceGeofences.length === 0) {
+        await client.query('ROLLBACK');
+        return { success: false, count: 0, error: 'Source vehicle has no geofences configured.' };
+      }
+
+      for (const tId of targetVehicleIds) {
+        if (replaceExisting) {
+          await client.query(
+            'DELETE FROM vehicle_geofences WHERE vehicle_id = $1',
+            [tId]
+          );
+        }
+        for (const row of sourceGeofences) {
+          await client.query(
+            `INSERT INTO vehicle_geofences (vehicle_id, geofence_id)
+             VALUES ($1, $2)
+             ON CONFLICT (vehicle_id, geofence_id) DO NOTHING`,
+            [tId, row.geofence_id]
+          );
+        }
+      }
+
+      await client.query('COMMIT');
+
+      for (const tId of targetVehicleIds) {
+        try {
+          await redis.del(`vehicle:geofences:${tId}`);
+        } catch (_) {}
+      }
+
+      return {
+        success: true,
+        count: sourceGeofences.length,
+        targetVehiclesCount: targetVehicleIds.length,
+        geofences: sourceGeofences
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  },
+
+  async getVehiclesWithGeofenceCounts(orgId, userId = null, role = null) {
+    let query = `
+      SELECT v.id, v.name, v.plate, v.imei, v.status,
+             COUNT(vg.geofence_id)::int AS geofence_count
+      FROM vehicles v
+      LEFT JOIN vehicle_geofences vg ON v.id = vg.vehicle_id
+    `;
+    const params = [];
+
+    if (role !== 'superadmin' && orgId) {
+      params.push(orgId);
+      query += ` WHERE v.org_id = $${params.length}`;
+    }
+
+    query += `
+      GROUP BY v.id, v.name, v.plate, v.imei, v.status
+      ORDER BY geofence_count DESC, v.name ASC
+    `;
+
+    const result = await db.query(query, params);
+    return result.rows;
   }
 };
 

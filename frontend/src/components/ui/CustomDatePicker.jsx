@@ -61,13 +61,28 @@ const CustomDatePicker = ({
   const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const timeContainerRef = useRef(null);
 
+  // Safely extract string value if an event object or Date was passed
+  let rawValue = value;
+  if (rawValue && typeof rawValue === 'object') {
+    if (rawValue.target && typeof rawValue.target.value !== 'undefined') {
+      rawValue = rawValue.target.value;
+    } else if (rawValue instanceof Date && !isNaN(rawValue)) {
+      const year = rawValue.getFullYear();
+      const month = String(rawValue.getMonth() + 1).padStart(2, '0');
+      const day = String(rawValue.getDate()).padStart(2, '0');
+      const hr = String(rawValue.getHours()).padStart(2, '0');
+      const min = String(rawValue.getMinutes()).padStart(2, '0');
+      rawValue = showTime ? `${year}-${month}-${day}T${hr}:${min}` : `${year}-${month}-${day}`;
+    }
+  }
+
   // Parse value
   let selectedDate = null;
   let timeString = '00:00';
   
-  if (value) {
-    if (value.includes('T')) {
-      const [datePart, timePart] = value.split('T');
+  if (rawValue && typeof rawValue === 'string') {
+    if (rawValue.includes('T')) {
+      const [datePart, timePart] = rawValue.split('T');
       const [y, m, d] = datePart.split('-');
       const [hr, min] = timePart.split(':');
       if (y && m && d) {
@@ -77,7 +92,7 @@ const CustomDatePicker = ({
         timeString = `${hr.slice(0, 2)}:${min.slice(0, 2)}`;
       }
     } else {
-      const [y, m, d] = value.split('T')[0].split('-');
+      const [y, m, d] = rawValue.split('T')[0].split('-');
       if (y && m && d) {
         selectedDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
       }
@@ -86,8 +101,12 @@ const CustomDatePicker = ({
 
   // Determine max date: by default cannot pick future dates for reports
   let maxDate = null;
-  if (max) {
-    const [y, m, d] = max.split('T')[0].split('-');
+  let rawMax = max;
+  if (rawMax && typeof rawMax === 'object' && rawMax.target && typeof rawMax.target.value !== 'undefined') {
+    rawMax = rawMax.target.value;
+  }
+  if (rawMax && typeof rawMax === 'string') {
+    const [y, m, d] = rawMax.split('T')[0].split('-');
     if (y && m && d) {
       maxDate = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
     }

@@ -237,7 +237,7 @@ const DailyTripReportPage = () => {
           <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Start Date</label>
           <CustomDatePicker
             value={filters.startDate}
-            onChange={val => setFilters(prev => ({ ...prev, startDate: val }))}
+            onChange={e => setFilters(prev => ({ ...prev, startDate: e?.target ? e.target.value : e }))}
           />
         </div>
 
@@ -246,7 +246,7 @@ const DailyTripReportPage = () => {
           <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>End Date</label>
           <CustomDatePicker
             value={filters.endDate}
-            onChange={val => setFilters(prev => ({ ...prev, endDate: val }))}
+            onChange={e => setFilters(prev => ({ ...prev, endDate: e?.target ? e.target.value : e }))}
           />
         </div>
 

@@ -2,12 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield, Plus, RefreshCw, Loader2, AlertCircle, Compass,
-  CheckCircle2, Filter, Layers, Navigation, BarChart2, FolderPlus
+  CheckCircle2, Filter, Layers, Navigation, BarChart2, FolderPlus,
+  ArrowRightLeft, Zap, Check
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import VehicleGeofenceCard from './VehicleGeofenceCard';
+import VehicleTransitPairCard from './VehicleTransitPairCard';
 import VehicleGeofenceEditorModal from './VehicleGeofenceEditorModal';
 import AssignSavedGeofenceModal from './AssignSavedGeofenceModal';
+import CopyVehicleGeofenceModal from './CopyVehicleGeofenceModal';
 
 const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
   const navigate = useNavigate();
@@ -20,6 +23,10 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
   const [replacingGeofence, setReplacingGeofence] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [filterType, setFilterType] = useState('all'); // 'all', 'circle', 'polygon', 'active'
+  const [viewMode, setViewMode] = useState('unified'); // 'unified' | 'grid'
+  const [copyModalOpen, setCopyModalOpen] = useState(false);
+  const [copyModalMode, setCopyModalMode] = useState('copy_from');
+  const [toastMessage, setToastMessage] = useState('');
 
   const vehicleId = vehicle?.id;
 
@@ -62,22 +69,38 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
     if (!vehicleId) return;
 
     if (formData.isPair) {
-      // Create Location A (Origin)
-      const resA = await axiosInstance.post(
-        `/api/vehicles/${vehicleId}/geofences`,
-        formData.fromGeofence
-      );
-      if (!resA.data?.success) {
-        throw new Error(resA.data?.error || 'Failed to create Location A (Origin) geofence.');
+      // 1. Process Location A (From / Origin / Base)
+      if (formData.fromGeofence?.id) {
+        await axiosInstance.post(`/api/vehicles/${vehicleId}/geofences/link`, {
+          geofenceId: formData.fromGeofence.id,
+          vehicleIds: formData.vehicleIds,
+        });
+      } else if (formData.fromGeofence) {
+        const resA = await axiosInstance.post(
+          `/api/vehicles/${vehicleId}/geofences`,
+          formData.fromGeofence
+        );
+        if (!resA.data?.success) {
+          throw new Error(resA.data?.error || 'Failed to create Location A geofence.');
+        }
       }
 
-      // Create Location B (Destination)
-      const resB = await axiosInstance.post(
-        `/api/vehicles/${vehicleId}/geofences`,
-        formData.toGeofence
-      );
-      if (!resB.data?.success) {
-        throw new Error(resB.data?.error || 'Failed to create Location B (Destination) geofence.');
+      // 2. Process Location B (To / Destination)
+      if (formData.transitDirection !== 'round_trip' && formData.toGeofence) {
+        if (formData.toGeofence?.id) {
+          await axiosInstance.post(`/api/vehicles/${vehicleId}/geofences/link`, {
+            geofenceId: formData.toGeofence.id,
+            vehicleIds: formData.vehicleIds,
+          });
+        } else {
+          const resB = await axiosInstance.post(
+            `/api/vehicles/${vehicleId}/geofences`,
+            formData.toGeofence
+          );
+          if (!resB.data?.success) {
+            throw new Error(resB.data?.error || 'Failed to create Location B geofence.');
+          }
+        }
       }
     } else if (formData.id) {
       // Update
@@ -89,7 +112,7 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
         throw new Error(res.data?.error || 'Failed to update geofence.');
       }
     } else {
-      // Create directly for this single vehicle
+      // Create directly for this vehicle
       const res = await axiosInstance.post(
         `/api/vehicles/${vehicleId}/geofences`,
         formData
@@ -224,6 +247,54 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
             ))}
           </div>
 
+          {/* View Mode Toggle when 2 geofences are present */}
+          {geofences.length === 2 && (
+            <div style={{ display: 'flex', background: '#F1F5F9', padding: '3px', borderRadius: '8px', gap: '2px' }}>
+              <button
+                type="button"
+                onClick={() => setViewMode('unified')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: viewMode === 'unified' ? 800 : 500,
+                  background: viewMode === 'unified' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'unified' ? '#0284C7' : '#64748B',
+                  boxShadow: viewMode === 'unified' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>⇄</span>
+                <span>Unified Trip Card</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: viewMode === 'grid' ? 800 : 500,
+                  background: viewMode === 'grid' ? '#FFFFFF' : 'transparent',
+                  color: viewMode === 'grid' ? '#0F172A' : '#64748B',
+                  boxShadow: viewMode === 'grid' ? '0 1px 3px rgba(0,0,0,0.06)' : 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>⬡</span>
+                <span>Separate Cards</span>
+              </button>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={fetchGeofences}
@@ -268,6 +339,68 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
             <BarChart2 size={15} color="#0284C7" />
             <span>Transit Report</span>
           </button>
+
+          {/* 1-Click Set Same As Another Vehicle */}
+          <button
+            type="button"
+            onClick={() => {
+              setCopyModalMode('copy_from');
+              setCopyModalOpen(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: '#4F46E5',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '8px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)',
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = '#4338CA')}
+            onMouseLeave={(e) => (e.currentTarget.style.background = '#4F46E5')}
+            title="Set this vehicle's geofences identical to another vehicle with 1 click"
+          >
+            <Zap size={14} />
+            <span>Set Same as Vehicle</span>
+          </button>
+
+          {/* Bulk push to other vehicles (if this vehicle has geofences) */}
+          {geofences.length > 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                setCopyModalMode('copy_to');
+                setCopyModalOpen(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                background: '#FFFFFF',
+                color: '#4F46E5',
+                border: '1px solid #C7D2FE',
+                padding: '8px 14px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(79, 70, 229, 0.08)',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#EEF2FF')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = '#FFFFFF')}
+              title="Push this vehicle's geofence setup to other vehicles in your fleet"
+            >
+              <ArrowRightLeft size={14} />
+              <span>Apply to Others</span>
+            </button>
+          )}
 
           <button
             type="button"
@@ -400,6 +533,30 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
             <button
               type="button"
               onClick={() => {
+                setCopyModalMode('copy_from');
+                setCopyModalOpen(true);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: '#4F46E5',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '10px 18px',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)',
+              }}
+            >
+              <Zap size={16} />
+              <span>Set Same as Another Vehicle</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setReplacingGeofence(null);
                 setAssignModalOpen(true);
               }}
@@ -445,27 +602,48 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
           </div>
         </div>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
-            gap: '16px',
-          }}
-        >
-          {filteredGeofences.map((geo) => (
-            <VehicleGeofenceCard
-              key={geo.id}
-              geofence={geo}
-              onEdit={handleOpenEditModal}
-              onDelete={handleDeleteGeofence}
-              onSwitchPlace={(item) => {
-                setReplacingGeofence(item);
-                setAssignModalOpen(true);
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Unified Transit Pair Card when 2 geofences are attached and viewMode is unified */}
+          {filteredGeofences.length === 2 && viewMode === 'unified' ? (
+            <div style={{ maxWidth: '640px' }}>
+              <VehicleTransitPairCard
+                vehicle={vehicle}
+                geofenceA={filteredGeofences[0]}
+                geofenceB={filteredGeofences[1]}
+                onEdit={handleOpenEditModal}
+                onDelete={handleDeleteGeofence}
+                onSwitchPlace={(item) => {
+                  setReplacingGeofence(item);
+                  setAssignModalOpen(true);
+                }}
+                onToggleActive={handleToggleActive}
+                isToggling={Boolean(togglingId)}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))',
+                gap: '16px',
               }}
-              onToggleActive={handleToggleActive}
-              isToggling={togglingId === geo.id}
-            />
-          ))}
+            >
+              {filteredGeofences.map((geo) => (
+                <VehicleGeofenceCard
+                  key={geo.id}
+                  geofence={geo}
+                  onEdit={handleOpenEditModal}
+                  onDelete={handleDeleteGeofence}
+                  onSwitchPlace={(item) => {
+                    setReplacingGeofence(item);
+                    setAssignModalOpen(true);
+                  }}
+                  onToggleActive={handleToggleActive}
+                  isToggling={togglingId === geo.id}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -495,6 +673,60 @@ const VehicleGeofenceManager = ({ vehicle, onGeofenceCountChange }) => {
           }}
           onOpenCreateNew={() => {
             handleOpenCreateModal();
+          }}
+        />
+      )}
+
+      {/* Toast Notification Banner */}
+      {toastMessage && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: '24px',
+            background: '#0F172A',
+            color: '#FFFFFF',
+            padding: '12px 20px',
+            borderRadius: '10px',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            zIndex: 999999,
+            fontSize: '13px',
+            fontWeight: 600,
+            animation: 'slideUp 0.25s ease',
+          }}
+        >
+          <CheckCircle2 size={18} color="#22C55E" />
+          <span>{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage('')}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#94A3B8',
+              cursor: 'pointer',
+              marginLeft: '8px',
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Copy / Sync Vehicle Geofence Modal */}
+      {copyModalOpen && (
+        <CopyVehicleGeofenceModal
+          isOpen={copyModalOpen}
+          onClose={() => setCopyModalOpen(false)}
+          vehicle={vehicle}
+          initialMode={copyModalMode}
+          onSuccess={(msg) => {
+            fetchGeofences();
+            setToastMessage(msg || 'Geofences synchronized successfully!');
+            setTimeout(() => setToastMessage(''), 4500);
           }}
         />
       )}

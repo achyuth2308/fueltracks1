@@ -86,7 +86,7 @@ const GeofenceRouteController = {
         }
       }
 
-      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit } = req.body;
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit, vehicleIds } = req.body;
       if (!name) {
         return res.status(400).json({ success: false, error: 'Geofence name is required.' });
       }
@@ -105,8 +105,11 @@ const GeofenceRouteController = {
         alert_on_exit: alert_on_exit !== false
       });
 
-      // Directly link this geofence to the single vehicle
-      await GeofenceModel.assignToVehicles(geofence.id, [vehicleId]);
+      // Directly link this geofence to primary vehicle and any additional vehicles selected
+      const targetVehicleIds = Array.isArray(vehicleIds) && vehicleIds.length > 0
+        ? Array.from(new Set([vehicleId, ...vehicleIds]))
+        : [vehicleId];
+      await GeofenceModel.assignToVehicles(geofence.id, targetVehicleIds);
 
       res.status(201).json({ success: true, data: geofence });
     } catch (err) {
@@ -128,7 +131,7 @@ const GeofenceRouteController = {
         }
       }
 
-      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit } = req.body;
+      const { name, type, coordinates, radius, center_lat, center_lng, is_active, color, alert_on_enter, alert_on_exit, vehicleIds } = req.body;
       const updated = await GeofenceModel.update(geofenceId, {
         name,
         type,
@@ -141,6 +144,11 @@ const GeofenceRouteController = {
         alert_on_enter,
         alert_on_exit
       });
+
+      if (Array.isArray(vehicleIds) && vehicleIds.length > 0) {
+        const targetVehicleIds = Array.from(new Set([vehicleId, ...vehicleIds]));
+        await GeofenceModel.assignToVehicles(geofenceId, targetVehicleIds);
+      }
 
       res.json({ success: true, data: updated });
     } catch (err) {
@@ -232,7 +240,12 @@ const GeofenceRouteController = {
         await GeofenceModel.unlinkVehicle(replaceGeofenceId, vehicleId);
       }
 
-      await GeofenceModel.linkVehicle(geofenceId, vehicleId);
+      if (Array.isArray(req.body.vehicleIds) && req.body.vehicleIds.length > 0) {
+        const targetVehicleIds = Array.from(new Set([vehicleId, ...req.body.vehicleIds]));
+        await GeofenceModel.assignToVehicles(geofenceId, targetVehicleIds);
+      } else {
+        await GeofenceModel.linkVehicle(geofenceId, vehicleId);
+      }
       res.json({ success: true, message: 'Geofence linked to vehicle successfully.' });
     } catch (err) {
       next(err);
@@ -256,6 +269,134 @@ const GeofenceRouteController = {
       const { is_active } = req.body;
       const updated = await GeofenceModel.update(geofenceId, { is_active });
       res.json({ success: true, data: updated });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async copyVehicleGeofencesFrom(req, res, next) {
+    try {
+      const { id: targetVehicleId } = req.params;
+      const { sourceVehicleId, replaceExisting = true } = req.body;
+
+      if (!sourceVehicleId) {
+        return res.status(400).json({ success: false, error: 'sourceVehicleId is required.' });
+      }
+      if (String(sourceVehicleId) === String(targetVehicleId)) {
+        return res.status(400).json({ success: false, error: 'Cannot copy geofences from the same vehicle.' });
+      }
+
+      // Check permission on target vehicle
+      const targetVehicle = await VehicleModel.findById(targetVehicleId);
+      if (!targetVehicle) {
+        return res.status(404).json({ success: false, error: 'Target vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongsTarget = await VehicleModel.belongsToOrg(targetVehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongsTarget) {
+          return res.status(403).json({ success: false, error: 'Access denied to target vehicle.' });
+        }
+      }
+
+      // Check permission on source vehicle
+      const sourceVehicle = await VehicleModel.findById(sourceVehicleId);
+      if (!sourceVehicle) {
+        return res.status(404).json({ success: false, error: 'Source vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongsSource = await VehicleModel.belongsToOrg(sourceVehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongsSource) {
+          return res.status(403).json({ success: false, error: 'Access denied to source vehicle.' });
+        }
+      }
+
+      const result = await GeofenceModel.copyVehicleGeofences({
+        sourceVehicleId,
+        targetVehicleId,
+        replaceExisting: replaceExisting !== false
+      });
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      // Return updated geofences for target vehicle
+      const updatedGeofences = await GeofenceModel.findGeofencesByVehicleId(targetVehicleId, true);
+
+      res.json({
+        success: true,
+        message: `Successfully copied ${result.count} geofence(s) from ${sourceVehicle.name || sourceVehicle.plate} to ${targetVehicle.name || targetVehicle.plate}.`,
+        count: result.count,
+        data: updatedGeofences
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async copyVehicleGeofencesTo(req, res, next) {
+    try {
+      const { id: sourceVehicleId } = req.params;
+      const { targetVehicleIds, replaceExisting = true } = req.body;
+
+      if (!Array.isArray(targetVehicleIds) || targetVehicleIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'targetVehicleIds array is required.' });
+      }
+
+      // Check permission on source vehicle
+      const sourceVehicle = await VehicleModel.findById(sourceVehicleId);
+      if (!sourceVehicle) {
+        return res.status(404).json({ success: false, error: 'Source vehicle not found.' });
+      }
+      if (req.user.role !== 'superadmin') {
+        const belongsSource = await VehicleModel.belongsToOrg(sourceVehicleId, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongsSource) {
+          return res.status(403).json({ success: false, error: 'Access denied to source vehicle.' });
+        }
+      }
+
+      // Filter out sourceVehicleId if present in targets
+      const cleanTargetIds = targetVehicleIds.filter(id => String(id) !== String(sourceVehicleId));
+      if (cleanTargetIds.length === 0) {
+        return res.status(400).json({ success: false, error: 'No valid target vehicles provided.' });
+      }
+
+      // Validate target permissions
+      if (req.user.role !== 'superadmin') {
+        for (const tId of cleanTargetIds) {
+          const belongs = await VehicleModel.belongsToOrg(tId, req.user.orgId, req.user.userId, req.user.role);
+          if (!belongs) {
+            return res.status(403).json({ success: false, error: `Access denied to vehicle ${tId}.` });
+          }
+        }
+      }
+
+      const result = await GeofenceModel.copyVehicleGeofencesToMultiple({
+        sourceVehicleId,
+        targetVehicleIds: cleanTargetIds,
+        replaceExisting: replaceExisting !== false
+      });
+
+      if (!result.success) {
+        return res.status(400).json(result);
+      }
+
+      res.json({
+        success: true,
+        message: `Successfully applied ${result.count} geofence(s) to ${result.targetVehiclesCount} vehicle(s).`,
+        count: result.count,
+        targetVehiclesCount: result.targetVehiclesCount
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getVehiclesGeofenceSummary(req, res, next) {
+    try {
+      const orgId = req.query.org_id || req.query.orgId || req.user.orgId;
+      const list = await GeofenceModel.getVehiclesWithGeofenceCounts(orgId, req.user.userId, req.user.role);
+      res.json({ success: true, data: list });
     } catch (err) {
       next(err);
     }
@@ -322,14 +463,20 @@ const GeofenceRouteController = {
   async createRoute(req, res, next) {
     try {
       const orgId = req.body.org_id || req.body.orgId || req.user.orgId;
-      const { name, coordinates, tolerance, vehicle_id, vehicleId } = req.body;
+      const { name, coordinates, tolerance, direction, vehicle_id, vehicleId } = req.body;
       if (!name) {
         return res.status(400).json({ success: false, error: 'Name is required.' });
       }
       const coords = Array.isArray(coordinates) && coordinates.length > 0
         ? coordinates
         : [{ lat: 17.3850, lng: 78.4867 }, { lat: 17.3900, lng: 78.4900 }];
-      const route = await RouteModel.create({ orgId, name: name.trim(), coordinates: coords, tolerance: tolerance || 100 });
+      const route = await RouteModel.create({
+        orgId,
+        name: name.trim(),
+        coordinates: coords,
+        tolerance: tolerance || 100,
+        direction: direction || 'two_way'
+      });
       const targetVehId = vehicle_id || vehicleId;
       if (targetVehId) {
         await RouteModel.assignToVehicles(route.id, [targetVehId]);
@@ -343,8 +490,8 @@ const GeofenceRouteController = {
   async updateRoute(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, coordinates, tolerance, is_active } = req.body;
-      const updated = await RouteModel.update(id, { name, coordinates, tolerance, is_active });
+      const { name, coordinates, tolerance, direction, is_active } = req.body;
+      const updated = await RouteModel.update(id, { name, coordinates, tolerance, direction, is_active });
       res.json({ success: true, data: updated });
     } catch (err) {
       next(err);

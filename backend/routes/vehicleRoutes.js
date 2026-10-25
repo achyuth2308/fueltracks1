@@ -47,9 +47,12 @@ router.post('/:id/immobilizer', VehicleController.toggleImmobilizer);
 // ══════════════════════════════════════════════════════════
 // GEOFENCE MANAGEMENT (Per Single Vehicle - accessible by users & fleet operators)
 // ══════════════════════════════════════════════════════════
+router.get('/geofences/summary', GeofenceRouteController.getVehiclesGeofenceSummary);
 router.get('/:id/geofences', GeofenceRouteController.getVehicleGeofences);
 router.get('/:id/available-geofences', GeofenceRouteController.getAvailableGeofences);
 router.post('/:id/geofences/link', GeofenceRouteController.linkVehicleGeofence);
+router.post('/:id/geofences/copy-from', GeofenceRouteController.copyVehicleGeofencesFrom);
+router.post('/:id/geofences/copy-to', GeofenceRouteController.copyVehicleGeofencesTo);
 router.post('/:id/geofences', GeofenceRouteController.createVehicleGeofence);
 router.put('/:id/geofences/:geofenceId', GeofenceRouteController.updateVehicleGeofence);
 router.patch('/:id/geofences/:geofenceId/toggle', GeofenceRouteController.toggleVehicleGeofence);

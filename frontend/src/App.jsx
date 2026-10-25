@@ -34,6 +34,7 @@ import OnBoardDevicePage from './pages/admin/OnBoardDevicePage';
 import FuelAdminPage from './pages/admin/FuelAdminPage';
 import AlertsAdminPage from './pages/admin/AlertsAdminPage';
 import GeofencesAdminPage from './pages/admin/GeofencesAdminPage';
+import RoutesAdminPage from './pages/admin/RoutesAdminPage';
 import ReportsAdminPage from './pages/admin/ReportsAdminPage';
 import TripReportPage from './pages/reports/TripReportPage';
 import DailyTripReportPage from './pages/reports/DailyTripReportPage';
@@ -129,6 +130,7 @@ function App() {
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<GeofencesAdminPage />} />
+                  <Route path="routes" element={<RoutesAdminPage />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
                     <Route index element={<Navigate to="trip" replace />} />
                     <Route path="dashboard" element={null} />
