@@ -355,18 +355,19 @@ const DEVICE_MODEL_PORTS = {
 
 const getDevicePort = (model) => {
   if (!model) return '5007';
-  const found = Object.keys(DEVICE_MODEL_PORTS).find(key => 
-    model.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(model.toLowerCase())
+  const norm = String(model).trim().toUpperCase();
+  if (DEVICE_MODEL_PORTS[norm]) return DEVICE_MODEL_PORTS[norm];
+  // Sort keys by descending length so compound keys like 'VOLTYFUEL' match before 'VOLTY'
+  const sortedKeys = Object.keys(DEVICE_MODEL_PORTS).sort((a, b) => b.length - a.length);
+  const found = sortedKeys.find(key => 
+    norm.includes(key.toUpperCase()) || key.toUpperCase().includes(norm)
   );
-  return found ? DEVICE_MODEL_PORTS[found] : (DEVICE_MODEL_PORTS[model] || '5007');
+  return found ? DEVICE_MODEL_PORTS[found] : '5007';
 };
 
 const getDefaultServerIp = () => {
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    // If running on localhost or 127.0.0.1, provide local/relay IP or hostname
-    return window.location.hostname;
-  }
-  return '127.0.0.1';
+  // Always return the dedicated TCP socket relay IP for GPS trackers
+  return '5.223.61.229';
 };
 
 const TELECOM_OPERATORS = ['AIRCEL', 'Airtel', 'Jio', 'Vodafone Idea (Vi)', 'BSNL', 'Other'];
@@ -465,8 +466,14 @@ const EditVehiclePage = () => {
           const v = res.data;
           const meta = v.metadata || {};
           const currentDeviceModel = meta.deviceModel || v.device_version || 'GT06N (9964)';
-          const dynamicIp = meta.ipAddress || getDefaultServerIp();
-          const dynamicPort = meta.portNo || getDevicePort(currentDeviceModel);
+          let dynamicIp = meta.ipAddress;
+          if (!dynamicIp || dynamicIp.includes('fueltracks.in')) {
+            dynamicIp = getDefaultServerIp();
+          }
+          let dynamicPort = meta.portNo;
+          if (!dynamicPort || (currentDeviceModel.toUpperCase().includes('VOLTYFUEL') && dynamicPort === '5004')) {
+            dynamicPort = getDevicePort(currentDeviceModel);
+          }
 
           setForm({
             imei: v.imei || '',
@@ -732,7 +739,8 @@ const EditVehiclePage = () => {
                 metadata: {
                   ...prev.metadata,
                   deviceModel: newModel,
-                  portNo: newPort
+                  portNo: newPort,
+                  ipAddress: (!prev.metadata.ipAddress || prev.metadata.ipAddress.includes('fueltracks.in')) ? getDefaultServerIp() : prev.metadata.ipAddress
                 }
               }));
             }}

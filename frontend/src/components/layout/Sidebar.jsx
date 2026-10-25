@@ -23,6 +23,7 @@ import {
   Sparkles,
   Palette,
   Terminal,
+  Droplets,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -62,6 +63,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
         { name: 'Terminal', path: '/admin/terminal', icon: Terminal, roles: ['superadmin', 'dealer'] },
+        { name: 'Fuel Watcher', path: '/admin/fuel-watcher', icon: Droplets, roles: ['superadmin', 'dealer'] },
         { name: 'Registrations', path: '/admin/mining-registrations', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },

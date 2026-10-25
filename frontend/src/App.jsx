@@ -50,6 +50,7 @@ import AlertsPage from './pages/user/AlertsPage';
 import TripManagerPage from './pages/user/TripManagerPage';
 import MiningRegistrationsAdminPage from './pages/admin/MiningRegistrationsAdminPage';
 import AdminTerminalPage from './pages/admin/AdminTerminalPage';
+import FuelWatcherPage from './pages/admin/FuelWatcherPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -100,6 +101,7 @@ function App() {
                   <Route path="settings" element={<SettingsAdminPage />} />
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
                   <Route path="terminal" element={<AdminTerminalPage />} />
+                  <Route path="fuel-watcher" element={<FuelWatcherPage />} />
                 </Route>
 
                 {/* Shared Protected Routes (All authenticated users including customers) */}

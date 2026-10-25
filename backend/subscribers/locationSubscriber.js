@@ -70,6 +70,13 @@ async function processDistQueue() {
  */
 async function queueGpsPoint(point) {
   try {
+    // Fast inline bounds check to prevent numeric(6,2) overflow (max 9999.99)
+    let safeFuel = null;
+    if (point.fuel != null && !isNaN(point.fuel)) {
+      const numFuel = Number(point.fuel);
+      safeFuel = numFuel > 9999.99 ? 9999.99 : (numFuel < 0 ? 0 : numFuel);
+    }
+
     // Use the dedicated GPS pool — never blocks the API/login pool
     await gpsQuery(`
       INSERT INTO gps_points
@@ -84,7 +91,7 @@ async function queueGpsPoint(point) {
       point.speed != null ? Math.round(point.speed) : null,
       point.direction != null ? Math.round(point.direction) : null,
       point.odometer != null ? Math.round(point.odometer) : null,
-      point.fuel ?? null,
+      safeFuel,
       point.ignition ?? null,
       point.satellites != null ? Math.round(point.satellites) : null,
       point.gsmSignal != null ? Math.round(point.gsmSignal) : null,
@@ -230,8 +237,8 @@ async function start(io) {
       const orgId = vehicle.org_id;
 
       // 1b. Compute final Engine ON state based on admin-configured preference
-      const engineOnPref = vehicle.metadata?.engineOn || 'Ignition';
-      const batteryThresh = parseFloat(vehicle.metadata?.batteryVoltage) || 13.2;
+      const engineOnPref = vehicle.metadata?.engineOnStatus || vehicle.metadata?.engineOn || 'Ignition';
+      const batteryThresh = parseFloat(vehicle.metadata?.vehicleVoltage || vehicle.metadata?.batteryVoltage) || 13.2;
       const isMoving = speed != null && parseFloat(speed) > 5.0;
       let finalIgnition = ignition;
 
@@ -485,20 +492,25 @@ async function start(io) {
         const validLat = hasValidGps ? fLat : null;
         const validLng = hasValidGps ? fLng : null;
 
-        const updateResult = await GpsModel.updateLatestState({
-          vehicleId,
-          lat: validLat,
-          lng: validLng,
-          speed: speed != null ? Math.round(speed) : null,
-          direction: direction != null ? Math.round(direction) : null,
-          fuel: finalFuelLiters,
-          ignition: finalIgnition,
-          voltage,
-          odometer: finalOdometer != null ? Math.round(finalOdometer) : null,
-          satellites: satellites != null ? Math.round(satellites) : null,
-          gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null,
-          battery: battery != null ? Math.round(battery) : null
-        });
+        let updateResult = 0;
+        try {
+          updateResult = await GpsModel.updateLatestState({
+            vehicleId,
+            lat: validLat,
+            lng: validLng,
+            speed: speed != null ? Math.round(speed) : null,
+            direction: direction != null ? Math.round(direction) : null,
+            fuel: finalFuelLiters,
+            ignition: finalIgnition,
+            voltage,
+            odometer: finalOdometer != null ? Math.round(finalOdometer) : null,
+            satellites: satellites != null ? Math.round(satellites) : null,
+            gsmSignal: gsmSignal != null ? Math.round(gsmSignal) : null,
+            battery: battery != null ? Math.round(battery) : null
+          });
+        } catch (dbErr) {
+          console.error(`[SUBSCRIBER] Error updating latest state for ${imei}:`, dbErr.message);
+        }
 
         // 5a. today_distance: use incremental value from updateLatestState for the
         //     live dashboard. Only run the expensive full-history recompute at most

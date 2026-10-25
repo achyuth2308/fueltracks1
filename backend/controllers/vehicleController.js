@@ -340,7 +340,19 @@ const VehicleController = {
 
       // If odometerReading changed, snapshot the current GPS device odometer so we can
       // compute: displayed_odo = baseline + (current_gps_odo - snapshot_gps_odo)
+      // Synchronize engineOn / engineOnStatus and batteryVoltage / vehicleVoltage
       let finalMetadata = metadata ? { ...metadata } : {};
+      if (finalMetadata.engineOnStatus) {
+        finalMetadata.engineOn = finalMetadata.engineOnStatus;
+      } else if (finalMetadata.engineOn) {
+        finalMetadata.engineOnStatus = finalMetadata.engineOn;
+      }
+      if (finalMetadata.vehicleVoltage) {
+        finalMetadata.batteryVoltage = finalMetadata.vehicleVoltage;
+      } else if (finalMetadata.batteryVoltage) {
+        finalMetadata.vehicleVoltage = finalMetadata.batteryVoltage;
+      }
+
       if (metadata && metadata.odometerReading !== undefined) {
         const oldBaseline = String(oldVehicle.metadata?.odometerReading || '0');
         const newBaseline = String(metadata.odometerReading || '0');

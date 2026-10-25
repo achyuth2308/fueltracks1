@@ -259,8 +259,16 @@ function parseVoltyFuelFrame(f) {
 // ── ACK / COMMAND BUILDERS ───────────────────────────────────
 
 function buildGpsDataAck(seqNum) {
-  // Standard TranSync 8-byte GPS Data ACK: 3A 3A 05 11 [SeqH] [SeqL] 23 23
-  return Buffer.from([0x3A, 0x3A, 0x05, PKT_TYPE_GPS_ACK, (seqNum >> 8) & 0xFF, seqNum & 0xFF, 0x23, 0x23]);
+  // Official TranSync / Volty 9-byte GPS Data ACK: 3A 3A 00 09 11 [SeqH] [SeqL] 23 23
+  const frame = Buffer.alloc(9);
+  frame[0] = 0x3A;
+  frame[1] = 0x3A;
+  frame.writeUInt16BE(9, 2);
+  frame[4] = PKT_TYPE_GPS_ACK;
+  frame.writeUInt16BE(seqNum & 0xFFFF, 5);
+  frame[7] = 0x23;
+  frame[8] = 0x23;
+  return frame;
 }
 
 function buildCommandFrame(imei, requestId, asciiCmd) {

@@ -156,14 +156,10 @@ function initVoltyFuelServer(port, protocolStats, connectedDevices, publisher) {
         switch (parsed.packetType) {
 
           case 'VOLTYFUEL_NORMAL': {
-            // MUST ACK every GPS data frame — device resends if not ACKed
-            try {
-              if (!sock.destroyed) {
-                sock.write(buildGpsDataAck(parsed.seqNum));
-              }
-            } catch (ackErr) {
-              console.warn('[TCP - ' + PROTO + '] ACK write failed for ' + sessionImei + ':', ackErr.message);
-            }
+            // Per Volty / TranSync manufacturer advice: DO NOT send TCP ACK replies
+            // for normal GPS/telemetry data frames. Sending replies to the TCP socket
+            // disturbs the tracker firmware, causing a watchdog reboot (BOT) and GPS shutdown.
+            // (We keep buildGpsDataAck available if ever explicitly required for specific firmware).
 
             const isValidGps = parsed.gpsValid === 'A'
               && parsed.lat !== null && parsed.lng !== null;

@@ -13,6 +13,12 @@ const GpsModel = {
   async savePoint({ vehicleId, lat, lng, speed, direction, odometer, fuel,
                      ignition, satellites, gsmSignal, battery, voltage,
                      isLive, deviceTime }) {
+    let safeFuel = null;
+    if (fuel != null && !isNaN(fuel)) {
+      const numFuel = Number(fuel);
+      safeFuel = numFuel > 9999.99 ? 9999.99 : (numFuel < 0 ? 0 : numFuel);
+    }
+
     const result = await gpsQuery(
       `INSERT INTO gps_points
         (vehicle_id, lat, lng, speed, direction, odometer, fuel, ignition,
@@ -20,7 +26,7 @@ const GpsModel = {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        ON CONFLICT (vehicle_id, device_time) DO NOTHING
        RETURNING id`,
-      [vehicleId, lat, lng, speed, direction, odometer, fuel, ignition,
+      [vehicleId, lat, lng, speed, direction, odometer, safeFuel, ignition,
        satellites, gsmSignal, battery, voltage, isLive, deviceTime]
     );
     return result.rows[0] || null;
@@ -50,6 +56,12 @@ const GpsModel = {
    */
   async updateLatestState({ vehicleId, lat, lng, speed, direction, fuel,
                              ignition, voltage, odometer, satellites, gsmSignal, battery }) {
+    let safeFuel = null;
+    if (fuel != null && !isNaN(fuel)) {
+      const numFuel = Number(fuel);
+      safeFuel = numFuel > 9999.99 ? 9999.99 : (numFuel < 0 ? 0 : numFuel);
+    }
+
     // Read previous lat/lng and today_distance_date to compute incremental distance.
     // RETURNING today_distance so the caller can include it in the socket emit payload,
     // which fixes the "covered distance always 0.00 km" issue in the mobile app.
@@ -111,7 +123,7 @@ const GpsModel = {
           ))::numeric, 3)
         END
        RETURNING today_distance`,
-      [vehicleId, lat, lng, speed, direction, fuel, ignition, voltage,
+      [vehicleId, lat, lng, speed, direction, safeFuel, ignition, voltage,
        odometer, satellites, gsmSignal, battery]
     );
     // Return the updated today_distance so it can be emitted via socket
