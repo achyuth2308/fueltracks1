@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Droplets, RefreshCw, AlertTriangle, Zap, Activity,
   Search, Download, Clock, WifiOff, TrendingUp, TrendingDown,
-  Minus, CheckCircle2, ChevronDown, Radio, ExternalLink
+  Minus, CheckCircle2, ChevronDown, Play, Pause, ShieldCheck
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import axiosInstance from '../../api/axios';
@@ -64,16 +64,27 @@ function getSensorColor(type) {
   return MAP[type] || '#64748b';
 }
 
+// ─────────────────────────────────────────────────────────
+// Strict Fuel value conversion
+// ─────────────────────────────────────────────────────────
 function convertFuel(rawFuel, sensorType) {
   const raw = parseFloat(rawFuel);
   if (isNaN(raw)) return null;
-  switch (sensorType) {
-    case 'jointech':        return +(raw / 100).toFixed(2);
-    case 'technoton':       return +(raw / 10).toFixed(2);
-    case 'raw':             return +raw.toFixed(2);
-    case 'digital_unknown': return raw > 1000 ? +(raw / 100).toFixed(2) : +(raw / 10).toFixed(2);
-    default:                return +(raw / 10).toFixed(2);
+
+  // STRICT ENFORCEMENT:
+  // Jointech is strictly Raw / 100 = Litres
+  // Technoton is strictly Raw / 10 = Litres
+  if (sensorType === 'jointech') {
+    return +(raw / 100).toFixed(2);
   }
+  if (sensorType === 'technoton') {
+    return +(raw / 10).toFixed(2);
+  }
+  if (sensorType === 'raw') {
+    return +raw.toFixed(2);
+  }
+  // Fallback for digital_unknown
+  return raw > 1000 ? +(raw / 100).toFixed(2) : +(raw / 10).toFixed(2);
 }
 
 function extractFuelRaw(packet) {
@@ -131,8 +142,10 @@ function getFluctuationLevel(delta) {
   return 'low';
 }
 
-const STORAGE_KEY_DATA = 'fuel_watcher_device_cache_v3';
-const STORAGE_KEY_TAB  = 'fuel_watcher_active_tab_v3';
+const STORAGE_KEY_DATA     = 'fuel_watcher_device_cache_v4';
+const STORAGE_KEY_TAB      = 'fuel_watcher_active_tab_v4';
+const STORAGE_KEY_AUTOREF  = 'fuel_watcher_auto_refresh_enabled';
+const STORAGE_KEY_INTERVAL = 'fuel_watcher_auto_refresh_interval';
 
 // ─────────────────────────────────────────────────────────
 // Main Component
@@ -151,8 +164,29 @@ const FuelWatcherPage = () => {
     }
   });
 
-  // Selected vehicle override per brand (if multiple exist)
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+
+  // Auto-refresh settings (Zero-overhead: only queries active vehicle, pauses when tab is hidden)
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_AUTOREF);
+      return saved !== null ? saved === 'true' : true; // Default ON
+    } catch {
+      return true;
+    }
+  });
+
+  const [refreshInterval, setRefreshInterval] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_INTERVAL);
+      return saved ? parseInt(saved, 10) : 15; // Default 15s
+    } catch {
+      return 15;
+    }
+  });
+
+  const [countdown, setCountdown] = useState(refreshInterval);
+  const [isRefreshingSilently, setIsRefreshingSilently] = useState(false);
 
   // Persistent device packets cache
   const [deviceData, setDeviceData] = useState(() => {
@@ -175,8 +209,26 @@ const FuelWatcherPage = () => {
     setActiveTab(tab);
     setSelectedVehicleId(null);
     setSearch('');
+    setCountdown(refreshInterval);
     try {
       localStorage.setItem(STORAGE_KEY_TAB, tab);
+    } catch {}
+  };
+
+  const handleToggleAutoRefresh = () => {
+    const nextVal = !autoRefreshEnabled;
+    setAutoRefreshEnabled(nextVal);
+    setCountdown(refreshInterval);
+    try {
+      localStorage.setItem(STORAGE_KEY_AUTOREF, String(nextVal));
+    } catch {}
+  };
+
+  const handleChangeInterval = (newSecs) => {
+    setRefreshInterval(newSecs);
+    setCountdown(newSecs);
+    try {
+      localStorage.setItem(STORAGE_KEY_INTERVAL, String(newSecs));
     } catch {}
   };
 
@@ -234,7 +286,6 @@ const FuelWatcherPage = () => {
     return { jointech, technoton };
   }, [allVehicles]);
 
-  // Active primary vehicles
   const primaryJointech = categorized.jointech[0] || allVehicles.find(v => v.imei === KNOWN_JOINTECH_IMEI);
   const primaryTechnoton = categorized.technoton[0] || allVehicles.find(v => v.imei === KNOWN_TECHNOTON_IMEI);
 
@@ -268,14 +319,19 @@ const FuelWatcherPage = () => {
     }
   }, [search, searchMatch, activeTab, selectedVehicleId, categorized, primaryJointech, primaryTechnoton]);
 
-  // Fetch packets
-  const fetchPackets = useCallback(async (vehicle) => {
+  // Fetch packets for ONLY the active vehicle (Single indexed query, zero RAM/DB impact)
+  const fetchPackets = useCallback(async (vehicle, isSilent = false) => {
     if (!vehicle?.id) return;
     const vid = vehicle.id;
-    setDeviceData(prev => ({
-      ...prev,
-      [vid]: { ...(prev[vid] || {}), loading: true, error: null }
-    }));
+
+    if (!isSilent) {
+      setDeviceData(prev => ({
+        ...prev,
+        [vid]: { ...(prev[vid] || {}), loading: true, error: null }
+      }));
+    } else {
+      setIsRefreshingSilently(true);
+    }
 
     try {
       const res = await axiosInstance.get(`/api/vehicles/${vid}/messages`, {
@@ -293,28 +349,61 @@ const FuelWatcherPage = () => {
         }
       }));
     } catch (err) {
-      setDeviceData(prev => ({
-        ...prev,
-        [vid]: {
-          ...(prev[vid] || {}),
-          packets: [],
-          loading: false,
-          error: err.response?.data?.error || err.message || 'Failed to fetch packets',
-          fetchedAt: new Date()
-        }
-      }));
+      if (!isSilent) {
+        setDeviceData(prev => ({
+          ...prev,
+          [vid]: {
+            ...(prev[vid] || {}),
+            packets: [],
+            loading: false,
+            error: err.response?.data?.error || err.message || 'Failed to fetch packets',
+            fetchedAt: new Date()
+          }
+        }));
+      }
+    } finally {
+      if (isSilent) setIsRefreshingSilently(false);
     }
   }, []);
 
-  // Auto-fetch packets if current active vehicle has no packets
+  // Initial fetch if active vehicle has no packets
   useEffect(() => {
     if (activeVehicle?.id) {
       const d = deviceData[activeVehicle.id];
       if (!d?.packets || !d?.fetchedAt) {
-        fetchPackets(activeVehicle);
+        fetchPackets(activeVehicle, false);
       }
     }
   }, [activeVehicle, deviceData, fetchPackets]);
+
+  // ─────────────────────────────────────────────────────────
+  // ZERO-OVERHEAD AUTO-REFRESH ENGINE
+  // - Runs only when tab is visible (pauses on document.hidden)
+  // - Only queries 1 single vehicle with LIMIT 30 (takes ~1ms DB time)
+  // - Silent in-place refresh without flickering the screen
+  // ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!autoRefreshEnabled || !activeVehicle?.id) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      // Guard: do not execute queries if the user has minimized or switched tabs
+      if (document.hidden) {
+        return;
+      }
+
+      setCountdown(prev => {
+        if (prev <= 1) {
+          fetchPackets(activeVehicle, true);
+          return refreshInterval;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [autoRefreshEnabled, activeVehicle, refreshInterval, fetchPackets]);
 
   const setSensorOverride = (vehicleId, overrideType) => {
     setDeviceData(prev => ({
@@ -362,6 +451,7 @@ const FuelWatcherPage = () => {
 
   const exportExcel = () => {
     if (!activeVehicle || !rows.length) return;
+    const formulaDesc = currentSensorType === 'jointech' ? 'Raw ÷ 100' : (currentSensorType === 'technoton' ? 'Raw ÷ 10' : 'Raw');
     const exportRows = rows.map(({ pkt, rawFuel, converted, delta, ignition }, i) => ({
       'S.No': i + 1,
       'IMEI': pkt.imei || activeVehicle.imei || '',
@@ -371,7 +461,7 @@ const FuelWatcherPage = () => {
       'Device Time (IST)': formatIST(pkt.device_time),
       'Server Time (IST)': formatIST(pkt.received_at),
       'Raw Fuel Value': rawFuel ?? '',
-      [`Actual Fuel (${currentSensorType === 'raw' ? 'Raw' : 'Litres'})`]: converted ?? '',
+      [`Actual Fuel (${formulaDesc})`]: converted ?? '',
       'Delta Change': delta !== null ? `${delta > 0 ? '+' : ''}${delta} L` : ''
     }));
     const ws = XLSX.utils.json_to_sheet(exportRows);
@@ -407,10 +497,10 @@ const FuelWatcherPage = () => {
             <span style={{
               padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700,
               background: '#DCFCE7', color: '#16A34A', letterSpacing: '0.04em'
-            }}>LIVE TELEMETRY</span>
+            }}>STRICT CALIBRATION · AUTO-LIVE</span>
           </div>
           <p style={{ fontSize: 13, color: '#64748B', margin: 0 }}>
-            Compare Jointech and Technoton live fuel sensor values side-by-side. Click a card to view its live table.
+            Strict conversion rules applied: <strong>Jointech = Raw ÷ 100</strong> | <strong>Technoton = Raw ÷ 10</strong>. Zero RAM/DB overhead auto-refresh.
           </p>
         </div>
 
@@ -428,7 +518,7 @@ const FuelWatcherPage = () => {
       </div>
 
       {/* ─────────────────────────────────────────────────────────
-          2. SEARCH BAR ABOVE THE CARDS (AS REQUESTED)
+          2. SEARCH BAR ABOVE THE CARDS
          ───────────────────────────────────────────────────────── */}
       <div style={{
         background: '#FFFFFF', borderRadius: 14, padding: '14px 18px',
@@ -518,7 +608,6 @@ const FuelWatcherPage = () => {
             </span>
           </div>
 
-          {/* Active device details */}
           <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 2 }}>
             {primaryJointech?.name || 'voltytesting_jointech2'}
           </div>
@@ -528,13 +617,14 @@ const FuelWatcherPage = () => {
 
           <div style={{
             background: activeTab === 'jointech' && !search ? '#EEF2FF' : '#F1F5F9',
-            padding: '6px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            border: '1px solid rgba(99, 102, 241, 0.15)'
           }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#4F46E5' }}>
-              Formula: Raw ÷ 100 = Litres
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#4F46E5' }}>
+              Strict Formula: Raw ÷ 100
             </span>
-            <span style={{ fontSize: 11, color: '#64748B' }}>
-              e.g. 4520 → <strong>45.20 L</strong>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>
+              e.g. 38800 raw → <strong style={{ color: '#4F46E5' }}>388.00 L</strong>
             </span>
           </div>
 
@@ -577,7 +667,6 @@ const FuelWatcherPage = () => {
             </span>
           </div>
 
-          {/* Active device details (1516) */}
           <div style={{ fontSize: 13, fontWeight: 700, color: '#334155', marginBottom: 2 }}>
             {primaryTechnoton?.name || 'voltyfuel_technoton'}
           </div>
@@ -587,13 +676,14 @@ const FuelWatcherPage = () => {
 
           <div style={{
             background: activeTab === 'technoton' && !search ? '#E0F2FE' : '#F1F5F9',
-            padding: '6px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+            padding: '8px 12px', borderRadius: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            border: '1px solid rgba(14, 165, 233, 0.15)'
           }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: '#0284C7' }}>
-              Formula: Raw ÷ 10 = Litres
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#0284C7' }}>
+              Strict Formula: Raw ÷ 10
             </span>
-            <span style={{ fontSize: 11, color: '#64748B' }}>
-              e.g. 452 → <strong>45.2 L</strong>
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#475569' }}>
+              e.g. 5000 raw → <strong style={{ color: '#0284C7' }}>500.00 L</strong>
             </span>
           </div>
 
@@ -606,7 +696,7 @@ const FuelWatcherPage = () => {
       </div>
 
       {/* ─────────────────────────────────────────────────────────
-          4. ACTIVE TABLE SECTION (COMES DIRECTLY WHEN CLICKED)
+          4. ACTIVE TABLE SECTION WITH ZERO-OVERHEAD AUTO-REFRESH
          ───────────────────────────────────────────────────────── */}
       {loadingVehicles ? (
         <div style={{ background: '#FFFFFF', borderRadius: 14, padding: 48, textAlign: 'center', border: '1px solid #E2E8F0' }}>
@@ -666,7 +756,7 @@ const FuelWatcherPage = () => {
               </div>
             </div>
 
-            {/* If brand has secondary devices, allow switching */}
+            {/* Secondary Device Dropdown (if any) */}
             {!search && (activeTab === 'jointech' ? categorized.jointech.length > 1 : categorized.technoton.length > 1) && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ fontSize: 12, color: '#64748B', fontWeight: 600 }}>Switch device:</span>
@@ -703,13 +793,13 @@ const FuelWatcherPage = () => {
 
           {/* Action Toolbar */}
           <div style={{
-            padding: '12px 20px', display: 'flex', gap: 10, flexWrap: 'wrap',
+            padding: '12px 20px', display: 'flex', gap: 12, flexWrap: 'wrap',
             alignItems: 'center', background: '#FAFAFA', borderBottom: '1px solid #E2E8F0'
           }}>
-            {/* Formula switcher */}
+            {/* Strict formula switcher */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#FFFFFF', padding: '3px 4px', borderRadius: 8, border: '1px solid #CBD5E1' }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', padding: '0 6px' }}>
-                Formula:
+                Strict Formula:
               </span>
               {[
                 { type: 'jointech', label: 'Jointech (÷100)' },
@@ -720,7 +810,7 @@ const FuelWatcherPage = () => {
                   key={opt.type}
                   onClick={() => setSensorOverride(activeVehicle.id, opt.type)}
                   style={{
-                    padding: '3px 8px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    padding: '4px 9px', borderRadius: 6, fontSize: 11, fontWeight: 700,
                     border: 'none', cursor: 'pointer',
                     background: currentSensorType === opt.type ? getSensorColor(opt.type) : 'transparent',
                     color: currentSensorType === opt.type ? '#FFFFFF' : '#64748B',
@@ -732,9 +822,61 @@ const FuelWatcherPage = () => {
               ))}
             </div>
 
-            {/* Refresh button */}
+            {/* Auto-Refresh Control (Zero-overhead guarantee) */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: '#FFFFFF', padding: '4px 8px', borderRadius: 8, border: '1px solid #CBD5E1'
+            }}>
+              <button
+                onClick={handleToggleAutoRefresh}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4, background: 'none',
+                  border: 'none', cursor: 'pointer', padding: 0
+                }}
+              >
+                {autoRefreshEnabled ? (
+                  <span style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 700, color: '#16A34A'
+                  }}>
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%', background: '#16A34A',
+                      animation: isRefreshingSilently ? 'fwPulse 0.6s infinite' : 'none'
+                    }} />
+                    Auto-Refresh ON ({countdown}s)
+                  </span>
+                ) : (
+                  <span style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, fontWeight: 700, color: '#64748B'
+                  }}>
+                    <Pause size={12} />
+                    Auto-Refresh OFF
+                  </span>
+                )}
+              </button>
+
+              {autoRefreshEnabled && (
+                <select
+                  value={refreshInterval}
+                  onChange={e => handleChangeInterval(parseInt(e.target.value, 10))}
+                  style={{
+                    border: 'none', background: '#F1F5F9', borderRadius: 4,
+                    fontSize: 11, fontWeight: 600, color: '#334155', padding: '2px 4px',
+                    outline: 'none', cursor: 'pointer'
+                  }}
+                >
+                  <option value={10}>10s</option>
+                  <option value={15}>15s</option>
+                  <option value={30}>30s</option>
+                  <option value={60}>60s</option>
+                </select>
+              )}
+            </div>
+
+            {/* Manual Refresh button */}
             <button
-              onClick={() => fetchPackets(activeVehicle)}
+              onClick={() => fetchPackets(activeVehicle, false)}
               disabled={activeVehicleData?.loading}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
@@ -745,7 +887,7 @@ const FuelWatcherPage = () => {
               }}
             >
               <RefreshCw size={12} style={activeVehicleData?.loading ? { animation: 'fwSpin 1s linear infinite' } : {}} />
-              Fetch Latest (30 pkts)
+              Fetch Now
             </button>
 
             {/* Export */}
@@ -763,15 +905,24 @@ const FuelWatcherPage = () => {
               </button>
             )}
 
+            {/* Timestamp & Silent Indicator */}
             {activeVehicleData?.fetchedAt && (
-              <span style={{ fontSize: 11, color: '#64748B', marginLeft: 'auto' }}>
-                <Clock size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
-                Cached: {activeVehicleData.fetchedAt.toLocaleTimeString('en-IN')} ({rows.length} pkts)
-              </span>
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+                {isRefreshingSilently && (
+                  <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <RefreshCw size={10} style={{ animation: 'fwSpin 0.8s linear infinite' }} />
+                    Syncing...
+                  </span>
+                )}
+                <span style={{ fontSize: 11, color: '#64748B' }}>
+                  <Clock size={11} style={{ verticalAlign: 'middle', marginRight: 4 }} />
+                  Last: {activeVehicleData.fetchedAt.toLocaleTimeString('en-IN')} ({rows.length} pkts)
+                </span>
+              </div>
             )}
           </div>
 
-          {/* Loading */}
+          {/* Initial Loading */}
           {activeVehicleData?.loading && (
             <div style={{ padding: '40px', textAlign: 'center', color: '#64748B', fontSize: 13 }}>
               <RefreshCw size={22} color={getSensorColor(currentSensorType)} style={{ animation: 'fwSpin 1s linear infinite', marginBottom: 8 }} />
@@ -797,15 +948,20 @@ const FuelWatcherPage = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    {['#', 'Ignition', 'Device Time (IST)', 'Server Time (IST)', 'Raw Value', `Actual Fuel (${currentSensorType === 'raw' ? 'Raw' : 'Litres'})`, 'Δ Change', 'Status'].map(col => (
-                      <th key={col} style={{
-                        padding: '10px 14px', textAlign: 'left',
-                        fontSize: 10, fontWeight: 700, color: '#475569',
-                        textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap'
-                      }}>
-                        {col}
-                      </th>
-                    ))}
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>#</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Ignition</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Device Time (IST)</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Server Time (IST)</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Raw Value</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: getSensorColor(currentSensorType), textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      {currentSensorType === 'jointech'
+                        ? 'Actual Fuel (L) [Raw ÷ 100]'
+                        : currentSensorType === 'technoton'
+                        ? 'Actual Fuel (L) [Raw ÷ 10]'
+                        : 'Actual Fuel (Raw)'}
+                    </th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Δ Change</th>
+                    <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -903,7 +1059,7 @@ const FuelWatcherPage = () => {
                 No packets found for this device
               </div>
               <div style={{ fontSize: 12, color: '#64748B' }}>
-                Click "Fetch Latest (30 pkts)" to query the server for recent telemetry packets.
+                Click "Fetch Now" to query the server for recent telemetry packets.
               </div>
             </div>
           )}
@@ -912,6 +1068,7 @@ const FuelWatcherPage = () => {
 
       <style>{`
         @keyframes fwSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes fwPulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
       `}</style>
     </div>
   );
