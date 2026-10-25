@@ -196,6 +196,18 @@ async function start(io) {
         if (io) {
           const vehicle = await VehicleModel.findByImei(data.imei);
           if (vehicle) {
+            const rawVoltage = (data.parsedJson && data.parsedJson.voltage != null) ? data.parsedJson.voltage : (data.voltage != null ? data.voltage : null);
+            const rawIgnition = (data.parsedJson && data.parsedJson.ignition != null) ? data.parsedJson.ignition : (data.ignition != null ? data.ignition : null);
+            const rawSpeed = (data.parsedJson && data.parsedJson.speed != null) ? parseFloat(data.parsedJson.speed) : (data.speed != null ? parseFloat(data.speed) : 0);
+            let engineStatus = null;
+            if (rawSpeed > 2.0) {
+              engineStatus = 'ON (Moving)';
+            } else if (rawIgnition === true) {
+              engineStatus = 'ON (Idle)';
+            } else if (rawIgnition === false) {
+              engineStatus = 'OFF';
+            }
+
             io.to(`vehicle:${vehicle.id}`).emit('raw:update', {
               id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               vehicleId: vehicle.id,
@@ -207,7 +219,10 @@ async function start(io) {
               raw_hex: data.rawHex || actualRaw,
               raw: actualRaw,
               error: errorMsg,
-              parsed_data: data.parsedJson || data
+              parsed_data: data.parsedJson || data,
+              voltage: rawVoltage,
+              ignition: rawIgnition,
+              engine_status: engineStatus
             });
           }
         }
@@ -236,33 +251,97 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
-      // 1b. Compute final Engine ON state based on admin-configured preference
+      // 1b. Compute raw Engine ON state based on admin-configured preference
       const engineOnPref = vehicle.metadata?.engineOnStatus || vehicle.metadata?.engineOn || 'Ignition';
       const batteryThresh = parseFloat(vehicle.metadata?.vehicleVoltage || vehicle.metadata?.batteryVoltage) || 13.2;
       const isMoving = speed != null && parseFloat(speed) > 5.0;
-      let finalIgnition = ignition;
+      let rawIgnition = ignition;
 
       if (isMoving) {
         // GPS speed > 5 km/h confirms the vehicle is actively driving; ignition cannot be OFF
-        finalIgnition = true;
+        rawIgnition = true;
       } else if (engineOnPref === 'Voltage+Ignition') {
         // If voltage is null/unavailable (e.g. PN02 boot packet with 0xFF bytes),
         // fall back to ignition signal alone rather than blocking it
         if (voltage != null && !isNaN(voltage)) {
-          finalIgnition = ignition === true && voltage >= batteryThresh;
+          rawIgnition = ignition === true && voltage >= batteryThresh;
         } else {
-          finalIgnition = ignition === true;
+          rawIgnition = ignition === true;
         }
       } else if (engineOnPref === 'Voltage') {
         if (voltage != null && !isNaN(voltage)) {
-          finalIgnition = voltage >= batteryThresh;
+          rawIgnition = voltage >= batteryThresh;
         } else {
-          finalIgnition = ignition === true; // Fallback when voltage unavailable
+          rawIgnition = ignition === true; // Fallback when voltage unavailable
         }
       } else if (engineOnPref === 'Digital Input 1') {
-        finalIgnition = data.din1 === true;
+        rawIgnition = data.din1 === true;
       } else {
-        finalIgnition = ignition === true;
+        rawIgnition = ignition === true;
+      }
+
+      // 1c. Ignition Debounce / Hysteresis Filter (3-Minute Window)
+      // Absorbs electrical dips (e.g. borewell pump engagement, starter surge, wire vibration)
+      // where engine drops to OFF for < 3 minutes before recovering to ON,
+      // or momentary electrical spikes where engine blips ON for < 3 minutes while parked.
+      const currentPacketTimeMs = new Date(deviceTime).getTime() || Date.now();
+      const stableIgnKey = `vehicle:stable_ignition:${vehicleId}`;
+      const pendingIgnKey = `vehicle:pending_ignition:${vehicleId}`;
+      const pendingSinceKey = `vehicle:pending_ignition_since:${vehicleId}`;
+
+      const stableIgnStr = await redis.get(stableIgnKey);
+      let finalIgnition = rawIgnition;
+
+      if (isMoving) {
+        // Physical movement > 5 km/h immediately confirms Engine is ON (0 delay when moving)
+        finalIgnition = true;
+        await redis.set(stableIgnKey, '1', 'EX', 86400 * 7);
+        await redis.del(pendingIgnKey);
+        await redis.del(pendingSinceKey);
+      } else if (stableIgnStr === null) {
+        // Initial setup for this vehicle — initialize stable state
+        finalIgnition = rawIgnition;
+        await redis.set(stableIgnKey, rawIgnition ? '1' : '0', 'EX', 86400 * 7);
+        await redis.del(pendingIgnKey);
+        await redis.del(pendingSinceKey);
+      } else {
+        const isStableOn = stableIgnStr === '1';
+
+        if (rawIgnition === isStableOn) {
+          // Packet matches current stable state — any temporary pending glitch is cancelled!
+          finalIgnition = isStableOn;
+          await redis.del(pendingIgnKey);
+          await redis.del(pendingSinceKey);
+        } else {
+          // Packet differs from stable state (e.g. currently ON, but packet says OFF; or currently OFF, but packet says ON)
+          const pendingTarget = rawIgnition ? '1' : '0';
+          const currentPending = await redis.get(pendingIgnKey);
+          const pendingSinceStr = await redis.get(pendingSinceKey);
+
+          if (currentPending !== pendingTarget || !pendingSinceStr) {
+            // New pending transition started — record start of candidate state change
+            await redis.set(pendingIgnKey, pendingTarget, 'EX', 600);
+            await redis.set(pendingSinceKey, String(currentPacketTimeMs), 'EX', 600);
+            // Retain previous stable state during the 3-minute grace window!
+            finalIgnition = isStableOn;
+          } else {
+            // Candidate transition in progress — check if it has persisted continuously for 3 minutes
+            const pendingSinceMs = parseInt(pendingSinceStr, 10);
+            const elapsedMs = currentPacketTimeMs - pendingSinceMs;
+            const DEBOUNCE_WINDOW_MS = 3 * 60 * 1000; // 3 minutes
+
+            if (elapsedMs >= DEBOUNCE_WINDOW_MS) {
+              // Transition CONFIRMED! Engine has remained in new state continuously for 3 minutes
+              finalIgnition = rawIgnition;
+              await redis.set(stableIgnKey, pendingTarget, 'EX', 86400 * 7);
+              await redis.del(pendingIgnKey);
+              await redis.del(pendingSinceKey);
+            } else {
+              // Still inside 3-minute grace window — absorb glitch and keep stable state!
+              finalIgnition = isStableOn;
+            }
+          }
+        }
       }
 
       // 2. Fetch previous state from Redis BEFORE processing new packet (for transition alerts)
@@ -379,23 +458,104 @@ async function start(io) {
         statusSince = deviceTime;
       }
 
-      // 2c. Compute Fuel in Liters (Quick Calibration Interpolation)
+      // 2c. Compute Fuel in Liters (Auto, Manual, or Direct Calibration)
       let finalFuelLiters = fuel; // Default to raw if no calibration exists
       if (vehicle.metadata) {
-        const capacity = parseFloat(vehicle.metadata.tankSize);
-        const emptyAdc = parseFloat(vehicle.metadata.fuelEmptyAdc);
-        const fullAdc = parseFloat(vehicle.metadata.fuelFullAdc);
-        
-        // Only interpolate if capacity is defined and valid
-        if (capacity > 0 && !isNaN(emptyAdc) && !isNaN(fullAdc) && fullAdc !== emptyAdc) {
-          // Linear interpolation: (current - empty) / (full - empty) * capacity
-          let liters = ((fuel - emptyAdc) / (fullAdc - emptyAdc)) * capacity;
-          
-          // Clamp to [0, capacity]
-          if (liters < 0) liters = 0;
-          if (liters > capacity) liters = capacity;
-          
-          finalFuelLiters = liters;
+        const fuelCal = vehicle.metadata.fuelCalibration || {};
+        const tank1Cal = fuelCal.tanks?.[1] || fuelCal;
+        const capacity = parseFloat(tank1Cal.tankSize || vehicle.metadata.tankSize);
+        const calType = vehicle.metadata.fuelConfig?.calibrateType || tank1Cal.calibrateType || 'Auto';
+
+        if (calType === 'Direct') {
+          // Direct Mode: Sensor transmits actual volume or percentage directly
+          const mult = parseFloat(tank1Cal.directMultiplier ?? 1.0);
+          const offset = parseFloat(tank1Cal.directOffset ?? 0.0);
+          const unit = tank1Cal.directUnit || 'Litres';
+          const validMult = !isNaN(mult) ? mult : 1.0;
+          const validOffset = !isNaN(offset) ? offset : 0.0;
+          const rawScaled = (fuel * validMult) + validOffset;
+
+          if (unit === 'Percentage' && capacity > 0) {
+            finalFuelLiters = Math.max(0, Math.min(capacity, (rawScaled / 100) * capacity));
+          } else {
+            finalFuelLiters = Math.max(0, capacity > 0 ? Math.min(capacity, rawScaled) : rawScaled);
+          }
+        } else if (calType === 'Manual' && Array.isArray(tank1Cal.calibrationPoints) && tank1Cal.calibrationPoints.length >= 2) {
+          // Manual Mode: Piecewise Linear Interpolation across user-calibrated points
+          const rawFuel = fuel;
+          const altVolt = voltage != null && !isNaN(voltage) ? parseFloat(voltage) : null;
+
+          const points = tank1Cal.calibrationPoints
+            .map(p => {
+              const l = parseFloat(p.litres);
+              const adc = parseFloat(p.adcValue);
+              const v = parseFloat(p.volt);
+              const f = parseFloat(p.frequency);
+              return {
+                litres: l,
+                adcValue: !isNaN(adc) ? adc : (!isNaN(f) && f > 0 ? f : v),
+                volt: !isNaN(v) ? v : 0,
+                frequency: !isNaN(f) ? f : 0
+              };
+            })
+            .filter(p => !isNaN(p.litres) && !isNaN(p.adcValue))
+            .sort((a, b) => a.adcValue - b.adcValue);
+
+          if (points.length >= 2) {
+            // Check if sensor is calibrated in low voltage (< 36V) and incoming voltage matches
+            const isVoltageSensor = points.some(p => p.volt > 0) && points.every(p => p.adcValue <= 36.0);
+            const inputVal = (isVoltageSensor && altVolt != null && altVolt > 0 && altVolt <= 36.0) ? altVolt : rawFuel;
+
+            if (inputVal <= points[0].adcValue) {
+              finalFuelLiters = points[0].litres;
+            } else if (inputVal >= points[points.length - 1].adcValue) {
+              finalFuelLiters = points[points.length - 1].litres;
+            } else {
+              for (let i = 0; i < points.length - 1; i++) {
+                const p1 = points[i];
+                const p2 = points[i + 1];
+                if (inputVal >= p1.adcValue && inputVal <= p2.adcValue) {
+                  const range = p2.adcValue - p1.adcValue;
+                  const ratio = range !== 0 ? (inputVal - p1.adcValue) / range : 0;
+                  finalFuelLiters = Math.round((p1.litres + ratio * (p2.litres - p1.litres)) * 100) / 100;
+                  break;
+                }
+              }
+            }
+          }
+        } else {
+          // Auto Mode: Dynamic geometry-aware calculation (Rectangle vs Cylinder Horizontal vs Vertical)
+          const emptyAdcRaw = parseFloat(tank1Cal.minAdc ?? vehicle.metadata.fuelEmptyAdc);
+          const fullAdcRaw = parseFloat(tank1Cal.maxAdc ?? vehicle.metadata.fuelFullAdc);
+          const emptyAdc = !isNaN(emptyAdcRaw) ? emptyAdcRaw : 0;
+          const fullAdc = !isNaN(fullAdcRaw) ? fullAdcRaw : 4095;
+          const shape = tank1Cal.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
+          const position = tank1Cal.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
+
+          if (capacity > 0 && fullAdc !== emptyAdc) {
+            // Liquid depth fraction: 0.0 (empty) to 1.0 (full)
+            let heightFraction = (fuel - emptyAdc) / (fullAdc - emptyAdc);
+            if (heightFraction < 0) heightFraction = 0;
+            if (heightFraction > 1) heightFraction = 1;
+
+            if (shape === 'Cylinder' && position === 'Horizontal') {
+              // Real-world horizontal cylinder geometry: volume varies by circular segment area
+              const f = heightFraction;
+              if (f <= 0) {
+                finalFuelLiters = 0;
+              } else if (f >= 1) {
+                finalFuelLiters = capacity;
+              } else {
+                const term1 = Math.acos(1 - 2 * f);
+                const term2 = (1 - 2 * f) * Math.sqrt(4 * f * (1 - f));
+                const volumeFraction = (term1 - term2) / Math.PI;
+                finalFuelLiters = Math.round(capacity * volumeFraction * 100) / 100;
+              }
+            } else {
+              // Rectangle or Vertical Cylinder (uniform cross section along height)
+              finalFuelLiters = Math.round(capacity * heightFraction * 100) / 100;
+            }
+          }
         }
       }
 
@@ -575,9 +735,7 @@ async function start(io) {
         const evalLng = data.isHeartbeat ? (prevState ? parseFloat(prevState.lng) : null) : lng;
         const evalSpeed = data.isHeartbeat ? (prevState ? parseFloat(prevState.speed) : 0) : (speed || 0);
 
-        // Check A: Ignition ON transition
-        // Smart Filter: Only trigger if the vehicle was actually parked for at least 3 minutes, or was asleep.
-        // This prevents massive alert spam from loose ignition wires or stop-and-go traffic.
+        // Check A: Ignition ON transition (confirmed after debouncing)
         if (finalIgnition === true && prevState && prevState.ignition === false) {
           const igKey = `vehicle:ignition_on_fired:${vehicleId}`;
           const alreadyFired = await redis.get(igKey);
@@ -591,28 +749,57 @@ async function start(io) {
           }
 
           if (!alreadyFired && (wasParkedLongEnough || wasAsleep)) {
-            alertsToTrigger.push({ type: 'ignition_on', text: 'Engine ON Alert: Vehicle started.' });
+            alertsToTrigger.push({
+              type: 'ignition_on',
+              text: `Engine ON Alert: ${vehicle.name} (${vehicle.plate}) engine turned ON.`,
+              deviceTime: new Date(currentDeviceTimeMs).toISOString()
+            });
             await redis.set(igKey, '1', 'EX', 1800); // Lock for 30 minutes to ensure it doesn't fire again on this trip
+            await redis.del(`vehicle:ignition_off_fired:${vehicleId}`);
           }
         }
 
-        // Check A2: Safety Park Alarm (Unauthorized Movement / Ignition)
-        // Arms after vehicle has been parked (ignition OFF, speed 0) for > 5 minutes.
-        if (vehicle.metadata?.safetyPark === 'YES' && prevState && prevState.ignition === false && (prevState.speed || 0) === 0 && prevState.parkedSince) {
-          const parkedDurationMs = new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime();
-          if (parkedDurationMs >= 5 * 60 * 1000) { // Armed after 5+ minutes parked
-            if (finalIgnition === true || evalSpeed > 0) {
-              // Debounce: only fire once every 30 minutes so we don't spam the user
-              const spKey = `vehicle:safety_park_fired:${vehicleId}`;
-              const alreadyFired = await redis.get(spKey);
-              if (!alreadyFired) {
-                const movementType = finalIgnition === true ? 'Ignition turned ON' : `Moving at ${Math.round(evalSpeed)} km/h`;
-                alertsToTrigger.push({
-                  type: 'safety_park',
-                  text: `Vehicle Theft Alarm: ${vehicle.name} (${vehicle.plate}) — ${movementType} detected while vehicle was parked. Check immediately!`
-                });
-                await redis.set(spKey, '1', 'EX', 1800); // Lock for 30 minutes
-              }
+        // Check A1: Ignition OFF transition (confirmed after 3-minute debounce)
+        if (finalIgnition === false && prevState && prevState.ignition === true) {
+          const igOffKey = `vehicle:ignition_off_fired:${vehicleId}`;
+          const alreadyFired = await redis.get(igOffKey);
+          if (!alreadyFired) {
+            alertsToTrigger.push({
+              type: 'ignition_off',
+              text: `Engine OFF Alert: ${vehicle.name} (${vehicle.plate}) engine turned OFF.`,
+              deviceTime: new Date(currentDeviceTimeMs).toISOString()
+            });
+            await redis.set(igOffKey, '1', 'EX', 1800);
+            await redis.del(`vehicle:ignition_on_fired:${vehicleId}`);
+          }
+        }
+
+        // Check A2: Safety Parking Alarm (Theft / Unauthorized Ignition or Movement)
+        // Arms immediately whenever Safety Parking is toggled ON for this vehicle.
+        if (vehicle.metadata?.safetyPark === 'YES') {
+          const isBreached = rawIgnition === true || finalIgnition === true || evalSpeed > 1;
+
+          if (isBreached) {
+            // Mark vehicle as actively breached in Redis
+            const breachKey = `vehicle:safety_park_breach:${vehicleId}`;
+            await redis.set(breachKey, '1', 'EX', 86400);
+
+            // Throttle database alerts to once every 60s so user is notified without flooding DB
+            const spKey = `vehicle:safety_park_fired:${vehicleId}`;
+            const alreadyFired = await redis.get(spKey);
+            if (!alreadyFired) {
+              const hasIgn = rawIgnition === true || finalIgnition === true;
+              const movementType = (hasIgn && evalSpeed > 1)
+                ? `Engine ON & Moving at ${Math.round(evalSpeed)} km/h`
+                : (hasIgn ? 'Engine turned ON' : `Moving at ${Math.round(evalSpeed)} km/h`);
+
+              alertsToTrigger.push({
+                type: 'safety_park',
+                speed: evalSpeed,
+                text: `🚨 THEFT ALARM: ${vehicle.name} (${vehicle.plate}) — ${movementType} while Safety Parking was ACTIVE! Check immediately!`,
+                deviceTime: new Date(currentDeviceTimeMs).toISOString()
+              });
+              await redis.set(spKey, '1', 'EX', 60); // Retrigger every 60s if condition persists
             }
           }
         }
@@ -630,100 +817,102 @@ async function start(io) {
           const existingStart = await redis.get(stoppageStartKey);
           let startMs = currentDeviceTimeMs;
           if (!existingStart || wasAsleep) {
-            await redis.set(stoppageStartKey, startMs); // Start tracking stoppage
-          } else {
-            startMs = parseInt(existingStart, 10);
+            await redis.set(stoppageStartKey, startMs); // Track stoppage start time for Moving alert
           }
-          
-          // Fire a 'stoppage' alert ONCE when the vehicle has been stopped for the user's custom threshold.
-          const customThresholdMins = vehicle.metadata?.stoppageThreshold ? parseInt(vehicle.metadata.stoppageThreshold, 10) : 10; // Default 10 mins
-          const currentDurationMins = (currentDeviceTimeMs - startMs) / 60000;
-          
-          if (currentDurationMins >= customThresholdMins) {
-            const alreadyFiredStoppage = await redis.get(stoppageAlertFiredKey);
-            if (!alreadyFiredStoppage) {
-              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit', hour12: true };
-              const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
-              const endFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
-              
-              alertsToTrigger.push({ 
-                type: 'stoppage', 
-                text: `Long Stoppage Alert: ${vehicle.name} (${vehicle.plate}) has been stopped for ${customThresholdMins} mins (from ${startFmt} to ${endFmt}).` 
-              });
-              // Lock it so it only fires exactly once per stoppage session
-              await redis.set(stoppageAlertFiredKey, '1', 'EX', 86400); // 24h lock, cleared when moving
-            }
-          }
-        } else if (evalSpeed >= 10) {
+          // Note: Long Stoppage Alert has been removed. Inactivity is now handled by Parking Alert (engine OFF) and Idle Alert (engine ON).
+        } else if (evalSpeed > 10) {
           const stoppageStartStr = await redis.get(stoppageStartKey);
           if (stoppageStartStr) {
             const startMs = parseInt(stoppageStartStr, 10);
             const durationMin = Math.round((currentDeviceTimeMs - startMs) / 60000);
             
-            // Only fire if the stoppage was at least 3 minutes (filters out standard traffic lights/stop signs)
-            if (durationMin >= 3) {
+            // Stoppage threshold before moving alert: Default 1 hr (60 mins), configurable by customer (minimum stoppage of 5 mins)
+            const movingStoppageLimitMin = Math.max(5, parseFloat(vehicle.metadata?.movingDurationAlert || vehicle.metadata?.movingStoppageDuration) || 60);
+            
+            if (durationMin >= movingStoppageLimitMin) {
               const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit', hour12: true };
               const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
               const endFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
               
-              // This calculates duration and time window as requested for the MOVING alert
+              const durationText = durationMin >= 60
+                ? `${Math.floor(durationMin / 60)} hr${durationMin >= 120 ? 's' : ''}${durationMin % 60 > 0 ? ` ${durationMin % 60} mins` : ''}`
+                : `${durationMin} mins`;
+
               alertsToTrigger.push({ 
                 type: 'moving', 
-                text: `Moving Alert: ${vehicle.name} (${vehicle.plate}) has started moving after ${durationMin} mins of stoppage (from ${startFmt} to ${endFmt}).` 
+                text: `Moving Alert: ${vehicle.name} (${vehicle.plate}) has started moving after ${durationText} of stoppage (from ${startFmt} to ${endFmt}).` 
               });
             }
-            // Clear the tracking keys since the vehicle is now moving >= 10 kmph
+            // Clear the tracking key since the vehicle is now moving > 10 km/h
             await redis.del(stoppageStartKey);
             await redis.del(stoppageAlertFiredKey);
           }
         }
 
-        // Check C2: Long Parking Alert
-        // Fires once after vehicle has been continuously parked (ignition OFF, speed 0) for 30 minutes.
+        // Check C2: Parking Alert
+        // Default threshold: 60 minutes (1 hr). Configurable by customer per vehicle metadata.
         if (finalIgnition === false && evalSpeed === 0 && prevState?.parkedSince) {
           if (wasAsleep) {
             // If device was asleep, reset the parkedSince timer to avoid false jumps
             await redis.set(`vehicle:state:${imei}`, JSON.stringify({ ...JSON.parse(await redis.get(`vehicle:state:${imei}`) || '{}'), parkedSince: deviceTime }));
           } else {
-            const parkingDurationMin = (new Date(deviceTime).getTime() - new Date(prevState.parkedSince).getTime()) / 60000;
+            const parkedStartMs = new Date(prevState.parkedSince).getTime();
+            const parkingDurationMin = (currentDeviceTimeMs - parkedStartMs) / 60000;
             const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
-            if (parkingDurationMin >= 30) {
+            const parkDurationLimitMin = parseFloat(vehicle.metadata?.parkingDurationAlert || vehicle.metadata?.parkDurationAlert) || 60; // Default 1 hr (60 mins)
+            
+            if (parkingDurationMin >= parkDurationLimitMin) {
               const alreadyFired = await redis.get(parkAlertFiredKey);
               if (!alreadyFired) {
-                const durationStr = Math.round(parkingDurationMin);
+                const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
+                const startFmt = new Date(parkedStartMs).toLocaleTimeString('en-US', formatOpts);
+                const durationText = parkingDurationMin >= 60
+                  ? `${Math.floor(parkingDurationMin / 60)} hr${parkingDurationMin >= 120 ? 's' : ''}${Math.round(parkingDurationMin % 60) > 0 ? ` ${Math.round(parkingDurationMin % 60)} mins` : ''}`
+                  : `${Math.round(parkingDurationMin)} mins`;
+
                 alertsToTrigger.push({
                   type: 'parking',
-                  text: `Long Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked for ${durationStr} minutes.`
+                  text: `Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked since ${startFmt} (${durationText}).`,
+                  deviceTime: new Date(parkedStartMs).toISOString()
                 });
                 await redis.set(parkAlertFiredKey, '1', 'EX', 86400); // Fire once per parking session (24h max)
               }
             }
           }
         } else if (finalIgnition === true || evalSpeed > 0) {
-          // Vehicle is moving — reset the parking alert so it can fire again next time
+          // Vehicle is moving or ignition turned on — reset the parking alert so it can fire again next time
           await redis.del(`vehicle:parking_alert_fired:${vehicleId}`);
         }
 
         // Check D: Excessive idle (ignition ON, speed 0) using custom duration limit
+        // Default threshold: 60 minutes (1 hr). Configurable by customer per vehicle metadata.
         if (finalIgnition === true && evalSpeed === 0) {
-          const idleDurationLimitMin = parseFloat(vehicle.metadata?.idleDurationAlert) || 10;
+          const idleDurationLimitMin = parseFloat(vehicle.metadata?.idleDurationAlert) || 60; // Default 1 hr (60 mins)
           const idleKey = `vehicle:idle_start:${vehicleId}`;
           const alertFiredKey = `vehicle:idle_alert_fired:${vehicleId}`;
 
           let idleStart = await redis.get(idleKey);
           if (!idleStart || wasAsleep) {
             // If it was asleep, it wasn't actively idling. Reset the idle start time!
-            await redis.set(idleKey, Date.now());
+            await redis.set(idleKey, currentDeviceTimeMs);
           } else {
-            const idleDurationMin = (Date.now() - parseInt(idleStart)) / 60000;
+            const idleStartMs = parseInt(idleStart, 10);
+            const idleDurationMin = (currentDeviceTimeMs - idleStartMs) / 60000;
             if (idleDurationMin >= idleDurationLimitMin) {
               const alreadyFired = await redis.get(alertFiredKey);
               if (!alreadyFired) {
+                const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
+                const startFmt = new Date(idleStartMs).toLocaleTimeString('en-US', formatOpts);
+                const durationText = idleDurationMin >= 60
+                  ? `${Math.floor(idleDurationMin / 60)} hr${idleDurationMin >= 120 ? 's' : ''}${Math.round(idleDurationMin % 60) > 0 ? ` ${Math.round(idleDurationMin % 60)} mins` : ''}`
+                  : `${Math.round(idleDurationMin)} mins`;
+
                 alertsToTrigger.push({
                   type: 'excessive_idle',
-                  text: `Excessive Idle Alert: Vehicle has been idling for more than ${idleDurationLimitMin} minutes.`
+                  text: `Idling Alert: ${vehicle.name} (${vehicle.plate}) has been idling since ${startFmt} (${durationText}).`,
+                  deviceTime: new Date(idleStartMs).toISOString()
                 });
-                await redis.set(alertFiredKey, '1', 'EX', 3600); // Lock for 1 hour to prevent spamming
+                await redis.set(alertFiredKey, '1', 'EX', 86400); // Lock until vehicle stops idling
               }
             }
           }
@@ -732,60 +921,114 @@ async function start(io) {
           await redis.del(`vehicle:idle_alert_fired:${vehicleId}`);
         }
 
-        // Check F: Overspeeding (configurable duration, default 3 mins)
+        // Check F: Overspeeding
+        // 1. When speed > threshold, trigger ONCE immediately with the exact start time.
+        // 2. Observe for 10 minutes. If overspeeding continues, trigger continuous overspeed alert reporting duration since start time.
+        // 3. When speed drops <= threshold, reset state so it is ready for the next overspeed event.
         const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 60;
-        const overspeedDurationLimitMin = parseFloat(vehicle.metadata?.overspeedDurationAlert) || 3;
         
         if (evalSpeed > speedLimit) {
-          const overspeedKey = `vehicle:overspeed_start:${vehicleId}`;
-          const overspeedFiredKey = `vehicle:overspeed_alert_fired:${vehicleId}`;
+          const overspeedStartKey = `vehicle:overspeed_start:${vehicleId}`;
+          const overspeedInitialFiredKey = `vehicle:overspeed_initial_fired:${vehicleId}`;
+          const overspeedSustainedKey = `vehicle:overspeed_sustained_step:${vehicleId}`;
 
-          let overspeedStart = await redis.get(overspeedKey);
-          if (!overspeedStart) {
-            await redis.set(overspeedKey, Date.now());
+          const startStr = await redis.get(overspeedStartKey);
+          const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
+
+          if (!startStr) {
+            // First overspeed packet: trigger immediately once and record start time
+            await redis.set(overspeedStartKey, currentDeviceTimeMs, 'EX', 86400);
+            await redis.set(overspeedInitialFiredKey, '1', 'EX', 86400);
+
+            const startFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
+            alertsToTrigger.push({
+              type: 'overspeed',
+              speed: evalSpeed,
+              text: `Overspeed Alert: ${vehicle.name} (${vehicle.plate}) started overspeeding at ${Math.round(evalSpeed)} km/h (speed limit: ${speedLimit} km/h) at ${startFmt}.`,
+              deviceTime: new Date(currentDeviceTimeMs).toISOString()
+            });
           } else {
-            const overspeedDurationMin = (Date.now() - parseInt(overspeedStart)) / 60000;
-            if (overspeedDurationMin >= overspeedDurationLimitMin) {
-              const alreadyFired = await redis.get(overspeedFiredKey);
-              if (!alreadyFired) {
+            // Vehicle continues overspeeding: observe for 10 minutes intervals
+            const startMs = parseInt(startStr, 10);
+            const overspeedDurationMin = Math.floor((currentDeviceTimeMs - startMs) / 60000);
+
+            if (overspeedDurationMin >= 10) {
+              const currentStep = Math.floor(overspeedDurationMin / 10);
+              const lastStep = parseInt(await redis.get(overspeedSustainedKey) || '0', 10);
+
+              if (currentStep > lastStep) {
+                const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
                 alertsToTrigger.push({
                   type: 'overspeed',
                   speed: evalSpeed,
-                  text: `Overspeed Alert: Vehicle has been overspeeding (> ${speedLimit} km/h) for more than ${overspeedDurationLimitMin} minutes.`
+                  text: `Continuous Overspeed Alert: ${vehicle.name} (${vehicle.plate}) has been overspeeding continuously since ${startFmt} (${overspeedDurationMin} mins at ${Math.round(evalSpeed)} km/h, speed limit: ${speedLimit} km/h).`,
+                  deviceTime: new Date(startMs).toISOString()
                 });
-                await redis.set(overspeedFiredKey, '1', 'EX', 300); // Lock for 5 mins so they aren't spammed continuously
+                await redis.set(overspeedSustainedKey, currentStep, 'EX', 86400);
               }
             }
           }
         } else {
+          // Speed dropped <= limit: clear overspeed tracking session
           await redis.del(`vehicle:overspeed_start:${vehicleId}`);
-          await redis.del(`vehicle:overspeed_alert_fired:${vehicleId}`);
+          await redis.del(`vehicle:overspeed_initial_fired:${vehicleId}`);
+          await redis.del(`vehicle:overspeed_sustained_step:${vehicleId}`);
         }
 
-        // Check E: Geofence checks
+        // Check E: Geofence checks with Anti-Jitter Hysteresis Buffer
         if (evalLat != null && evalLng != null) {
           try {
             const geofences = await GeofenceModel.findGeofencesForVehicle(vehicleId);
             for (const geofence of geofences) {
-              let isInsideNow = false;
-
-              if (geofence.type === 'circle') {
-                const dist = getHaversineDistance(evalLat, evalLng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
-                isInsideNow = dist <= parseFloat(geofence.radius);
-              } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates)) {
-                isInsideNow = isPointInPolygon(evalLat, evalLng, geofence.coordinates);
-              }
+              if (geofence.is_active === false) continue;
 
               const geoStateKey = `vehicle:geofence:${geofence.id}:${vehicleId}`;
               const wasInsideRaw = await redis.get(geoStateKey);
               const wasInside = wasInsideRaw === 'inside';
 
+              let isInsideNow = false;
+
+              if (geofence.type === 'circle') {
+                const dist = getHaversineDistance(evalLat, evalLng, parseFloat(geofence.center_lat), parseFloat(geofence.center_lng));
+                const radius = parseFloat(geofence.radius);
+                // Hysteresis buffer: 25 meters or 5% of radius (whichever is larger)
+                // Prevents GPS drift near boundary from rapid entry/exit flapping
+                const exitBufferMeters = Math.max(25, radius * 0.05);
+
+                if (wasInside) {
+                  // To exit: vehicle must strictly exceed radius + buffer
+                  isInsideNow = dist <= (radius + exitBufferMeters);
+                } else {
+                  // To enter: vehicle must be within radius
+                  isInsideNow = dist <= radius;
+                }
+              } else if (geofence.type === 'polygon' && Array.isArray(geofence.coordinates) && geofence.coordinates.length >= 3) {
+                const insideStrict = isPointInPolygon(evalLat, evalLng, geofence.coordinates);
+                if (wasInside) {
+                  // If stationary near border, don't flap outside on GPS jitter
+                  isInsideNow = insideStrict || (evalSpeed < 2);
+                } else {
+                  isInsideNow = insideStrict;
+                }
+              }
+
+              // Initial boot latching: If no prior state existed in Redis,
+              // latch current state without firing a false arrival alert.
+              if (wasInsideRaw === null) {
+                await redis.set(geoStateKey, isInsideNow ? 'inside' : 'outside', 'EX', 86400 * 7);
+                continue;
+              }
+
               if (isInsideNow && !wasInside) {
-                alertsToTrigger.push({ type: 'geofence', text: `Geofence In Alert: Entered geofence "${geofence.name}".` });
-                await redis.set(geoStateKey, 'inside');
+                if (geofence.alert_on_enter !== false) {
+                  alertsToTrigger.push({ type: 'geofence', text: `Geofence In Alert: Entered geofence "${geofence.name}".` });
+                }
+                await redis.set(geoStateKey, 'inside', 'EX', 86400 * 7);
               } else if (!isInsideNow && wasInside) {
-                alertsToTrigger.push({ type: 'geofence', text: `Geofence Out Alert: Exited geofence "${geofence.name}".` });
-                await redis.set(geoStateKey, 'outside');
+                if (geofence.alert_on_exit !== false) {
+                  alertsToTrigger.push({ type: 'geofence', text: `Geofence Out Alert: Exited geofence "${geofence.name}".` });
+                }
+                await redis.set(geoStateKey, 'outside', 'EX', 86400 * 7);
               }
             }
           } catch (geoErr) {
@@ -852,7 +1095,7 @@ async function start(io) {
             speed: triggered.speed,
             lat: evalLat,
             lng: evalLng,
-            deviceTime: deviceTime || new Date().toISOString()
+            deviceTime: triggered.deviceTime || deviceTime || new Date().toISOString()
           };
           await redis.publish('alerts', JSON.stringify(alertPayload));
         }

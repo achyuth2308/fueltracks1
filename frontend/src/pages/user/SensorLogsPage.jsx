@@ -237,6 +237,174 @@ const SensorLogsPage = () => {
 
   const activeCols = useMemo(() => columns.filter((c) => c.visible), [columns]);
 
+  const renderCell = (colKey, m, idx, isValidFix) => {
+    switch (colKey) {
+      case 'imei':
+        return (
+          <td key="imei" style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #F1F5F9' }}>
+            {m.imei || vehicle?.imei || '—'}
+          </td>
+        );
+      case 'received_at':
+        return (
+          <td key="received_at" style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontWeight: 600, color: '#0F172A', borderRight: '1px solid #F1F5F9' }}>
+            {formatLocalTime(m.received_at)}
+          </td>
+        );
+      case 'device_time':
+        return (
+          <td key="device_time" style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#334155', borderRight: '1px solid #F1F5F9' }}>
+            {m.device_time ? formatLocalTime(m.device_time) : '—'}
+          </td>
+        );
+      case 'coords':
+        return (
+          <td key="coords" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'nowrap' }}>
+            {m.lat != null && m.lng != null ? (
+              <a
+                href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: '#2563EB', textDecoration: 'none', fontWeight: 600 }}
+              >
+                {Number(m.lat).toFixed(6)}, {Number(m.lng).toFixed(6)}
+              </a>
+            ) : (
+              <span style={{ color: '#94A3B8' }}>—</span>
+            )}
+          </td>
+        );
+      case 'speed':
+        return (
+          <td key="speed" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 700, color: m.speed > 0 ? '#0F172A' : '#94A3B8' }}>
+            {m.speed != null ? `${m.speed} km/h` : '0 km/h'}
+          </td>
+        );
+      case 'heading':
+        return (
+          <td key="heading" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569' }}>
+            {m.direction != null ? `${m.direction}°` : '—'}
+          </td>
+        );
+      case 'ignition':
+        return (
+          <td key="ignition" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: m.ignition ? '#DCFCE7' : '#F1F5F9', color: m.ignition ? '#166534' : '#64748B' }}>
+              {m.ignition ? 'ON' : 'OFF'}
+            </span>
+          </td>
+        );
+      case 'fuel':
+        return (
+          <td key="fuel" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            {m.fuel != null ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, background: '#E0F2FE', color: '#0369A1' }}>
+                {m.fuel} L
+              </span>
+            ) : (
+              <span style={{ color: '#CBD5E1' }}>—</span>
+            )}
+          </td>
+        );
+      case 'voltage':
+        return (
+          <td key="voltage" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 600, color: m.voltage > 10 ? '#0F172A' : '#EF4444' }}>
+            {m.voltage != null ? `${m.voltage} V` : '—'}
+          </td>
+        );
+      case 'battery':
+        return (
+          <td key="battery" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#334155' }}>
+            {m.battery != null ? `${m.battery}%` : '—'}
+          </td>
+        );
+      case 'serial':
+        return (
+          <td key="serial" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#475569' }}>
+            {m.serial ? (
+              <span style={{ background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
+                {m.serial}
+              </span>
+            ) : (
+              <span style={{ color: '#CBD5E1' }}>—</span>
+            )}
+          </td>
+        );
+      case 'gps_fix':
+        return (
+          <td key="gps_fix" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 7px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isValidFix ? '#DCFCE7' : '#FEE2E2', color: isValidFix ? '#15803D' : '#B91C1C' }}>
+              {isValidFix ? '3D Fix' : 'No Fix'}
+            </span>
+          </td>
+        );
+      case 'odometer':
+        return (
+          <td key="odometer" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 600, color: '#0F172A' }}>
+            {m.odometer != null ? `${Number(m.odometer).toLocaleString()} km` : '—'}
+          </td>
+        );
+      case 'satellites':
+        return (
+          <td key="satellites" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569', textAlign: 'center' }}>
+            {m.satellites != null ? m.satellites : '—'}
+          </td>
+        );
+      case 'gsm':
+        return (
+          <td key="gsm" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569', textAlign: 'center' }}>
+            {m.gsmSignal != null ? `${m.gsmSignal}/31` : '—'}
+          </td>
+        );
+      case 'cell_lac':
+        return (
+          <td key="cell_lac" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#64748B' }}>
+            {m.cellId || m.lac ? `CID:${m.cellId || '—'} LAC:${m.lac || '—'}` : '—'}
+          </td>
+        );
+      case 'relay':
+        return (
+          <td key="relay" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            {m.output1 !== null ? (
+              <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: m.output1 ? '#FEE2E2' : '#F1F5F9', color: m.output1 ? '#DC2626' : '#64748B' }}>
+                {m.output1 ? 'ACTIVE' : 'OFF'}
+              </span>
+            ) : (
+              '—'
+            )}
+          </td>
+        );
+      case 'alert':
+        return (
+          <td key="alert" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            {m.alertText ? (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: '#FEF3C7', color: '#B45309' }}>
+                <ShieldAlert size={12} /> {m.alertText}
+              </span>
+            ) : (
+              <span style={{ color: '#94A3B8' }}>Normal</span>
+            )}
+          </td>
+        );
+      case 'packet_type':
+        return (
+          <td key="packet_type" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
+            <span style={{ background: '#F1F5F9', color: '#334155', padding: '3px 7px', borderRadius: '5px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace' }}>
+              {m.packet_type || 'DATA'}
+            </span>
+          </td>
+        );
+      case 'raw_hex':
+        return (
+          <td key="raw_hex" style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#EA580C', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.raw_hex || m.raw}>
+            {m.raw_hex || m.raw || '—'}
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)', background: '#F8FAFC' }}>
       {/* Top Header */}
@@ -398,29 +566,26 @@ const SensorLogsPage = () => {
                   <th style={{ padding: '10px 14px', width: '45px', borderBottom: '2px solid #E2E8F0', borderRight: '1px solid #F1F5F9', color: '#475569', fontWeight: 700, textAlign: 'center', background: '#F8FAFC', position: 'sticky', left: 0, zIndex: 3 }}>
                     #
                   </th>
-                  {columns.map((col) => {
-                    if (!col.visible) return null;
-                    return (
-                      <th
-                        key={col.key}
-                        style={{
-                          padding: '10px 14px',
-                          color: '#475569',
-                          fontWeight: 700,
-                          fontSize: '11px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.04em',
-                          borderBottom: '2px solid #E2E8F0',
-                          borderRight: '1px solid #F1F5F9',
-                          width: col.width,
-                          whiteSpace: 'nowrap',
-                          background: '#F8FAFC'
-                        }}
-                      >
-                        {col.label}
-                      </th>
-                    );
-                  })}
+                  {activeCols.map((col) => (
+                    <th
+                      key={col.key}
+                      style={{
+                        padding: '10px 14px',
+                        color: '#475569',
+                        fontWeight: 700,
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.04em',
+                        borderBottom: '2px solid #E2E8F0',
+                        borderRight: '1px solid #F1F5F9',
+                        width: col.width,
+                        whiteSpace: 'nowrap',
+                        background: '#F8FAFC'
+                      }}
+                    >
+                      {col.label}
+                    </th>
+                  ))}
                   <th style={{ padding: '10px 14px', width: '80px', borderBottom: '2px solid #E2E8F0', color: '#475569', fontWeight: 700, textAlign: 'center', background: '#F8FAFC' }}>
                     Inspect
                   </th>
@@ -448,186 +613,8 @@ const SensorLogsPage = () => {
                           {idx + 1}
                         </td>
 
-                        {/* Device IMEI */}
-                        {columns.find((c) => c.key === 'imei')?.visible && (
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: '12px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #F1F5F9' }}>
-                            {m.imei || vehicle?.imei || '—'}
-                          </td>
-                        )}
-
-                        {/* Server Time */}
-                        {columns.find((c) => c.key === 'received_at')?.visible && (
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', fontWeight: 600, color: '#0F172A', borderRight: '1px solid #F1F5F9' }}>
-                            {formatLocalTime(m.received_at)}
-                          </td>
-                        )}
-
-                        {/* GPS Time */}
-                        {columns.find((c) => c.key === 'device_time')?.visible && (
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap', color: '#334155', borderRight: '1px solid #F1F5F9' }}>
-                            {m.device_time ? formatLocalTime(m.device_time) : '—'}
-                          </td>
-                        )}
-
-                        {/* GPS Fix */}
-                        {columns.find((c) => c.key === 'gps_fix')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 7px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: isValidFix ? '#DCFCE7' : '#FEE2E2', color: isValidFix ? '#15803D' : '#B91C1C' }}>
-                              {isValidFix ? '3D Fix' : 'No Fix'}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* Coordinates */}
-                        {columns.find((c) => c.key === 'coords')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '12px', whiteSpace: 'nowrap' }}>
-                            {m.lat != null && m.lng != null ? (
-                              <a
-                                href={`https://www.google.com/maps?q=${m.lat},${m.lng}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                style={{ color: '#2563EB', textDecoration: 'none', fontWeight: 600 }}
-                              >
-                                {Number(m.lat).toFixed(6)}, {Number(m.lng).toFixed(6)}
-                              </a>
-                            ) : (
-                              <span style={{ color: '#94A3B8' }}>—</span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Speed */}
-                        {columns.find((c) => c.key === 'speed')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 700, color: m.speed > 0 ? '#0F172A' : '#94A3B8' }}>
-                            {m.speed != null ? `${m.speed} km/h` : '0 km/h'}
-                          </td>
-                        )}
-
-                        {/* Heading */}
-                        {columns.find((c) => c.key === 'heading')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569' }}>
-                            {m.direction != null ? `${m.direction}°` : '—'}
-                          </td>
-                        )}
-
-                        {/* Ignition */}
-                        {columns.find((c) => c.key === 'ignition')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            <span style={{ display: 'inline-block', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: m.ignition ? '#DCFCE7' : '#F1F5F9', color: m.ignition ? '#166534' : '#64748B' }}>
-                              {m.ignition ? 'ON' : 'OFF'}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* Serial Fuel */}
-                        {columns.find((c) => c.key === 'fuel')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            {m.fuel != null ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, background: '#E0F2FE', color: '#0369A1' }}>
-                                {m.fuel} L
-                              </span>
-                            ) : (
-                              <span style={{ color: '#CBD5E1' }}>—</span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Serial Port Raw */}
-                        {columns.find((c) => c.key === 'serial')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#475569' }}>
-                            {m.serial ? (
-                              <span style={{ background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
-                                {m.serial}
-                              </span>
-                            ) : (
-                              <span style={{ color: '#CBD5E1' }}>—</span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Main Voltage */}
-                        {columns.find((c) => c.key === 'voltage')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 600, color: m.voltage > 10 ? '#0F172A' : '#EF4444' }}>
-                            {m.voltage != null ? `${m.voltage} V` : '—'}
-                          </td>
-                        )}
-
-                        {/* Backup Battery */}
-                        {columns.find((c) => c.key === 'battery')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#334155' }}>
-                            {m.battery != null ? `${m.battery}%` : '—'}
-                          </td>
-                        )}
-
-                        {/* Odometer */}
-                        {columns.find((c) => c.key === 'odometer')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontWeight: 600, color: '#0F172A' }}>
-                            {m.odometer != null ? `${Number(m.odometer).toLocaleString()} km` : '—'}
-                          </td>
-                        )}
-
-                        {/* Satellites */}
-                        {columns.find((c) => c.key === 'satellites')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569', textAlign: 'center' }}>
-                            {m.satellites != null ? m.satellites : '—'}
-                          </td>
-                        )}
-
-                        {/* GSM CSQ */}
-                        {columns.find((c) => c.key === 'gsm')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', color: '#475569', textAlign: 'center' }}>
-                            {m.gsmSignal != null ? `${m.gsmSignal}/31` : '—'}
-                          </td>
-                        )}
-
-                        {/* Cell ID / LAC */}
-                        {columns.find((c) => c.key === 'cell_lac')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#64748B' }}>
-                            {m.cellId || m.lac ? `CID:${m.cellId || '—'} LAC:${m.lac || '—'}` : '—'}
-                          </td>
-                        )}
-
-                        {/* Relay Output */}
-                        {columns.find((c) => c.key === 'relay')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            {m.output1 !== null ? (
-                              <span style={{ padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: m.output1 ? '#FEE2E2' : '#F1F5F9', color: m.output1 ? '#DC2626' : '#64748B' }}>
-                                {m.output1 ? 'ACTIVE' : 'OFF'}
-                              </span>
-                            ) : (
-                              '—'
-                            )}
-                          </td>
-                        )}
-
-                        {/* Alert Status */}
-                        {columns.find((c) => c.key === 'alert')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            {m.alertText ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '3px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 700, background: '#FEF3C7', color: '#B45309' }}>
-                                <ShieldAlert size={12} /> {m.alertText}
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94A3B8' }}>Normal</span>
-                            )}
-                          </td>
-                        )}
-
-                        {/* Packet Type */}
-                        {columns.find((c) => c.key === 'packet_type')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9' }}>
-                            <span style={{ background: '#F1F5F9', color: '#334155', padding: '3px 7px', borderRadius: '5px', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace' }}>
-                              {m.packet_type || 'DATA'}
-                            </span>
-                          </td>
-                        )}
-
-                        {/* Raw Hex Packet */}
-                        {columns.find((c) => c.key === 'raw_hex')?.visible && (
-                          <td style={{ padding: '10px 14px', borderRight: '1px solid #F1F5F9', fontFamily: 'monospace', fontSize: '11px', color: '#EA580C', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={m.raw_hex || m.raw}>
-                            {m.raw_hex || m.raw || '—'}
-                          </td>
-                        )}
+                        {/* All columns rendered strictly in activeCols order */}
+                        {activeCols.map((col) => renderCell(col.key, m, idx, isValidFix))}
 
                         {/* Inspect Action */}
                         <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -643,6 +630,8 @@ const SensorLogsPage = () => {
                     );
                   })
                 )}
+
+
               </tbody>
             </table>
           </div>

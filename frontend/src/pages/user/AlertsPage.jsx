@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Bell, Settings, History, Radio, CheckCheck, Check,
-  Loader2, AlertTriangle, Zap, Shield, Car,
+  Loader2, AlertTriangle, Zap, Shield, Car, Clock,
   ToggleLeft, ToggleRight, ChevronLeft, ChevronRight,
   RefreshCw, Info, Filter
 } from 'lucide-react';
@@ -23,7 +23,7 @@ const ALERT_GROUPS = [
       { key: 'accident', label: 'Accident' },
       { key: 'theft', label: 'Theft' },
       { key: 'theft_alarm', label: 'Theft Alarm' },
-      { key: 'power_cut', label: 'Power Cut' },
+      { key: 'power_cut', label: 'Power Cut / Main Battery Disconnect' },
       { key: 'tow', label: 'Tow Detected' },
     ],
   },
@@ -39,7 +39,6 @@ const ALERT_GROUPS = [
       { key: 'harsh_acceleration', label: 'Harsh Acceleration' },
       { key: 'geofence_enter', label: 'Geofence Entry' },
       { key: 'geofence_exit', label: 'Geofence Exit' },
-      { key: 'low_battery', label: 'Low Battery' },
     ],
   },
   {
@@ -51,8 +50,9 @@ const ALERT_GROUPS = [
     types: [
       { key: 'ignition_on', label: 'Ignition ON' },
       { key: 'ignition_off', label: 'Ignition OFF' },
-      { key: 'idle', label: 'Idling' },
-      { key: 'stoppage', label: 'Stoppage' },
+      { key: 'idle', label: 'Idling', hasDuration: true, defaultDuration: 60, minDuration: 1 },
+      { key: 'parking', label: 'Parking', hasDuration: true, defaultDuration: 60, minDuration: 1 },
+      { key: 'moving', label: 'Moving (After Stoppage)', hasDuration: true, defaultDuration: 60, minDuration: 5 },
       { key: 'trip_started', label: 'Trip Started' },
       { key: 'stopped', label: 'Stopped' },
     ],
@@ -61,6 +61,8 @@ const ALERT_GROUPS = [
 
 const ALL_TYPES_MAP = {};
 ALERT_GROUPS.forEach(g => g.types.forEach(t => { ALL_TYPES_MAP[t.key] = { ...t, group: g }; }));
+ALL_TYPES_MAP['main_battery_disconnected'] = { key: 'main_battery_disconnected', label: 'Main Battery Disconnected', group: ALERT_GROUPS[0] };
+ALL_TYPES_MAP['main_battery_connected'] = { key: 'main_battery_connected', label: 'Main Battery Connected', group: ALERT_GROUPS[2] };
 
 function getAlertMeta(alertType) {
   const key = (alertType || '').toLowerCase();
@@ -346,16 +348,57 @@ function PreferencesTab() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [activeTimingKey, setActiveTimingKey] = useState(null); // which alert's timing schedule is expanded
 
   useEffect(() => {
     alertsApi.getPreferences()
-      .then(res => setPrefs(res.preferences))
+      .then(res => {
+        const loaded = res.preferences || {};
+        // Ensure standard defaults: Idling and Parking should both be active and defaulted to 60 mins (1 hr)
+        if (loaded.idle === undefined || loaded.idle === false) loaded.idle = true;
+        if (loaded.parking === undefined) loaded.parking = true;
+        if (loaded.idle_duration_mins === undefined) loaded.idle_duration_mins = 60;
+        if (loaded.parking_duration_mins === undefined) loaded.parking_duration_mins = 60;
+        if (loaded.overspeed_duration_mins === undefined) loaded.overspeed_duration_mins = 3;
+        if (!loaded.timings) loaded.timings = {};
+        setPrefs(loaded);
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
   const toggle = (key) => {
-    setPrefs(p => ({ ...p, [key]: !p[key] }));
+    setPrefs(p => ({ ...p, [key]: !(p?.[key] ?? true) }));
+    setSaved(false);
+  };
+
+  const updateDuration = (key, val) => {
+    const num = val === '' ? '' : Math.max(1, parseInt(val, 10) || 1);
+    const alertKey = key === 'idle_duration_mins' ? 'idle' : key === 'parking_duration_mins' ? 'parking' : key === 'overspeed_duration_mins' ? 'overspeed' : null;
+    setPrefs(p => ({
+      ...p,
+      [key]: num,
+      ...(alertKey ? { [alertKey]: true } : {}) // Auto-enable alert when customer configures duration
+    }));
+    setSaved(false);
+  };
+
+  const updateTimingSchedule = (key, field, val) => {
+    setPrefs(p => {
+      const currentTimings = p.timings || {};
+      const currentKeyTiming = currentTimings[key] || { all_day: true, start_time: '09:00', end_time: '18:00' };
+      return {
+        ...p,
+        [key]: true, // Auto-enable alert when customer configures schedule
+        timings: {
+          ...currentTimings,
+          [key]: {
+            ...currentKeyTiming,
+            [field]: val
+          }
+        }
+      };
+    });
     setSaved(false);
   };
 
@@ -380,12 +423,13 @@ function PreferencesTab() {
   }
 
   return (
-    <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+    <div style={{ padding: '24px', overflowY: 'auto', flex: 1, maxWidth: '1200px' }}>
+      {/* Header Bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>Notification Preferences</div>
-          <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>
-            Choose which alerts you want to receive via push notifications.
+          <div style={{ fontSize: '18px', fontWeight: 800, color: '#111827' }}>Alert Thresholds & Push Notifications</div>
+          <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>
+            Configure default duration thresholds (1 hr for Idle & Parking) and choose active schedules for when each alert should come.
           </div>
         </div>
         <button
@@ -393,7 +437,7 @@ function PreferencesTab() {
           disabled={saving}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '9px 20px', borderRadius: '10px',
+            padding: '10px 24px', borderRadius: '10px',
             background: saved ? '#16A34A' : '#f97316',
             color: '#fff', border: 'none', fontWeight: 700, fontSize: '14px',
             cursor: saving ? 'wait' : 'pointer',
@@ -402,15 +446,32 @@ function PreferencesTab() {
           }}
         >
           {saving ? <Loader2 size={16} className="spin" /> : saved ? <Check size={16} /> : null}
-          {saved ? 'Saved!' : 'Save Preferences'}
+          {saved ? 'Saved Successfully!' : 'Save Preferences'}
         </button>
       </div>
 
+      {/* Global Inactivity Summary Notice */}
+      <div style={{
+        background: '#FFF7ED',
+        border: '1px solid #FFEDD5',
+        borderRadius: '12px',
+        padding: '14px 18px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '12px'
+      }}>
+        <Clock size={20} color="#EA580C" style={{ flexShrink: 0 }} />
+        <div style={{ fontSize: '13px', color: '#9A3412', lineHeight: '1.5' }}>
+          <strong>Default Durations:</strong> Idle and Parking alerts are preset to trigger after <strong>60 minutes (1 hr)</strong> of inactivity. Long Stoppage alerts have been removed in favor of these unified rules. You can adjust the exact minutes or set specific active hours below.
+        </div>
+      </div>
+
       {ALERT_GROUPS.map(group => (
-        <div key={group.label} style={{ marginBottom: '28px' }}>
+        <div key={group.label} style={{ marginBottom: '32px' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            marginBottom: '12px', paddingBottom: '8px',
+            marginBottom: '16px', paddingBottom: '8px',
             borderBottom: `2px solid ${group.border}`
           }}>
             <div style={{
@@ -420,31 +481,242 @@ function PreferencesTab() {
               {group.label} Alerts
             </span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '16px' }}>
             {group.types.map(type => {
               const enabled = prefs?.[type.key] ?? true;
+              const hasDuration = type.hasDuration;
+              const durationFieldKey = type.key === 'idle' ? 'idle_duration_mins' : type.key === 'parking' ? 'parking_duration_mins' : type.key === 'moving' ? 'moving_duration_mins' : type.key === 'overspeed' ? 'overspeed_duration_mins' : null;
+              const durationVal = durationFieldKey ? (prefs?.[durationFieldKey] ?? type.defaultDuration) : null;
+              const timingConf = prefs?.timings?.[type.key] || { all_day: true, start_time: '09:00', end_time: '18:00' };
+              const isTimingExpanded = activeTimingKey === type.key;
+
               return (
                 <div
                   key={type.key}
-                  onClick={() => toggle(type.key)}
                   style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '12px 16px', borderRadius: '10px', cursor: 'pointer',
+                    borderRadius: '12px',
                     border: `1px solid ${enabled ? group.border : '#E2E8F0'}`,
-                    background: enabled ? group.bg : '#F8FAFC',
+                    background: enabled ? '#FFFFFF' : '#F8FAFC',
+                    padding: '16px',
                     transition: 'all 0.2s',
-                    userSelect: 'none',
+                    boxShadow: enabled ? '0 2px 6px rgba(0,0,0,0.03)' : 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px'
                   }}
                 >
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: enabled ? group.color : '#9CA3AF' }}>
-                    {type.label}
-                  </span>
-                  <div style={{ color: enabled ? group.color : '#CBD5E1', flexShrink: 0 }}>
-                    {enabled
-                      ? <ToggleRight size={24} />
-                      : <ToggleLeft size={24} />
-                    }
+                  {/* Card Header: Name + Main Switch */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}
+                    onClick={() => toggle(type.key)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 700, color: enabled ? '#1F2937' : '#9CA3AF' }}>
+                        {type.label}
+                      </span>
+                      {hasDuration && (
+                        <span style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          background: enabled ? group.bg : '#F1F5F9',
+                          color: enabled ? group.color : '#94A3B8'
+                        }}>
+                          {durationVal} min {(type.key === 'idle' || type.key === 'parking' || type.key === 'moving') ? (durationVal === 60 ? '(1 hr default)' : '') : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: enabled ? group.color : '#CBD5E1', flexShrink: 0 }}>
+                      {enabled ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                    </div>
                   </div>
+
+                  {/* Duration input if alert has duration threshold - always visible and configurable */}
+                  {hasDuration && durationFieldKey && (
+                    <div style={{
+                      background: enabled ? '#F8FAFC' : '#F1F5F9',
+                      border: `1px solid ${enabled ? '#E2E8F0' : '#E2E8F0'}`,
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '8px',
+                      opacity: enabled ? 1 : 0.85
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: enabled ? '#4B5563' : '#6B7280' }}>
+                          Alert After Duration:
+                        </label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input
+                            type="number"
+                            min={type.minDuration || "1"}
+                            max="1440"
+                            value={durationVal}
+                            onChange={(e) => updateDuration(durationFieldKey, e.target.value)}
+                            style={{
+                              width: '65px',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              border: '1px solid #CBD5E1',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              textAlign: 'center',
+                              background: '#FFFFFF'
+                            }}
+                          />
+                          <span style={{ fontSize: '12px', color: '#6B7280' }}>mins</span>
+                        </div>
+                      </div>
+
+                      {/* Quick Presets */}
+                      {(type.key === 'idle' || type.key === 'parking' || type.key === 'moving') && (
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '2px' }}>
+                          <button
+                            type="button"
+                            onClick={() => updateDuration(durationFieldKey, 60)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: durationVal === 60 ? '1px solid #EA580C' : '1px solid #CBD5E1',
+                              background: durationVal === 60 ? '#FFEDD5' : '#FFFFFF',
+                              color: durationVal === 60 ? '#C2410C' : '#4B5563',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            1 hr (Default)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateDuration(durationFieldKey, 30)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: durationVal === 30 ? '1px solid #EA580C' : '1px solid #CBD5E1',
+                              background: durationVal === 30 ? '#FFEDD5' : '#FFFFFF',
+                              color: durationVal === 30 ? '#C2410C' : '#4B5563',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            30 mins
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => updateDuration(durationFieldKey, 120)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 600,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              border: durationVal === 120 ? '1px solid #EA580C' : '1px solid #CBD5E1',
+                              background: durationVal === 120 ? '#FFEDD5' : '#FFFFFF',
+                              color: durationVal === 120 ? '#C2410C' : '#4B5563',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            2 hrs
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Schedule / Time Window Controls */}
+                  <div style={{ borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '12px', color: '#6B7280', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Clock size={13} color="#94A3B8" />
+                        Timing Window:
+                      </span>
+                        <div style={{ display: 'flex', gap: '4px' }}>
+                          <button
+                            type="button"
+                            onClick={() => updateTimingSchedule(type.key, 'all_day', true)}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              border: timingConf.all_day ? '1px solid #2563EB' : '1px solid #E2E8F0',
+                              background: timingConf.all_day ? '#EFF6FF' : '#F8FAFC',
+                              color: timingConf.all_day ? '#1E40AF' : '#64748B',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            24/7 Always
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateTimingSchedule(type.key, 'all_day', false);
+                              setActiveTimingKey(type.key);
+                            }}
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              padding: '3px 8px',
+                              borderRadius: '6px',
+                              border: !timingConf.all_day ? '1px solid #2563EB' : '1px solid #E2E8F0',
+                              background: !timingConf.all_day ? '#EFF6FF' : '#F8FAFC',
+                              color: !timingConf.all_day ? '#1E40AF' : '#64748B',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Custom Hours
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Time Range Selector when Custom Hours selected */}
+                      {!timingConf.all_day && (
+                        <div style={{
+                          marginTop: '8px',
+                          padding: '8px 10px',
+                          background: '#EFF6FF',
+                          border: '1px solid #BFDBFE',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '8px'
+                        }}>
+                          <span style={{ fontSize: '11px', fontWeight: 600, color: '#1E40AF' }}>Send between:</span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input
+                              type="time"
+                              value={timingConf.start_time || '09:00'}
+                              onChange={(e) => updateTimingSchedule(type.key, 'start_time', e.target.value)}
+                              style={{
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                border: '1px solid #93C5FD',
+                                fontSize: '11px',
+                                fontWeight: 700
+                              }}
+                            />
+                            <span style={{ fontSize: '11px', color: '#1E40AF' }}>to</span>
+                            <input
+                              type="time"
+                              value={timingConf.end_time || '18:00'}
+                              onChange={(e) => updateTimingSchedule(type.key, 'end_time', e.target.value)}
+                              style={{
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                border: '1px solid #93C5FD',
+                                fontSize: '11px',
+                                fontWeight: 700
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
                 </div>
               );
             })}

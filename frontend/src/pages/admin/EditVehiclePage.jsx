@@ -1062,6 +1062,27 @@ const EditVehiclePage = () => {
             onBlur={() => setFocusedField(null)}
           />
 
+          <InputField
+            label="Idle Duration Alert (mins)"
+            type="number"
+            value={form.metadata.idleDurationAlert || ''}
+            onChange={e => updateMeta('idleDurationAlert', e.target.value)}
+            placeholder="60 (default 1 hr)"
+            focused={focusedField === 'idleDurAlert'}
+            onFocus={() => setFocusedField('idleDurAlert')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Parking Duration Alert (mins)"
+            type="number"
+            value={form.metadata.parkingDurationAlert || ''}
+            onChange={e => updateMeta('parkingDurationAlert', e.target.value)}
+            placeholder="60 (default 1 hr)"
+            focused={focusedField === 'parkDurAlert'}
+            onFocus={() => setFocusedField('parkDurAlert')}
+            onBlur={() => setFocusedField(null)}
+          />
+
           {/* Row 4 */}
           <SelectField
             label="Enable Debugs"
@@ -1329,7 +1350,7 @@ const EditVehiclePage = () => {
             type="button"
             onClick={() => {
               if (id) {
-                navigate(`/vehicles/${id}`);
+                navigate(`/admin/vehicles/calibrate/${id}`);
               } else {
                 alert('Please register the vehicle first before configuring fuel calibration.');
               }

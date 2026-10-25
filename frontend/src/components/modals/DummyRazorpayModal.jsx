@@ -137,10 +137,41 @@ const DummyRazorpayModal = ({ isOpen, onClose, vehicle, onSuccess }) => {
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827' }}>{selectedPlan.name}</div>
                       <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>Extends license by {selectedPlan.duration_months} Months</div>
                     </div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
-                      ₹{parseFloat(selectedPlan.price).toFixed(2)}
+                    <div style={{ textAlign: 'right' }}>
+                      {selectedPlan.discount_price && selectedPlan.original_price && parseFloat(selectedPlan.original_price) > parseFloat(selectedPlan.discount_price) ? (
+                        <>
+                          <div style={{ fontSize: '12px', textDecoration: 'line-through', color: '#94A3B8', fontWeight: 600 }}>
+                            ₹{parseFloat(selectedPlan.original_price).toFixed(2)}
+                          </div>
+                          <div style={{ fontSize: '18px', fontWeight: 800, color: '#059669' }}>
+                            ₹{parseFloat(selectedPlan.discount_price).toFixed(2)}
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>
+                          ₹{parseFloat(selectedPlan.price).toFixed(2)}
+                        </div>
+                      )}
                     </div>
                   </div>
+
+                  {selectedPlan.discount_price && selectedPlan.original_price && parseFloat(selectedPlan.original_price) > parseFloat(selectedPlan.discount_price) && (
+                    <div style={{
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      background: '#ECFDF5',
+                      border: '1px solid #A7F3D0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '12px',
+                      color: '#065F46',
+                      fontWeight: 700
+                    }}>
+                      <span>🏷️ Renew Today Offer Applied</span>
+                      <span>You save ₹{(parseFloat(selectedPlan.original_price) - parseFloat(selectedPlan.discount_price)).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -20,7 +20,7 @@ const CustomerRenewalsPage = () => {
   };
 
   return (
-    <div style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div className="pastel-page-bg" style={{ padding: '32px', background: '#EEF5F8', height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexShrink: 0 }}>
         <div>
@@ -59,10 +59,14 @@ const CustomerRenewalsPage = () => {
                 {vehicles.map(v => {
                   const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
                   const needsRenewal = status.isExpiring || status.isExpired;
-                  const planText = status.durationMonths >= 6 ? '1 Year Plan (30-day alert)' : '1 Month Plan (7-day alert)';
-                  const customPrice = v.metadata?.renewal_price !== undefined && v.metadata?.renewal_price !== null 
-                    ? `₹${parseFloat(v.metadata.renewal_price).toFixed(2)}` 
+                  const planText = `${status.durationMonths >= 6 ? '1 Year' : `${status.durationMonths} Month`} Plan (7-day alert)`;
+                  const renPrice = v.metadata?.renewal_price !== undefined && v.metadata?.renewal_price !== null 
+                    ? parseFloat(v.metadata.renewal_price) 
                     : null;
+                  const discPrice = v.metadata?.discount_price !== undefined && v.metadata?.discount_price !== null && v.metadata?.discount_price !== ''
+                    ? parseFloat(v.metadata.discount_price)
+                    : null;
+                  const hasDiscount = renPrice !== null && discPrice !== null && discPrice < renPrice;
 
                   let bg = '#D1FAE5';
                   let color = '#059669';
@@ -92,7 +96,25 @@ const CustomerRenewalsPage = () => {
                         </span>
                       </td>
                       <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#10B981' }}>
-                        {customPrice || <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Default Plan</span>}
+                        {hasDiscount ? (
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '12px', textDecoration: 'line-through', color: '#94A3B8' }}>
+                                ₹{renPrice.toFixed(2)}
+                              </span>
+                              <span style={{ fontSize: '15px', fontWeight: 800, color: '#059669' }}>
+                                ₹{discPrice.toFixed(2)}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
+                              Save ₹{(renPrice - discPrice).toFixed(2)}
+                            </span>
+                          </div>
+                        ) : renPrice !== null ? (
+                          `₹${renPrice.toFixed(2)}`
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Default Plan</span>
+                        )}
                       </td>
 
                       <td style={{ padding: '16px 20px' }}>

@@ -177,6 +177,21 @@ async function publishHeartbeat(imei, battery, gsmSignal, ignition, deviceTime, 
 async function publishAlert(parsed) {
   if (!publisher) throw new Error('Redis publisher not initialized');
 
+  const alertType = (parsed.alertType || '').toLowerCase();
+  const alertText = (parsed.alertText || '').toLowerCase();
+  if (
+    alertType === 'internal_battery_low' ||
+    alertType === 'low_battery' ||
+    alertType === 'low_battery_removed' ||
+    alertType === 'sos_cleared' ||
+    alertType === 'emergency_off' ||
+    alertText.includes('low battery') ||
+    alertText.includes('internal battery low') ||
+    alertText.includes('internal battery charged')
+  ) {
+    return; // Drop noisy internal battery chatter and emergency clear packets
+  }
+
   const payload = JSON.stringify({
     imei: parsed.imei,
     alertType: parsed.alertType,

@@ -19,13 +19,7 @@ export const useVehicles = (initialParams = {}) => {
       const response = await vehicleApi.getVehicles(currentParams);
       const rawData = response?.data || (Array.isArray(response) ? response : []);
       if (response?.success || Array.isArray(rawData)) {
-        const sanitizedData = (rawData || []).map(v => {
-          if (!v.is_online) {
-            return { ...v, current_ignition: false, current_speed: 0 };
-          }
-          return v;
-        });
-        setVehicles(sanitizedData);
+        setVehicles(rawData || []);
         if (response.pagination) {
           setPagination(response.pagination);
         }
@@ -140,6 +134,11 @@ export const useVehicles = (initialParams = {}) => {
     });
   }, [fetchVehicles]);
 
+  const refetch = useCallback(() => {
+    fetchVehicles();
+    fetchGroups();
+  }, [fetchVehicles, fetchGroups]);
+
   return {
     vehicles,
     groups,
@@ -148,6 +147,6 @@ export const useVehicles = (initialParams = {}) => {
     params,
     pagination,
     updateParams,
-    refetch: fetchVehicles,
+    refetch,
   };
 };

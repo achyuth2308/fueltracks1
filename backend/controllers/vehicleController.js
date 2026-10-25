@@ -9,6 +9,8 @@ const GroupModel = require('../models/groupModel');
 const archiveService = require('../services/archiveService');
 const GeofenceModel = require('../models/geofenceModel');
 const AuditService = require('../services/auditService');
+const UserModel = require('../models/userModel');
+const bcrypt = require('bcryptjs');
 const { redis } = require('../config/redis');
 const db = require('../config/db');
 
@@ -509,7 +511,7 @@ const VehicleController = {
   async updateVehicleSettings(req, res, next) {
     try {
       const { id } = req.params;
-      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, stoppageThreshold, alertConfig } = req.body;
+      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark } = req.body;
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -540,11 +542,42 @@ const VehicleController = {
       if (overSpeedLimit !== undefined) newMetadata.overSpeedLimit = parseFloat(overSpeedLimit);
       if (overspeedDurationAlert !== undefined) newMetadata.overspeedDurationAlert = parseFloat(overspeedDurationAlert);
       if (idleDurationAlert !== undefined) newMetadata.idleDurationAlert = parseFloat(idleDurationAlert);
+      if (parkingDurationAlert !== undefined) newMetadata.parkingDurationAlert = parseFloat(parkingDurationAlert);
+      if (parkDurationAlert !== undefined) newMetadata.parkDurationAlert = parseFloat(parkDurationAlert);
+      if (movingDurationAlert !== undefined) newMetadata.movingDurationAlert = Math.max(5, parseFloat(movingDurationAlert));
       if (stoppageThreshold !== undefined) newMetadata.stoppageThreshold = parseFloat(stoppageThreshold);
       if (alertConfig !== undefined && typeof alertConfig === 'object') newMetadata.alertConfig = alertConfig;
+      if (safetyPark !== undefined) {
+        const isSafetyParkOn = safetyPark === 'YES' || safetyPark === true;
+        newMetadata.safetyPark = isSafetyParkOn ? 'YES' : 'NO';
+        if (!isSafetyParkOn) {
+          await redis.del(`vehicle:safety_park_fired:${id}`);
+          await redis.del(`vehicle:safety_park_breach:${id}`);
+        }
+      }
 
       // Perform update
       const updated = await VehicleModel.update(id, { metadata: newMetadata });
+
+      // Invalidate vehicle caches
+      try {
+        await redis.del('vehicles:all');
+        await redis.del(`vehicle:obj:${id}`);
+        if (vehicle.imei) await redis.del(`vehicle:imei:${vehicle.imei}`);
+      } catch (cErr) {}
+
+      // Emit real-time Socket.io update for safety park state
+      const io = req.app.get('io');
+      if (io && safetyPark !== undefined) {
+        io.to(`vehicle:${id}`).emit('vehicle:safety_park', {
+          vehicleId: id,
+          safetyPark: newMetadata.safetyPark
+        });
+        io.to(`org:${vehicle.org_id}`).emit('vehicle:safety_park', {
+          vehicleId: id,
+          safetyPark: newMetadata.safetyPark
+        });
+      }
 
       res.status(200).json({
         success: true,
@@ -660,6 +693,441 @@ const VehicleController = {
         success: true,
         data: migrated,
         message: 'Vehicle device migrated successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Add / Assign user to vehicle (via group and organization)
+   */
+  async addUserToVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { isNewUser, userId, username, name, email, phone, password, role = 'customer', groupId, orgId } = req.body;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+
+      const targetOrgId = orgId || vehicle.org_id || req.user.orgId;
+      let finalUserId = userId;
+
+      // Handle New User creation if selected
+      if (isNewUser) {
+        if (!username && !email && !name) {
+          return res.status(400).json({ success: false, error: 'User Name / Username is required for new user.' });
+        }
+        if (!password) {
+          return res.status(400).json({ success: false, error: 'Password is required for new user.' });
+        }
+
+        const cleanEmail = email ? email.toLowerCase().trim() : `${(username || name).toLowerCase().replace(/[^a-z0-9]/g, '')}@fueltracks.com`;
+        const cleanUsername = username ? username.toLowerCase().trim() : (cleanEmail.split('@')[0] || 'user');
+
+        // Check if user already exists
+        const existingUser = await UserModel.findByIdentifier(cleanEmail) || await UserModel.findByIdentifier(cleanUsername);
+        if (existingUser) {
+          return res.status(409).json({ success: false, error: 'A user with this email or username already exists.' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const newUser = await UserModel.create({
+          orgId: targetOrgId,
+          email: cleanEmail,
+          username: cleanUsername,
+          password: hashedPassword,
+          role: role || 'customer',
+          name: name || username,
+          phone: phone || null
+        });
+        finalUserId = newUser.id;
+      }
+
+      if (!finalUserId) {
+        return res.status(400).json({ success: false, error: 'Please select or create a user.' });
+      }
+
+      // If a group is selected, link vehicle and user to that group
+      let finalGroupId = groupId;
+      if (!finalGroupId) {
+        // Look up if vehicle already has a group
+        const existingGroupRes = await db.query(
+          `SELECT vg.group_id FROM vehicle_groups vg
+           JOIN groups g ON vg.group_id = g.id
+           WHERE vg.vehicle_id = $1 LIMIT 1`,
+          [id]
+        );
+        if (existingGroupRes.rows.length > 0) {
+          finalGroupId = existingGroupRes.rows[0].group_id;
+        } else {
+          // Auto-create default group for vehicle
+          const targetGroupName = `${vehicle.plate || vehicle.name || 'Vehicle'} Group`;
+          const createdG = await GroupModel.create({
+            orgId: targetOrgId,
+            name: targetGroupName,
+            description: `Group for vehicle ${vehicle.plate || vehicle.name}`
+          });
+          finalGroupId = createdG.id;
+        }
+      }
+
+      // Assign vehicle to group
+      if (finalGroupId) {
+        await db.query(
+          `INSERT INTO vehicle_groups (vehicle_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+          [id, finalGroupId]
+        );
+        // Assign user to group
+        await db.query(
+          `INSERT INTO user_groups (user_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, group_id) DO NOTHING`,
+          [finalUserId, finalGroupId]
+        );
+      }
+
+      // If org changed, update vehicle's organization
+      if (targetOrgId && targetOrgId !== vehicle.org_id) {
+        await VehicleModel.update(id, { org_id: targetOrgId });
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'User assigned to vehicle successfully.',
+        data: { userId: finalUserId, groupId: finalGroupId, orgId: targetOrgId }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+
+  /**
+   * Rename vehicle (Vehicle Id / Name)
+   */
+  async renameVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, vehicleId } = req.body;
+      const newName = (name || vehicleId || '').trim();
+
+      if (!newName) {
+        return res.status(400).json({
+          success: false,
+          error: 'Vehicle Id / Name is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+
+      // Check if another vehicle in the same org already has this name
+      const existingName = await db.query(
+        `SELECT id FROM vehicles WHERE UPPER(TRIM(name)) = UPPER(TRIM($1)) AND id != $2 AND org_id = $3`,
+        [newName, id, vehicle.org_id]
+      );
+      if (existingName.rows.length > 0) {
+        return res.status(409).json({
+          success: false,
+          error: `Another vehicle in this organization is already named "${newName}".`,
+          code: 'NAME_ALREADY_EXISTS'
+        });
+      }
+
+      const updated = await VehicleModel.update(id, { name: newName });
+
+      // Audit log
+      await AuditService.log({
+        auditType: 'vehicle',
+        entityType: 'Vehicle',
+        entityId: vehicle.id,
+        entityName: newName,
+        action: 'VEHICLE_RENAME',
+        performedById: req.user.userId,
+        orgId: vehicle.org_id,
+        vehicleId: vehicle.id,
+        vehicleName: newName,
+        deviceId: vehicle.imei,
+        oldData: { name: vehicle.name },
+        newData: { name: newName },
+        ipAddress: AuditService.getIp(req),
+        userAgent: AuditService.getUserAgent(req)
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Vehicle renamed successfully.',
+        data: updated
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Reprocess vehicle data for selected date
+   */
+  async reprocessVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { date } = req.body;
+
+      if (!date) {
+        return res.status(400).json({
+          success: false,
+          error: 'Date is required for reprocessing.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+
+      // Format date: convert DD-MM-YYYY to YYYY-MM-DD if needed
+      let targetDate = date;
+      if (/^\d{2}-\d{2}-\d{4}$/.test(date)) {
+        const [d, m, y] = date.split('-');
+        targetDate = `${y}-${m}-${d}`;
+      }
+
+      const startOfDay = `${targetDate} 00:00:00`;
+      const endOfDay = `${targetDate} 23:59:59`;
+
+      const pointsCountRes = await db.query(
+        `SELECT COUNT(*) FROM gps_points WHERE vehicle_id = $1 AND device_time >= $2 AND device_time <= $3`,
+        [id, startOfDay, endOfDay]
+      );
+      const pointsCount = parseInt(pointsCountRes.rows[0]?.count || 0);
+
+      // Audit log
+      await AuditService.log({
+        auditType: 'vehicle',
+        entityType: 'Vehicle',
+        entityId: vehicle.id,
+        entityName: vehicle.name || vehicle.plate,
+        action: 'VEHICLE_REPROCESS',
+        performedById: req.user.userId,
+        orgId: vehicle.org_id,
+        vehicleId: vehicle.id,
+        vehicleName: vehicle.name || vehicle.plate,
+        deviceId: vehicle.imei,
+        details: { date: targetDate, pointsCount },
+        ipAddress: AuditService.getIp(req),
+        userAgent: AuditService.getUserAgent(req)
+      });
+
+      res.status(200).json({
+        success: true,
+        message: `Reprocessing successfully initiated for ${vehicle.name || vehicle.plate} on ${date}.`,
+        data: {
+          vehicleId: id,
+          vehicleName: vehicle.name || vehicle.plate,
+          date: targetDate,
+          pointsCount
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Save vehicle fuel calibration & fuel configuration details
+   */
+  async calibrateVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const {
+        name,
+        tankNo = 1,
+        modeOfVehicle,
+        fuelType,
+        tankSize,
+        minAdc,
+        maxAdc,
+        fuelTankShape,
+        fuelTankPosition,
+        calculate,
+        tankLength,
+        tankHeight,
+        tankWidth,
+        tankRadius,
+        noOfTank,
+        noOfSensor,
+        sensorType,
+        minTheft,
+        minFilling,
+        calibrateType,
+        sensorDetails,
+        calibrationPoints,
+        directSensorType,
+        directUnit,
+        directMultiplier,
+        directOffset
+      } = req.body;
+
+      // Ownership check
+      if (req.user.role !== 'superadmin') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({ success: false, error: 'Vehicle not found.' });
+      }
+
+      const currentMeta = vehicle.metadata || {};
+      const fuelCal = currentMeta.fuelCalibration || {};
+      const fuelConfig = currentMeta.fuelConfig || {};
+
+      const currentTanks = fuelCal.tanks || {};
+      const thisTankNo = Number(tankNo) || 1;
+      const thisTankData = {
+        tankNo: thisTankNo,
+        modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : fuelCal.modeOfVehicle,
+        fuelType: fuelType !== undefined ? fuelType : fuelCal.fuelType,
+        tankSize: tankSize !== undefined ? tankSize : fuelCal.tankSize,
+        minAdc: minAdc !== undefined ? minAdc : fuelCal.minAdc,
+        maxAdc: maxAdc !== undefined ? maxAdc : fuelCal.maxAdc,
+        fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : fuelCal.fuelTankShape,
+        fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : fuelCal.fuelTankPosition,
+        calculate: calculate !== undefined ? calculate : fuelCal.calculate,
+        tankLength: tankLength !== undefined ? tankLength : fuelCal.tankLength,
+        tankHeight: tankHeight !== undefined ? tankHeight : fuelCal.tankHeight,
+        tankWidth: tankWidth !== undefined ? tankWidth : fuelCal.tankWidth,
+        tankRadius: tankRadius !== undefined ? tankRadius : fuelCal.tankRadius,
+        calibrateType: calibrateType !== undefined ? calibrateType : (fuelCal.calibrateType || 'Auto'),
+        calibrationPoints: Array.isArray(calibrationPoints) ? calibrationPoints : (fuelCal.calibrationPoints || []),
+        directSensorType: directSensorType !== undefined ? directSensorType : (fuelCal.directSensorType || fuelType || 'Analog'),
+        directUnit: directUnit !== undefined ? directUnit : (fuelCal.directUnit || 'Litres'),
+        directMultiplier: directMultiplier !== undefined ? directMultiplier : (fuelCal.directMultiplier ?? 1.0),
+        directOffset: directOffset !== undefined ? directOffset : (fuelCal.directOffset ?? 0.0),
+        updatedAt: new Date().toISOString()
+      };
+
+      const updatedTanks = {
+        ...currentTanks,
+        [thisTankNo]: thisTankData
+      };
+
+      const updatedMeta = {
+        ...currentMeta,
+        modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : currentMeta.modeOfVehicle,
+        fuelType: fuelType !== undefined ? fuelType : currentMeta.fuelType,
+        tankSize: tankSize !== undefined ? tankSize : currentMeta.tankSize,
+        fuelEmptyAdc: minAdc !== undefined ? minAdc : currentMeta.fuelEmptyAdc,
+        fuelFullAdc: maxAdc !== undefined ? maxAdc : currentMeta.fuelFullAdc,
+        fuelTankShape: fuelTankShape !== undefined ? fuelTankShape : currentMeta.fuelTankShape,
+        fuelTankPosition: fuelTankPosition !== undefined ? fuelTankPosition : currentMeta.fuelTankPosition,
+        fuelCalibration: {
+          ...fuelCal,
+          tankNo: thisTankNo,
+          modeOfVehicle: thisTankData.modeOfVehicle,
+          fuelType: thisTankData.fuelType,
+          tankSize: thisTankData.tankSize,
+          minAdc: thisTankData.minAdc,
+          maxAdc: thisTankData.maxAdc,
+          fuelTankShape: thisTankData.fuelTankShape,
+          fuelTankPosition: thisTankData.fuelTankPosition,
+          calculate: thisTankData.calculate,
+          tankLength: thisTankData.tankLength,
+          tankHeight: thisTankData.tankHeight,
+          tankWidth: thisTankData.tankWidth,
+          tankRadius: thisTankData.tankRadius,
+          calibrateType: thisTankData.calibrateType,
+          calibrationPoints: thisTankData.calibrationPoints,
+          directSensorType: thisTankData.directSensorType,
+          directUnit: thisTankData.directUnit,
+          directMultiplier: thisTankData.directMultiplier,
+          directOffset: thisTankData.directOffset,
+          tanks: updatedTanks,
+          updatedAt: new Date().toISOString()
+        },
+        fuelConfig: {
+          ...fuelConfig,
+          noOfTank: noOfTank !== undefined ? noOfTank : (fuelConfig.noOfTank ?? 1),
+          noOfSensor: noOfSensor !== undefined ? noOfSensor : (fuelConfig.noOfSensor ?? 1),
+          sensorType: sensorType !== undefined ? sensorType : (fuelConfig.sensorType || ''),
+          minTheft: minTheft !== undefined ? minTheft : (fuelConfig.minTheft ?? 5),
+          minFilling: minFilling !== undefined ? minFilling : (fuelConfig.minFilling ?? 9),
+          tankSize: tankSize !== undefined ? tankSize : (fuelConfig.tankSize ?? 0),
+          calibrateType: calibrateType !== undefined ? calibrateType : (fuelConfig.calibrateType || 'Auto'),
+          sensorDetails: sensorDetails !== undefined ? sensorDetails : (fuelConfig.sensorDetails || ''),
+          updatedAt: new Date().toISOString()
+        }
+      };
+
+      const updatePayload = { metadata: updatedMeta };
+      if (name && name.trim() && name.trim() !== vehicle.name) {
+        updatePayload.name = name.trim();
+      }
+
+      const updated = await VehicleModel.update(id, updatePayload);
+
+      // Audit log
+      await AuditService.log({
+        auditType: 'vehicle',
+        entityType: 'Vehicle',
+        entityId: vehicle.id,
+        entityName: updated?.name || vehicle.name,
+        action: 'VEHICLE_CALIBRATE',
+        performedById: req.user.userId,
+        orgId: vehicle.org_id,
+        vehicleId: vehicle.id,
+        vehicleName: updated?.name || vehicle.name,
+        deviceId: vehicle.imei,
+        details: { metadata: updatedMeta },
+        ipAddress: AuditService.getIp(req),
+        userAgent: AuditService.getUserAgent(req)
+      });
+
+      res.status(200).json({
+        success: true,
+        message: 'Fuel calibration settings saved successfully.',
+        data: updated
       });
     } catch (err) {
       next(err);

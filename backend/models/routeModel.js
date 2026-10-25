@@ -18,17 +18,17 @@ const RouteModel = {
     return result.rows[0] || null;
   },
 
-  async create({ orgId, name, coordinates, tolerance }) {
+  async create({ orgId, name, coordinates, tolerance, direction }) {
     const result = await db.query(
-      `INSERT INTO routes (org_id, name, coordinates, tolerance)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO routes (org_id, name, coordinates, tolerance, direction)
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
-      [orgId, name, JSON.stringify(coordinates), tolerance || 100]
+      [orgId, name, JSON.stringify(coordinates), tolerance || 100, direction || 'two_way']
     );
     return result.rows[0];
   },
 
-  async update(id, { name, coordinates, tolerance, is_active }) {
+  async update(id, { name, coordinates, tolerance, direction, is_active }) {
     const fields = [];
     const values = [];
     let idx = 1;
@@ -36,6 +36,7 @@ const RouteModel = {
     if (name !== undefined) { fields.push(`name = $${idx++}`); values.push(name); }
     if (coordinates !== undefined) { fields.push(`coordinates = $${idx++}`); values.push(JSON.stringify(coordinates)); }
     if (tolerance !== undefined) { fields.push(`tolerance = $${idx++}`); values.push(tolerance); }
+    if (direction !== undefined) { fields.push(`direction = $${idx++}`); values.push(direction); }
     if (is_active !== undefined) { fields.push(`is_active = $${idx++}`); values.push(is_active); }
 
     if (fields.length === 0) return this.findById(id);

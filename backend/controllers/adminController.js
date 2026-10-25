@@ -79,7 +79,7 @@ const AdminController = {
 
   async createOrg(req, res, next) {
     try {
-      const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds } = req.body;
+      const { name, type, parentId, address, phone, contactPerson, email, assignedUserIds, settings } = req.body;
 
       if (!name || !type) {
         return res.status(400).json({
@@ -110,7 +110,8 @@ const AdminController = {
         address,
         phone,
         contactPerson,
-        email
+        email,
+        settings: settings || {}
       });
 
       // Handle user assignments
@@ -146,7 +147,7 @@ const AdminController = {
   async updateOrg(req, res, next) {
     try {
       const { id } = req.params;
-      const { name, type, address, phone, isActive, contactPerson, email, assignedUserIds } = req.body;
+      const { name, type, address, phone, isActive, contactPerson, email, assignedUserIds, settings } = req.body;
 
       // Fetch old org
       const oldOrg = await OrgModel.findById(id);
@@ -158,7 +159,7 @@ const AdminController = {
         });
       }
 
-      if (req.user.role !== 'superadmin' && id !== req.user.orgId) {
+      if (req.user && req.user.role !== 'superadmin' && id !== req.user.orgId) {
         // Dealers can only update their child orgs
         if (oldOrg.parent_id !== req.user.orgId) {
           return res.status(403).json({
@@ -179,7 +180,7 @@ const AdminController = {
         email: oldOrg.email
       };
 
-      const updated = await OrgModel.update(id, { name, type, address, phone, isActive, contactPerson, email });
+      const updated = await OrgModel.update(id, { name, type, address, phone, isActive, contactPerson, email, settings });
 
       res.status(200).json({
         success: true,
@@ -213,7 +214,7 @@ const AdminController = {
           entityId: id, entityName: updated.name, action: 'UPDATED',
           oldData,
           newData,
-          performedById: req.user.userId, performedByRole: req.user.role,
+          performedById: req.user?.userId || 'system', performedByRole: req.user?.role || 'admin',
           orgId: id, orgName: updated.name,
           ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
         });
@@ -568,13 +569,15 @@ const AdminController = {
     try {
       const { id } = req.params;
       const result = await db.query(
-        `SELECT v.id, v.name, v.plate, v.imei, vls.is_online
+        `SELECT DISTINCT v.id, v.name, v.plate, v.imei, vls.is_online,
+                g.id AS group_id, g.name AS group_name
          FROM vehicles v
          JOIN vehicle_groups vg ON v.id = vg.vehicle_id
          JOIN user_groups ug ON vg.group_id = ug.group_id
+         JOIN groups g ON vg.group_id = g.id
          LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
          WHERE ug.user_id = $1 AND v.is_active = TRUE
-         ORDER BY v.name ASC`,
+         ORDER BY g.name ASC, v.name ASC`,
         [id]
       );
       res.status(200).json({ success: true, data: result.rows });
@@ -938,7 +941,8 @@ const AdminController = {
           durationMonths = totalDays >= 180 ? 12 : 1;
         }
 
-        const thresholdDays = durationMonths >= 6 ? 30 : 7;
+        // User requirement: "alerts should go from one week only"
+        const thresholdDays = 7;
         let status = 'Active';
         let diffDays = null;
 
@@ -975,7 +979,8 @@ const AdminController = {
           diffDays: diffDays,
           durationMonths: durationMonths,
           thresholdDays: thresholdDays,
-          renewalPrice: metadata.renewal_price !== undefined && metadata.renewal_price !== null ? parseFloat(metadata.renewal_price) : null
+          renewalPrice: metadata.renewal_price !== undefined && metadata.renewal_price !== null ? parseFloat(metadata.renewal_price) : null,
+          discountPrice: metadata.discount_price !== undefined && metadata.discount_price !== null && metadata.discount_price !== '' ? parseFloat(metadata.discount_price) : null
         };
       });
 
@@ -988,12 +993,12 @@ const AdminController = {
 
   async setVehicleBillingAmount(req, res, next) {
     try {
-      const { vehicleId, price, durationMonths } = req.body;
+      const { vehicleId, price, discountPrice, durationMonths, startDate, expiryDate } = req.body;
       if (!vehicleId || price === undefined || price === null) {
         return res.status(400).json({ success: false, error: 'vehicleId and price are required.' });
       }
 
-      let checkQuery = `SELECT id, org_id, metadata FROM vehicles WHERE (id::text = $1 OR metadata->>'vehicleId' = $1 OR imei = $1)`;
+      let checkQuery = `SELECT id, org_id, metadata, licence_issued_date, licence_expire_date FROM vehicles WHERE (id::text = $1 OR metadata->>'vehicleId' = $1 OR imei = $1)`;
       let params = [vehicleId];
       if (req.user.role !== 'superadmin') {
         checkQuery += ` AND (org_id = $2 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $2))`;
@@ -1005,24 +1010,61 @@ const AdminController = {
         return res.status(400).json({ success: false, error: 'Vehicle record not found or permission denied.' });
       }
 
-
       const vehicle = checkRes.rows[0];
       const existingMeta = vehicle.metadata || {};
+
+      let calcMonths = parseInt(durationMonths, 10);
+      if (startDate && expiryDate) {
+        const s = new Date(startDate);
+        const e = new Date(expiryDate);
+        if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+          const days = Math.round((e - s) / (1000 * 60 * 60 * 24));
+          calcMonths = Math.max(1, Math.round(days / 30));
+        }
+      }
+      if (isNaN(calcMonths) || calcMonths <= 0) calcMonths = 12;
+
+      const parsedDiscount = (discountPrice !== undefined && discountPrice !== null && discountPrice !== '')
+        ? parseFloat(discountPrice)
+        : null;
+
       const updatedMeta = {
         ...existingMeta,
         renewal_price: parseFloat(price),
-        plan_duration_months: parseInt(durationMonths || 12, 10)
+        discount_price: parsedDiscount,
+        plan_duration_months: calcMonths,
+        plan_start_date: startDate || existingMeta.plan_start_date || null,
+        plan_expiry_date: expiryDate || existingMeta.plan_expiry_date || null
       };
 
-      await db.query(`UPDATE vehicles SET metadata = $1, updated_at = NOW() WHERE id = $2`, [JSON.stringify(updatedMeta), vehicle.id]);
+      let updateSql = `UPDATE vehicles SET metadata = $1, updated_at = NOW()`;
+      const updateParams = [JSON.stringify(updatedMeta), vehicle.id];
+      let pIdx = 3;
+
+      if (startDate && !isNaN(new Date(startDate).getTime())) {
+        updateSql += `, licence_issued_date = $${pIdx}`;
+        updateParams.push(startDate);
+        pIdx++;
+      }
+      if (expiryDate && !isNaN(new Date(expiryDate).getTime())) {
+        updateSql += `, licence_expire_date = $${pIdx}`;
+        updateParams.push(expiryDate);
+        pIdx++;
+      }
+
+      updateSql += ` WHERE id = $2`;
+      await db.query(updateSql, updateParams);
 
       res.status(200).json({
         success: true,
-        message: 'Vehicle renewal amount and plan duration updated successfully.',
+        message: 'Vehicle renewal amount, discount price, and custom date range updated successfully.',
         data: {
           vehicleId: vehicle.id,
           renewalPrice: parseFloat(price),
-          durationMonths: parseInt(durationMonths || 12, 10)
+          discountPrice: parsedDiscount,
+          durationMonths: calcMonths,
+          startDate,
+          expiryDate
         }
       });
     } catch (err) {
@@ -1393,6 +1435,270 @@ const AdminController = {
       const GpsModel = require('../models/gpsModel');
       const alerts = await GpsModel.getRecentAlerts(orgId);
       res.json({ success: true, data: alerts });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  // ============================================================
+  // SITE NOTIFICATIONS
+  // ============================================================
+
+  async getOrgSiteNotifications(req, res, next) {
+    try {
+      const { id } = req.params;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (req.user.role !== 'superadmin' && id !== req.user.orgId && org.parent_id !== req.user.orgId) {
+        return res.status(403).json({ success: false, error: 'Access denied.' });
+      }
+
+      const geofences = await GeofenceModel.findAll(id);
+      const settings = org.settings || {};
+      const siteSettings = settings.site_notifications || {};
+
+      const sites = geofences.map(g => {
+        const saved = siteSettings[g.id] || {};
+        return {
+          id: g.id,
+          name: g.name,
+          time: saved.time !== undefined ? saved.time : (g.notification_time || '00:00'),
+          enabled: saved.enabled !== undefined ? saved.enabled : (g.is_active !== false),
+          created_at: g.created_at
+        };
+      });
+
+      res.json({
+        success: true,
+        data: {
+          org: {
+            id: org.id,
+            name: org.name,
+            phone: org.phone || org.primary_user_phone || ''
+          },
+          sites
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async updateOrgSiteNotifications(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { sites } = req.body;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (req.user.role !== 'superadmin' && id !== req.user.orgId && org.parent_id !== req.user.orgId) {
+        return res.status(403).json({ success: false, error: 'Access denied.' });
+      }
+
+      if (!Array.isArray(sites)) {
+        return res.status(400).json({ success: false, error: 'Sites array is required.' });
+      }
+
+      const settings = org.settings || {};
+      const currentSiteSettings = settings.site_notifications || {};
+      const updatedSiteSettings = { ...currentSiteSettings };
+
+      for (const item of sites) {
+        if (!item.id) continue;
+        const timeVal = item.time !== undefined ? String(item.time) : '00:00';
+        const enabledVal = !!item.enabled;
+
+        updatedSiteSettings[item.id] = {
+          time: timeVal,
+          enabled: enabledVal
+        };
+
+        // Update in geofences table as well
+        await GeofenceModel.updateSiteNotification(item.id, {
+          is_active: enabledVal,
+          notification_time: timeVal
+        });
+      }
+
+      // Persist in org settings
+      await OrgModel.update(id, {
+        settings: {
+          ...settings,
+          site_notifications: updatedSiteSettings
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Site notifications updated successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createOrgSite(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, time = '00:00', enabled = true, coordinates, radius, center_lat, center_lng, type = 'circle' } = req.body;
+      const GeofenceModel = require('../models/geofenceModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (!name) {
+        return res.status(400).json({ success: false, error: 'Site name is required.' });
+      }
+
+      const newSite = await GeofenceModel.create({
+        orgId: id,
+        name,
+        type: type || 'circle',
+        coordinates: coordinates || [{ lat: center_lat || 17.385, lng: center_lng || 78.4867 }],
+        radius: radius || 500,
+        center_lat: center_lat || 17.385,
+        center_lng: center_lng || 78.4867
+      });
+
+      await GeofenceModel.updateSiteNotification(newSite.id, {
+        is_active: enabled,
+        notification_time: time
+      });
+
+      res.status(201).json({
+        success: true,
+        data: {
+          id: newSite.id,
+          name: newSite.name,
+          time: time,
+          enabled: enabled,
+          created_at: newSite.created_at
+        },
+        message: 'Site created successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getOrgTracks(req, res, next) {
+    try {
+      const { id } = req.params;
+      const RouteModel = require('../models/routeModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      const routes = await RouteModel.findAll(id);
+      const enriched = await Promise.all(routes.map(async (r) => {
+        const vehicles = await RouteModel.findVehiclesForRoute(r.id);
+        return {
+          ...r,
+          vehicles,
+          vehicle: vehicles[0] || null
+        };
+      }));
+
+      // Fetch vehicles belonging to this org
+      const vehRes = await db.query(
+        `SELECT id, name, plate, imei FROM vehicles WHERE org_id = $1 AND is_active = TRUE ORDER BY name ASC`,
+        [id]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          organization: {
+            id: org.id,
+            name: org.name,
+            phone: org.phone
+          },
+          tracks: enriched,
+          vehicles: vehRes.rows
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async createOrgTrack(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { name, vehicle_id, coordinates, tolerance = 100 } = req.body;
+      const RouteModel = require('../models/routeModel');
+
+      const org = await OrgModel.findById(id);
+      if (!org) {
+        return res.status(404).json({ success: false, error: 'Organization not found.' });
+      }
+
+      if (!name || !name.trim()) {
+        return res.status(400).json({ success: false, error: 'Track name is required.' });
+      }
+
+      const coords = Array.isArray(coordinates) && coordinates.length > 0
+        ? coordinates
+        : [{ lat: 17.3850, lng: 78.4867 }, { lat: 17.3900, lng: 78.4900 }];
+
+      const route = await RouteModel.create({
+        orgId: id,
+        name: name.trim(),
+        coordinates: coords,
+        tolerance: parseInt(tolerance) || 100
+      });
+
+      if (vehicle_id) {
+        await RouteModel.assignToVehicles(route.id, [vehicle_id]);
+      }
+
+      // Also persist track in org settings
+      try {
+        const currentSettings = org.settings || {};
+        const tracks = currentSettings.organization_tracks || [];
+        tracks.push({
+          id: route.id,
+          name: route.name,
+          vehicle_id: vehicle_id || null,
+          created_at: new Date().toISOString()
+        });
+        await OrgModel.update(id, {
+          settings: {
+            ...currentSettings,
+            organization_tracks: tracks
+          }
+        });
+      } catch (_) {}
+
+      res.status(201).json({
+        success: true,
+        data: route,
+        message: 'Organization track created successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async deleteOrgTrack(req, res, next) {
+    try {
+      const { id, trackId } = req.params;
+      const RouteModel = require('../models/routeModel');
+      await RouteModel.delete(trackId);
+      res.json({ success: true, message: 'Track deleted successfully.' });
     } catch (err) {
       next(err);
     }

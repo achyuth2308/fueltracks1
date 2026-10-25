@@ -19,6 +19,12 @@ const DashboardLayout = ({ vehicles = [] }) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  React.useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
+
   if (loading) {
     return (
       <div className="loading-screen" style={{ background: '#EEF5F8' }}>

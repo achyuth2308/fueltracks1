@@ -21,6 +21,12 @@ router.get('/orgs', authorize('superadmin', 'dealer'), AdminController.getAllOrg
 router.get('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.getOrgById);
 router.get('/orgs/:id/resources', authorize('superadmin', 'dealer'), AdminController.getOrgResources);
 router.post('/orgs', authorize('superadmin', 'dealer'), AdminController.createOrg);
+router.get('/orgs/:id/site-notifications', authorize('superadmin', 'dealer'), AdminController.getOrgSiteNotifications);
+router.put('/orgs/:id/site-notifications', authorize('superadmin', 'dealer'), AdminController.updateOrgSiteNotifications);
+router.post('/orgs/:id/sites', authorize('superadmin', 'dealer'), AdminController.createOrgSite);
+router.get('/orgs/:id/tracks', authorize('superadmin', 'dealer'), AdminController.getOrgTracks);
+router.post('/orgs/:id/tracks', authorize('superadmin', 'dealer'), AdminController.createOrgTrack);
+router.delete('/orgs/:id/tracks/:trackId', authorize('superadmin', 'dealer'), AdminController.deleteOrgTrack);
 router.put('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.updateOrg);
 router.delete('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.deleteOrg);
 

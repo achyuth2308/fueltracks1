@@ -423,15 +423,31 @@ const UsersAdminPage = () => {
                       ) : userVehicles.length === 0 ? (
                         <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
                       ) : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          {userVehicles.map(v => (
-                            <span key={v.id} style={{
-                              padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                              background: v.is_online ? '#D1FAE5' : '#F1F5F9',
-                              color: v.is_online ? '#059669' : '#475569'
-                            }}>
-                              {v.name}{v.plate ? ` (${v.plate})` : ''}
-                            </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {Object.entries(
+                            userVehicles.reduce((acc, v) => {
+                              const gName = v.group_name || 'General';
+                              if (!acc[gName]) acc[gName] = [];
+                              acc[gName].push(v);
+                              return acc;
+                            }, {})
+                          ).map(([grpName, vList]) => (
+                            <div key={grpName} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                Group: {grpName} ({vList.length})
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {vList.map(v => (
+                                  <span key={`${grpName}-${v.id}`} style={{
+                                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                    background: v.is_online ? '#D1FAE5' : '#F1F5F9',
+                                    color: v.is_online ? '#059669' : '#475569'
+                                  }}>
+                                    {v.name}{v.plate ? ` (${v.plate})` : ''}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
                           ))}
                         </div>
                       )}

@@ -6,6 +6,79 @@ const db = require('../config/db');
 const { gpsQuery } = require('../config/db'); // GPS writes use dedicated isolated pool
 const { redis } = require('../config/redis');
 
+/**
+ * 3-Minute Hysteresis Debounce Filter on GPS points:
+ * Absorbs momentary electrical dips (< 3 mins) while running (e.g. borewell pump load / starter drops)
+ * and momentary electrical surges (< 3 mins) while parked, preventing false split sessions.
+ */
+function debounceIgnitionPoints(points) {
+  if (!points || points.length <= 1) return points;
+
+  const runs = [];
+  let currentRun = {
+    status: !!points[0].ignition ? 'ON' : 'OFF',
+    points: [points[0]],
+    startTime: new Date(points[0].device_time).getTime(),
+    endTime: new Date(points[0].device_time).getTime(),
+    hasMovement: parseFloat(points[0].speed || 0) > 5
+  };
+
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i];
+    const status = !!p.ignition ? 'ON' : 'OFF';
+    const isMoving = parseFloat(p.speed || 0) > 5;
+    const pTime = new Date(p.device_time).getTime();
+
+    if (status === currentRun.status) {
+      currentRun.points.push(p);
+      currentRun.endTime = pTime;
+      if (isMoving) currentRun.hasMovement = true;
+    } else {
+      runs.push(currentRun);
+      currentRun = {
+        status,
+        points: [p],
+        startTime: pTime,
+        endTime: pTime,
+        hasMovement: isMoving
+      };
+    }
+  }
+  runs.push(currentRun);
+
+  const DEBOUNCE_MS = 3 * 60 * 1000;
+
+  for (let i = 0; i < runs.length; i++) {
+    const prev = runs[i - 1];
+    const cur = runs[i];
+    const next = runs[i + 1];
+    const durationMs = cur.endTime - cur.startTime;
+
+    // Absorb electrical dip < 3 mins while operating
+    if (cur.status === 'OFF' && durationMs < DEBOUNCE_MS) {
+      if ((prev && prev.status === 'ON') || (next && next.status === 'ON')) {
+        cur.status = 'ON';
+        cur.points.forEach(p => { p.ignition = true; });
+      }
+    }
+    // Absorb electrical spike < 3 mins while parked
+    else if (cur.status === 'ON' && !cur.hasMovement && durationMs < DEBOUNCE_MS) {
+      if ((prev && prev.status === 'OFF') || (next && next.status === 'OFF')) {
+        cur.status = 'OFF';
+        cur.points.forEach(p => { p.ignition = false; });
+      }
+    }
+  }
+
+  const result = [];
+  for (const r of runs) {
+    for (const p of r.points) {
+      result.push(p);
+    }
+  }
+  return result;
+}
+
 const GpsModel = {
   /**
    * Save a GPS point (with dedup via ON CONFLICT)
@@ -359,6 +432,14 @@ const GpsModel = {
   },
 
   /**
+   * Helper: Debounces historical GPS points with a 3-minute hysteresis window.
+   * Absorbs momentary voltage drops (< 3 mins) while running and momentary spikes (< 3 mins) while parked.
+   */
+  debounceIgnitionPoints(points) {
+    return debounceIgnitionPoints(points);
+  },
+
+  /**
    * Get ignition report (ON/OFF events, intervals and summaries)
    */
   async getIgnitionReport(vehicleId, { startDate, endDate }) {
@@ -396,7 +477,11 @@ const GpsModel = {
       params
     );
 
-    const points = result.rows;
+    // 3-Minute Hysteresis Debounce Filter:
+    // Absorbs momentary electrical dips (< 3 mins) while running (e.g. borewell pump load / starter drops)
+    // and momentary electrical surges (< 3 mins) while parked, preventing false split sessions.
+    const rawPoints = result.rows;
+    const points = debounceIgnitionPoints(rawPoints);
     const events = [];
     const intervals = [];
     let currentOnSession = null;
@@ -589,8 +674,8 @@ const GpsModel = {
         typeFilter = ` AND alert_type IN ('ignition', 'ignition_on', 'ignition_off', 'moving', 'start_moving', 'trip_started', 'trip_ended', 'stopped', 'idle', 'stoppage')`;
       } else if (typeStr === 'sos') {
         typeFilter = ` AND alert_type IN ('sos', 'panic', 'theft', 'theft_alarm', 'tamper', 'tow', 'crash', 'accident')`;
-      } else if (typeStr === 'power') {
-        typeFilter = ` AND alert_type IN ('power', 'power_cut', 'power_disconnected', 'battery', 'low_battery')`;
+      } else if (typeStr === 'power' || typeStr === 'power_cut') {
+        typeFilter = ` AND alert_type IN ('power', 'power_cut', 'power_disconnected', 'main_battery_disconnected', 'main_battery_connected', 'battery')`;
       } else if (typeStr === 'harsh') {
         typeFilter = ` AND alert_type IN ('harsh', 'harsh_driving', 'harsh_braking', 'harsh_acceleration')`;
       } else {
@@ -746,7 +831,21 @@ const GpsModel = {
                 CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
                 CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
                 NULL
-              ) as fuel
+              ) as fuel,
+              COALESCE(
+                CASE WHEN parsed_data->>'voltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'voltage')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'mainVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'mainVoltage')::numeric ELSE NULL END,
+                CASE WHEN parsed_data->>'battVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'battVoltage')::numeric ELSE NULL END,
+                NULL
+              ) as voltage,
+              COALESCE(
+                CASE 
+                  WHEN parsed_data->>'ignition' IN ('true', '1', 't') THEN true
+                  WHEN parsed_data->>'ignition' IN ('false', '0', 'f') THEN false
+                  ELSE NULL 
+                END,
+                NULL
+              ) as ignition
        FROM raw_packets
        ${whereClause}
        ORDER BY received_at DESC, id DESC
@@ -754,8 +853,68 @@ const GpsModel = {
       queryParams
     );
 
+    // Fallback extraction helper for raw packet string
+    const extractPacketFallback = (rawStr) => {
+      if (!rawStr || typeof rawStr !== 'string') return {};
+      const trimmed = rawStr.trim();
+      // Volty semicolon-delimited packet
+      if (trimmed.includes(';') && (trimmed.includes('VLT') || trimmed.includes('DL1') || trimmed.includes('M1.'))) {
+        const parts = trimmed.replace(/\*/g, '').split(';');
+        const imeiIdx = parts.findIndex(p => /^\d{14,16}$/.test(p.trim()));
+        if (imeiIdx !== -1) {
+          const ignVal = parts[imeiIdx + 16] ? parts[imeiIdx + 16].trim() : '';
+          const voltVal = parts[imeiIdx + 18] ? parts[imeiIdx + 18].trim() : (parts[imeiIdx + 17] ? parts[imeiIdx + 17].trim() : '');
+          return {
+            ignition: ignVal === '1' ? true : (ignVal === '0' ? false : null),
+            voltage: voltVal && !isNaN(parseFloat(voltVal)) ? parseFloat(voltVal) : null
+          };
+        }
+      }
+      // AIS140 / BSTPL comma-delimited packets
+      if (trimmed.includes(',')) {
+        const parts = trimmed.replace(/\*/g, '').split(',');
+        if (parts[0] === '$10' || parts[0] === '$11') {
+          const ignVal = parts[9];
+          const voltVal = parts[10];
+          return {
+            ignition: ignVal === '1' ? true : (ignVal === '0' ? false : null),
+            voltage: voltVal && !isNaN(parseFloat(voltVal)) ? parseFloat(voltVal) : null
+          };
+        }
+      }
+      return {};
+    };
+
+    const enrichedMessages = result.rows.map(row => {
+      let voltage = row.voltage != null ? parseFloat(row.voltage) : null;
+      let ignition = row.ignition != null ? (row.ignition === true || row.ignition === 'true' || row.ignition === 1) : null;
+
+      if (voltage == null || ignition == null) {
+        const fallback = extractPacketFallback(row.raw_hex || row.raw);
+        if (voltage == null && fallback.voltage != null) voltage = fallback.voltage;
+        if (ignition == null && fallback.ignition != null) ignition = fallback.ignition;
+      }
+
+      const speed = row.speed != null ? parseFloat(row.speed) : 0;
+      let engine_status = null;
+      if (speed > 2.0) {
+        engine_status = 'ON (Moving)';
+      } else if (ignition === true) {
+        engine_status = 'ON (Idle)';
+      } else if (ignition === false) {
+        engine_status = 'OFF';
+      }
+
+      return {
+        ...row,
+        voltage,
+        ignition,
+        engine_status
+      };
+    });
+
     return {
-      messages: result.rows,
+      messages: enrichedMessages,
       pagination: {
         page,
         limit,
@@ -804,8 +963,8 @@ const GpsModel = {
         typeFilter = ` AND a.alert_type IN ('ignition', 'ignition_on', 'ignition_off', 'moving', 'start_moving', 'trip_started', 'trip_ended', 'stopped', 'idle', 'stoppage')`;
       } else if (typeStr === 'sos') {
         typeFilter = ` AND a.alert_type IN ('sos', 'panic', 'theft', 'theft_alarm', 'tamper', 'tow', 'crash', 'accident')`;
-      } else if (typeStr === 'power') {
-        typeFilter = ` AND a.alert_type IN ('power', 'power_cut', 'power_disconnected', 'battery', 'low_battery')`;
+      } else if (typeStr === 'power' || typeStr === 'power_cut') {
+        typeFilter = ` AND a.alert_type IN ('power', 'power_cut', 'power_disconnected', 'main_battery_disconnected', 'main_battery_connected', 'battery')`;
       } else if (typeStr === 'harsh') {
         typeFilter = ` AND a.alert_type IN ('harsh', 'harsh_driving', 'harsh_braking', 'harsh_acceleration')`;
       } else {
@@ -941,7 +1100,8 @@ const GpsModel = {
         overspeed: true, harsh_braking: true, harsh_acceleration: true,
         geofence_enter: true, geofence_exit: true, low_battery: true,
         ignition_on: true, ignition_off: true, idle: false,
-        stoppage: false, parking: true, trip_started: false, stopped: false,
+        parking: true, trip_started: false, stopped: false, moving: true,
+        idle_duration_mins: 60, parking_duration_mins: 60, moving_duration_mins: 60,
       };
     }
 
@@ -1005,18 +1165,27 @@ const GpsModel = {
     let prefKey = alertType;
     if (alertType) {
       const type = alertType.toLowerCase();
-      if (type === 'ignition_on' || type === 'stoppage' || type === 'parking' || 
-          type === 'excessive_idle' || type === 'trip_started' || type === 'trip_ended') {
+      if (type === 'ignition_on' || type === 'ignition_off') {
         prefKey = 'ignition';
+      } else if (type === 'excessive_idle' || type === 'idle' || type === 'stopped') {
+        prefKey = 'idle';
+      } else if (type === 'parking') {
+        prefKey = 'parking';
+      } else if (type === 'moving' || type === 'start_moving') {
+        prefKey = 'moving';
+      } else if (type === 'trip_started' || type === 'trip_ended') {
+        prefKey = 'trip_started';
       } else if (type === 'safety_park') {
         prefKey = 'theft';
       } else if (type === 'route_deviation') {
         prefKey = 'geofence';
+      } else if (type === 'main_battery_disconnected' || type === 'main_battery_connected' || type === 'power_cut' || type === 'battery') {
+        prefKey = 'power_cut';
       }
     }
 
     const result = await db.query(
-      `SELECT t.fcm_token
+      `SELECT t.fcm_token, p.preferences
        FROM user_fcm_tokens t
        JOIN users u ON t.user_id = u.id
        LEFT JOIN user_alert_preferences p ON p.user_id = u.id
@@ -1048,7 +1217,34 @@ const GpsModel = {
          )`,
       [orgId, prefKey, vehicleId]
     );
-    return result.rows.map(r => r.fcm_token);
+
+    // Filter by customer-configured alert schedule (time window) if specified
+    const activeTokens = [];
+    const nowTimeStr = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(new Date());
+
+    for (const row of result.rows) {
+      if (row.preferences) {
+        if (row.preferences[prefKey] === false) continue;
+
+        // Timing window check (e.g. customer set alert should only come between 09:00 and 18:00)
+        const timing = row.preferences?.timings?.[prefKey] || row.preferences?.timings?.[alertType.toLowerCase()];
+        if (timing && timing.all_day === false && timing.start_time && timing.end_time) {
+          const { start_time, end_time } = timing;
+          const inWindow = start_time <= end_time
+            ? (nowTimeStr >= start_time && nowTimeStr <= end_time)
+            : (nowTimeStr >= start_time || nowTimeStr <= end_time); // overnight span
+          if (!inWindow) continue; // Outside allowed time window
+        }
+      }
+      activeTokens.push(row.fcm_token);
+    }
+
+    return activeTokens;
   },
 
   /**

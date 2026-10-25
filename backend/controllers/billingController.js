@@ -38,14 +38,23 @@ const BillingController = {
       const metadata = vRes.rows[0].metadata || {};
       if (metadata.renewal_price !== undefined && metadata.renewal_price !== null) {
         const durationMonths = parseInt(metadata.plan_duration_months || 12, 10);
-        const price = parseFloat(metadata.renewal_price);
+        const originalPrice = parseFloat(metadata.renewal_price);
+        const discountPrice = (metadata.discount_price !== undefined && metadata.discount_price !== null && metadata.discount_price !== '')
+          ? parseFloat(metadata.discount_price)
+          : null;
+        const effectivePrice = (discountPrice !== null && !isNaN(discountPrice) && discountPrice >= 0)
+          ? discountPrice
+          : originalPrice;
+
         return res.status(200).json({
           success: true,
           data: {
             id: `vehicle_custom_${vehicleId}`,
             name: `${durationMonths >= 6 ? '1 Year' : '1 Month'} Renewal Plan`,
             duration_months: durationMonths,
-            price: price
+            original_price: originalPrice,
+            discount_price: discountPrice,
+            price: effectivePrice
           }
         });
       }
@@ -102,7 +111,11 @@ const BillingController = {
         const vRes = await client.query('SELECT metadata, licence_expire_date FROM vehicles WHERE id = $1', [vehicleId]);
         if (vRes.rows.length === 0) throw new Error('Vehicle not found.');
         const metadata = vRes.rows[0].metadata || {};
-        amount = parseFloat(metadata.renewal_price || 0);
+        const originalPrice = parseFloat(metadata.renewal_price || 0);
+        const discountPrice = (metadata.discount_price !== undefined && metadata.discount_price !== null && metadata.discount_price !== '')
+          ? parseFloat(metadata.discount_price)
+          : null;
+        amount = (discountPrice !== null && !isNaN(discountPrice) && discountPrice >= 0) ? discountPrice : originalPrice;
         durationMonths = parseInt(metadata.plan_duration_months || 12, 10);
       } else {
         const planRes = await client.query('SELECT id, price, duration_months FROM renewal_plans WHERE id = $1 AND is_active = true', [planId]);
@@ -111,7 +124,11 @@ const BillingController = {
           const vRes = await client.query('SELECT metadata FROM vehicles WHERE id = $1', [vehicleId]);
           if (vRes.rows.length > 0 && vRes.rows[0].metadata?.renewal_price !== undefined) {
             const metadata = vRes.rows[0].metadata;
-            amount = parseFloat(metadata.renewal_price || 0);
+            const originalPrice = parseFloat(metadata.renewal_price || 0);
+            const discountPrice = (metadata.discount_price !== undefined && metadata.discount_price !== null && metadata.discount_price !== '')
+              ? parseFloat(metadata.discount_price)
+              : null;
+            amount = (discountPrice !== null && !isNaN(discountPrice) && discountPrice >= 0) ? discountPrice : originalPrice;
             durationMonths = parseInt(metadata.plan_duration_months || 12, 10);
           } else {
             throw new Error('Invalid or inactive renewal plan.');

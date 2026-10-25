@@ -18,17 +18,26 @@ import TrackingPage from './pages/user/TrackingPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
 import UsersAdminPage from './pages/admin/UsersAdminPage';
+import EditOrganizationPage from './pages/admin/EditOrganizationPage';
+import EditOrgAlertsPage from './pages/admin/EditOrgAlertsPage';
+import SiteNotificationPage from './pages/admin/SiteNotificationPage';
+import OrgTrackAdminPage from './pages/admin/OrgTrackAdminPage';
 import GroupsAdminPage from './pages/admin/GroupsAdminPage';
 import DevicesAdminPage from './pages/admin/DevicesAdminPage';
 import EditVehiclePage from './pages/admin/EditVehiclePage';
 import MigrationPage from './pages/admin/MigrationPage';
+import AddUserVehiclePage from './pages/admin/AddUserVehiclePage';
+import EditCalibratePage from './pages/admin/EditCalibratePage';
+import RenameVehiclePage from './pages/admin/RenameVehiclePage';
 import DeviceOnboardingPage from './pages/admin/DeviceOnboardingPage';
 import OnBoardDevicePage from './pages/admin/OnBoardDevicePage';
 import FuelAdminPage from './pages/admin/FuelAdminPage';
 import AlertsAdminPage from './pages/admin/AlertsAdminPage';
 import GeofencesAdminPage from './pages/admin/GeofencesAdminPage';
+import RoutesAdminPage from './pages/admin/RoutesAdminPage';
 import ReportsAdminPage from './pages/admin/ReportsAdminPage';
 import TripReportPage from './pages/reports/TripReportPage';
+import DailyTripReportPage from './pages/reports/DailyTripReportPage';
 import DailyDistanceReportPage from './pages/reports/DailyDistanceReportPage';
 import RouteHistoryReportPage from './pages/reports/RouteHistoryReportPage';
 import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
@@ -39,6 +48,7 @@ import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
 import VehicleActivityReportPage from './pages/reports/VehicleActivityReportPage';
+import GeofenceTransitReportPage from './pages/reports/GeofenceTransitReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import DealerProfilePage from './modules/profile/DealerProfilePage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
@@ -85,6 +95,10 @@ function App() {
                 <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer']} />}>
                   {/* Admin roster management grids */}
                   <Route path="organizations" element={<OrgsAdminPage />} />
+                  <Route path="organizations/edit/:id" element={<EditOrganizationPage />} />
+                  <Route path="organizations/alerts/:id" element={<EditOrgAlertsPage />} />
+                  <Route path="organizations/site-notifications/:id" element={<SiteNotificationPage />} />
+                  <Route path="organizations/track/:id" element={<OrgTrackAdminPage />} />
                   <Route path="users" element={<UsersAdminPage />} />
                   <Route path="groups" element={<GroupsAdminPage />} />
                   <Route path="vehicles" element={<VehiclesAdminPage />} />
@@ -92,6 +106,14 @@ function App() {
                   <Route path="vehicles/new" element={<EditVehiclePage />} />
                   <Route path="vehicles/edit/:id" element={<EditVehiclePage />} />
                   <Route path="vehicles/migration/:id" element={<MigrationPage />} />
+                  <Route path="vehicles/add-user/:id" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/:id/add-user" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/add-user" element={<AddUserVehiclePage />} />
+                  <Route path="users/add" element={<AddUserVehiclePage />} />
+                  <Route path="vehicles/calibrate/:id" element={<EditCalibratePage />} />
+                  <Route path="vehicles/edit-calibrate/:id" element={<EditCalibratePage />} />
+                  <Route path="vehicles/rename/:id" element={<RenameVehiclePage />} />
+                  <Route path="vehicles/:id/rename" element={<RenameVehiclePage />} />
                   <Route path="devices" element={<DevicesAdminPage />} />
                   <Route path="billing" element={<BillingAdminPage />} />
 
@@ -110,20 +132,24 @@ function App() {
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<GeofencesAdminPage />} />
+                  <Route path="routes" element={<RoutesAdminPage />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
                     <Route index element={<Navigate to="trip" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
+                    <Route path="daily-trip" element={<DailyTripReportPage />} />
                     <Route path="distance" element={<DailyDistanceReportPage />} />
                     <Route path="route" element={<RouteHistoryReportPage />} />
                     <Route path="overspeeding" element={<OverspeedingReportPage />} />
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
-                    <Route path="consolidated" element={<ConsolidatedReportPage />} />
+                    <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
+                    <Route path="fuel-consolidated" element={<ConsolidatedReportPage defaultMode="fuel" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
+                    <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
                   </Route>
                 </Route>
               </Route>

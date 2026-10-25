@@ -12,12 +12,12 @@ const ALERT_MAP = {
   '8': { type: 'ignition_off', text: 'Ignition OFF' },
   '9': { type: 'box_open', text: 'GPS box opened' },
   '10': { type: 'sos', text: 'Emergency state ON' },
-  '11': { type: 'sos', text: 'Emergency state OFF' },
+  '11': { type: 'emergency_off', text: 'Emergency state OFF' },
   '12': { type: 'general', text: 'Over the air parameter change' },
   '13': { type: 'harsh_driving', text: 'Harsh Braking' },
   '14': { type: 'harsh_driving', text: 'Harsh Acceleration' },
   '15': { type: 'harsh_driving', text: 'Rash Turning' },
-  '16': { type: 'sos', text: 'Device Tempered / Emergency wire cut' }
+  '16': { type: 'tamper', text: 'Device Tampered / Emergency wire cut' }
 };
 
 function convertCoords(raw, direction) {
@@ -83,6 +83,7 @@ function parseVoltyPacket(raw) {
 
   // Special Handling: Government Standard Emergency EPB Schema ($EPB,EMR,IMEI,NM/SP,DDMMYYYYhhmmss,A/V,Lat,N,Lng,E...)
   if (parts[0] && parts[0].toUpperCase() === '$EPB' && (parts[1] === 'EMR' || parts[1] === 'SEM') && parts[2] && parts[2].length >= 14) {
+    const isSosOn = parts[1] === 'EMR';
     const imei = parts[2].trim();
     const isLive = parts[3] ? parts[3].trim().toUpperCase() !== 'SP' : true;
     const deviceTime = parseVoltyTime(parts[4] ? parts[4].trim() : '', '');
@@ -111,8 +112,8 @@ function parseVoltyPacket(raw) {
       voltage: 0,
       isLive,
       deviceTime,
-      alertType: 'sos',
-      alertText: 'Emergency state ON',
+      alertType: isSosOn ? 'sos' : 'sos_cleared',
+      alertText: isSosOn ? 'Emergency state ON' : 'Emergency state OFF',
       rawPacket: raw
     };
   }

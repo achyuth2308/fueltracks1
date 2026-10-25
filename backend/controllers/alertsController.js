@@ -4,6 +4,8 @@
 // ============================================================
 
 const GpsModel = require('../models/gpsModel');
+const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 // ── Alert History ─────────────────────────────────────────────────────────────
 
@@ -62,7 +64,7 @@ async function markAllRead(req, res, next) {
 
 /**
  * GET /api/alerts/preferences
- * Return the calling user's alert preference toggles
+ * Return the calling user's alert preference toggles, durations, and timing schedules
  */
 async function getPreferences(req, res, next) {
   try {
@@ -76,25 +78,65 @@ async function getPreferences(req, res, next) {
 
 /**
  * PUT /api/alerts/preferences
- * Upsert the calling user's alert preference toggles
- * Body: { preferences: { overspeed: true, ignition_on: false, ... } }
+ * Upsert the calling user's alert preference toggles, durations, and timing schedules
+ * Body: { preferences: { overspeed: true, parking: true, idle_duration_mins: 60, ... } }
  */
 async function updatePreferences(req, res, next) {
   try {
-    const { userId } = req.user;
+    const { userId, orgId } = req.user;
     const { preferences } = req.body;
 
     if (!preferences || typeof preferences !== 'object') {
       return res.status(400).json({ success: false, error: 'preferences object is required.' });
     }
 
-    // Sanitize — only allow boolean values
+    // Sanitize — allow booleans, numbers, strings, and timing configurations
     const sanitized = {};
     for (const [key, val] of Object.entries(preferences)) {
-      if (typeof val === 'boolean') sanitized[key] = val;
+      if (typeof val === 'boolean' || typeof val === 'number' || typeof val === 'string') {
+        sanitized[key] = val;
+      } else if (val && typeof val === 'object' && !Array.isArray(val)) {
+        sanitized[key] = val;
+      }
     }
 
     const saved = await GpsModel.upsertUserAlertPreferences(userId, sanitized);
+
+    // Sync duration thresholds (idle_duration_mins, parking_duration_mins, moving_duration_mins) to organization vehicles
+    if (orgId && (sanitized.idle_duration_mins !== undefined || sanitized.parking_duration_mins !== undefined || sanitized.moving_duration_mins !== undefined)) {
+      const idleMin = parseFloat(sanitized.idle_duration_mins) || 60;
+      const parkMin = parseFloat(sanitized.parking_duration_mins) || 60;
+      const movingMin = Math.max(5, parseFloat(sanitized.moving_duration_mins) || 60);
+
+      await db.query(`
+        UPDATE vehicles
+        SET metadata = jsonb_set(
+          jsonb_set(
+            jsonb_set(
+              COALESCE(metadata, '{}'::jsonb),
+              '{idleDurationAlert}',
+              to_jsonb($1::numeric)
+            ),
+            '{parkingDurationAlert}',
+            to_jsonb($2::numeric)
+          ),
+          '{movingDurationAlert}',
+          to_jsonb($3::numeric)
+        )
+        WHERE org_id = $4
+      `, [idleMin, parkMin, movingMin, orgId]);
+
+      // Invalidate Redis vehicle IMEI caches for real-time pickup
+      try {
+        const imeiRes = await db.query('SELECT imei FROM vehicles WHERE org_id = $1', [orgId]);
+        for (const row of imeiRes.rows) {
+          if (row.imei) await redis.del(`vehicle:imei:${row.imei}`);
+        }
+      } catch (cacheErr) {
+        console.warn('[ALERTS] Failed to invalidate vehicle caches:', cacheErr.message);
+      }
+    }
+
     res.json({ success: true, preferences: saved });
   } catch (err) {
     next(err);

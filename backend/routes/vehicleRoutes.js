@@ -25,6 +25,12 @@ router.patch('/:id/settings', authorize('customer', 'superadmin', 'dealer'), Veh
 router.post('/bulk-assign-groups', authorize('superadmin', 'dealer'), VehicleController.bulkAssignGroups);
 router.delete('/:id', authorize('superadmin'), VehicleController.deleteVehicle);
 router.post('/:id/migrate', authorize('superadmin', 'dealer'), VehicleController.migrateVehicle);
+router.post('/:id/add-user', authorize('superadmin', 'dealer'), VehicleController.addUserToVehicle);
+router.post('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
+router.put('/:id/calibrate', authorize('superadmin', 'dealer'), VehicleController.calibrateVehicle);
+router.post('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
+router.put('/:id/rename', authorize('superadmin', 'dealer'), VehicleController.renameVehicle);
+router.post('/:id/reprocess', authorize('superadmin', 'dealer'), VehicleController.reprocessVehicle);
 
 // Analytics, History & Live Route
 router.get('/:id/history', VehicleController.getVehicleHistory);
@@ -37,6 +43,20 @@ router.get('/:id/messages', VehicleController.getVehicleMessages);
 
 // Commands & Controls (Immobilizer / Relay)
 router.post('/:id/immobilizer', VehicleController.toggleImmobilizer);
+
+// ══════════════════════════════════════════════════════════
+// GEOFENCE MANAGEMENT (Per Single Vehicle - accessible by users & fleet operators)
+// ══════════════════════════════════════════════════════════
+router.get('/geofences/summary', GeofenceRouteController.getVehiclesGeofenceSummary);
+router.get('/:id/geofences', GeofenceRouteController.getVehicleGeofences);
+router.get('/:id/available-geofences', GeofenceRouteController.getAvailableGeofences);
+router.post('/:id/geofences/link', GeofenceRouteController.linkVehicleGeofence);
+router.post('/:id/geofences/copy-from', GeofenceRouteController.copyVehicleGeofencesFrom);
+router.post('/:id/geofences/copy-to', GeofenceRouteController.copyVehicleGeofencesTo);
+router.post('/:id/geofences', GeofenceRouteController.createVehicleGeofence);
+router.put('/:id/geofences/:geofenceId', GeofenceRouteController.updateVehicleGeofence);
+router.patch('/:id/geofences/:geofenceId/toggle', GeofenceRouteController.toggleVehicleGeofence);
+router.delete('/:id/geofences/:geofenceId', GeofenceRouteController.deleteVehicleGeofence);
 
 // ══════════════════════════════════════════════════════════
 // ROUTE MANAGEMENT (accessible by all authenticated users including customers)

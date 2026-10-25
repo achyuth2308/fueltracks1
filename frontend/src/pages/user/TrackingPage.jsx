@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, AlertTriangle, Navigation } from 'lucide-react';
+import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -9,7 +9,7 @@ import { formatSpeed, formatFuel, formatVoltage, formatOdometer, formatDirection
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
-import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
+import { getVehicleStatus, STATUS_CONFIG, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
@@ -24,9 +24,9 @@ const getExpiryWarning = (vehicle) => {
   );
 
   if (status.isExpired) {
-    return { type: 'expired', text: `Licence Expired` };
+    return { type: 'expired', text: `License Expired` };
   } else if (status.isExpiring) {
-    return { type: 'expiring', text: `Licence Expiring in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
+    return { type: 'expiring', text: `Your license is going to expire in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}` };
   }
   return null;
 };
@@ -61,8 +61,11 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [user, navigate]);
 
   const { vehicles, groups, loading, error, refetch } = useVehicles();
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+  const toggleGroupCollapse = (groupId) => setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   const [selectedVehicles, setSelectedVehicles] = useState([]);
   const [statusFilter, setStatusFilter] = useState(null);
+  const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
   const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
@@ -167,10 +170,20 @@ const TrackingPage = ({ setAppVehicles }) => {
     return selectedVehicles.map(sv => vehicles.find(v => v.id === sv.id) || sv);
   }, [vehicles, selectedVehicles]);
 
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
+
   const metrics = useMemo(() => {
     let running = 0, idle = 0, parked = 0, noData = 0, unreachable = 0;
     vehicles.forEach(v => {
-      const status = getVehicleStatus(v);
+      const status = getVehicleStatus(v, noDataThreshold);
       if (status === 'running') running++;
       else if (status === 'idle') idle++;
       else if (status === 'parked') parked++;
@@ -178,14 +191,14 @@ const TrackingPage = ({ setAppVehicles }) => {
       else noData++;
     });
     return { running, idle, parked, noData, unreachable, offline: noData, total: vehicles.length };
-  }, [vehicles]);
+  }, [vehicles, noDataThreshold]);
 
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredVehicles = useMemo(() => {
     return vehicles.filter(v => {
       if (statusFilter) {
-        const s = getVehicleStatus(v);
+        const s = getVehicleStatus(v, noDataThreshold);
         if (statusFilter === 'offline' || statusFilter === 'nodata') {
           if (s !== 'offline' && s !== 'nodata') return false;
         } else if (statusFilter === 'unreachable' || statusFilter === 'unavailable') {
@@ -202,7 +215,42 @@ const TrackingPage = ({ setAppVehicles }) => {
       }
       return true;
     });
-  }, [vehicles, statusFilter, searchQuery]);
+  }, [vehicles, statusFilter, searchQuery, noDataThreshold]);
+
+  const groupedVehicles = useMemo(() => {
+    if (!groups || groups.length === 0) return null;
+
+    const groupMap = groups.map(g => {
+      const gVehicles = filteredVehicles.filter(v =>
+        (Array.isArray(v.groups) && v.groups.some(vg => vg.id === g.id || vg.name === g.name)) ||
+        (Array.isArray(g.vehicles) && g.vehicles.some(gv => gv.id === v.id)) ||
+        (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(g.name?.trim()?.toLowerCase()))
+      );
+
+      const onlineCount = gVehicles.filter(v => v.is_online).length;
+      return {
+        group: g,
+        vehicles: gVehicles,
+        totalCount: gVehicles.length,
+        onlineCount
+      };
+    });
+
+    const assignedIds = new Set();
+    groupMap.forEach(gm => gm.vehicles.forEach(v => assignedIds.add(v.id)));
+    const unassigned = filteredVehicles.filter(v => !assignedIds.has(v.id));
+
+    if (unassigned.length > 0) {
+      groupMap.push({
+        group: { id: '__unassigned__', name: 'Other / Unassigned' },
+        vehicles: unassigned,
+        totalCount: unassigned.length,
+        onlineCount: unassigned.filter(v => v.is_online).length
+      });
+    }
+
+    return groupMap;
+  }, [groups, filteredVehicles]);
 
   const handleVehicleSelect = (vehicle, e) => {
     if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
@@ -212,6 +260,9 @@ const TrackingPage = ({ setAppVehicles }) => {
         const itemRect = e.currentTarget.getBoundingClientRect();
         setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
       }
+    }
+    if (window.innerWidth <= 768) {
+      setMobileTab('map');
     }
     const warning = getExpiryWarning(vehicle);
     if (warning && warning.type === 'expired') {
@@ -246,6 +297,107 @@ const TrackingPage = ({ setAppVehicles }) => {
 
   // getVehicleStatus imported from markerUtils
 
+  const renderVehicleCard = (v, groupKey = '') => {
+    const warning = getExpiryWarning(v);
+    const isExpired = warning && warning.type === 'expired';
+    const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
+    const statusKey = getVehicleStatus(v);
+    const statusColorsMap = { running: '#10B981', idle: '#F59E0B', parked: '#64748B', offline: '#EF4444', nodata: '#EF4444', unreachable: '#94A3B8', unavailable: '#94A3B8' };
+    const statusLabelsMap = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', nodata: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
+    const sc = isExpired ? '#DC2626' : (statusColorsMap[statusKey] || '#94A3B8');
+    const labelText = isExpired ? 'EXPIRED' : (statusLabelsMap[statusKey] || 'Unreachable');
+    const isVan = (v.name || '').toLowerCase().includes('van');
+
+    return (
+      <div
+        key={`${groupKey}-${v.id}`}
+        onClick={(e) => handleVehicleSelect(v, e)}
+        title={warning ? warning.text : undefined}
+        style={{
+          background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
+          borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
+          borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
+          padding: '12px 14px',
+          cursor: 'pointer',
+          transition: 'background 0.15s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '10px'
+        }}
+        onMouseEnter={e => {
+          setHoveredVehicleId(v.id);
+          if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
+            const container = e.currentTarget.closest('.tracking-container');
+            if (container) {
+              const containerRect = container.getBoundingClientRect();
+              const itemRect = e.currentTarget.getBoundingClientRect();
+              setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
+            }
+          }
+          if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
+          if (isExpired) e.currentTarget.style.background = '#FEE2E2';
+        }}
+        onMouseLeave={e => {
+          setHoveredVehicleId(null);
+          if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
+          if (isExpired) e.currentTarget.style.background = '#FEF2F2';
+        }}
+      >
+        {/* Vehicle Graphic */}
+        <div style={{
+          width: '38px',
+          height: '38px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          {isVan ? (
+            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+              <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill={isExpired ? '#FEE2E2' : '#F1F5F9'} stroke={isExpired ? '#DC2626' : '#64748B'} strokeWidth="2"/>
+              <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill={isExpired ? '#FCA5A5' : '#E2E8F0'} stroke={isExpired ? '#B91C1C' : '#475569'} strokeWidth="2"/>
+              <circle cx="14" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
+              <circle cx="34" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
+              <rect x="10" y="14" width="8" height="5" rx="1" fill={isExpired ? '#EF4444' : '#94A3B8'}/>
+            </svg>
+          ) : (
+            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
+              <rect x="4" y="10" width="24" height="15" rx="2" fill={isExpired ? '#DC2626' : (isSelected ? '#0EA5E9' : '#0284C7')} stroke={isExpired ? '#991B1B' : '#0369A1'} strokeWidth="1.5"/>
+              <path d="M28 13H36L42 19V25H28V13Z" fill={isExpired ? '#EF4444' : (isSelected ? '#38BDF8' : '#0EA5E9')} stroke={isExpired ? '#B91C1C' : '#0284C7'} strokeWidth="1.5"/>
+              <circle cx="12" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
+              <circle cx="34" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
+            </svg>
+          )}
+        </div>
+
+        {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.name}
+          </div>
+          <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {v.plate || v.name}
+          </div>
+          <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <span>{formatSpeed(v.current_speed, v.is_online)}</span>
+            <span>·</span>
+            <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
+          </div>
+        </div>
+
+        {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+            <span>{labelText}</span>
+          </div>
+          <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="tracking-container" style={{
       display: 'flex',
@@ -266,10 +418,12 @@ const TrackingPage = ({ setAppVehicles }) => {
             exit={{ opacity: 0, scale: 0.95, x: -10 }}
             style={{
               position: 'absolute',
-              top: `${hoverPosY}px`,
-              left: '315px',
+              top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
+              left: window.innerWidth > 768 ? '315px' : '12px',
+              right: window.innerWidth > 768 ? 'auto' : '12px',
               zIndex: 10000,
-              width: '360px',
+              width: window.innerWidth > 768 ? '360px' : 'auto',
+              maxWidth: 'calc(100vw - 24px)',
               background: '#FFFFFF',
               borderRadius: '8px',
               overflow: 'hidden',
@@ -354,10 +508,12 @@ const TrackingPage = ({ setAppVehicles }) => {
       {hoveredVehicle && (
         <div style={{
           position: 'absolute',
-          top: `${hoverPosY}px`,
-          left: '320px',
-          width: '360px',
-          background: 'rgba(241, 245, 249, 0.88)',
+          top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
+          left: window.innerWidth > 768 ? '320px' : '12px',
+          right: window.innerWidth > 768 ? 'auto' : '12px',
+          width: window.innerWidth > 768 ? '360px' : 'auto',
+          maxWidth: 'calc(100vw - 24px)',
+          background: 'rgba(241, 245, 249, 0.95)',
           backdropFilter: 'blur(10px)',
           WebkitBackdropFilter: 'blur(10px)',
           border: '1px solid rgba(203, 213, 225, 0.8)',
@@ -473,16 +629,12 @@ const TrackingPage = ({ setAppVehicles }) => {
       )}
 
       {/* ═══════════ LEFT PANEL: Vehicle List (Docked seamlessly matching Image 2) ═══════════ */}
-      <div style={{
-        width: '310px',
-        height: '100%',
-        background: '#FFFFFF',
-        borderRight: '1px solid #E2E8F0',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 10,
-        flexShrink: 0
-      }}>
+      <div
+        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[310px] ${
+          mobileTab === 'list' ? 'flex' : 'hidden md:flex'
+        }`}
+        style={{ height: '100%', position: 'relative' }}
+      >
         {/* Header Section */}
         <div style={{ padding: '14px 14px 10px 14px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
@@ -491,7 +643,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                 Fleet Vehicles
               </h2>
               <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
-                {filteredVehicles.length} vehicles
+                {filteredVehicles.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
               </div>
             </div>
             <button
@@ -543,27 +695,52 @@ const TrackingPage = ({ setAppVehicles }) => {
               const active = statusFilter === pill.key;
               const isAllPill = pill.key === null;
               return (
-                <button
-                  key={pill.key || 'all'}
-                  onClick={() => setStatusFilter(pill.key)}
-                  style={{
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    padding: '4px 10px',
-                    borderRadius: '14px',
-                    border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
-                    background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
-                    color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                  }}
-                >
-                  {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
-                  {pill.label}
-                </button>
+                <div key={pill.key || 'all'} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                  <button
+                    onClick={() => setStatusFilter(pill.key)}
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '14px',
+                      border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
+                      background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
+                      color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
+                    {pill.label}
+                  </button>
+                  {pill.key === 'offline' && (
+                    <select
+                      value={noDataThreshold}
+                      onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
+                      style={{
+                        background: '#FFFFFF',
+                        border: '1px solid #CBD5E1',
+                        color: '#0F172A',
+                        borderRadius: '10px',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                        padding: '2px 4px',
+                        cursor: 'pointer',
+                        outline: 'none',
+                      }}
+                      title="No Data Rule: Keep in last state for selected time before marking as No Data"
+                    >
+                      {NO_DATA_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -586,113 +763,118 @@ const TrackingPage = ({ setAppVehicles }) => {
                 {vehicles.length === 0 ? 'No vehicles assigned' : 'No vehicles match search'}
               </span>
             </div>
-          ) : (
-            filteredVehicles.map(v => {
-              const warning = getExpiryWarning(v);
-              const isExpired = warning && warning.type === 'expired';
-              const isSelected = currentSelectedVehicles.some(sv => sv.id === v.id);
-              const statusKey = getVehicleStatus(v);
-              const statusColorsMap = { running: '#10B981', idle: '#F59E0B', parked: '#64748B', offline: '#EF4444', nodata: '#EF4444', unreachable: '#94A3B8', unavailable: '#94A3B8' };
-              const statusLabelsMap = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', nodata: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
-              const sc = isExpired ? '#DC2626' : (statusColorsMap[statusKey] || '#94A3B8');
-              const labelText = isExpired ? 'EXPIRED' : (statusLabelsMap[statusKey] || 'Unreachable');
-              const isVan = (v.name || '').toLowerCase().includes('van');
+          ) : groupedVehicles ? (
+            groupedVehicles.map(gm => {
+              if (searchQuery.trim() && gm.vehicles.length === 0) return null;
+              const isCollapsed = !!collapsedGroups[gm.group.id];
 
               return (
-                <div
-                  key={v.id}
-                  onClick={(e) => handleVehicleSelect(v, e)}
-                  title={warning ? warning.text : undefined}
-                  style={{
-                    background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
-                    borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
-                    borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
-                    padding: '12px 14px',
-                    cursor: 'pointer',
-                    transition: 'background 0.15s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px'
-                  }}
-                  onMouseEnter={e => {
-                    setHoveredVehicleId(v.id);
-                    if (e && e.currentTarget && typeof e.currentTarget.closest === 'function') {
-                      const container = e.currentTarget.closest('.tracking-container');
-                      if (container) {
-                        const containerRect = container.getBoundingClientRect();
-                        const itemRect = e.currentTarget.getBoundingClientRect();
-                        setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
-                      }
-                    }
-                    if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
-                    if (isExpired) e.currentTarget.style.background = '#FEE2E2';
-                  }}
-                  onMouseLeave={e => {
-                    setHoveredVehicleId(null);
-                    if (!isSelected && !isExpired) e.currentTarget.style.background = '#FFFFFF';
-                    if (isExpired) e.currentTarget.style.background = '#FEF2F2';
-                  }}
-                >
-                  {/* Vehicle Graphic */}
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0
-                  }}>
-                    {isVan ? (
-                      <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                        <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill={isExpired ? '#FEE2E2' : '#F1F5F9'} stroke={isExpired ? '#DC2626' : '#64748B'} strokeWidth="2"/>
-                        <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill={isExpired ? '#FCA5A5' : '#E2E8F0'} stroke={isExpired ? '#B91C1C' : '#475569'} strokeWidth="2"/>
-                        <circle cx="14" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
-                        <circle cx="34" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
-                        <rect x="10" y="14" width="8" height="5" rx="1" fill={isExpired ? '#EF4444' : '#94A3B8'}/>
-                      </svg>
+                <div key={gm.group.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                  {/* Modern Group Header */}
+                  <div
+                    onClick={() => toggleGroupCollapse(gm.group.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '8px 14px',
+                      background: '#F8FAFC',
+                      borderTop: '1px solid #E2E8F0',
+                      borderBottom: '1px solid #E2E8F0',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      position: 'sticky',
+                      top: 0,
+                      zIndex: 5,
+                      transition: 'background 0.15s ease'
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                      <span style={{
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        color: '#0F172A',
+                        letterSpacing: '0.02em',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {gm.group.name}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        background: '#FFFFFF',
+                        border: '1px solid #E2E8F0',
+                        color: '#475569'
+                      }}>
+                        {gm.vehicles.length} {gm.vehicles.length === 1 ? 'veh' : 'vehs'}
+                      </span>
+                      {gm.onlineCount > 0 && (
+                        <span style={{
+                          fontSize: '10.5px',
+                          fontWeight: 600,
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          background: '#F0FDF4',
+                          border: '1px solid #BBF7D0',
+                          color: '#16A34A',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '3px'
+                        }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16A34A' }} />
+                          {gm.onlineCount}
+                        </span>
+                      )}
+                      {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
+                    </div>
+                  </div>
+
+                  {/* Group Vehicles List */}
+                  {!isCollapsed && (
+                    gm.vehicles.length === 0 ? (
+                      <div style={{ padding: '12px 16px', fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', background: '#FAFAFA', textAlign: 'center' }}>
+                        No vehicles match filters in this group
+                      </div>
                     ) : (
-                      <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                        <rect x="4" y="10" width="24" height="15" rx="2" fill={isExpired ? '#DC2626' : (isSelected ? '#0EA5E9' : '#0284C7')} stroke={isExpired ? '#991B1B' : '#0369A1'} strokeWidth="1.5"/>
-                        <path d="M28 13H36L42 19V25H28V13Z" fill={isExpired ? '#EF4444' : (isSelected ? '#38BDF8' : '#0EA5E9')} stroke={isExpired ? '#B91C1C' : '#0284C7'} strokeWidth="1.5"/>
-                        <circle cx="12" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
-                        <circle cx="34" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.name}
-                    </div>
-                    <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {v.plate || v.name}
-                    </div>
-                    <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <span>{formatSpeed(v.current_speed, v.is_online)}</span>
-                      <span>·</span>
-                      <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
-                    </div>
-                  </div>
-
-                  {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
-                      <span>{labelText}</span>
-                    </div>
-                    <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
-                  </div>
+                      gm.vehicles.map(v => renderVehicleCard(v, gm.group.id))
+                    )
+                  )}
                 </div>
               );
             })
+          ) : (
+            filteredVehicles.map(v => renderVehicleCard(v, 'all'))
           )}
+          {/* Mobile Floating Button to switch to Map */}
+          <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 100 }}>
+            <button
+              onClick={() => setMobileTab('map')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '9px 16px', borderRadius: '30px',
+                background: '#0284C7', color: '#FFFFFF',
+                fontSize: '12px', fontWeight: 700, border: 'none',
+                boxShadow: '0 4px 14px rgba(2,132,199,0.4)', cursor: 'pointer'
+              }}
+            >
+              <MapPin size={15} color="#FFFFFF" />
+              <span>View Map</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ═══════════ MAP AREA (Full remaining width) ═══════════ */}
-      <div style={{ flex: 1, height: '100%', position: 'relative', background: '#e5e7eb' }}>
+      <div className={`flex-1 h-full relative bg-slate-200 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
         <FleetMap
           vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehicles] : currentSelectedVehicles) : filteredVehicles}
           selectedVehicles={currentSelectedVehicles}
@@ -705,10 +887,27 @@ const TrackingPage = ({ setAppVehicles }) => {
           liveRouteMetrics={liveRouteMetrics}
         />
 
+        {/* Mobile Floating Button to switch back to List */}
+        <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>
+          <button
+            onClick={() => setMobileTab('list')}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              padding: '9px 16px', borderRadius: '30px',
+              background: '#0F172A', color: '#FFFFFF',
+              fontSize: '12px', fontWeight: 700, border: 'none',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.35)', cursor: 'pointer'
+            }}
+          >
+            <Truck size={15} color="#38BDF8" />
+            <span>Vehicles ({filteredVehicles.length})</span>
+          </button>
+        </div>
+
         {/* ── Floating Status Pills (top-right of map) ── */}
         <div style={{
           position: 'absolute', top: '12px', right: '12px', zIndex: 1000,
-          display: 'flex', gap: '6px', flexWrap: 'wrap'
+          display: 'flex', gap: '6px', maxWidth: 'calc(100vw - 24px)', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '2px'
         }}>
           {[
             { type: 'running', label: 'Running', count: metrics.running, color: '#10b981' },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { formatLocalTime } from '../../utils/dateUtils';
+import { formatLocalTime, getTodayReportRange } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Download, Search, Loader2, Map, Filter, FileText, Truck, Calendar } from 'lucide-react';
 import { tripApi } from '../../api/tripApi';
@@ -39,10 +39,13 @@ const ManualTripsReportPage = () => {
 
   // Filters
   const [vehicles, setVehicles] = useState([]);
-  const [filters, setFilters] = useState({
-    vehicleId: '',
-    startDate: new Date(new Date().setHours(0, 0, 0, 0)).toISOString().slice(0, 16),
-    endDate: new Date(new Date().setHours(23, 59, 59, 999)).toISOString().slice(0, 16)
+  const [filters, setFilters] = useState(() => {
+    const range = getTodayReportRange();
+    return {
+      vehicleId: '',
+      startDate: range.startDate,
+      endDate: range.endDate
+    };
   });
 
   useEffect(() => {

@@ -11,7 +11,7 @@ import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
-import { getVehicleStatus } from '../../utils/markerUtils';
+import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 
 /* Modern Stat Card with Top Color Accent */
 const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
@@ -241,6 +241,15 @@ const DashboardPage = ({ setAppVehicles }) => {
   const [quota, setQuota] = useState(null);
   const [apiStats, setApiStats] = useState(null);
   const isDealer = user?.role === 'dealer';
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
 
   // Customer role gets the map-based fleet dashboard
   if (user?.role === 'customer') {
@@ -314,7 +323,7 @@ const DashboardPage = ({ setAppVehicles }) => {
       let offline = 0;
 
       vehList.forEach(v => {
-        const status = getVehicleStatus(v);
+        const status = getVehicleStatus(v, noDataThreshold);
         if (status === 'running') {
           moving++;
           online++;
@@ -323,8 +332,7 @@ const DashboardPage = ({ setAppVehicles }) => {
           online++;
         } else if (status === 'parked') {
           parked++;
-          if (v.is_online) online++;
-          else offline++;
+          online++;
         } else {
           offline++;
         }
@@ -375,7 +383,7 @@ const DashboardPage = ({ setAppVehicles }) => {
       voltyStats: volty,
       otherDeviceCards: otherCards
     };
-  }, [vehicles, apiStats]);
+  }, [vehicles, apiStats, noDataThreshold]);
 
   const getTierStats = (type) => {
     if (isDealer && quota) {
@@ -412,14 +420,11 @@ const DashboardPage = ({ setAppVehicles }) => {
   const advancedStats = getTierStats('Advanced');
   const premiumStats = getTierStats('Premium');
 
-  // Compute expiring licenses within 30 days
-  const thirtyDaysFromNow = new Date();
-  thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-
+  // Compute expiring/expired licenses within threshold (7 days / 1 week alert window)
   const expiringVehicles = vehicles.filter(v => {
     if (!v.licence_expire_date) return false;
-    const expireDate = new Date(v.licence_expire_date);
-    return expireDate <= thirtyDaysFromNow;
+    const status = getVehicleExpiryStatus(v.licence_expire_date, v.licence_issued_date, v.metadata);
+    return status.isExpiring || status.isExpired;
   }).sort((a, b) => new Date(a.licence_expire_date) - new Date(b.licence_expire_date));
 
   return (
@@ -582,9 +587,9 @@ const DashboardPage = ({ setAppVehicles }) => {
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-auto w-full">
             {expiringVehicles.length > 0 ? (
-              <table className="w-full text-left border-collapse">
+              <table className="w-full min-w-[680px] text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 z-1">
                   <tr className="text-[11.5px] font-[700] text-slate-500 uppercase tracking-wider">
                     <th className="py-3 px-4">Vehicle Name</th>
@@ -592,6 +597,7 @@ const DashboardPage = ({ setAppVehicles }) => {
                     <th className="py-3 px-4">Customer Name</th>
                     <th className="py-3 px-4">Mobile Number</th>
                     <th className="py-3 px-4">Expiry Date</th>
+                    <th className="py-3 px-4">Renewal Price</th>
                     <th className="py-3 px-4">Status</th>
                   </tr>
                 </thead>
@@ -609,6 +615,26 @@ const DashboardPage = ({ setAppVehicles }) => {
                         <td className="py-3 px-4 text-[13px] text-slate-800 font-[500]">{customerName}</td>
                         <td className="py-3 px-4 text-[13px] text-slate-600 font-mono">{mobileNumber}</td>
                         <td className="py-3 px-4 text-[13px] text-slate-600">{formatLocalDate(v.licence_expire_date)}</td>
+                        <td className="py-3 px-4 text-[13px] font-[700]">
+                          {(() => {
+                            const ren = v.metadata?.renewal_price;
+                            const disc = v.metadata?.discount_price;
+                            if (disc && ren && parseFloat(disc) < parseFloat(ren)) {
+                              return (
+                                <div className="flex flex-col">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="text-[11px] line-through text-slate-400">₹{parseFloat(ren).toFixed(2)}</span>
+                                    <span className="text-[13px] font-extrabold text-emerald-600">₹{parseFloat(disc).toFixed(2)}</span>
+                                  </div>
+                                  <span className="text-[10px] text-emerald-600 font-bold">Save ₹{(parseFloat(ren) - parseFloat(disc)).toFixed(2)}</span>
+                                </div>
+                              );
+                            } else if (ren) {
+                              return <span className="text-slate-800">₹{parseFloat(ren).toFixed(2)}</span>;
+                            }
+                            return <span className="text-slate-400 font-normal">—</span>;
+                          })()}
+                        </td>
                         <td className="py-3 px-4">
                           <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-[700] ${isExpired ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                             {status.text}

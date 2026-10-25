@@ -1130,3 +1130,147 @@ option {
   margin-top: -12px;
   font-size: 18px !important;
 }
+
+/* ============================================================
+   FUELTRACKS BRAND THEME - ZERO BLUE, STRICT ORANGE SELECTION
+   ============================================================ */
+:root {
+  accent-color: #f97316 !important;
+}
+
+::selection {
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+::-moz-selection {
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+/* Global select styling overrides for any native select */
+select {
+  accent-color: #f97316 !important;
+  color-scheme: light;
+}
+
+select:focus,
+select:focus-visible {
+  border-color: #f97316 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.22) !important;
+}
+
+select option:checked {
+  background: #f97316 linear-gradient(0deg, #f97316 0%, #f97316 100%) !important;
+  background-color: #f97316 !important;
+  color: #ffffff !important;
+}
+
+select option:hover,
+select option:focus {
+  background: #fff7ed !important;
+  background-color: #fff7ed !important;
+  color: #ea580c !important;
+}
+
+/* ============================================================
+   GLOBAL MOBILE RESPONSIVENESS & TOUCH OPTIMIZATION
+   ============================================================ */
+
+/* Touch-friendly momentum scrolling */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.overflow-x-auto,
+[style*="overflow-x: auto"],
+[style*="overflowX: auto"],
+[style*="overflow-x:auto"],
+[style*="overflowX:auto"] {
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior-x: contain;
+}
+
+@media (max-width: 768px) {
+  /* Page Containers: Reduce rigid desktop 32px padding on mobile */
+  .pastel-page-bg,
+  [style*="padding: 32px"],
+  [style*="padding: 28px 32px"],
+  [style*="padding: 24px 32px"],
+  [style*="padding: 20px"],
+  [style*="padding: 24px"] {
+    padding: 12px 10px !important;
+  }
+
+  /* Universal Modal Containment on Mobile Viewports */
+  .modal-box,
+  .modal-dialog,
+  div[role="dialog"] {
+    width: calc(100vw - 20px) !important;
+    max-width: calc(100vw - 20px) !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+    margin: 8px !important;
+  }
+
+  /* Modal overlays */
+  .modal-overlay {
+    padding: 10px !important;
+  }
+
+  /* Tables: Ensure table containers never blow out viewport width */
+  table {
+    max-width: 100%;
+  }
+
+  .pastel-table th,
+  .pastel-table td {
+    padding: 10px 12px !important;
+    font-size: 12px !important;
+  }
+
+  /* Form and search filters */
+  .filter-card,
+  [style*="display: grid"][style*="gridTemplateColumns"] {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  /* Headers and typography scaling */
+  h1 {
+    font-size: 1.25rem !important;
+    line-height: 1.2 !important;
+  }
+
+  h2 {
+    font-size: 1.1rem !important;
+  }
+
+  /* Tab bars with smooth touch scroll */
+  .tab-bar,
+  [role="tablist"] {
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none;
+  }
+
+  .tab-bar::-webkit-scrollbar,
+  [role="tablist"]::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  /* Extra narrow screens (320px - 480px) */
+  .pastel-page-bg {
+    padding: 8px 6px !important;
+  }
+
+  /* KPI Stat Cards: 1 column on tiny screens if 2 columns is too tight */
+  .stat-grid-mobile {
+    grid-template-columns: 1fr !important;
+  }
+}
+

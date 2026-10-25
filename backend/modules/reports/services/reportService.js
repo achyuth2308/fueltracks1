@@ -113,6 +113,28 @@ class ReportService {
     return allTrips.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
 
+  async getDailyTripReport(filters, startDate, endDate) {
+    const vehicleIds = await this.resolveVehicles(filters);
+    const vehicleDetails = await this.getVehicleDetails(vehicleIds);
+
+    let allDailyTrips = [];
+    for (const vId of vehicleIds) {
+      const dailyTrips = await reportRepository.getDailyTrips(vId, startDate, endDate);
+      const vInfo = vehicleDetails[vId] || {};
+      dailyTrips.forEach(dt => {
+        allDailyTrips.push({
+          ...dt,
+          vehicle_id: vId,
+          vehicle_name: vInfo.name,
+          plate: vInfo.plate,
+          org_name: vInfo.org_name
+        });
+      });
+    }
+    // Sort overall by date DESC
+    return allDailyTrips.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }
+
   async getDailyDistanceReport(filters, startDate, endDate) {
     const vehicleIds = await this.resolveVehicles(filters);
     const vehicleDetails = await this.getVehicleDetails(vehicleIds);

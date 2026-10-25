@@ -5,7 +5,7 @@ import {
   Search, RefreshCw, AlertCircle, Loader2, MapPin,
   CheckCircle2, PlayCircle, PauseCircle, StopCircle,
   AlertOctagon, Navigation, RefreshCcw, Gauge, Users, UserCircle,
-  Building, Calendar, Wifi, WifiOff, Clock, AlertTriangle, Filter, MoreVertical
+  Building, Calendar, Wifi, WifiOff, Clock, AlertTriangle, Filter, MoreVertical, Shield, Fuel
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -19,13 +19,16 @@ const formatDateTime = (isoString) => {
 };
 
 const REPORT_TABS = [
+  { title: "Full Day Trips (Consolidated)", path: "/admin/reports/daily-trip", icon: Route, color: "#10B981", bg: "#ECFDF5" },
   { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
+  { title: "Vehicle Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
+  { title: "Fuel Consolidated", path: "/admin/reports/fuel-consolidated", icon: Fuel, color: "#EA580C", bg: "#FFF7ED" },
+  { title: "Geofence Transit", path: "/admin/reports/geofence-transit", icon: Shield, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
   { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
   { title: "Idle", path: "/admin/reports/idle", icon: Clock, color: "#D97706", bg: "#FEF3C7" },
-  { title: "Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
   { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
   { title: "Manual Trips", path: "/admin/reports/manual-trips", icon: Route, color: "#7C3AED", bg: "#EDE9FE" },
 ];
@@ -116,14 +119,14 @@ const ReportsAdminPage = () => {
   return (
     <div style={{ padding: '0', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 32px' }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports/dashboard')}>Fleet Dashboard</button>
         <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/trip')}>Analytics & Reports</button>
       </div>
 
       {activeTab === 'other-reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div style={{ display: 'flex', gap: '10px', padding: '16px 32px', background: '#FFFFFF', borderBottom: '1px solid #BAE6FD', overflowX: 'auto', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #BAE6FD', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
             {REPORT_TABS.map(tab => {
               const isActive = location.pathname.startsWith(tab.path);
               const Icon = tab.icon;
@@ -132,29 +135,29 @@ const ReportsAdminPage = () => {
                   key={tab.path}
                   onClick={() => navigate(tab.path)}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '9px 16px',
+                    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
                     background: isActive ? tab.color : tab.bg,
                     color: isActive ? '#FFFFFF' : tab.color,
                     border: `1.5px solid ${tab.color}`,
-                    borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '13px',
+                    borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
                     boxShadow: isActive ? `0 4px 12px ${tab.color}44` : 'none',
-                    transition: 'all 0.2s ease', whiteSpace: 'nowrap'
+                    transition: 'all 0.2s ease', whiteSpace: 'nowrap', flexShrink: 0
                   }}
                 >
-                  <Icon size={17} color={isActive ? '#FFFFFF' : tab.color} />
+                  <Icon size={15} color={isActive ? '#FFFFFF' : tab.color} />
                   {tab.title}
                 </button>
               )
             })}
           </div>
-          <div style={{ flex: 1, overflow: 'auto', padding: '16px 20px', background: '#F8FAFC' }}>
+          <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px', background: '#F8FAFC' }}>
             <Outlet />
           </div>
         </div>
       )}
 
       {activeTab === 'dashboard' && (
-        <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+        <div className="pastel-page-bg" style={{ padding: '32px', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
 
           {/* Header & Meta Row */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>

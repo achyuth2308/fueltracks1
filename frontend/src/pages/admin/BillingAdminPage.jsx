@@ -197,7 +197,7 @@ const BillingAdminPage = () => {
                     {[
                       'Licence ID', 'Vehicle ID', 'Vehicle Name',
                       'Device IMEI', 'Organization', 'Licence Issued', 'Licence Expiry',
-                      'Plan Duration', 'Renewal Price', 'Status', 'Action'
+                      'Plan Duration', 'Renewal Price', 'Discount Price', 'Status', 'Action'
                     ].map(h => (
                       <th key={h} style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                         {h}
@@ -208,7 +208,7 @@ const BillingAdminPage = () => {
                 <tbody>
                   {filteredLicenses.length === 0 ? (
                     <tr>
-                      <td colSpan="11" style={{ padding: '80px', textAlign: 'center' }}>
+                      <td colSpan="12" style={{ padding: '80px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
                           <CalendarX2 size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
                           <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No vehicle licenses found</div>
@@ -218,7 +218,11 @@ const BillingAdminPage = () => {
                   ) : filteredLicenses.map((l, index) => {
                     const isExp = l.status === 'Expired';
                     const isExpiring = l.status === 'Expiring';
-                    const planLabel = l.durationMonths >= 6 ? '1 Year Plan (30-day alert)' : '1 Month Plan (7-day alert)';
+                    const planLabel = l.durationMonths === 12
+                      ? `1 Year Plan (${l.thresholdDays || 7}d alert)`
+                      : (l.durationMonths === 1
+                        ? `1 Month Plan (${l.thresholdDays || 7}d alert)`
+                        : `${l.durationMonths} Mo Plan (${l.thresholdDays || 7}d alert)`);
 
                     return (
                       <tr
@@ -244,6 +248,20 @@ const BillingAdminPage = () => {
                         </td>
                         <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
                           {l.renewalPrice !== null && l.renewalPrice !== undefined ? `₹${parseFloat(l.renewalPrice).toFixed(2)}` : <span style={{ color: '#94A3B8', fontSize: '12px' }}>Not Set</span>}
+                        </td>
+                        <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#059669' }}>
+                          {l.discountPrice !== null && l.discountPrice !== undefined ? (
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span>₹{parseFloat(l.discountPrice).toFixed(2)}</span>
+                              {l.renewalPrice && parseFloat(l.renewalPrice) > parseFloat(l.discountPrice) && (
+                                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
+                                  Save ₹{(parseFloat(l.renewalPrice) - parseFloat(l.discountPrice)).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 500 }}>—</span>
+                          )}
                         </td>
                         <td style={{ padding: '16px 20px' }}>
                           <span
