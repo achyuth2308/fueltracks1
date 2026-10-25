@@ -1594,6 +1594,7 @@ function startFmb920Server(port) {
             sock.write(parseResult.response);
           }
 
+          const rawHex = dataBuffer.subarray(0, parseResult.bytesConsumed).toString('hex').toUpperCase();
           dataBuffer = dataBuffer.subarray(parseResult.bytesConsumed);
           totalPacketsParsed++;
 
@@ -1643,6 +1644,26 @@ function startFmb920Server(port) {
             };
 
             await publisher.publishLocation(payload).catch(() => {});
+
+            // Publish raw packet for Sensor Data & Admin Terminal UI
+            publisher.publishRawMessage({
+              imei: sessionImei,
+              packetType: 'FMB920',
+              rawHex,
+              rawString: rawHex,
+              lat,
+              lng,
+              speed,
+              ignition,
+              fuel: fuel1,
+              fuel2,
+              voltage: extVolt,
+              battery: batteryVolt,
+              odometer,
+              satellites: record.satellites,
+              deviceTime: record.timestamp.toISOString(),
+              parsed: true
+            }).catch(() => {});
 
             // Optional: Handle event IO (Panic button, etc.)
             // If eventIoId is not 0, it means an event triggered this record.

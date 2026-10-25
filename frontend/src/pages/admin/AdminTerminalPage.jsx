@@ -34,7 +34,7 @@ function getTodayString() {
 }
 
 function extractFields(m) {
-  // Parse parsed_data if string
+  // Parse parsed_data if string, or fallback to raw if raw is JSON string
   let p = {};
   if (m.parsed_data) {
     if (typeof m.parsed_data === 'string') {
@@ -42,6 +42,8 @@ function extractFields(m) {
     } else if (typeof m.parsed_data === 'object') {
       p = m.parsed_data;
     }
+  } else if (typeof m.raw === 'string' && m.raw.trim().startsWith('{')) {
+    try { p = JSON.parse(m.raw); } catch (e) { p = {}; }
   }
 
   // lat/lng: prefer DB-computed columns, fallback to parsed_data
