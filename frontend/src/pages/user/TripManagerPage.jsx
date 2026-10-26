@@ -265,8 +265,8 @@ export default function TripManagerPage() {
 
     let stopCounter = 1;
     stoppages.forEach(s => {
-      // Only include actual stops / parkings (duration >= 60s)
-      if (s.duration_seconds >= 60) {
+      // Only include actual stops / parkings (duration >= 60s and not Moving)
+      if (s.duration_seconds >= 60 && s.status !== 'Moving') {
         events.push({
           type: 'stop',
           index: stopCounter++,
@@ -301,7 +301,7 @@ export default function TripManagerPage() {
     });
 
     stoppages.forEach(s => {
-      if (s.duration_seconds >= 60) {
+      if (s.duration_seconds >= 60 && s.status !== 'Moving') {
         stopCount++;
         totalStopSec += (parseFloat(s.duration_seconds) || 0);
       }
@@ -1203,7 +1203,7 @@ export default function TripManagerPage() {
           )}
 
           {/* Stop Pins on Map */}
-          {stoppages.map((s, idx) => {
+          {stoppages.filter(s => s.status !== 'Moving' && s.duration_seconds >= 60).map((s, idx) => {
             if (!s.lat || !s.lng) return null;
             return (
               <Marker
