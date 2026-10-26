@@ -423,7 +423,7 @@ class ReportRepository {
    *         end_lat/end_lng (last GPS point) so the mobile app can
    *         reverse-geocode the From/To locations.
    */
-  async getConsolidatedActivity(orgId, role, userId, startDate, endDate) {
+  async getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId) {
     let vehicleFilter = '($1::uuid IS NULL OR v.org_id = $1) AND v.is_active = TRUE';
     const params = [orgId || null, startDate, endDate];
 
@@ -435,6 +435,11 @@ class ReportRepository {
         JOIN user_groups ug ON vg.group_id = ug.group_id
         WHERE ug.user_id = $1
       )`;
+    }
+
+    if (vehicleId) {
+      params.push(vehicleId);
+      vehicleFilter += ` AND v.id = ${params.length}`;
     }
 
     const query = `
@@ -468,6 +473,8 @@ class ReportRepository {
               SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
               SUM(CASE WHEN t.ignition = true THEN t.duration_seconds ELSE 0 END)                         AS engine_on_seconds,
               ROUND(SUM(CASE WHEN t.speed > 0 THEN t.segment_km ELSE 0 END)::numeric, 2)                  AS distance_travelled,
+              COALESCE(MAX(t.speed), 0)                                                                   AS max_speed,
+              COALESCE(ROUND(AVG(NULLIF(t.speed, 0))::numeric, 1), 0)                                     AS avg_speed,
               
               -- First/last fuel and locations
               (ARRAY_AGG(t.fuel ORDER BY t.device_time ASC) FILTER (WHERE t.fuel IS NOT NULL))[1]        AS start_fuel,
@@ -492,6 +499,8 @@ class ReportRepository {
           COALESCE(a.stopped_seconds, 0) AS stopped_seconds,
           COALESCE(a.engine_on_seconds, 0) AS engine_on_seconds,
           COALESCE(a.distance_travelled, 0) AS distance_travelled,
+          COALESCE(a.max_speed, 0) AS max_speed,
+          COALESCE(a.avg_speed, 0) AS avg_speed,
           a.start_fuel,
           a.end_fuel,
           a.start_lat,
@@ -522,6 +531,85 @@ class ReportRepository {
     `;
     const res = await db.query(query, params);
     return res.rows;
+  }
+
+  /**
+   * Activity Timeline Intervals (Parked, Idle, Moving) for Consolidated Report
+   */
+  async getVehicleIntervals(vehicleIds, startDate, endDate) {
+    if (!vehicleIds || vehicleIds.length === 0) return {};
+
+    const query = `
+      WITH raw AS (
+          SELECT
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
+              LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
+              LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
+              CASE
+                WHEN COALESCE(g.speed, 0) > 2 THEN 'Moving'
+                WHEN COALESCE(g.speed, 0) <= 2 AND g.ignition = true THEN 'Idle'
+                ELSE 'Parked'
+              END AS status
+          FROM gps_points g
+          WHERE g.vehicle_id = ANY($1::uuid[])
+            AND g.device_time BETWEEN $2 AND $3
+      ),
+      with_dist AS (
+          SELECT *,
+              ${HAVERSINE_SEGMENT_KM} AS segment_km
+          FROM raw
+      ),
+      state_changes AS (
+          SELECT *,
+              CASE WHEN status != LAG(status) OVER (PARTITION BY vehicle_id ORDER BY device_time)
+                        OR LAG(status) OVER (PARTITION BY vehicle_id ORDER BY device_time) IS NULL
+              THEN 1 ELSE 0 END AS is_change
+          FROM with_dist
+      ),
+      islands AS (
+          SELECT *, SUM(is_change) OVER (PARTITION BY vehicle_id ORDER BY device_time) AS interval_id
+          FROM state_changes
+      )
+      SELECT
+          vehicle_id,
+          status,
+          MIN(device_time)                                           AS start_time,
+          MAX(device_time)                                           AS end_time,
+          (ARRAY_AGG(lat ORDER BY device_time ASC) FILTER (WHERE lat IS NOT NULL))[1] AS lat,
+          (ARRAY_AGG(lng ORDER BY device_time ASC) FILTER (WHERE lng IS NOT NULL))[1] AS lng,
+          ROUND(SUM(segment_km)::numeric, 2)                         AS distance,
+          COALESCE(MAX(speed), 0)                                    AS max_speed,
+          COALESCE(ROUND(AVG(NULLIF(speed, 0))::numeric, 1), 0)     AS avg_speed,
+          ROUND(EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time)))) AS duration_seconds
+      FROM islands
+      GROUP BY vehicle_id, interval_id, status
+      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) >= 30
+      ORDER BY vehicle_id, start_time;
+    `;
+
+    try {
+      const res = await db.query(query, [vehicleIds, startDate, endDate]);
+      const map = {};
+      for (const row of res.rows) {
+        if (!map[row.vehicle_id]) map[row.vehicle_id] = [];
+        map[row.vehicle_id].push({
+          status: row.status,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          duration_seconds: parseFloat(row.duration_seconds) || 0,
+          distance: parseFloat(row.distance) || 0,
+          max_speed: parseFloat(row.max_speed) || 0,
+          avg_speed: parseFloat(row.avg_speed) || 0,
+          lat: row.lat,
+          lng: row.lng
+        });
+      }
+      return map;
+    } catch (err) {
+      console.error('[REPORT_REPO] getVehicleIntervals error:', err.message);
+      return {};
+    }
   }
 }
 

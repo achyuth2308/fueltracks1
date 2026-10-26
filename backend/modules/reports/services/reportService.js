@@ -281,9 +281,17 @@ class ReportService {
     return allStoppages.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
 
-  async getConsolidatedReport(orgId, role, userId, startDate, endDate) {
-    const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate);
-    return data;
+  async getConsolidatedReport(orgId, role, userId, startDate, endDate, vehicleId) {
+    const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId);
+    if (!data || data.length === 0) return [];
+
+    const vehicleIds = data.map(d => d.vehicle_id);
+    const intervalsMap = await reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate);
+
+    return data.map(v => ({
+      ...v,
+      intervals: intervalsMap[v.vehicle_id] || []
+    }));
   }
 
   async getIndividualReport(vehicleId, startDate, endDate) {
