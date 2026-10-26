@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import CustomDatePicker from '../../components/ui/CustomDatePicker';
+import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
+import TelematicsTimePicker, { to12Hour } from '../../components/ui/TelematicsTimePicker';
 import {
-  FileSpreadsheet, FileText, Search, Loader2, Calendar
+  FileSpreadsheet, FileText, Search, Loader2, Calendar, Info
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
@@ -35,13 +36,8 @@ const formatBannerDateTime = (dateStr, timeStr) => {
   if (!dateStr) return '';
   const [y, m, d] = dateStr.split('-');
   const formattedDate = (y && m && d) ? `${d}-${m}-${y}` : dateStr;
-
-  if (!timeStr) return formattedDate;
-  const [hr, min] = timeStr.split(':');
-  const h = parseInt(hr, 10);
-  const ampm = h >= 12 ? 'PM' : 'AM';
-  const displayH = h === 0 ? 12 : (h > 12 ? h - 12 : h);
-  return `${String(displayH).padStart(2, '0')}:${min || '00'} ${ampm} ${formattedDate}`;
+  const time12 = to12Hour(timeStr);
+  return `${time12} ${formattedDate}`;
 };
 
 const getYesterdayString = () => {
@@ -169,7 +165,7 @@ const ConsolidatedReportPage = () => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A', padding: '16px' }}>
 
-      {/* Top Filter Bar */}
+      {/* Top Filter Bar Matching Telematics Header Exactly */}
       <div style={{
         background: '#FFFFFF',
         borderRadius: '6px',
@@ -178,13 +174,46 @@ const ConsolidatedReportPage = () => {
         marginBottom: '16px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
+        flexDirection: 'column',
         gap: '12px'
       }}>
-        {/* Vehicle Selector */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '180px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Vehicle</label>
+        {/* Title row with Yesterday button */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
+              Consolidated Report
+            </h3>
+            <Info size={16} color="#0284C7" style={{ cursor: 'pointer' }} />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSetYesterday}
+            style={{
+              padding: '6px 14px',
+              borderRadius: '4px',
+              border: 'none',
+              background: '#0284C7',
+              color: '#FFFFFF',
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)'
+            }}
+            title="Set date range to Yesterday full 24h"
+          >
+            Yesterday
+          </button>
+        </div>
+
+        {/* Filters Row: Vehicle | From Date | From Time | To Date | To Time | Submit | Export */}
+        <div style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: '10px'
+        }}>
+          {/* Vehicle Dropdown */}
           <select
             value={filters.vehicleId}
             onChange={e => setFilters(prev => ({ ...prev, vehicleId: e.target.value }))}
@@ -195,8 +224,9 @@ const ConsolidatedReportPage = () => {
               background: '#FFFFFF',
               color: '#0F172A',
               fontSize: '13px',
-              fontWeight: 600,
-              outline: 'none'
+              fontWeight: 500,
+              outline: 'none',
+              minWidth: '160px'
             }}
           >
             <option value="">All Vehicles</option>
@@ -206,156 +236,101 @@ const ConsolidatedReportPage = () => {
               </option>
             ))}
           </select>
-        </div>
 
-        {/* Start Date & Time */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>From</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: '135px' }}>
-              <CustomDatePicker
-                value={filters.startDate}
-                onChange={e => setFilters(prev => ({ ...prev, startDate: e?.target ? e.target.value : e }))}
-              />
-            </div>
-            <input
-              type="time"
-              value={filters.startTime}
-              onChange={e => setFilters(prev => ({ ...prev, startTime: e.target.value }))}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '4px',
-                border: '1px solid #CBD5E1',
-                background: '#FAFAFA',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#0F172A',
-                outline: 'none'
-              }}
-            />
-          </div>
-        </div>
+          {/* From Date: DD-MM-YYYY */}
+          <TelematicsDatePicker
+            value={filters.startDate}
+            onChange={(isoDate) => setFilters(prev => ({ ...prev, startDate: isoDate }))}
+          />
 
-        {/* End Date & Time */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>To</label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: '135px' }}>
-              <CustomDatePicker
-                value={filters.endDate}
-                onChange={e => setFilters(prev => ({ ...prev, endDate: e?.target ? e.target.value : e }))}
-              />
-            </div>
-            <input
-              type="time"
-              value={filters.endTime}
-              onChange={e => setFilters(prev => ({ ...prev, endTime: e.target.value }))}
-              style={{
-                padding: '6px 8px',
-                borderRadius: '4px',
-                border: '1px solid #CBD5E1',
-                background: '#FAFAFA',
-                fontSize: '13px',
-                fontWeight: 600,
-                color: '#0F172A',
-                outline: 'none'
-              }}
-            />
-          </div>
-        </div>
+          {/* From Time: 12:00 AM */}
+          <TelematicsTimePicker
+            value={filters.startTime}
+            onChange={(time24) => setFilters(prev => ({ ...prev, startTime: time24 }))}
+          />
 
-        {/* Quick "Yesterday" Button */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '16px' }}>
-          <button
-            type="button"
-            onClick={handleSetYesterday}
-            style={{
-              padding: '7px 12px',
-              borderRadius: '4px',
-              border: '1px solid #0284C7',
-              background: '#F0F9FF',
-              color: '#0284C7',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer'
-            }}
-            title="Set date range to Yesterday full 24h"
-          >
-            Yesterday
-          </button>
-        </div>
+          {/* To Date: DD-MM-YYYY */}
+          <TelematicsDatePicker
+            value={filters.endDate}
+            onChange={(isoDate) => setFilters(prev => ({ ...prev, endDate: isoDate }))}
+          />
 
-        {/* Submit / Generate Button */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '16px' }}>
+          {/* To Time: 11:59 PM */}
+          <TelematicsTimePicker
+            value={filters.endTime}
+            onChange={(time24) => setFilters(prev => ({ ...prev, endTime: time24 }))}
+          />
+
+          {/* Submit Button */}
           <button
             type="button"
             onClick={() => handleFetchReport()}
             disabled={loading}
             style={{
+              padding: '6px 14px',
+              borderRadius: '4px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: loading ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              padding: '7px 16px',
-              borderRadius: '4px',
-              border: 'none',
-              background: '#0284C7',
-              color: '#FFFFFF',
-              fontSize: '13px',
-              fontWeight: 700,
-              cursor: loading ? 'wait' : 'pointer'
+              gap: '6px'
             }}
           >
-            {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+            {loading ? <Loader2 size={13} className="animate-spin" /> : null}
             Submit
           </button>
-        </div>
 
-        {/* Export Buttons */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginLeft: 'auto', paddingTop: '16px' }}>
-          <button
-            type="button"
-            onClick={() => exportToExcel(getExportData(), 'Consolidated_Report')}
-            disabled={data.length === 0}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              border: 'none',
-              background: data.length === 0 ? '#E2E8F0' : '#10B981',
-              color: '#FFFFFF',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: data.length === 0 ? 'not-allowed' : 'pointer'
-            }}
-            title="Export to Excel"
-          >
-            <FileSpreadsheet size={14} />
-            Excel
-          </button>
-          <button
-            type="button"
-            onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), 'Consolidated_Report')}
-            disabled={data.length === 0}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 12px',
-              borderRadius: '4px',
-              border: 'none',
-              background: data.length === 0 ? '#E2E8F0' : '#EF4444',
-              color: '#FFFFFF',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: data.length === 0 ? 'not-allowed' : 'pointer'
-            }}
-            title="Export to PDF"
-          >
-            <FileText size={14} />
-            PDF
-          </button>
+          {/* Export Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+            <button
+              type="button"
+              onClick={() => exportToExcel(getExportData(), 'Consolidated_Report')}
+              disabled={data.length === 0}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                background: data.length === 0 ? '#E2E8F0' : '#10B981',
+                color: '#FFFFFF',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: data.length === 0 ? 'not-allowed' : 'pointer'
+              }}
+              title="Export to Excel"
+            >
+              <FileSpreadsheet size={14} />
+              Excel
+            </button>
+            <button
+              type="button"
+              onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), 'Consolidated_Report')}
+              disabled={data.length === 0}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '6px 12px',
+                borderRadius: '4px',
+                border: 'none',
+                background: data.length === 0 ? '#E2E8F0' : '#EF4444',
+                color: '#FFFFFF',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: data.length === 0 ? 'not-allowed' : 'pointer'
+              }}
+              title="Export to PDF"
+            >
+              <FileText size={14} />
+              PDF
+            </button>
+          </div>
         </div>
       </div>
 
