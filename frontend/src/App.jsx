@@ -138,7 +138,7 @@ function App() {
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="routes" element={<RoutesAdminPage />} />
+                  <Route path="routes" element={<Navigate to="/dashboard" replace />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
                     <Route index element={<Navigate to="daily-trip" replace />} />
                     <Route path="dashboard" element={null} />

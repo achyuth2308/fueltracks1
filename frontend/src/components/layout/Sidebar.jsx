@@ -74,7 +74,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
-        { name: 'Routes', path: '/admin/routes', icon: Navigation, roles: ['customer'] },
         { name: 'Reports', path: '/admin/reports/daily-trip', icon: FileText, roles: ['customer'] },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
