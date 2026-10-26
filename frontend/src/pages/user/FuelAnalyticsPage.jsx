@@ -129,10 +129,12 @@ export default function FuelAnalyticsPage() {
   const [historyPoints, setHistoryPoints] = useState([]);
   const [error, setError] = useState(null);
 
-  // Chart view toggles
-  const [showFuel, setShowFuel] = useState(true);
-  const [showSpeed, setShowSpeed] = useState(true);
-  const [showDistance, setShowDistance] = useState(true);
+  // Chart view toggles (5-Layer Telematics Architecture matching reference)
+  const [showAllFuel, setShowAllFuel] = useState(false);
+  const [showFilteredFuel, setShowFilteredFuel] = useState(true);
+  const [showNormalize, setShowNormalize] = useState(true);
+  const [showEngine, setShowEngine] = useState(true);
+  const [showSpeed, setShowSpeed] = useState(false);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -370,6 +372,102 @@ export default function FuelAnalyticsPage() {
     // Sort chronologically
     const sorted = [...historyPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
 
+    // 1. First pass: extract calibrated raw sensor fuel and motion states
+    const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
+
+    // 2. Anti-Slosh Moving Median Filter (Window 5) + Exponential Smoothing (EMA) -> "Filtered Fuel Data"
+    const filteredFuels = new Array(sorted.length).fill(null);
+    let lastEma = null;
+    for (let i = 0; i < sorted.length; i++) {
+      const windowVals = [];
+      for (let w = Math.max(0, i - 2); w <= Math.min(sorted.length - 1, i + 2); w++) {
+        if (rawFuels[w] != null) windowVals.push(rawFuels[w]);
+      }
+      if (windowVals.length > 0) {
+        windowVals.sort((a, b) => a - b);
+        const median = windowVals[Math.floor(windowVals.length / 2)];
+        if (lastEma == null) {
+          lastEma = median;
+        } else {
+          lastEma = (0.25 * median) + (0.75 * lastEma);
+        }
+        filteredFuels[i] = Math.max(0, Math.min(tankCapacity, Math.round(lastEma * 10) / 10));
+      } else {
+        filteredFuels[i] = lastEma;
+      }
+    }
+
+    // 3. Physical Reality Normalization (Consumption-Constrained Monotonic Curve) -> "Normalize"
+    const normalizedFuels = new Array(sorted.length).fill(null);
+    const refuelEvents = [];
+    const dropEvents = [];
+    
+    // Find initial baseline fuel
+    const firstValidFiltered = filteredFuels.find(f => f != null);
+    let currentNormalized = firstValidFiltered != null ? firstValidFiltered : 0;
+
+    for (let i = 0; i < sorted.length; i++) {
+      const pt = sorted[i];
+      const rawSpeed = parseFloat(pt.speed) || 0;
+      const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
+      const isEngineOn = rawSpeed > 2.0 || ign;
+      const fVal = filteredFuels[i];
+
+      if (fVal != null) {
+        const diff = fVal - currentNormalized;
+
+        // A. Valid Refill: Sustained jump >= refuelThreshold while vehicle is stationary/stopped
+        if (diff >= refuelThreshold && rawSpeed <= 2.0) {
+          let isSustained = true;
+          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
+            if (filteredFuels[k] != null && filteredFuels[k] < currentNormalized + (refuelThreshold * 0.6)) {
+              isSustained = false;
+              break;
+            }
+          }
+          if (isSustained) {
+            currentNormalized = fVal;
+            refuelEvents.push({
+              time: formatIST(pt.device_time),
+              liters: Math.round(diff * 10) / 10,
+              level: fVal
+            });
+          }
+        }
+        // B. Valid Theft / Drain: Drop <= -theftThreshold while engine is OFF
+        else if (diff <= -theftThreshold && !isEngineOn) {
+          let isSustained = true;
+          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
+            if (filteredFuels[k] != null && filteredFuels[k] > currentNormalized - (theftThreshold * 0.6)) {
+              isSustained = false;
+              break;
+            }
+          }
+          if (isSustained) {
+            currentNormalized = fVal;
+            dropEvents.push({
+              time: formatIST(pt.device_time),
+              liters: Math.round(Math.abs(diff) * 10) / 10,
+              level: fVal
+            });
+          }
+        }
+        // C. Engine is OFF & Vehicle Stationary -> Lock flat (No burning or temperature expansion drift)
+        else if (!isEngineOn) {
+          // Keep currentNormalized steady
+        }
+        // D. Engine is ON (Driving or Idling) -> Fuel can only burn (monotonic decrease)
+        else {
+          if (fVal < currentNormalized) {
+            currentNormalized = fVal;
+          }
+          // If fVal temporarily rises during driving, it is an acceleration/braking slosh wave -> ignore
+        }
+      }
+
+      normalizedFuels[i] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+    }
+
     let cumulativeDist = 0;
     let maxSpd = 0;
     let sumSpd = 0;
@@ -378,12 +476,8 @@ export default function FuelAnalyticsPage() {
     let movingMinutes = 0;
 
     const chartPoints = [];
-    const refuelEvents = [];
-    const dropEvents = [];
     const sessions = [];
-
     let currentSession = null;
-    let prevFuel = null;
 
     // Haversine distance calculator
     const haversine = (lat1, lon1, lat2, lon2) => {
@@ -401,9 +495,11 @@ export default function FuelAnalyticsPage() {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const rawFuel = pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null;
+      const normF = normalizedFuels[i];
+      const filtF = filteredFuels[i];
+      const rawF = rawFuels[i];
 
-      // Real elapsed time delta between consecutive packets (capped at 15 mins to handle overnight sleep)
+      // Real elapsed time delta between consecutive packets
       let deltaMin = 0;
       if (i > 0) {
         const prevTime = new Date(sorted[i - 1].device_time).getTime();
@@ -430,57 +526,11 @@ export default function FuelAnalyticsPage() {
         const prevPt = sorted[i - 1];
         if (pt.lat && pt.lng && prevPt.lat && prevPt.lng) {
           const segDist = haversine(prevPt.lat, prevPt.lng, pt.lat, pt.lng);
-          // Filter GPS bounce spikes and static drift
           if (segDist > 0.005 && segDist < 10) {
             cumulativeDist += segDist;
           }
         }
       }
-
-      // Stationary Anti-Slosh Refuel & Drain / Theft Detection
-      // Uses the exact thresholds configured in Edit Calibration (minFilling & minTheft)
-      if (prevFuel != null && rawFuel != null) {
-        const diff = rawFuel - prevFuel;
-
-        // 1. Refuel: Jump >= refuelThreshold, vehicle must be stationary (speed <= 2 km/h)
-        if (diff >= refuelThreshold && rawSpeed <= 2.0) {
-          // Verify that this is not a 1-packet slosh spike by looking ahead if available
-          let isSustained = true;
-          if (i + 1 < sorted.length) {
-            const nextPt = sorted[i + 1];
-            const nextRaw = nextPt.fuel != null ? calibrateFuelValue(nextPt.fuel, nextPt.device_time) : null;
-            if (nextRaw != null && nextRaw < prevFuel + (refuelThreshold * 0.6)) {
-              isSustained = false; // Bounced back down immediately: slosh wave!
-            }
-          }
-          if (isSustained) {
-            refuelEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(diff * 10) / 10,
-              level: rawFuel
-            });
-          }
-        } 
-        // 2. Theft / Sudden Drop: Drop <= -theftThreshold, vehicle must be stationary (speed <= 2 km/h)
-        else if (diff <= -theftThreshold && rawSpeed <= 2.0) {
-          let isSustained = true;
-          if (i + 1 < sorted.length) {
-            const nextPt = sorted[i + 1];
-            const nextRaw = nextPt.fuel != null ? calibrateFuelValue(nextPt.fuel, nextPt.device_time) : null;
-            if (nextRaw != null && nextRaw > prevFuel - (theftThreshold * 0.6)) {
-              isSustained = false; // Bounced back up immediately: slosh wave!
-            }
-          }
-          if (isSustained) {
-            dropEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(Math.abs(diff) * 10) / 10,
-              level: rawFuel
-            });
-          }
-        }
-      }
-      if (rawFuel != null) prevFuel = rawFuel;
 
       if (rawSpeed > maxSpd) maxSpd = rawSpeed;
       sumSpd += rawSpeed;
@@ -490,7 +540,7 @@ export default function FuelAnalyticsPage() {
       if (!currentSession || currentSession.status !== engineState) {
         if (currentSession) {
           currentSession.endTime = pt.device_time;
-          currentSession.endFuel = rawFuel;
+          currentSession.endFuel = normF;
           currentSession.endDist = cumulativeDist;
           currentSession.durationMin = Math.max(1, Math.round((new Date(pt.device_time) - new Date(currentSession.startTime)) / 60000));
           currentSession.consumed = (currentSession.startFuel && currentSession.endFuel && currentSession.startFuel > currentSession.endFuel)
@@ -503,8 +553,8 @@ export default function FuelAnalyticsPage() {
           status: engineState,
           startTime: pt.device_time,
           endTime: pt.device_time,
-          startFuel: rawFuel,
-          endFuel: rawFuel,
+          startFuel: normF,
+          endFuel: normF,
           startDist: cumulativeDist,
           endDist: cumulativeDist,
           maxSpeed: rawSpeed,
@@ -518,19 +568,23 @@ export default function FuelAnalyticsPage() {
         timestamp: new Date(pt.device_time).getTime(),
         timeStr: formatIST(pt.device_time),
         dateStr: formatDateIST(pt.device_time),
-        fuel: rawFuel,
+        rawFuel: rawF,
+        filteredFuel: filtF,
+        normalizedFuel: normF,
+        fuel: normF, // Backward compatibility
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
+        engineVal: (rawSpeed > 2.0 || ign) ? 1 : 0,
         status: engineState
       });
     }
 
     if (currentSession) sessions.push(currentSession);
 
-    // Initial and Final Fuel calculation
-    const validFuels = chartPoints.filter(p => p.fuel != null);
-    const startF = validFuels.length > 0 ? validFuels[0].fuel : 0;
-    const endF = validFuels.length > 0 ? validFuels[validFuels.length - 1].fuel : 0;
+    // Initial and Final Fuel calculation based on Normalized Fuel
+    const validNorms = normalizedFuels.filter(p => p != null);
+    const startF = validNorms.length > 0 ? validNorms[0] : 0;
+    const endF = validNorms.length > 0 ? validNorms[validNorms.length - 1] : 0;
 
     // Fuel consumed accounting for refuels
     const totalRefueled = refuelEvents.reduce((acc, r) => acc + r.liters, 0);
@@ -781,51 +835,87 @@ export default function FuelAnalyticsPage() {
               </p>
             </div>
 
-            {/* Toggle Visibility Chips */}
-            <div className="flex items-center gap-2 text-xs font-semibold">
+            {/* 5-Layer Telematics Visibility Toggles (Reference System) */}
+            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+              {/* Layer 1: All Fuel Data */}
               <button
                 type="button"
-                onClick={() => setShowFuel(!showFuel)}
+                onClick={() => setShowAllFuel(!showAllFuel)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showFuel
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
+                  showAllFuel
+                    ? 'bg-slate-500/10 text-slate-300 border-slate-500/50 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
                 }`}
+                title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
               >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Fuel (L)
+                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                All Fuel Data
               </button>
 
+              {/* Layer 2: Filtered Fuel Data */}
+              <button
+                type="button"
+                onClick={() => setShowFilteredFuel(!showFilteredFuel)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showFilteredFuel
+                    ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/50 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                }`}
+                title="Toggle Anti-Slosh Smoothed Fuel Curve"
+              >
+                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                Filtered Fuel Data
+              </button>
+
+              {/* Layer 3: Normalize (Physical Truth) */}
+              <button
+                type="button"
+                onClick={() => setShowNormalize(!showNormalize)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showNormalize
+                    ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/50 shadow-sm ring-1 ring-red-500/20'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                }`}
+                title="Toggle Monotonic Physical Reality Consumption Curve"
+              >
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                Normalize
+              </button>
+
+              {/* Layer 4: Engine */}
+              <button
+                type="button"
+                onClick={() => setShowEngine(!showEngine)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showEngine
+                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/50 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                }`}
+                title="Toggle Engine Ignition Status"
+              >
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Engine
+              </button>
+
+              {/* Layer 5: Speed */}
               <button
                 type="button"
                 onClick={() => setShowSpeed(!showSpeed)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
                   showSpeed
-                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
+                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
                 }`}
+                title="Toggle Speed Secondary Axis"
               >
-                <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                Speed (km/h)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowDistance(!showDistance)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showDistance
-                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                Distance (km)
+                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                Speed
               </button>
             </div>
           </div>
 
           {/* Chart Container */}
-          <div className="h-[360px] w-full pt-4">
+          <div className="h-[380px] w-full pt-4">
             {loading ? (
               <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
                 <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
@@ -838,15 +928,15 @@ export default function FuelAnalyticsPage() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
                   <defs>
-                    <linearGradient id="fuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.03} />
                     </linearGradient>
                   </defs>
 
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
                   
                   <XAxis 
                     dataKey="timeStr" 
@@ -859,10 +949,11 @@ export default function FuelAnalyticsPage() {
                   <YAxis 
                     yAxisId="fuel" 
                     domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                    stroke="#10b981" 
+                    stroke="#38bdf8" 
                     fontSize={11} 
                     tickLine={false}
                     orientation="left"
+                    unit="L"
                   />
 
                   {/* Right Y Axis: Speed (km/h) */}
@@ -873,58 +964,151 @@ export default function FuelAnalyticsPage() {
                     fontSize={11} 
                     tickLine={false} 
                     orientation="right"
+                    unit="km/h"
                   />
 
-                  {/* Custom Glass Tooltip */}
+                  {/* Hidden Y Axis for Engine Ignition baseline step line */}
+                  <YAxis 
+                    yAxisId="engine" 
+                    domain={[0, 10]} 
+                    hide={true}
+                  />
+
+                  {/* High Precision Multi-Layer Tooltip */}
                   <Tooltip 
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
                       const pt = payload[0].payload;
                       return (
-                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white">
+                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white min-w-[210px]">
                           <div className="font-bold border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
                             <span>{pt.timeStr}</span>
                             <span className="text-[10px] text-slate-400 font-normal">{pt.dateStr}</span>
                           </div>
+                          
+                          {/* Normalize */}
                           <div className="flex items-center justify-between gap-4">
-                            <span className="text-emerald-400 font-medium">Fuel Level:</span>
-                            <span className="font-bold">{pt.fuel != null ? `${pt.fuel} L` : '—'}</span>
+                            <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-red-500" />
+                              Normalize:
+                            </span>
+                            <span className="font-bold text-red-400">
+                              {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
+                            </span>
                           </div>
+
+                          {/* Filtered Fuel */}
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-sky-400 font-medium flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-sky-400" />
+                              Filtered Fuel:
+                            </span>
+                            <span className="font-bold">
+                              {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
+                            </span>
+                          </div>
+
+                          {/* Raw Fuel */}
+                          {pt.rawFuel != null && (
+                            <div className="flex items-center justify-between gap-4 text-slate-400">
+                              <span className="flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                Raw Sensor:
+                              </span>
+                              <span>{pt.rawFuel} Ltrs</span>
+                            </div>
+                          )}
+
+                          {/* Engine Status */}
+                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
+                            <span className="text-amber-400 font-medium flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-amber-400" />
+                              Engine:
+                            </span>
+                            <span className={`font-bold ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                              {pt.engineVal === 1 ? 'ON' : 'OFF'}
+                            </span>
+                          </div>
+
+                          {/* Speed */}
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-cyan-400 font-medium">Speed:</span>
                             <span className="font-bold">{pt.speed} km/h</span>
                           </div>
+
+                          {/* Distance */}
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-violet-400 font-medium">Distance:</span>
                             <span className="font-bold">{pt.distance} km</span>
                           </div>
-                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
-                            <span className="text-slate-400">Status:</span>
-                            <span className={`font-semibold ${
-                              pt.status === 'ON (Moving)' ? 'text-emerald-400' : (pt.status === 'ON (Idle)' ? 'text-amber-400' : 'text-slate-400')
-                            }`}>{pt.status}</span>
+
+                          {/* Status */}
+                          <div className="text-[10px] text-slate-400 pt-0.5">
+                            Status: <span className="text-slate-200 font-semibold">{pt.status}</span>
                           </div>
                         </div>
                       );
                     }}
                   />
 
-                  {/* Fuel Area */}
-                  {showFuel && (
+                  {/* 1. Filtered Fuel Area (Light Blue Gradient) */}
+                  {showFilteredFuel && (
                     <Area
                       yAxisId="fuel"
                       type="monotone"
-                      dataKey="fuel"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
+                      dataKey="filteredFuel"
+                      stroke="#38bdf8"
+                      strokeWidth={1.8}
                       fillOpacity={1}
-                      fill="url(#fuelGradient)"
+                      fill="url(#filteredFuelGradient)"
                       connectNulls={true}
-                      name="Fuel (L)"
+                      name="Filtered Fuel Data (L)"
                     />
                   )}
 
-                  {/* Speed Line */}
+                  {/* 2. Normalize Line (Solid Red Monotonic Truth Curve) */}
+                  {showNormalize && (
+                    <Line
+                      yAxisId="fuel"
+                      type="monotone"
+                      dataKey="normalizedFuel"
+                      stroke="#dc2626"
+                      strokeWidth={2.8}
+                      dot={false}
+                      connectNulls={true}
+                      name="Normalize (L)"
+                    />
+                  )}
+
+                  {/* 3. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
+                  {showAllFuel && (
+                    <Line
+                      yAxisId="fuel"
+                      type="linear"
+                      dataKey="rawFuel"
+                      stroke="#94a3b8"
+                      strokeWidth={1}
+                      strokeDasharray="2 2"
+                      dot={{ r: 1.5, fill: '#94a3b8', strokeWidth: 0 }}
+                      connectNulls={true}
+                      name="All Fuel Data (L)"
+                    />
+                  )}
+
+                  {/* 4. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
+                  {showEngine && (
+                    <Line
+                      yAxisId="engine"
+                      type="stepAfter"
+                      dataKey="engineVal"
+                      stroke="#eab308"
+                      strokeWidth={2.5}
+                      dot={false}
+                      name="Engine (ON/OFF)"
+                    />
+                  )}
+
+                  {/* 5. Speed Line (Cyan Line on Right Axis) */}
                   {showSpeed && (
                     <Line
                       yAxisId="speed"
@@ -937,24 +1121,10 @@ export default function FuelAnalyticsPage() {
                     />
                   )}
 
-                  {/* Distance Line */}
-                  {showDistance && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="distance"
-                      stroke="#8b5cf6"
-                      strokeWidth={1.8}
-                      strokeDasharray="4 4"
-                      dot={false}
-                      name="Distance (km)"
-                    />
-                  )}
-
                   <Brush 
                     dataKey="timeStr" 
                     height={24} 
-                    stroke="#10b981" 
+                    stroke="#38bdf8" 
                     fill="#0f172a" 
                     travellerWidth={10}
                   />
