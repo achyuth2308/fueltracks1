@@ -2941,226 +2941,91 @@ const EditCalibratePage = () => {
                 </div>
               )}
 
-              {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & User-Friendly Pre-Calibrated Sensor Configuration */}
+              {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & Streamlined Pre-Calibrated Sensor Configuration */}
               {calibrateType === 'Direct' && (
-                <div style={{ marginTop: '20px' }}>
+                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   
-                  {/* Clean Explanatory Header Banner */}
-                  <div style={{
-                    background: '#fff7ed',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '10px',
-                    padding: '16px 20px',
-                    marginBottom: '22px',
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '12px'
-                  }}>
-                    <div style={{
-                      width: '36px',
-                      height: '36px',
-                      borderRadius: '8px',
-                      background: '#ffedd5',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#ea580c',
-                      flexShrink: 0
-                    }}>
-                      <Cpu size={20} />
-                    </div>
-                    <div>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '14.5px', fontWeight: 800, color: '#9a3412' }}>
-                        Direct / Pre-Calibrated Digital Sensor
-                      </h4>
-                      <p style={{ margin: 0, fontSize: '13px', color: '#7c2d12', lineHeight: 1.5 }}>
-                        Use this mode when your sensor or vehicle computer already calculates fuel internally (such as <strong>Bluetooth BLE Probes</strong>, <strong>CAN-Bus / OBD-II</strong>, or smart digital sensors). No dip table or tank dimension calculations are needed.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Step 1: Select How Sensor Sends Fuel (Two Big Visual Cards) */}
-                  <div style={{ marginBottom: '22px' }}>
-                    <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 800, color: '#1e293b', marginBottom: '10px' }}>
-                      Step 1: How does your sensor transmit fuel to the GPS tracker?
+                  {/* Transmission Unit Selector */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                      Transmission Unit
                     </label>
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                      gap: '14px'
-                    }}>
-                      {/* Option 1: Actual Volume in Litres */}
-                      <div
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <label
                         onClick={() => setDirectUnit('Litres')}
                         style={{
+                          flex: '1 1 200px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 16px',
+                          borderRadius: '8px',
                           border: directUnit === 'Litres' ? '2px solid #f97316' : '1px solid #cbd5e1',
                           background: directUnit === 'Litres' ? '#fff7ed' : '#ffffff',
-                          borderRadius: '10px',
-                          padding: '16px 18px',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                          boxShadow: directUnit === 'Litres' ? '0 2px 8px rgba(249, 115, 22, 0.15)' : 'none'
+                          userSelect: 'none'
                         }}
                       >
                         <div style={{
-                          width: '20px',
-                          height: '20px',
+                          width: '18px',
+                          height: '18px',
                           borderRadius: '50%',
-                          border: directUnit === 'Litres' ? '6px solid #f97316' : '2px solid #cbd5e1',
+                          border: directUnit === 'Litres' ? '5px solid #f97316' : '2px solid #cbd5e1',
                           background: '#ffffff',
-                          flexShrink: 0,
-                          marginTop: '2px'
+                          flexShrink: 0
                         }} />
                         <div>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
                             Direct Litres (L)
                           </div>
-                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '4px', lineHeight: 1.4 }}>
-                            The tracker receives exact fuel volume (e.g. packet value <strong>45</strong> = <strong>45.0 Litres</strong>). Most BLE probes and CAN-Bus systems use this.
+                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                            Sensor transmits fuel volume directly in litres
                           </div>
                         </div>
-                      </div>
+                      </label>
 
-                      {/* Option 2: Percentage Level */}
-                      <div
+                      <label
                         onClick={() => setDirectUnit('Percentage')}
                         style={{
+                          flex: '1 1 200px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '10px 16px',
+                          borderRadius: '8px',
                           border: directUnit === 'Percentage' ? '2px solid #f97316' : '1px solid #cbd5e1',
                           background: directUnit === 'Percentage' ? '#fff7ed' : '#ffffff',
-                          borderRadius: '10px',
-                          padding: '16px 18px',
                           cursor: 'pointer',
                           transition: 'all 0.15s ease',
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                          boxShadow: directUnit === 'Percentage' ? '0 2px 8px rgba(249, 115, 22, 0.15)' : 'none'
+                          userSelect: 'none'
                         }}
                       >
                         <div style={{
-                          width: '20px',
-                          height: '20px',
+                          width: '18px',
+                          height: '18px',
                           borderRadius: '50%',
-                          border: directUnit === 'Percentage' ? '6px solid #f97316' : '2px solid #cbd5e1',
+                          border: directUnit === 'Percentage' ? '5px solid #f97316' : '2px solid #cbd5e1',
                           background: '#ffffff',
-                          flexShrink: 0,
-                          marginTop: '2px'
+                          flexShrink: 0
                         }} />
                         <div>
-                          <div style={{ fontSize: '14px', fontWeight: 800, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
-                            Percentage Level (0% ~ 100%)
+                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
+                            Percentage (0% – 100%)
                           </div>
-                          <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '4px', lineHeight: 1.4 }}>
-                            The tracker receives fuel as a percentage (e.g. <strong>75%</strong>). FuelTracks computes: <strong>75% × Tank Size ({computedLitres || tankSize || 100} L) = {((75 / 100) * (computedLitres || tankSize || 100)).toFixed(1)} L</strong>.
+                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                            Computed automatically against Tank Size
                           </div>
                         </div>
-                      </div>
+                      </label>
                     </div>
                   </div>
 
-                  {/* Step 2: Live Verification / Preview */}
+                  {/* Advanced Multiplier & Offset (Optional Collapsible) */}
                   <div style={{
-                    background: '#fafbfc',
                     border: '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    padding: '18px 22px',
-                    marginBottom: '20px'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Activity size={16} color="#ea580c" />
-                        <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
-                          Step 2: Live Reading Preview
-                        </span>
-                      </div>
-                      <span style={{ fontSize: '12px', color: '#64748b' }}>
-                        Active Protocol: <strong style={{ color: '#ea580c' }}>{fuelType || directSensorType}</strong>
-                      </span>
-                    </div>
-
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-                      gap: '16px',
-                      alignItems: 'center'
-                    }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
-                          Test Value from Tracker {directUnit === 'Percentage' ? '(%)' : '(Litres)'}:
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          min="0"
-                          value={directTestInput}
-                          onChange={e => setDirectTestInput(e.target.value)}
-                          placeholder={directUnit === 'Percentage' ? 'e.g. 50' : 'e.g. 35'}
-                          style={{
-                            width: '100%',
-                            height: '40px',
-                            padding: '0 12px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            fontWeight: 700,
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-
-                      <div style={{
-                        background: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px',
-                        padding: '12px 18px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: '6px'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-                          <span>Calculated Tank Volume:</span>
-                          <strong style={{ color: '#ea580c', fontSize: '15px' }}>{`${directComputedLitres} Litres`}</strong>
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{
-                            width: `${(computedLitres || tankSize) > 0 ? Math.min(100, Math.max(0, (directComputedLitres / (computedLitres || tankSize || 100)) * 100)) : 0}%`,
-                            height: '100%',
-                            background: '#f97316',
-                            borderRadius: '4px',
-                            transition: 'width 0.2s ease'
-                          }} />
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#94a3b8' }}>
-                          <span>0 L</span>
-                          <span>{`${(computedLitres || tankSize) > 0 ? Math.min(100, Math.round((directComputedLitres / (computedLitres || tankSize || 100)) * 1000) / 10) : 0}% Fill`}</span>
-                          <span>{`${computedLitres || tankSize || 100} L Capacity`}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Step 3: Optional Advanced Tuning (Collapsible) */}
-                  <div style={{
-                    border: '1px dashed #cbd5e1',
-                    borderRadius: '10px',
-                    padding: '14px 18px',
+                    borderRadius: '8px',
+                    padding: '12px 16px',
                     background: '#f8fafc'
                   }}>
                     <button
@@ -3180,10 +3045,7 @@ const EditCalibratePage = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Settings2 size={15} color="#ea580c" />
                         <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                          Advanced Sensor Multiplier & Offset (Optional)
-                        </span>
-                        <span style={{ fontSize: '11px', color: '#64748b' }}>
-                          {showDirectAdvanced ? '— Click to collapse' : '— Click to configure'}
+                          Sensor Multiplier & Offset (Optional)
                         </span>
                       </div>
                       <ChevronDown
@@ -3198,16 +3060,16 @@ const EditCalibratePage = () => {
 
                     {showDirectAdvanced && (
                       <div style={{
-                        marginTop: '14px',
-                        paddingTop: '14px',
+                        marginTop: '12px',
+                        paddingTop: '12px',
                         borderTop: '1px solid #e2e8f0',
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                        gap: '16px'
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '14px'
                       }}>
                         <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
-                            Value Multiplier (Default: 1.0)
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                            Multiplier (Default: 1.0)
                           </label>
                           <input
                             type="number"
@@ -3217,22 +3079,21 @@ const EditCalibratePage = () => {
                             placeholder="1.0"
                             style={{
                               width: '100%',
-                              height: '38px',
+                              height: '36px',
                               padding: '0 10px',
                               borderRadius: '6px',
                               border: '1px solid #cbd5e1',
                               background: '#ffffff',
-                              fontSize: '13px'
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box'
                             }}
                           />
-                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '3px' }}>
-                            Use 0.1 if sensor sends decilitres (e.g. 500 = 50.0 L).
-                          </span>
                         </div>
 
                         <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', marginBottom: '5px' }}>
-                            Value Offset (Default: 0.0)
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                            Offset (Default: 0.0)
                           </label>
                           <input
                             type="number"
@@ -3242,17 +3103,16 @@ const EditCalibratePage = () => {
                             placeholder="0.0"
                             style={{
                               width: '100%',
-                              height: '38px',
+                              height: '36px',
                               padding: '0 10px',
                               borderRadius: '6px',
                               border: '1px solid #cbd5e1',
                               background: '#ffffff',
-                              fontSize: '13px'
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box'
                             }}
                           />
-                          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginTop: '3px' }}>
-                            Added or subtracted from the final calculated litres.
-                          </span>
                         </div>
                       </div>
                     )}

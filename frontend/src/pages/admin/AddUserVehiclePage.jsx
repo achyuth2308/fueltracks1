@@ -493,9 +493,11 @@ const AddUserVehiclePage = () => {
                   <FuelTracksSelect
                     value={selectedUserId}
                     onChange={setSelectedUserId}
-                    placeholder="select"
+                    placeholder="select user"
+                    searchable={true}
+                    searchPlaceholder="Search User..."
                     options={[
-                      { value: '', label: 'select' },
+                      { value: '', label: 'select user' },
                       ...filteredUsers.map(u => ({
                         value: u.id,
                         label: `${u.name || u.username || u.email}${u.phone ? ` (${u.phone})` : ''}`
@@ -512,9 +514,11 @@ const AddUserVehiclePage = () => {
                   <FuelTracksSelect
                     value={selectedGroupId}
                     onChange={setSelectedGroupId}
-                    placeholder="select"
+                    placeholder="select group"
+                    searchable={true}
+                    searchPlaceholder="Search Group..."
                     options={[
-                      { value: '', label: 'select' },
+                      { value: '', label: 'select group' },
                       ...filteredGroups.map(g => ({
                         value: g.id,
                         label: g.name
@@ -536,6 +540,8 @@ const AddUserVehiclePage = () => {
                       setSelectedGroupId('');
                     }}
                     placeholder="select organization"
+                    searchable={true}
+                    searchPlaceholder="Search Organization..."
                     options={[
                       { value: '', label: 'select organization' },
                       ...organizations.map(org => ({
