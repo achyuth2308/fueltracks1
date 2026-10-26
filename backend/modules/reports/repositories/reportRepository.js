@@ -439,7 +439,7 @@ class ReportRepository {
 
     if (vehicleId) {
       params.push(vehicleId);
-      vehicleFilter += ` AND v.id = ${params.length}`;
+      vehicleFilter += ` AND v.id = $${params.length}`;
     }
 
     const query = `
