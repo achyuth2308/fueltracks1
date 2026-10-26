@@ -10,7 +10,26 @@ const GeofenceModel = {
     return result.rows;
   },
 
-  async findAllWithStats(orgId) {
+  async findAllWithStats(orgId, userId = null, role = null) {
+    if (role === 'customer' && userId) {
+      const result = await db.query(
+        `SELECT g.*, COUNT(vg.vehicle_id)::int AS assigned_vehicles_count
+         FROM geofences g
+         JOIN vehicle_geofences vg_user ON g.id = vg_user.geofence_id
+         LEFT JOIN vehicle_geofences vg ON g.id = vg.geofence_id
+         WHERE vg_user.vehicle_id IN (
+           SELECT vg2.vehicle_id 
+           FROM vehicle_groups vg2
+           JOIN user_groups ug ON vg2.group_id = ug.group_id
+           WHERE ug.user_id = $1
+         )
+         GROUP BY g.id
+         ORDER BY g.name ASC`,
+        [userId]
+      );
+      return result.rows;
+    }
+
     const result = await db.query(
       `SELECT g.*, COUNT(vg.vehicle_id)::int AS assigned_vehicles_count
        FROM geofences g
@@ -29,6 +48,18 @@ const GeofenceModel = {
       [id]
     );
     return result.rows[0] || null;
+  },
+
+  async belongsToUser(geofenceId, userId) {
+    const result = await db.query(
+      `SELECT 1 FROM vehicle_geofences vg
+       JOIN vehicle_groups vgr ON vg.vehicle_id = vgr.vehicle_id
+       JOIN user_groups ug ON vgr.group_id = ug.group_id
+       WHERE vg.geofence_id = $1 AND ug.user_id = $2
+       LIMIT 1`,
+      [geofenceId, userId]
+    );
+    return result.rows.length > 0;
   },
 
   async create({ orgId, name, type, coordinates, radius, center_lat, center_lng, is_active = true, notification_time = '00:00', color = '#3B82F6', alert_on_enter = true, alert_on_exit = true }) {

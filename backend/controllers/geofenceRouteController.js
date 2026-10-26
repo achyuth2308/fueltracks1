@@ -206,7 +206,7 @@ const GeofenceRouteController = {
         }
       }
 
-      const allGeofences = await GeofenceModel.findAllWithStats(vehicle.org_id);
+      const allGeofences = await GeofenceModel.findAllWithStats(vehicle.org_id, req.user.userId, req.user.role);
       const current = await GeofenceModel.findGeofencesByVehicleId(vehicleId, false);
       const currentIds = new Set(current.map(g => g.id));
 
@@ -237,6 +237,22 @@ const GeofenceRouteController = {
         const belongs = await VehicleModel.belongsToOrg(vehicleId, req.user.orgId, req.user.userId, req.user.role);
         if (!belongs) {
           return res.status(403).json({ success: false, error: 'Access denied to vehicle.' });
+        }
+      }
+
+      // Enforce strict tenant & user isolation for customers
+      if (req.user.role === 'customer') {
+        const geofenceBelongs = await GeofenceModel.belongsToUser(geofenceId, req.user.userId);
+        if (!geofenceBelongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to this geofence.' });
+        }
+        if (Array.isArray(req.body.vehicleIds) && req.body.vehicleIds.length > 0) {
+          for (const targetId of req.body.vehicleIds) {
+            const vBelongs = await VehicleModel.belongsToOrg(targetId, req.user.orgId, req.user.userId, req.user.role);
+            if (!vBelongs) {
+              return res.status(403).json({ success: false, error: 'Access denied to one or more target vehicles.' });
+            }
+          }
         }
       }
 
