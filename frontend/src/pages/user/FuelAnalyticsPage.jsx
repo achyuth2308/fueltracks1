@@ -170,17 +170,19 @@ export default function FuelAnalyticsPage() {
   }, []);
 
   // 2. Fetch History Points when selected vehicle or date changes
-  const fetchVehicleFuelData = async () => {
+  const fetchVehicleFuelData = async (overrideStart, overrideEnd) => {
     if (!selectedVehicle?.id) return;
     setLoading(true);
     setError(null);
 
     let startIso, endIso;
-    if (activePreset === 'custom') {
-      startIso = new Date(customStart).toISOString();
-      endIso = new Date(customEnd).toISOString();
-    } else {
-      const p = getPresetRange(activePreset);
+    const s = overrideStart || customStart;
+    const e = overrideEnd || customEnd;
+    try {
+      startIso = new Date(s).toISOString();
+      endIso = new Date(e).toISOString();
+    } catch (err) {
+      const p = getPresetRange('today');
       startIso = p.startDate;
       endIso = p.endDate;
     }
@@ -211,9 +213,17 @@ export default function FuelAnalyticsPage() {
     }
   };
 
+  const handleSelectPreset = (presetId) => {
+    setActivePreset(presetId);
+    const range = getPresetRange(presetId);
+    setCustomStart(range.startStr);
+    setCustomEnd(range.endStr);
+    fetchVehicleFuelData(range.startStr, range.endStr);
+  };
+
   useEffect(() => {
     fetchVehicleFuelData();
-  }, [selectedVehicle?.id, activePreset]);
+  }, [selectedVehicle?.id]);
 
   // Filtered vehicles for dropdown
   const filteredVehicles = useMemo(() => {
@@ -521,28 +531,27 @@ export default function FuelAnalyticsPage() {
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 transition-colors duration-200">
       <div className="max-w-7xl mx-auto space-y-6">
 
-        {/* ── TOP HEADER & VEHICLE PICKER ── */}
-        <div className="relative z-50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
+        {/* ── TOP HEADER & CONTROLS BAR ── */}
+        <div className="relative z-50 flex flex-col gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
           
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20 text-white">
-              <Fuel className="w-6 h-6" />
+          {/* Top Row: Title & Searchable Vehicle Selector */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20 text-white">
+                <Fuel className="w-6 h-6" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                  Fuel Analytics
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                  Precision fuel telemetry, synchronized graphs & consumption breakdown
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                Fuel Analytics
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                Precision fuel consumption, live engine metrics & distance correlation
-              </p>
-            </div>
-          </div>
 
-          {/* Searchable Vehicle Selector & Date Controls */}
-          <div className="flex flex-wrap items-center gap-3">
-            
             {/* Custom Searchable Dropdown */}
-            <div className="relative min-w-[260px] sm:min-w-[320px]" ref={dropdownRef}>
+            <div className="relative min-w-[260px] sm:min-w-[340px]" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -632,8 +641,60 @@ export default function FuelAnalyticsPage() {
                 )}
               </AnimatePresence>
             </div>
+          </div>
 
-            {/* Quick Range Presets */}
+          {/* Date-Time Range Selection Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
+            
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* From Date-Time */}
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
+                </div>
+                <input 
+                  type="datetime-local"
+                  value={customStart}
+                  onChange={(e) => {
+                    setCustomStart(e.target.value);
+                    setActivePreset('custom');
+                  }}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              {/* To Date-Time */}
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
+                </div>
+                <input 
+                  type="datetime-local"
+                  value={customEnd}
+                  onChange={(e) => {
+                    setCustomEnd(e.target.value);
+                    setActivePreset('custom');
+                  }}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+                />
+              </div>
+
+              {/* Apply Button */}
+              <button
+                type="button"
+                onClick={() => fetchVehicleFuelData(customStart, customEnd)}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                title="Apply Date-Time Range"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+                <span>{loading ? 'Loading...' : 'Apply Range'}</span>
+              </button>
+            </div>
+
+            {/* Quick Presets */}
             <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs font-medium">
               {[
                 { id: 'today', label: 'Today' },
@@ -644,7 +705,7 @@ export default function FuelAnalyticsPage() {
                 <button
                   key={tab.id}
                   type="button"
-                  onClick={() => setActivePreset(tab.id)}
+                  onClick={() => handleSelectPreset(tab.id)}
                   className={`px-3 py-1.5 rounded-lg transition-all ${
                     activePreset === tab.id
                       ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold'
@@ -656,20 +717,208 @@ export default function FuelAnalyticsPage() {
               ))}
             </div>
 
-            {/* Refresh Button */}
-            <button
-              type="button"
-              onClick={fetchVehicleFuelData}
-              disabled={loading}
-              className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl transition-all border border-slate-200 dark:border-slate-700/80 shadow-sm"
-              title="Refresh Telemetry"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-emerald-500' : ''}`} />
-            </button>
+          </div>
+
+        </div>
+
+        {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
+          
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-bold flex items-center gap-2">
+                <Sliders className="w-5 h-5 text-emerald-500" />
+                Fuel vs. Speed vs. Distance Correlation
+              </h2>
+              <p className="text-xs text-slate-400">
+                Interactive time-series displaying fuel level drops during speed bursts and idle idling intervals
+              </p>
+            </div>
+
+            {/* Toggle Visibility Chips */}
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setShowFuel(!showFuel)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showFuel
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Fuel (L)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSpeed(!showSpeed)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showSpeed
+                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/40 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-cyan-500" />
+                Speed (km/h)
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowDistance(!showDistance)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showDistance
+                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/40 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-violet-500" />
+                Distance (km)
+              </button>
+            </div>
+          </div>
+
+          {/* Chart Container */}
+          <div className="h-[360px] w-full pt-4">
+            {loading ? (
+              <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+                <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+                <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
+              </div>
+            ) : processedData.chartData.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                <Fuel className="w-10 h-10 opacity-30" />
+                <span className="text-sm font-medium">No telemetry packets found for this period</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="fuelGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
+                  
+                  <XAxis 
+                    dataKey="timeStr" 
+                    stroke="#64748b" 
+                    fontSize={11} 
+                    tickLine={false} 
+                  />
+
+                  {/* Left Y Axis: Fuel (Litres) */}
+                  <YAxis 
+                    yAxisId="fuel" 
+                    domain={[0, Math.ceil(tankCapacity * 1.05)]} 
+                    stroke="#10b981" 
+                    fontSize={11} 
+                    tickLine={false}
+                    orientation="left"
+                  />
+
+                  {/* Right Y Axis: Speed (km/h) */}
+                  <YAxis 
+                    yAxisId="speed" 
+                    domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
+                    stroke="#06b6d4" 
+                    fontSize={11} 
+                    tickLine={false} 
+                    orientation="right"
+                  />
+
+                  {/* Custom Glass Tooltip */}
+                  <Tooltip 
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const pt = payload[0].payload;
+                      return (
+                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white">
+                          <div className="font-bold border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
+                            <span>{pt.timeStr}</span>
+                            <span className="text-[10px] text-slate-400 font-normal">{pt.dateStr}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-emerald-400 font-medium">Fuel Level:</span>
+                            <span className="font-bold">{pt.fuel != null ? `${pt.fuel} L` : '—'}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-cyan-400 font-medium">Speed:</span>
+                            <span className="font-bold">{pt.speed} km/h</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-violet-400 font-medium">Distance:</span>
+                            <span className="font-bold">{pt.distance} km</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
+                            <span className="text-slate-400">Status:</span>
+                            <span className={`font-semibold ${
+                              pt.status === 'ON (Moving)' ? 'text-emerald-400' : (pt.status === 'ON (Idle)' ? 'text-amber-400' : 'text-slate-400')
+                            }`}>{pt.status}</span>
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+
+                  {/* Fuel Area */}
+                  {showFuel && (
+                    <Area
+                      yAxisId="fuel"
+                      type="monotone"
+                      dataKey="fuel"
+                      stroke="#10b981"
+                      strokeWidth={2.5}
+                      fillOpacity={1}
+                      fill="url(#fuelGradient)"
+                      connectNulls={true}
+                      name="Fuel (L)"
+                    />
+                  )}
+
+                  {/* Speed Line */}
+                  {showSpeed && (
+                    <Line
+                      yAxisId="speed"
+                      type="monotone"
+                      dataKey="speed"
+                      stroke="#06b6d4"
+                      strokeWidth={1.8}
+                      dot={false}
+                      name="Speed (km/h)"
+                    />
+                  )}
+
+                  {/* Distance Line */}
+                  {showDistance && (
+                    <Line
+                      yAxisId="fuel"
+                      type="monotone"
+                      dataKey="distance"
+                      stroke="#8b5cf6"
+                      strokeWidth={1.8}
+                      strokeDasharray="4 4"
+                      dot={false}
+                      name="Distance (km)"
+                    />
+                  )}
+
+                  <Brush 
+                    dataKey="timeStr" 
+                    height={24} 
+                    stroke="#10b981" 
+                    fill="#0f172a" 
+                    travellerWidth={10}
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
 
-        {/* ── TELEMETRY EXECUTIVE KPI CARDS ── */}
+        {/* ── 2. TELEMETRY EXECUTIVE KPI CARDS (BELOW GRAPH) ── */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
 
           {/* CARD 1: ENGINE STATUS (Strictly Moving / Idle / OFF) */}
@@ -804,203 +1053,6 @@ export default function FuelAnalyticsPage() {
             </div>
           </div>
 
-        </div>
-
-        {/* ── MULTI-AXIS SYNCHRONIZED VISUALIZATION CHART ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
-          
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-emerald-500" />
-                Fuel vs. Speed vs. Distance Correlation
-              </h2>
-              <p className="text-xs text-slate-400">
-                Interactive time-series displaying fuel level drops during speed bursts and idle idling intervals
-              </p>
-            </div>
-
-            {/* Toggle Visibility Chips */}
-            <div className="flex items-center gap-2 text-xs font-semibold">
-              <button
-                type="button"
-                onClick={() => setShowFuel(!showFuel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showFuel
-                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Fuel (L)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowSpeed(!showSpeed)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showSpeed
-                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                Speed (km/h)
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowDistance(!showDistance)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showDistance
-                    ? 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/40 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-violet-500" />
-                Distance (km)
-              </button>
-            </div>
-          </div>
-
-          {/* Chart Container */}
-          <div className="h-[360px] w-full pt-4">
-            {loading ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
-                <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
-                <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
-              </div>
-            ) : processedData.chartData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
-                <Fuel className="w-10 h-10 opacity-30" />
-                <span className="text-sm font-medium">No telemetry packets found for this period</span>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="fuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.2} />
-                  
-                  <XAxis 
-                    dataKey="timeStr" 
-                    stroke="#64748b" 
-                    fontSize={11} 
-                    tickLine={false}
-                  />
-
-                  {/* Left Y Axis: Fuel (Litres) */}
-                  <YAxis 
-                    yAxisId="fuel" 
-                    domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                    stroke="#10b981" 
-                    fontSize={11} 
-                    tickLine={false}
-                    orientation="left"
-                  />
-
-                  {/* Right Y Axis: Speed (km/h) */}
-                  <YAxis 
-                    yAxisId="speed" 
-                    domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
-                    stroke="#06b6d4" 
-                    fontSize={11} 
-                    tickLine={false} 
-                    orientation="right"
-                  />
-
-                  {/* Custom Glass Tooltip */}
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const pt = payload[0].payload;
-                      return (
-                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white">
-                          <div className="font-bold border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
-                            <span>{pt.timeStr}</span>
-                            <span className="text-[10px] text-slate-400 font-normal">{pt.dateStr}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-emerald-400 font-medium">Fuel Level:</span>
-                            <span className="font-bold">{pt.fuel != null ? `${pt.fuel} L` : '—'}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-cyan-400 font-medium">Speed:</span>
-                            <span className="font-bold">{pt.speed} km/h</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-violet-400 font-medium">Distance:</span>
-                            <span className="font-bold">{pt.distance} km</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
-                            <span className="text-slate-400">Status:</span>
-                            <span className={`font-semibold ${
-                              pt.status === 'ON (Moving)' ? 'text-emerald-400' : (pt.status === 'ON (Idle)' ? 'text-amber-400' : 'text-slate-400')
-                            }`}>{pt.status}</span>
-                          </div>
-                        </div>
-                      );
-                    }}
-                  />
-
-                  {/* Fuel Area */}
-                  {showFuel && (
-                    <Area
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="fuel"
-                      stroke="#10b981"
-                      strokeWidth={2.5}
-                      fillOpacity={1}
-                      fill="url(#fuelGradient)"
-                      connectNulls={true}
-                      name="Fuel (L)"
-                    />
-                  )}
-
-                  {/* Speed Line */}
-                  {showSpeed && (
-                    <Line
-                      yAxisId="speed"
-                      type="monotone"
-                      dataKey="speed"
-                      stroke="#06b6d4"
-                      strokeWidth={1.8}
-                      dot={false}
-                      name="Speed (km/h)"
-                    />
-                  )}
-
-                  {/* Distance Line */}
-                  {showDistance && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="distance"
-                      stroke="#8b5cf6"
-                      strokeWidth={1.8}
-                      strokeDasharray="4 4"
-                      dot={false}
-                      name="Distance (km)"
-                    />
-                  )}
-
-                  <Brush 
-                    dataKey="timeStr" 
-                    height={24} 
-                    stroke="#10b981" 
-                    fill="#0f172a" 
-                    travellerWidth={10}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
         </div>
 
         {/* ── REFUEL & ABNORMAL DRAIN EVENT BADGES ── */}
