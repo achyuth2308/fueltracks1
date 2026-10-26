@@ -151,6 +151,7 @@ export default function TripManagerPage() {
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(urlVehicleId || '');
   const [activeTab, setActiveTab] = useState('trip'); // 'trip' or 'geofences'
+  const [mapLayer, setMapLayer] = useState('google'); // 'google', 'satellite', 'osm'
 
   // Date selection: today by default
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -1158,10 +1159,27 @@ export default function TripManagerPage() {
           zoom={12}
           style={{ width: '100%', height: '100%' }}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-            url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-          />
+          {/* Map Tile Layer */}
+          {mapLayer === 'satellite' ? (
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          ) : mapLayer === 'osm' ? (
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          ) : (
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          )}
 
           <MapBoundsController
             routePoints={routeHistory}
@@ -1240,11 +1258,14 @@ export default function TripManagerPage() {
                 <Circle
                   center={[lat, lng]}
                   radius={rad}
+                  eventHandlers={{
+                    click: () => setFocusedCoord({ lat, lng })
+                  }}
                   pathOptions={{
                     color: g.is_active ? '#2563EB' : '#94A3B8',
                     fillColor: g.is_active ? '#3B82F6' : '#94A3B8',
-                    fillOpacity: g.is_active ? 0.22 : 0.08,
-                    weight: 2,
+                    fillOpacity: g.is_active ? 0.3 : 0.1,
+                    weight: 3,
                     dashArray: g.is_active ? undefined : '5, 5',
                   }}
                 />
@@ -1253,9 +1274,12 @@ export default function TripManagerPage() {
                 <Marker
                   position={[lat, lng]}
                   icon={createGeofenceCenterIcon(g.name)}
+                  eventHandlers={{
+                    click: () => setFocusedCoord({ lat, lng })
+                  }}
                 >
                   <Tooltip permanent direction="top" offset={[0, -10]}>
-                    <div style={{ fontWeight: 700, fontSize: '11px', color: '#1E293B' }}>
+                    <div style={{ fontWeight: 800, fontSize: '11px', color: '#1E293B', cursor: 'pointer' }}>
                       {g.name} ({rad}m)
                     </div>
                   </Tooltip>
@@ -1286,6 +1310,70 @@ export default function TripManagerPage() {
             </Marker>
           )}
         </MapContainer>
+
+        {/* Floating Map Layer Switcher Controls */}
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          zIndex: 1000,
+          background: '#FFFFFF',
+          borderRadius: '10px',
+          padding: '4px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          gap: '4px',
+          border: '1px solid #E2E8F0',
+        }}>
+          <button
+            onClick={() => setMapLayer('google')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'google' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'google' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Google Map
+          </button>
+          <button
+            onClick={() => setMapLayer('satellite')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'satellite' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'satellite' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Satellite
+          </button>
+          <button
+            onClick={() => setMapLayer('osm')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'osm' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'osm' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            OSM
+          </button>
+        </div>
       </div>
 
       {/* ── Set Geofence Modal ── */}
