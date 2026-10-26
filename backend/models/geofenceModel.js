@@ -93,10 +93,14 @@ const GeofenceModel = {
 
   async findGeofencesByVehicleId(vehicleId, includeInactive = true) {
     const query = includeInactive
-      ? `SELECT g.*, vg.assigned_at FROM geofences g
+      ? `SELECT g.*, vg.assigned_at,
+           (SELECT COUNT(*) FROM vehicle_geofences vg2 WHERE vg2.geofence_id = g.id)::int AS assigned_vehicles_count
+         FROM geofences g
          JOIN vehicle_geofences vg ON g.id = vg.geofence_id
          WHERE vg.vehicle_id = $1 ORDER BY g.created_at DESC`
-      : `SELECT g.*, vg.assigned_at FROM geofences g
+      : `SELECT g.*, vg.assigned_at,
+           (SELECT COUNT(*) FROM vehicle_geofences vg2 WHERE vg2.geofence_id = g.id)::int AS assigned_vehicles_count
+         FROM geofences g
          JOIN vehicle_geofences vg ON g.id = vg.geofence_id
          WHERE vg.vehicle_id = $1 AND g.is_active = TRUE ORDER BY g.created_at DESC`;
     const result = await db.query(query, [vehicleId]);

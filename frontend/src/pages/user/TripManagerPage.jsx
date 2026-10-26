@@ -185,6 +185,12 @@ export default function TripManagerPage() {
   const [targetVehicleIds, setTargetVehicleIds] = useState([]);
   const [savingAssignment, setSavingAssignment] = useState(false);
 
+  // Import / Attach Existing Geofence Modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [availableGeofences, setAvailableGeofences] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [linkingGeofenceId, setLinkingGeofenceId] = useState(null);
+
   // Load Vehicles
   useEffect(() => {
     vehicleApi.getVehicles().then(res => {
@@ -434,6 +440,48 @@ export default function TripManagerPage() {
       alert(err.response?.data?.error || 'Failed to update geofence assignment.');
     } finally {
       setSavingAssignment(false);
+    }
+  };
+
+  // Open "Add Existing Geofence" Modal
+  const handleOpenImportModal = async () => {
+    setImportModalOpen(true);
+    setLoadingAvailable(true);
+    try {
+      const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/available-geofences`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setAvailableGeofences(res.data.data);
+      } else {
+        setAvailableGeofences([]);
+      }
+    } catch (err) {
+      console.error('Failed to load available geofences:', err);
+      setAvailableGeofences([]);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  };
+
+  // Attach an existing geofence to the current vehicle
+  const handleLinkExistingGeofence = async (geofenceId) => {
+    setLinkingGeofenceId(geofenceId);
+    try {
+      const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences/link`, {
+        geofenceId,
+      });
+      if (res.data?.success) {
+        setAvailableGeofences(prev =>
+          prev.map(g => g.id === geofenceId ? { ...g, is_assigned_to_vehicle: true } : g)
+        );
+        await loadGeofences();
+      } else {
+        alert(res.data?.error || 'Failed to attach geofence to this vehicle.');
+      }
+    } catch (err) {
+      console.error('Failed to attach geofence:', err);
+      alert(err.response?.data?.error || 'Failed to attach geofence.');
+    } finally {
+      setLinkingGeofenceId(null);
     }
   };
 
@@ -1017,6 +1065,26 @@ export default function TripManagerPage() {
                     <RefreshCw size={14} />
                   </button>
                   <button
+                    onClick={handleOpenImportModal}
+                    title="Attach existing geofence from another vehicle to this vehicle"
+                    style={{
+                      background: '#EFF6FF',
+                      color: '#2563EB',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Layers size={14} />
+                    <span>Add Existing</span>
+                  </button>
+                  <button
                     onClick={() => {
                       setGeofenceForm({
                         name: '',
@@ -1172,6 +1240,32 @@ export default function TripManagerPage() {
                           color: '#2563EB',
                         }}>
                           ← Exit alert
+                        </span>
+                      )}
+                      {Number(g.assigned_vehicles_count) > 1 ? (
+                        <span style={{
+                          background: '#FEF3C7',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#92400E',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}>
+                          🔗 Shared ({g.assigned_vehicles_count} vehicles)
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: '#F1F5F9',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#64748B',
+                        }}>
+                          Vehicle-only
                         </span>
                       )}
                     </div>
@@ -1992,6 +2086,198 @@ export default function TripManagerPage() {
                   {savingAssignment ? 'Saving...' : `Apply to Selected (${targetVehicleIds.length})`}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Add Existing Geofence to Current Vehicle Modal ── */}
+      {importModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '540px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#FFFFFF',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Layers size={18} color="#2563EB" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                    Add Existing Geofence
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Target Vehicle: <strong style={{ color: '#2563EB' }}>{selectedVehicle?.plate || selectedVehicle?.name}</strong>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setImportModalOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '420px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>
+                Select any geofence previously created across your fleet to instantly attach it to <strong>{selectedVehicle?.plate || selectedVehicle?.name}</strong>:
+              </div>
+
+              {loadingAvailable ? (
+                <div style={{ padding: '32px 0', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  Loading available geofences...
+                </div>
+              ) : availableGeofences.length === 0 ? (
+                <div style={{ padding: '32px 16px', textAlign: 'center', background: '#F8FAFC', borderRadius: '12px', color: '#94A3B8', fontSize: '13px' }}>
+                  No geofences found in your account yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {availableGeofences.map(g => {
+                    const isAlreadyOnVehicle = g.is_assigned_to_vehicle;
+                    const isLinking = linkingGeofenceId === g.id;
+
+                    return (
+                      <div
+                        key={g.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '12px',
+                          border: isAlreadyOnVehicle ? '1px solid #E2E8F0' : '1px solid #CBD5E1',
+                          background: isAlreadyOnVehicle ? '#F8FAFC' : '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{g.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
+                              ({g.radius || 300}m radius)
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                            Created {getRelativeTime(g.created_at)}
+                            {g.alert_on_enter !== false && ' • Entry alert'}
+                            {g.alert_on_exit !== false && ' • Exit alert'}
+                          </div>
+                        </div>
+
+                        <div>
+                          {isAlreadyOnVehicle ? (
+                            <span style={{
+                              background: '#DCFCE7',
+                              color: '#15803D',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}>
+                              ✓ Attached
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleLinkExistingGeofence(g.id)}
+                              disabled={isLinking}
+                              style={{
+                                background: '#2563EB',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: isLinking ? 'not-allowed' : 'pointer',
+                                opacity: isLinking ? 0.7 : 1,
+                              }}
+                            >
+                              {isLinking ? 'Attaching...' : '+ Attach'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #F1F5F9',
+              background: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}>
+              <button
+                type="button"
+                onClick={() => setImportModalOpen(false)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
             </div>
           </div>
         </div>
