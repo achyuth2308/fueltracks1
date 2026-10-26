@@ -288,10 +288,69 @@ class ReportService {
     const vehicleIds = data.map(d => d.vehicle_id);
     const intervalsMap = await reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate);
 
-    return data.map(v => ({
-      ...v,
-      intervals: intervalsMap[v.vehicle_id] || []
-    }));
+    return data.map(v => {
+      const vIntervals = intervalsMap[v.vehicle_id] || [];
+      if (vIntervals.length === 0) {
+        const fullSec = Math.max(0, Math.round((new Date(endDate) - new Date(startDate)) / 1000));
+        return {
+          ...v,
+          running_seconds: 0,
+          idle_seconds: 0,
+          stopped_seconds: fullSec,
+          distance_travelled: 0,
+          max_speed: 0,
+          avg_speed: 0,
+          intervals: [
+            {
+              status: 'Parked',
+              start_time: startDate,
+              end_time: endDate,
+              duration_seconds: fullSec,
+              distance: 0,
+              max_speed: 0,
+              avg_speed: 0,
+              lat: v.start_lat || v.end_lat,
+              lng: v.start_lng || v.end_lng
+            }
+          ]
+        };
+      }
+
+      let runningSec = 0;
+      let idleSec = 0;
+      let stoppedSec = 0;
+      let totalDist = 0;
+      let maxSpd = 0;
+      let speedSum = 0;
+      let movingCount = 0;
+
+      for (const inv of vIntervals) {
+        if (inv.status === 'Moving') {
+          runningSec += inv.duration_seconds;
+          totalDist += (inv.distance || 0);
+          if (inv.max_speed > maxSpd) maxSpd = inv.max_speed;
+          if (inv.avg_speed > 0) {
+            speedSum += inv.avg_speed;
+            movingCount++;
+          }
+        } else if (inv.status === 'Idle') {
+          idleSec += inv.duration_seconds;
+        } else {
+          stoppedSec += inv.duration_seconds;
+        }
+      }
+
+      return {
+        ...v,
+        running_seconds: runningSec,
+        idle_seconds: idleSec,
+        stopped_seconds: stoppedSec,
+        distance_travelled: Math.round(totalDist * 10) / 10,
+        max_speed: Math.round(maxSpd),
+        avg_speed: movingCount > 0 ? Math.round(speedSum / movingCount) : 0,
+        intervals: vIntervals
+      };
+    });
   }
 
   async getIndividualReport(vehicleId, startDate, endDate) {

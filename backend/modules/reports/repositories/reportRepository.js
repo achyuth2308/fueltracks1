@@ -503,10 +503,10 @@ class ReportRepository {
           COALESCE(a.avg_speed, 0) AS avg_speed,
           a.start_fuel,
           a.end_fuel,
-          a.start_lat,
-          a.start_lng,
-          a.end_lat,
-          a.end_lng,
+          COALESCE(a.start_lat, (SELECT lat FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS start_lat,
+          COALESCE(a.start_lng, (SELECT lng FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS start_lng,
+          COALESCE(a.end_lat, (SELECT lat FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lat,
+          COALESCE(a.end_lng, (SELECT lng FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lng,
           COALESCE(a.total_refill, 0) AS total_refill,
           COALESCE(a.total_theft, 0) AS total_theft,
           CASE 
@@ -584,16 +584,15 @@ class ReportRepository {
           ROUND(EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time)))) AS duration_seconds
       FROM islands
       GROUP BY vehicle_id, interval_id, status
-      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) >= 30
       ORDER BY vehicle_id, start_time;
     `;
 
     try {
       const res = await db.query(query, [vehicleIds, startDate, endDate]);
-      const map = {};
+      const rawMap = {};
       for (const row of res.rows) {
-        if (!map[row.vehicle_id]) map[row.vehicle_id] = [];
-        map[row.vehicle_id].push({
+        if (!rawMap[row.vehicle_id]) rawMap[row.vehicle_id] = [];
+        rawMap[row.vehicle_id].push({
           status: row.status,
           start_time: row.start_time,
           end_time: row.end_time,
@@ -605,6 +604,73 @@ class ReportRepository {
           lng: row.lng
         });
       }
+
+      const map = {};
+      const startBound = new Date(startDate);
+      const endBound = new Date(endDate);
+
+      for (const vId of vehicleIds) {
+        const rawList = rawMap[vId] || [];
+        if (rawList.length === 0) continue;
+
+        const stitched = [];
+        const firstStart = new Date(rawList[0].start_time);
+
+        // Prepend Parked interval if first GPS point starts after startDate
+        if (firstStart - startBound > 30000) {
+          stitched.push({
+            status: 'Parked',
+            start_time: startDate,
+            end_time: rawList[0].start_time,
+            duration_seconds: Math.round((firstStart - startBound) / 1000),
+            distance: 0,
+            max_speed: 0,
+            avg_speed: 0,
+            lat: rawList[0].lat,
+            lng: rawList[0].lng
+          });
+        }
+
+        for (let i = 0; i < rawList.length; i++) {
+          const cur = rawList[i];
+          const next = rawList[i + 1];
+          const curStart = new Date(cur.start_time);
+          const effEnd = next ? next.start_time : cur.end_time;
+          const durationSec = Math.max(1, Math.round((new Date(effEnd) - curStart) / 1000));
+
+          stitched.push({
+            status: cur.status,
+            start_time: cur.start_time,
+            end_time: effEnd,
+            duration_seconds: durationSec,
+            distance: cur.distance || 0,
+            max_speed: cur.max_speed || 0,
+            avg_speed: cur.avg_speed || 0,
+            lat: cur.lat,
+            lng: cur.lng
+          });
+        }
+
+        // Append trailing Parked interval if last GPS point ends before endDate
+        const lastItem = stitched[stitched.length - 1];
+        const lastEnd = new Date(lastItem.end_time);
+        if (endBound - lastEnd > 30000) {
+          stitched.push({
+            status: 'Parked',
+            start_time: lastItem.end_time,
+            end_time: endDate,
+            duration_seconds: Math.round((endBound - lastEnd) / 1000),
+            distance: 0,
+            max_speed: 0,
+            avg_speed: 0,
+            lat: lastItem.lat,
+            lng: lastItem.lng
+          });
+        }
+
+        map[vId] = stitched;
+      }
+
       return map;
     } catch (err) {
       console.error('[REPORT_REPO] getVehicleIntervals error:', err.message);

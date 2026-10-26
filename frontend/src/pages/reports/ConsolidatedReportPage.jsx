@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
-import { useNavigate } from 'react-router-dom';
 import {
-  FileSpreadsheet, FileText, Search, Loader2, Calendar,
-  Clock, CheckCircle2, Navigation, MapPin
+  FileSpreadsheet, FileText, Search, Loader2, Calendar
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
@@ -25,9 +23,10 @@ const formatHMS = (seconds) => {
 const formatDateTime = (isoStr) => {
   if (!isoStr) return '-';
   const d = new Date(isoStr);
-  if (isNaN(d.getTime())) return '-';
+  if (isNaN(d.getTime())) return String(isoStr);
   const timeStr = d.toLocaleTimeString('en-GB', { timeZone: 'Asia/Kolkata', hour12: false });
-  const dateStr = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' }).replace(/\//g, '-');
+  const parts = d.toLocaleDateString('en-GB', { timeZone: 'Asia/Kolkata' }).split('/');
+  const dateStr = parts.length === 3 ? `${parts[0]}-${parts[1]}-${parts[2]}` : d.toLocaleDateString('en-GB');
   return `${timeStr} ${dateStr}`;
 };
 
@@ -52,12 +51,11 @@ const getYesterdayString = () => {
 };
 
 const ConsolidatedReportPage = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [vehicles, setVehicles] = useState([]);
 
-  // Default to yesterday (complete 24h cycle)
+  // Default to yesterday full 24h
   const defaultYesterday = getYesterdayString();
   const [filters, setFilters] = useState(() => ({
     vehicleId: '',
@@ -131,7 +129,7 @@ const ConsolidatedReportPage = () => {
     data.forEach(v => {
       const vName = v.vehicle_name || v.plate || 'Vehicle';
       if (v.intervals && v.intervals.length > 0) {
-        v.intervals.forEach((interval, idx) => {
+        v.intervals.forEach((interval) => {
           rows.push({
             'Vehicle Name': vName,
             'Status': interval.status,
@@ -166,31 +164,33 @@ const ConsolidatedReportPage = () => {
   const bannerStart = formatBannerDateTime(filters.startDate, filters.startTime);
   const bannerEnd = formatBannerDateTime(filters.endDate, filters.endTime);
 
+  const cellBorder = '1px solid #d9d9d9';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A', padding: '16px' }}>
 
       {/* Top Filter Bar */}
       <div style={{
         background: '#FFFFFF',
-        borderRadius: '10px',
-        padding: '16px 20px',
-        border: '1px solid #E2E8F0',
-        marginBottom: '20px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        borderRadius: '6px',
+        padding: '12px 16px',
+        border: '1px solid #CBD5E1',
+        marginBottom: '16px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
         display: 'flex',
         flexWrap: 'wrap',
         alignItems: 'center',
         gap: '12px'
       }}>
         {/* Vehicle Selector */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '200px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Select Vehicle</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', minWidth: '180px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>Vehicle</label>
           <select
             value={filters.vehicleId}
             onChange={e => setFilters(prev => ({ ...prev, vehicleId: e.target.value }))}
             style={{
-              padding: '7px 10px',
-              borderRadius: '6px',
+              padding: '6px 10px',
+              borderRadius: '4px',
               border: '1px solid #CBD5E1',
               background: '#FFFFFF',
               color: '#0F172A',
@@ -209,10 +209,10 @@ const ConsolidatedReportPage = () => {
         </div>
 
         {/* Start Date & Time */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>From</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>From</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: '140px' }}>
+            <div style={{ width: '135px' }}>
               <CustomDatePicker
                 value={filters.startDate}
                 onChange={e => setFilters(prev => ({ ...prev, startDate: e?.target ? e.target.value : e }))}
@@ -223,8 +223,8 @@ const ConsolidatedReportPage = () => {
               value={filters.startTime}
               onChange={e => setFilters(prev => ({ ...prev, startTime: e.target.value }))}
               style={{
-                padding: '7px 10px',
-                borderRadius: '6px',
+                padding: '6px 8px',
+                borderRadius: '4px',
                 border: '1px solid #CBD5E1',
                 background: '#FAFAFA',
                 fontSize: '13px',
@@ -237,10 +237,10 @@ const ConsolidatedReportPage = () => {
         </div>
 
         {/* End Date & Time */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-          <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>To</label>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+          <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>To</label>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <div style={{ width: '140px' }}>
+            <div style={{ width: '135px' }}>
               <CustomDatePicker
                 value={filters.endDate}
                 onChange={e => setFilters(prev => ({ ...prev, endDate: e?.target ? e.target.value : e }))}
@@ -251,8 +251,8 @@ const ConsolidatedReportPage = () => {
               value={filters.endTime}
               onChange={e => setFilters(prev => ({ ...prev, endTime: e.target.value }))}
               style={{
-                padding: '7px 10px',
-                borderRadius: '6px',
+                padding: '6px 8px',
+                borderRadius: '4px',
                 border: '1px solid #CBD5E1',
                 background: '#FAFAFA',
                 fontSize: '13px',
@@ -265,20 +265,19 @@ const ConsolidatedReportPage = () => {
         </div>
 
         {/* Quick "Yesterday" Button */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '16px' }}>
           <button
             type="button"
             onClick={handleSetYesterday}
             style={{
-              padding: '8px 14px',
-              borderRadius: '6px',
+              padding: '7px 12px',
+              borderRadius: '4px',
               border: '1px solid #0284C7',
               background: '#F0F9FF',
               color: '#0284C7',
               fontSize: '12px',
               fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.15s ease'
+              cursor: 'pointer'
             }}
             title="Set date range to Yesterday full 24h"
           >
@@ -287,7 +286,7 @@ const ConsolidatedReportPage = () => {
         </div>
 
         {/* Submit / Generate Button */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', paddingTop: '16px' }}>
           <button
             type="button"
             onClick={() => handleFetchReport()}
@@ -296,24 +295,23 @@ const ConsolidatedReportPage = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '8px 18px',
-              borderRadius: '6px',
+              padding: '7px 16px',
+              borderRadius: '4px',
               border: 'none',
               background: '#0284C7',
               color: '#FFFFFF',
               fontSize: '13px',
               fontWeight: 700,
-              cursor: loading ? 'wait' : 'pointer',
-              boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+              cursor: loading ? 'wait' : 'pointer'
             }}
           >
-            {loading ? <Loader2 size={15} className="animate-spin" /> : <Search size={15} />}
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
             Submit
           </button>
         </div>
 
         {/* Export Buttons */}
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginLeft: 'auto', paddingTop: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', marginLeft: 'auto', paddingTop: '16px' }}>
           <button
             type="button"
             onClick={() => exportToExcel(getExportData(), 'Consolidated_Report')}
@@ -322,8 +320,8 @@ const ConsolidatedReportPage = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '7px 12px',
-              borderRadius: '6px',
+              padding: '6px 12px',
+              borderRadius: '4px',
               border: 'none',
               background: data.length === 0 ? '#E2E8F0' : '#10B981',
               color: '#FFFFFF',
@@ -344,8 +342,8 @@ const ConsolidatedReportPage = () => {
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '7px 12px',
-              borderRadius: '6px',
+              padding: '6px 12px',
+              borderRadius: '4px',
               border: 'none',
               background: data.length === 0 ? '#E2E8F0' : '#EF4444',
               color: '#FFFFFF',
@@ -370,7 +368,7 @@ const ConsolidatedReportPage = () => {
           justifyContent: 'center',
           padding: '60px 20px',
           background: '#FFFFFF',
-          borderRadius: '10px',
+          borderRadius: '6px',
           border: '1px solid #E2E8F0',
           gap: '12px'
         }}>
@@ -385,13 +383,13 @@ const ConsolidatedReportPage = () => {
           justifyContent: 'center',
           padding: '60px 20px',
           background: '#FFFFFF',
-          borderRadius: '10px',
+          borderRadius: '6px',
           border: '2px dashed #E2E8F0',
           textAlign: 'center'
         }}>
           <div style={{
-            width: '48px',
-            height: '48px',
+            width: '44px',
+            height: '44px',
             borderRadius: '50%',
             background: '#F1F5F9',
             display: 'flex',
@@ -399,213 +397,174 @@ const ConsolidatedReportPage = () => {
             justifyContent: 'center',
             marginBottom: '10px'
           }}>
-            <Calendar size={22} color="#94A3B8" />
+            <Calendar size={20} color="#94A3B8" />
           </div>
-          <h4 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>
+          <h4 style={{ margin: '0 0 4px 0', fontSize: '14px', fontWeight: 700, color: '#1E293B' }}>
             No Data Generated Yet
           </h4>
-          <p style={{ margin: 0, fontSize: '13px', color: '#64748B' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>
             Select your vehicle and date range above, then click <strong>Submit</strong> or <strong>Yesterday</strong> to view the report.
           </p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {data.map((vehicleItem) => {
-            const vName = vehicleItem.vehicle_name || vehicleItem.plate || 'Vehicle';
-            const distanceKm = Math.round((vehicleItem.distance_travelled || 0) * 10) / 10;
-            const movingHMS = formatHMS(vehicleItem.running_seconds);
-            const parkedHMS = formatHMS(vehicleItem.stopped_seconds);
-            const idleHMS = formatHMS(vehicleItem.idle_seconds);
-            const speedHikeKm = Math.round(vehicleItem.max_speed || 0);
-            const avgSpeedKm = Math.round(vehicleItem.avg_speed || 0);
+        /* Unified Continuous Telematics Table Matching Classic Layout Exactly */
+        <div style={{ width: '100%', overflowX: 'auto', background: '#FFFFFF', border: cellBorder }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', color: '#333333' }}>
+            <tbody>
+              {data.map((vehicleItem) => {
+                const vName = vehicleItem.vehicle_name || vehicleItem.plate || 'Vehicle';
+                const distanceKm = vehicleItem.distance_travelled || 0;
+                const movingHMS = formatHMS(vehicleItem.running_seconds);
+                const parkedHMS = formatHMS(vehicleItem.stopped_seconds);
+                const idleHMS = formatHMS(vehicleItem.idle_seconds);
+                const speedHikeKm = Math.round(vehicleItem.max_speed || 0);
+                const avgSpeedKm = Math.round(vehicleItem.avg_speed || 0);
 
-            const intervals = vehicleItem.intervals || [];
+                const intervals = vehicleItem.intervals || [];
 
-            return (
-              <div
-                key={vehicleItem.vehicle_id}
-                style={{
-                  background: '#FFFFFF',
-                  borderRadius: '10px',
-                  border: '1.5px solid #CBD5E1',
-                  overflow: 'hidden',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}
-              >
-                {/* 1. Classic Blue Header Bar */}
-                <div style={{
-                  background: '#D9EEF8',
-                  borderBottom: '1px solid #BAE6FD',
-                  padding: '10px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: '12px'
-                }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-                    Vehicle Name : <span style={{ color: '#0369A1' }}>{vName}</span>
-                  </div>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>
-                    From : <span style={{ fontWeight: 700, color: '#0F172A' }}>{bannerStart}</span> - To : <span style={{ fontWeight: 700, color: '#0F172A' }}>{bannerEnd}</span>
-                  </div>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
-                    Trip Distance : <span style={{ color: '#0284C7' }}>{distanceKm} Km</span>
-                  </div>
-                </div>
+                return (
+                  <React.Fragment key={vehicleItem.vehicle_id}>
+                    {/* 1. Classic Light Sky Blue Banner */}
+                    <tr style={{ backgroundColor: '#cce5ff' }}>
+                      <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '13px', color: '#000000' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <span>Vehicle Name : {vName}</span>
+                          <span>From : {bannerStart} - To : {bannerEnd}</span>
+                          <span>Trip Distance : {distanceKm}</span>
+                        </div>
+                      </td>
+                    </tr>
 
-                {/* 2. Secondary Summary Row */}
-                <div style={{
-                  background: '#F8FAFC',
-                  borderBottom: '1px solid #E2E8F0',
-                  padding: '8px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'flex-start',
-                  flexWrap: 'wrap',
-                  gap: '24px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#475569'
-                }}>
-                  <div>
-                    Moving : <strong style={{ color: '#16A34A' }}>{movingHMS}</strong>
-                  </div>
-                  <div style={{ color: '#CBD5E1' }}>|</div>
-                  <div>
-                    Parked : <strong style={{ color: '#475569' }}>{parkedHMS}</strong>
-                  </div>
-                  <div style={{ color: '#CBD5E1' }}>|</div>
-                  <div>
-                    Idle : <strong style={{ color: '#D97706' }}>{idleHMS}</strong>
-                  </div>
-                  <div style={{ color: '#CBD5E1' }}>|</div>
-                  <div>
-                    Speed Hike : <strong style={{ color: '#DC2626' }}>{speedHikeKm} Km</strong>
-                  </div>
-                  <div style={{ color: '#CBD5E1' }}>|</div>
-                  <div>
-                    Avg Speed : <strong style={{ color: '#2563EB' }}>{avgSpeedKm} Km</strong>
-                  </div>
-                </div>
+                    {/* 2. Secondary Summary Strip Row */}
+                    <tr style={{ backgroundColor: '#ffffff' }}>
+                      <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '13px', color: '#000000', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', width: '100%' }}>
+                          <span>Moving : {movingHMS}</span>
+                          <span>Parked : {parkedHMS}</span>
+                          <span>Idle : {idleHMS}</span>
+                          <span>Speed Hike : {speedHikeKm} Km</span>
+                          <span>Avg Speed : {avgSpeedKm} Km</span>
+                        </div>
+                      </td>
+                    </tr>
 
-                {/* 3. Detailed Interval Table */}
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px' }}>
-                    <thead>
-                      <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '100px' }}>Status</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '160px' }}>Start</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '160px' }}>End</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '120px' }}>Duration (HH:MM:SS)</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '90px' }}>Length</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '90px' }}>Speed Hike</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569', width: '90px' }}>Speed Avg</th>
-                        <th style={{ padding: '8px 12px', fontWeight: 700, color: '#475569' }}>Location Details</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {intervals.length > 0 ? (
-                        intervals.map((item, idx) => {
-                          const isMoving = item.status === 'Moving';
-                          const isIdle = item.status === 'Idle';
-                          const isParked = item.status === 'Parked';
+                    {/* 3. Two-Row Table Header */}
+                    <tr style={{ backgroundColor: '#ffffff' }}>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                        Status
+                      </th>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '180px' }}>
+                        Start
+                      </th>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '180px' }}>
+                        End
+                      </th>
+                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '160px' }}>
+                        Duration (HH:MM:SS)
+                      </th>
+                      <th colSpan={3} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000' }}>
+                        Location Details
+                      </th>
+                    </tr>
+                    <tr style={{ backgroundColor: '#ffffff' }}>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                        Length
+                      </th>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '120px' }}>
+                        Speed Hike
+                      </th>
+                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                        Speed Avg
+                      </th>
+                    </tr>
 
-                          const statusBadgeBg = isMoving ? '#DEF7EC' : (isIdle ? '#FEF08A' : '#F1F5F9');
-                          const statusBadgeColor = isMoving ? '#03543F' : (isIdle ? '#713F12' : '#334155');
+                    {/* 4. Interval Data Rows */}
+                    {intervals.length > 0 ? (
+                      intervals.map((item, idx) => {
+                        const isMoving = item.status === 'Moving';
 
+                        if (isMoving) {
                           return (
-                            <tr
-                              key={idx}
-                              style={{
-                                borderBottom: '1px solid #F1F5F9',
-                                background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'
-                              }}
-                            >
-                              <td style={{ padding: '8px 12px' }}>
-                                <span style={{
-                                  display: 'inline-block',
-                                  padding: '2px 8px',
-                                  borderRadius: '4px',
-                                  fontSize: '11px',
-                                  fontWeight: 700,
-                                  background: statusBadgeBg,
-                                  color: statusBadgeColor
-                                }}>
-                                  {item.status}
-                                </span>
+                            <tr key={idx} style={{ backgroundColor: '#ffffff' }}>
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                                Moving
                               </td>
-                              <td style={{ padding: '8px 12px', color: '#1E293B', fontWeight: 500 }}>
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
                                 {formatDateTime(item.start_time)}
                               </td>
-                              <td style={{ padding: '8px 12px', color: '#1E293B', fontWeight: 500 }}>
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
                                 {formatDateTime(item.end_time)}
                               </td>
-                              <td style={{ padding: '8px 12px', color: '#0F172A', fontWeight: 700 }}>
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
                                 {formatHMS(item.duration_seconds)}
                               </td>
-                              <td style={{ padding: '8px 12px', color: isMoving ? '#15803D' : '#64748B', fontWeight: isMoving ? 700 : 500 }}>
-                                {isMoving ? `${item.distance} km` : '-'}
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                                {item.distance !== undefined ? `${item.distance} Km` : '0 Km'}
                               </td>
-                              <td style={{ padding: '8px 12px', color: isMoving ? '#DC2626' : '#64748B', fontWeight: isMoving ? 700 : 500 }}>
-                                {isMoving ? `${item.max_speed} Km` : '0 Km'}
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                                {item.max_speed ? `${item.max_speed} Km` : ' Km'}
                               </td>
-                              <td style={{ padding: '8px 12px', color: isMoving ? '#2563EB' : '#64748B', fontWeight: isMoving ? 700 : 500 }}>
-                                {isMoving ? `${item.avg_speed} Km` : '0 Km'}
-                              </td>
-                              <td style={{ padding: '8px 12px', color: '#475569' }}>
-                                {item.lat && item.lng ? (
-                                  <AddressText lat={item.lat} lng={item.lng} />
-                                ) : (
-                                  <span>-</span>
-                                )}
+                              <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                                {item.avg_speed !== undefined ? `${item.avg_speed} Km` : '0 Km'}
                               </td>
                             </tr>
                           );
-                        })
-                      ) : (
-                        /* When no intervals detected (e.g. parked all day or zero motion) */
-                        <tr style={{ background: '#FFFFFF' }}>
-                          <td style={{ padding: '8px 12px' }}>
-                            <span style={{
-                              display: 'inline-block',
-                              padding: '2px 8px',
-                              borderRadius: '4px',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              background: '#F1F5F9',
-                              color: '#334155'
-                            }}>
-                              Parked
-                            </span>
-                          </td>
-                          <td style={{ padding: '8px 12px', color: '#1E293B', fontWeight: 500 }}>
-                            {bannerStart}
-                          </td>
-                          <td style={{ padding: '8px 12px', color: '#1E293B', fontWeight: 500 }}>
-                            {bannerEnd}
-                          </td>
-                          <td style={{ padding: '8px 12px', color: '#0F172A', fontWeight: 700 }}>
-                            {formatHMS(vehicleItem.stopped_seconds || 86400)}
-                          </td>
-                          <td style={{ padding: '8px 12px', color: '#64748B' }}>-</td>
-                          <td style={{ padding: '8px 12px', color: '#64748B' }}>0 Km</td>
-                          <td style={{ padding: '8px 12px', color: '#64748B' }}>0 Km</td>
-                          <td style={{ padding: '8px 12px', color: '#475569' }}>
-                            {vehicleItem.start_lat && vehicleItem.start_lng ? (
-                              <AddressText lat={vehicleItem.start_lat} lng={vehicleItem.start_lng} />
-                            ) : (
-                              <span>No location records during this period</span>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            );
-          })}
+                        }
+
+                        // Idle or Parked - Location Details spans all 3 columns
+                        return (
+                          <tr key={idx} style={{ backgroundColor: '#ffffff' }}>
+                            <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                              {item.status}
+                            </td>
+                            <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                              {formatDateTime(item.start_time)}
+                            </td>
+                            <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                              {formatDateTime(item.end_time)}
+                            </td>
+                            <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                              {formatHMS(item.duration_seconds)}
+                            </td>
+                            <td colSpan={3} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                              {item.lat && item.lng ? (
+                                <AddressText lat={item.lat} lng={item.lng} />
+                              ) : (
+                                '-'
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      /* Fallback Parked row */
+                      <tr style={{ backgroundColor: '#ffffff' }}>
+                        <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                          Parked
+                        </td>
+                        <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                          {bannerStart}
+                        </td>
+                        <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                          {bannerEnd}
+                        </td>
+                        <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                          {formatHMS(vehicleItem.stopped_seconds || 86400)}
+                        </td>
+                        <td colSpan={3} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
+                          {vehicleItem.start_lat && vehicleItem.start_lng ? (
+                            <AddressText lat={vehicleItem.start_lat} lng={vehicleItem.start_lng} />
+                          ) : (
+                            '-'
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
-const AddressText = ({ lat, lng }) => {
+const AddressText = ({ lat, lng, style }) => {
   const [address, setAddress] = useState('Fetching...');
   
   useEffect(() => {
@@ -11,11 +11,13 @@ const AddressText = ({ lat, lng }) => {
       getAddressFromCoordinates(lat, lng).then(addr => {
         if (mounted) setAddress(addr);
       });
+    } else {
+      setAddress('-');
     }
     return () => { mounted = false; };
   }, [lat, lng]);
 
-  return <span style={{ fontSize: '11px', color: '#475569', fontWeight: 600, whiteSpace: 'normal', lineHeight: '1.3' }}>{address}</span>;
+  return <span style={{ fontSize: '13px', color: '#333333', fontWeight: 400, whiteSpace: 'normal', lineHeight: '1.3', ...style }}>{address}</span>;
 };
 
 export default AddressText;
