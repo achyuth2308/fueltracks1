@@ -388,12 +388,16 @@ const VehiclesAdminPage = () => {
 
           {/* Org Filter (for Superadmin/Dealer) */}
           {(isSuperAdmin || user?.role === 'dealer') && orgs.length > 0 && (
-            <div style={{ width: '190px' }}>
+            <div style={{ width: '210px' }}>
               <FuelTracksSelect
                 height={34}
                 value={selectedOrgId}
                 onChange={setSelectedOrgId}
                 placeholder="All Organizations"
+                searchable={true}
+                searchPlaceholder="Search Organization..."
+                emptyMessage="No organizations found"
+                menuStyle={{ minWidth: '220px' }}
                 options={[
                   { value: 'all', label: 'All Organizations' },
                   ...orgs.map(o => ({ value: o.id, label: o.name }))
@@ -404,12 +408,16 @@ const VehiclesAdminPage = () => {
 
           {/* Group Filter */}
           {groups.length > 0 && (
-            <div style={{ width: '170px' }}>
+            <div style={{ width: '180px' }}>
               <FuelTracksSelect
                 height={34}
                 value={selectedGroupId}
                 onChange={setSelectedGroupId}
                 placeholder="All Groups"
+                searchable={true}
+                searchPlaceholder="Search Group..."
+                emptyMessage="No groups found"
+                menuStyle={{ minWidth: '190px' }}
                 options={[
                   { value: 'all', label: 'All Groups' },
                   ...groups.map(g => ({ value: g.id, label: g.name }))

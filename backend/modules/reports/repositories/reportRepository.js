@@ -91,10 +91,15 @@ class ReportRepository {
     const legs = await this.getTrips(vehicleId, startDate, endDate);
     if (!legs || legs.length === 0) return [];
 
-    // 2. Group legs by IST date
+    // Current date in IST (today is ongoing and not a completed full day)
+    const todayIST = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+
+    // 2. Group legs by IST date (only completed days, strictly excluding ongoing today)
     const dayGroups = {};
     for (const leg of legs) {
       const legDate = new Date(leg.start_time).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+      if (legDate >= todayIST) continue; // Exclude incomplete/ongoing today
+
       if (!dayGroups[legDate]) {
         dayGroups[legDate] = [];
       }
