@@ -137,10 +137,10 @@ function App() {
                   {/* System and Integrations */}
                   <Route path="fuel" element={<FuelAdminPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
-                  <Route path="geofences" element={<GeofencesAdminPage />} />
-                  <Route path="routes" element={<RoutesAdminPage />} />
+                  <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="routes" element={<Navigate to="/dashboard" replace />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
-                    <Route index element={<Navigate to="trip" replace />} />
+                    <Route index element={<Navigate to="daily-trip" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
                     <Route path="daily-trip" element={<DailyTripReportPage />} />
@@ -150,16 +150,11 @@ function App() {
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
                     <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="fuel-consolidated" element={<ConsolidatedReportPage defaultMode="fuel" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
-                    <Route path="manual-trips" element={<ManualTripsReportPage />} />
+                    <Route path="manual-trips" element={<Navigate to="/admin/reports/daily-trip" replace />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
                     <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
-                    <Route path="geofence-single-place" element={<GeofenceSinglePlaceReportPage />} />
-                    <Route path="geofence-one-way" element={<GeofenceOneWayReportPage />} />
-                    <Route path="geofence-two-way" element={<GeofenceTwoWayReportPage />} />
-                    <Route path="geofence-round-trip" element={<GeofenceRoundTripReportPage />} />
                   </Route>
                 </Route>
               </Route>
@@ -167,7 +162,7 @@ function App() {
               {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}
               <Route path="renewals" element={<CustomerRenewalsPage />} />
               <Route path="alerts" element={<AlertsPage />} />
-              <Route path="trips" element={<TripManagerPage />} />
+              <Route path="trips" element={<Navigate to="/dashboard" replace />} />
               <Route path="onBoardDevice" element={<OnBoardDevicePage />} />
             </Route>
 
