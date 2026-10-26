@@ -3673,6 +3673,7 @@ const EditCalibratePage = () => {
         imei={vehicle?.imei}
         tankCapacity={computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 0)}
         initialFuel={vehicle?.current_fuel}
+        initialOdometer={vehicle?.current_odometer ?? vehicle?.odometer ?? vehicle?.metadata?.odometerReading}
         fuelType={fuelType}
         sensorType={sensorType}
       />

@@ -1812,6 +1812,7 @@ const VehiclesAdminPage = () => {
         imei={liveFuelVehicle?.imei}
         tankCapacity={parseFloat(liveFuelVehicle?.metadata?.tankSize || liveFuelVehicle?.metadata?.fuelConfig?.tankSize || 100)}
         initialFuel={liveFuelVehicle?.current_fuel}
+        initialOdometer={liveFuelVehicle?.current_odometer ?? liveFuelVehicle?.odometer ?? liveFuelVehicle?.metadata?.odometerReading}
         fuelType={liveFuelVehicle?.metadata?.fuelCalibration?.fuelType || liveFuelVehicle?.metadata?.fuelType}
         sensorType={liveFuelVehicle?.metadata?.sensorType}
         onClose={() => setLiveFuelVehicle(null)}
