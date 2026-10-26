@@ -162,7 +162,7 @@ function App() {
               {/* These are not strictly /admin paths but act like it, keeping them unprotected or as is based on existing paths */}
               <Route path="renewals" element={<CustomerRenewalsPage />} />
               <Route path="alerts" element={<AlertsPage />} />
-              <Route path="trips" element={<Navigate to="/dashboard" replace />} />
+              <Route path="trips" element={<TripManagerPage />} />
               <Route path="onBoardDevice" element={<OnBoardDevicePage />} />
             </Route>
 
