@@ -1158,7 +1158,7 @@ const VehicleController = {
   async getVehicleHistory(req, res, next) {
     try {
       const { id } = req.params;
-      const { startDate, endDate, page, limit } = req.query;
+      const { startDate, endDate, page, limit, noCount, sample, maxPoints } = req.query;
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
@@ -1176,7 +1176,10 @@ const VehicleController = {
         startDate,
         endDate,
         page: parseInt(page) || 1,
-        limit: parseInt(limit) || 100
+        limit: parseInt(limit) || 100,
+        noCount: noCount === 'true' || noCount === true,
+        sample: sample === 'true' || sample === true,
+        maxPoints: parseInt(maxPoints) || 500
       });
 
       // Apply Odometer Baseline Offset (baseline + distance driven since snapshot)

@@ -208,7 +208,7 @@ const GpsModel = {
   /**
    * Get GPS history for a vehicle (paginated)
    */
-  async getHistory(vehicleId, { startDate, endDate, page = 1, limit = 100 }) {
+  async getHistory(vehicleId, { startDate, endDate, page = 1, limit = 100, noCount = false, sample = false, maxPoints = 500 }) {
     const offset = (page - 1) * limit;
     const params = [vehicleId];
     let dateFilter = '';
@@ -222,13 +222,55 @@ const GpsModel = {
       dateFilter += ` AND device_time <= $${params.length}`;
     }
 
-    // Count
-    const countResult = await db.query(
-      `SELECT COUNT(*) FROM gps_points
-       WHERE vehicle_id = $1 ${dateFilter}`,
-      params
-    );
-    const total = parseInt(countResult.rows[0].count);
+    if (sample) {
+      // Smart Downsampling for Analytics / Charts across full time window
+      // Guarantees first point (rn=1), last point (rn=total_cnt), and uniformly spaced points in ASC order
+      const targetMax = Math.max(100, Math.min(2000, parseInt(maxPoints) || 500));
+      params.push(targetMax);
+
+      const sampleSql = `
+        WITH ranked AS (
+          SELECT id, lat, lng, speed, direction, odometer, fuel, ignition,
+                 satellites, gsm_signal, battery, voltage, is_live, device_time, server_time,
+                 ROW_NUMBER() OVER (ORDER BY device_time ASC) as rn,
+                 COUNT(*) OVER () as total_cnt
+          FROM gps_points
+          WHERE vehicle_id = $1 ${dateFilter}
+        )
+        SELECT id, lat, lng, speed, direction, odometer, fuel, ignition,
+               satellites, gsm_signal, battery, voltage, is_live, device_time, server_time, total_cnt
+        FROM ranked
+        WHERE total_cnt <= $${params.length}
+           OR rn = 1 
+           OR rn = total_cnt 
+           OR rn % GREATEST(1, (total_cnt / $${params.length})) = 0
+        ORDER BY device_time ASC;
+      `;
+
+      const result = await db.query(sampleSql, params);
+      const totalPoints = result.rows.length > 0 ? parseInt(result.rows[0].total_cnt || 0) : 0;
+
+      return {
+        points: result.rows,
+        pagination: {
+          page: 1,
+          limit: result.rows.length,
+          total: totalPoints,
+          totalPages: 1
+        }
+      };
+    }
+
+    // Default paginated behavior
+    let total = 0;
+    if (!noCount) {
+      const countResult = await db.query(
+        `SELECT COUNT(*) FROM gps_points
+         WHERE vehicle_id = $1 ${dateFilter}`,
+        params
+      );
+      total = parseInt(countResult.rows[0].count);
+    }
 
     // Fetch
     params.push(limit, offset);
@@ -247,8 +289,8 @@ const GpsModel = {
       pagination: {
         page,
         limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+        total: total || result.rows.length,
+        totalPages: total ? Math.ceil(total / limit) : 1,
       },
     };
   },

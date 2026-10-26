@@ -186,12 +186,14 @@ export default function FuelAnalyticsPage() {
     }
 
     try {
-      // Fetch full high-resolution history for charts
+      // Fetch full high-resolution history with zero-overhead smart sampling across entire date range
       const res = await axiosInstance.get(`/api/vehicles/${selectedVehicle.id}/history`, {
         params: {
           startDate: startIso,
           endDate: endIso,
-          limit: 1500
+          sample: true,
+          noCount: true,
+          maxPoints: 500
         }
       });
 
@@ -224,11 +226,32 @@ export default function FuelAnalyticsPage() {
     );
   }, [vehicles, searchQuery]);
 
-  // Tank size from vehicle metadata
+  // Tank size from vehicle metadata (supporting multi-tank aggregation)
   const tankCapacity = useMemo(() => {
     const meta = selectedVehicle?.metadata || {};
-    const size = meta.fuel?.tankSize || meta.fuelCalibration?.tankSize || meta.tankCapacity || 250;
+    const fuelCal = meta.fuelCalibration || meta.fuel || {};
+    if (fuelCal.tanks && typeof fuelCal.tanks === 'object') {
+      const tankValues = Object.values(fuelCal.tanks);
+      if (tankValues.length > 0) {
+        const sumCap = tankValues.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);
+        if (sumCap > 0) return Math.round(sumCap * 10) / 10;
+      }
+    }
+    const size = fuelCal.tankSize || meta.tankCapacity || 250;
     return parseFloat(size) || 250;
+  }, [selectedVehicle]);
+
+  // Thresholds from Edit Calibration: minFilling (refuels) & minTheft (thefts/drains)
+  const refuelThreshold = useMemo(() => {
+    const meta = selectedVehicle?.metadata || {};
+    const fuelCal = meta.fuelCalibration || meta.fuel || {};
+    return parseFloat(fuelCal.minFilling) || 9.0;
+  }, [selectedVehicle]);
+
+  const theftThreshold = useMemo(() => {
+    const meta = selectedVehicle?.metadata || {};
+    const fuelCal = meta.fuelCalibration || meta.fuel || {};
+    return parseFloat(fuelCal.minTheft) || 5.0;
   }, [selectedVehicle]);
 
   // Calibration helper if fuel is raw ADC in points
@@ -326,14 +349,24 @@ export default function FuelAnalyticsPage() {
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
       const rawFuel = pt.fuel != null ? calibrateFuelValue(pt.fuel) : null;
 
+      // Real elapsed time delta between consecutive packets (capped at 15 mins to handle overnight sleep)
+      let deltaMin = 0;
+      if (i > 0) {
+        const prevTime = new Date(sorted[i - 1].device_time).getTime();
+        const currTime = new Date(pt.device_time).getTime();
+        if (currTime > prevTime) {
+          deltaMin = Math.min(15, Math.max(0, (currTime - prevTime) / 60000));
+        }
+      }
+
       // Engine Status: strictly evaluated from speed + ignition
       let engineState = 'OFF';
       if (rawSpeed > 2.0) {
         engineState = 'ON (Moving)';
-        movingMinutes += 0.5; // ~30 sec sampling approximation
+        movingMinutes += deltaMin;
       } else if (ign) {
         engineState = 'ON (Idle)';
-        idleMinutes += 0.5;
+        idleMinutes += deltaMin;
       } else {
         engineState = 'OFF';
       }
@@ -350,21 +383,45 @@ export default function FuelAnalyticsPage() {
         }
       }
 
-      // Detect refuels / drops (> 6L jump)
+      // Stationary Anti-Slosh Refuel & Drain / Theft Detection
+      // Uses the exact thresholds configured in Edit Calibration (minFilling & minTheft)
       if (prevFuel != null && rawFuel != null) {
         const diff = rawFuel - prevFuel;
-        if (diff >= 6.0) {
-          refuelEvents.push({
-            time: formatIST(pt.device_time),
-            liters: Math.round(diff * 10) / 10,
-            level: rawFuel
-          });
-        } else if (diff <= -6.0) {
-          dropEvents.push({
-            time: formatIST(pt.device_time),
-            liters: Math.round(Math.abs(diff) * 10) / 10,
-            level: rawFuel
-          });
+
+        // 1. Refuel: Jump >= refuelThreshold, vehicle must be stationary (speed <= 2 km/h)
+        if (diff >= refuelThreshold && rawSpeed <= 2.0) {
+          // Verify that this is not a 1-packet slosh spike by looking ahead if available
+          let isSustained = true;
+          if (i + 1 < sorted.length) {
+            const nextRaw = sorted[i + 1].fuel != null ? calibrateFuelValue(sorted[i + 1].fuel) : null;
+            if (nextRaw != null && nextRaw < prevFuel + (refuelThreshold * 0.6)) {
+              isSustained = false; // Bounced back down immediately: slosh wave!
+            }
+          }
+          if (isSustained) {
+            refuelEvents.push({
+              time: formatIST(pt.device_time),
+              liters: Math.round(diff * 10) / 10,
+              level: rawFuel
+            });
+          }
+        } 
+        // 2. Theft / Sudden Drop: Drop <= -theftThreshold, vehicle must be stationary (speed <= 2 km/h)
+        else if (diff <= -theftThreshold && rawSpeed <= 2.0) {
+          let isSustained = true;
+          if (i + 1 < sorted.length) {
+            const nextRaw = sorted[i + 1].fuel != null ? calibrateFuelValue(sorted[i + 1].fuel) : null;
+            if (nextRaw != null && nextRaw > prevFuel - (theftThreshold * 0.6)) {
+              isSustained = false; // Bounced back up immediately: slosh wave!
+            }
+          }
+          if (isSustained) {
+            dropEvents.push({
+              time: formatIST(pt.device_time),
+              liters: Math.round(Math.abs(diff) * 10) / 10,
+              level: rawFuel
+            });
+          }
         }
       }
       if (rawFuel != null) prevFuel = rawFuel;
@@ -452,7 +509,7 @@ export default function FuelAnalyticsPage() {
       drops: dropEvents,
       sessions: sessions.slice(-10).reverse() // Show top 10 recent sessions
     };
-  }, [historyPoints, tankCapacity]);
+  }, [historyPoints, tankCapacity, refuelThreshold, theftThreshold]);
 
   // Live fuel percentage
   const fuelPercent = useMemo(() => {
