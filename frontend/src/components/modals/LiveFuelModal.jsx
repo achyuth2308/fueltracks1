@@ -15,6 +15,7 @@ const LiveFuelModal = ({
   imei = '',
   tankCapacity = 0,
   initialFuel = null,
+  initialOdometer = null,
   fuelType = '',
   sensorType = ''
 }) => {
@@ -27,6 +28,8 @@ const LiveFuelModal = ({
     ignition: false,
     speed: 0,
     satellites: null,
+    odometer: initialOdometer !== null && !isNaN(Number(initialOdometer)) ? Number(initialOdometer) : null,
+    todayDistance: null,
     deviceTime: null
   });
 
@@ -38,7 +41,7 @@ const LiveFuelModal = ({
   const [timeAgo, setTimeAgo] = useState('Waiting for data...');
   const [loading, setLoading] = useState(false);
 
-  // Sync initialFuel if provided
+  // Sync initialFuel and initialOdometer if provided
   useEffect(() => {
     if (initialFuel !== null && initialFuel !== undefined && !isNaN(Number(initialFuel))) {
       const initVal = Number(Number(initialFuel).toFixed(1));
@@ -46,6 +49,12 @@ const LiveFuelModal = ({
       setFuelHistory(prev => (prev.length === 0 ? [{ val: initVal, time: Date.now() }] : prev));
     }
   }, [initialFuel]);
+
+  useEffect(() => {
+    if (initialOdometer !== null && initialOdometer !== undefined && !isNaN(Number(initialOdometer))) {
+      setLiveData(prev => ({ ...prev, odometer: Number(initialOdometer) }));
+    }
+  }, [initialOdometer]);
 
   // Clean memory on close
   useEffect(() => {
@@ -74,6 +83,8 @@ const LiveFuelModal = ({
           speed: v.current_speed ?? v.speed ?? prev.speed,
           satellites: v.current_satellites ?? v.satellites ?? prev.satellites,
           battery: v.battery ?? prev.battery,
+          odometer: v.current_odometer ?? v.odometer ?? v.metadata?.odometerReading ?? prev.odometer,
+          todayDistance: v.today_distance ?? prev.todayDistance,
           deviceTime: v.last_seen ?? v.deviceTime ?? prev.deviceTime
         }));
         if (parsedFuel !== null) {
@@ -130,6 +141,8 @@ const LiveFuelModal = ({
             ignition: data.ignition !== undefined ? !!data.ignition : prev.ignition,
             speed: data.speed !== undefined ? data.speed : prev.speed,
             satellites: data.satellites !== undefined ? data.satellites : prev.satellites,
+            odometer: data.odometer !== undefined && data.odometer !== null ? data.odometer : prev.odometer,
+            todayDistance: data.today_distance !== undefined && data.today_distance !== null ? data.today_distance : (data.todayDistance ?? prev.todayDistance),
             deviceTime: data.deviceTime || now.toISOString()
           };
         });
@@ -555,8 +568,8 @@ const LiveFuelModal = ({
           {/* Real-Time Sensor Telemetry Grid */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '12px'
+            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gap: '10px'
           }}>
             {/* Tile 1: Vehicle Main Power Supply */}
             <div style={{
@@ -577,7 +590,30 @@ const LiveFuelModal = ({
               </div>
             </div>
 
-            {/* Tile 2: Engine Ignition & Movement */}
+            {/* Tile 2: Odometer & Cumulative Travel */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '12px 14px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
+                <Gauge size={14} color="#0284c7" />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>ODOMETER</span>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                {liveData.odometer !== null && !isNaN(Number(liveData.odometer))
+                  ? `${Math.round(Number(liveData.odometer)).toLocaleString('en-IN')} km`
+                  : '—'}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                {liveData.todayDistance !== null && !isNaN(Number(liveData.todayDistance)) && Number(liveData.todayDistance) > 0
+                  ? `Today: ${(Math.round(Number(liveData.todayDistance) * 10) / 10).toLocaleString('en-IN')} km`
+                  : 'Cumulative Distance'}
+              </div>
+            </div>
+
+            {/* Tile 3: Engine Ignition & Movement */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -600,7 +636,7 @@ const LiveFuelModal = ({
               </div>
             </div>
 
-            {/* Tile 3: Satellite & Connection Stream */}
+            {/* Tile 4: Satellite & Connection Stream */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
