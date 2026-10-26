@@ -809,6 +809,23 @@ const EditCalibratePage = () => {
         setError(`Please enter ${isAnalog ? 'voltage' : 'frequency'} values for all calibration rows (or click "Get ${isAnalog ? 'Volt' : 'Frequency'}").`);
         return;
       }
+
+      // Check strictly ascending order of litres and sensor values to prevent typos (e.g. entering 1090 after 3931)
+      for (let i = 0; i < calibrationPoints.length - 1; i++) {
+        const currLitres = parseFloat(calibrationPoints[i].litres) || 0;
+        const nextLitres = parseFloat(calibrationPoints[i + 1].litres) || 0;
+        if (nextLitres <= currLitres) {
+          setError(`Step ${i + 2} Litres (${nextLitres} L) must be greater than Step ${i + 1} Litres (${currLitres} L).`);
+          return;
+        }
+
+        const currVal = parseFloat(isAnalog ? calibrationPoints[i].volt : (calibrationPoints[i].frequency ?? calibrationPoints[i].adcValue)) || 0;
+        const nextVal = parseFloat(isAnalog ? calibrationPoints[i + 1].volt : (calibrationPoints[i + 1].frequency ?? calibrationPoints[i + 1].adcValue)) || 0;
+        if (nextVal <= currVal) {
+          setError(`Step ${i + 2} sensor value (${nextVal}) cannot be less than or equal to Step ${i + 1} (${currVal}). Please verify your calibration steps.`);
+          return;
+        }
+      }
     }
 
     setSaving(true);

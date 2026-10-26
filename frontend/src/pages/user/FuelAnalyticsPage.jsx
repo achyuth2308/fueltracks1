@@ -265,39 +265,83 @@ export default function FuelAnalyticsPage() {
   }, [selectedVehicle]);
 
   // Calibration helper if fuel is raw ADC in points
-  const calibrateFuelValue = (rawFuel) => {
+  const calibrateFuelValue = (rawFuel, pointDeviceTime) => {
     if (rawFuel == null || isNaN(rawFuel)) return null;
     const num = parseFloat(rawFuel);
-    // If already in normal range (<= tankCapacity * 1.2), return directly
-    if (num <= tankCapacity * 1.2 && num < 1000) return Math.round(num * 10) / 10;
 
-    // Check if calibration points exist in metadata
     const meta = selectedVehicle?.metadata || {};
     const cal = meta.fuelCalibration || meta.fuel || {};
-    const points = cal.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+    const calUpdatedAt = cal.updatedAt ? new Date(cal.updatedAt).getTime() : 0;
+    const ptTime = pointDeviceTime ? new Date(pointDeviceTime).getTime() : 0;
 
+    // If point was recorded after calibration was configured AND is within reasonable tank limits,
+    // it was already calibrated by the backend.
+    const isAfterCalibration = calUpdatedAt > 0 && ptTime >= calUpdatedAt;
+    if (isAfterCalibration && num <= tankCapacity * 1.15) {
+      return Math.round(num * 10) / 10;
+    }
+
+    const sCalType = cal.calibrateType || 'Auto';
+
+    // 1. Direct Calibration (Technoton / Jointech / BLE direct)
+    if (sCalType === 'Direct') {
+      const mult = parseFloat(cal.directMultiplier ?? 1.0) || 1.0;
+      const offset = parseFloat(cal.directOffset ?? 0.0) || 0.0;
+      const unit = cal.directUnit || 'Litres';
+      const scaled = (num * mult) + offset;
+      if (unit === 'Percentage' && tankCapacity > 0) {
+        return Math.max(0, Math.min(tankCapacity, Math.round(((scaled / 100) * tankCapacity) * 10) / 10));
+      }
+      return Math.max(0, tankCapacity > 0 ? Math.min(tankCapacity, Math.round(scaled * 10) / 10) : Math.round(scaled * 10) / 10);
+    }
+
+    // 2. Manual Calibration (Points table)
+    const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
     if (Array.isArray(points) && points.length >= 2) {
       const sorted = points
-        .map(p => ({ adc: parseFloat(p.adcValue || p.frequency || p.volt), ltr: parseFloat(p.litres) }))
+        .map(p => ({
+          adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
+          ltr: parseFloat(p.litres)
+        }))
         .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
         .sort((a, b) => a.adc - b.adc);
 
       if (sorted.length >= 2) {
+        // If already after calibration and value is in Litres range, don't re-run through ADC curve
+        if (isAfterCalibration && num <= sorted[sorted.length - 1].ltr * 1.1) {
+          return Math.round(num * 10) / 10;
+        }
+
         if (num <= sorted[0].adc) return sorted[0].ltr;
         if (num >= sorted[sorted.length - 1].adc) return sorted[sorted.length - 1].ltr;
+
         for (let i = 0; i < sorted.length - 1; i++) {
           const p1 = sorted[i];
           const p2 = sorted[i + 1];
           if (num >= p1.adc && num <= p2.adc) {
-            const ratio = (num - p1.adc) / (p2.adc - p1.adc);
-            return Math.round((p1.ltr + ratio * (p2.ltr - p1.ltr)) * 10) / 10;
+            const range = p2.adc - p1.adc;
+            const ratio = range !== 0 ? (num - p1.adc) / range : 0;
+            const val = p1.ltr + ratio * (p2.ltr - p1.ltr);
+            return Math.max(0, Math.min(tankCapacity, Math.round(val * 10) / 10));
           }
         }
       }
     }
-    // Fallback: if value > 1000 and no points, scale by 10 or 100
+
+    // 3. Auto Calibration (minAdc -> maxAdc)
+    const emptyAdc = parseFloat(cal.minAdc ?? meta.fuelEmptyAdc ?? 0);
+    const fullAdc = parseFloat(cal.maxAdc ?? meta.fuelFullAdc ?? 4095);
+    if (tankCapacity > 0 && fullAdc !== emptyAdc && !isNaN(emptyAdc) && !isNaN(fullAdc)) {
+      if (num > tankCapacity * 1.15 || !isAfterCalibration) {
+        let frac = (num - emptyAdc) / (fullAdc - emptyAdc);
+        frac = Math.max(0, Math.min(1, frac));
+        return Math.round((tankCapacity * frac) * 10) / 10;
+      }
+    }
+
+    // Fallback: If value is ridiculously large (> 1000) and no points exist
     if (num > 1000) return Math.round((num / 10) * 10) / 10;
-    return Math.round(num * 10) / 10;
+    return Math.max(0, Math.min(tankCapacity, Math.round(num * 10) / 10));
   };
 
   // 3. Process Telemetry & Analytics Metrics
@@ -357,7 +401,7 @@ export default function FuelAnalyticsPage() {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const rawFuel = pt.fuel != null ? calibrateFuelValue(pt.fuel) : null;
+      const rawFuel = pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null;
 
       // Real elapsed time delta between consecutive packets (capped at 15 mins to handle overnight sleep)
       let deltaMin = 0;
@@ -403,7 +447,8 @@ export default function FuelAnalyticsPage() {
           // Verify that this is not a 1-packet slosh spike by looking ahead if available
           let isSustained = true;
           if (i + 1 < sorted.length) {
-            const nextRaw = sorted[i + 1].fuel != null ? calibrateFuelValue(sorted[i + 1].fuel) : null;
+            const nextPt = sorted[i + 1];
+            const nextRaw = nextPt.fuel != null ? calibrateFuelValue(nextPt.fuel, nextPt.device_time) : null;
             if (nextRaw != null && nextRaw < prevFuel + (refuelThreshold * 0.6)) {
               isSustained = false; // Bounced back down immediately: slosh wave!
             }
@@ -420,7 +465,8 @@ export default function FuelAnalyticsPage() {
         else if (diff <= -theftThreshold && rawSpeed <= 2.0) {
           let isSustained = true;
           if (i + 1 < sorted.length) {
-            const nextRaw = sorted[i + 1].fuel != null ? calibrateFuelValue(sorted[i + 1].fuel) : null;
+            const nextPt = sorted[i + 1];
+            const nextRaw = nextPt.fuel != null ? calibrateFuelValue(nextPt.fuel, nextPt.device_time) : null;
             if (nextRaw != null && nextRaw > prevFuel - (theftThreshold * 0.6)) {
               isSustained = false; // Bounced back up immediately: slosh wave!
             }
