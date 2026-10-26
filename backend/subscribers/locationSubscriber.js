@@ -428,7 +428,7 @@ async function start(io) {
       }
 
       let parkedSince = null;
-      if (finalIgnition === false && (speed || 0) === 0) {
+      if (finalIgnition === false && (speed || 0) <= 2) {
         if (prevState && prevState.parkedSince) {
           parkedSince = prevState.parkedSince;
         } else {
@@ -875,81 +875,88 @@ async function start(io) {
         // Check B: Trip started (Automated trip started notification removed as requested)
         // Only Manual Trips (Check G) will now trigger trip_started / trip_ended alerts.
 
-        // Check C: Stoppage & Moving Tracking based on SPEED
-        // Stoppage alert fires when speed hits 0 (debounced).
-        // Moving alert fires when speed reaches >= 10 km/h, reporting the duration it was stopped.
+        // Check C: Stoppage & Moving Tracking based on SPEED and PARKING
+        // Track parking duration and trigger alert once when vehicle reaches configured parking duration (default 1 hr).
+        // When vehicle resumes moving, fire moving alert reporting total duration parked.
         const stoppageStartKey = `vehicle:stoppage_start:${vehicleId}`;
         const stoppageAlertFiredKey = `vehicle:stoppage_fired:${vehicleId}`;
-        
-        if (evalSpeed === 0) {
-          const existingStart = await redis.get(stoppageStartKey);
-          let startMs = currentDeviceTimeMs;
-          if (!existingStart || wasAsleep) {
-            await redis.set(stoppageStartKey, startMs); // Track stoppage start time for Moving alert
+        const parkedStartKey = `vehicle:parked_start:${vehicleId}`;
+        const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
+
+        const isParkedState = (finalIgnition === false && evalSpeed <= 2);
+        const isConfirmedMoving = (evalSpeed > 5 || (finalIgnition === true && evalSpeed > 2));
+
+        if (isParkedState) {
+          // Track when vehicle entered parking (engine OFF & stationary)
+          let parkedStart = await redis.get(parkedStartKey);
+          if (!parkedStart) {
+            const pTime = prevState?.parkedSince ? new Date(prevState.parkedSince).getTime() : currentDeviceTimeMs;
+            await redis.set(parkedStartKey, pTime, 'EX', 604800); // 7 days max
+            parkedStart = String(pTime);
           }
-          // Note: Long Stoppage Alert has been removed. Inactivity is now handled by Parking Alert (engine OFF) and Idle Alert (engine ON).
-        } else if (evalSpeed > 10) {
-          const stoppageStartStr = await redis.get(stoppageStartKey);
-          if (stoppageStartStr) {
-            const startMs = parseInt(stoppageStartStr, 10);
-            const durationMin = Math.round((currentDeviceTimeMs - startMs) / 60000);
-            
-            // Stoppage threshold before moving alert: Default 1 hr (60 mins), configurable by customer (minimum stoppage of 5 mins)
-            const movingStoppageLimitMin = Math.max(5, parseFloat(vehicle.metadata?.movingDurationAlert || vehicle.metadata?.movingStoppageDuration) || 60);
-            
-            if (durationMin >= movingStoppageLimitMin) {
-              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute:'2-digit', hour12: true };
-              const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
+
+          const parkedStartMs = parseInt(parkedStart, 10);
+          const parkingDurationMin = (currentDeviceTimeMs - parkedStartMs) / 60000;
+          const parkDurationLimitMin = parseFloat(vehicle.metadata?.parkingDurationAlert || vehicle.metadata?.parkDurationAlert) || 60; // Default 1 hr (60 mins)
+
+          if (parkingDurationMin >= parkDurationLimitMin) {
+            const alreadyFired = await redis.get(parkAlertFiredKey);
+            if (!alreadyFired) {
+              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
+              const startFmt = new Date(parkedStartMs).toLocaleTimeString('en-US', formatOpts);
+              const durationText = parkingDurationMin >= 60
+                ? `${Math.floor(parkingDurationMin / 60)} hr${parkingDurationMin >= 120 ? 's' : ''}${Math.round(parkingDurationMin % 60) > 0 ? ` ${Math.round(parkingDurationMin % 60)} mins` : ''}`
+                : `${Math.round(parkingDurationMin)} mins`;
+
+              alertsToTrigger.push({
+                type: 'parking',
+                text: `Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked since ${startFmt} (${durationText}).`,
+                deviceTime: new Date(parkedStartMs).toISOString()
+              });
+              // Fire ONCE per parking session; suppress all further parking alerts until vehicle actually moves
+              await redis.set(parkAlertFiredKey, '1', 'EX', 604800);
+            }
+          }
+        } else if (isConfirmedMoving) {
+          // Vehicle has started moving again!
+          const parkedStartStr = await redis.get(parkedStartKey);
+          if (parkedStartStr) {
+            const parkedStartMs = parseInt(parkedStartStr, 10);
+            const durationMin = Math.round((currentDeviceTimeMs - parkedStartMs) / 60000);
+
+            // Minimum 5 minutes of parking to avoid false moving alerts on momentary ignition toggles
+            if (durationMin >= 5) {
+              const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
+              const startFmt = new Date(parkedStartMs).toLocaleTimeString('en-US', formatOpts);
               const endFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
-              
+
               const durationText = durationMin >= 60
                 ? `${Math.floor(durationMin / 60)} hr${durationMin >= 120 ? 's' : ''}${durationMin % 60 > 0 ? ` ${durationMin % 60} mins` : ''}`
                 : `${durationMin} mins`;
 
-              alertsToTrigger.push({ 
-                type: 'moving', 
-                text: `Moving Alert: ${vehicle.name} (${vehicle.plate}) has started moving after ${durationText} of stoppage (from ${startFmt} to ${endFmt}).` 
+              alertsToTrigger.push({
+                type: 'moving',
+                text: `Moving Alert: After ${durationText} of parking (from ${startFmt} to ${endFmt}), your vehicle ${vehicle.name} (${vehicle.plate}) has started moving.`,
+                deviceTime: new Date(currentDeviceTimeMs).toISOString()
               });
             }
-            // Clear the tracking key since the vehicle is now moving > 10 km/h
+            // Clear parking state so the next parking session starts fresh
+            await redis.del(parkedStartKey);
+            await redis.del(parkAlertFiredKey);
+          }
+
+          // Clear generic stoppage tracking
+          const stoppageStartStr = await redis.get(stoppageStartKey);
+          if (stoppageStartStr) {
             await redis.del(stoppageStartKey);
             await redis.del(stoppageAlertFiredKey);
           }
-        }
-
-        // Check C2: Parking Alert
-        // Default threshold: 60 minutes (1 hr). Configurable by customer per vehicle metadata.
-        if (finalIgnition === false && evalSpeed === 0 && prevState?.parkedSince) {
-          if (wasAsleep) {
-            // If device was asleep, reset the parkedSince timer to avoid false jumps
-            await redis.set(`vehicle:state:${imei}`, JSON.stringify({ ...JSON.parse(await redis.get(`vehicle:state:${imei}`) || '{}'), parkedSince: deviceTime }));
-          } else {
-            const parkedStartMs = new Date(prevState.parkedSince).getTime();
-            const parkingDurationMin = (currentDeviceTimeMs - parkedStartMs) / 60000;
-            const parkAlertFiredKey = `vehicle:parking_alert_fired:${vehicleId}`;
-            const parkDurationLimitMin = parseFloat(vehicle.metadata?.parkingDurationAlert || vehicle.metadata?.parkDurationAlert) || 60; // Default 1 hr (60 mins)
-            
-            if (parkingDurationMin >= parkDurationLimitMin) {
-              const alreadyFired = await redis.get(parkAlertFiredKey);
-              if (!alreadyFired) {
-                const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
-                const startFmt = new Date(parkedStartMs).toLocaleTimeString('en-US', formatOpts);
-                const durationText = parkingDurationMin >= 60
-                  ? `${Math.floor(parkingDurationMin / 60)} hr${parkingDurationMin >= 120 ? 's' : ''}${Math.round(parkingDurationMin % 60) > 0 ? ` ${Math.round(parkingDurationMin % 60)} mins` : ''}`
-                  : `${Math.round(parkingDurationMin)} mins`;
-
-                alertsToTrigger.push({
-                  type: 'parking',
-                  text: `Parking Alert: ${vehicle.name} (${vehicle.plate}) has been parked since ${startFmt} (${durationText}).`,
-                  deviceTime: new Date(parkedStartMs).toISOString()
-                });
-                await redis.set(parkAlertFiredKey, '1', 'EX', 86400); // Fire once per parking session (24h max)
-              }
-            }
+        } else if (evalSpeed <= 2) {
+          // Idling or stopped with ignition ON
+          const existingStart = await redis.get(stoppageStartKey);
+          if (!existingStart) {
+            await redis.set(stoppageStartKey, currentDeviceTimeMs, 'EX', 86400);
           }
-        } else if (finalIgnition === true || evalSpeed > 0) {
-          // Vehicle is moving or ignition turned on — reset the parking alert so it can fire again next time
-          await redis.del(`vehicle:parking_alert_fired:${vehicleId}`);
         }
 
         // Check D: Excessive idle (ignition ON, speed 0) using custom duration limit
@@ -990,57 +997,25 @@ async function start(io) {
         }
 
         // Check F: Overspeeding
-        // 1. When speed > threshold, trigger ONCE immediately with the exact start time.
-        // 2. Observe for 10 minutes. If overspeeding continues, trigger continuous overspeed alert reporting duration since start time.
-        // 3. When speed drops <= threshold, reset state so it is ready for the next overspeed event.
-        const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 60;
-        
+        // Trigger alert ONCE when speed exceeds limit.
+        // Suppress any further overspeed alerts for that vehicle for 1 hour (3600s cooldown).
+        const speedLimit = parseFloat(vehicle.metadata?.overSpeedLimit) || 80;
+        const overspeed1HrCooldownKey = `vehicle:overspeed_cooldown_1hr:${vehicleId}`;
+
         if (evalSpeed > speedLimit) {
-          const overspeedStartKey = `vehicle:overspeed_start:${vehicleId}`;
-          const overspeedInitialFiredKey = `vehicle:overspeed_initial_fired:${vehicleId}`;
-          const overspeedSustainedKey = `vehicle:overspeed_sustained_step:${vehicleId}`;
-
-          const startStr = await redis.get(overspeedStartKey);
-          const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
-
-          if (!startStr) {
-            // First overspeed packet: trigger immediately once and record start time
-            await redis.set(overspeedStartKey, currentDeviceTimeMs, 'EX', 86400);
-            await redis.set(overspeedInitialFiredKey, '1', 'EX', 86400);
-
+          const alreadyInCooldown = await redis.get(overspeed1HrCooldownKey);
+          if (!alreadyInCooldown) {
+            const formatOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true };
             const startFmt = new Date(currentDeviceTimeMs).toLocaleTimeString('en-US', formatOpts);
             alertsToTrigger.push({
               type: 'overspeed',
               speed: evalSpeed,
-              text: `Overspeed Alert: ${vehicle.name} (${vehicle.plate}) started overspeeding at ${Math.round(evalSpeed)} km/h (speed limit: ${speedLimit} km/h) at ${startFmt}.`,
+              text: `Overspeed Alert: ${vehicle.name} (${vehicle.plate}) exceeded speed limit at ${Math.round(evalSpeed)} km/h (speed limit: ${speedLimit} km/h) at ${startFmt}.`,
               deviceTime: new Date(currentDeviceTimeMs).toISOString()
             });
-          } else {
-            // Vehicle continues overspeeding: observe for 10 minutes intervals
-            const startMs = parseInt(startStr, 10);
-            const overspeedDurationMin = Math.floor((currentDeviceTimeMs - startMs) / 60000);
-
-            if (overspeedDurationMin >= 10) {
-              const currentStep = Math.floor(overspeedDurationMin / 10);
-              const lastStep = parseInt(await redis.get(overspeedSustainedKey) || '0', 10);
-
-              if (currentStep > lastStep) {
-                const startFmt = new Date(startMs).toLocaleTimeString('en-US', formatOpts);
-                alertsToTrigger.push({
-                  type: 'overspeed',
-                  speed: evalSpeed,
-                  text: `Continuous Overspeed Alert: ${vehicle.name} (${vehicle.plate}) has been overspeeding continuously since ${startFmt} (${overspeedDurationMin} mins at ${Math.round(evalSpeed)} km/h, speed limit: ${speedLimit} km/h).`,
-                  deviceTime: new Date(startMs).toISOString()
-                });
-                await redis.set(overspeedSustainedKey, currentStep, 'EX', 86400);
-              }
-            }
+            // 1-hour cooldown: no more overspeed alerts for this vehicle for up to 1 hour
+            await redis.set(overspeed1HrCooldownKey, '1', 'EX', 3600);
           }
-        } else {
-          // Speed dropped <= limit: clear overspeed tracking session
-          await redis.del(`vehicle:overspeed_start:${vehicleId}`);
-          await redis.del(`vehicle:overspeed_initial_fired:${vehicleId}`);
-          await redis.del(`vehicle:overspeed_sustained_step:${vehicleId}`);
         }
 
         // Check E: Geofence checks with Anti-Jitter Hysteresis Buffer

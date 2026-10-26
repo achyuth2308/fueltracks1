@@ -205,7 +205,18 @@ async function start(io) {
       const vehicleId = vehicle.id;
       const orgId = vehicle.org_id;
 
-      let address = 'Location Pending'; // UI/FCM work with this placeholder
+      let address = 'Location Pending';
+      if (lat && lng) {
+        try {
+          const fastAddr = await Promise.race([
+            getAddress(lat, lng),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 600))
+          ]);
+          if (fastAddr && fastAddr !== 'Unknown Location') {
+            address = fastAddr;
+          }
+        } catch (_) {}
+      }
 
       const dateObj = new Date(deviceTime || Date.now());
       const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
