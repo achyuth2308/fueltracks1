@@ -36,12 +36,20 @@ const DailyTripReportPage = () => {
   const [data, setData] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
 
-  // Filters
+  // Yesterday is the last completed full day
+  const getYesterdayString = () => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return getLocalDateString(d);
+  };
+  const yesterdayStr = getYesterdayString();
+
+  // Filters (defaults strictly to completed days, up to yesterday)
   const [vehicles, setVehicles] = useState([]);
   const [filters, setFilters] = useState(() => ({
     vehicleId: '',
-    startDate: getLocalDateString(new Date()),
-    endDate: getLocalDateString(new Date())
+    startDate: yesterdayStr,
+    endDate: yesterdayStr
   }));
 
   useEffect(() => {
@@ -61,9 +69,12 @@ const DailyTripReportPage = () => {
     if (!filters.startDate || !filters.endDate) return;
     setLoading(true);
     try {
-      const start = new Date(filters.startDate);
+      const effectiveEndDate = filters.endDate > yesterdayStr ? yesterdayStr : filters.endDate;
+      const effectiveStartDate = filters.startDate > yesterdayStr ? yesterdayStr : filters.startDate;
+
+      const start = new Date(effectiveStartDate);
       start.setHours(0, 0, 0, 0);
-      const end = new Date(filters.endDate);
+      const end = new Date(effectiveEndDate);
       end.setHours(23, 59, 59, 999);
 
       const params = new URLSearchParams();
@@ -144,7 +155,7 @@ const DailyTripReportPage = () => {
             </h1>
           </div>
           <p style={{ margin: '4px 0 0 34px', fontSize: '13px', color: '#64748B' }}>
-            Consolidates the complete day's journey from initial departure to final arrival with zero setup. View overall distance, driving & stoppage times, and intermediate legs.
+            Consolidates the complete day's journey from initial departure to final arrival for completed days (up to yesterday). Current in-progress trips are available under Trip Report.
           </p>
         </div>
 
@@ -237,6 +248,7 @@ const DailyTripReportPage = () => {
           <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Start Date</label>
           <CustomDatePicker
             value={filters.startDate}
+            max={yesterdayStr}
             onChange={e => setFilters(prev => ({ ...prev, startDate: e?.target ? e.target.value : e }))}
           />
         </div>
@@ -246,6 +258,7 @@ const DailyTripReportPage = () => {
           <label style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>End Date</label>
           <CustomDatePicker
             value={filters.endDate}
+            max={yesterdayStr}
             onChange={e => setFilters(prev => ({ ...prev, endDate: e?.target ? e.target.value : e }))}
           />
         </div>
