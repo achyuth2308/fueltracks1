@@ -177,7 +177,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/alerts', alertsRoutes);
-app.use('/api/trips', tripRoutes);
+// app.use('/api/trips', tripRoutes); // Manual trips removed per user request
 app.use('/api/mining-registrations', miningRegistrationRoutes);
 
 // ─── Third-Party Public API ───────────────────────────────────
