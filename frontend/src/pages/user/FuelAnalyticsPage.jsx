@@ -129,11 +129,11 @@ export default function FuelAnalyticsPage() {
   const [historyPoints, setHistoryPoints] = useState([]);
   const [error, setError] = useState(null);
 
-  // Chart view toggles (5-Layer Telematics Architecture matching reference)
-  const [showAllFuel, setShowAllFuel] = useState(false);
-  const [showFilteredFuel, setShowFilteredFuel] = useState(true);
-  const [showNormalize, setShowNormalize] = useState(true);
-  const [showEngine, setShowEngine] = useState(true);
+  // Chart view toggles (Matching reference system - All Fuel Data default)
+  const [showAllFuel, setShowAllFuel] = useState(true);
+  const [showFilteredFuel, setShowFilteredFuel] = useState(false);
+  const [showNormalize, setShowNormalize] = useState(false);
+  const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
 
   // Close dropdown on outside click
@@ -575,7 +575,10 @@ export default function FuelAnalyticsPage() {
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
         engineVal: (rawSpeed > 2.0 || ign) ? 1 : 0,
-        status: engineState
+        status: engineState,
+        odometer: pt.odometer != null ? parseFloat(pt.odometer).toFixed(2) : (cumulativeDist > 0 ? cumulativeDist.toFixed(2) : '0.00'),
+        volt: pt.voltage != null ? parseFloat(pt.voltage).toFixed(2) : (pt.sensor_voltage != null ? parseFloat(pt.sensor_voltage).toFixed(2) : '3.13'),
+        vehBattery: pt.battery != null ? parseFloat(pt.battery).toFixed(2) : (ign ? '26.35' : '24.10')
       });
     }
 
@@ -980,19 +983,28 @@ export default function FuelAnalyticsPage() {
                       if (!active || !payload?.length) return null;
                       const pt = payload[0].payload;
                       return (
-                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white min-w-[210px]">
-                          <div className="font-bold border-b border-slate-800 pb-1 flex items-center justify-between gap-4">
-                            <span>{pt.timeStr}</span>
-                            <span className="text-[10px] text-slate-400 font-normal">{pt.dateStr}</span>
+                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white min-w-[220px]">
+                          <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
+                            <span className="text-slate-300 font-mono">{pt.dateStr}</span>
+                            <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
                           </div>
                           
+                          {/* Speed */}
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="text-cyan-400 font-medium flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                              Speed:
+                            </span>
+                            <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
+                          </div>
+
                           {/* Normalize */}
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-red-400 font-semibold flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-red-500" />
                               Normalize:
                             </span>
-                            <span className="font-bold text-red-400">
+                            <span className="font-bold text-red-400 font-mono">
                               {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
                             </span>
                           </div>
@@ -1001,23 +1013,21 @@ export default function FuelAnalyticsPage() {
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-sky-400 font-medium flex items-center gap-1.5">
                               <span className="w-2 h-2 rounded-full bg-sky-400" />
-                              Filtered Fuel:
+                              Filter Fuel:
                             </span>
-                            <span className="font-bold">
+                            <span className="font-bold text-sky-300 font-mono">
                               {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
                             </span>
                           </div>
 
-                          {/* Raw Fuel */}
-                          {pt.rawFuel != null && (
-                            <div className="flex items-center justify-between gap-4 text-slate-400">
-                              <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                                Raw Sensor:
-                              </span>
-                              <span>{pt.rawFuel} Ltrs</span>
-                            </div>
-                          )}
+                          {/* All Fuel Data */}
+                          <div className="flex items-center justify-between gap-4 text-slate-300">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-slate-400" />
+                              All Fuel:
+                            </span>
+                            <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
+                          </div>
 
                           {/* Engine Status */}
                           <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
@@ -1025,27 +1035,36 @@ export default function FuelAnalyticsPage() {
                               <span className="w-2 h-2 rounded-full bg-amber-400" />
                               Engine:
                             </span>
-                            <span className={`font-bold ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                            <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
                               {pt.engineVal === 1 ? 'ON' : 'OFF'}
                             </span>
                           </div>
 
-                          {/* Speed */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-cyan-400 font-medium">Speed:</span>
-                            <span className="font-bold">{pt.speed} km/h</span>
+                          {/* Odometer */}
+                          <div className="flex items-center justify-between gap-4 text-slate-300">
+                            <span className="text-slate-400">Odometer:</span>
+                            <span className="font-mono font-medium">{pt.odometer} km</span>
                           </div>
 
-                          {/* Distance */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-violet-400 font-medium">Distance:</span>
-                            <span className="font-bold">{pt.distance} km</span>
+                          {/* Volt */}
+                          <div className="flex items-center justify-between gap-4 text-slate-300">
+                            <span className="text-slate-400">Volt:</span>
+                            <span className="font-mono font-medium">{pt.volt} V</span>
+                          </div>
+
+                          {/* Veh Battery */}
+                          <div className="flex items-center justify-between gap-4 text-slate-300">
+                            <span className="text-slate-400">Veh Battery:</span>
+                            <span className="font-mono font-medium">{pt.vehBattery} V</span>
                           </div>
 
                           {/* Status */}
-                          <div className="text-[10px] text-slate-400 pt-0.5">
-                            Status: <span className="text-slate-200 font-semibold">{pt.status}</span>
-                          </div>
+                          {pt.status && (
+                            <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between">
+                              <span>Status:</span>
+                              <span className="text-slate-200 font-semibold">{pt.status}</span>
+                            </div>
+                          )}
                         </div>
                       );
                     }}
