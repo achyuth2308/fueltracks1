@@ -1,468 +1,2288 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { MapContainer, TileLayer, Polyline, Circle, Marker, Tooltip, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import {
-  Plus, Play, Square, Trash2, MapPin, Route, Truck, Clock,
-  Gauge, Navigation, Loader2, AlertCircle, CheckCircle, RefreshCw, FileText
+  Truck, Route as RouteIcon, MapPin, Clock, Gauge, Navigation,
+  ChevronRight, Plus, Trash2, RefreshCw, AlertCircle, CheckCircle,
+  Share2, ArrowLeft, Fuel, Activity, Radio, Shield, Layers, ZoomIn, ZoomOut, Maximize2
 } from 'lucide-react';
-import { tripApi } from '../../api/tripApi';
 import * as vehicleApi from '../../api/vehicleApi';
 import axiosInstance from '../../api/axios';
-import { formatLocalTime } from '../../utils/dateUtils';
+import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
+import { formatLocalTime, formatLocalDate, getRelativeTime } from '../../utils/dateUtils';
+import { formatSpeed } from '../../utils/formatUtils';
 
-const STATUS_COLORS = {
-  planned:     { bg: '#EFF6FF', text: '#2563EB', dot: '#3B82F6' },
-  in_progress: { bg: '#ECFDF5', text: '#059669', dot: '#10B981' },
-  completed:   { bg: '#F8FAFC', text: '#64748B', dot: '#94A3B8' },
-  cancelled:   { bg: '#FEF2F2', text: '#DC2626', dot: '#EF4444' },
-};
-
-const formatDuration = (secs) => {
-  if (!secs) return '–';
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
-};
-
-const StatusBadge = ({ status }) => {
-  const c = STATUS_COLORS[status] || STATUS_COLORS.planned;
-  return (
-    <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: '5px',
-      background: c.bg, color: c.text,
-      padding: '3px 10px', borderRadius: '999px',
-      fontSize: '12px', fontWeight: 700
-    }}>
-      <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.dot,
-        ...(status === 'in_progress' ? { animation: 'pulse 1.5s infinite' } : {}) }} />
-      {status === 'in_progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-};
-
-// ── Create Trip Modal ─────────────────────────────────────────────────────────
-
-const CreateTripModal = ({ vehicles, routes, onClose, onCreate }) => {
-  const [form, setForm] = useState({
-    vehicleId: vehicles[0]?.id || '',
-    name: '',
-    origin: '',
-    destination: '',
-    routeId: '',
-    notes: '',
+// ── Leaflet Custom Icons ──────────────────────────────────────────────────────────
+const createStopIcon = (number) => {
+  return L.divIcon({
+    className: 'custom-stop-marker',
+    html: `
+      <div style="
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #D97706;
+        border: 2px solid #FFFFFF;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #FFFFFF;
+        font-weight: 800;
+        font-size: 11px;
+      ">${number}</div>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    popupAnchor: [0, -14],
   });
-  const [saving, setSaving] = useState(false);
-  const [startNow, setStartNow] = useState(false);
-  const [error, setError] = useState('');
+};
 
-  const handleSubmit = async () => {
-    if (!form.vehicleId || !form.name.trim()) {
-      setError('Vehicle and trip name are required.');
+const createVehiclePinIcon = (isMoving, heading = 0) => {
+  return L.divIcon({
+    className: 'custom-vehicle-marker',
+    html: `
+      <div style="
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: ${isMoving ? '#16A34A' : '#475569'};
+        border: 3px solid #FFFFFF;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transform: rotate(${heading || 0}deg);
+      ">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="12 2 19 21 12 17 5 21 12 2"/>
+        </svg>
+      </div>
+    `,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+    popupAnchor: [0, -17],
+  });
+};
+
+const createGeofenceCenterIcon = (name) => {
+  return L.divIcon({
+    className: 'custom-geofence-center',
+    html: `
+      <div style="
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: #2563EB;
+        border: 2px solid #FFFFFF;
+        box-shadow: 0 0 4px rgba(37,99,235,0.6);
+      "></div>
+    `,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+};
+
+// ── Map Auto Fit Bounds Helper ────────────────────────────────────────────────────
+const MapBoundsController = ({ routePoints, stops, geofences, focusedCoord }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (focusedCoord && focusedCoord.lat && focusedCoord.lng) {
+      map.flyTo([focusedCoord.lat, focusedCoord.lng], 16, { duration: 1.2 });
       return;
     }
-    setSaving(true);
-    setError('');
-    try {
-      const trip = await tripApi.create(form);
-      if (startNow) {
-        await tripApi.start(trip.id, {});
-      }
-      onCreate();
-      onClose();
-    } catch (e) {
-      setError(e.response?.data?.error || 'Failed to create trip');
-    } finally {
-      setSaving(false);
+
+    const allCoords = [];
+    if (routePoints && routePoints.length > 0) {
+      routePoints.forEach(p => {
+        if (p.lat && p.lng) allCoords.push([parseFloat(p.lat), parseFloat(p.lng)]);
+      });
     }
-  };
+    if (stops && stops.length > 0) {
+      stops.forEach(s => {
+        if (s.lat && s.lng) allCoords.push([parseFloat(s.lat), parseFloat(s.lng)]);
+      });
+    }
+    if (geofences && geofences.length > 0) {
+      geofences.forEach(g => {
+        if (g.center_lat && g.center_lng) allCoords.push([parseFloat(g.center_lat), parseFloat(g.center_lng)]);
+      });
+    }
 
-  const inputStyle = {
-    width: '100%', padding: '9px 12px', borderRadius: '8px',
-    border: '1px solid #E2E8F0', outline: 'none',
-    fontSize: '13px', color: '#0F172A', background: '#FAFAFA',
-    boxSizing: 'border-box'
-  };
-  const labelStyle = { fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '5px', display: 'block' };
+    if (allCoords.length > 0) {
+      const bounds = L.latLngBounds(allCoords);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    }
+  }, [routePoints, stops, geofences, focusedCoord, map]);
 
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '520px',
-        boxShadow: '0 24px 64px rgba(0,0,0,0.18)', overflow: 'hidden'
-      }}>
-        {/* Header */}
-        <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <div style={{ fontSize: '17px', fontWeight: 800, color: '#0F172A' }}>Create New Trip</div>
-            <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>Track a journey from start to finish</div>
-          </div>
-          <button onClick={onClose} style={{ background: '#F1F5F9', border: 'none', borderRadius: '8px', width: 32, height: 32, cursor: 'pointer', fontSize: '16px', color: '#64748B' }}>✕</button>
-        </div>
-
-        {/* Body */}
-        <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          {error && (
-            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', padding: '10px 14px', color: '#DC2626', fontSize: '13px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <AlertCircle size={15} /> {error}
-            </div>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}>Vehicle *</label>
-              <select value={form.vehicleId} onChange={e => setForm({ ...form, vehicleId: e.target.value })} style={inputStyle}>
-                {vehicles.map(v => <option key={v.id} value={v.id}>{v.name} – {v.plate}</option>)}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>Trip Name *</label>
-              <input
-                placeholder="e.g. Hyderabad → Vijayawada"
-                value={form.name}
-                onChange={e => setForm({ ...form, name: e.target.value })}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}><MapPin size={11} style={{ marginRight: 4 }} />From (Origin)</label>
-              <input placeholder="Hyderabad" value={form.origin} onChange={e => setForm({ ...form, origin: e.target.value })} style={inputStyle} />
-            </div>
-            <div>
-              <label style={labelStyle}><Navigation size={11} style={{ marginRight: 4 }} />To (Destination)</label>
-              <input placeholder="Vijayawada" value={form.destination} onChange={e => setForm({ ...form, destination: e.target.value })} style={inputStyle} />
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}><Route size={11} style={{ marginRight: 4 }} />Route (Optional — use a pre-drawn route or skip)</label>
-            <select value={form.routeId} onChange={e => setForm({ ...form, routeId: e.target.value })} style={inputStyle}>
-              <option value="">No route (track distance only)</option>
-              {routes.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
-              If a route is linked, deviation alerts will fire if the vehicle goes off-route.
-            </div>
-          </div>
-
-          <div>
-            <label style={labelStyle}>Notes</label>
-            <textarea
-              placeholder="Optional notes about this trip..."
-              value={form.notes}
-              onChange={e => setForm({ ...form, notes: e.target.value })}
-              rows={2}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-          </div>
-
-          {/* Start Now toggle */}
-          <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '12px', background: startNow ? '#ECFDF5' : '#F8FAFC', borderRadius: '10px', border: `1px solid ${startNow ? '#BBF7D0' : '#E2E8F0'}`, transition: 'all 0.2s' }}>
-            <input type="checkbox" checked={startNow} onChange={e => setStartNow(e.target.checked)} style={{ width: 16, height: 16, accentColor: '#10B981' }} />
-            <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: startNow ? '#059669' : '#334155' }}>Start trip immediately</div>
-              <div style={{ fontSize: '11px', color: '#64748B' }}>Distance accumulation begins now. Uncheck to save and start later.</div>
-            </div>
-          </label>
-        </div>
-
-        {/* Footer */}
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #F1F5F9', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button onClick={onClose} style={{ padding: '9px 20px', borderRadius: '8px', background: '#F1F5F9', border: 'none', fontSize: '13px', fontWeight: 600, color: '#334155', cursor: 'pointer' }}>
-            Cancel
-          </button>
-          <button onClick={handleSubmit} disabled={saving} style={{
-            padding: '9px 22px', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-            background: startNow ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #3B82F6, #2563EB)',
-            color: '#fff', display: 'flex', alignItems: 'center', gap: '7px',
-            boxShadow: startNow ? '0 4px 12px rgba(16,185,129,0.3)' : '0 4px 12px rgba(59,130,246,0.3)',
-          }}>
-            {saving ? <Loader2 size={14} className="animate-spin" /> : startNow ? <Play size={14} /> : <Plus size={14} />}
-            {startNow ? 'Save & Start Trip' : 'Save Trip'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+  return null;
 };
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Format Duration (HH:MM:SS) ───────────────────────────────────────────────────
+const formatDurationHms = (seconds) => {
+  if (!seconds || seconds <= 0) return '00:00:00';
+  const total = Math.round(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+};
 
-const TripManagerPage = () => {
-  const [trips, setTrips] = useState([]);
+// ── Format Time for Timeline (e.g. 9:13:10 AM) ───────────────────────────────────
+const formatTimeAmPm = (dateStr) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+};
+
+// ── Calculate Area in km² from radius in meters ───────────────────────────────────
+const calculateCircleAreaKm2 = (radiusMeters) => {
+  if (!radiusMeters) return '0.00';
+  const radiusKm = radiusMeters / 1000;
+  return (Math.PI * radiusKm * radiusKm).toFixed(2);
+};
+
+export default function TripManagerPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlVehicleId = searchParams.get('vehicleId');
+
   const [vehicles, setVehicles] = useState([]);
-  const [routes, setRoutes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState({});
-  const [showCreate, setShowCreate] = useState(false);
-  const [filter, setFilter] = useState('all');
+  const [selectedVehicleId, setSelectedVehicleId] = useState(urlVehicleId || '');
+  const [activeTab, setActiveTab] = useState('trip'); // 'trip' or 'geofences'
+  const [mapLayer, setMapLayer] = useState('google'); // 'google', 'satellite', 'osm'
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // Date selection: today by default
+  const [selectedDate, setSelectedDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
+
+  const [loading, setLoading] = useState(false);
+  const [tripLegs, setTripLegs] = useState([]);
+  const [stoppages, setStoppages] = useState([]);
+  const [routeHistory, setRouteHistory] = useState([]);
+  const [geofences, setGeofences] = useState([]);
+  const [addresses, setAddresses] = useState({}); // key: lat,lng -> address
+  const [focusedCoord, setFocusedCoord] = useState(null);
+
+  // Set Geofence Modal state
+  const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
+  const [geofenceForm, setGeofenceForm] = useState({
+    name: '',
+    lat: null,
+    lng: null,
+    radius: 300,
+    alert_on_enter: true,
+    alert_on_exit: true,
+    additionalVehicleIds: [],
+  });
+  const [savingGeofence, setSavingGeofence] = useState(false);
+
+  // Assign Geofence to Other Vehicles Modal state
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assigningGeofence, setAssigningGeofence] = useState(null);
+  const [targetVehicleIds, setTargetVehicleIds] = useState([]);
+  const [savingAssignment, setSavingAssignment] = useState(false);
+
+  // Import / Attach Existing Geofence Modal state
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [availableGeofences, setAvailableGeofences] = useState([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
+  const [linkingGeofenceId, setLinkingGeofenceId] = useState(null);
+
+  // Load Vehicles
+  useEffect(() => {
+    vehicleApi.getVehicles().then(res => {
+      const vList = Array.isArray(res) ? res : (res?.data || []);
+      setVehicles(vList);
+      if (vList.length > 0 && !selectedVehicleId) {
+        setSelectedVehicleId(vList[0].id);
+      }
+    }).catch(err => {
+      console.error('Failed to load vehicles:', err);
+    });
+  }, []);
+
+  const selectedVehicle = useMemo(() => {
+    return vehicles.find(v => v.id === selectedVehicleId) || null;
+  }, [vehicles, selectedVehicleId]);
+
+  // Load Geofences for current vehicle
+  const loadGeofences = useCallback(async () => {
+    if (!selectedVehicleId) return;
     try {
-      const [tripsData, vehiclesRes] = await Promise.all([
-        tripApi.list(),
-        vehicleApi.getVehicles({ t: Date.now() }),
-      ]);
-      setTrips(tripsData || []);
-      if (vehiclesRes.success) setVehicles(vehiclesRes.data);
+      const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/geofences`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setGeofences(res.data.data);
+      } else {
+        setGeofences([]);
+      }
+    } catch (err) {
+      console.error('Failed to load vehicle geofences:', err);
+      setGeofences([]);
+    }
+  }, [selectedVehicleId]);
 
-      // Load routes for dropdown
-      const routesRes = await axiosInstance.get('/api/vehicles/routes/list');
-      if (routesRes.data?.success) setRoutes(routesRes.data.data || []);
-    } catch (e) {
-      console.error(e);
+  // Load Trips & Route History
+  const loadTripData = useCallback(async () => {
+    if (!selectedVehicleId) return;
+    setLoading(true);
+
+    const start = new Date(`${selectedDate}T00:00:00.000Z`).toISOString();
+    const end = new Date(`${selectedDate}T23:59:59.999Z`).toISOString();
+
+    try {
+      const [legsRes, stopsRes, routeRes] = await Promise.all([
+        axiosInstance.get(`/api/reports/trip?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
+        axiosInstance.get(`/api/reports/stoppages?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
+        axiosInstance.get(`/api/reports/route-history?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
+      ]);
+
+      const legs = Array.isArray(legsRes.data?.data) ? legsRes.data.data : [];
+      const stops = Array.isArray(stopsRes.data?.data) ? stopsRes.data.data : [];
+      const route = Array.isArray(routeRes.data?.data) ? routeRes.data.data : [];
+
+      setTripLegs(legs);
+      setStoppages(stops);
+      setRouteHistory(route);
+
+      // Trigger address lookups for stops
+      stops.forEach(s => {
+        if (s.lat && s.lng) {
+          const key = `${parseFloat(s.lat).toFixed(4)},${parseFloat(s.lng).toFixed(4)}`;
+          if (!addresses[key]) {
+            getAddressFromCoordinates(s.lat, s.lng).then(addr => {
+              setAddresses(prev => ({ ...prev, [key]: addr }));
+            });
+          }
+        }
+      });
+    } catch (err) {
+      console.error('Error loading trip data:', err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedVehicleId, selectedDate, addresses]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (selectedVehicleId) {
+      loadTripData();
+      loadGeofences();
+    }
+  }, [selectedVehicleId, selectedDate]);
 
-  const handleStart = async (trip) => {
-    setActionLoading(p => ({ ...p, [trip.id]: 'starting' }));
+  // Interleave stoppages and driving legs chronologically
+  const timelineEvents = useMemo(() => {
+    const events = [];
+
+    let stopCounter = 1;
+    stoppages.forEach(s => {
+      // Only include actual stops / parkings (duration >= 60s and not Moving)
+      if (s.duration_seconds >= 60 && s.status !== 'Moving') {
+        events.push({
+          type: 'stop',
+          index: stopCounter++,
+          data: s,
+          time: new Date(s.start_time).getTime(),
+        });
+      }
+    });
+
+    tripLegs.forEach(l => {
+      events.push({
+        type: 'driving',
+        data: l,
+        time: new Date(l.start_time).getTime(),
+      });
+    });
+
+    events.sort((a, b) => a.time - b.time);
+    return events;
+  }, [stoppages, tripLegs]);
+
+  // Calculate Trip Summary
+  const tripSummary = useMemo(() => {
+    let totalDistKm = 0;
+    let totalDrivingSec = 0;
+    let totalStopSec = 0;
+    let stopCount = 0;
+
+    tripLegs.forEach(l => {
+      totalDistKm += (parseFloat(l.distance) || 0);
+      totalDrivingSec += (parseFloat(l.duration_seconds) || 0);
+    });
+
+    stoppages.forEach(s => {
+      if (s.duration_seconds >= 60 && s.status !== 'Moving') {
+        stopCount++;
+        totalStopSec += (parseFloat(s.duration_seconds) || 0);
+      }
+    });
+
+    return {
+      travelledKm: totalDistKm.toFixed(2),
+      drivingDuration: formatDurationHms(totalDrivingSec),
+      stopCount: stopCount,
+      stopDuration: formatDurationHms(totalStopSec),
+      lowNetworkTime: '0 Time',
+    };
+  }, [tripLegs, stoppages]);
+
+  // Open "Set Geofence" dialog pre-filled with stop location
+  const handleOpenSetGeofence = (stopItem) => {
+    const lat = parseFloat(stopItem.lat);
+    const lng = parseFloat(stopItem.lng);
+    const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    const stopAddr = addresses[key] || '';
+
+    setGeofenceForm({
+      name: stopAddr ? stopAddr.split(',')[0].trim() : `Stop ${stopItem.index || ''}`,
+      lat,
+      lng,
+      radius: 300,
+      alert_on_enter: true,
+      alert_on_exit: true,
+      address: stopAddr,
+      additionalVehicleIds: [],
+    });
+    setGeofenceModalOpen(true);
+  };
+
+  // Submit Geofence Creation
+  const handleSaveGeofence = async () => {
+    if (!geofenceForm.name.trim()) {
+      alert('Please enter a name for the geofence.');
+      return;
+    }
+    if (!geofenceForm.lat || !geofenceForm.lng) {
+      alert('Geofence coordinates are missing.');
+      return;
+    }
+
+    setSavingGeofence(true);
     try {
-      await tripApi.start(trip.id, {});
-      await load();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Failed to start trip');
+      const targetVehicleIds = Array.from(new Set([
+        selectedVehicleId,
+        ...(geofenceForm.additionalVehicleIds || [])
+      ])).filter(Boolean);
+
+      const payload = {
+        name: geofenceForm.name.trim(),
+        type: 'circle',
+        center_lat: geofenceForm.lat,
+        center_lng: geofenceForm.lng,
+        radius: parseInt(geofenceForm.radius, 10) || 300,
+        is_active: true,
+        alert_on_enter: geofenceForm.alert_on_enter,
+        alert_on_exit: geofenceForm.alert_on_exit,
+        vehicleIds: targetVehicleIds,
+      };
+
+      const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences`, payload);
+      if (res.data?.success) {
+        setGeofenceModalOpen(false);
+        await loadGeofences();
+        setActiveTab('geofences');
+      } else {
+        alert(res.data?.error || 'Failed to save geofence.');
+      }
+    } catch (err) {
+      console.error('Error saving geofence:', err);
+      alert(err.response?.data?.error || 'Failed to save geofence.');
     } finally {
-      setActionLoading(p => ({ ...p, [trip.id]: null }));
+      setSavingGeofence(false);
     }
   };
 
-  const handleEnd = async (trip) => {
-    if (!window.confirm(`End trip "${trip.name}"? This will finalize the distance and duration.`)) return;
-    setActionLoading(p => ({ ...p, [trip.id]: 'ending' }));
+  // Open Assign Geofence to Other Vehicles Modal
+  const handleOpenAssignModal = async (geofence) => {
+    setAssigningGeofence(geofence);
+    setAssignModalOpen(true);
     try {
-      await tripApi.end(trip.id, {});
-      await load();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Failed to end trip');
-    } finally {
-      setActionLoading(p => ({ ...p, [trip.id]: null }));
+      const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/geofences/${geofence.id}/vehicles`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const ids = res.data.data.map(v => v.id);
+        setTargetVehicleIds(ids.length > 0 ? ids : [selectedVehicleId]);
+      } else {
+        setTargetVehicleIds([selectedVehicleId]);
+      }
+    } catch (err) {
+      console.warn('Could not fetch geofence vehicles:', err);
+      setTargetVehicleIds([selectedVehicleId]);
     }
   };
 
-  const handleCancel = async (trip) => {
-    if (!window.confirm(`Cancel trip "${trip.name}"?`)) return;
-    setActionLoading(p => ({ ...p, [trip.id]: 'cancelling' }));
+  // Save Geofence Assignment to Multiple Vehicles
+  const handleSaveAssignment = async () => {
+    if (!assigningGeofence) return;
+    if (targetVehicleIds.length === 0) {
+      alert('Please select at least one vehicle.');
+      return;
+    }
+
+    setSavingAssignment(true);
     try {
-      await tripApi.cancel(trip.id);
-      await load();
-    } catch (e) {
-      alert(e.response?.data?.error || 'Failed to cancel trip');
+      const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences/link`, {
+        geofenceId: assigningGeofence.id,
+        vehicleIds: targetVehicleIds,
+      });
+
+      if (res.data?.success) {
+        setAssignModalOpen(false);
+        setAssigningGeofence(null);
+        await loadGeofences();
+      } else {
+        alert(res.data?.error || 'Failed to update geofence assignment.');
+      }
+    } catch (err) {
+      console.error('Error assigning geofence:', err);
+      alert(err.response?.data?.error || 'Failed to update geofence assignment.');
     } finally {
-      setActionLoading(p => ({ ...p, [trip.id]: null }));
+      setSavingAssignment(false);
     }
   };
 
-  const filteredTrips = filter === 'all' ? trips : trips.filter(t => t.status === filter);
-  const activeTrips = trips.filter(t => t.status === 'in_progress');
+  // Open "Add Existing Geofence" Modal
+  const handleOpenImportModal = async () => {
+    setImportModalOpen(true);
+    setLoadingAvailable(true);
+    try {
+      const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/available-geofences`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setAvailableGeofences(res.data.data);
+      } else {
+        setAvailableGeofences([]);
+      }
+    } catch (err) {
+      console.error('Failed to load available geofences:', err);
+      setAvailableGeofences([]);
+    } finally {
+      setLoadingAvailable(false);
+    }
+  };
+
+  // Attach an existing geofence to the current vehicle
+  const handleLinkExistingGeofence = async (geofenceId) => {
+    setLinkingGeofenceId(geofenceId);
+    try {
+      const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences/link`, {
+        geofenceId,
+      });
+      if (res.data?.success) {
+        setAvailableGeofences(prev =>
+          prev.map(g => g.id === geofenceId ? { ...g, is_assigned_to_vehicle: true } : g)
+        );
+        await loadGeofences();
+      } else {
+        alert(res.data?.error || 'Failed to attach geofence to this vehicle.');
+      }
+    } catch (err) {
+      console.error('Failed to attach geofence:', err);
+      alert(err.response?.data?.error || 'Failed to attach geofence.');
+    } finally {
+      setLinkingGeofenceId(null);
+    }
+  };
+
+  // Toggle Geofence Active State
+  const handleToggleGeofence = async (geofence) => {
+    try {
+      const newActive = !geofence.is_active;
+      // Optimistic update
+      setGeofences(prev => prev.map(g => g.id === geofence.id ? { ...g, is_active: newActive } : g));
+
+      await axiosInstance.patch(`/api/vehicles/${selectedVehicleId}/geofences/${geofence.id}/toggle`, {
+        is_active: newActive,
+      });
+    } catch (err) {
+      console.error('Failed to toggle geofence active state:', err);
+      loadGeofences();
+    }
+  };
+
+  // Delete Geofence
+  const handleDeleteGeofence = async (geofenceId) => {
+    if (!window.confirm('Are you sure you want to delete this geofence for this vehicle?')) return;
+    try {
+      await axiosInstance.delete(`/api/vehicles/${selectedVehicleId}/geofences/${geofenceId}`);
+      setGeofences(prev => prev.filter(g => g.id !== geofenceId));
+    } catch (err) {
+      console.error('Failed to delete geofence:', err);
+      alert('Failed to delete geofence.');
+    }
+  };
+
+  // Live Vehicle status
+  const isMoving = selectedVehicle ? (Number(selectedVehicle.current_speed || selectedVehicle.speed) > 2) : false;
+  const currentSpeed = selectedVehicle ? Math.round(Number(selectedVehicle.current_speed || selectedVehicle.speed || 0)) : 0;
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
-      <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        .trip-row:hover { background: #F8FAFC !important; }
-        .action-btn { transition: all 0.15s; }
-        .action-btn:hover { transform: scale(1.04); }
-      `}</style>
+    <div style={{ display: 'flex', height: 'calc(100vh - 64px)', width: '100%', overflow: 'hidden', background: '#F8FAFC' }}>
+      
+      {/* ── Left Sidebar / Panel (Screenshots 2 & 3 layout) ── */}
+      <div style={{
+        width: '460px',
+        minWidth: '420px',
+        maxWidth: '500px',
+        height: '100%',
+        background: '#FFFFFF',
+        borderRight: '1px solid #E2E8F0',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '2px 0 8px rgba(0,0,0,0.03)',
+        zIndex: 20,
+      }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#0F172A', margin: 0 }}>Trip Manager</h1>
-          <p style={{ fontSize: '13px', color: '#64748B', margin: '4px 0 0' }}>
-            Create and track journeys — distance accumulates until you end the trip, regardless of how many days it takes.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={load} style={{ padding: '9px 14px', borderRadius: '9px', background: '#F1F5F9', border: '1px solid #E2E8F0', cursor: 'pointer', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 600 }}>
-            <RefreshCw size={14} /> Refresh
-          </button>
-          <button onClick={() => setShowCreate(true)} style={{
-            padding: '9px 18px', borderRadius: '9px', border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            color: '#fff', fontWeight: 700, fontSize: '13px',
-            display: 'flex', alignItems: 'center', gap: '7px',
-            boxShadow: '0 4px 16px rgba(102,126,234,0.35)'
-          }}>
-            <Plus size={15} /> New Trip
-          </button>
-        </div>
-      </div>
-
-      {/* Active Trips Banner */}
-      {activeTrips.length > 0 && (
-        <div style={{ background: 'linear-gradient(135deg, #ECFDF5, #D1FAE5)', border: '1px solid #A7F3D0', borderRadius: '14px', padding: '16px 20px', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <div style={{ width: 9, height: 9, borderRadius: '50%', background: '#10B981', animation: 'pulse 1.5s infinite' }} />
-            <span style={{ fontSize: '14px', fontWeight: 800, color: '#065F46' }}>{activeTrips.length} Trip{activeTrips.length > 1 ? 's' : ''} In Progress</span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-            {activeTrips.map(trip => (
-              <div key={trip.id} style={{ background: '#fff', borderRadius: '12px', padding: '14px 18px', border: '1px solid #6EE7B7', flex: '1 1 300px', minWidth: '260px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '10px' }}>
-                  <div>
-                    <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>{trip.name}</div>
-                    <div style={{ fontSize: '12px', color: '#059669', fontWeight: 600 }}>{trip.vehicle_name} · {trip.plate}</div>
-                  </div>
-                  <button onClick={() => handleEnd(trip)} disabled={!!actionLoading[trip.id]} className="action-btn" style={{
-                    padding: '7px 14px', borderRadius: '8px', border: 'none', cursor: 'pointer',
-                    background: 'linear-gradient(135deg, #EF4444, #DC2626)', color: '#fff',
-                    fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px'
-                  }}>
-                    {actionLoading[trip.id] === 'ending' ? <Loader2 size={12} className="animate-spin" /> : <Square size={12} />}
-                    End Trip
-                  </button>
+        {/* Top Header Bar */}
+        <div style={{
+          padding: '16px 20px',
+          borderBottom: '1px solid #F1F5F9',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px',
+          background: '#FFFFFF',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: '#F1F5F9',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#1E293B',
+              }}>
+                <RouteIcon size={18} color="#2563EB" />
+              </div>
+              <div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle'}
                 </div>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                  <div><div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Distance</div>
-                    <div style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A' }}>{parseFloat(trip.distance_km || 0).toFixed(1)} km</div></div>
-                  <div><div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Started</div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>{formatLocalTime(trip.start_time)}</div></div>
-                  {trip.origin && trip.destination && (
-                    <div><div style={{ fontSize: '10px', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Route</div>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>{trip.origin} → {trip.destination}</div></div>
-                  )}
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
+                  Trip Details & Geofences
                 </div>
               </div>
-            ))}
+            </div>
+
+            {/* Vehicle Selector Dropdown */}
+            <select
+              value={selectedVehicleId}
+              onChange={(e) => {
+                setSelectedVehicleId(e.target.value);
+                setSearchParams({ vehicleId: e.target.value });
+              }}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid #CBD5E1',
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#1E293B',
+                background: '#F8FAFC',
+                outline: 'none',
+                maxWidth: '160px',
+                cursor: 'pointer',
+              }}
+            >
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.plate || v.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Date Selector Row */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button
+                onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: selectedDate === new Date().toISOString().slice(0, 10) ? '#2563EB' : '#F1F5F9',
+                  color: selectedDate === new Date().toISOString().slice(0, 10) ? '#FFFFFF' : '#475569',
+                }}
+              >
+                Today
+              </button>
+              <button
+                onClick={() => {
+                  const y = new Date();
+                  y.setDate(y.getDate() - 1);
+                  setSelectedDate(y.toISOString().slice(0, 10));
+                }}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: selectedDate !== new Date().toISOString().slice(0, 10) ? '#2563EB' : '#F1F5F9',
+                  color: selectedDate !== new Date().toISOString().slice(0, 10) ? '#FFFFFF' : '#475569',
+                }}
+              >
+                Yesterday
+              </button>
+            </div>
+
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              style={{
+                padding: '4px 8px',
+                borderRadius: '6px',
+                border: '1px solid #CBD5E1',
+                fontSize: '11px',
+                fontWeight: 600,
+                color: '#1E293B',
+                background: '#FFFFFF',
+              }}
+            />
+          </div>
+
+          {/* Navigation Sub-Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginTop: '4px' }}>
+            <button
+              onClick={() => setActiveTab('trip')}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                border: 'none',
+                background: 'transparent',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: activeTab === 'trip' ? '#2563EB' : '#64748B',
+                borderBottom: activeTab === 'trip' ? '2px solid #2563EB' : '2px solid transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Trip Timeline</span>
+              {timelineEvents.length > 0 && (
+                <span style={{
+                  padding: '1px 6px',
+                  borderRadius: '10px',
+                  background: activeTab === 'trip' ? '#EFF6FF' : '#F1F5F9',
+                  color: activeTab === 'trip' ? '#2563EB' : '#64748B',
+                  fontSize: '10px',
+                  fontWeight: 800,
+                }}>
+                  {timelineEvents.length}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setActiveTab('geofences')}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                border: 'none',
+                background: 'transparent',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: activeTab === 'geofences' ? '#2563EB' : '#64748B',
+                borderBottom: activeTab === 'geofences' ? '2px solid #2563EB' : '2px solid transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Vehicle Geofences</span>
+              <span style={{
+                padding: '1px 6px',
+                borderRadius: '10px',
+                background: activeTab === 'geofences' ? '#EFF6FF' : '#F1F5F9',
+                color: activeTab === 'geofences' ? '#2563EB' : '#64748B',
+                fontSize: '10px',
+                fontWeight: 800,
+              }}>
+                {geofences.length}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Scrollable Content Area */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+
+          {/* ══ TAB 1: TRIP TIMELINE (Screenshots 2 & 3) ══ */}
+          {activeTab === 'trip' && (
+            <>
+              {/* Top Vehicle Status Card (Screenshot 3) */}
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid #E2E8F0',
+                padding: '16px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '12px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: isMoving ? '#DCFCE7' : '#FEF3C7',
+                    border: `3px solid ${isMoving ? '#86EFAC' : '#FDE68A'}`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                  }}>
+                    {isMoving ? (
+                      <Navigation size={22} color="#16A34A" style={{ transform: 'rotate(45deg)' }} />
+                    ) : (
+                      <Fuel size={20} color="#D97706" />
+                    )}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: isMoving ? '#15803D' : '#B45309' }}>
+                      {isMoving ? 'Moving Active' : 'Stopped / Parked'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                      <MapPin size={11} color="#EA580C" />
+                      <span style={{ maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {selectedVehicle?.current_address || 'Current location recorded'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{
+                  background: isMoving ? '#F0FDF4' : '#F8FAFC',
+                  border: `1px solid ${isMoving ? '#BBF7D0' : '#E2E8F0'}`,
+                  borderRadius: '12px',
+                  padding: '8px 14px',
+                  textAlign: 'center',
+                  flexShrink: 0,
+                }}>
+                  <div style={{ fontSize: '16px', fontWeight: 900, color: isMoving ? '#15803D' : '#0F172A' }}>
+                    {currentSpeed}
+                  </div>
+                  <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B' }}>km/h</div>
+                </div>
+              </div>
+
+              {/* Trip Summary Card (Screenshot 3) */}
+              <div style={{
+                background: '#FFFFFF',
+                borderRadius: '16px',
+                border: '1px solid #E2E8F0',
+                padding: '16px',
+                boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+              }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginBottom: '14px' }}>
+                  Trip Summary
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                  {/* Travelled */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2563EB', fontSize: '12px', fontWeight: 700 }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563EB', display: 'inline-block' }} />
+                      <span>Travelled</span>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>
+                      {tripSummary.travelledKm} KM
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>
+                      {tripSummary.drivingDuration}
+                    </div>
+                  </div>
+
+                  {/* Stop */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderLeft: '1px solid #F1F5F9', paddingLeft: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#D97706', fontSize: '12px', fontWeight: 700 }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '2px', background: '#D97706', display: 'inline-block' }} />
+                      <span>Stop</span>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>
+                      {tripSummary.stopCount} Stop
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>
+                      {tripSummary.stopDuration}
+                    </div>
+                  </div>
+
+                  {/* Low Network */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderLeft: '1px solid #F1F5F9', paddingLeft: '10px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748B', fontSize: '12px', fontWeight: 700 }}>
+                      <Radio size={12} color="#64748B" />
+                      <span>Low Net...</span>
+                    </div>
+                    <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>
+                      {tripSummary.lowNetworkTime}
+                    </div>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748B' }}>
+                      -
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trip Details Section Title */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '4px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+                  Trip Details
+                </div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
+                  {timelineEvents.length} events recorded
+                </div>
+              </div>
+
+              {/* Connected Vertical Timeline */}
+              {timelineEvents.length === 0 ? (
+                <div style={{
+                  padding: '32px 16px',
+                  textAlign: 'center',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1px solid #E2E8F0',
+                  color: '#94A3B8',
+                  fontSize: '13px',
+                }}>
+                  <Clock size={28} color="#CBD5E1" style={{ margin: '0 auto 8px' }} />
+                  <div>No trip activity found for {selectedDate}</div>
+                </div>
+              ) : (
+                <div style={{ position: 'relative', paddingLeft: '32px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Continuous Vertical Timeline Line */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '16px',
+                    bottom: '16px',
+                    left: '15px',
+                    width: '3px',
+                    background: '#E2E8F0',
+                    zIndex: 1,
+                  }} />
+
+                  {timelineEvents.map((ev, idx) => {
+                    if (ev.type === 'stop') {
+                      const stop = ev.data;
+                      const lat = parseFloat(stop.lat);
+                      const lng = parseFloat(stop.lng);
+                      const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+                      const stopAddr = addresses[key] || 'Fetching location address...';
+
+                      return (
+                        <div
+                          key={`stop-${idx}`}
+                          onClick={() => {
+                            if (lat && lng) setFocusedCoord({ lat, lng });
+                          }}
+                          style={{ position: 'relative', zIndex: 2, cursor: 'pointer' }}
+                        >
+                          {/* Left Icon Node */}
+                          <div style={{
+                            position: 'absolute',
+                            left: '-32px',
+                            top: '2px',
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '50%',
+                            background: '#D97706',
+                            border: '3px solid #FFFFFF',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <Fuel size={14} color="#FFFFFF" />
+                          </div>
+
+                          {/* Stop Content */}
+                          <div style={{
+                            background: '#FFFFFF',
+                            borderRadius: '14px',
+                            border: '1px solid #E2E8F0',
+                            padding: '14px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                            transition: 'all 0.15s ease',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                              <div style={{ fontSize: '13px', fontWeight: 800, color: '#D97706' }}>
+                                Stop {ev.index} — {formatDurationHms(stop.duration_seconds)}
+                              </div>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenSetGeofence({ ...stop, index: ev.index });
+                                }}
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: '#2563EB',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  padding: 0,
+                                }}
+                              >
+                                <span>Set geofence</span>
+                                <ChevronRight size={14} />
+                              </button>
+                            </div>
+
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>
+                              {formatTimeAmPm(stop.start_time)} - {formatTimeAmPm(stop.end_time)}
+                            </div>
+
+                            <div style={{ fontSize: '12px', color: '#1E293B', marginTop: '6px', lineHeight: 1.4 }}>
+                              {stopAddr}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (ev.type === 'driving') {
+                      const leg = ev.data;
+                      return (
+                        <div key={`driving-${idx}`} style={{ position: 'relative', zIndex: 2 }}>
+                          {/* Left Icon Node */}
+                          <div style={{
+                            position: 'absolute',
+                            left: '-32px',
+                            top: '2px',
+                            width: '30px',
+                            height: '30px',
+                            borderRadius: '50%',
+                            background: '#2563EB',
+                            border: '3px solid #FFFFFF',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <Navigation size={14} color="#FFFFFF" style={{ transform: 'rotate(45deg)' }} />
+                          </div>
+
+                          {/* Driving Content */}
+                          <div style={{
+                            background: '#FFFFFF',
+                            borderRadius: '14px',
+                            border: '1px solid #E2E8F0',
+                            padding: '14px',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                          }}>
+                            <div style={{ fontSize: '13px', fontWeight: 800, color: '#2563EB', marginBottom: '2px' }}>
+                              Driving — {formatDurationHms(leg.duration_seconds)}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '10px' }}>
+                              {formatTimeAmPm(leg.start_time)} - {formatTimeAmPm(leg.end_time)}
+                            </div>
+
+                            {/* 2 Mini Subcards (Distance & Average Speed) */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              <div style={{
+                                background: '#F8FAFC',
+                                border: '1px solid #F1F5F9',
+                                borderRadius: '10px',
+                                padding: '10px',
+                              }}>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <RouteIcon size={12} color="#2563EB" />
+                                  <span>Distance</span>
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                                  {parseFloat(leg.distance || 0).toFixed(1)} km
+                                </div>
+                              </div>
+
+                              <div style={{
+                                background: '#F8FAFC',
+                                border: '1px solid #F1F5F9',
+                                borderRadius: '10px',
+                                padding: '10px',
+                              }}>
+                                <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Gauge size={12} color="#2563EB" />
+                                  <span>Average Speed</span>
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A', marginTop: '2px' }}>
+                                  {Math.round(leg.avg_speed || leg.max_speed || 0)} kmph
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })}
+
+                  <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 600, color: '#94A3B8', padding: '8px 0' }}>
+                    Trip Started - {formatLocalDate(selectedDate)}, 12:00 AM
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ══ TAB 2: VEHICLE GEOFENCES (Screenshot 4) ══ */}
+          {activeTab === 'geofences' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+                  Vehicle Geofences
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={loadGeofences}
+                    title="Refresh Geofences"
+                    style={{
+                      background: '#F1F5F9',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px',
+                      cursor: 'pointer',
+                      color: '#475569',
+                    }}
+                  >
+                    <RefreshCw size={14} />
+                  </button>
+                  <button
+                    onClick={handleOpenImportModal}
+                    title="Attach existing geofence from another vehicle to this vehicle"
+                    style={{
+                      background: '#EFF6FF',
+                      color: '#2563EB',
+                      border: '1px solid #BFDBFE',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Layers size={14} />
+                    <span>Add Existing</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGeofenceForm({
+                        name: '',
+                        lat: selectedVehicle?.lat || 17.385,
+                        lng: selectedVehicle?.lng || 78.4867,
+                        radius: 300,
+                        alert_on_enter: true,
+                        alert_on_exit: true,
+                        additionalVehicleIds: [],
+                      });
+                      setGeofenceModalOpen(true);
+                    }}
+                    style={{
+                      background: '#2563EB',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <Plus size={14} />
+                    <span>New Geofence</span>
+                  </button>
+                </div>
+              </div>
+
+              {geofences.length === 0 ? (
+                <div style={{
+                  padding: '40px 16px',
+                  textAlign: 'center',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1px solid #E2E8F0',
+                  color: '#94A3B8',
+                  fontSize: '13px',
+                }}>
+                  <Shield size={32} color="#CBD5E1" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontWeight: 700, color: '#475569' }}>No geofences set for this vehicle</div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    Click "Set geofence" on any stop in the Trip Timeline or click "+ New Geofence" above.
+                  </div>
+                </div>
+              ) : (
+                geofences.map(g => (
+                  <div
+                    key={g.id}
+                    onClick={() => {
+                      if (g.center_lat && g.center_lng) {
+                        setFocusedCoord({ lat: parseFloat(g.center_lat), lng: parseFloat(g.center_lng) });
+                      }
+                    }}
+                    style={{
+                      background: '#FFFFFF',
+                      borderRadius: '14px',
+                      border: '1px solid #E2E8F0',
+                      padding: '16px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    {/* Header Row: Dot + Name + Toggle Switch */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{
+                          width: '8px',
+                          height: '8px',
+                          borderRadius: '50%',
+                          background: g.is_active ? '#2563EB' : '#94A3B8',
+                        }} />
+                        <span style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                          {g.name}
+                        </span>
+                      </div>
+
+                      {/* Active Toggle Switch */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleGeofence(g);
+                        }}
+                        style={{
+                          width: '42px',
+                          height: '22px',
+                          borderRadius: '12px',
+                          background: g.is_active ? '#2563EB' : '#CBD5E1',
+                          border: 'none',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          transition: 'background 0.2s',
+                          padding: '2px',
+                        }}
+                      >
+                        <div style={{
+                          width: '18px',
+                          height: '18px',
+                          borderRadius: '50%',
+                          background: '#FFFFFF',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          transform: g.is_active ? 'translateX(20px)' : 'translateX(0px)',
+                          transition: 'transform 0.2s',
+                        }} />
+                      </button>
+                    </div>
+
+                    {/* Chips Row */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+                      <span style={{
+                        background: '#F1F5F9',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#475569',
+                      }}>
+                        ⭕ {g.radius || 300} m radius
+                      </span>
+                      <span style={{
+                        background: '#F1F5F9',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#475569',
+                      }}>
+                        ⛶ {calculateCircleAreaKm2(g.radius)} km²
+                      </span>
+                      {g.alert_on_enter !== false && (
+                        <span style={{
+                          background: '#EFF6FF',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#2563EB',
+                        }}>
+                          → Entry alert
+                        </span>
+                      )}
+                      {g.alert_on_exit !== false && (
+                        <span style={{
+                          background: '#EFF6FF',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#2563EB',
+                        }}>
+                          ← Exit alert
+                        </span>
+                      )}
+                      {Number(g.assigned_vehicles_count) > 1 ? (
+                        <span style={{
+                          background: '#FEF3C7',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          color: '#92400E',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '3px',
+                        }}>
+                          🔗 Shared ({g.assigned_vehicles_count} vehicles)
+                        </span>
+                      ) : (
+                        <span style={{
+                          background: '#F1F5F9',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: 600,
+                          color: '#64748B',
+                        }}>
+                          Vehicle-only
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Footer Row: Created relative time + Actions */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                      <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
+                        Created {getRelativeTime(g.created_at)}
+                      </span>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenAssignModal(g);
+                          }}
+                          style={{
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            color: '#2563EB',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Apply this geofence to other vehicles of same user"
+                        >
+                          <Share2 size={12} />
+                          <span>Apply to Others</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteGeofence(g.id);
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#DC2626',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+
+      {/* ── Right Side Full Map (All Geofences & Trip on the SAME Map) ── */}
+      <div style={{ flex: 1, height: '100%', position: 'relative' }}>
+        <MapContainer
+          center={[
+            selectedVehicle?.lat ? parseFloat(selectedVehicle.lat) : 17.3850,
+            selectedVehicle?.lng ? parseFloat(selectedVehicle.lng) : 78.4867
+          ]}
+          zoom={12}
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* Map Tile Layer */}
+          {mapLayer === 'satellite' ? (
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          ) : mapLayer === 'osm' ? (
+            <TileLayer
+              attribution='&copy; OpenStreetMap contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+          ) : (
+            <TileLayer
+              attribution='&copy; Google Maps'
+              url="https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}"
+              maxNativeZoom={20}
+              maxZoom={22}
+            />
+          )}
+
+          <MapBoundsController
+            routePoints={routeHistory}
+            stops={stoppages}
+            geofences={geofences}
+            focusedCoord={focusedCoord}
+          />
+
+          {/* Polyline Route */}
+          {routeHistory.length > 1 && (
+            <Polyline
+              positions={routeHistory.map(p => [parseFloat(p.lat), parseFloat(p.lng)])}
+              pathOptions={{
+                color: '#2563EB',
+                weight: 5,
+                opacity: 0.85,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          )}
+
+          {/* Stop Pins on Map */}
+          {stoppages.filter(s => s.status !== 'Moving' && s.duration_seconds >= 60).map((s, idx) => {
+            if (!s.lat || !s.lng) return null;
+            return (
+              <Marker
+                key={`map-stop-${idx}`}
+                position={[parseFloat(s.lat), parseFloat(s.lng)]}
+                icon={createStopIcon(idx + 1)}
+              >
+                <Popup>
+                  <div style={{ padding: '4px', minWidth: '180px' }}>
+                    <div style={{ fontWeight: 800, color: '#D97706', fontSize: '13px' }}>
+                      Stop {idx + 1}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                      Duration: {formatDurationHms(s.duration_seconds)}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#1E293B', marginTop: '4px' }}>
+                      {addresses[`${parseFloat(s.lat).toFixed(4)},${parseFloat(s.lng).toFixed(4)}`] || 'Location pin'}
+                    </div>
+                    <button
+                      onClick={() => handleOpenSetGeofence({ ...s, index: idx + 1 })}
+                      style={{
+                        marginTop: '8px',
+                        background: '#2563EB',
+                        color: '#FFFFFF',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        width: '100%',
+                      }}
+                    >
+                      Set Geofence
+                    </button>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* ALL VEHICLE GEOFENCES RENDERED ON THE SAME MAP */}
+          {geofences.map(g => {
+            if (!g.center_lat || !g.center_lng) return null;
+            const lat = parseFloat(g.center_lat);
+            const lng = parseFloat(g.center_lng);
+            const rad = parseFloat(g.radius) || 300;
+
+            return (
+              <React.Fragment key={`map-geofence-${g.id}`}>
+                {/* Circle Boundary */}
+                <Circle
+                  center={[lat, lng]}
+                  radius={rad}
+                  eventHandlers={{
+                    click: () => setFocusedCoord({ lat, lng })
+                  }}
+                  pathOptions={{
+                    color: g.is_active ? '#2563EB' : '#94A3B8',
+                    fillColor: g.is_active ? '#3B82F6' : '#94A3B8',
+                    fillOpacity: g.is_active ? 0.3 : 0.1,
+                    weight: 3,
+                    dashArray: g.is_active ? undefined : '5, 5',
+                  }}
+                />
+
+                {/* Center marker with permanent label */}
+                <Marker
+                  position={[lat, lng]}
+                  icon={createGeofenceCenterIcon(g.name)}
+                  eventHandlers={{
+                    click: () => setFocusedCoord({ lat, lng })
+                  }}
+                >
+                  <Tooltip permanent direction="top" offset={[0, -10]}>
+                    <div style={{ fontWeight: 800, fontSize: '11px', color: '#1E293B', cursor: 'pointer' }}>
+                      {g.name} ({rad}m)
+                    </div>
+                  </Tooltip>
+                </Marker>
+              </React.Fragment>
+            );
+          })}
+
+          {/* Current Live Vehicle Position Marker */}
+          {selectedVehicle?.lat && selectedVehicle?.lng && (
+            <Marker
+              position={[parseFloat(selectedVehicle.lat), parseFloat(selectedVehicle.lng)]}
+              icon={createVehiclePinIcon(isMoving, selectedVehicle.current_direction || 0)}
+            >
+              <Popup>
+                <div style={{ padding: '4px', minWidth: '160px' }}>
+                  <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '13px' }}>
+                    {selectedVehicle.plate || selectedVehicle.name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: isMoving ? '#16A34A' : '#64748B', fontWeight: 700, marginTop: '2px' }}>
+                    {isMoving ? `Moving at ${currentSpeed} km/h` : 'Stopped / Parked'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                    Last seen: {formatLocalTime(selectedVehicle.last_seen)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+        </MapContainer>
+
+        {/* Floating Map Layer Switcher Controls */}
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          right: '16px',
+          zIndex: 1000,
+          background: '#FFFFFF',
+          borderRadius: '10px',
+          padding: '4px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          display: 'flex',
+          gap: '4px',
+          border: '1px solid #E2E8F0',
+        }}>
+          <button
+            onClick={() => setMapLayer('google')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'google' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'google' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Google Map
+          </button>
+          <button
+            onClick={() => setMapLayer('satellite')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'satellite' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'satellite' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            Satellite
+          </button>
+          <button
+            onClick={() => setMapLayer('osm')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              border: 'none',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              background: mapLayer === 'osm' ? '#2563EB' : 'transparent',
+              color: mapLayer === 'osm' ? '#FFFFFF' : '#475569',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            OSM
+          </button>
+        </div>
+      </div>
+
+      {/* ── Set Geofence Modal ── */}
+      {geofenceModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '20px',
+            maxWidth: '460px',
+            width: '100%',
+            overflow: 'hidden',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            border: '1px solid #E2E8F0',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Shield size={18} color="#2563EB" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                    Set Geofence
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Vehicle: {selectedVehicle?.plate || selectedVehicle?.name}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setGeofenceModalOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '6px' }}>
+                  Geofence Name *
+                </label>
+                <input
+                  type="text"
+                  value={geofenceForm.name}
+                  onChange={(e) => setGeofenceForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="e.g. Warehouse, Customer Yard, Stop Location"
+                  style={{
+                    width: '100%',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '13px',
+                    color: '#0F172A',
+                    outline: 'none',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              </div>
+
+              {/* Coordinates & Address Preview */}
+              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '10px', border: '1px solid #F1F5F9' }}>
+                <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <MapPin size={12} color="#EA580C" /> Location
+                </div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1E293B', marginTop: '4px', lineHeight: 1.4 }}>
+                  {geofenceForm.address || (geofenceForm.lat ? `${Number(geofenceForm.lat).toFixed(4)}, ${Number(geofenceForm.lng).toFixed(4)}` : 'Location selected')}
+                </div>
+              </div>
+
+              {/* Radius Options */}
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', display: 'block', marginBottom: '8px' }}>
+                  Geofence Radius
+                </label>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                  {[50, 100, 200, 300, 500, 1000].map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setGeofenceForm(prev => ({ ...prev, radius: r }))}
+                      style={{
+                        padding: '8px 0',
+                        borderRadius: '8px',
+                        border: geofenceForm.radius === r ? '2px solid #2563EB' : '1px solid #E2E8F0',
+                        background: geofenceForm.radius === r ? '#EFF6FF' : '#FFFFFF',
+                        color: geofenceForm.radius === r ? '#2563EB' : '#475569',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {r >= 1000 ? `${r / 1000} km` : `${r} m`}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Alert Options Checkboxes */}
+              <div style={{ display: 'flex', gap: '20px', paddingTop: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: '#1E293B', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={geofenceForm.alert_on_enter}
+                    onChange={(e) => setGeofenceForm(prev => ({ ...prev, alert_on_enter: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', accentColor: '#2563EB' }}
+                  />
+                  <span>Entry alert</span>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, color: '#1E293B', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={geofenceForm.alert_on_exit}
+                    onChange={(e) => setGeofenceForm(prev => ({ ...prev, alert_on_exit: e.target.checked }))}
+                    style={{ width: '16px', height: '16px', accentColor: '#2563EB' }}
+                  />
+                  <span>Exit alert</span>
+                </label>
+              </div>
+
+              {/* Optional: Apply to other vehicles of same user */}
+              {vehicles.filter(v => v.id !== selectedVehicleId).length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                      Also apply to other vehicles (optional)
+                    </label>
+                    {geofenceForm.additionalVehicleIds?.length > 0 && (
+                      <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: 700 }}>
+                        {geofenceForm.additionalVehicleIds.length} other vehicle(s) selected
+                      </span>
+                    )}
+                  </div>
+                  <div style={{
+                    maxHeight: '120px',
+                    overflowY: 'auto',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '6px 8px',
+                    background: '#F8FAFC',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}>
+                    {vehicles.filter(v => v.id !== selectedVehicleId).map(v => {
+                      const isChecked = geofenceForm.additionalVehicleIds?.includes(v.id);
+                      return (
+                        <label
+                          key={v.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            background: isChecked ? '#EFF6FF' : '#FFFFFF',
+                            border: isChecked ? '1px solid #BFDBFE' : '1px solid #F1F5F9',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked || false}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setGeofenceForm(prev => {
+                                const current = prev.additionalVehicleIds || [];
+                                return {
+                                  ...prev,
+                                  additionalVehicleIds: checked
+                                    ? [...current, v.id]
+                                    : current.filter(id => id !== v.id),
+                                };
+                              });
+                            }}
+                            style={{ accentColor: '#2563EB' }}
+                          />
+                          <span style={{ fontWeight: 700, color: '#0F172A' }}>{v.plate || v.name}</span>
+                          <span style={{ fontSize: '11px', color: '#64748B' }}>({v.model || v.vehicle_type || 'Vehicle'})</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #F1F5F9',
+              background: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+              gap: '10px',
+            }}>
+              <button
+                onClick={() => setGeofenceModalOpen(false)}
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveGeofence}
+                disabled={savingGeofence}
+                style={{
+                  padding: '9px 20px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: '#2563EB',
+                  color: '#FFFFFF',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: savingGeofence ? 'not-allowed' : 'pointer',
+                  opacity: savingGeofence ? 0.7 : 1,
+                }}
+              >
+                {savingGeofence ? 'Saving...' : 'Save Geofence'}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: '#F1F5F9', padding: '4px', borderRadius: '10px', width: 'fit-content' }}>
-        {[['all', 'All'], ['planned', 'Planned'], ['in_progress', 'In Progress'], ['completed', 'Completed'], ['cancelled', 'Cancelled']].map(([val, label]) => (
-          <button key={val} onClick={() => setFilter(val)} style={{
-            padding: '7px 16px', borderRadius: '7px', border: 'none', cursor: 'pointer',
-            fontSize: '13px', fontWeight: filter === val ? 700 : 500,
-            background: filter === val ? '#fff' : 'transparent',
-            color: filter === val ? '#0F172A' : '#64748B',
-            boxShadow: filter === val ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
-            transition: 'all 0.15s'
-          }}>{label}</button>
-        ))}
-      </div>
+      {/* ── Assign Geofence to Other Vehicles Modal ── */}
+      {assignModalOpen && assigningGeofence && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '520px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#FFFFFF',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Share2 size={18} color="#2563EB" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                    Apply Geofence to Vehicles
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Geofence: <strong style={{ color: '#2563EB' }}>{assigningGeofence.name}</strong> ({assigningGeofence.radius || 300}m radius)
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setAssignModalOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
 
-      {/* Trips Table */}
-      <div style={{ background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-        {loading ? (
-          <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8' }}>
-            <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto 12px' }} />
-            <div style={{ fontSize: '14px' }}>Loading trips...</div>
-          </div>
-        ) : filteredTrips.length === 0 ? (
-          <div style={{ padding: '80px', textAlign: 'center', color: '#94A3B8' }}>
-            <Route size={40} style={{ margin: '0 auto 16px', opacity: 0.4 }} />
-            <div style={{ fontSize: '16px', fontWeight: 700, color: '#334155' }}>No trips found</div>
-            <div style={{ fontSize: '13px', marginTop: '6px' }}>Create a trip to start tracking journeys.</div>
-            <button onClick={() => setShowCreate(true)} style={{ marginTop: '20px', padding: '10px 20px', borderRadius: '9px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 700, fontSize: '13px' }}>
-              Create First Trip
-            </button>
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '900px' }}>
-              <thead>
-                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                  {['Trip Name', 'Vehicle', 'Route/Origin', 'Status', 'Started', 'Ended', 'Duration', 'Distance', 'Max Speed', 'Actions'].map(h => (
-                    <th key={h} style={{ padding: '11px 16px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.06em', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredTrips.map(trip => (
-                  <tr key={trip.id} className="trip-row" style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A' }}>{trip.name}</div>
-                      {trip.notes && <div style={{ fontSize: '11px', color: '#94A3B8' }}>{trip.notes.slice(0, 40)}</div>}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        <Truck size={13} color="#94A3B8" /> {trip.vehicle_name}
-                      </div>
-                      <div style={{ fontSize: '11px', color: '#94A3B8' }}>{trip.plate}</div>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {trip.route_name ? (
-                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#4F46E5', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Route size={11} /> {trip.route_name}
-                        </div>
-                      ) : (trip.origin && trip.destination) ? (
-                        <div style={{ fontSize: '12px', color: '#475569' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <MapPin size={10} color="#10B981" /> {trip.origin}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '3px' }}>
-                            <Navigation size={10} color="#EF4444" /> {trip.destination}
-                          </div>
-                        </div>
-                      ) : <span style={{ fontSize: '12px', color: '#CBD5E1' }}>–</span>}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}><StatusBadge status={trip.status} /></td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>{trip.start_time ? formatLocalTime(trip.start_time) : '–'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '12px', color: '#475569' }}>{trip.end_time ? formatLocalTime(trip.end_time) : trip.status === 'in_progress' ? <span style={{ color: '#10B981', fontWeight: 700 }}>Live ●</span> : '–'}</td>
-                    <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Clock size={12} color="#94A3B8" /> {formatDuration(trip.duration_secs)}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>{parseFloat(trip.distance_km || 0).toFixed(1)}</span>
-                      <span style={{ fontSize: '11px', color: '#94A3B8' }}> km</span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      {trip.max_speed ? <span style={{ fontSize: '13px', fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}><Gauge size={12} color="#94A3B8" />{trip.max_speed} km/h</span> : '–'}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ display: 'flex', gap: '6px' }}>
-                        {trip.status === 'planned' && (
-                          <button onClick={() => handleStart(trip)} disabled={!!actionLoading[trip.id]} className="action-btn"
-                            style={{ padding: '6px 12px', borderRadius: '7px', background: '#ECFDF5', border: '1px solid #A7F3D0', color: '#059669', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {actionLoading[trip.id] === 'starting' ? <Loader2 size={11} className="animate-spin" /> : <Play size={11} />} Start
-                          </button>
-                        )}
-                        {trip.status === 'in_progress' && (
-                          <button onClick={() => handleEnd(trip)} disabled={!!actionLoading[trip.id]} className="action-btn"
-                            style={{ padding: '6px 12px', borderRadius: '7px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            {actionLoading[trip.id] === 'ending' ? <Loader2 size={11} className="animate-spin" /> : <Square size={11} />} End
-                          </button>
-                        )}
-                        {['planned', 'in_progress'].includes(trip.status) && (
-                          <button onClick={() => handleCancel(trip)} disabled={!!actionLoading[trip.id]} className="action-btn"
-                            style={{ padding: '6px 10px', borderRadius: '7px', background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#94A3B8', fontSize: '12px', cursor: 'pointer' }}>
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                        {trip.status === 'completed' && (
-                          <span style={{ fontSize: '12px', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <CheckCircle size={13} color="#10B981" /> Done
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                  Select which vehicles should use this geofence:
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTargetVehicleIds(vehicles.map(v => v.id))}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Select All
+                  </button>
+                  <span style={{ color: '#CBD5E1' }}>|</span>
+                  <button
+                    type="button"
+                    onClick={() => setTargetVehicleIds([selectedVehicleId])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748B',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Only Current
+                  </button>
+                </div>
+              </div>
 
-      {showCreate && (
-        <CreateTripModal
-          vehicles={vehicles}
-          routes={routes}
-          onClose={() => setShowCreate(false)}
-          onCreate={load}
-        />
+              {/* Vehicle Checklist */}
+              <div style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '8px',
+                background: '#F8FAFC',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}>
+                {vehicles.map(v => {
+                  const isChecked = targetVehicleIds.includes(v.id);
+                  const isCurrent = v.id === selectedVehicleId;
+                  const isMoving = Number(v.current_speed || v.speed || 0) > 2;
+
+                  return (
+                    <label
+                      key={v.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: isChecked ? '#EFF6FF' : '#FFFFFF',
+                        border: isChecked ? '1.5px solid #3B82F6' : '1px solid #E2E8F0',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setTargetVehicleIds(prev =>
+                              checked ? [...prev, v.id] : prev.filter(id => id !== v.id)
+                            );
+                          }}
+                          style={{ width: '16px', height: '16px', accentColor: '#2563EB' }}
+                        />
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                              {v.plate || v.name}
+                            </span>
+                            {isCurrent && (
+                              <span style={{
+                                background: '#DBEAFE',
+                                color: '#1E40AF',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                              }}>
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            {v.model || v.vehicle_type || 'Vehicle'} • IMEI: {v.imei || v.device_id || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: isMoving ? '#10B981' : '#94A3B8',
+                        }} />
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: isMoving ? '#10B981' : '#64748B' }}>
+                          {isMoving ? 'Moving' : 'Parked'}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{
+                background: '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                fontSize: '11px',
+                color: '#166534',
+                lineHeight: 1.4,
+              }}>
+                ✓ <strong>Multi-Vehicle Geofencing:</strong> This geofence will be linked across all selected vehicles. All entry/exit alerts and reports will monitor each assigned vehicle automatically.
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #F1F5F9',
+              background: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                {targetVehicleIds.length} vehicle(s) selected
+              </span>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOpen(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAssignment}
+                  disabled={savingAssignment}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: savingAssignment ? 'not-allowed' : 'pointer',
+                    opacity: savingAssignment ? 0.7 : 1,
+                  }}
+                >
+                  {savingAssignment ? 'Saving...' : `Apply to Selected (${targetVehicleIds.length})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
+
+      {/* ── Add Existing Geofence to Current Vehicle Modal ── */}
+      {importModalOpen && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '540px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#FFFFFF',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Layers size={18} color="#2563EB" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                    Add Existing Geofence
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Target Vehicle: <strong style={{ color: '#2563EB' }}>{selectedVehicle?.plate || selectedVehicle?.name}</strong>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setImportModalOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px', maxHeight: '420px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>
+                Select any geofence previously created across your fleet to instantly attach it to <strong>{selectedVehicle?.plate || selectedVehicle?.name}</strong>:
+              </div>
+
+              {loadingAvailable ? (
+                <div style={{ padding: '32px 0', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
+                  <RefreshCw size={24} className="animate-spin" style={{ margin: '0 auto 8px', display: 'block' }} />
+                  Loading available geofences...
+                </div>
+              ) : availableGeofences.length === 0 ? (
+                <div style={{ padding: '32px 16px', textAlign: 'center', background: '#F8FAFC', borderRadius: '12px', color: '#94A3B8', fontSize: '13px' }}>
+                  No geofences found in your account yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {availableGeofences.map(g => {
+                    const isAlreadyOnVehicle = g.is_assigned_to_vehicle;
+                    const isLinking = linkingGeofenceId === g.id;
+
+                    return (
+                      <div
+                        key={g.id}
+                        style={{
+                          padding: '12px 14px',
+                          borderRadius: '12px',
+                          border: isAlreadyOnVehicle ? '1px solid #E2E8F0' : '1px solid #CBD5E1',
+                          background: isAlreadyOnVehicle ? '#F8FAFC' : '#FFFFFF',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '12px',
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{g.name}</span>
+                            <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748B' }}>
+                              ({g.radius || 300}m radius)
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                            Created {getRelativeTime(g.created_at)}
+                            {g.alert_on_enter !== false && ' • Entry alert'}
+                            {g.alert_on_exit !== false && ' • Exit alert'}
+                          </div>
+                        </div>
+
+                        <div>
+                          {isAlreadyOnVehicle ? (
+                            <span style={{
+                              background: '#DCFCE7',
+                              color: '#15803D',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}>
+                              ✓ Attached
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleLinkExistingGeofence(g.id)}
+                              disabled={isLinking}
+                              style={{
+                                background: '#2563EB',
+                                color: '#FFFFFF',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: isLinking ? 'not-allowed' : 'pointer',
+                                opacity: isLinking ? 0.7 : 1,
+                              }}
+                            >
+                              {isLinking ? 'Attaching...' : '+ Attach'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #F1F5F9',
+              background: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'flex-end',
+            }}>
+              <button
+                type="button"
+                onClick={() => setImportModalOpen(false)}
+                style={{
+                  padding: '9px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
-};
-
-export default TripManagerPage;
+}

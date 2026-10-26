@@ -206,7 +206,7 @@ const GeofenceRouteController = {
         }
       }
 
-      const allGeofences = await GeofenceModel.findAllWithStats(vehicle.org_id);
+      const allGeofences = await GeofenceModel.findAllWithStats(vehicle.org_id, req.user.userId, req.user.role);
       const current = await GeofenceModel.findGeofencesByVehicleId(vehicleId, false);
       const currentIds = new Set(current.map(g => g.id));
 
@@ -240,13 +240,29 @@ const GeofenceRouteController = {
         }
       }
 
+      // Enforce strict tenant & user isolation for customers
+      if (req.user.role === 'customer') {
+        const geofenceBelongs = await GeofenceModel.belongsToUser(geofenceId, req.user.userId);
+        if (!geofenceBelongs) {
+          return res.status(403).json({ success: false, error: 'Access denied to this geofence.' });
+        }
+        if (Array.isArray(req.body.vehicleIds) && req.body.vehicleIds.length > 0) {
+          for (const targetId of req.body.vehicleIds) {
+            const vBelongs = await VehicleModel.belongsToOrg(targetId, req.user.orgId, req.user.userId, req.user.role);
+            if (!vBelongs) {
+              return res.status(403).json({ success: false, error: 'Access denied to one or more target vehicles.' });
+            }
+          }
+        }
+      }
+
       // If replacing an old geofence (e.g. replacing Guntur with Nellore)
       if (replaceGeofenceId) {
         await GeofenceModel.unlinkVehicle(replaceGeofenceId, vehicleId);
       }
 
       if (Array.isArray(req.body.vehicleIds) && req.body.vehicleIds.length > 0) {
-        const targetVehicleIds = Array.from(new Set([vehicleId, ...req.body.vehicleIds]));
+        const targetVehicleIds = Array.from(new Set(req.body.vehicleIds));
         await GeofenceModel.assignToVehicles(geofenceId, targetVehicleIds);
       } else {
         await GeofenceModel.linkVehicle(geofenceId, vehicleId);
@@ -433,8 +449,9 @@ const GeofenceRouteController = {
 
   async getGeofenceVehicles(req, res, next) {
     try {
-      const { id } = req.params;
-      const vehicles = await GeofenceModel.findVehiclesForGeofence(id);
+      const { id, geofenceId } = req.params;
+      const targetId = geofenceId || id;
+      const vehicles = await GeofenceModel.findVehiclesForGeofence(targetId);
       res.json({ success: true, data: vehicles });
     } catch (err) {
       next(err);
