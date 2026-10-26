@@ -175,8 +175,15 @@ export default function TripManagerPage() {
     radius: 300,
     alert_on_enter: true,
     alert_on_exit: true,
+    additionalVehicleIds: [],
   });
   const [savingGeofence, setSavingGeofence] = useState(false);
+
+  // Assign Geofence to Other Vehicles Modal state
+  const [assignModalOpen, setAssignModalOpen] = useState(false);
+  const [assigningGeofence, setAssigningGeofence] = useState(null);
+  const [targetVehicleIds, setTargetVehicleIds] = useState([]);
+  const [savingAssignment, setSavingAssignment] = useState(false);
 
   // Load Vehicles
   useEffect(() => {
@@ -331,6 +338,7 @@ export default function TripManagerPage() {
       alert_on_enter: true,
       alert_on_exit: true,
       address: stopAddr,
+      additionalVehicleIds: [],
     });
     setGeofenceModalOpen(true);
   };
@@ -348,6 +356,11 @@ export default function TripManagerPage() {
 
     setSavingGeofence(true);
     try {
+      const targetVehicleIds = Array.from(new Set([
+        selectedVehicleId,
+        ...(geofenceForm.additionalVehicleIds || [])
+      ])).filter(Boolean);
+
       const payload = {
         name: geofenceForm.name.trim(),
         type: 'circle',
@@ -357,6 +370,7 @@ export default function TripManagerPage() {
         is_active: true,
         alert_on_enter: geofenceForm.alert_on_enter,
         alert_on_exit: geofenceForm.alert_on_exit,
+        vehicleIds: targetVehicleIds,
       };
 
       const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences`, payload);
@@ -372,6 +386,54 @@ export default function TripManagerPage() {
       alert(err.response?.data?.error || 'Failed to save geofence.');
     } finally {
       setSavingGeofence(false);
+    }
+  };
+
+  // Open Assign Geofence to Other Vehicles Modal
+  const handleOpenAssignModal = async (geofence) => {
+    setAssigningGeofence(geofence);
+    setAssignModalOpen(true);
+    try {
+      const res = await axiosInstance.get(`/api/vehicles/${selectedVehicleId}/geofences/${geofence.id}/vehicles`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        const ids = res.data.data.map(v => v.id);
+        setTargetVehicleIds(ids.length > 0 ? ids : [selectedVehicleId]);
+      } else {
+        setTargetVehicleIds([selectedVehicleId]);
+      }
+    } catch (err) {
+      console.warn('Could not fetch geofence vehicles:', err);
+      setTargetVehicleIds([selectedVehicleId]);
+    }
+  };
+
+  // Save Geofence Assignment to Multiple Vehicles
+  const handleSaveAssignment = async () => {
+    if (!assigningGeofence) return;
+    if (targetVehicleIds.length === 0) {
+      alert('Please select at least one vehicle.');
+      return;
+    }
+
+    setSavingAssignment(true);
+    try {
+      const res = await axiosInstance.post(`/api/vehicles/${selectedVehicleId}/geofences/link`, {
+        geofenceId: assigningGeofence.id,
+        vehicleIds: targetVehicleIds,
+      });
+
+      if (res.data?.success) {
+        setAssignModalOpen(false);
+        setAssigningGeofence(null);
+        await loadGeofences();
+      } else {
+        alert(res.data?.error || 'Failed to update geofence assignment.');
+      }
+    } catch (err) {
+      console.error('Error assigning geofence:', err);
+      alert(err.response?.data?.error || 'Failed to update geofence assignment.');
+    } finally {
+      setSavingAssignment(false);
     }
   };
 
@@ -963,6 +1025,7 @@ export default function TripManagerPage() {
                         radius: 300,
                         alert_on_enter: true,
                         alert_on_exit: true,
+                        additionalVehicleIds: [],
                       });
                       setGeofenceModalOpen(true);
                     }}
@@ -1113,32 +1176,61 @@ export default function TripManagerPage() {
                       )}
                     </div>
 
-                    {/* Footer Row: Created relative time + Delete */}
+                    {/* Footer Row: Created relative time + Actions */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
                       <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>
                         Created {getRelativeTime(g.created_at)}
                       </span>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteGeofence(g.id);
-                        }}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#DC2626',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                        }}
-                      >
-                        <Trash2 size={13} />
-                        <span>Delete</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenAssignModal(g);
+                          }}
+                          style={{
+                            background: '#EFF6FF',
+                            border: '1px solid #BFDBFE',
+                            color: '#2563EB',
+                            borderRadius: '6px',
+                            padding: '4px 10px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            transition: 'all 0.15s ease',
+                          }}
+                          title="Apply this geofence to other vehicles of same user"
+                        >
+                          <Share2 size={12} />
+                          <span>Apply to Others</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteGeofence(g.id);
+                          }}
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            color: '#DC2626',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                          }}
+                        >
+                          <Trash2 size={13} />
+                          <span>Delete</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -1527,6 +1619,73 @@ export default function TripManagerPage() {
                   <span>Exit alert</span>
                 </label>
               </div>
+
+              {/* Optional: Apply to other vehicles of same user */}
+              {vehicles.filter(v => v.id !== selectedVehicleId).length > 0 && (
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                      Also apply to other vehicles (optional)
+                    </label>
+                    {geofenceForm.additionalVehicleIds?.length > 0 && (
+                      <span style={{ fontSize: '11px', color: '#2563EB', fontWeight: 700 }}>
+                        {geofenceForm.additionalVehicleIds.length} other vehicle(s) selected
+                      </span>
+                    )}
+                  </div>
+                  <div style={{
+                    maxHeight: '120px',
+                    overflowY: 'auto',
+                    border: '1px solid #E2E8F0',
+                    borderRadius: '8px',
+                    padding: '6px 8px',
+                    background: '#F8FAFC',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '6px',
+                  }}>
+                    {vehicles.filter(v => v.id !== selectedVehicleId).map(v => {
+                      const isChecked = geofenceForm.additionalVehicleIds?.includes(v.id);
+                      return (
+                        <label
+                          key={v.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '5px 8px',
+                            borderRadius: '6px',
+                            background: isChecked ? '#EFF6FF' : '#FFFFFF',
+                            border: isChecked ? '1px solid #BFDBFE' : '1px solid #F1F5F9',
+                            cursor: 'pointer',
+                            fontSize: '12px',
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked || false}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setGeofenceForm(prev => {
+                                const current = prev.additionalVehicleIds || [];
+                                return {
+                                  ...prev,
+                                  additionalVehicleIds: checked
+                                    ? [...current, v.id]
+                                    : current.filter(id => id !== v.id),
+                                };
+                              });
+                            }}
+                            style={{ accentColor: '#2563EB' }}
+                          />
+                          <span style={{ fontWeight: 700, color: '#0F172A' }}>{v.plate || v.name}</span>
+                          <span style={{ fontSize: '11px', color: '#64748B' }}>({v.model || v.vehicle_type || 'Vehicle'})</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Modal Actions */}
@@ -1571,6 +1730,268 @@ export default function TripManagerPage() {
               >
                 {savingGeofence ? 'Saving...' : 'Save Geofence'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Assign Geofence to Other Vehicles Modal ── */}
+      {assignModalOpen && assigningGeofence && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(3px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#FFFFFF',
+            borderRadius: '16px',
+            width: '100%',
+            maxWidth: '520px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '18px 24px',
+              borderBottom: '1px solid #F1F5F9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: '#FFFFFF',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#EFF6FF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}>
+                  <Share2 size={18} color="#2563EB" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+                    Apply Geofence to Vehicles
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B' }}>
+                    Geofence: <strong style={{ color: '#2563EB' }}>{assigningGeofence.name}</strong> ({assigningGeofence.radius || 300}m radius)
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setAssignModalOpen(false)}
+                style={{
+                  background: '#F1F5F9',
+                  border: 'none',
+                  borderRadius: '8px',
+                  width: '28px',
+                  height: '28px',
+                  cursor: 'pointer',
+                  color: '#64748B',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>
+                  Select which vehicles should use this geofence:
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setTargetVehicleIds(vehicles.map(v => v.id))}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563EB',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Select All
+                  </button>
+                  <span style={{ color: '#CBD5E1' }}>|</span>
+                  <button
+                    type="button"
+                    onClick={() => setTargetVehicleIds([selectedVehicleId])}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#64748B',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    Only Current
+                  </button>
+                </div>
+              </div>
+
+              {/* Vehicle Checklist */}
+              <div style={{
+                maxHeight: '260px',
+                overflowY: 'auto',
+                border: '1px solid #E2E8F0',
+                borderRadius: '12px',
+                padding: '8px',
+                background: '#F8FAFC',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+              }}>
+                {vehicles.map(v => {
+                  const isChecked = targetVehicleIds.includes(v.id);
+                  const isCurrent = v.id === selectedVehicleId;
+                  const isMoving = Number(v.current_speed || v.speed || 0) > 2;
+
+                  return (
+                    <label
+                      key={v.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '10px 12px',
+                        borderRadius: '10px',
+                        background: isChecked ? '#EFF6FF' : '#FFFFFF',
+                        border: isChecked ? '1.5px solid #3B82F6' : '1px solid #E2E8F0',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setTargetVehicleIds(prev =>
+                              checked ? [...prev, v.id] : prev.filter(id => id !== v.id)
+                            );
+                          }}
+                          style={{ width: '16px', height: '16px', accentColor: '#2563EB' }}
+                        />
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                              {v.plate || v.name}
+                            </span>
+                            {isCurrent && (
+                              <span style={{
+                                background: '#DBEAFE',
+                                color: '#1E40AF',
+                                fontSize: '10px',
+                                fontWeight: 800,
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                              }}>
+                                Current
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            {v.model || v.vehicle_type || 'Vehicle'} • IMEI: {v.imei || v.device_id || 'N/A'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                          width: '7px',
+                          height: '7px',
+                          borderRadius: '50%',
+                          background: isMoving ? '#10B981' : '#94A3B8',
+                        }} />
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: isMoving ? '#10B981' : '#64748B' }}>
+                          {isMoving ? 'Moving' : 'Parked'}
+                        </span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+
+              <div style={{
+                background: '#F0FDF4',
+                border: '1px solid #BBF7D0',
+                borderRadius: '8px',
+                padding: '10px 12px',
+                fontSize: '11px',
+                color: '#166534',
+                lineHeight: 1.4,
+              }}>
+                ✓ <strong>Multi-Vehicle Geofencing:</strong> This geofence will be linked across all selected vehicles. All entry/exit alerts and reports will monitor each assigned vehicle automatically.
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div style={{
+              padding: '16px 24px',
+              borderTop: '1px solid #F1F5F9',
+              background: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748B' }}>
+                {targetVehicleIds.length} vehicle(s) selected
+              </span>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setAssignModalOpen(false)}
+                  style={{
+                    padding: '9px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    background: '#FFFFFF',
+                    color: '#475569',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveAssignment}
+                  disabled={savingAssignment}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: '#2563EB',
+                    color: '#FFFFFF',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: savingAssignment ? 'not-allowed' : 'pointer',
+                    opacity: savingAssignment ? 0.7 : 1,
+                  }}
+                >
+                  {savingAssignment ? 'Saving...' : `Apply to Selected (${targetVehicleIds.length})`}
+                </button>
+              </div>
             </div>
           </div>
         </div>

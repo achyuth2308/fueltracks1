@@ -49,6 +49,7 @@ router.post('/:id/immobilizer', VehicleController.toggleImmobilizer);
 // ══════════════════════════════════════════════════════════
 router.get('/geofences/summary', GeofenceRouteController.getVehiclesGeofenceSummary);
 router.get('/:id/geofences', GeofenceRouteController.getVehicleGeofences);
+router.get('/:id/geofences/:geofenceId/vehicles', GeofenceRouteController.getGeofenceVehicles);
 router.get('/:id/available-geofences', GeofenceRouteController.getAvailableGeofences);
 router.post('/:id/geofences/link', GeofenceRouteController.linkVehicleGeofence);
 router.post('/:id/geofences/copy-from', GeofenceRouteController.copyVehicleGeofencesFrom);

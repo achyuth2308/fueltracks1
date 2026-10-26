@@ -246,7 +246,7 @@ const GeofenceRouteController = {
       }
 
       if (Array.isArray(req.body.vehicleIds) && req.body.vehicleIds.length > 0) {
-        const targetVehicleIds = Array.from(new Set([vehicleId, ...req.body.vehicleIds]));
+        const targetVehicleIds = Array.from(new Set(req.body.vehicleIds));
         await GeofenceModel.assignToVehicles(geofenceId, targetVehicleIds);
       } else {
         await GeofenceModel.linkVehicle(geofenceId, vehicleId);
@@ -433,8 +433,9 @@ const GeofenceRouteController = {
 
   async getGeofenceVehicles(req, res, next) {
     try {
-      const { id } = req.params;
-      const vehicles = await GeofenceModel.findVehiclesForGeofence(id);
+      const { id, geofenceId } = req.params;
+      const targetId = geofenceId || id;
+      const vehicles = await GeofenceModel.findVehiclesForGeofence(targetId);
       res.json({ success: true, data: vehicles });
     } catch (err) {
       next(err);
