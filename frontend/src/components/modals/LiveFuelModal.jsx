@@ -30,6 +30,9 @@ const LiveFuelModal = ({
     deviceTime: null
   });
 
+  // Fixed micro-buffer capped at max 20 data points (< 500 bytes of memory)
+  const [fuelHistory, setFuelHistory] = useState([]);
+
   const [packetCount, setPacketCount] = useState(0);
   const [lastPacketTime, setLastPacketTime] = useState(null);
   const [timeAgo, setTimeAgo] = useState('Waiting for data...');
@@ -38,11 +41,20 @@ const LiveFuelModal = ({
   // Sync initialFuel if provided
   useEffect(() => {
     if (initialFuel !== null && initialFuel !== undefined && !isNaN(Number(initialFuel))) {
-      setLiveData(prev => ({ ...prev, fuel: Number(initialFuel) }));
+      const initVal = Number(Number(initialFuel).toFixed(1));
+      setLiveData(prev => ({ ...prev, fuel: initVal }));
+      setFuelHistory(prev => (prev.length === 0 ? [{ val: initVal, time: Date.now() }] : prev));
     }
   }, [initialFuel]);
 
-  // Fetch initial telemetry from API so screen is immediately populated
+  // Clean memory on close
+  useEffect(() => {
+    if (!isOpen) {
+      setFuelHistory([]);
+    }
+  }, [isOpen]);
+
+  // Fetch initial telemetry from API once when modal opens so screen is immediately populated
   const fetchCurrentVehicleState = useCallback(async () => {
     if (!vehicleId) return;
     try {
@@ -64,6 +76,10 @@ const LiveFuelModal = ({
           battery: v.battery ?? prev.battery,
           deviceTime: v.last_seen ?? v.deviceTime ?? prev.deviceTime
         }));
+        if (parsedFuel !== null) {
+          const initNum = Number(parsedFuel.toFixed(1));
+          setFuelHistory(prev => (prev.length === 0 ? [{ val: initNum, time: Date.now() }] : prev));
+        }
         if (v.last_seen) {
           setLastPacketTime(new Date(v.last_seen));
         }
@@ -75,7 +91,7 @@ const LiveFuelModal = ({
     }
   }, [vehicleId]);
 
-  // WebSocket Subscription
+  // WebSocket Subscription (Zero DB queries, purely memory broadcast)
   useEffect(() => {
     if (!isOpen || !vehicleId) return;
 
@@ -98,6 +114,14 @@ const LiveFuelModal = ({
             ? Number(data.fuel)
             : prev.fuel;
 
+          if (nextFuel !== null && nextFuel !== undefined && !isNaN(Number(nextFuel))) {
+            const numVal = Number(Number(nextFuel).toFixed(1));
+            setFuelHistory(h => {
+              const next = [...h, { val: numVal, time: Date.now() }];
+              return next.length > 20 ? next.slice(next.length - 20) : next;
+            });
+          }
+
           return {
             ...prev,
             fuel: nextFuel,
@@ -117,8 +141,12 @@ const LiveFuelModal = ({
       socket.on('fleet:update', handlePacket);
     }
 
-    // 15-second background polling fallback
-    const pollTimer = setInterval(fetchCurrentVehicleState, 15000);
+    // Zero-pressure fallback: ONLY poll if WebSocket connection drops
+    const pollTimer = setInterval(() => {
+      if (!connected) {
+        fetchCurrentVehicleState();
+      }
+    }, 20000);
 
     return () => {
       clearInterval(pollTimer);
@@ -170,6 +198,48 @@ const LiveFuelModal = ({
     }
     return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', label: 'Optimal' };
   }, [fillPercentage]);
+
+  // Render SVG Micro Sparkline (Pure math, hardware accelerated, Zero Extra RAM)
+  const renderSparkline = () => {
+    if (fuelHistory.length < 2) {
+      return (
+        <line
+          x1="0"
+          y1="18"
+          x2="580"
+          y2="18"
+          stroke="#cbd5e1"
+          strokeWidth="1.5"
+          strokeDasharray="4 4"
+        />
+      );
+    }
+
+    const vals = fuelHistory.map(p => p.val);
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = (max - min) || 1;
+    const w = 580;
+    const h = 32;
+
+    const points = fuelHistory.map((p, idx) => {
+      const x = (idx / (fuelHistory.length - 1)) * w;
+      const y = h - ((p.val - min) / range) * (h - 8) - 4;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+
+    const dLine = `M ${points.join(' L ')}`;
+    const dArea = `M 0,${h} L ${points.join(' L ')} L ${w},${h} Z`;
+    const lastCoord = points[points.length - 1].split(',');
+
+    return (
+      <>
+        <path d={dArea} fill="url(#liveSparkGrad)" />
+        <path d={dLine} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={lastCoord[0]} cy={lastCoord[1]} r="3.5" fill="#10b981" stroke="#ffffff" strokeWidth="1.5" />
+      </>
+    );
+  };
 
   if (!isOpen) return null;
 
@@ -319,23 +389,23 @@ const LiveFuelModal = ({
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           
           {/* Main Visual Fuel Tank Display */}
           <div style={{
             background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
             border: '1px solid #e2e8f0',
             borderRadius: '14px',
-            padding: '20px 24px',
+            padding: '18px 22px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            gap: '24px'
+            gap: '20px'
           }}>
             {/* Numeric Volume & Status */}
             <div>
               <span style={{
-                fontSize: '12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 textTransform: 'uppercase',
                 letterSpacing: '0.05em',
@@ -358,7 +428,7 @@ const LiveFuelModal = ({
                 </span>
               </div>
 
-              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <span style={{
                   padding: '3px 10px',
                   borderRadius: '20px',
@@ -377,41 +447,108 @@ const LiveFuelModal = ({
               </div>
             </div>
 
-            {/* Visual Tank Graphic */}
-            <div style={{
-              width: '90px',
-              height: '110px',
-              border: '3px solid #cbd5e1',
-              borderRadius: '18px',
-              background: '#ffffff',
-              position: 'relative',
-              overflow: 'hidden',
-              boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.06)'
-            }}>
-              {/* Level Fluid */}
+            {/* Realistic Industrial Tank Cylinder Graphic */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+              {/* Tank Cap / Inlet Neck */}
               <div style={{
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                height: `${fillPercentage}%`,
-                background: `linear-gradient(180deg, ${fillTheme.bar}ee 0%, ${fillTheme.bar} 100%)`,
-                transition: 'height 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                width: '28px',
+                height: '5px',
+                background: '#94a3b8',
+                borderRadius: '3px 3px 0 0',
+                border: '1px solid #64748b',
+                borderBottom: 'none'
+              }} />
+
+              {/* Main Tank Body */}
+              <div style={{
+                width: '94px',
+                height: '116px',
+                border: '2.5px solid #94a3b8',
+                borderRadius: '14px',
+                background: '#ffffff',
+                position: 'relative',
+                overflow: 'hidden',
+                boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.06), 0 4px 10px rgba(0,0,0,0.04)',
                 display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
+                flexDirection: 'column',
+                justifyContent: 'flex-end'
               }}>
-                {fillPercentage > 15 && (
+                {/* Tank Graduations (E, 1/4, 1/2, 3/4, F) */}
+                <div style={{
+                  position: 'absolute',
+                  left: '5px',
+                  top: '6px',
+                  bottom: '6px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  zIndex: 5,
+                  pointerEvents: 'none',
+                  fontSize: '8px',
+                  fontWeight: 800,
+                  color: '#64748b'
+                }}>
+                  <span style={{ lineHeight: 1 }}>F</span>
+                  <span style={{ lineHeight: 1, borderTop: '1px solid #cbd5e1', width: '6px' }}></span>
+                  <span style={{ lineHeight: 1, borderTop: '1px solid #cbd5e1', width: '10px' }}>½</span>
+                  <span style={{ lineHeight: 1, borderTop: '1px solid #cbd5e1', width: '6px' }}></span>
+                  <span style={{ lineHeight: 1 }}>E</span>
+                </div>
+
+                {/* Glass Reflection Highlight */}
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  bottom: 0,
+                  right: '6px',
+                  width: '8px',
+                  background: 'linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.45) 50%, rgba(255,255,255,0) 100%)',
+                  zIndex: 4,
+                  pointerEvents: 'none'
+                }} />
+
+                {/* Fluid Fill */}
+                <div style={{
+                  width: '100%',
+                  height: `${fillPercentage}%`,
+                  background: `linear-gradient(180deg, ${fillTheme.bar}ee 0%, ${fillTheme.bar} 100%)`,
+                  transition: 'height 0.8s cubic-bezier(0.4, 0, 0.2, 1)',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  {/* Fluid Surface Meniscus Wave */}
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    background: 'rgba(255, 255, 255, 0.55)',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }} />
+
+                  {/* Percentage Label */}
                   <span style={{
-                    fontSize: '11px',
+                    fontSize: '12px',
                     fontWeight: 900,
-                    color: '#ffffff',
-                    textShadow: '0 1px 2px rgba(0,0,0,0.3)'
+                    color: fillPercentage > 20 ? '#ffffff' : '#0f172a',
+                    textShadow: fillPercentage > 20 ? '0 1px 2px rgba(0,0,0,0.4)' : 'none',
+                    zIndex: 6
                   }}>
                     {fillPercentage}%
                   </span>
-                )}
+                </div>
               </div>
+
+              {/* Tank Stand Base */}
+              <div style={{
+                width: '66px',
+                height: '4px',
+                background: '#94a3b8',
+                borderRadius: '0 0 3px 3px'
+              }} />
             </div>
           </div>
 
@@ -421,7 +558,7 @@ const LiveFuelModal = ({
             gridTemplateColumns: 'repeat(3, 1fr)',
             gap: '12px'
           }}>
-            {/* Tile 1: Probe Voltage / Raw Signal */}
+            {/* Tile 1: Vehicle Main Power Supply */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -430,17 +567,17 @@ const LiveFuelModal = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
                 <Zap size={14} color="#f59e0b" />
-                <span style={{ fontSize: '11.5px', fontWeight: 700 }}>PROBE SIGNAL</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>VEHICLE POWER</span>
               </div>
               <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                {liveData.voltage !== null ? `${Number(liveData.voltage).toFixed(2)} V` : (fuelType || 'LLS / Analog')}
+                {liveData.voltage !== null ? `${Number(liveData.voltage).toFixed(2)} V` : (fuelType || 'Normal')}
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                {sensorType || 'Fuel Sensor 1'}
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                {liveData.voltage >= 22 ? '24V Alternator (Normal)' : (liveData.voltage >= 11 ? '12V Battery (Normal)' : (sensorType || 'Main Supply'))}
               </div>
             </div>
 
-            {/* Tile 2: Engine Ignition */}
+            {/* Tile 2: Engine Ignition & Movement */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -449,7 +586,7 @@ const LiveFuelModal = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
                 <Activity size={14} color={liveData.ignition ? '#10b981' : '#94a3b8'} />
-                <span style={{ fontSize: '11.5px', fontWeight: 700 }}>IGNITION</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>IGNITION</span>
               </div>
               <div style={{
                 fontSize: '15px',
@@ -458,12 +595,12 @@ const LiveFuelModal = ({
               }}>
                 {liveData.ignition ? 'ENGINE ON' : 'ENGINE OFF'}
               </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                Speed: {liveData.speed || 0} km/h
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                {liveData.speed > 0 ? `Speed: ${liveData.speed} km/h` : 'Speed: 0 km/h (Stationary)'}
               </div>
             </div>
 
-            {/* Tile 3: Tracker Health & Sats */}
+            {/* Tile 3: Satellite & Connection Stream */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -472,14 +609,58 @@ const LiveFuelModal = ({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
                 <Radio size={14} color="#3b82f6" />
-                <span style={{ fontSize: '11.5px', fontWeight: 700 }}>TELEMETRY STREAM</span>
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>TELEMETRY STREAM</span>
               </div>
               <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                {packetCount > 0 ? `${packetCount} Packets` : 'Active'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                 {liveData.satellites ? `${liveData.satellites} Satellites` : 'GPS Connected'}
               </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                {connected ? 'Active Live Stream' : 'Cached Telemetry'}
+              </div>
+            </div>
+          </div>
+
+          {/* Micro Sparkline: Live Sensor Stability Trend (Fixed-size 20 point buffer, <500 bytes RAM) */}
+          <div style={{
+            background: '#ffffff',
+            border: '1px solid #e2e8f0',
+            borderRadius: '10px',
+            padding: '10px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '6px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Activity size={13} color="#ea580c" />
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
+                  Live Sensor Stability Trend
+                </span>
+                <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
+                  ({fuelHistory.length} readings)
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
+                {fuelHistory.length >= 2 
+                  ? Math.abs(fuelHistory[fuelHistory.length - 1].val - fuelHistory[0].val) < 0.5 
+                    ? 'Stable Level' 
+                    : 'Active Reading'
+                  : 'Monitoring...'}
+              </span>
+            </div>
+
+            {/* Micro SVG Sparkline (Hardware-accelerated) */}
+            <div style={{ width: '100%', height: '34px', position: 'relative' }}>
+              <svg viewBox="0 0 580 32" preserveAspectRatio="none" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
+                <defs>
+                  <linearGradient id="liveSparkGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+                {renderSparkline()}
+              </svg>
             </div>
           </div>
 
