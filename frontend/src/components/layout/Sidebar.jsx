@@ -74,7 +74,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
-        { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer', 'superadmin', 'dealer'] },
+        { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer'] },
         {
           name: 'Fuel Analytics',
           path: '/fuel-analytics',
