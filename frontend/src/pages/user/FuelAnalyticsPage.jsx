@@ -123,12 +123,52 @@ const INTERVAL_OPTIONS = [
   { value: '1h', label: '1 hour', ms: 60 * 60 * 1000 }
 ];
 
+// Helper to format date-time string in DD/MM/YYYY hh:mm A
+function formatDisplayDDMMYYYY(val) {
+  if (!val) return 'DD/MM/YYYY --:--';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return val;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${day}/${month}/${year} ${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+  } catch (e) {
+    return val;
+  }
+}
+
 export default function FuelAnalyticsPage() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   
+  // Recent visited vehicles state (persisted in localStorage)
+  const [recentVehicleIds, setRecentVehicleIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('ft_recent_visited_vehicles_v1');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const recordRecentVehicle = (vehicleId) => {
+    if (!vehicleId) return;
+    setRecentVehicleIds(prev => {
+      const updated = [vehicleId, ...prev.filter(id => id !== vehicleId)].slice(0, 6);
+      try {
+        localStorage.setItem('ft_recent_visited_vehicles_v1', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
   // Searchable dropdown state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -190,8 +230,18 @@ export default function FuelAnalyticsPage() {
             : (Array.isArray(vehiclesRes.value?.data?.vehicles) ? vehiclesRes.value.data.vehicles : []);
           setVehicles(list);
           if (list.length > 0 && !selectedVehicle) {
-            const withFuel = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
-            setSelectedVehicle(withFuel);
+            let initialV = null;
+            try {
+              const savedRecents = JSON.parse(localStorage.getItem('ft_recent_visited_vehicles_v1') || '[]');
+              if (savedRecents.length > 0) {
+                initialV = list.find(v => v.id === savedRecents[0]);
+              }
+            } catch (e) {}
+            if (!initialV) {
+              initialV = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
+            }
+            setSelectedVehicle(initialV);
+            if (initialV?.id) recordRecentVehicle(initialV.id);
           }
         }
 
@@ -390,6 +440,14 @@ export default function FuelAnalyticsPage() {
       (v.imei && v.imei.toLowerCase().includes(q))
     );
   }, [vehiclesInSelectedGroup, searchQuery]);
+
+  // Recently visited vehicles list
+  const recentVehiclesList = useMemo(() => {
+    if (!recentVehicleIds.length) return [];
+    return recentVehicleIds
+      .map(id => vehicles.find(v => v.id === id))
+      .filter(Boolean);
+  }, [recentVehicleIds, vehicles]);
 
   // Filtered groups inside group dropdown search
   const filteredGroupsList = useMemo(() => {
@@ -807,8 +865,8 @@ export default function FuelAnalyticsPage() {
         engineVal: (rawSpeed > 6.0 || ign) ? 1 : 0,
         status: engineState,
         odometer: pt.odometer != null ? parseFloat(pt.odometer).toFixed(2) : (cumulativeDist > 0 ? cumulativeDist.toFixed(2) : '0.00'),
-        volt: pt.voltage != null ? parseFloat(pt.voltage).toFixed(2) : (pt.sensor_voltage != null ? parseFloat(pt.sensor_voltage).toFixed(2) : '3.13'),
-        vehBattery: pt.battery != null ? parseFloat(pt.battery).toFixed(2) : (ign ? '26.35' : '24.10')
+        vehicleBattery: pt.voltage != null ? parseFloat(pt.voltage).toFixed(2) : (pt.sensor_voltage != null ? parseFloat(pt.sensor_voltage).toFixed(2) : (ign ? '25.38' : '24.10')),
+        volt: pt.voltage != null ? parseFloat(pt.voltage).toFixed(2) : (pt.sensor_voltage != null ? parseFloat(pt.sensor_voltage).toFixed(2) : '25.38')
       });
     }
 
@@ -1052,6 +1110,59 @@ export default function FuelAnalyticsPage() {
 
                     {/* Vehicle list */}
                     <div className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
+                      {/* Recently Visited Section */}
+                      {recentVehiclesList.length > 0 && !searchQuery.trim() && (
+                        <div className="pb-1.5 mb-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between bg-emerald-500/5 rounded-lg mb-1">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="w-3 h-3 text-emerald-500" />
+                              Recently Visited
+                            </span>
+                            <span className="text-[9px] font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">Recent</span>
+                          </div>
+                          <div className="space-y-0.5">
+                            {recentVehiclesList.map((v) => {
+                              const isSelected = selectedVehicle?.id === v.id;
+                              return (
+                                <button
+                                  key={`recent-${v.id}`}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedVehicle(v);
+                                    recordRecentVehicle(v.id);
+                                    setIsDropdownOpen(false);
+                                    setSearchQuery('');
+                                  }}
+                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
+                                    isSelected 
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' 
+                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 truncate">
+                                    <span className={`w-2 h-2 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
+                                    <div className="truncate">
+                                      <div className="font-semibold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
+                                        <span>{v.name || v.plate || v.imei}</span>
+                                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">Recent</span>
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                                        {v.plate && <span>{v.plate}</span>}
+                                        <span>IMEI: {v.imei}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mt-2">
+                            <span>All Vehicles ({filteredVehicles.length})</span>
+                          </div>
+                        </div>
+                      )}
+
                       {filteredVehicles.length === 0 ? (
                         <div className="p-6 text-center text-xs text-slate-400">No vehicles match your search</div>
                       ) : (
@@ -1063,6 +1174,7 @@ export default function FuelAnalyticsPage() {
                               type="button"
                               onClick={() => {
                                 setSelectedVehicle(v);
+                                recordRecentVehicle(v.id);
                                 setIsDropdownOpen(false);
                                 setSearchQuery('');
                               }}
@@ -1101,11 +1213,14 @@ export default function FuelAnalyticsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
             
             <div className="flex flex-wrap items-center gap-2.5">
-              {/* From Date-Time */}
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              {/* From Date-Time (DD/MM/YYYY Display) */}
+              <div className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
                   <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
+                </div>
+                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none">
+                  {formatDisplayDDMMYYYY(customStart)}
                 </div>
                 <input 
                   type="datetime-local"
@@ -1114,15 +1229,18 @@ export default function FuelAnalyticsPage() {
                     setCustomStart(e.target.value);
                     setActivePreset('custom');
                   }}
-                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
 
-              {/* To Date-Time */}
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              {/* To Date-Time (DD/MM/YYYY Display) */}
+              <div className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
                   <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
+                </div>
+                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none">
+                  {formatDisplayDDMMYYYY(customEnd)}
                 </div>
                 <input 
                   type="datetime-local"
@@ -1131,7 +1249,7 @@ export default function FuelAnalyticsPage() {
                     setCustomEnd(e.target.value);
                     setActivePreset('custom');
                   }}
-                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
 
@@ -1418,16 +1536,10 @@ export default function FuelAnalyticsPage() {
                             <span className="font-mono font-medium">{pt.odometer} km</span>
                           </div>
 
-                          {/* Volt */}
+                          {/* Vehicle Battery */}
                           <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Volt:</span>
-                            <span className="font-mono font-medium">{pt.volt} V</span>
-                          </div>
-
-                          {/* Veh Battery */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Veh Battery:</span>
-                            <span className="font-mono font-medium">{pt.vehBattery} V</span>
+                            <span className="text-slate-400">Vehicle Battery:</span>
+                            <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
                           </div>
 
                           {/* Status */}
