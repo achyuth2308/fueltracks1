@@ -290,6 +290,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
   }, []);
 
+  const lastStatsFetchRef = useRef(0);
+
   // Fleet stats from vehicles prop or API fallback
   useEffect(() => {
     if (vehicles.length > 0) {
@@ -297,6 +299,10 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       const onlineCount = Math.max(0, vehicles.length - offlineCount);
       setStats({ total: vehicles.length, online: onlineCount, offline: offlineCount });
     } else {
+      const now = Date.now();
+      if (now - lastStatsFetchRef.current < 30000) return;
+      lastStatsFetchRef.current = now;
+
       adminApi.getDashboardStats().then(res => {
         if (res?.success && res?.data) {
           const total = parseInt(res.data.total_vehicles || res.data.total_devices) || 0;

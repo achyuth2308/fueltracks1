@@ -777,11 +777,26 @@ const AdminController = {
   },
 
   // ============================================================
-  // DASHBOARD STATS
+  // DASHBOARD STATS (Cached in-memory for 15s to prevent query floods)
   // ============================================================
+  _statsCache: new Map(),
+  _STATS_CACHE_TTL: 15000,
+
   async getDashboardStats(req, res, next) {
     try {
+      const cacheKey = `${req.user?.role || 'user'}:${req.user?.orgId || 'root'}`;
+      const now = Date.now();
+      const cached = AdminController._statsCache.get(cacheKey);
+      if (cached && (now - cached.timestamp) < AdminController._STATS_CACHE_TTL) {
+        return res.status(200).json({
+          success: true,
+          data: cached.data
+        });
+      }
+
       const stats = await GpsModel.getDashboardStats(req.user.orgId, req.user.role);
+      AdminController._statsCache.set(cacheKey, { timestamp: now, data: stats });
+
       res.status(200).json({
         success: true,
         data: stats

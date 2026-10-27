@@ -1356,35 +1356,35 @@ const GpsModel = {
     if (role === 'superadmin') {
       result = await db.query(`
         SELECT
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
-            vls.last_seen >= NOW() - INTERVAL '3 minutes'
-            OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
-            OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
-          ) THEN v.id END) AS online_vehicles,
-          COUNT(DISTINCT o.id) AS organizations_count,
-          COUNT(DISTINCT u.id) AS users_count
-        FROM organizations o
-        LEFT JOIN vehicles v ON v.org_id = o.id
-        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
-        LEFT JOIN users u ON u.org_id = o.id
+          (SELECT COUNT(*) FROM vehicles WHERE is_active = TRUE) AS total_vehicles,
+          (SELECT COUNT(*) FROM vehicle_latest_state vls
+           JOIN vehicles v ON v.id = vls.vehicle_id
+           WHERE v.is_active = TRUE AND (
+             vls.last_seen >= NOW() - INTERVAL '3 minutes'
+             OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
+             OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
+           )) AS online_vehicles,
+          (SELECT COUNT(*) FROM organizations) AS organizations_count,
+          (SELECT COUNT(*) FROM users) AS users_count
       `);
     } else {
       result = await db.query(`
         SELECT
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE THEN v.id END) AS total_vehicles,
-          COUNT(DISTINCT CASE WHEN v.is_active = TRUE AND (
-            vls.last_seen >= NOW() - INTERVAL '3 minutes'
-            OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
-            OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
-          ) THEN v.id END) AS online_vehicles,
-          COUNT(DISTINCT o.id) AS organizations_count,
-          COUNT(DISTINCT u.id) AS users_count
-        FROM organizations o
-        LEFT JOIN vehicles v ON v.org_id = o.id
-        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
-        LEFT JOIN users u ON u.org_id = o.id
-        WHERE o.id = $1 OR o.parent_id = $1
+          (SELECT COUNT(*) FROM vehicles v
+           JOIN organizations o ON v.org_id = o.id
+           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1)) AS total_vehicles,
+          (SELECT COUNT(*) FROM vehicle_latest_state vls
+           JOIN vehicles v ON v.id = vls.vehicle_id
+           JOIN organizations o ON v.org_id = o.id
+           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1) AND (
+             vls.last_seen >= NOW() - INTERVAL '3 minutes'
+             OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
+             OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
+           )) AS online_vehicles,
+          (SELECT COUNT(*) FROM organizations WHERE id = $1 OR parent_id = $1) AS organizations_count,
+          (SELECT COUNT(*) FROM users u
+           JOIN organizations o ON u.org_id = o.id
+           WHERE o.id = $1 OR o.parent_id = $1) AS users_count
       `, params);
     }
 

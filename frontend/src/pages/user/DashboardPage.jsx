@@ -269,12 +269,22 @@ const DashboardPage = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   useEffect(() => {
-    getDashboardStats()
-      .then(res => {
-        if (res.success) setApiStats(res.data);
-      })
-      .catch(err => console.error("Failed to fetch dashboard stats", err));
-  }, [vehicles]);
+    let isMounted = true;
+    const fetchStats = () => {
+      getDashboardStats()
+        .then(res => {
+          if (isMounted && res?.success) setApiStats(res.data);
+        })
+        .catch(err => console.error("Failed to fetch dashboard stats", err));
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 60000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     if (isDealer) {
