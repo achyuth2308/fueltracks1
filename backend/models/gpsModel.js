@@ -636,14 +636,14 @@ const GpsModel = {
               endLat: p.lat,
               endLng: p.lng
             });
+            events.push({
+              time: p.device_time,
+              status: 'OFF',
+              durationMs: durMs,
+              lat: p.lat,
+              lng: p.lng
+            });
           }
-          events.push({
-            time: p.device_time,
-            status: 'OFF',
-            durationMs: durMs,
-            lat: p.lat,
-            lng: p.lng
-          });
           currentOnSession = null;
         }
         prevStatus = status;

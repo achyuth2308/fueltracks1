@@ -345,7 +345,7 @@ class ReportService {
         running_seconds: runningSec,
         idle_seconds: idleSec,
         stopped_seconds: stoppedSec,
-        distance_travelled: Math.round(totalDist * 10) / 10,
+        distance_travelled: Math.round(totalDist),
         max_speed: Math.round(maxSpd),
         avg_speed: movingCount > 0 ? Math.round(speedSum / movingCount) : 0,
         intervals: vIntervals

@@ -46,6 +46,85 @@ const getYesterdayString = () => {
   return getLocalDateString(d);
 };
 
+// Merges brief traffic halts (<= 120s / 2 min, whether Idle or momentary Parked) into surrounding 'Moving' intervals
+const mergeTrafficIdles = (intervals, maxHaltSec = 120) => {
+  if (!intervals || intervals.length <= 1) return intervals;
+
+  const result = [];
+  let i = 0;
+
+  while (i < intervals.length) {
+    let cur = { ...intervals[i] };
+
+    if (cur.status === 'Moving') {
+      let j = i + 1;
+      let accumDuration = cur.duration_seconds;
+      let accumDistance = cur.distance || 0;
+      let maxSpeed = cur.max_speed || 0;
+      let speedTimeProduct = (cur.avg_speed || 0) * (cur.duration_seconds || 1);
+      let totalTimeForAvg = cur.duration_seconds || 1;
+      let lastEndTime = cur.end_time;
+      let lastLat = cur.lat;
+      let lastLng = cur.lng;
+
+      while (j < intervals.length) {
+        let nextMovingIndex = -1;
+        let cumulativePauseSec = 0;
+
+        for (let k = j; k < intervals.length; k++) {
+          if (intervals[k].status === 'Moving') {
+            nextMovingIndex = k;
+            break;
+          }
+          cumulativePauseSec += (intervals[k].duration_seconds || 0);
+          if (cumulativePauseSec > maxHaltSec) {
+            break;
+          }
+        }
+
+        if (nextMovingIndex !== -1 && cumulativePauseSec <= maxHaltSec) {
+          for (let m = j; m < nextMovingIndex; m++) {
+            accumDuration += (intervals[m].duration_seconds || 0);
+            lastEndTime = intervals[m].end_time;
+            lastLat = intervals[m].lat || lastLat;
+            lastLng = intervals[m].lng || lastLng;
+          }
+
+          const nextMoving = intervals[nextMovingIndex];
+          accumDuration += (nextMoving.duration_seconds || 0);
+          accumDistance += (nextMoving.distance || 0);
+          maxSpeed = Math.max(maxSpeed, nextMoving.max_speed || 0);
+          speedTimeProduct += (nextMoving.avg_speed || 0) * (nextMoving.duration_seconds || 1);
+          totalTimeForAvg += (nextMoving.duration_seconds || 1);
+          lastEndTime = nextMoving.end_time;
+          lastLat = nextMoving.lat || lastLat;
+          lastLng = nextMoving.lng || lastLng;
+
+          j = nextMovingIndex + 1;
+        } else {
+          break;
+        }
+      }
+
+      cur.duration_seconds = accumDuration;
+      cur.end_time = lastEndTime;
+      cur.distance = Math.round(accumDistance * 100) / 100;
+      cur.max_speed = Math.round(maxSpeed);
+      cur.avg_speed = totalTimeForAvg > 0 ? Math.round(speedTimeProduct / totalTimeForAvg) : cur.avg_speed;
+      cur.lat = lastLat;
+      cur.lng = lastLng;
+
+      result.push(cur);
+      i = j;
+    } else {
+      result.push(cur);
+      i++;
+    }
+  }
+
+  return result;
+};
+
 const ConsolidatedReportPage = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
@@ -124,15 +203,16 @@ const ConsolidatedReportPage = () => {
     const rows = [];
     data.forEach(v => {
       const vName = v.vehicle_name || v.plate || 'Vehicle';
-      if (v.intervals && v.intervals.length > 0) {
-        v.intervals.forEach((interval) => {
+      const intervals = mergeTrafficIdles(v.intervals || [], 120);
+      if (intervals && intervals.length > 0) {
+        intervals.forEach((interval) => {
           rows.push({
             'Vehicle Name': vName,
             'Status': interval.status,
             'Start Time': formatDateTime(interval.start_time),
             'End Time': formatDateTime(interval.end_time),
             'Duration': formatHMS(interval.duration_seconds),
-            'Length (km)': interval.status === 'Moving' ? (interval.distance || 0) : '-',
+            'Length (km)': interval.status === 'Moving' ? Math.round(interval.distance || 0) : '-',
             'Speed Hike (km/h)': interval.status === 'Moving' ? (interval.max_speed || 0) : 0,
             'Speed Avg (km/h)': interval.status === 'Moving' ? (interval.avg_speed || 0) : 0,
             'Latitude': interval.lat || v.start_lat || '-',
@@ -388,14 +468,23 @@ const ConsolidatedReportPage = () => {
             <tbody>
               {data.map((vehicleItem) => {
                 const vName = vehicleItem.vehicle_name || vehicleItem.plate || 'Vehicle';
-                const distanceKm = vehicleItem.distance_travelled || 0;
-                const movingHMS = formatHMS(vehicleItem.running_seconds);
-                const parkedHMS = formatHMS(vehicleItem.stopped_seconds);
-                const idleHMS = formatHMS(vehicleItem.idle_seconds);
+                const distanceKm = Math.round(vehicleItem.distance_travelled || 0);
+                const intervals = mergeTrafficIdles(vehicleItem.intervals || [], 120);
+
+                let movingSec = 0;
+                let idleSec = 0;
+                let parkedSec = 0;
+                intervals.forEach(inv => {
+                  if (inv.status === 'Moving') movingSec += (inv.duration_seconds || 0);
+                  else if (inv.status === 'Idle') idleSec += (inv.duration_seconds || 0);
+                  else parkedSec += (inv.duration_seconds || 0);
+                });
+
+                const movingHMS = formatHMS(movingSec || vehicleItem.running_seconds);
+                const parkedHMS = formatHMS(parkedSec || vehicleItem.stopped_seconds);
+                const idleHMS = formatHMS(idleSec || vehicleItem.idle_seconds);
                 const speedHikeKm = Math.round(vehicleItem.max_speed || 0);
                 const avgSpeedKm = Math.round(vehicleItem.avg_speed || 0);
-
-                const intervals = vehicleItem.intervals || [];
 
                 return (
                   <React.Fragment key={vehicleItem.vehicle_id}>
@@ -474,7 +563,7 @@ const ConsolidatedReportPage = () => {
                                 {formatHMS(item.duration_seconds)}
                               </td>
                               <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
-                                {item.distance !== undefined ? `${item.distance} Km` : '0 Km'}
+                                {item.distance !== undefined ? `${Math.round(item.distance)} Km` : '0 Km'}
                               </td>
                               <td style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontSize: '13px', color: '#000000' }}>
                                 {item.max_speed ? `${item.max_speed} Km` : ' Km'}

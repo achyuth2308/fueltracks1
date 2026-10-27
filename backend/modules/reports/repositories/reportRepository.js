@@ -25,6 +25,90 @@ const HAVERSINE_SEGMENT_KM = `
   END
 `;
 
+/**
+ * Merges brief traffic halts (<= 120s / 2 min, whether Idle or momentary Parked)
+ * into surrounding 'Moving' intervals.
+ * If a vehicle was moving, paused (in traffic, stall, key-cycle, or voltage sag <= 2 min),
+ * and resumed moving, the pause is absorbed into the continuous moving segment.
+ */
+function mergeTrafficIdles(intervals, maxHaltSec = 120) {
+  if (!intervals || intervals.length <= 1) return intervals;
+
+  const result = [];
+  let i = 0;
+
+  while (i < intervals.length) {
+    let cur = { ...intervals[i] };
+
+    if (cur.status === 'Moving') {
+      let j = i + 1;
+      let accumDuration = cur.duration_seconds;
+      let accumDistance = cur.distance || 0;
+      let maxSpeed = cur.max_speed || 0;
+      let speedTimeProduct = (cur.avg_speed || 0) * (cur.duration_seconds || 1);
+      let totalTimeForAvg = cur.duration_seconds || 1;
+      let lastEndTime = cur.end_time;
+      let lastLat = cur.lat;
+      let lastLng = cur.lng;
+
+      while (j < intervals.length) {
+        let nextMovingIndex = -1;
+        let cumulativePauseSec = 0;
+
+        for (let k = j; k < intervals.length; k++) {
+          if (intervals[k].status === 'Moving') {
+            nextMovingIndex = k;
+            break;
+          }
+          cumulativePauseSec += (intervals[k].duration_seconds || 0);
+          if (cumulativePauseSec > maxHaltSec) {
+            break;
+          }
+        }
+
+        if (nextMovingIndex !== -1 && cumulativePauseSec <= maxHaltSec) {
+          for (let m = j; m < nextMovingIndex; m++) {
+            accumDuration += (intervals[m].duration_seconds || 0);
+            lastEndTime = intervals[m].end_time;
+            lastLat = intervals[m].lat || lastLat;
+            lastLng = intervals[m].lng || lastLng;
+          }
+
+          const nextMoving = intervals[nextMovingIndex];
+          accumDuration += (nextMoving.duration_seconds || 0);
+          accumDistance += (nextMoving.distance || 0);
+          maxSpeed = Math.max(maxSpeed, nextMoving.max_speed || 0);
+          speedTimeProduct += (nextMoving.avg_speed || 0) * (nextMoving.duration_seconds || 1);
+          totalTimeForAvg += (nextMoving.duration_seconds || 1);
+          lastEndTime = nextMoving.end_time;
+          lastLat = nextMoving.lat || lastLat;
+          lastLng = nextMoving.lng || lastLng;
+
+          j = nextMovingIndex + 1;
+        } else {
+          break;
+        }
+      }
+
+      cur.duration_seconds = accumDuration;
+      cur.end_time = lastEndTime;
+      cur.distance = Math.round(accumDistance * 100) / 100;
+      cur.max_speed = Math.round(maxSpeed);
+      cur.avg_speed = totalTimeForAvg > 0 ? Math.round(speedTimeProduct / totalTimeForAvg) : cur.avg_speed;
+      cur.lat = lastLat;
+      cur.lng = lastLng;
+
+      result.push(cur);
+      i = j;
+    } else {
+      result.push(cur);
+      i++;
+    }
+  }
+
+  return result;
+}
+
 class ReportRepository {
   /**
    * Trip Report
@@ -709,7 +793,7 @@ class ReportRepository {
           });
         }
 
-        map[vId] = stitched;
+        map[vId] = mergeTrafficIdles(stitched, 120);
       }
 
       return map;

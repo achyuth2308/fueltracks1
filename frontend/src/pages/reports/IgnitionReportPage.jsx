@@ -98,6 +98,9 @@ const IgnitionReportPage = () => {
       const res = await axiosInstance.get(`/api/vehicles/${activeFilters.vehicleId}/ignition-report?${params.toString()}`);
       if (res.data.success) {
         const data = res.data.data;
+        if (data && data.events && data.events.length > 0 && data.events[0].status === 'OFF') {
+          data.events = data.events.slice(1);
+        }
         setReportData(data);
 
         if (data.events && data.events.length > 0) {
@@ -168,8 +171,9 @@ const IgnitionReportPage = () => {
     fetchReport(updatedFilters);
   };
 
-  const prepareRowRenderSpecs = (events) => {
-    if (!events || !events.length) return [];
+  const prepareRowRenderSpecs = (rawEvents) => {
+    if (!rawEvents || !rawEvents.length) return [];
+    const events = (rawEvents.length > 0 && rawEvents[0].status === 'OFF') ? rawEvents.slice(1) : rawEvents;
     const specs = [];
     let i = 0;
     while (i < events.length) {
