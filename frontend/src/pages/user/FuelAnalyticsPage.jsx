@@ -192,9 +192,9 @@ export default function FuelAnalyticsPage() {
   const [historyPoints, setHistoryPoints] = useState([]);
   const [error, setError] = useState(null);
 
-  // Chart view toggles (Matching reference system - All Fuel Data default)
-  const [showAllFuel, setShowAllFuel] = useState(true);
-  const [showFilteredFuel, setShowFilteredFuel] = useState(false);
+  // Chart view toggles (Filtered Fuel Data selected by default)
+  const [showAllFuel, setShowAllFuel] = useState(false);
+  const [showFilteredFuel, setShowFilteredFuel] = useState(true);
   const [showNormalize, setShowNormalize] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
