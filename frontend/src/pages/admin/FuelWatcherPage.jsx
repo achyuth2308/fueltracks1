@@ -2,9 +2,12 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   Droplets, RefreshCw, AlertTriangle, Zap, Activity,
   Search, Download, Clock, WifiOff, TrendingUp, TrendingDown,
-  Minus, CheckCircle2, ChevronDown, Play, Pause, ShieldCheck
+  Minus, CheckCircle2, ChevronDown, Play, Pause, ShieldCheck,
+  Calendar, FileText
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import axiosInstance from '../../api/axios';
 
 // Known primary transmitting devices
@@ -165,6 +168,12 @@ const FuelWatcherPage = () => {
   });
 
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+
+  // Date Range Filter (Live vs Custom 2-Day Range)
+  const [dateFilterMode, setDateFilterMode] = useState('live'); // 'live' | 'custom'
+  const [fromDateTime, setFromDateTime] = useState('');
+  const [toDateTime, setToDateTime] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // Auto-refresh settings (Zero-overhead: only queries active vehicle, pauses when tab is hidden)
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(() => {
@@ -468,6 +477,161 @@ const FuelWatcherPage = () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'FuelWatcher');
     XLSX.writeFile(wb, `fuel_${activeVehicle.imei || activeVehicle.name}_${Date.now()}.xlsx`);
+  };
+
+  const applyPreset = (presetType) => {
+    const now = new Date();
+    let from = new Date();
+    let to = new Date(now);
+
+    if (presetType === '24h') {
+      from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    } else if (presetType === '48h') {
+      from = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+    } else if (presetType === 'today') {
+      from.setHours(0, 0, 0, 0);
+    } else if (presetType === 'yesterday') {
+      from.setDate(from.getDate() - 1);
+      from.setHours(0, 0, 0, 0);
+      to.setDate(to.getDate() - 1);
+      to.setHours(23, 59, 59, 999);
+    }
+
+    const formatForInput = (d) => {
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    };
+
+    setFromDateTime(formatForInput(from));
+    setToDateTime(formatForInput(to));
+  };
+
+  const handleApplyCustomRange = async () => {
+    if (!activeVehicle?.id) return;
+    if (!fromDateTime || !toDateTime) {
+      alert('Please select both From and To date and time.');
+      return;
+    }
+    const fromD = new Date(fromDateTime);
+    const toD = new Date(toDateTime);
+    if (isNaN(fromD.getTime()) || isNaN(toD.getTime())) {
+      alert('Invalid date format selected.');
+      return;
+    }
+    if (fromD >= toD) {
+      alert('"From" date and time must be earlier than "To" date and time.');
+      return;
+    }
+
+    setIsLoadingHistory(true);
+    setAutoRefreshEnabled(false);
+    setDateFilterMode('custom');
+
+    try {
+      const res = await axiosInstance.get(`/api/vehicles/${activeVehicle.id}/history`, {
+        params: {
+          startDate: fromD.toISOString(),
+          endDate: toD.toISOString(),
+          limit: 1000,
+          noCount: true,
+          sample: false
+        }
+      });
+      const points = res.data?.data || [];
+      setDeviceData(prev => ({
+        ...prev,
+        [activeVehicle.id]: {
+          ...(prev[activeVehicle.id] || {}),
+          packets: points,
+          loading: false,
+          error: null,
+          fetchedAt: new Date(),
+          isCustomRange: true
+        }
+      }));
+    } catch (err) {
+      console.error('[FuelWatcher] Failed to fetch historical records:', err);
+      alert('Failed to load records for the selected date range: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleResetToLive = () => {
+    setDateFilterMode('live');
+    setAutoRefreshEnabled(true);
+    setFromDateTime('');
+    setToDateTime('');
+    if (activeVehicle) {
+      fetchPackets(activeVehicle, false);
+    }
+  };
+
+  const exportPDF = () => {
+    if (!activeVehicle || !rows.length) return;
+    const doc = new jsPDF('landscape');
+    const vehicleName = activeVehicle.name || activeVehicle.plate || 'Vehicle';
+    const formulaDesc = currentSensorType === 'jointech'
+      ? 'Jointech (Strict: Raw ÷ 100)'
+      : (currentSensorType === 'technoton' ? 'Technoton (Strict: Raw ÷ 10)' : 'Raw');
+
+    // Title & Branding
+    doc.setFontSize(15);
+    doc.setTextColor(15, 23, 42);
+    doc.text('FuelTracks — Fuel Sensor Watcher & Telemetry Report', 14, 14);
+
+    // Metadata Subheader
+    doc.setFontSize(9);
+    doc.setTextColor(71, 85, 105);
+    const rangeText = dateFilterMode === 'custom' && fromDateTime && toDateTime
+      ? `Period: ${formatIST(fromDateTime)} to ${formatIST(toDateTime)}`
+      : `Live View: Last ${rows.length} Packets`;
+    doc.text(`Vehicle: ${vehicleName} | Plate: ${activeVehicle.plate || 'N/A'} | IMEI: ${activeVehicle.imei || 'N/A'} | ${rangeText}`, 14, 20);
+    doc.text(`Sensor: ${getSensorLabel(currentSensorType)} (${formulaDesc}) | Generated: ${formatIST(new Date().toISOString())} | Total Records: ${rows.length}`, 14, 25);
+
+    const tableColumn = [
+      '#', 'IMEI', 'Reg No', 'Device Time (IST)', 'Ignition',
+      'Raw Fuel Value', `Actual Fuel (${formulaDesc})`, 'Delta (Δ)', 'Status'
+    ];
+
+    const tableRows = rows.map(({ pkt, rawFuel, converted, delta, ignition, fluctLevel }, idx) => {
+      let statusStr = 'Stable';
+      if (fluctLevel === 'high') statusStr = delta > 0 ? 'Major Refuel' : 'Major Drop';
+      else if (fluctLevel === 'medium') statusStr = delta > 0 ? '+Fluctuation' : '-Fluctuation';
+
+      return [
+        idx + 1,
+        pkt.imei || activeVehicle.imei || '—',
+        activeVehicle.plate || '—',
+        formatIST(pkt.device_time),
+        ignition === null ? '—' : (ignition ? 'ON' : 'OFF'),
+        rawFuel != null ? String(rawFuel) : '—',
+        converted != null ? `${converted} L` : '—',
+        delta !== null ? `${delta > 0 ? '+' : ''}${delta} L` : '—',
+        statusStr
+      ];
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 29,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: currentSensorType === 'jointech' ? [99, 102, 241] : [14, 165, 233] },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      didParseCell: (data) => {
+        if (data.column.index === 7 || data.column.index === 8) {
+          const val = String(data.cell.raw || '');
+          if (val.includes('Major') || val.includes('Drop')) {
+            data.cell.styles.textColor = [220, 38, 38];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        }
+      }
+    });
+
+    const safePlate = (activeVehicle.plate || activeVehicle.name || activeVehicle.imei).replace(/[^a-zA-Z0-9_-]/g, '_');
+    doc.save(`fuel_watcher_${safePlate}_${Date.now()}.pdf`);
   };
 
   const activeVehicleData = activeVehicle ? deviceData[activeVehicle.id] : null;
@@ -791,6 +955,182 @@ const FuelWatcherPage = () => {
             )}
           </div>
 
+          {/* 4.1 DATE RANGE FILTER & EXPORT BAR (2-Day History & PDF Download) */}
+          <div style={{
+            padding: '12px 20px',
+            background: dateFilterMode === 'custom' ? '#EFF6FF' : '#F8FAFC',
+            borderBottom: '1px solid #E2E8F0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            {/* Presets and DateTime Inputs */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: 5 }}>
+                  <Calendar size={14} color="#4F46E5" />
+                  Date Range:
+                </span>
+
+                {/* Quick Presets */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {[
+                    { label: 'Last 24h', key: '24h' },
+                    { label: 'Last 2 Days (48h)', key: '48h' },
+                    { label: 'Today', key: 'today' },
+                    { label: 'Yesterday', key: 'yesterday' }
+                  ].map(p => (
+                    <button
+                      key={p.key}
+                      type="button"
+                      onClick={() => applyPreset(p.key)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: 6,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        border: '1px solid #CBD5E1',
+                        background: '#FFFFFF',
+                        color: '#475569',
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* DateTime pickers */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>From:</span>
+                  <input
+                    type="datetime-local"
+                    value={fromDateTime}
+                    onChange={e => setFromDateTime(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      background: '#FFFFFF',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#64748B' }}>To:</span>
+                  <input
+                    type="datetime-local"
+                    value={toDateTime}
+                    onChange={e => setToDateTime(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: 6,
+                      border: '1.5px solid #CBD5E1',
+                      fontSize: 11,
+                      fontWeight: 600,
+                      color: '#1E293B',
+                      background: '#FFFFFF',
+                      outline: 'none'
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleApplyCustomRange}
+                  disabled={isLoadingHistory || !fromDateTime || !toDateTime}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                    padding: '5px 12px',
+                    borderRadius: 6,
+                    background: '#4F46E5',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: isLoadingHistory || !fromDateTime || !toDateTime ? 'not-allowed' : 'pointer',
+                    opacity: isLoadingHistory || !fromDateTime || !toDateTime ? 0.6 : 1,
+                    boxShadow: '0 1px 4px rgba(79, 70, 229, 0.3)'
+                  }}
+                >
+                  <Search size={12} />
+                  {isLoadingHistory ? 'Loading Records…' : 'Apply Range'}
+                </button>
+
+                {dateFilterMode === 'custom' && (
+                  <button
+                    type="button"
+                    onClick={handleResetToLive}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      padding: '5px 10px',
+                      borderRadius: 6,
+                      background: '#DCFCE7',
+                      color: '#15803D',
+                      border: '1px solid #86EFAC',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Play size={11} />
+                    Reset to Live
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Export Excel & Download PDF buttons */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {rows.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={exportExcel}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '5px 11px',
+                      borderRadius: 6, background: '#F0FDF4', border: '1px solid #BBF7D0',
+                      fontSize: 11, fontWeight: 700, color: '#15803D', cursor: 'pointer',
+                      boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
+                    }}
+                    title="Export currently displayed table rows to Microsoft Excel (.xlsx)"
+                  >
+                    <Download size={12} />
+                    Export Excel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={exportPDF}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 5, padding: '5px 12px',
+                      borderRadius: 6, background: '#FEF2F2', border: '1.5px solid #FCA5A5',
+                      fontSize: 11, fontWeight: 700, color: '#DC2626', cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(220, 38, 38, 0.15)'
+                    }}
+                    title="Download fuel watcher audit report as PDF"
+                  >
+                    <FileText size={12} />
+                    Download PDF
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
           {/* Action Toolbar */}
           <div style={{
             padding: '12px 20px', display: 'flex', gap: 12, flexWrap: 'wrap',
@@ -877,33 +1217,19 @@ const FuelWatcherPage = () => {
             {/* Manual Refresh button */}
             <button
               onClick={() => fetchPackets(activeVehicle, false)}
-              disabled={activeVehicleData?.loading}
+              disabled={activeVehicleData?.loading || dateFilterMode === 'custom'}
               style={{
                 display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
                 borderRadius: 8, background: '#FFFFFF', border: '1px solid #CBD5E1',
                 fontSize: 12, fontWeight: 600, color: '#1E293B',
-                cursor: activeVehicleData?.loading ? 'not-allowed' : 'pointer',
-                opacity: activeVehicleData?.loading ? 0.6 : 1
+                cursor: activeVehicleData?.loading || dateFilterMode === 'custom' ? 'not-allowed' : 'pointer',
+                opacity: activeVehicleData?.loading || dateFilterMode === 'custom' ? 0.6 : 1
               }}
+              title={dateFilterMode === 'custom' ? 'Switch back to Live mode to refresh latest live packets' : 'Fetch latest packets now'}
             >
               <RefreshCw size={12} style={activeVehicleData?.loading ? { animation: 'fwSpin 1s linear infinite' } : {}} />
               Fetch Now
             </button>
-
-            {/* Export */}
-            {rows.length > 0 && (
-              <button
-                onClick={exportExcel}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px',
-                  borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0',
-                  fontSize: 12, fontWeight: 600, color: '#15803D', cursor: 'pointer'
-                }}
-              >
-                <Download size={13} />
-                Export Excel
-              </button>
-            )}
 
             {/* Timestamp & Silent Indicator */}
             {activeVehicleData?.fetchedAt && (
