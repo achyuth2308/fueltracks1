@@ -251,19 +251,47 @@ export default function FuelAnalyticsPage() {
     fetchVehicleFuelData();
   }, [selectedVehicle?.id]);
 
-  // Available groups parsed from API + vehicle metadata
+  // Available groups strictly matching authorized user groups from API (same as Dashboard)
   const availableGroups = useMemo(() => {
+    // 1. If user has official groups from /api/admin/groups, use them exclusively
+    if (groups && groups.length > 0) {
+      const list = groups.map(g => {
+        const targetName = (g.name || '').trim().toLowerCase();
+        const count = vehicles.filter(v =>
+          (Array.isArray(v.groups) && v.groups.some(vg => String(vg.id) === String(g.id) || (vg.name && vg.name.trim().toLowerCase() === targetName))) ||
+          (Array.isArray(g.vehicles) && g.vehicles.some(gv => gv.id === v.id)) ||
+          (v.group_id && String(v.group_id) === String(g.id)) ||
+          (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName))
+        ).length;
+
+        return {
+          id: String(g.id),
+          name: g.name,
+          count
+        };
+      }).sort((a, b) => a.name.localeCompare(b.name));
+
+      // Calculate unassigned vehicles (vehicles that do not match ANY of the user's groups)
+      const assignedIds = new Set();
+      groups.forEach(g => {
+        const targetName = (g.name || '').trim().toLowerCase();
+        vehicles.forEach(v => {
+          const matches = (
+            (Array.isArray(v.groups) && v.groups.some(vg => String(vg.id) === String(g.id) || (vg.name && vg.name.trim().toLowerCase() === targetName))) ||
+            (Array.isArray(g.vehicles) && g.vehicles.some(gv => gv.id === v.id)) ||
+            (v.group_id && String(v.group_id) === String(g.id)) ||
+            (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName))
+          );
+          if (matches) assignedIds.add(v.id);
+        });
+      });
+      const unassignedCount = vehicles.filter(v => !assignedIds.has(v.id)).length;
+
+      return { list, unassignedCount };
+    }
+
+    // 2. Fallback: If user has 0 assigned groups from API, discover from vehicles
     const map = new Map();
-
-    // 1. Groups from API
-    groups.forEach(g => {
-      if (g && (g.id || g.name)) {
-        const id = String(g.id || g.name);
-        map.set(id, { id, name: g.name || 'Unnamed Group', count: 0 });
-      }
-    });
-
-    // 2. Discover groups from vehicle assignments
     vehicles.forEach(v => {
       if (Array.isArray(v.groups) && v.groups.length > 0) {
         v.groups.forEach(vg => {
@@ -288,7 +316,6 @@ export default function FuelAnalyticsPage() {
       }
     });
 
-    // 3. Count vehicles per group
     vehicles.forEach(v => {
       map.forEach((gObj, gId) => {
         const targetName = gObj.name.trim().toLowerCase();
@@ -297,21 +324,12 @@ export default function FuelAnalyticsPage() {
           (v.group_id && String(v.group_id) === gId) ||
           (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName))
         );
-        if (matches) {
-          gObj.count++;
-        }
+        if (matches) gObj.count++;
       });
     });
 
-    const unassignedCount = vehicles.filter(v => {
-      const hasGroups = Array.isArray(v.groups) && v.groups.length > 0;
-      const hasGroupName = !!v.group_name;
-      const hasGroupId = !!v.group_id;
-      return !hasGroups && !hasGroupName && !hasGroupId;
-    }).length;
-
     const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-    return { list, unassignedCount };
+    return { list, unassignedCount: 0 };
   }, [groups, vehicles]);
 
   // Vehicles belonging to the selected group
@@ -319,12 +337,19 @@ export default function FuelAnalyticsPage() {
     if (selectedGroupId === 'all') return vehicles;
 
     if (selectedGroupId === '__unassigned__') {
-      return vehicles.filter(v => {
-        const hasGroups = Array.isArray(v.groups) && v.groups.length > 0;
-        const hasGroupName = !!v.group_name;
-        const hasGroupId = !!v.group_id;
-        return !hasGroups && !hasGroupName && !hasGroupId;
+      const assignedIds = new Set();
+      availableGroups.list.forEach(g => {
+        const targetName = g.name.trim().toLowerCase();
+        vehicles.forEach(v => {
+          const matches = (
+            (Array.isArray(v.groups) && v.groups.some(vg => String(vg.id) === String(g.id) || (vg.name && vg.name.trim().toLowerCase() === targetName))) ||
+            (v.group_id && String(v.group_id) === String(g.id)) ||
+            (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName))
+          );
+          if (matches) assignedIds.add(v.id);
+        });
       });
+      return vehicles.filter(v => !assignedIds.has(v.id));
     }
 
     const currentGroup = availableGroups.list.find(g => g.id === selectedGroupId);
