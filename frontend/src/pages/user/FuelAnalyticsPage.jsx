@@ -1178,7 +1178,7 @@ export default function FuelAnalyticsPage() {
                 }`}
                 title="Toggle Anti-Slosh Smoothed Fuel Curve"
               >
-                <span className="w-2 h-2 rounded-full bg-sky-400" />
+                <span className="w-2 h-2 rounded-full bg-sky-600" />
                 Filtered Fuel Data
               </button>
 
@@ -1246,8 +1246,8 @@ export default function FuelAnalyticsPage() {
                 <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
                   <defs>
                     <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.16} />
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.01} />
+                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
+                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
 
@@ -1264,7 +1264,7 @@ export default function FuelAnalyticsPage() {
                   <YAxis 
                     yAxisId="fuel" 
                     domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                    stroke="#38bdf8" 
+                    stroke="#0284c7" 
                     fontSize={11} 
                     tickLine={false}
                     orientation="left"
@@ -1324,7 +1324,7 @@ export default function FuelAnalyticsPage() {
                           {/* Filtered Fuel */}
                           <div className="flex items-center justify-between gap-4">
                             <span className="text-sky-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-sky-400" />
+                              <span className="w-2 h-2 rounded-full bg-sky-500" />
                               Filter Fuel:
                             </span>
                             <span className="font-bold text-sky-300 font-mono">
@@ -1388,9 +1388,9 @@ export default function FuelAnalyticsPage() {
                       yAxisId="fuel"
                       type="monotone"
                       dataKey="filteredFuel"
-                      stroke="#38bdf8"
-                      strokeWidth={1.4}
-                      strokeOpacity={0.6}
+                      stroke="#0284c7"
+                      strokeWidth={2}
+                      strokeOpacity={0.85}
                       fillOpacity={1}
                       fill="url(#filteredFuelGradient)"
                       connectNulls={true}
@@ -1404,11 +1404,11 @@ export default function FuelAnalyticsPage() {
                       yAxisId="fuel"
                       type="linear"
                       dataKey="rawFuel"
-                      stroke="#94a3b8"
-                      strokeWidth={1}
-                      strokeOpacity={0.4}
+                      stroke="#64748b"
+                      strokeWidth={1.2}
+                      strokeOpacity={0.55}
                       strokeDasharray="2 2"
-                      dot={{ r: 1.5, fill: '#94a3b8', strokeWidth: 0, fillOpacity: 0.4 }}
+                      dot={{ r: 1.5, fill: '#64748b', strokeWidth: 0, fillOpacity: 0.55 }}
                       connectNulls={true}
                       name="All Fuel Data (L)"
                     />
