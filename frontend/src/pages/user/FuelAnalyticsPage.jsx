@@ -451,8 +451,8 @@ export default function FuelAnalyticsPage() {
         if (sumCap > 0) return Math.round(sumCap * 10) / 10;
       }
     }
-    const size = fuelCal.tankSize || meta.tankCapacity || 250;
-    return parseFloat(size) || 250;
+    const size = fuelCal.tankSize || meta.tankSize || meta.tankCapacity || 400;
+    return parseFloat(size) || 400;
   }, [selectedVehicle]);
 
   // Thresholds from Edit Calibration: minFilling (refuels) & minTheft (thefts/drains)
@@ -861,8 +861,8 @@ export default function FuelAnalyticsPage() {
   }, [processedData.currentFuel, tankCapacity]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 transition-colors duration-200">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#F0F4F8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
+      <div className="w-full space-y-5">
 
         {/* ── TOP HEADER & CONTROLS BAR ── */}
         <div className="relative z-50 flex flex-col gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
@@ -1302,7 +1302,7 @@ export default function FuelAnalyticsPage() {
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
+                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
                   <defs>
                     <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
@@ -1322,6 +1322,7 @@ export default function FuelAnalyticsPage() {
                   {/* Left Y Axis: Fuel (Litres) */}
                   <YAxis 
                     yAxisId="fuel" 
+                    width={50}
                     domain={[0, Math.ceil(tankCapacity * 1.05)]} 
                     stroke="#0284c7" 
                     fontSize={11} 

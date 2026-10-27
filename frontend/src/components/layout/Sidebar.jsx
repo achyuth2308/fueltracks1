@@ -79,7 +79,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           name: 'Fuel Analytics',
           path: '/fuel-analytics',
           icon: Fuel,
-          roles: ['customer', 'superadmin', 'dealer'],
+          roles: ['customer'],
           subItems: [
             { name: 'Analytics Chart', path: '/fuel-analytics' },
             { name: 'Fuel Raw Data', path: '/fuel-raw-data' }

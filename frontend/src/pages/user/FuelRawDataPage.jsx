@@ -328,45 +328,29 @@ export default function FuelRawDataPage() {
   }, [vehiclesInSelectedGroup, vehicleSearch]);
 
   // Calibration Engine (Exact Look-Up Table & Min/Max Formula)
+  // Calibration Engine (Exact Look-Up Table & Min/Max Formula)
   const tankCapacity = useMemo(() => {
-    if (!selectedVehicle) return 300;
+    if (!selectedVehicle) return 400;
     const meta = selectedVehicle.metadata || {};
     const cal = meta.fuelCalibration || meta.fuel || {};
-    return parseFloat(cal.capacity ?? cal.tankCapacity ?? meta.tankCapacity ?? 300) || 300;
+    const cap = cal.tankSize ?? meta.tankSize ?? cal.capacity ?? cal.tankCapacity ?? meta.tankCapacity ?? meta.tank_capacity;
+    return parseFloat(cap) || 400;
   }, [selectedVehicle]);
 
-  const calibrateFuelValue = (rawInput, ptTime) => {
+  // Resolves both the exact Raw ADC Sensor packet and the Calibrated Litres (bidirectional)
+  const resolveFuelTelemetry = (rawInput, ptTime) => {
     if (rawInput === null || rawInput === undefined || isNaN(Number(rawInput))) {
-      return null;
+      return { rawSensor: null, convertedFuel: null };
     }
     const num = Number(rawInput);
-    if (!selectedVehicle) return num;
+    if (!selectedVehicle) {
+      return { rawSensor: Math.round(num), convertedFuel: Math.round(num * 10) / 10 };
+    }
 
     const meta = selectedVehicle.metadata || {};
     const cal = meta.fuelCalibration || meta.fuel || {};
-    const calTime = cal.calibratedAt || cal.updatedAt || meta.calibratedAt;
-    const isAfterCalibration = !calTime || !ptTime || new Date(ptTime) >= new Date(calTime);
-
-    if (cal.isCalibrated === false && !meta.fuelCalibrationPoints?.length) {
-      return Math.round(num * 10) / 10;
-    }
-
-    const sCalType = cal.calibrateType || 'Auto';
-
-    // 1. Direct Scaling (Technoton / CAN / BLE Percentage)
-    if (sCalType === 'Direct') {
-      const mult = parseFloat(cal.directMultiplier ?? 1.0) || 1.0;
-      const offset = parseFloat(cal.directOffset ?? 0.0) || 0.0;
-      const unit = cal.directUnit || 'Litres';
-      const scaled = (num * mult) + offset;
-      if (unit === 'Percentage' && tankCapacity > 0) {
-        return Math.max(0, Math.min(tankCapacity, Math.round(((scaled / 100) * tankCapacity) * 10) / 10));
-      }
-      return Math.max(0, tankCapacity > 0 ? Math.min(tankCapacity, Math.round(scaled * 10) / 10) : Math.round(scaled * 10) / 10);
-    }
-
-    // 2. Multi-Point Table (Piecewise Linear Interpolation)
     const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+
     if (Array.isArray(points) && points.length >= 2) {
       const sorted = points
         .map(p => ({
@@ -377,41 +361,68 @@ export default function FuelRawDataPage() {
         .sort((a, b) => a.adc - b.adc);
 
       if (sorted.length >= 2) {
-        if (isAfterCalibration && num <= sorted[sorted.length - 1].ltr * 1.1) {
-          return Math.round(num * 10) / 10;
-        }
-        if (num <= sorted[0].adc) return sorted[0].ltr;
-        if (num >= sorted[sorted.length - 1].adc) return sorted[sorted.length - 1].ltr;
+        const maxLtr = sorted[sorted.length - 1].ltr;
 
-        for (let i = 0; i < sorted.length - 1; i++) {
-          const p1 = sorted[i];
-          const p2 = sorted[i + 1];
-          if (num >= p1.adc && num <= p2.adc) {
-            const range = p2.adc - p1.adc;
-            const ratio = range !== 0 ? (num - p1.adc) / range : 0;
-            const val = p1.ltr + ratio * (p2.ltr - p1.ltr);
-            return Math.max(0, Math.min(tankCapacity, Math.round(val * 10) / 10));
+        // CASE 1: num is RAW ADC / Sensor Reading (num > maxLtr * 1.15 or num > 800)
+        if (num > maxLtr * 1.15 || num > 800) {
+          const rawAdc = Math.round(num);
+          let ltr = 0;
+          if (num <= sorted[0].adc) ltr = sorted[0].ltr;
+          else if (num >= sorted[sorted.length - 1].adc) ltr = sorted[sorted.length - 1].ltr;
+          else {
+            for (let i = 0; i < sorted.length - 1; i++) {
+              const p1 = sorted[i];
+              const p2 = sorted[i + 1];
+              if (num >= p1.adc && num <= p2.adc) {
+                const range = p2.adc - p1.adc;
+                const ratio = range !== 0 ? (num - p1.adc) / range : 0;
+                ltr = p1.ltr + ratio * (p2.ltr - p1.ltr);
+                break;
+              }
+            }
+          }
+          return {
+            rawSensor: rawAdc,
+            convertedFuel: Math.round(ltr * 10) / 10
+          };
+        }
+
+        // CASE 2: num is ALREADY CONVERTED LITRES (e.g. 366.14 from backend subscriber)
+        // Reverse-interpolate to find the exact raw ADC/sensor value!
+        const convertedLtr = Math.round(num * 10) / 10;
+        let calculatedAdc = sorted[0].adc;
+        const sortedByLtr = [...sorted].sort((a, b) => a.ltr - b.ltr);
+
+        if (num <= sortedByLtr[0].ltr) {
+          calculatedAdc = sortedByLtr[0].adc;
+        } else if (num >= sortedByLtr[sortedByLtr.length - 1].ltr) {
+          calculatedAdc = sortedByLtr[sortedByLtr.length - 1].adc;
+        } else {
+          for (let i = 0; i < sortedByLtr.length - 1; i++) {
+            const p1 = sortedByLtr[i];
+            const p2 = sortedByLtr[i + 1];
+            if (num >= p1.ltr && num <= p2.ltr) {
+              const range = p2.ltr - p1.ltr;
+              const ratio = range !== 0 ? (num - p1.ltr) / range : 0;
+              calculatedAdc = Math.round(p1.adc + ratio * (p2.adc - p1.adc));
+              break;
+            }
           }
         }
+        return {
+          rawSensor: calculatedAdc,
+          convertedFuel: convertedLtr
+        };
       }
     }
 
-    // 3. Auto Calibration (minAdc -> maxAdc)
-    const emptyAdc = parseFloat(cal.minAdc ?? meta.fuelEmptyAdc ?? 0);
-    const fullAdc = parseFloat(cal.maxAdc ?? meta.fuelFullAdc ?? 4095);
-    if (tankCapacity > 0 && fullAdc !== emptyAdc && !isNaN(emptyAdc) && !isNaN(fullAdc)) {
-      if (num > tankCapacity * 1.15 || !isAfterCalibration) {
-        let frac = (num - emptyAdc) / (fullAdc - emptyAdc);
-        frac = Math.max(0, Math.min(1, frac));
-        return Math.round((tankCapacity * frac) * 10) / 10;
-      }
-    }
-
-    if (num > 1000) return Math.round((num / 10) * 10) / 10;
-    return Math.max(0, Math.min(tankCapacity, Math.round(num * 10) / 10));
+    // Default fallback
+    return {
+      rawSensor: Math.round(num),
+      convertedFuel: Math.round(num * 10) / 10
+    };
   };
 
-  // Process Telemetry Rows with Calibration, 5-Point Median + EMA, and Normalization
   // Process Telemetry Rows with Calibration, 5-Point Median + EMA, and Normalization
   const processedRows = useMemo(() => {
     if (!historyPoints.length) return [];
@@ -436,8 +447,9 @@ export default function FuelRawDataPage() {
       }
     }
 
-    // Raw calibrated values
-    const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
+    // Resolve Raw ADC and Converted Litres for each point
+    const resolvedFuels = sorted.map(pt => resolveFuelTelemetry(pt.fuel, pt.device_time));
+    const rawFuels = resolvedFuels.map(r => r.convertedFuel);
 
     // 5-Point Median Filter + EMA (Stage 1 & 2)
     const filteredFuels = new Array(sorted.length).fill(null);
@@ -508,24 +520,27 @@ export default function FuelRawDataPage() {
       normalizedFuels[i] = Math.max(0, Math.min(tankCapacity, Math.round(currentNorm * 10) / 10));
     }
 
-    // Assemble enriched rows
+    // Assemble enriched rows (Full 4-Stage Fuel Telemetry Pipeline)
     return sorted.map((pt, idx) => {
       const speed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const rawSensor = pt.fuel != null ? Number(pt.fuel) : null;
-      const converted = rawFuels[idx];
+      const fuelInfo = resolvedFuels[idx] || { rawSensor: null, convertedFuel: null };
+      const rawSensor = fuelInfo.rawSensor;
+      const converted = fuelInfo.convertedFuel;
+      const filtered = filteredFuels[idx];
       const normalized = normalizedFuels[idx];
-      const prevConverted = idx > 0 ? rawFuels[idx - 1] : null;
-      const delta = (converted != null && prevConverted != null) ? Math.round((converted - prevConverted) * 10) / 10 : 0;
 
-      // Classify event tag
+      // Classify event tag based on raw/normalized step changes
       let eventTag = 'Normal';
       let eventType = 'normal';
-      if (delta >= refuelThreshold) {
-        eventTag = `Refuel (+${delta}L)`;
+      const prevConverted = idx > 0 ? rawFuels[idx - 1] : null;
+      const step = (converted != null && prevConverted != null) ? Math.round((converted - prevConverted) * 10) / 10 : 0;
+      
+      if (step >= refuelThreshold) {
+        eventTag = `Refuel (+${step}L)`;
         eventType = 'refuel';
-      } else if (delta <= -theftThreshold && !ign) {
-        eventTag = `Theft (${delta}L)`;
+      } else if (step <= -theftThreshold && !ign) {
+        eventTag = `Theft (${step}L)`;
         eventType = 'theft';
       } else if (speed > 6) {
         eventTag = 'Moving';
@@ -546,8 +561,8 @@ export default function FuelRawDataPage() {
         ignition: ign,
         rawSensor: rawSensor,
         convertedFuel: converted,
+        filteredFuel: filtered,
         normalizedFuel: normalized,
-        delta: delta,
         odometer: pt.odometer != null ? Math.round(Number(pt.odometer) * 10) / 10 : '—',
         voltage: pt.voltage != null ? Math.round(Number(pt.voltage) * 10) / 10 : (pt.battery != null ? `${pt.battery}V` : '—'),
         battery: pt.backup_battery ?? pt.battery_level ?? '—',
@@ -566,7 +581,7 @@ export default function FuelRawDataPage() {
     }
     const rawVals = processedRows.map(r => r.rawSensor).filter(v => v != null);
     const speeds = processedRows.map(r => r.speed);
-    const validFuels = processedRows.map(r => r.convertedFuel).filter(v => v != null);
+    const validFuels = processedRows.map(r => r.normalizedFuel).filter(v => v != null);
 
     return {
       totalPackets: processedRows.length,
@@ -590,6 +605,8 @@ export default function FuelRawDataPage() {
         String(r.speed).includes(q) ||
         String(r.rawSensor).includes(q) ||
         String(r.convertedFuel).includes(q) ||
+        String(r.filteredFuel).includes(q) ||
+        String(r.normalizedFuel).includes(q) ||
         r.eventTag.toLowerCase().includes(q)
       );
     }
@@ -611,7 +628,7 @@ export default function FuelRawDataPage() {
     return filteredAndSortedRows.slice(start, start + pageSize);
   }, [filteredAndSortedRows, currentPage, pageSize]);
 
-  // Excel / CSV Export
+  // Excel / CSV Export (Full 4-Stage Fuel Pipeline, Delta Removed)
   const handleExportExcel = () => {
     if (!processedRows.length) return;
     const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
@@ -622,8 +639,8 @@ export default function FuelRawDataPage() {
       'Ignition': r.ignition ? 'ON' : 'OFF',
       'Raw Sensor Packet': r.rawSensor != null ? r.rawSensor : '—',
       'Converted Fuel (Liters)': r.convertedFuel != null ? r.convertedFuel : '—',
+      'Filtered Fuel (Liters)': r.filteredFuel != null ? r.filteredFuel : '—',
       'Normalized Fuel (Liters)': r.normalizedFuel != null ? r.normalizedFuel : '—',
-      'Delta Change (L)': r.delta !== 0 ? r.delta : 0,
       'Odometer (km)': r.odometer,
       'Voltage (V)': r.voltage,
       'Event Classification': r.eventTag
@@ -636,7 +653,7 @@ export default function FuelRawDataPage() {
     XLSX.writeFile(wb, `Fuel_Raw_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
-  // PDF Report Export
+  // PDF Report Export (Full 4-Stage Fuel Pipeline, Delta Removed)
   const handleExportPDF = () => {
     if (!processedRows.length) return;
     const doc = new jsPDF('landscape');
@@ -654,7 +671,7 @@ export default function FuelRawDataPage() {
 
     const tableColumn = [
       '#', 'Timestamp (IST)', 'Speed', 'Engine', 'Raw Packet', 'Converted (L)',
-      'Normalized (L)', 'Delta (L)', 'Odometer', 'Voltage', 'Event Tag'
+      'Filtered (L)', 'Normalized (L)', 'Odometer', 'Voltage', 'Event Tag'
     ];
 
     const tableRows = processedRows.map(r => [
@@ -664,8 +681,8 @@ export default function FuelRawDataPage() {
       r.ignition ? 'ON' : 'OFF',
       r.rawSensor != null ? r.rawSensor : '—',
       r.convertedFuel != null ? `${r.convertedFuel} L` : '—',
+      r.filteredFuel != null ? `${r.filteredFuel} L` : '—',
       r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—',
-      r.delta > 0 ? `+${r.delta}` : (r.delta < 0 ? `${r.delta}` : '0'),
       r.odometer !== '—' ? `${r.odometer} km` : '—',
       r.voltage !== '—' ? `${r.voltage} V` : '—',
       r.eventTag
@@ -685,44 +702,68 @@ export default function FuelRawDataPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto min-h-screen">
+    <div style={{ background: '#F0F4F8', minHeight: '100vh', padding: '20px', boxSizing: 'border-box' }} className="w-full space-y-4">
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      {/* 1. TOP HEADER & TELEMETRICS BREADCRUMB */}
+      {/* 1. TOP HEADER BANNER (Terminal Navy Style) */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900/80 p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
-              <Database className="w-6 h-6" />
+      <div style={{
+        background: 'linear-gradient(135deg, #1E3A5F 0%, #0F2744 100%)',
+        borderRadius: '14px',
+        padding: '18px 24px',
+        color: '#FFFFFF',
+        boxShadow: '0 4px 20px rgba(15, 39, 68, 0.25)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.15)',
+            borderRadius: '10px',
+            padding: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Database size={24} color="#7DD3FC" />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '-0.02em', color: '#FFFFFF' }}>
+                Fuel Raw Data
+              </h1>
+              <span style={{
+                background: 'rgba(34, 197, 94, 0.2)',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+                borderRadius: '20px',
+                padding: '2px 10px',
+                fontSize: '11px',
+                color: '#86EFAC',
+                fontWeight: 700
+              }}>
+                Telemetry Audit
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                  Fuel Raw Data
-                </h1>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/60">
-                  Precision Audit
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                Inspect raw hardware packets (ADC, Volts, Serial) vs calibrated and normalized physical fuel
-              </p>
-            </div>
+            <p style={{ margin: '3px 0 0', fontSize: '12px', opacity: 0.85, color: '#E2E8F0' }}>
+              4-Stage Telemetry: Raw Sensor (ADC) &bull; Converted (L) &bull; Filtered (L) &bull; Normalized (L)
+            </p>
           </div>
         </div>
 
-        {/* User / Organization Profile Badge */}
-        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/60 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60">
-          <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center text-xs">
-            {user?.name ? user.name.slice(0, 2).toUpperCase() : 'FT'}
-          </div>
-          <div className="text-left">
-            <div className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-tight">
-              {user?.name || 'FUELTESTING'}
-            </div>
-            <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              {user?.role || 'Customer'}
-            </div>
+        {/* Live / Vehicle Identifier Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            background: 'rgba(255,255,255,0.1)',
+            padding: '6px 14px',
+            borderRadius: '8px',
+            fontSize: '12px',
+            fontFamily: 'monospace',
+            color: '#BAE6FD',
+            border: '1px solid rgba(255,255,255,0.15)'
+          }}>
+            {selectedVehicle ? `${selectedVehicle.plate || selectedVehicle.name} (${selectedVehicle.imei || ''})` : 'Select Vehicle'}
           </div>
         </div>
       </div>
@@ -1006,57 +1047,69 @@ export default function FuelRawDataPage() {
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {/* Metric 1: Total Packets */}
-        <div className="bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-50/70 via-white to-indigo-50/40 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-blue-950/30 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 text-xs font-bold">
             <span>PACKETS AUDITED</span>
-            <Radio className="w-4 h-4 text-blue-500" />
+            <div className="p-1.5 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400">
+              <Radio className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1">
+          <div className="text-xl md:text-2xl font-black text-slate-900 dark:text-white mt-1.5 tracking-tight font-mono">
             {telemetrySummary.totalPackets.toLocaleString()}
           </div>
-          <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-            100% Raw device stream
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-blue-600 dark:text-blue-400 mt-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+            <span>High-res hardware stream</span>
           </div>
         </div>
 
         {/* Metric 2: Current Calibrated Fuel */}
-        <div className="bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+        <div className="relative overflow-hidden bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/40 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-emerald-950/30 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/40 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 text-xs font-bold">
             <span>CURRENT / END FUEL</span>
-            <Fuel className="w-4 h-4 text-emerald-500" />
+            <div className="p-1.5 rounded-lg bg-emerald-500/10 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+              <Fuel className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1">
+          <div className="text-xl md:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-1.5 tracking-tight font-mono">
             {telemetrySummary.endFuel ? `${telemetrySummary.endFuel} L` : '—'}
           </div>
-          <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-            Capacity: {tankCapacity} Litres
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1 flex items-center justify-between">
+            <span>Capacity: {tankCapacity} L</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400">
+              {tankCapacity > 0 ? `${Math.min(100, Math.round(((telemetrySummary.endFuel || 0) / tankCapacity) * 100))}%` : '—'}
+            </span>
           </div>
         </div>
 
         {/* Metric 3: Sensor Dynamic Range */}
-        <div className="bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
-            <span>SENSOR RANGE (RAW)</span>
-            <Cpu className="w-4 h-4 text-purple-500" />
+        <div className="relative overflow-hidden bg-gradient-to-br from-purple-50/70 via-white to-fuchsia-50/40 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-purple-950/30 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/40 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 text-xs font-bold">
+            <span>RAW SENSOR RANGE</span>
+            <div className="p-1.5 rounded-lg bg-purple-500/10 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400">
+              <Cpu className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-base md:text-lg font-black text-purple-600 dark:text-purple-400 mt-1.5 truncate font-mono">
+          <div className="text-base md:text-lg font-black text-purple-600 dark:text-purple-400 mt-2 truncate font-mono">
             {telemetrySummary.minRaw} → {telemetrySummary.maxRaw}
           </div>
-          <div className="text-[11px] font-medium text-slate-400 mt-0.5">
-            Min to max sensor packet
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+            Raw ADC / Volts stream
           </div>
         </div>
 
         {/* Metric 4: Max Speed & Motion */}
-        <div className="bg-white dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-          <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 text-xs font-bold">
+        <div className="relative overflow-hidden bg-gradient-to-br from-cyan-50/70 via-white to-sky-50/40 dark:from-slate-900/90 dark:via-slate-900/70 dark:to-cyan-950/30 p-4 rounded-2xl border border-cyan-100 dark:border-cyan-900/40 shadow-xs hover:shadow-md transition-all">
+          <div className="flex items-center justify-between text-slate-600 dark:text-slate-300 text-xs font-bold">
             <span>MAX SPEED</span>
-            <Gauge className="w-4 h-4 text-cyan-500" />
+            <div className="p-1.5 rounded-lg bg-cyan-500/10 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400">
+              <Gauge className="w-4 h-4" />
+            </div>
           </div>
-          <div className="text-xl md:text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-1">
-            {telemetrySummary.maxSpeed} <span className="text-xs font-semibold text-slate-400">km/h</span>
+          <div className="text-xl md:text-2xl font-black text-cyan-600 dark:text-cyan-400 mt-1.5 tracking-tight font-mono">
+            {telemetrySummary.maxSpeed} <span className="text-xs font-semibold text-slate-400 font-sans">km/h</span>
           </div>
-          <div className="text-[11px] font-medium text-slate-400 mt-0.5">
+          <div className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
             Avg: {telemetrySummary.avgSpeed} km/h
           </div>
         </div>
@@ -1138,45 +1191,85 @@ export default function FuelRawDataPage() {
           ) : (
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <th className="py-3 px-3 w-12 text-center">#</th>
-                  <th className="py-3 px-3">Date & Time (IST)</th>
-                  <th className="py-3 px-3 text-center">Speed</th>
-                  <th className="py-3 px-3 text-center">Engine</th>
-                  <th className="py-3 px-3 text-right">Raw Packet</th>
-                  <th className="py-3 px-3 text-right">Converted (L)</th>
-                  <th className="py-3 px-3 text-right">Normalize (L)</th>
-                  <th className="py-3 px-3 text-center">Delta (L)</th>
-                  <th className="py-3 px-3 text-right">Odometer</th>
-                  <th className="py-3 px-3 text-center">Voltage</th>
-                  <th className="py-3 px-3">Event / Tag</th>
+                <tr style={{ background: '#1E3A5F', color: '#F8FAFC' }}>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, width: '45px', textAlign: 'center', fontSize: '12px' }}>#</th>
+                  <th style={{ padding: '13px 14px', fontWeight: 700, fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Clock size={13} color="#7DD3FC" /> Date & Time (IST)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'center', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <Gauge size={13} color="#7DD3FC" /> Speed
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'center', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <Cpu size={13} color="#7DD3FC" /> Engine
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'right', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <Radio size={13} color="#C084FC" /> RAW SENSOR (ADC)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'right', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <Fuel size={13} color="#94A3B8" /> CONVERTED (L)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'right', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <Sliders size={13} color="#38BDF8" /> FILTERED (L)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'right', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                      <TrendingUp size={13} color="#4ADE80" /> NORMALIZED (L)
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'right', fontSize: '12px' }}>
+                    Odometer
+                  </th>
+                  <th style={{ padding: '13px 12px', fontWeight: 700, textAlign: 'center', fontSize: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      <Zap size={13} color="#FBBF24" /> Voltage
+                    </div>
+                  </th>
+                  <th style={{ padding: '13px 14px', fontWeight: 700, fontSize: '12px' }}>
+                    Event / Tag
+                  </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {paginatedRows.map((row) => (
+              <tbody>
+                {paginatedRows.map((row, idx) => (
                   <tr
                     key={row.index}
-                    className="hover:bg-blue-50/40 dark:hover:bg-slate-800/40 transition-colors"
+                    style={{
+                      borderBottom: '1px solid #F1F5F9',
+                      background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'
+                    }}
+                    className="hover:bg-blue-50/50 transition-colors"
                   >
                     {/* Index */}
-                    <td className="py-2.5 px-3 text-center font-mono text-slate-400 text-[11px]">
+                    <td style={{ padding: '11px 12px', textAlign: 'center' }} className="font-mono text-slate-400 text-[11px]">
                       {row.index}
                     </td>
 
                     {/* Timestamp */}
-                    <td className="py-2.5 px-3 font-mono font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                    <td style={{ padding: '11px 14px' }} className="font-mono font-medium text-slate-800 dark:text-slate-200 whitespace-nowrap">
                       {row.timeFormatted}
                     </td>
 
                     {/* Speed */}
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <td style={{ padding: '11px 12px', textAlign: 'center' }} className="whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 font-bold ${row.speed > 0 ? 'text-cyan-600 dark:text-cyan-400' : 'text-slate-400'}`}>
                         {row.speed} <span className="text-[10px] font-normal">km/h</span>
                       </span>
                     </td>
 
                     {/* Engine Ignition */}
-                    <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                    <td style={{ padding: '11px 12px', textAlign: 'center' }} className="whitespace-nowrap">
                       <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
                         row.ignition
                           ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
@@ -1186,10 +1279,10 @@ export default function FuelRawDataPage() {
                       </span>
                     </td>
 
-                    {/* Raw Sensor Packet */}
-                    <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                    {/* 1. Raw Sensor Packet (ADC / Volts) */}
+                    <td style={{ padding: '11px 12px', textAlign: 'right' }} className="font-mono font-bold whitespace-nowrap">
                       {row.rawSensor != null ? (
-                        <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800">
+                        <span className="px-2 py-0.5 rounded-md bg-purple-100 dark:bg-purple-950/60 text-purple-800 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
                           {row.rawSensor}
                         </span>
                       ) : (
@@ -1197,10 +1290,10 @@ export default function FuelRawDataPage() {
                       )}
                     </td>
 
-                    {/* Converted Fuel in Litres */}
-                    <td className="py-2.5 px-3 text-right font-mono font-bold whitespace-nowrap">
+                    {/* 2. Converted Fuel in Litres */}
+                    <td style={{ padding: '11px 12px', textAlign: 'right' }} className="font-mono font-bold whitespace-nowrap">
                       {row.convertedFuel != null ? (
-                        <span className="text-blue-600 dark:text-blue-400">
+                        <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                           {row.convertedFuel} <span className="text-[10px] font-normal text-slate-400">L</span>
                         </span>
                       ) : (
@@ -1208,44 +1301,40 @@ export default function FuelRawDataPage() {
                       )}
                     </td>
 
-                    {/* Normalized Fuel */}
-                    <td className="py-2.5 px-3 text-right font-mono font-bold whitespace-nowrap">
-                      {row.normalizedFuel != null ? (
-                        <span className="text-rose-600 dark:text-rose-400">
-                          {row.normalizedFuel} <span className="text-[10px] font-normal text-slate-400">L</span>
+                    {/* 3. Filtered Fuel (Anti-slosh filter) */}
+                    <td style={{ padding: '11px 12px', textAlign: 'right' }} className="font-mono font-bold whitespace-nowrap">
+                      {row.filteredFuel != null ? (
+                        <span className="px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-200/60 dark:border-sky-800/60">
+                          {row.filteredFuel} <span className="text-[10px] font-normal text-slate-400">L</span>
                         </span>
                       ) : (
                         <span className="text-slate-400">—</span>
                       )}
                     </td>
 
-                    {/* Delta Change */}
-                    <td className="py-2.5 px-3 text-center font-mono whitespace-nowrap">
-                      {row.delta > 0 ? (
-                        <span className="inline-flex items-center gap-0.5 text-emerald-600 dark:text-emerald-400 font-bold">
-                          <TrendingUp className="w-3 h-3" /> +{row.delta}
-                        </span>
-                      ) : row.delta < 0 ? (
-                        <span className="inline-flex items-center gap-0.5 text-rose-600 dark:text-rose-400 font-bold">
-                          <TrendingDown className="w-3 h-3" /> {row.delta}
+                    {/* 4. Normalized Fuel (Physical ground truth) */}
+                    <td style={{ padding: '11px 12px', textAlign: 'right' }} className="font-mono font-bold whitespace-nowrap">
+                      {row.normalizedFuel != null ? (
+                        <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60 font-black">
+                          {row.normalizedFuel} <span className="text-[10px] font-normal text-emerald-500">L</span>
                         </span>
                       ) : (
-                        <span className="text-slate-300 dark:text-slate-600">0</span>
+                        <span className="text-slate-400">—</span>
                       )}
                     </td>
 
                     {/* Odometer */}
-                    <td className="py-2.5 px-3 text-right font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                    <td style={{ padding: '11px 12px', textAlign: 'right' }} className="font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       {row.odometer !== '—' ? `${row.odometer} km` : '—'}
                     </td>
 
                     {/* Voltage */}
-                    <td className="py-2.5 px-3 text-center font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                    <td style={{ padding: '11px 12px', textAlign: 'center' }} className="font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       {row.voltage}
                     </td>
 
                     {/* Event Tag */}
-                    <td className="py-2.5 px-3 whitespace-nowrap">
+                    <td style={{ padding: '11px 14px' }} className="whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         row.eventType === 'refuel'
                           ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 font-black'
