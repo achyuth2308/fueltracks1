@@ -112,6 +112,17 @@ function getPresetRange(preset) {
   };
 }
 
+// Sampling Interval options (matching reference system)
+const INTERVAL_OPTIONS = [
+  { value: 'raw', label: 'Raw (All Data)' },
+  { value: '5m', label: '5 mins', ms: 5 * 60 * 1000 },
+  { value: '10m', label: '10 mins', ms: 10 * 60 * 1000 },
+  { value: '15m', label: '15 mins', ms: 15 * 60 * 1000 },
+  { value: '20m', label: '20 mins', ms: 20 * 60 * 1000 },
+  { value: '30m', label: '30 mins', ms: 30 * 60 * 1000 },
+  { value: '1h', label: '1 hour', ms: 60 * 60 * 1000 }
+];
+
 export default function FuelAnalyticsPage() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
@@ -130,10 +141,11 @@ export default function FuelAnalyticsPage() {
   const [groupSearchQuery, setGroupSearchQuery] = useState('');
   const groupDropdownRef = useRef(null);
 
-  // Time filters
+  // Time filters & Sampling Interval
   const [activePreset, setActivePreset] = useState('today');
   const [customStart, setCustomStart] = useState(() => getPresetRange('today').startStr);
   const [customEnd, setCustomEnd] = useState(() => getPresetRange('today').endStr);
+  const [selectedInterval, setSelectedInterval] = useState('raw');
 
   // Data state
   const [loading, setLoading] = useState(false);
@@ -559,8 +571,26 @@ export default function FuelAnalyticsPage() {
       };
     }
 
-    // Sort chronologically
-    const sorted = [...historyPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+    // Sort chronologically (Full dataset)
+    const sortedAll = [...historyPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+
+    // Optional Sampling Interval bucketing (for chart visualization)
+    let sorted = sortedAll;
+    if (selectedInterval !== 'raw') {
+      const targetOption = INTERVAL_OPTIONS.find(o => o.value === selectedInterval);
+      if (targetOption?.ms && sortedAll.length > 0) {
+        const intervalMs = targetOption.ms;
+        const bucketMap = new Map();
+        for (const pt of sortedAll) {
+          const t = new Date(pt.device_time).getTime();
+          if (isNaN(t)) continue;
+          const bucketKey = Math.floor(t / intervalMs);
+          // Keep the latest point in each bucket to represent the state at the interval
+          bucketMap.set(bucketKey, pt);
+        }
+        sorted = Array.from(bucketMap.values()).sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+      }
+    }
 
     // 1. First pass: extract calibrated raw sensor fuel and motion states
     const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
@@ -600,14 +630,14 @@ export default function FuelAnalyticsPage() {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const isEngineOn = rawSpeed > 2.0 || ign;
+      const isEngineOn = rawSpeed > 6.0 || ign; // 6 km/h speed threshold
       const fVal = filteredFuels[i];
 
       if (fVal != null) {
         const diff = fVal - currentNormalized;
 
         // A. Valid Refill: Sustained jump >= refuelThreshold while vehicle is stationary/stopped
-        if (diff >= refuelThreshold && rawSpeed <= 2.0) {
+        if (diff >= refuelThreshold && rawSpeed <= 6.0) {
           let isSustained = true;
           for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
             if (filteredFuels[k] != null && filteredFuels[k] < currentNormalized + (refuelThreshold * 0.6)) {
@@ -642,19 +672,25 @@ export default function FuelAnalyticsPage() {
             });
           }
         }
-        // C. Stationary (Parked or Idling, rawSpeed <= 2) -> Exactly track true resting liquid level in tank
-        else if (rawSpeed <= 2.0) {
-          if (Math.abs(diff) < refuelThreshold) {
-            currentNormalized = fVal;
+        // C. Engine ON (Driving or Idling / Machinery / Genset running)
+        // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
+        else if (isEngineOn) {
+          if (diff < 0) {
+            if (rawSpeed > 6.0) {
+              // Road slosh dampening while driving
+              currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+            } else {
+              // Stationary machinery / genset / idling: smooth monotonic burn without jumping to sensor noise dips
+              currentNormalized = (0.90 * currentNormalized) + (0.10 * fVal);
+            }
           }
+          // Positive diff (diff > 0) while engine is running without a refill is sensor ripple/vibration -> REJECTED!
         }
-        // D. Driving on road (rawSpeed > 2.0) -> Fuel follows smoothed level without locking into momentary slosh dips
+        // D. Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
+        // Static resting state: gently converge to true physical resting volume
         else {
           if (Math.abs(diff) < refuelThreshold) {
-            // Smoothly follow the liquid trend without latching onto false slosh pits
             currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
-          } else if (fVal < currentNormalized) {
-            currentNormalized = fVal;
           }
         }
       }
@@ -705,7 +741,7 @@ export default function FuelAnalyticsPage() {
 
       // Engine Status: strictly evaluated from speed + ignition
       let engineState = 'OFF';
-      if (rawSpeed > 2.0) {
+      if (rawSpeed > 6.0) {
         engineState = 'ON (Moving)';
         movingMinutes += deltaMin;
       } else if (ign) {
@@ -768,7 +804,7 @@ export default function FuelAnalyticsPage() {
         fuel: normF, // Backward compatibility
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
-        engineVal: (rawSpeed > 2.0 || ign) ? 1 : 0,
+        engineVal: (rawSpeed > 6.0 || ign) ? 1 : 0,
         status: engineState,
         odometer: pt.odometer != null ? parseFloat(pt.odometer).toFixed(2) : (cumulativeDist > 0 ? cumulativeDist.toFixed(2) : '0.00'),
         volt: pt.voltage != null ? parseFloat(pt.voltage).toFixed(2) : (pt.sensor_voltage != null ? parseFloat(pt.sensor_voltage).toFixed(2) : '3.13'),
@@ -795,7 +831,7 @@ export default function FuelAnalyticsPage() {
     const latestSpeed = parseFloat(latestPoint?.speed) || 0;
     const latestIgn = latestPoint?.ignition === true || latestPoint?.ignition === 'true' || latestPoint?.ignition === 1;
     let latestStatus = 'OFF';
-    if (latestSpeed > 2.0) latestStatus = 'ON (Moving)';
+    if (latestSpeed > 6.0) latestStatus = 'ON (Moving)';
     else if (latestIgn) latestStatus = 'ON (Idle)';
 
     return {
@@ -816,7 +852,7 @@ export default function FuelAnalyticsPage() {
       drops: dropEvents,
       sessions: sessions.slice(-10).reverse() // Show top 10 recent sessions
     };
-  }, [historyPoints, tankCapacity, refuelThreshold, theftThreshold]);
+  }, [historyPoints, tankCapacity, refuelThreshold, theftThreshold, selectedInterval]);
 
   // Live fuel percentage
   const fuelPercent = useMemo(() => {
@@ -1097,6 +1133,26 @@ export default function FuelAnalyticsPage() {
                   }}
                   className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer"
                 />
+              </div>
+
+              {/* Sampling Interval Selector (Matching Reference System) */}
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                  <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
+                </div>
+                <select
+                  value={selectedInterval}
+                  onChange={(e) => setSelectedInterval(e.target.value)}
+                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
+                  title="Select Sampling Interval (Downsamples points for smoother visualization and fast rendering)"
+                >
+                  {INTERVAL_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Apply Button */}

@@ -4,7 +4,7 @@ import {
   Database, Fuel, Search, Calendar, Clock, RefreshCw, Download,
   FileSpreadsheet, FileText, ChevronDown, ChevronLeft, ChevronRight,
   TrendingUp, TrendingDown, Gauge, Zap, CheckCircle2, AlertTriangle,
-  Radio, ShieldAlert, Cpu, ArrowUpDown, Filter, X
+  Radio, ShieldAlert, Cpu, ArrowUpDown, Filter, X, Sliders
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -32,6 +32,17 @@ function formatIST(dateStr) {
     return String(dateStr);
   }
 }
+
+// Sampling Interval options (matching reference system)
+const INTERVAL_OPTIONS = [
+  { value: 'raw', label: 'Raw (All Data)' },
+  { value: '5m', label: '5 mins', ms: 5 * 60 * 1000 },
+  { value: '10m', label: '10 mins', ms: 10 * 60 * 1000 },
+  { value: '15m', label: '15 mins', ms: 15 * 60 * 1000 },
+  { value: '20m', label: '20 mins', ms: 20 * 60 * 1000 },
+  { value: '30m', label: '30 mins', ms: 30 * 60 * 1000 },
+  { value: '1h', label: '1 hour', ms: 60 * 60 * 1000 }
+];
 
 // Quick Date Range Presets
 const getPresetRange = (type) => {
@@ -107,11 +118,12 @@ export default function FuelRawDataPage() {
   const dropdownRef = useRef(null);
   const groupDropdownRef = useRef(null);
 
-  // Date Range State
+  // Date Range & Sampling Interval State
   const defaultToday = useMemo(() => getPresetRange('today'), []);
   const [customStart, setCustomStart] = useState(defaultToday.startStr);
   const [customEnd, setCustomEnd] = useState(defaultToday.endStr);
   const [activePreset, setActivePreset] = useState('today');
+  const [selectedInterval, setSelectedInterval] = useState('raw');
 
   // Telemetry Packets State
   const [loading, setLoading] = useState(false);
@@ -400,11 +412,29 @@ export default function FuelRawDataPage() {
   };
 
   // Process Telemetry Rows with Calibration, 5-Point Median + EMA, and Normalization
+  // Process Telemetry Rows with Calibration, 5-Point Median + EMA, and Normalization
   const processedRows = useMemo(() => {
     if (!historyPoints.length) return [];
 
-    // Sort chronologically
-    const sorted = [...historyPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+    // Sort chronologically (Full dataset)
+    const sortedAll = [...historyPoints].sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+
+    // Optional Sampling Interval bucketing (for table audit & report export)
+    let sorted = sortedAll;
+    if (selectedInterval !== 'raw') {
+      const targetOption = INTERVAL_OPTIONS.find(o => o.value === selectedInterval);
+      if (targetOption?.ms && sortedAll.length > 0) {
+        const intervalMs = targetOption.ms;
+        const bucketMap = new Map();
+        for (const pt of sortedAll) {
+          const t = new Date(pt.device_time).getTime();
+          if (isNaN(t)) continue;
+          const bucketKey = Math.floor(t / intervalMs);
+          bucketMap.set(bucketKey, pt);
+        }
+        sorted = Array.from(bucketMap.values()).sort((a, b) => new Date(a.device_time) - new Date(b.device_time));
+      }
+    }
 
     // Raw calibrated values
     const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
@@ -442,31 +472,36 @@ export default function FuelRawDataPage() {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const isEngineOn = rawSpeed > 6.0 || ign; // 6 km/h threshold
+      const isEngineOn = rawSpeed > 6.0 || ign; // 6 km/h speed threshold
       const fVal = filteredFuels[i];
 
       if (fVal != null) {
         const diff = fVal - currentNorm;
-        // Refuel
+        // Refuel: Sustained jump >= refuelThreshold while vehicle is stationary/stopped
         if (diff >= refuelThreshold && rawSpeed <= 6.0) {
           currentNorm = fVal;
         }
-        // Theft
+        // Theft / Drain: Drop <= -theftThreshold while engine is OFF
         else if (diff <= -theftThreshold && !isEngineOn) {
           currentNorm = fVal;
         }
-        // Stationary / Idling
-        else if (rawSpeed <= 6.0) {
-          if (Math.abs(diff) < refuelThreshold) {
-            currentNorm = fVal;
+        // Engine ON (Driving or Idling / Machinery / Genset running)
+        // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
+        else if (isEngineOn) {
+          if (diff < 0) {
+            if (rawSpeed > 6.0) {
+              currentNorm = (0.85 * currentNorm) + (0.15 * fVal);
+            } else {
+              currentNorm = (0.90 * currentNorm) + (0.10 * fVal);
+            }
           }
+          // Positive diff while running without a refill is sensor ripple/vibration -> REJECTED!
         }
-        // Moving (> 6 km/h)
+        // Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
+        // Static resting state: gently converge to true physical resting volume
         else {
           if (Math.abs(diff) < refuelThreshold) {
             currentNorm = (0.85 * currentNorm) + (0.15 * fVal);
-          } else if (fVal < currentNorm) {
-            currentNorm = fVal;
           }
         }
       }
@@ -522,7 +557,7 @@ export default function FuelRawDataPage() {
         lng: pt.lng
       };
     });
-  }, [historyPoints, tankCapacity]);
+  }, [historyPoints, tankCapacity, selectedInterval]);
 
   // Telemetry Health Metrics Summary
   const telemetrySummary = useMemo(() => {
@@ -878,6 +913,27 @@ export default function FuelRawDataPage() {
                   }}
                   className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-1 focus:ring-blue-500"
                 />
+              </div>
+            </div>
+
+            <div className="w-full sm:w-auto shrink-0 min-w-[130px]">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+                Interval
+              </label>
+              <div className="relative">
+                <Sliders className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+                <select
+                  value={selectedInterval}
+                  onChange={(e) => setSelectedInterval(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                  title="Select Sampling Interval"
+                >
+                  {INTERVAL_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
