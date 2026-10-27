@@ -23,7 +23,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Compass,
-  Check
+  Check,
+  Users
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -119,6 +120,13 @@ export default function FuelAnalyticsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
 
+  // Group selection state
+  const [groups, setGroups] = useState([]);
+  const [selectedGroupId, setSelectedGroupId] = useState('all');
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const [groupSearchQuery, setGroupSearchQuery] = useState('');
+  const groupDropdownRef = useRef(null);
+
   // Time filters
   const [activePreset, setActivePreset] = useState('today');
   const [customStart, setCustomStart] = useState(() => getPresetRange('today').startStr);
@@ -136,39 +144,55 @@ export default function FuelAnalyticsPage() {
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
 
-  // Close dropdown on outside click
+  // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target)) {
+        setIsGroupDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 1. Fetch all user vehicles on mount
+  // 1. Fetch all user vehicles and groups on mount
   useEffect(() => {
-    const fetchVehicles = async () => {
+    const fetchInitialData = async () => {
       setFetchingVehicles(true);
       try {
-        const res = await axiosInstance.get('/api/vehicles');
-        const list = Array.isArray(res.data?.data)
-          ? res.data.data
-          : (Array.isArray(res.data?.vehicles) ? res.data.vehicles : []);
-        setVehicles(list);
-        if (list.length > 0 && !selectedVehicle) {
-          // Select first vehicle or one with fuel sensor
-          const withFuel = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
-          setSelectedVehicle(withFuel);
+        const [vehiclesRes, groupsRes] = await Promise.allSettled([
+          axiosInstance.get('/api/vehicles'),
+          axiosInstance.get('/api/admin/groups')
+        ]);
+
+        let list = [];
+        if (vehiclesRes.status === 'fulfilled') {
+          list = Array.isArray(vehiclesRes.value?.data?.data)
+            ? vehiclesRes.value.data.data
+            : (Array.isArray(vehiclesRes.value?.data?.vehicles) ? vehiclesRes.value.data.vehicles : []);
+          setVehicles(list);
+          if (list.length > 0 && !selectedVehicle) {
+            const withFuel = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
+            setSelectedVehicle(withFuel);
+          }
+        }
+
+        if (groupsRes.status === 'fulfilled') {
+          const gList = Array.isArray(groupsRes.value?.data?.data)
+            ? groupsRes.value.data.data
+            : (Array.isArray(groupsRes.value?.data?.groups) ? groupsRes.value.data.groups : []);
+          setGroups(gList);
         }
       } catch (err) {
-        console.error('Failed to load vehicles list:', err);
+        console.error('Failed to load initial vehicles/groups:', err);
       } finally {
         setFetchingVehicles(false);
       }
     };
-    fetchVehicles();
+    fetchInitialData();
   }, []);
 
   // 2. Fetch History Points when selected vehicle or date changes
@@ -227,16 +251,154 @@ export default function FuelAnalyticsPage() {
     fetchVehicleFuelData();
   }, [selectedVehicle?.id]);
 
-  // Filtered vehicles for dropdown
+  // Available groups parsed from API + vehicle metadata
+  const availableGroups = useMemo(() => {
+    const map = new Map();
+
+    // 1. Groups from API
+    groups.forEach(g => {
+      if (g && (g.id || g.name)) {
+        const id = String(g.id || g.name);
+        map.set(id, { id, name: g.name || 'Unnamed Group', count: 0 });
+      }
+    });
+
+    // 2. Discover groups from vehicle assignments
+    vehicles.forEach(v => {
+      if (Array.isArray(v.groups) && v.groups.length > 0) {
+        v.groups.forEach(vg => {
+          if (vg && (vg.id || vg.name)) {
+            const id = String(vg.id || vg.name);
+            if (!map.has(id)) {
+              map.set(id, { id, name: vg.name || 'Unnamed Group', count: 0 });
+            }
+          }
+        });
+      } else if (v.group_name) {
+        v.group_name.split(',').forEach(gn => {
+          const clean = gn.trim();
+          if (clean) {
+            const key = clean.toLowerCase();
+            const existing = Array.from(map.values()).find(m => m.name.toLowerCase() === key);
+            if (!existing) {
+              map.set(clean, { id: clean, name: clean, count: 0 });
+            }
+          }
+        });
+      }
+    });
+
+    // 3. Count vehicles per group
+    vehicles.forEach(v => {
+      map.forEach((gObj, gId) => {
+        const targetName = gObj.name.trim().toLowerCase();
+        const matches = (
+          (Array.isArray(v.groups) && v.groups.some(vg => String(vg.id) === gId || (vg.name && vg.name.trim().toLowerCase() === targetName))) ||
+          (v.group_id && String(v.group_id) === gId) ||
+          (v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName))
+        );
+        if (matches) {
+          gObj.count++;
+        }
+      });
+    });
+
+    const unassignedCount = vehicles.filter(v => {
+      const hasGroups = Array.isArray(v.groups) && v.groups.length > 0;
+      const hasGroupName = !!v.group_name;
+      const hasGroupId = !!v.group_id;
+      return !hasGroups && !hasGroupName && !hasGroupId;
+    }).length;
+
+    const list = Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+    return { list, unassignedCount };
+  }, [groups, vehicles]);
+
+  // Vehicles belonging to the selected group
+  const vehiclesInSelectedGroup = useMemo(() => {
+    if (selectedGroupId === 'all') return vehicles;
+
+    if (selectedGroupId === '__unassigned__') {
+      return vehicles.filter(v => {
+        const hasGroups = Array.isArray(v.groups) && v.groups.length > 0;
+        const hasGroupName = !!v.group_name;
+        const hasGroupId = !!v.group_id;
+        return !hasGroups && !hasGroupName && !hasGroupId;
+      });
+    }
+
+    const currentGroup = availableGroups.list.find(g => g.id === selectedGroupId);
+    const targetName = currentGroup?.name?.trim()?.toLowerCase();
+
+    return vehicles.filter(v => {
+      const matchArray = Array.isArray(v.groups) && v.groups.some(vg => 
+        String(vg.id) === String(selectedGroupId) || (targetName && vg.name?.trim()?.toLowerCase() === targetName)
+      );
+      const matchId = v.group_id && String(v.group_id) === String(selectedGroupId);
+      const matchName = targetName && v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName);
+      return matchArray || matchId || matchName;
+    });
+  }, [vehicles, selectedGroupId, availableGroups]);
+
+  // Search filtered vehicles (within selected group)
   const filteredVehicles = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    if (!q) return vehicles;
-    return vehicles.filter(v => 
+    if (!q) return vehiclesInSelectedGroup;
+    return vehiclesInSelectedGroup.filter(v => 
       (v.plate && v.plate.toLowerCase().includes(q)) ||
       (v.name && v.name.toLowerCase().includes(q)) ||
       (v.imei && v.imei.toLowerCase().includes(q))
     );
-  }, [vehicles, searchQuery]);
+  }, [vehiclesInSelectedGroup, searchQuery]);
+
+  // Filtered groups inside group dropdown search
+  const filteredGroupsList = useMemo(() => {
+    const q = groupSearchQuery.toLowerCase().trim();
+    if (!q) return availableGroups.list;
+    return availableGroups.list.filter(g => g.name.toLowerCase().includes(q));
+  }, [availableGroups.list, groupSearchQuery]);
+
+  // Selected group label
+  const selectedGroupLabel = useMemo(() => {
+    if (selectedGroupId === 'all') return 'All Groups';
+    if (selectedGroupId === '__unassigned__') return 'Unassigned';
+    const match = availableGroups.list.find(g => g.id === selectedGroupId);
+    return match ? match.name : 'All Groups';
+  }, [selectedGroupId, availableGroups.list]);
+
+  // Handle group selection change
+  const handleSelectGroup = (groupId) => {
+    setSelectedGroupId(groupId);
+    setIsGroupDropdownOpen(false);
+    setGroupSearchQuery('');
+
+    let nextVehicles = vehicles;
+    if (groupId === '__unassigned__') {
+      nextVehicles = vehicles.filter(v => (!v.groups || v.groups.length === 0) && !v.group_name && !v.group_id);
+    } else if (groupId !== 'all') {
+      const currentGroup = availableGroups.list.find(g => g.id === groupId);
+      const targetName = currentGroup?.name?.trim()?.toLowerCase();
+      nextVehicles = vehicles.filter(v => {
+        const matchArray = Array.isArray(v.groups) && v.groups.some(vg => 
+          String(vg.id) === String(groupId) || (targetName && vg.name?.trim()?.toLowerCase() === targetName)
+        );
+        const matchId = v.group_id && String(v.group_id) === String(groupId);
+        const matchName = targetName && v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName);
+        return matchArray || matchId || matchName;
+      });
+    }
+
+    const isCurrentValid = selectedVehicle && nextVehicles.some(v => v.id === selectedVehicle.id);
+    if (!isCurrentValid) {
+      if (nextVehicles.length > 0) {
+        const bestVehicle = nextVehicles.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.current_fuel != null) || nextVehicles[0];
+        setSelectedVehicle(bestVehicle);
+      } else {
+        setSelectedVehicle(null);
+        setHistoryPoints([]);
+      }
+    }
+  };
 
   // Tank size from vehicle metadata (supporting multi-tank aggregation)
   const tankCapacity = useMemo(() => {
@@ -653,8 +815,128 @@ export default function FuelAnalyticsPage() {
               </div>
             </div>
 
-            {/* Custom Searchable Dropdown */}
-            <div className="relative min-w-[260px] sm:min-w-[340px]" ref={dropdownRef}>
+            {/* Top Right: Group Selector + Searchable Vehicle Selector */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              {/* Group Selector Dropdown */}
+              <div className="relative min-w-[170px] sm:min-w-[190px]" ref={groupDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsGroupDropdownOpen(!isGroupDropdownOpen);
+                    setIsDropdownOpen(false);
+                  }}
+                  className="w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs sm:text-sm font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                  title="Filter vehicles by fleet group"
+                >
+                  <div className="flex items-center gap-2 truncate">
+                    <Users className="w-4 h-4 text-emerald-500 shrink-0" />
+                    <span className="font-semibold truncate text-slate-800 dark:text-slate-100">
+                      {selectedGroupLabel}
+                    </span>
+                  </div>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isGroupDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {isGroupDropdownOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-[9999] left-0 sm:right-auto sm:left-0 w-full sm:w-[260px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
+                    >
+                      {/* Search inside group dropdown */}
+                      {availableGroups.list.length > 5 && (
+                        <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                            <input
+                              type="text"
+                              value={groupSearchQuery}
+                              onChange={(e) => setGroupSearchQuery(e.target.value)}
+                              placeholder="Search groups..."
+                              className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500"
+                              autoFocus
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Group items */}
+                      <div className="overflow-y-auto max-h-64 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
+                        {/* All Groups Option */}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectGroup('all')}
+                          className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
+                            selectedGroupId === 'all'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            <span className="truncate">All Groups</span>
+                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                            {vehicles.length}
+                          </span>
+                        </button>
+
+                        {/* Individual Groups */}
+                        {filteredGroupsList.map(g => {
+                          const isSelected = selectedGroupId === g.id;
+                          return (
+                            <button
+                              key={g.id}
+                              type="button"
+                              onClick={() => handleSelectGroup(g.id)}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
+                                isSelected
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              <span className="truncate font-medium">{g.name}</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                                  {g.count}
+                                </span>
+                                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                              </div>
+                            </button>
+                          );
+                        })}
+
+                        {/* Unassigned Option (if any exist) */}
+                        {availableGroups.unassignedCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSelectGroup('__unassigned__')}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
+                              selectedGroupId === '__unassigned__'
+                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span className="truncate text-slate-500 italic">Unassigned</span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                                {availableGroups.unassignedCount}
+                              </span>
+                              {selectedGroupId === '__unassigned__' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Custom Searchable Vehicle Dropdown */}
+              <div className="relative min-w-[240px] sm:min-w-[320px]" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -743,6 +1025,7 @@ export default function FuelAnalyticsPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
+              </div>
             </div>
           </div>
 
