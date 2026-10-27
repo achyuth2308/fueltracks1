@@ -16,6 +16,7 @@ import ReportPage from './pages/user/ReportPage';
 import SensorLogsPage from './pages/user/SensorLogsPage';
 import TrackingPage from './pages/user/TrackingPage';
 import FuelAnalyticsPage from './pages/user/FuelAnalyticsPage';
+import FuelRawDataPage from './pages/user/FuelRawDataPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
 import UsersAdminPage from './pages/admin/UsersAdminPage';
@@ -88,6 +89,7 @@ function App() {
               <Route path="dashboard" element={<DashboardPage setAppVehicles={setVehicles} />} />
               <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
               <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />
+              <Route path="fuel-raw-data" element={<FuelRawDataPage />} />
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />

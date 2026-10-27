@@ -25,6 +25,7 @@ import {
   Terminal,
   Droplets,
   Fuel,
+  Database,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -65,6 +66,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer', 'superadmin', 'dealer'] },
         { name: 'Fuel Analytics', path: '/fuel-analytics', icon: Fuel, roles: ['customer'] },
+        { name: 'Fuel Raw Data', path: '/fuel-raw-data', icon: Database, roles: ['customer', 'superadmin', 'dealer'] },
         { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
         { name: 'Terminal', path: '/admin/terminal', icon: Terminal, roles: ['superadmin', 'dealer'] },
         { name: 'Fuel Watcher', path: '/admin/fuel-watcher', icon: Droplets, roles: ['superadmin', 'dealer'] },

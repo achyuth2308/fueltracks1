@@ -24,8 +24,10 @@ import {
   ArrowDownRight,
   Compass,
   Check,
-  Users
+  Users,
+  Database
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -111,6 +113,7 @@ function getPresetRange(preset) {
 }
 
 export default function FuelAnalyticsPage() {
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
@@ -835,10 +838,27 @@ export default function FuelAnalyticsPage() {
                 <Fuel className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                  Fuel Analytics
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+                    Fuel Analytics
+                  </h1>
+                  <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                    <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-xs flex items-center gap-1.5">
+                      <Fuel className="w-3.5 h-3.5" />
+                      Analytics
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => navigate(selectedVehicle?.id ? `/fuel-raw-data?vehicle=${selectedVehicle.id}` : '/fuel-raw-data')}
+                      className="px-2.5 py-1 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition-colors"
+                      title="Switch to Raw Packet Data Audit Table"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      Fuel Raw Data
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                   Precision fuel telemetry, synchronized graphs & consumption breakdown
                 </p>
               </div>
