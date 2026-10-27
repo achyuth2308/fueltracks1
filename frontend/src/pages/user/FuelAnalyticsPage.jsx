@@ -645,12 +645,14 @@ export default function FuelAnalyticsPage() {
             currentNormalized = fVal;
           }
         }
-        // D. Driving on road (rawSpeed > 2.0) -> Fuel can only burn (monotonic decrease)
+        // D. Driving on road (rawSpeed > 2.0) -> Fuel follows smoothed level without locking into momentary slosh dips
         else {
-          if (fVal < currentNormalized) {
+          if (Math.abs(diff) < refuelThreshold) {
+            // Smoothly follow the liquid trend without latching onto false slosh pits
+            currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+          } else if (fVal < currentNormalized) {
             currentNormalized = fVal;
           }
-          // Temporary upward surges during driving are acceleration/braking slosh -> ignore
         }
       }
 
@@ -1156,12 +1158,12 @@ export default function FuelAnalyticsPage() {
                 onClick={() => setShowAllFuel(!showAllFuel)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
                   showAllFuel
-                    ? 'bg-slate-500/10 text-slate-300 border-slate-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-slate-200 dark:bg-slate-700/60 text-slate-800 dark:text-slate-100 border-slate-400/50 shadow-sm font-semibold'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-slate-800'
                 }`}
                 title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
               >
-                <span className="w-2 h-2 rounded-full bg-slate-400" />
+                <span className="w-2 h-2 rounded-full bg-slate-500" />
                 All Fuel Data
               </button>
 
@@ -1404,8 +1406,9 @@ export default function FuelAnalyticsPage() {
                       dataKey="rawFuel"
                       stroke="#94a3b8"
                       strokeWidth={1}
+                      strokeOpacity={0.4}
                       strokeDasharray="2 2"
-                      dot={{ r: 1.5, fill: '#94a3b8', strokeWidth: 0 }}
+                      dot={{ r: 1.5, fill: '#94a3b8', strokeWidth: 0, fillOpacity: 0.4 }}
                       connectNulls={true}
                       name="All Fuel Data (L)"
                     />
