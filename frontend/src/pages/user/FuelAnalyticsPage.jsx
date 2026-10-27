@@ -639,20 +639,18 @@ export default function FuelAnalyticsPage() {
             });
           }
         }
-        // C. Engine is OFF & Vehicle Stationary -> Settle smoothly to true resting liquid level
-        else if (!isEngineOn) {
-          // If deviation is within normal slosh bounds, converge smoothly to true resting liquid level
-          // Eliminates the braking-dip trap where the red line gets stuck below actual resting fuel
+        // C. Stationary (Parked or Idling, rawSpeed <= 2) -> Exactly track true resting liquid level in tank
+        else if (rawSpeed <= 2.0) {
           if (Math.abs(diff) < refuelThreshold) {
-            currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+            currentNormalized = fVal;
           }
         }
-        // D. Engine is ON (Driving or Idling) -> Fuel can only burn (monotonic decrease)
+        // D. Driving on road (rawSpeed > 2.0) -> Fuel can only burn (monotonic decrease)
         else {
           if (fVal < currentNormalized) {
             currentNormalized = fVal;
           }
-          // If fVal temporarily rises during driving, it is an acceleration/braking slosh wave -> ignore
+          // Temporary upward surges during driving are acceleration/braking slosh -> ignore
         }
       }
 
@@ -1245,16 +1243,10 @@ export default function FuelAnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
                   <defs>
-                    {/* Soft, elegant translucent gradient for anti-slosh background */}
                     <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.16} />
                       <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.01} />
                     </linearGradient>
-
-                    {/* Crisp drop shadow to make the red Normalize truth line pop boldly off the canvas */}
-                    <filter id="normalizeRedShadow" x="-10%" y="-30%" width="120%" height="160%">
-                      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#7f1d1d" floodOpacity="0.8" />
-                    </filter>
                   </defs>
 
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
@@ -1419,15 +1411,14 @@ export default function FuelAnalyticsPage() {
                     />
                   )}
 
-                  {/* 3. Normalize Line (Vibrant Hero Red Curve - Elevated on Top) */}
+                  {/* 3. Normalize Line (Pure Solid Red Hero Curve - Clean, Crisp & Elevated) */}
                   {showNormalize && (
                     <Line
                       yAxisId="fuel"
                       type="monotone"
                       dataKey="normalizedFuel"
-                      stroke="#ef4444"
-                      strokeWidth={3.8}
-                      filter="url(#normalizeRedShadow)"
+                      stroke="#dc2626"
+                      strokeWidth={3}
                       dot={false}
                       connectNulls={true}
                       name="Normalize (L)"
