@@ -155,6 +155,10 @@ function App() {
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
                     <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
+                    <Route path="geofence-two-way" element={<GeofenceTwoWayReportPage />} />
+                    <Route path="geofence-one-way" element={<GeofenceOneWayReportPage />} />
+                    <Route path="geofence-round-trip" element={<GeofenceRoundTripReportPage />} />
+                    <Route path="geofence-single-place" element={<GeofenceSinglePlaceReportPage />} />
                   </Route>
                 </Route>
               </Route>

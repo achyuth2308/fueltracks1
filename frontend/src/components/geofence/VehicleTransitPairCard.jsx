@@ -178,8 +178,62 @@ const VehicleTransitPairCard = ({
           </div>
         </div>
 
-        {/* Analytics Shortcut Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Analytics Shortcut Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => {
+              const vId = vehicle?.id;
+              navigate(`/admin/reports/geofence-two-way?vehicleId=${vId || ''}&fromId=${geofenceA.id}&toId=${geofenceB.id}`);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#4F46E5',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(79, 70, 229, 0.3)',
+            }}
+            title="View Two-Way Loop & Shuttle Analytics between these 2 geofences"
+          >
+            <ArrowLeftRight size={12} />
+            <span>Two-Way Report</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const vId = vehicle?.id;
+              navigate(`/admin/reports/geofence-round-trip?vehicleId=${vId || ''}&geofenceId=${geofenceA.id}`);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              background: '#059669',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '5px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              flexShrink: 0,
+              boxShadow: '0 1px 4px rgba(5, 150, 105, 0.3)',
+            }}
+            title="View Round-Trip Analytics departing and returning to base"
+          >
+            <Repeat size={12} />
+            <span>Round-Trip</span>
+          </button>
+
           <button
             type="button"
             onClick={() => {
@@ -189,11 +243,11 @@ const VehicleTransitPairCard = ({
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '5px',
               background: '#0284C7',
               color: '#FFFFFF',
               border: 'none',
-              padding: '5px 12px',
+              padding: '5px 10px',
               borderRadius: '6px',
               fontSize: '11px',
               fontWeight: 700,
@@ -203,8 +257,8 @@ const VehicleTransitPairCard = ({
             }}
             title="View Geofence Transit & Corridor Analytics"
           >
-            <TrendingUp size={13} />
-            <span>Transit Report</span>
+            <TrendingUp size={12} />
+            <span>Transit</span>
           </button>
         </div>
       </div>

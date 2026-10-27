@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Polyline, Circle, Marker, Tooltip, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import {
   Truck, Route as RouteIcon, MapPin, Clock, Gauge, Navigation,
   ChevronRight, Plus, Trash2, RefreshCw, AlertCircle, CheckCircle,
-  Share2, ArrowLeft, Fuel, Activity, Radio, Shield, Layers, ZoomIn, ZoomOut, Maximize2
+  Share2, ArrowLeft, Fuel, Activity, Radio, Shield, Layers, ZoomIn, ZoomOut, Maximize2,
+  Repeat, RotateCcw, ArrowRightLeft, ArrowRight, ExternalLink, BarChart3, TrendingUp
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import axiosInstance from '../../api/axios';
@@ -154,6 +155,7 @@ const getLocalDateString = (d = new Date()) => {
 
 export default function TripManagerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const urlVehicleId = searchParams.get('vehicleId');
 
   const [vehicles, setVehicles] = useState([]);
@@ -740,7 +742,7 @@ export default function TripManagerPage() {
                 gap: '6px',
               }}
             >
-              <span>Vehicle Geofences</span>
+              <span>Geofences</span>
               <span style={{
                 padding: '1px 6px',
                 borderRadius: '10px',
@@ -751,6 +753,27 @@ export default function TripManagerPage() {
               }}>
                 {geofences.length}
               </span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('geofence_reports')}
+              style={{
+                flex: 1,
+                padding: '8px 0',
+                border: 'none',
+                background: 'transparent',
+                fontSize: '12px',
+                fontWeight: 800,
+                color: activeTab === 'geofence_reports' ? '#2563EB' : '#64748B',
+                borderBottom: activeTab === 'geofence_reports' ? '2px solid #2563EB' : '2px solid transparent',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <span>Trip Reports</span>
             </button>
           </div>
         </div>
@@ -1171,7 +1194,93 @@ export default function TripManagerPage() {
                   </div>
                 </div>
               ) : (
-                geofences.map(g => (
+                <>
+                  {geofences.length >= 2 && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
+                      border: '1.5px solid #C7D2FE',
+                      borderRadius: '12px',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                        <div style={{
+                          background: '#4F46E5',
+                          color: '#FFFFFF',
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                          fontSize: '13px',
+                          flexShrink: 0,
+                        }}>
+                          ⇄
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E1B4B' }}>
+                            Transit Route Configured
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#4338CA', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {geofences[0].name} ⇄ {geofences[1].name}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/reports/geofence-two-way?vehicleId=${selectedVehicleId}&fromId=${geofences[0].id}&toId=${geofences[1].id}`)}
+                          style={{
+                            background: '#4F46E5',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            boxShadow: '0 2px 4px rgba(79, 70, 229, 0.25)',
+                          }}
+                          title="Run Two-Way Loop & Shuttle Report"
+                        >
+                          <Repeat size={12} />
+                          <span>Two-Way Report</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/admin/reports/geofence-one-way?vehicleId=${selectedVehicleId}&fromId=${geofences[0].id}&toId=${geofences[1].id}`)}
+                          style={{
+                            background: '#0284C7',
+                            color: '#FFFFFF',
+                            border: 'none',
+                            padding: '6px 10px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            boxShadow: '0 2px 4px rgba(2, 132, 199, 0.25)',
+                          }}
+                          title="Run One-Way Transit Report"
+                        >
+                          <ArrowRight size={12} />
+                          <span>One-Way</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {geofences.map(g => (
                   <div
                     key={g.id}
                     onClick={() => {
@@ -1313,7 +1422,57 @@ export default function TripManagerPage() {
                         Created {getRelativeTime(g.created_at)}
                       </span>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/reports/geofence-round-trip?vehicleId=${selectedVehicleId}&geofenceId=${g.id}`);
+                          }}
+                          style={{
+                            background: '#ECFDF5',
+                            border: '1px solid #A7F3D0',
+                            color: '#059669',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                          title="View Round Trip loops starting and ending at this geofence"
+                        >
+                          <RotateCcw size={11} />
+                          <span>Round Trip</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/admin/reports/geofence-single-place?vehicleId=${selectedVehicleId}&geofenceId=${g.id}`);
+                          }}
+                          style={{
+                            background: '#FFFBEB',
+                            border: '1px solid #FDE68A',
+                            color: '#D97706',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                          }}
+                          title="View Stays and In/Out Activity for this geofence"
+                        >
+                          <MapPin size={11} />
+                          <span>Stays</span>
+                        </button>
+
                         <button
                           type="button"
                           onClick={(e) => {
@@ -1325,19 +1484,19 @@ export default function TripManagerPage() {
                             border: '1px solid #BFDBFE',
                             color: '#2563EB',
                             borderRadius: '6px',
-                            padding: '4px 10px',
+                            padding: '4px 8px',
                             fontSize: '11px',
                             fontWeight: 700,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
                             transition: 'all 0.15s ease',
                           }}
                           title="Apply this geofence to other vehicles of same user"
                         >
-                          <Share2 size={12} />
-                          <span>Apply to Others</span>
+                          <Share2 size={11} />
+                          <span>Apply</span>
                         </button>
 
                         <button
@@ -1350,21 +1509,397 @@ export default function TripManagerPage() {
                             background: 'transparent',
                             border: 'none',
                             color: '#DC2626',
-                            fontSize: '12px',
+                            fontSize: '11px',
                             fontWeight: 700,
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '3px',
+                            padding: '4px 6px',
                           }}
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={12} />
                           <span>Delete</span>
                         </button>
                       </div>
                     </div>
                   </div>
-                ))
+                ))}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ══ TAB 3: GEOFENCE TRIP REPORTS ══ */}
+          {activeTab === 'geofence_reports' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A' }}>
+                    Geofence Trip Analytics
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                    Automated loop, transit corridor, and turnaround reports for {selectedVehicle?.name || 'this vehicle'}
+                  </div>
+                </div>
+              </div>
+
+              {geofences.length === 0 ? (
+                <div style={{
+                  padding: '36px 16px',
+                  textAlign: 'center',
+                  background: '#FFFFFF',
+                  borderRadius: '16px',
+                  border: '1px solid #E2E8F0',
+                  color: '#94A3B8',
+                  fontSize: '13px',
+                }}>
+                  <Shield size={32} color="#CBD5E1" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontWeight: 700, color: '#475569' }}>No geofences assigned to this vehicle yet</div>
+                  <div style={{ fontSize: '12px', marginTop: '4px' }}>
+                    Assign or draw at least 1 geofence to run Round-Trip / Stay reports, or 2 geofences for Two-Way turnaround reports.
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('geofences')}
+                    style={{
+                      marginTop: '12px',
+                      background: '#2563EB',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Go to Vehicle Geofences
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Report Card 1: Two-Way Shuttle Loops */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: '1.5px solid #E0E7FF',
+                    padding: '16px',
+                    boxShadow: '0 2px 6px rgba(79, 70, 229, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          background: '#EEF2FF',
+                          color: '#4F46E5',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                        }}>
+                          <Repeat size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                            Two-Way Shuttle Loop Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            Tracks complete round-trip cycles between Origin A and Destination B (Turnaround time, Stays, Transit time)
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        background: '#EEF2FF',
+                        color: '#4F46E5',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                      }}>
+                        Requires 2 Geofences
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                        {geofences.length >= 2 ? (
+                          <span>Route: <strong>{geofences[0].name}</strong> ⇄ <strong>{geofences[1].name}</strong></span>
+                        ) : (
+                          <span style={{ color: '#94A3B8' }}>Attach 1 more geofence to unlock two-way loop tracking</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={geofences.length < 2}
+                        onClick={() => {
+                          if (geofences.length >= 2) {
+                            navigate(`/admin/reports/geofence-two-way?vehicleId=${selectedVehicleId}&fromId=${geofences[0].id}&toId=${geofences[1].id}`);
+                          }
+                        }}
+                        style={{
+                          background: geofences.length >= 2 ? '#4F46E5' : '#E2E8F0',
+                          color: geofences.length >= 2 ? '#FFFFFF' : '#94A3B8',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '7px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: geofences.length >= 2 ? 'pointer' : 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: geofences.length >= 2 ? '0 2px 6px rgba(79, 70, 229, 0.25)' : 'none',
+                        }}
+                      >
+                        <Repeat size={13} />
+                        <span>View Two-Way Report</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Report Card 2: Round Trip (Departs base & returns) */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: '1.5px solid #D1FAE5',
+                    padding: '16px',
+                    boxShadow: '0 2px 6px rgba(5, 150, 105, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          background: '#ECFDF5',
+                          color: '#059669',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                        }}>
+                          <RotateCcw size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                            Round-Trip Base Loop Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            Tracks departures from a home depot/warehouse and returns to the same base with outside distance & duration
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        background: '#ECFDF5',
+                        color: '#059669',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                      }}>
+                        1+ Geofence
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                        Base: <strong>{geofences[0]?.name}</strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigate(`/admin/reports/geofence-round-trip?vehicleId=${selectedVehicleId}&geofenceId=${geofences[0]?.id}`);
+                        }}
+                        style={{
+                          background: '#059669',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '7px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)',
+                        }}
+                      >
+                        <RotateCcw size={13} />
+                        <span>View Round-Trip Report</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Report Card 3: One-Way Transit Corridor */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: '1.5px solid #BAE6FD',
+                    padding: '16px',
+                    boxShadow: '0 2px 6px rgba(2, 132, 199, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          background: '#F0F9FF',
+                          color: '#0284C7',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                        }}>
+                          <ArrowRight size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                            One-Way Transit Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            Point-to-point legs from Origin to Destination with travel duration, distance, and max speeds
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        background: '#F0F9FF',
+                        color: '#0284C7',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                      }}>
+                        Requires 2 Geofences
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                        {geofences.length >= 2 ? (
+                          <span>Route: <strong>{geofences[0].name}</strong> → <strong>{geofences[1].name}</strong></span>
+                        ) : (
+                          <span style={{ color: '#94A3B8' }}>Attach 1 more geofence to unlock one-way transit tracking</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={geofences.length < 2}
+                        onClick={() => {
+                          if (geofences.length >= 2) {
+                            navigate(`/admin/reports/geofence-one-way?vehicleId=${selectedVehicleId}&fromId=${geofences[0].id}&toId=${geofences[1].id}`);
+                          }
+                        }}
+                        style={{
+                          background: geofences.length >= 2 ? '#0284C7' : '#E2E8F0',
+                          color: geofences.length >= 2 ? '#FFFFFF' : '#94A3B8',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '7px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: geofences.length >= 2 ? 'pointer' : 'not-allowed',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: geofences.length >= 2 ? '0 2px 6px rgba(2, 132, 199, 0.25)' : 'none',
+                        }}
+                      >
+                        <ArrowRight size={13} />
+                        <span>View One-Way Report</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Report Card 4: Single-Place Stay & In/Out Log */}
+                  <div style={{
+                    background: '#FFFFFF',
+                    borderRadius: '14px',
+                    border: '1.5px solid #FDE68A',
+                    padding: '16px',
+                    boxShadow: '0 2px 6px rgba(217, 119, 6, 0.04)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{
+                          background: '#FFFBEB',
+                          color: '#D97706',
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '8px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 800,
+                        }}>
+                          <MapPin size={18} />
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                            Single Place Stays & In/Out Report
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748B' }}>
+                            Detailed breakdown of all entries, exits, and dwell times inside specific warehouses/locations
+                          </div>
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '10px',
+                        fontWeight: 800,
+                        background: '#FFFBEB',
+                        color: '#D97706',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                      }}>
+                        1+ Geofence
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #F1F5F9', paddingTop: '10px' }}>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600 }}>
+                        Place: <strong>{geofences[0]?.name}</strong>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigate(`/admin/reports/geofence-single-place?vehicleId=${selectedVehicleId}&geofenceId=${geofences[0]?.id}`);
+                        }}
+                        style={{
+                          background: '#D97706',
+                          color: '#FFFFFF',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '7px 14px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 2px 6px rgba(217, 119, 6, 0.25)',
+                        }}
+                      >
+                        <MapPin size={13} />
+                        <span>View Place Report</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}
