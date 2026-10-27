@@ -1241,10 +1241,16 @@ export default function FuelAnalyticsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
                   <defs>
+                    {/* Soft, elegant translucent gradient for anti-slosh background */}
                     <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.45} />
-                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.03} />
+                      <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.16} />
+                      <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.01} />
                     </linearGradient>
+
+                    {/* Crisp drop shadow to make the red Normalize truth line pop boldly off the canvas */}
+                    <filter id="normalizeRedShadow" x="-10%" y="-30%" width="120%" height="160%">
+                      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#7f1d1d" floodOpacity="0.8" />
+                    </filter>
                   </defs>
 
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
@@ -1378,14 +1384,15 @@ export default function FuelAnalyticsPage() {
                     }}
                   />
 
-                  {/* 1. Filtered Fuel Area (Light Blue Gradient) */}
+                  {/* 1. Filtered Fuel Area (Light Blue Gradient & Soft Outline) */}
                   {showFilteredFuel && (
                     <Area
                       yAxisId="fuel"
                       type="monotone"
                       dataKey="filteredFuel"
                       stroke="#38bdf8"
-                      strokeWidth={1.8}
+                      strokeWidth={1.3}
+                      strokeOpacity={0.65}
                       fillOpacity={1}
                       fill="url(#filteredFuelGradient)"
                       connectNulls={true}
@@ -1393,21 +1400,7 @@ export default function FuelAnalyticsPage() {
                     />
                   )}
 
-                  {/* 2. Normalize Line (Solid Red Monotonic Truth Curve) */}
-                  {showNormalize && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="normalizedFuel"
-                      stroke="#dc2626"
-                      strokeWidth={2.8}
-                      dot={false}
-                      connectNulls={true}
-                      name="Normalize (L)"
-                    />
-                  )}
-
-                  {/* 3. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
+                  {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
                   {showAllFuel && (
                     <Line
                       yAxisId="fuel"
@@ -1419,6 +1412,21 @@ export default function FuelAnalyticsPage() {
                       dot={{ r: 1.5, fill: '#94a3b8', strokeWidth: 0 }}
                       connectNulls={true}
                       name="All Fuel Data (L)"
+                    />
+                  )}
+
+                  {/* 3. Normalize Line (Vibrant Hero Red Curve - Elevated on Top) */}
+                  {showNormalize && (
+                    <Line
+                      yAxisId="fuel"
+                      type="monotone"
+                      dataKey="normalizedFuel"
+                      stroke="#ef4444"
+                      strokeWidth={3.8}
+                      filter="url(#normalizeRedShadow)"
+                      dot={false}
+                      connectNulls={true}
+                      name="Normalize (L)"
                     />
                   )}
 
