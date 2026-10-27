@@ -639,9 +639,13 @@ export default function FuelAnalyticsPage() {
             });
           }
         }
-        // C. Engine is OFF & Vehicle Stationary -> Lock flat (No burning or temperature expansion drift)
+        // C. Engine is OFF & Vehicle Stationary -> Settle smoothly to true resting liquid level
         else if (!isEngineOn) {
-          // Keep currentNormalized steady
+          // If deviation is within normal slosh bounds, converge smoothly to true resting liquid level
+          // Eliminates the braking-dip trap where the red line gets stuck below actual resting fuel
+          if (Math.abs(diff) < refuelThreshold) {
+            currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+          }
         }
         // D. Engine is ON (Driving or Idling) -> Fuel can only burn (monotonic decrease)
         else {
