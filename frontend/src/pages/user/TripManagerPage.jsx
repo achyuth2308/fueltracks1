@@ -144,6 +144,14 @@ const calculateCircleAreaKm2 = (radiusMeters) => {
   return (Math.PI * radiusKm * radiusKm).toFixed(2);
 };
 
+// ── Local Date String Helper (YYYY-MM-DD) ─────────────────────────────────────────
+const getLocalDateString = (d = new Date()) => {
+  const yr = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const da = String(d.getDate()).padStart(2, '0');
+  return `${yr}-${mo}-${da}`;
+};
+
 export default function TripManagerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const urlVehicleId = searchParams.get('vehicleId');
@@ -153,10 +161,8 @@ export default function TripManagerPage() {
   const [activeTab, setActiveTab] = useState('trip'); // 'trip' or 'geofences'
   const [mapLayer, setMapLayer] = useState('google'); // 'google', 'satellite', 'osm'
 
-  // Date selection: today by default
-  const [selectedDate, setSelectedDate] = useState(() => {
-    return new Date().toISOString().slice(0, 10);
-  });
+  // Date selection: today by default in local time
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());
 
   const [loading, setLoading] = useState(false);
   const [tripLegs, setTripLegs] = useState([]);
@@ -229,8 +235,12 @@ export default function TripManagerPage() {
     if (!selectedVehicleId) return;
     setLoading(true);
 
-    const start = new Date(`${selectedDate}T00:00:00.000Z`).toISOString();
-    const end = new Date(`${selectedDate}T23:59:59.999Z`).toISOString();
+    // Convert selectedDate (YYYY-MM-DD) to full 24h day in local time
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const startObj = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const endObj = new Date(y, m - 1, d, 23, 59, 59, 999);
+    const start = startObj.toISOString();
+    const end = endObj.toISOString();
 
     try {
       const [legsRes, stopsRes, routeRes] = await Promise.all([
@@ -274,49 +284,76 @@ export default function TripManagerPage() {
 
   // Interleave stoppages and driving legs chronologically
   const timelineEvents = useMemo(() => {
-    const events = [];
+    const rawEvents = [];
 
-    let stopCounter = 1;
     stoppages.forEach(s => {
       // Only include actual stops / parkings (duration >= 60s and not Moving)
       if (s.duration_seconds >= 60 && s.status !== 'Moving') {
-        events.push({
+        rawEvents.push({
           type: 'stop',
-          index: stopCounter++,
           data: s,
+          start_time: new Date(s.start_time).getTime(),
+          end_time: new Date(s.end_time).getTime(),
           time: new Date(s.start_time).getTime(),
         });
       }
     });
 
     tripLegs.forEach(l => {
-      events.push({
+      rawEvents.push({
         type: 'driving',
         data: l,
+        start_time: new Date(l.start_time).getTime(),
+        end_time: new Date(l.end_time).getTime(),
         time: new Date(l.start_time).getTime(),
       });
     });
 
-    events.sort((a, b) => a.time - b.time);
-    return events;
+    // 1. Sort all events chronologically (earliest first)
+    rawEvents.sort((a, b) => a.start_time - b.start_time);
+
+    // 2. Merge any consecutive stops if there is no driving leg in between
+    const mergedEvents = [];
+    for (const ev of rawEvents) {
+      const prev = mergedEvents[mergedEvents.length - 1];
+      if (prev && prev.type === 'stop' && ev.type === 'stop') {
+        const newEndTime = Math.max(prev.end_time, ev.end_time);
+        prev.end_time = newEndTime;
+        prev.data = {
+          ...prev.data,
+          end_time: new Date(newEndTime).toISOString(),
+          duration_seconds: Math.round((newEndTime - prev.start_time) / 1000),
+        };
+      } else {
+        mergedEvents.push({ ...ev });
+      }
+    }
+
+    // 3. Assign sequential stop numbering (Stop 1, Stop 2...) in chronological order
+    let stopCounter = 1;
+    mergedEvents.forEach(ev => {
+      if (ev.type === 'stop') {
+        ev.index = stopCounter++;
+      }
+    });
+
+    return mergedEvents;
   }, [stoppages, tripLegs]);
 
-  // Calculate Trip Summary
+  // Calculate Trip Summary from merged timeline
   const tripSummary = useMemo(() => {
     let totalDistKm = 0;
     let totalDrivingSec = 0;
     let totalStopSec = 0;
     let stopCount = 0;
 
-    tripLegs.forEach(l => {
-      totalDistKm += (parseFloat(l.distance) || 0);
-      totalDrivingSec += (parseFloat(l.duration_seconds) || 0);
-    });
-
-    stoppages.forEach(s => {
-      if (s.duration_seconds >= 60 && s.status !== 'Moving') {
+    timelineEvents.forEach(ev => {
+      if (ev.type === 'driving') {
+        totalDistKm += (parseFloat(ev.data.distance) || 0);
+        totalDrivingSec += (parseFloat(ev.data.duration_seconds) || 0);
+      } else if (ev.type === 'stop') {
         stopCount++;
-        totalStopSec += (parseFloat(s.duration_seconds) || 0);
+        totalStopSec += (parseFloat(ev.data.duration_seconds) || 0);
       }
     });
 
@@ -327,7 +364,7 @@ export default function TripManagerPage() {
       stopDuration: formatDurationHms(totalStopSec),
       lowNetworkTime: '0 Time',
     };
-  }, [tripLegs, stoppages]);
+  }, [timelineEvents]);
 
   // Open "Set Geofence" dialog pre-filled with stop location
   const handleOpenSetGeofence = (stopItem) => {
@@ -599,7 +636,7 @@ export default function TripManagerPage() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '6px' }}>
               <button
-                onClick={() => setSelectedDate(new Date().toISOString().slice(0, 10))}
+                onClick={() => setSelectedDate(getLocalDateString())}
                 style={{
                   padding: '5px 12px',
                   borderRadius: '6px',
@@ -607,8 +644,8 @@ export default function TripManagerPage() {
                   fontSize: '11px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  background: selectedDate === new Date().toISOString().slice(0, 10) ? '#2563EB' : '#F1F5F9',
-                  color: selectedDate === new Date().toISOString().slice(0, 10) ? '#FFFFFF' : '#475569',
+                  background: selectedDate === getLocalDateString() ? '#2563EB' : '#F1F5F9',
+                  color: selectedDate === getLocalDateString() ? '#FFFFFF' : '#475569',
                 }}
               >
                 Today
@@ -617,7 +654,7 @@ export default function TripManagerPage() {
                 onClick={() => {
                   const y = new Date();
                   y.setDate(y.getDate() - 1);
-                  setSelectedDate(y.toISOString().slice(0, 10));
+                  setSelectedDate(getLocalDateString(y));
                 }}
                 style={{
                   padding: '5px 12px',
@@ -626,8 +663,8 @@ export default function TripManagerPage() {
                   fontSize: '11px',
                   fontWeight: 700,
                   cursor: 'pointer',
-                  background: selectedDate !== new Date().toISOString().slice(0, 10) ? '#2563EB' : '#F1F5F9',
-                  color: selectedDate !== new Date().toISOString().slice(0, 10) ? '#FFFFFF' : '#475569',
+                  background: selectedDate !== getLocalDateString() ? '#2563EB' : '#F1F5F9',
+                  color: selectedDate !== getLocalDateString() ? '#FFFFFF' : '#475569',
                 }}
               >
                 Yesterday

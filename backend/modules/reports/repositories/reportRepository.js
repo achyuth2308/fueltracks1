@@ -39,7 +39,7 @@ class ReportRepository {
               LAG(lat)         OVER (ORDER BY device_time) AS prev_lat,
               LAG(lng)         OVER (ORDER BY device_time) AS prev_lng,
               LAG(device_time) OVER (ORDER BY device_time) AS prev_time,
-              (ignition = true OR speed > 0)               AS is_moving
+              (COALESCE(speed, 0) > 2.5)                   AS is_moving
           FROM gps_points
           WHERE vehicle_id = $1
             AND device_time BETWEEN $2 AND $3
@@ -75,7 +75,8 @@ class ReportRepository {
       FROM islands
       WHERE is_moving = true
       GROUP BY trip_id
-      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) > 60
+      HAVING EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time))) >= 60
+         AND ROUND(SUM(segment_km)::numeric, 2) >= 0.05
       ORDER BY start_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
@@ -379,8 +380,8 @@ class ReportRepository {
       WITH flagged AS (
           SELECT lat, lng, speed, device_time, ignition,
                  CASE
-                   WHEN COALESCE(speed, 0) > 2 THEN 'Moving'
-                   WHEN COALESCE(speed, 0) <= 2 AND ignition = true THEN 'Idle'
+                   WHEN COALESCE(speed, 0) > 3 THEN 'Moving'
+                   WHEN COALESCE(speed, 0) <= 3 AND ignition = true THEN 'Idle'
                    ELSE 'Parked'
                  END AS status
           FROM gps_points
@@ -411,7 +412,47 @@ class ReportRepository {
       ORDER BY start_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
-    return res.rows;
+    const rawStoppages = res.rows;
+    if (!rawStoppages || rawStoppages.length <= 1) return rawStoppages || [];
+
+    // Merge consecutive non-moving stoppage intervals occurring at the same location
+    const merged = [];
+    let current = { ...rawStoppages[0] };
+
+    for (let i = 1; i < rawStoppages.length; i++) {
+      const next = rawStoppages[i];
+      const gapSeconds = (new Date(next.start_time) - new Date(current.end_time)) / 1000;
+      
+      const p1 = parseFloat(current.lat);
+      const l1 = parseFloat(current.lng);
+      const p2 = parseFloat(next.lat);
+      const l2 = parseFloat(next.lng);
+      
+      let distKm = 0;
+      if (!isNaN(p1) && !isNaN(l1) && !isNaN(p2) && !isNaN(l2)) {
+        const dLat = (p2 - p1) * Math.PI / 180;
+        const dLon = (l2 - l1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(p1 * Math.PI / 180) * Math.cos(p2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        distKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      }
+
+      // If both events are non-moving (Parked or Idle), location within 150m, and gap <= 180s (jitter), merge them
+      const isBothStopped = (current.status !== 'Moving' && next.status !== 'Moving');
+      if (isBothStopped && distKm < 0.15 && gapSeconds <= 180) {
+        current.end_time = next.end_time;
+        current.duration_seconds = Math.round((new Date(current.end_time) - new Date(current.start_time)) / 1000);
+        if (current.status === 'Idle' && next.status === 'Parked') {
+          current.status = 'Parked';
+        }
+      } else {
+        merged.push(current);
+        current = { ...next };
+      }
+    }
+    merged.push(current);
+    return merged;
   }
 
   /**
