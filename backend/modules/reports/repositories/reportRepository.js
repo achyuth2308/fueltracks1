@@ -164,7 +164,35 @@ class ReportRepository {
       ORDER BY start_time;
     `;
     const res = await db.query(query, [vehicleId, startDate, endDate]);
-    return res.rows;
+    const rawLegs = res.rows;
+    if (!rawLegs || rawLegs.length <= 1) return rawLegs || [];
+
+    // Merge consecutive driving legs separated only by brief traffic pauses (<= 180s / 3 min)
+    const merged = [];
+    let cur = { ...rawLegs[0] };
+
+    for (let i = 1; i < rawLegs.length; i++) {
+      const next = rawLegs[i];
+      const gapSeconds = (new Date(next.start_time) - new Date(cur.end_time)) / 1000;
+
+      // Merge if gap <= 180s (e.g. traffic signal, turn, or junction pause without actual parking)
+      if (gapSeconds <= 180) {
+        cur.end_time = next.end_time;
+        cur.end_lat = next.end_lat;
+        cur.end_lng = next.end_lng;
+        cur.duration_seconds = Math.round((new Date(cur.end_time) - new Date(cur.start_time)) / 1000);
+        cur.distance = Math.round(((parseFloat(cur.distance) || 0) + (parseFloat(next.distance) || 0)) * 100) / 100;
+        cur.max_speed = Math.max(parseFloat(cur.max_speed) || 0, parseFloat(next.max_speed) || 0);
+        cur.avg_speed = cur.duration_seconds > 0
+          ? Math.round((cur.distance / (cur.duration_seconds / 3600)) * 10) / 10
+          : cur.avg_speed;
+      } else {
+        merged.push(cur);
+        cur = { ...next };
+      }
+    }
+    merged.push(cur);
+    return merged;
   }
 
   /**

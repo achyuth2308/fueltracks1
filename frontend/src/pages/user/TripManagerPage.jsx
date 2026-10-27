@@ -170,6 +170,7 @@ export default function TripManagerPage() {
   const [tripLegs, setTripLegs] = useState([]);
   const [stoppages, setStoppages] = useState([]);
   const [routeHistory, setRouteHistory] = useState([]);
+  const [dayActivity, setDayActivity] = useState(null);
   const [geofences, setGeofences] = useState([]);
   const [addresses, setAddresses] = useState({}); // key: lat,lng -> address
   const [focusedCoord, setFocusedCoord] = useState(null);
@@ -245,10 +246,11 @@ export default function TripManagerPage() {
     const end = endObj.toISOString();
 
     try {
-      const [legsRes, stopsRes, routeRes] = await Promise.all([
+      const [legsRes, stopsRes, routeRes, activityRes] = await Promise.all([
         axiosInstance.get(`/api/reports/trip?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
         axiosInstance.get(`/api/reports/stoppages?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
         axiosInstance.get(`/api/reports/route-history?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: [] } })),
+        axiosInstance.get(`/api/reports/activity?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`).catch(() => ({ data: { data: null } })),
       ]);
 
       const legs = Array.isArray(legsRes.data?.data) ? legsRes.data.data : [];
@@ -258,6 +260,7 @@ export default function TripManagerPage() {
       setTripLegs(legs);
       setStoppages(stops);
       setRouteHistory(route);
+      setDayActivity(activityRes.data?.data || null);
 
       // Trigger address lookups for stops
       stops.forEach(s => {
@@ -284,7 +287,7 @@ export default function TripManagerPage() {
     }
   }, [selectedVehicleId, selectedDate]);
 
-  // Interleave stoppages and driving legs chronologically
+  // Interleave stoppages and driving legs chronologically (matching clean mobile app timeline)
   const timelineEvents = useMemo(() => {
     const rawEvents = [];
 
@@ -293,7 +296,7 @@ export default function TripManagerPage() {
       if (s.duration_seconds >= 60 && s.status !== 'Moving') {
         rawEvents.push({
           type: 'stop',
-          data: s,
+          data: { ...s },
           start_time: new Date(s.start_time).getTime(),
           end_time: new Date(s.end_time).getTime(),
           time: new Date(s.start_time).getTime(),
@@ -304,7 +307,7 @@ export default function TripManagerPage() {
     tripLegs.forEach(l => {
       rawEvents.push({
         type: 'driving',
-        data: l,
+        data: { ...l },
         start_time: new Date(l.start_time).getTime(),
         end_time: new Date(l.end_time).getTime(),
         time: new Date(l.start_time).getTime(),
@@ -314,7 +317,7 @@ export default function TripManagerPage() {
     // 1. Sort all events chronologically (earliest first)
     rawEvents.sort((a, b) => a.start_time - b.start_time);
 
-    // 2. Merge any consecutive stops if there is no driving leg in between
+    // 2. Merge consecutive stops AND merge consecutive driving legs (no multiple driving legs at one place)
     const mergedEvents = [];
     for (const ev of rawEvents) {
       const prev = mergedEvents[mergedEvents.length - 1];
@@ -326,12 +329,58 @@ export default function TripManagerPage() {
           end_time: new Date(newEndTime).toISOString(),
           duration_seconds: Math.round((newEndTime - prev.start_time) / 1000),
         };
+      } else if (prev && prev.type === 'driving' && ev.type === 'driving') {
+        // Merge consecutive driving legs separated only by brief traffic pauses into a single driving leg
+        const newEndTime = Math.max(prev.end_time, ev.end_time);
+        prev.end_time = newEndTime;
+        const totalDurSec = Math.round((newEndTime - prev.start_time) / 1000);
+        const prevDist = parseFloat(prev.data?.distance) || 0;
+        const evDist = parseFloat(ev.data?.distance) || 0;
+        const totalDist = Math.round((prevDist + evDist) * 100) / 100;
+        const maxSpd = Math.max(parseFloat(prev.data?.max_speed) || 0, parseFloat(ev.data?.max_speed) || 0);
+        const avgSpd = totalDurSec > 0 ? Math.round((totalDist / (totalDurSec / 3600)) * 10) / 10 : 0;
+        prev.data = {
+          ...prev.data,
+          end_time: new Date(newEndTime).toISOString(),
+          end_lat: ev.data?.end_lat || prev.data?.end_lat,
+          end_lng: ev.data?.end_lng || prev.data?.end_lng,
+          duration_seconds: totalDurSec,
+          distance: totalDist,
+          max_speed: maxSpd,
+          avg_speed: avgSpd,
+        };
       } else {
         mergedEvents.push({ ...ev });
       }
     }
 
-    // 3. Assign sequential stop numbering (Stop 1, Stop 2...) in chronological order
+    // 3. Align boundaries between adjacent Stop and Driving legs to match mobile app continuous journey
+    for (let i = 0; i < mergedEvents.length; i++) {
+      const cur = mergedEvents[i];
+      const next = mergedEvents[i + 1];
+
+      if (cur.type === 'stop' && next && next.type === 'driving') {
+        // Driving leg starts immediately when the previous stop ends
+        next.start_time = cur.end_time;
+        next.data.start_time = new Date(next.start_time).toISOString();
+        const durSec = Math.max(0, Math.round((next.end_time - next.start_time) / 1000));
+        next.data.duration_seconds = durSec;
+        if (durSec > 0 && next.data.distance > 0) {
+          next.data.avg_speed = Math.round((next.data.distance / (durSec / 3600)) * 10) / 10;
+        }
+      } else if (cur.type === 'driving' && next && next.type === 'stop') {
+        // Driving leg ends immediately when the subsequent stop begins
+        cur.end_time = Math.max(cur.start_time, next.start_time);
+        cur.data.end_time = new Date(cur.end_time).toISOString();
+        const durSec = Math.max(0, Math.round((cur.end_time - cur.start_time) / 1000));
+        cur.data.duration_seconds = durSec;
+        if (durSec > 0 && cur.data.distance > 0) {
+          cur.data.avg_speed = Math.round((cur.data.distance / (durSec / 3600)) * 10) / 10;
+        }
+      }
+    }
+
+    // 4. Assign sequential stop numbering (Stop 1, Stop 2...) in chronological order
     let stopCounter = 1;
     mergedEvents.forEach(ev => {
       if (ev.type === 'stop') {
@@ -342,7 +391,7 @@ export default function TripManagerPage() {
     return mergedEvents;
   }, [stoppages, tripLegs]);
 
-  // Calculate Trip Summary from merged timeline
+  // Calculate Trip Summary from merged timeline & activity metrics
   const tripSummary = useMemo(() => {
     let totalDistKm = 0;
     let totalDrivingSec = 0;
@@ -359,14 +408,26 @@ export default function TripManagerPage() {
       }
     });
 
+    const travelled = dayActivity?.distance_travelled != null
+      ? parseFloat(dayActivity.distance_travelled).toFixed(2)
+      : totalDistKm.toFixed(2);
+
+    const drivingDuration = dayActivity?.running_seconds
+      ? formatDurationHms(dayActivity.running_seconds)
+      : formatDurationHms(totalDrivingSec);
+
+    const stopDuration = dayActivity?.stopped_seconds
+      ? formatDurationHms(dayActivity.stopped_seconds)
+      : formatDurationHms(totalStopSec);
+
     return {
-      travelledKm: totalDistKm.toFixed(2),
-      drivingDuration: formatDurationHms(totalDrivingSec),
+      travelledKm: travelled,
+      drivingDuration: drivingDuration,
       stopCount: stopCount,
-      stopDuration: formatDurationHms(totalStopSec),
+      stopDuration: stopDuration,
       lowNetworkTime: '0 Time',
     };
-  }, [timelineEvents]);
+  }, [timelineEvents, dayActivity]);
 
   // Open "Set Geofence" dialog pre-filled with stop location
   const handleOpenSetGeofence = (stopItem) => {
@@ -1960,19 +2021,21 @@ export default function TripManagerPage() {
             />
           )}
 
-          {/* Stop Pins on Map */}
-          {stoppages.filter(s => s.status !== 'Moving' && s.duration_seconds >= 60).map((s, idx) => {
+          {/* Stop Pins on Map (Aligned with Timeline Stops 1..N) */}
+          {timelineEvents.filter(ev => ev.type === 'stop').map((ev) => {
+            const s = ev.data;
+            const stopNumber = ev.index;
             if (!s.lat || !s.lng) return null;
             return (
               <Marker
-                key={`map-stop-${idx}`}
+                key={`map-stop-${stopNumber}`}
                 position={[parseFloat(s.lat), parseFloat(s.lng)]}
-                icon={createStopIcon(idx + 1)}
+                icon={createStopIcon(stopNumber)}
               >
                 <Popup>
                   <div style={{ padding: '4px', minWidth: '180px' }}>
                     <div style={{ fontWeight: 800, color: '#D97706', fontSize: '13px' }}>
-                      Stop {idx + 1}
+                      Stop {stopNumber}
                     </div>
                     <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
                       Duration: {formatDurationHms(s.duration_seconds)}
@@ -1981,7 +2044,7 @@ export default function TripManagerPage() {
                       {addresses[`${parseFloat(s.lat).toFixed(4)},${parseFloat(s.lng).toFixed(4)}`] || 'Location pin'}
                     </div>
                     <button
-                      onClick={() => handleOpenSetGeofence({ ...s, index: idx + 1 })}
+                      onClick={() => handleOpenSetGeofence({ ...s, index: stopNumber })}
                       style={{
                         marginTop: '8px',
                         background: '#2563EB',
