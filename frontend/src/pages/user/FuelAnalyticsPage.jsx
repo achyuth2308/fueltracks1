@@ -1380,15 +1380,15 @@ export default function FuelAnalyticsPage() {
                     }}
                   />
 
-                  {/* 1. Filtered Fuel Area (Light Blue Gradient & Soft Outline) */}
+                  {/* 1. Filtered Fuel Area (Translucent Glass Background Tint) */}
                   {showFilteredFuel && (
                     <Area
                       yAxisId="fuel"
                       type="monotone"
                       dataKey="filteredFuel"
                       stroke="#38bdf8"
-                      strokeWidth={1.3}
-                      strokeOpacity={0.65}
+                      strokeWidth={1.4}
+                      strokeOpacity={0.6}
                       fillOpacity={1}
                       fill="url(#filteredFuelGradient)"
                       connectNulls={true}
@@ -1411,21 +1411,7 @@ export default function FuelAnalyticsPage() {
                     />
                   )}
 
-                  {/* 3. Normalize Line (Pure Solid Red Hero Curve - Clean, Crisp & Elevated) */}
-                  {showNormalize && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="normalizedFuel"
-                      stroke="#dc2626"
-                      strokeWidth={3}
-                      dot={false}
-                      connectNulls={true}
-                      name="Normalize (L)"
-                    />
-                  )}
-
-                  {/* 4. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
+                  {/* 3. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
                   {showEngine && (
                     <Line
                       yAxisId="engine"
@@ -1438,7 +1424,7 @@ export default function FuelAnalyticsPage() {
                     />
                   )}
 
-                  {/* 5. Speed Line (Cyan Line on Right Axis) */}
+                  {/* 4. Speed Line (Cyan Line on Right Axis) */}
                   {showSpeed && (
                     <Line
                       yAxisId="speed"
@@ -1448,6 +1434,21 @@ export default function FuelAnalyticsPage() {
                       strokeWidth={1.8}
                       dot={false}
                       name="Speed (km/h)"
+                    />
+                  )}
+
+                  {/* 5. Master Hero: Normalize Line (RED) - Rendered LAST so it is ALWAYS on TOP of all other layers */}
+                  {showNormalize && (
+                    <Line
+                      yAxisId="fuel"
+                      type="monotone"
+                      dataKey="normalizedFuel"
+                      stroke="#ef4444"
+                      strokeWidth={4}
+                      dot={false}
+                      activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
+                      connectNulls={true}
+                      name="Normalize (L)"
                     />
                   )}
 
