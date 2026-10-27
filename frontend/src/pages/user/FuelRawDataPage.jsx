@@ -661,25 +661,10 @@ export default function FuelRawDataPage() {
               <Database className="w-6 h-6" />
             </div>
             <div>
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex items-center gap-2">
                 <h1 className="text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
                   Fuel Raw Data
                 </h1>
-                <div className="inline-flex p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                  <button
-                    type="button"
-                    onClick={() => navigate(selectedVehicle?.id ? `/fuel-analytics?vehicle=${selectedVehicle.id}` : '/fuel-analytics')}
-                    className="px-2.5 py-1 rounded-md text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1.5 transition-colors"
-                    title="Switch to Fuel Analytics Graph"
-                  >
-                    <Fuel className="w-3.5 h-3.5" />
-                    Analytics
-                  </button>
-                  <span className="px-2.5 py-1 rounded-md text-xs font-bold bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-xs flex items-center gap-1.5">
-                    <Database className="w-3.5 h-3.5" />
-                    Fuel Raw Data
-                  </span>
-                </div>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-900/60">
                   Precision Audit
                 </span>
