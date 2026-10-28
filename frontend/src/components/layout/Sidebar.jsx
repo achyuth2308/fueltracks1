@@ -40,7 +40,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [brandProfile, setBrandProfile] = useState(null);
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
-    'Fuel Analytics': location.pathname.startsWith('/fuel-')
+    'Fuel Analytics': location.pathname.startsWith('/fuel-'),
+    'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
   }));
 
   const isTripReportPath = (p) => {
@@ -60,6 +61,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   useEffect(() => {
     if (location.pathname.startsWith('/fuel-')) {
       setOpenSubMenus(prev => ({ ...prev, 'Fuel Analytics': true }));
+    }
+    if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
+      setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
     }
     if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
       setTripsExpanded(true);
@@ -127,7 +131,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
-        { name: 'Reports', path: '/admin/reports/consolidated', icon: FileText, roles: ['customer'] },
+        {
+          name: 'Reports',
+          path: '/admin/reports/consolidated',
+          icon: FileText,
+          roles: ['customer', 'superadmin', 'dealer'],
+          subItems: [
+            { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
+            { name: 'Daily Distance', path: '/admin/reports/distance' },
+            { name: 'Engine ON', path: '/admin/reports/ignition' },
+            { name: 'Overspeeding', path: '/admin/reports/overspeeding' },
+            { name: 'Stoppage', path: '/admin/reports/stoppage' },
+            { name: 'Individual', path: '/admin/reports/individual' },
+          ],
+        },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },

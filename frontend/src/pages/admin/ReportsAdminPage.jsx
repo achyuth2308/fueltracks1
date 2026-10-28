@@ -26,15 +26,6 @@ const isTripReportPath = (p) => {
          p.startsWith('/admin/reports/geofence');
 };
 
-const REPORT_TABS = [
-  { title: "Vehicle Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
-  { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
-  { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
-  { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
-  { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
-  { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
-];
-
 const MetricCard = ({ label, value, color, icon: Icon, bg }) => (
   <div style={{
     background: bg,
@@ -137,30 +128,6 @@ const ReportsAdminPage = () => {
 
       {activeTab === 'other-reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #BAE6FD', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
-            {REPORT_TABS.map(tab => {
-              const isActive = location.pathname.startsWith(tab.path);
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.path}
-                  onClick={() => navigate(tab.path)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-                    background: isActive ? tab.color : tab.bg,
-                    color: isActive ? '#FFFFFF' : tab.color,
-                    border: `1.5px solid ${tab.color}`,
-                    borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
-                    boxShadow: isActive ? `0 4px 12px ${tab.color}44` : 'none',
-                    transition: 'all 0.2s ease', whiteSpace: 'nowrap', flexShrink: 0
-                  }}
-                >
-                  <Icon size={15} color={isActive ? '#FFFFFF' : tab.color} />
-                  {tab.title}
-                </button>
-              )
-            })}
-          </div>
           <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px', background: '#F8FAFC' }}>
             <Outlet />
           </div>
