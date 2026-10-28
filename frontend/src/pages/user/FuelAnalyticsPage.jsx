@@ -209,6 +209,7 @@ export default function FuelAnalyticsPage() {
   const [showNormalize, setShowNormalize] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
+  const [showEventMarkers, setShowEventMarkers] = useState(true);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -686,6 +687,8 @@ export default function FuelAnalyticsPage() {
     const normalizedFuels = new Array(sorted.length).fill(null);
     const refuelEvents = [];
     const dropEvents = [];
+    const refuelPointsMap = new Map();
+    const dropPointsMap = new Map();
     
     // Find initial baseline fuel
     const firstValidFiltered = filteredFuels.find(f => f != null);
@@ -745,11 +748,13 @@ export default function FuelAnalyticsPage() {
             if (isStable) {
               rampHandled = true;
               const refuelLiters = Math.round(cumRise * 10) / 10;
-              refuelEvents.push({
+              const refuelObj = {
                 time: formatIST(pt.device_time),
                 liters: refuelLiters,
                 level: Math.round(maxRampVal * 10) / 10
-              });
+              };
+              refuelEvents.push(refuelObj);
+              refuelPointsMap.set(maxRampIdx, refuelObj);
 
               // Apply normalized ramp progression
               for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
@@ -809,11 +814,13 @@ export default function FuelAnalyticsPage() {
             if (isStable) {
               rampHandled = true;
               const dropLiters = Math.round(cumDrop * 10) / 10;
-              dropEvents.push({
+              const dropObj = {
                 time: formatIST(pt.device_time),
                 liters: dropLiters,
                 level: Math.round(minRampVal * 10) / 10
-              });
+              };
+              dropEvents.push(dropObj);
+              dropPointsMap.set(minRampIdx, dropObj);
 
               // Apply normalized trajectory across the drain
               for (let fillIdx = i; fillIdx <= minRampIdx; fillIdx++) {
@@ -955,6 +962,9 @@ export default function FuelAnalyticsPage() {
         if (rawSpeed > currentSession.maxSpeed) currentSession.maxSpeed = rawSpeed;
       }
 
+      const refEv = refuelPointsMap.get(i);
+      const dropEv = dropPointsMap.get(i);
+
       chartPoints.push({
         timestamp: new Date(pt.device_time).getTime(),
         timeStr: formatIST(pt.device_time),
@@ -963,6 +973,8 @@ export default function FuelAnalyticsPage() {
         filteredFuel: filtF,
         normalizedFuel: normF,
         fuel: normF, // Backward compatibility
+        refuelLiters: refEv ? refEv.liters : null,
+        dropLiters: dropEv ? dropEv.liters : null,
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
         engineVal: (rawSpeed > 6.0 || ign) ? 1 : 0,
@@ -1523,6 +1535,21 @@ export default function FuelAnalyticsPage() {
                 <span className="w-2 h-2 rounded-full bg-cyan-400" />
                 Speed
               </button>
+
+              {/* Layer 6: Refill & Theft Event Pins */}
+              <button
+                type="button"
+                onClick={() => setShowEventMarkers(!showEventMarkers)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                  showEventMarkers
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                }`}
+                title="Toggle Visual Refill (+L) and Drain (-L) Pins directly on the graph"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Refill Pins
+              </button>
             </div>
           </div>
 
@@ -1650,6 +1677,20 @@ export default function FuelAnalyticsPage() {
                             </span>
                           </div>
 
+                          {/* Refill / Drain Highlight */}
+                          {pt.refuelLiters && (
+                            <div className="flex items-center justify-between gap-4 py-1 px-2 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 font-bold">
+                              <span>⛽ Refuel Event:</span>
+                              <span className="font-mono">+{pt.refuelLiters} Ltrs</span>
+                            </div>
+                          )}
+                          {pt.dropLiters && (
+                            <div className="flex items-center justify-between gap-4 py-1 px-2 rounded-lg bg-red-950/80 border border-red-500/40 text-red-400 font-bold">
+                              <span>⚠️ Theft / Drain:</span>
+                              <span className="font-mono">-{pt.dropLiters} Ltrs</span>
+                            </div>
+                          )}
+
                           {/* Odometer */}
                           <div className="flex items-center justify-between gap-4 text-slate-300">
                             <span className="text-slate-400">Odometer:</span>
@@ -1686,6 +1727,39 @@ export default function FuelAnalyticsPage() {
                       fillOpacity={1}
                       fill="url(#filteredFuelGradient)"
                       connectNulls={true}
+                      dot={showEventMarkers && !showNormalize ? (props) => {
+                        const { cx, cy, payload } = props;
+                        if (!cx || !cy || !payload) return null;
+                        if (payload.refuelLiters) {
+                          return (
+                            <g key={`rf-dot-${payload.timeStr}-${cx}`}>
+                              <circle cx={cx} cy={cy} r={9} fill="#10b981" fillOpacity={0.25} stroke="#10b981" strokeWidth={1.5} />
+                              <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#ffffff" strokeWidth={2} />
+                              <g transform={`translate(${cx}, ${cy - 16})`}>
+                                <rect x="-34" y="-16" width="68" height="17" rx="4" fill="#064e3b" stroke="#34d399" strokeWidth={1.2} />
+                                <text x="0" y="-4" textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="bold">
+                                  +{payload.refuelLiters} L
+                                </text>
+                              </g>
+                            </g>
+                          );
+                        }
+                        if (payload.dropLiters) {
+                          return (
+                            <g key={`dp-dot-${payload.timeStr}-${cx}`}>
+                              <circle cx={cx} cy={cy} r={9} fill="#ef4444" fillOpacity={0.25} stroke="#ef4444" strokeWidth={1.5} />
+                              <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#ffffff" strokeWidth={2} />
+                              <g transform={`translate(${cx}, ${cy + 18})`}>
+                                <rect x="-34" y="0" width="68" height="17" rx="4" fill="#450a0a" stroke="#f87171" strokeWidth={1.2} />
+                                <text x="0" y="12" textAnchor="middle" fill="#f87171" fontSize="10" fontWeight="bold">
+                                  -{payload.dropLiters} L
+                                </text>
+                              </g>
+                            </g>
+                          );
+                        }
+                        return null;
+                      } : false}
                       name="Filtered Fuel Data (L)"
                     />
                   )}
@@ -1740,7 +1814,39 @@ export default function FuelAnalyticsPage() {
                       dataKey="normalizedFuel"
                       stroke="#ef4444"
                       strokeWidth={4}
-                      dot={false}
+                      dot={showEventMarkers ? (props) => {
+                        const { cx, cy, payload } = props;
+                        if (!cx || !cy || !payload) return null;
+                        if (payload.refuelLiters) {
+                          return (
+                            <g key={`rf-norm-${payload.timeStr}-${cx}`}>
+                              <circle cx={cx} cy={cy} r={9} fill="#10b981" fillOpacity={0.25} stroke="#10b981" strokeWidth={1.5} />
+                              <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#ffffff" strokeWidth={2} />
+                              <g transform={`translate(${cx}, ${cy - 16})`}>
+                                <rect x="-34" y="-16" width="68" height="17" rx="4" fill="#064e3b" stroke="#34d399" strokeWidth={1.2} />
+                                <text x="0" y="-4" textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="bold">
+                                  +{payload.refuelLiters} L
+                                </text>
+                              </g>
+                            </g>
+                          );
+                        }
+                        if (payload.dropLiters) {
+                          return (
+                            <g key={`dp-norm-${payload.timeStr}-${cx}`}>
+                              <circle cx={cx} cy={cy} r={9} fill="#ef4444" fillOpacity={0.25} stroke="#ef4444" strokeWidth={1.5} />
+                              <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#ffffff" strokeWidth={2} />
+                              <g transform={`translate(${cx}, ${cy + 18})`}>
+                                <rect x="-34" y="0" width="68" height="17" rx="4" fill="#450a0a" stroke="#f87171" strokeWidth={1.2} />
+                                <text x="0" y="12" textAnchor="middle" fill="#f87171" fontSize="10" fontWeight="bold">
+                                  -{payload.dropLiters} L
+                                </text>
+                              </g>
+                            </g>
+                          );
+                        }
+                        return null;
+                      } : false}
                       activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
                       connectNulls={true}
                       name="Normalize (L)"
