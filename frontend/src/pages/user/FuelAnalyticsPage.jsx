@@ -701,61 +701,157 @@ export default function FuelAnalyticsPage() {
       if (fVal != null) {
         const diff = fVal - currentNormalized;
 
-        // A. Valid Refill: Sustained jump >= refuelThreshold while vehicle is stationary/stopped
-        if (diff >= refuelThreshold && rawSpeed <= 6.0) {
-          let isSustained = true;
-          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
-            if (filteredFuels[k] != null && filteredFuels[k] < currentNormalized + (refuelThreshold * 0.6)) {
-              isSustained = false;
+        let rampHandled = false;
+
+        // A. Windowed Refueling Ramp Accumulator while vehicle is stationary/stopped (rawSpeed <= 6.0)
+        // Solves the physical sensor lag / pump delivery ramp across 5 to 20 minutes (engine idling or off)
+        if (rawSpeed <= 6.0 && diff >= 1.0) {
+          const tStart = new Date(pt.device_time).getTime();
+          let maxRampVal = fVal;
+          let maxRampIdx = i;
+          let k = i + 1;
+
+          while (k < sorted.length) {
+            const nextPt = sorted[k];
+            const nextSpd = parseFloat(nextPt.speed) || 0;
+            const nextTime = new Date(nextPt.device_time).getTime();
+
+            // Window constraint: stationary session up to 25 minutes
+            if (nextSpd > 6.0 || (nextTime - tStart) > 25 * 60 * 1000) {
               break;
             }
+
+            const nextF = filteredFuels[k];
+            if (nextF != null) {
+              if (nextF > maxRampVal) {
+                maxRampVal = nextF;
+                maxRampIdx = k;
+              }
+            }
+            k++;
           }
-          if (isSustained) {
-            currentNormalized = fVal;
-            refuelEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(diff * 10) / 10,
-              level: fVal
-            });
-          }
-        }
-        // B. Valid Theft / Drain: Drop <= -theftThreshold while engine is OFF
-        else if (diff <= -theftThreshold && !isEngineOn) {
-          let isSustained = true;
-          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
-            if (filteredFuels[k] != null && filteredFuels[k] > currentNormalized - (theftThreshold * 0.6)) {
-              isSustained = false;
-              break;
+
+          const cumRise = maxRampVal - currentNormalized;
+          if (cumRise >= refuelThreshold) {
+            // Verify stability: ensure fuel stays near the new plateau level
+            let isStable = true;
+            for (let s = maxRampIdx + 1; s < Math.min(sorted.length, maxRampIdx + 4); s++) {
+              if (filteredFuels[s] != null && filteredFuels[s] < maxRampVal - (refuelThreshold * 0.4)) {
+                isStable = false;
+                break;
+              }
+            }
+
+            if (isStable) {
+              rampHandled = true;
+              const refuelLiters = Math.round(cumRise * 10) / 10;
+              refuelEvents.push({
+                time: formatIST(pt.device_time),
+                liters: refuelLiters,
+                level: Math.round(maxRampVal * 10) / 10
+              });
+
+              // Apply normalized ramp progression
+              for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
+                if (filteredFuels[fillIdx] != null) {
+                  currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
+                }
+                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+              }
+
+              currentNormalized = maxRampVal;
+              i = maxRampIdx;
+              continue;
             }
           }
-          if (isSustained) {
-            currentNormalized = fVal;
-            dropEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(Math.abs(diff) * 10) / 10,
-              level: fVal
-            });
+        }
+
+        // B. Windowed Theft / Siphon Ramp Accumulator while stationary and engine is OFF (rawSpeed <= 6.0 && !isEngineOn)
+        // Detects slow siphon drains over 5 to 20 minutes without dropping small per-packet increments
+        if (!rampHandled && rawSpeed <= 6.0 && !isEngineOn && diff <= -1.0) {
+          const tStart = new Date(pt.device_time).getTime();
+          let minRampVal = fVal;
+          let minRampIdx = i;
+          let k = i + 1;
+
+          while (k < sorted.length) {
+            const nextPt = sorted[k];
+            const nextSpd = parseFloat(nextPt.speed) || 0;
+            const nextIgn = nextPt.ignition === true || nextPt.ignition === 'true' || nextPt.ignition === 1;
+            const nextTime = new Date(nextPt.device_time).getTime();
+
+            // Stop if vehicle moves, engine starts, or window exceeds 25 minutes
+            if (nextSpd > 6.0 || nextIgn || (nextTime - tStart) > 25 * 60 * 1000) {
+              break;
+            }
+
+            const nextF = filteredFuels[k];
+            if (nextF != null) {
+              if (nextF < minRampVal) {
+                minRampVal = nextF;
+                minRampIdx = k;
+              }
+            }
+            k++;
+          }
+
+          const cumDrop = currentNormalized - minRampVal;
+          if (cumDrop >= theftThreshold) {
+            // Verify stability: ensure fuel stays depressed at the new level
+            let isStable = true;
+            for (let s = minRampIdx + 1; s < Math.min(sorted.length, minRampIdx + 4); s++) {
+              if (filteredFuels[s] != null && filteredFuels[s] > minRampVal + (theftThreshold * 0.4)) {
+                isStable = false;
+                break;
+              }
+            }
+
+            if (isStable) {
+              rampHandled = true;
+              const dropLiters = Math.round(cumDrop * 10) / 10;
+              dropEvents.push({
+                time: formatIST(pt.device_time),
+                liters: dropLiters,
+                level: Math.round(minRampVal * 10) / 10
+              });
+
+              // Apply normalized trajectory across the drain
+              for (let fillIdx = i; fillIdx <= minRampIdx; fillIdx++) {
+                if (filteredFuels[fillIdx] != null) {
+                  currentNormalized = Math.min(currentNormalized, filteredFuels[fillIdx]);
+                }
+                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+              }
+
+              currentNormalized = minRampVal;
+              i = minRampIdx;
+              continue;
+            }
           }
         }
-        // C. Engine ON (Driving or Idling / Machinery / Genset running)
-        // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
-        else if (isEngineOn) {
-          if (diff < 0) {
-            if (rawSpeed > 6.0) {
-              // Road slosh dampening while driving
+
+        // C. Standard Motion & Slosh Rules (When not a verified Refill or Drain Ramp)
+        if (!rampHandled) {
+          // C1. Engine ON (Driving or Idling / Machinery / Genset running)
+          // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
+          if (isEngineOn) {
+            if (diff < 0) {
+              if (rawSpeed > 6.0) {
+                // Road slosh dampening while driving
+                currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+              } else {
+                // Stationary machinery / genset / idling: smooth monotonic burn without jumping to sensor noise dips
+                currentNormalized = (0.90 * currentNormalized) + (0.10 * fVal);
+              }
+            }
+            // Positive diff (diff > 0) while engine is running without a refill is sensor ripple/vibration -> REJECTED!
+          }
+          // C2. Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
+          // Static resting state: gently converge to true physical resting volume
+          else {
+            if (Math.abs(diff) < refuelThreshold) {
               currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
-            } else {
-              // Stationary machinery / genset / idling: smooth monotonic burn without jumping to sensor noise dips
-              currentNormalized = (0.90 * currentNormalized) + (0.10 * fVal);
             }
-          }
-          // Positive diff (diff > 0) while engine is running without a refill is sensor ripple/vibration -> REJECTED!
-        }
-        // D. Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
-        // Static resting state: gently converge to true physical resting volume
-        else {
-          if (Math.abs(diff) < refuelThreshold) {
-            currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
           }
         }
       }
