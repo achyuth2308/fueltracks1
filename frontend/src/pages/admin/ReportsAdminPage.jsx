@@ -19,9 +19,11 @@ const formatDateTime = (isoString) => {
   return formatLocalTime(isoString);
 };
 
+const isTripReportPath = (p) => {
+  return p === '/admin/reports/trip' || p === '/admin/reports/manual-trips' || p === '/admin/reports/daily-trip';
+};
+
 const REPORT_TABS = [
-  { title: "Full Day Trips (Consolidated)", path: "/admin/reports/daily-trip", icon: Route, color: "#10B981", bg: "#ECFDF5" },
-  { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
   { title: "Vehicle Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
   { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
   { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
@@ -104,6 +106,15 @@ const ReportsAdminPage = () => {
 
   const today = formatLocalDate(new Date());
 
+  const isTripReport = isTripReportPath(location.pathname);
+  if (isTripReport) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <Outlet />
+      </div>
+    );
+  }
+
   const tabStyle = (tab) => ({
     padding: '14px 24px',
     background: 'transparent',
@@ -123,7 +134,7 @@ const ReportsAdminPage = () => {
 
       <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports/dashboard')}>Fleet Dashboard</button>
-        <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/trip')}>Analytics & Reports</button>
+        <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/consolidated')}>Analytics & Reports</button>
       </div>
 
       {activeTab === 'other-reports' && (

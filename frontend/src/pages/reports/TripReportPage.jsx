@@ -107,39 +107,37 @@ const TripReportPage = () => {
 
 
 
-      {/* Quick link to Full Day Trips Report */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '10px 16px',
-        marginBottom: '12px',
-        background: 'linear-gradient(90deg, #ECFDF5 0%, #F0FDF4 100%)',
-        border: '1px solid #A7F3D0',
-        borderRadius: '10px',
-        fontSize: '13px',
-        color: '#065F46'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '16px' }}>💡</span>
-          <span><strong>Looking for full-day journey summary?</strong> Automated trips split every time the vehicle stops. To see the entire day from initial departure to final arrival with all stops consolidated, use <strong>Full Day Trips (Consolidated)</strong>.</span>
+      {/* Header and Trip Mode Dropdown */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={() => navigate('/trips')}
+            title="Back to Trips"
+            style={{
+              background: '#FFFFFF',
+              border: '1px solid #CBD5E1',
+              borderRadius: '8px',
+              padding: '6px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#475569'
+            }}
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Map size={20} color="#9333EA" />
+              Automated Trips Report
+            </h1>
+            <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>
+              Individual driving legs automatically separated whenever the vehicle stops.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/admin/reports/daily-trip')}
-          style={{
-            padding: '6px 14px',
-            background: '#10B981',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '6px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            fontSize: '12px',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          View Full Day Trips →
-        </button>
+
       </div>
 
       {/* Filters Bar */}

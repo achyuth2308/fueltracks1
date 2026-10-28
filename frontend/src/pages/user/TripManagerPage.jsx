@@ -6,7 +6,8 @@ import {
   Truck, Route as RouteIcon, MapPin, Clock, Gauge, Navigation,
   ChevronRight, Plus, Trash2, RefreshCw, AlertCircle, CheckCircle,
   Share2, ArrowLeft, Fuel, Activity, Radio, Shield, Layers, ZoomIn, ZoomOut, Maximize2,
-  Repeat, RotateCcw, ArrowRightLeft, ArrowRight, ExternalLink, BarChart3, TrendingUp
+  Repeat, RotateCcw, ArrowRightLeft, ArrowRight, ExternalLink, BarChart3, TrendingUp,
+  Loader2
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import axiosInstance from '../../api/axios';
@@ -85,6 +86,32 @@ const createGeofenceCenterIcon = (name) => {
   });
 };
 
+const createTransitPinIcon = (label, color = '#10B981') => {
+  return L.divIcon({
+    className: 'custom-transit-pin',
+    html: `
+      <div style="
+        background: ${color};
+        color: #FFFFFF;
+        font-weight: 800;
+        font-size: 11px;
+        padding: 4px 8px;
+        border-radius: 12px;
+        border: 2px solid #FFFFFF;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      ">
+        <span>${label}</span>
+      </div>
+    `,
+    iconSize: [110, 24],
+    iconAnchor: [55, 12],
+  });
+};
+
 // ── Map Auto Fit Bounds Helper ────────────────────────────────────────────────────
 const MapBoundsController = ({ routePoints, stops, geofences, focusedCoord }) => {
   const map = useMap();
@@ -157,11 +184,20 @@ export default function TripManagerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const urlVehicleId = searchParams.get('vehicleId');
+  const urlType = searchParams.get('type');
 
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(urlVehicleId || '');
-  const [activeTab, setActiveTab] = useState('trip'); // 'trip' or 'geofences'
+  const urlTab = searchParams.get('tab');
+  const [activeTab, setActiveTab] = useState(urlTab === 'geofences' ? 'geofences' : 'trip');
   const [mapLayer, setMapLayer] = useState('google'); // 'google', 'satellite', 'osm'
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'geofences' || tabParam === 'trip' || tabParam === 'geofence_reports') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Date selection: today by default in local time
   const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());
@@ -174,6 +210,28 @@ export default function TripManagerPage() {
   const [geofences, setGeofences] = useState([]);
   const [addresses, setAddresses] = useState({}); // key: lat,lng -> address
   const [focusedCoord, setFocusedCoord] = useState(null);
+
+  // ── Trip View Type: Total Trip, Automated Trips, Manual Trips ──
+  const [tripType, setTripType] = useState(() => {
+    if (urlType === 'total' || urlType === 'automated' || urlType === 'manual') return urlType;
+    return 'automated';
+  });
+
+  // Keep tripType in sync when URL query changes (e.g., via sidebar navigation)
+  useEffect(() => {
+    const t = searchParams.get('type');
+    if (t && (t === 'total' || t === 'automated' || t === 'manual')) {
+      setTripType(t);
+    }
+  }, [searchParams]);
+
+  const [fromGeofenceFilter, setFromGeofenceFilter] = useState('');
+  const [toGeofenceFilter, setToGeofenceFilter] = useState('');
+  const [manualTrips, setManualTrips] = useState([]);
+  const [loadingManualTrips, setLoadingManualTrips] = useState(false);
+  const [selectedManualTrip, setSelectedManualTrip] = useState(null);
+  const [dailyTripSummary, setDailyTripSummary] = useState(null);
+  const [loadingDailyTrip, setLoadingDailyTrip] = useState(false);
 
   // Set Geofence Modal state
   const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
@@ -280,12 +338,104 @@ export default function TripManagerPage() {
     }
   }, [selectedVehicleId, selectedDate, addresses]);
 
+  // Load Manual Geofence-Based Trips
+  const loadManualTrips = useCallback(async () => {
+    if (!selectedVehicleId) return;
+    setLoadingManualTrips(true);
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const startObj = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const endObj = new Date(y, m - 1, d, 23, 59, 59, 999);
+    const start = startObj.toISOString();
+    const end = endObj.toISOString();
+
+    try {
+      const params = new URLSearchParams();
+      params.append('vehicleId', selectedVehicleId);
+      params.append('startDate', start);
+      params.append('endDate', end);
+      if (fromGeofenceFilter) params.append('fromGeofenceId', fromGeofenceFilter);
+      if (toGeofenceFilter) params.append('toGeofenceId', toGeofenceFilter);
+
+      const res = await axiosInstance.get(`/api/reports/geofence-transit?${params.toString()}`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setManualTrips(res.data.data);
+      } else {
+        setManualTrips([]);
+      }
+    } catch (err) {
+      console.error('Failed to load manual trips:', err);
+      setManualTrips([]);
+    } finally {
+      setLoadingManualTrips(false);
+    }
+  }, [selectedVehicleId, selectedDate, fromGeofenceFilter, toGeofenceFilter]);
+
+  // Load Daily Full-Day Trip Summary
+  const loadDailyTripSummary = useCallback(async () => {
+    if (!selectedVehicleId) return;
+    setLoadingDailyTrip(true);
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const startObj = new Date(y, m - 1, d, 0, 0, 0, 0);
+    const endObj = new Date(y, m - 1, d, 23, 59, 59, 999);
+    const start = startObj.toISOString();
+    const end = endObj.toISOString();
+
+    try {
+      const res = await axiosInstance.get(`/api/reports/daily-trip?vehicleId=${selectedVehicleId}&startDate=${start}&endDate=${end}`);
+      if (res.data?.success && Array.isArray(res.data.data) && res.data.data.length > 0) {
+        setDailyTripSummary(res.data.data[0]);
+      } else {
+        setDailyTripSummary(null);
+      }
+    } catch (err) {
+      console.error('Failed to load daily trip summary:', err);
+      setDailyTripSummary(null);
+    } finally {
+      setLoadingDailyTrip(false);
+    }
+  }, [selectedVehicleId, selectedDate]);
+
+  // Quick pairs permutation (A -> B, A -> C, B -> C, A -> A, etc.)
+  const quickGeofencePairs = useMemo(() => {
+    if (!geofences || geofences.length === 0) return [];
+    const pairs = [];
+    for (let i = 0; i < geofences.length; i++) {
+      for (let j = 0; j < geofences.length; j++) {
+        if (i !== j) {
+          pairs.push({
+            label: `${geofences[i].name} → ${geofences[j].name}`,
+            fromId: geofences[i].id,
+            toId: geofences[j].id,
+            isLoop: false,
+          });
+        }
+      }
+    }
+    geofences.forEach(g => {
+      pairs.push({
+        label: `${g.name} → ${g.name} (Loop)`,
+        fromId: g.id,
+        toId: g.id,
+        isLoop: true,
+      });
+    });
+    return pairs;
+  }, [geofences]);
+
   useEffect(() => {
     if (selectedVehicleId) {
       loadTripData();
       loadGeofences();
+      if (tripType === 'manual') loadManualTrips();
+      if (tripType === 'total') loadDailyTripSummary();
     }
-  }, [selectedVehicleId, selectedDate]);
+  }, [selectedVehicleId, selectedDate, tripType, loadTripData, loadGeofences, loadManualTrips, loadDailyTripSummary]);
+
+  useEffect(() => {
+    if (tripType === 'manual' && selectedVehicleId) {
+      loadManualTrips();
+    }
+  }, [fromGeofenceFilter, toGeofenceFilter, tripType, loadManualTrips]);
 
   // Interleave stoppages and driving legs chronologically (matching clean mobile app timeline)
   const timelineEvents = useMemo(() => {
@@ -749,6 +899,7 @@ export default function TripManagerPage() {
               }}
             />
           </div>
+
 
           {/* Navigation Sub-Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginTop: '4px' }}>
@@ -2008,7 +2159,7 @@ export default function TripManagerPage() {
           />
 
           {/* Polyline Route */}
-          {routeHistory.length > 1 && (
+          {tripType !== 'manual' && routeHistory.length > 1 && (
             <Polyline
               positions={routeHistory.map(p => [parseFloat(p.lat), parseFloat(p.lng)])}
               pathOptions={{
@@ -2019,6 +2170,73 @@ export default function TripManagerPage() {
                 lineJoin: 'round',
               }}
             />
+          )}
+
+          {/* Manual Trip Route */}
+          {tripType === 'manual' && selectedManualTrip?.path_preview?.length > 1 && (
+            <Polyline
+              positions={selectedManualTrip.path_preview.map(p => [parseFloat(p.lat), parseFloat(p.lng)])}
+              pathOptions={{
+                color: '#059669',
+                weight: 6,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          )}
+
+          {/* Fallback route preview when manual trip doesn't have individual slice */}
+          {tripType === 'manual' && (!selectedManualTrip || !selectedManualTrip.path_preview || selectedManualTrip.path_preview.length <= 1) && routeHistory.length > 1 && (
+            <Polyline
+              positions={routeHistory.map(p => [parseFloat(p.lat), parseFloat(p.lng)])}
+              pathOptions={{
+                color: '#059669',
+                weight: 4,
+                opacity: 0.65,
+                dashArray: '6, 6',
+              }}
+            />
+          )}
+
+          {/* Manual Trip Start & End Pins */}
+          {tripType === 'manual' && selectedManualTrip && selectedManualTrip.start_lat && selectedManualTrip.start_lng && (
+            <Marker
+              position={[parseFloat(selectedManualTrip.start_lat), parseFloat(selectedManualTrip.start_lng)]}
+              icon={createTransitPinIcon(`Start: ${selectedManualTrip.from_geofence_name || 'Geofence'}`, '#2563EB')}
+            >
+              <Popup>
+                <div style={{ padding: '4px', minWidth: '160px' }}>
+                  <div style={{ fontWeight: 800, color: '#1D4ED8', fontSize: '13px' }}>
+                    Departed: {selectedManualTrip.from_geofence_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                    Time: {formatLocalTime(selectedManualTrip.departure_time)}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {tripType === 'manual' && selectedManualTrip && selectedManualTrip.end_lat && selectedManualTrip.end_lng && (
+            <Marker
+              position={[parseFloat(selectedManualTrip.end_lat), parseFloat(selectedManualTrip.end_lng)]}
+              icon={createTransitPinIcon(`End: ${selectedManualTrip.to_geofence_name || 'Geofence'}`, '#059669')}
+            >
+              <Popup>
+                <div style={{ padding: '4px', minWidth: '160px' }}>
+                  <div style={{ fontWeight: 800, color: '#047857', fontSize: '13px' }}>
+                    Arrived: {selectedManualTrip.to_geofence_name}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748B', marginTop: '2px' }}>
+                    Time: {formatLocalTime(selectedManualTrip.arrival_time)}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#0F172A', marginTop: '4px', fontWeight: 700 }}>
+                    Distance: {selectedManualTrip.distance_km} km | Duration: {selectedManualTrip.duration_formatted}
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
           )}
 
           {/* Stop Pins on Map (Aligned with Timeline Stops 1..N) */}

@@ -134,7 +134,8 @@ const DailyTripReportPage = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button
-              onClick={() => navigate('/admin/reports')}
+              onClick={() => navigate('/trips')}
+              title="Back to Trips"
               style={{
                 background: '#FFFFFF',
                 border: '1px solid #CBD5E1',
@@ -160,7 +161,7 @@ const DailyTripReportPage = () => {
         </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             onClick={() => exportToExcel(getExportData(), 'Daily_Trip_Report')}
             disabled={data.length === 0}
