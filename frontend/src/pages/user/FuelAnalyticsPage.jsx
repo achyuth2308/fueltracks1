@@ -209,7 +209,6 @@ export default function FuelAnalyticsPage() {
   const [showNormalize, setShowNormalize] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
-  const [showEventMarkers, setShowEventMarkers] = useState(true);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -797,7 +796,6 @@ export default function FuelAnalyticsPage() {
           let maxRampVal = fVal;
           let maxRampIdx = i;
           let k = i + 1;
-          let windowAborted = false;
 
           while (k < sorted.length) {
             const nextPt = sorted[k];
@@ -807,11 +805,8 @@ export default function FuelAnalyticsPage() {
             // Time window: 25 minutes max for a refueling stop
             if ((nextTime - tStart) > 25 * 60 * 1000) break;
 
-            // Vehicle moved during the supposed refuel stop -> abort
-            if (nextSpd > 2.0) {
-              windowAborted = true;
-              break;
-            }
+            // Vehicle moved -> stationary refueling session has ended
+            if (nextSpd > 2.0) break;
 
             const nextF = filteredFuels[k];
             if (nextF != null && nextF > maxRampVal) {
@@ -821,47 +816,42 @@ export default function FuelAnalyticsPage() {
             k++;
           }
 
-          if (!windowAborted) {
-            const cumRise = maxRampVal - currentNormalized;
-            if (cumRise >= refuelThreshold) {
-              // Post-ramp stability: next few stopped packets must stay near the new plateau
-              // (rules out brief sensor spikes that fall back down)
-              let isStable = true;
-              let stableChecks = 0;
-              for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
-                const sf = filteredFuels[s];
-                const sSpd = parseFloat(sorted[s].speed) || 0;
-                if (sf == null) continue;
-                if (sSpd > 2.0) break; // Vehicle moved, stop checking stability
-                if (sf < maxRampVal - (refuelThreshold * 0.5)) {
-                  isStable = false;
-                  break;
-                }
-                stableChecks++;
+          const cumRise = maxRampVal - currentNormalized;
+          if (cumRise >= refuelThreshold) {
+            // Post-ramp stability: fuel must stay elevated (protects against single-packet noise spikes)
+            let isStable = true;
+            let stableChecks = 0;
+            for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
+              const sf = filteredFuels[s];
+              if (sf == null) continue;
+              if (sf < currentNormalized + (cumRise * 0.5)) {
+                isStable = false;
+                break;
               }
+              stableChecks++;
+            }
 
-              if (isStable) {
-                rampHandled = true;
-                const refuelLiters = Math.round(cumRise * 10) / 10;
-                const refuelObj = {
-                  time: formatIST(pt.device_time),
-                  liters: refuelLiters,
-                  level: Math.round(maxRampVal * 10) / 10
-                };
-                refuelEvents.push(refuelObj);
-                refuelPointsMap.set(maxRampIdx, refuelObj);
+            if (isStable) {
+              rampHandled = true;
+              const refuelLiters = Math.round(cumRise * 10) / 10;
+              const refuelObj = {
+                time: formatIST(pt.device_time),
+                liters: refuelLiters,
+                level: Math.round(maxRampVal * 10) / 10
+              };
+              refuelEvents.push(refuelObj);
+              refuelPointsMap.set(maxRampIdx, refuelObj);
 
-                // Smooth out the ramp in normalized curve
-                for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
-                  if (filteredFuels[fillIdx] != null) {
-                    currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
-                  }
-                  normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+              // Smooth out the ramp in normalized curve
+              for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
+                if (filteredFuels[fillIdx] != null) {
+                  currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
                 }
-                currentNormalized = maxRampVal;
-                i = maxRampIdx;
-                continue;
+                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
               }
+              currentNormalized = maxRampVal;
+              i = maxRampIdx;
+              continue;
             }
           }
         }
@@ -943,13 +933,32 @@ export default function FuelAnalyticsPage() {
         // ================================================================
         if (!rampHandled) {
           if (rawSpeed > 2.0) {
-            // C1. VEHICLE MOVING: fuel can only go DOWN (consumption + slosh).
-            // Positive diff while moving = road slosh / sensor vibration → REJECT.
-            if (diff < 0) {
-              // Smooth consumption blend to avoid sharp slosh dips
+            // C1. VEHICLE MOVING:
+            if (diff >= refuelThreshold) {
+              // LATE CATCH: If vehicle departed bunk or sensor scrutinized data stepped up,
+              // check if the higher fuel reading is sustained over the next 5 packets (~1.5 min).
+              let sustainedCount = 0;
+              let sampleCount = 0;
+              const lookAhead = Math.min(sorted.length, i + 6);
+              for (let j = i + 1; j < lookAhead; j++) {
+                const fj = filteredFuels[j];
+                if (fj != null) {
+                  sampleCount++;
+                  if (fj >= currentNormalized + (refuelThreshold * 0.6)) {
+                    sustainedCount++;
+                  }
+                }
+              }
+              if (sampleCount === 0 || sustainedCount >= Math.ceil(sampleCount * 0.75)) {
+                // Confirmed sustained refuel level on highway -> catch up to filtered fuel
+                currentNormalized = fVal;
+              }
+              // If not sustained (road bump slosh), diff is safely rejected
+            } else if (diff < 0) {
+              // Normal consumption while moving: smooth blend rejects sharp slosh dips
               currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
             }
-            // diff >= 0 while moving → silently rejected
+            // diff between 0 and refuelThreshold while moving: road slosh ripple -> silently rejected
           } else if (ign) {
             // C2. STOPPED + IGNITION ON (idling, genset, machinery running)
             // Fuel is being consumed. Positive diff = sensor noise → REJECT.
@@ -1641,21 +1650,6 @@ export default function FuelAnalyticsPage() {
                 <span className="w-2 h-2 rounded-full bg-cyan-400" />
                 Speed
               </button>
-
-              {/* Layer 6: Refill & Theft Event Pins */}
-              <button
-                type="button"
-                onClick={() => setShowEventMarkers(!showEventMarkers)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
-                  showEventMarkers
-                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
-                }`}
-                title="Toggle Visual Refill (+L) and Drain (-L) Pins directly on the graph"
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                Refill Pins
-              </button>
             </div>
           </div>
 
@@ -1833,39 +1827,7 @@ export default function FuelAnalyticsPage() {
                       fillOpacity={1}
                       fill="url(#filteredFuelGradient)"
                       connectNulls={true}
-                      dot={showEventMarkers && !showNormalize ? (props) => {
-                        const { cx, cy, payload } = props;
-                        if (!cx || !cy || !payload) return null;
-                        if (payload.refuelLiters) {
-                          return (
-                            <g key={`rf-dot-${payload.timeStr}-${cx}`}>
-                              <circle cx={cx} cy={cy} r={9} fill="#10b981" fillOpacity={0.25} stroke="#10b981" strokeWidth={1.5} />
-                              <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#ffffff" strokeWidth={2} />
-                              <g transform={`translate(${cx}, ${cy - 16})`}>
-                                <rect x="-34" y="-16" width="68" height="17" rx="4" fill="#064e3b" stroke="#34d399" strokeWidth={1.2} />
-                                <text x="0" y="-4" textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="bold">
-                                  +{payload.refuelLiters} L
-                                </text>
-                              </g>
-                            </g>
-                          );
-                        }
-                        if (payload.dropLiters) {
-                          return (
-                            <g key={`dp-dot-${payload.timeStr}-${cx}`}>
-                              <circle cx={cx} cy={cy} r={9} fill="#ef4444" fillOpacity={0.25} stroke="#ef4444" strokeWidth={1.5} />
-                              <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#ffffff" strokeWidth={2} />
-                              <g transform={`translate(${cx}, ${cy + 18})`}>
-                                <rect x="-34" y="0" width="68" height="17" rx="4" fill="#450a0a" stroke="#f87171" strokeWidth={1.2} />
-                                <text x="0" y="12" textAnchor="middle" fill="#f87171" fontSize="10" fontWeight="bold">
-                                  -{payload.dropLiters} L
-                                </text>
-                              </g>
-                            </g>
-                          );
-                        }
-                        return null;
-                      } : false}
+                      dot={false}
                       name="Filtered Fuel Data (L)"
                     />
                   )}
@@ -1920,39 +1882,7 @@ export default function FuelAnalyticsPage() {
                       dataKey="normalizedFuel"
                       stroke="#ef4444"
                       strokeWidth={4}
-                      dot={showEventMarkers ? (props) => {
-                        const { cx, cy, payload } = props;
-                        if (!cx || !cy || !payload) return null;
-                        if (payload.refuelLiters) {
-                          return (
-                            <g key={`rf-norm-${payload.timeStr}-${cx}`}>
-                              <circle cx={cx} cy={cy} r={9} fill="#10b981" fillOpacity={0.25} stroke="#10b981" strokeWidth={1.5} />
-                              <circle cx={cx} cy={cy} r={5} fill="#10b981" stroke="#ffffff" strokeWidth={2} />
-                              <g transform={`translate(${cx}, ${cy - 16})`}>
-                                <rect x="-34" y="-16" width="68" height="17" rx="4" fill="#064e3b" stroke="#34d399" strokeWidth={1.2} />
-                                <text x="0" y="-4" textAnchor="middle" fill="#34d399" fontSize="10" fontWeight="bold">
-                                  +{payload.refuelLiters} L
-                                </text>
-                              </g>
-                            </g>
-                          );
-                        }
-                        if (payload.dropLiters) {
-                          return (
-                            <g key={`dp-norm-${payload.timeStr}-${cx}`}>
-                              <circle cx={cx} cy={cy} r={9} fill="#ef4444" fillOpacity={0.25} stroke="#ef4444" strokeWidth={1.5} />
-                              <circle cx={cx} cy={cy} r={5} fill="#ef4444" stroke="#ffffff" strokeWidth={2} />
-                              <g transform={`translate(${cx}, ${cy + 18})`}>
-                                <rect x="-34" y="0" width="68" height="17" rx="4" fill="#450a0a" stroke="#f87171" strokeWidth={1.2} />
-                                <text x="0" y="12" textAnchor="middle" fill="#f87171" fontSize="10" fontWeight="bold">
-                                  -{payload.dropLiters} L
-                                </text>
-                              </g>
-                            </g>
-                          );
-                        }
-                        return null;
-                      } : false}
+                      dot={false}
                       activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
                       connectNulls={true}
                       name="Normalize (L)"
