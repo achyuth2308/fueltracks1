@@ -694,124 +694,226 @@ export default function FuelAnalyticsPage() {
     const firstValidFiltered = filteredFuels.find(f => f != null);
     let currentNormalized = firstValidFiltered != null ? firstValidFiltered : 0;
 
+    // Helper: Is the vehicle STOPPED (speed=0 or GPS jitter <=1 km/h)?
+    // Refills happen at speed=0 regardless of ignition (people fill with engine running).
+    const isStopped = (pt) => (parseFloat(pt.speed) || 0) <= 1.0;
+
+    // Helper: Is ignition OFF?
+    const isIgnOff = (pt) => !(pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1);
+
+    // Helper: Is the vehicle moving (speed > 2 km/h)?
+    const isMoving = (pt) => (parseFloat(pt.speed) || 0) > 2.0;
+
+    // Pre-compute ignition-state transition pairs for slant-parking theft detection.
+    // For theft: compare avg fuel in last 5 min before ignition OFF
+    //            vs avg fuel in first 5 min after next ignition ON.
+    //            If drop >= theftThreshold AND fuel stays low after start -> real theft.
+    //            If fuel recovers after vehicle moves -> slant parking -> NOT theft.
+    const PRE_POST_WINDOW = 5 * 60 * 1000; // 5-minute observation window
+
+    const ignOffTransitionFuel = new Map(); // idx -> avg pre-park fuel
+    const ignOnTransitionFuel  = new Map(); // idx -> avg post-start fuel
+
+    for (let i = 1; i < sorted.length; i++) {
+      const prevIgnOn = sorted[i-1].ignition === true || sorted[i-1].ignition === 'true' || sorted[i-1].ignition === 1;
+      const currIgnOn = sorted[i].ignition === true || sorted[i].ignition === 'true' || sorted[i].ignition === 1;
+      const tCurr = new Date(sorted[i].device_time).getTime();
+
+      // Ignition ON -> OFF transition (parking event)
+      if (prevIgnOn && !currIgnOn) {
+        // Collect fuel values from last 5 min before this point (while engine was ON and stopped)
+        const preFuels = [];
+        for (let j = i - 1; j >= 0; j--) {
+          const tJ = new Date(sorted[j].device_time).getTime();
+          if (tCurr - tJ > PRE_POST_WINDOW) break;
+          if (filteredFuels[j] != null) preFuels.push(filteredFuels[j]);
+        }
+        if (preFuels.length > 0) {
+          const avg = preFuels.reduce((s, v) => s + v, 0) / preFuels.length;
+          ignOffTransitionFuel.set(i, avg);
+        }
+      }
+
+      // Ignition OFF -> ON transition (engine start event)
+      if (!prevIgnOn && currIgnOn) {
+        // Collect fuel values from first 5 min after this point
+        const postFuels = [];
+        for (let j = i; j < sorted.length; j++) {
+          const tJ = new Date(sorted[j].device_time).getTime();
+          if (tJ - tCurr > PRE_POST_WINDOW) break;
+          if (filteredFuels[j] != null) postFuels.push(filteredFuels[j]);
+        }
+        if (postFuels.length > 0) {
+          const avg = postFuels.reduce((s, v) => s + v, 0) / postFuels.length;
+          ignOnTransitionFuel.set(i, avg);
+        }
+      }
+    }
+
+    // Build a quick lookup: for each ignition-OFF transition, find the NEXT ignition-ON transition
+    const offToOnPairs = []; // [{offIdx, onIdx, preFuel, postFuel}]
+    const offIdxs = Array.from(ignOffTransitionFuel.keys()).sort((a,b) => a - b);
+    const onIdxs  = Array.from(ignOnTransitionFuel.keys()).sort((a,b) => a - b);
+    for (const offIdx of offIdxs) {
+      const nextOnIdx = onIdxs.find(idx => idx > offIdx);
+      if (nextOnIdx !== undefined) {
+        offToOnPairs.push({
+          offIdx,
+          onIdx: nextOnIdx,
+          preFuel: ignOffTransitionFuel.get(offIdx),
+          postFuel: ignOnTransitionFuel.get(nextOnIdx)
+        });
+      }
+    }
+
+    // Mark theft-confirmed windows: between offIdx and onIdx where drop > theftThreshold
+    // (will be checked later in the main loop)
+    const confirmedTheftWindows = new Set(); // Set of offIdx values that are real thefts
+    for (const pair of offToOnPairs) {
+      const drop = pair.preFuel - pair.postFuel;
+      if (drop >= theftThreshold) {
+        confirmedTheftWindows.add(pair.offIdx);
+      }
+    }
+
     for (let i = 0; i < sorted.length; i++) {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const isEngineOn = rawSpeed > 6.0 || ign; // 6 km/h speed threshold
       const fVal = filteredFuels[i];
 
       if (fVal != null) {
         const diff = fVal - currentNormalized;
-
         let rampHandled = false;
 
-        // A. Windowed Refueling Ramp Accumulator while vehicle is stationary/stopped (rawSpeed <= 6.0)
-        // Solves the physical sensor lag / pump delivery ramp across 5 to 20 minutes (engine idling or off)
-        if (rawSpeed <= 6.0 && diff >= 1.0) {
+        // ================================================================
+        // A. REFUEL DETECTION
+        // Rule: speed must be 0 (or GPS jitter ≤1 km/h). Ignition state
+        // doesn't matter — some drivers fill with engine running.
+        // The fuel must show a sustained RISE >= refuelThreshold.
+        // ================================================================
+        if (rawSpeed <= 1.0 && diff >= 2.0) {
           const tStart = new Date(pt.device_time).getTime();
           let maxRampVal = fVal;
           let maxRampIdx = i;
           let k = i + 1;
+          let windowAborted = false;
 
           while (k < sorted.length) {
             const nextPt = sorted[k];
             const nextSpd = parseFloat(nextPt.speed) || 0;
             const nextTime = new Date(nextPt.device_time).getTime();
 
-            // Window constraint: stationary session up to 25 minutes
-            if (nextSpd > 6.0 || (nextTime - tStart) > 25 * 60 * 1000) {
+            // Time window: 25 minutes max for a refueling stop
+            if ((nextTime - tStart) > 25 * 60 * 1000) break;
+
+            // Vehicle moved during the supposed refuel stop -> abort
+            if (nextSpd > 2.0) {
+              windowAborted = true;
               break;
             }
 
             const nextF = filteredFuels[k];
-            if (nextF != null) {
-              if (nextF > maxRampVal) {
-                maxRampVal = nextF;
-                maxRampIdx = k;
-              }
+            if (nextF != null && nextF > maxRampVal) {
+              maxRampVal = nextF;
+              maxRampIdx = k;
             }
             k++;
           }
 
-          const cumRise = maxRampVal - currentNormalized;
-          if (cumRise >= refuelThreshold) {
-            // Verify stability: ensure fuel stays near the new plateau level
-            let isStable = true;
-            for (let s = maxRampIdx + 1; s < Math.min(sorted.length, maxRampIdx + 4); s++) {
-              if (filteredFuels[s] != null && filteredFuels[s] < maxRampVal - (refuelThreshold * 0.4)) {
-                isStable = false;
-                break;
-              }
-            }
-
-            if (isStable) {
-              rampHandled = true;
-              const refuelLiters = Math.round(cumRise * 10) / 10;
-              const refuelObj = {
-                time: formatIST(pt.device_time),
-                liters: refuelLiters,
-                level: Math.round(maxRampVal * 10) / 10
-              };
-              refuelEvents.push(refuelObj);
-              refuelPointsMap.set(maxRampIdx, refuelObj);
-
-              // Apply normalized ramp progression
-              for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
-                if (filteredFuels[fillIdx] != null) {
-                  currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
+          if (!windowAborted) {
+            const cumRise = maxRampVal - currentNormalized;
+            if (cumRise >= refuelThreshold) {
+              // Post-ramp stability: next few stopped packets must stay near the new plateau
+              // (rules out brief sensor spikes that fall back down)
+              let isStable = true;
+              let stableChecks = 0;
+              for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
+                const sf = filteredFuels[s];
+                const sSpd = parseFloat(sorted[s].speed) || 0;
+                if (sf == null) continue;
+                if (sSpd > 2.0) break; // Vehicle moved, stop checking stability
+                if (sf < maxRampVal - (refuelThreshold * 0.5)) {
+                  isStable = false;
+                  break;
                 }
-                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+                stableChecks++;
               }
 
-              currentNormalized = maxRampVal;
-              i = maxRampIdx;
-              continue;
+              if (isStable) {
+                rampHandled = true;
+                const refuelLiters = Math.round(cumRise * 10) / 10;
+                const refuelObj = {
+                  time: formatIST(pt.device_time),
+                  liters: refuelLiters,
+                  level: Math.round(maxRampVal * 10) / 10
+                };
+                refuelEvents.push(refuelObj);
+                refuelPointsMap.set(maxRampIdx, refuelObj);
+
+                // Smooth out the ramp in normalized curve
+                for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
+                  if (filteredFuels[fillIdx] != null) {
+                    currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
+                  }
+                  normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+                }
+                currentNormalized = maxRampVal;
+                i = maxRampIdx;
+                continue;
+              }
             }
           }
         }
 
-        // B. Windowed Theft / Siphon Ramp Accumulator while stationary and engine is OFF (rawSpeed <= 6.0 && !isEngineOn)
-        // Detects slow siphon drains over 5 to 20 minutes without dropping small per-packet increments
-        if (!rampHandled && rawSpeed <= 6.0 && !isEngineOn && diff <= -1.0) {
-          const tStart = new Date(pt.device_time).getTime();
-          let minRampVal = fVal;
-          let minRampIdx = i;
-          let k = i + 1;
-
-          while (k < sorted.length) {
-            const nextPt = sorted[k];
-            const nextSpd = parseFloat(nextPt.speed) || 0;
-            const nextIgn = nextPt.ignition === true || nextPt.ignition === 'true' || nextPt.ignition === 1;
-            const nextTime = new Date(nextPt.device_time).getTime();
-
-            // Stop if vehicle moves, engine starts, or window exceeds 25 minutes
-            if (nextSpd > 6.0 || nextIgn || (nextTime - tStart) > 25 * 60 * 1000) {
+        // ================================================================
+        // B. THEFT / SIPHON DETECTION
+        // Uses pre-parking vs post-start fuel comparison to eliminate
+        // slant-parking false positives:
+        //   - Slant: parked on slope → fuel drops → vehicle moves → fuel recovers → NOT theft
+        //   - Theft: parked → fuel drops → vehicle starts → fuel stays low → REAL theft
+        //
+        // Condition: speed==0, ignition OFF, sustained drop >= theftThreshold,
+        //            AND confirmed by the pre/post ign transition pair.
+        // ================================================================
+        if (!rampHandled && rawSpeed <= 1.0 && !ign && diff <= -2.0) {
+          // Check if this point falls in a confirmed theft window
+          // (a pre/post ignition pair where the fuel drop was confirmed)
+          let isConfirmedTheft = false;
+          for (const pair of offToOnPairs) {
+            if (i >= pair.offIdx && i < pair.onIdx) {
+              if (confirmedTheftWindows.has(pair.offIdx)) {
+                isConfirmedTheft = true;
+              }
               break;
             }
+          }
 
-            const nextF = filteredFuels[k];
-            if (nextF != null) {
-              if (nextF < minRampVal) {
+          if (isConfirmedTheft) {
+            const tStart = new Date(pt.device_time).getTime();
+            let minRampVal = fVal;
+            let minRampIdx = i;
+            let k = i + 1;
+
+            while (k < sorted.length) {
+              const nextPt = sorted[k];
+              const nextSpd = parseFloat(nextPt.speed) || 0;
+              const nextIgn = nextPt.ignition === true || nextPt.ignition === 'true' || nextPt.ignition === 1;
+              const nextTime = new Date(nextPt.device_time).getTime();
+
+              if ((nextTime - tStart) > 25 * 60 * 1000) break;
+              if (nextSpd > 2.0 || nextIgn) break; // Stop at motion or engine start
+
+              const nextF = filteredFuels[k];
+              if (nextF != null && nextF < minRampVal) {
                 minRampVal = nextF;
                 minRampIdx = k;
               }
-            }
-            k++;
-          }
-
-          const cumDrop = currentNormalized - minRampVal;
-          if (cumDrop >= theftThreshold) {
-            // Verify stability: ensure fuel stays depressed at the new level
-            let isStable = true;
-            for (let s = minRampIdx + 1; s < Math.min(sorted.length, minRampIdx + 4); s++) {
-              if (filteredFuels[s] != null && filteredFuels[s] > minRampVal + (theftThreshold * 0.4)) {
-                isStable = false;
-                break;
-              }
+              k++;
             }
 
-            if (isStable) {
+            const cumDrop = currentNormalized - minRampVal;
+            if (cumDrop >= theftThreshold) {
               rampHandled = true;
               const dropLiters = Math.round(cumDrop * 10) / 10;
               const dropObj = {
@@ -822,14 +924,12 @@ export default function FuelAnalyticsPage() {
               dropEvents.push(dropObj);
               dropPointsMap.set(minRampIdx, dropObj);
 
-              // Apply normalized trajectory across the drain
               for (let fillIdx = i; fillIdx <= minRampIdx; fillIdx++) {
                 if (filteredFuels[fillIdx] != null) {
                   currentNormalized = Math.min(currentNormalized, filteredFuels[fillIdx]);
                 }
                 normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
               }
-
               currentNormalized = minRampVal;
               i = minRampIdx;
               continue;
@@ -837,28 +937,34 @@ export default function FuelAnalyticsPage() {
           }
         }
 
-        // C. Standard Motion & Slosh Rules (When not a verified Refill or Drain Ramp)
+        // ================================================================
+        // C. STANDARD MOTION & CONSUMPTION RULES
+        // (applied when not a verified refill or theft event)
+        // ================================================================
         if (!rampHandled) {
-          // C1. Engine ON (Driving or Idling / Machinery / Genset running)
-          // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
-          if (isEngineOn) {
+          if (rawSpeed > 2.0) {
+            // C1. VEHICLE MOVING: fuel can only go DOWN (consumption + slosh).
+            // Positive diff while moving = road slosh / sensor vibration → REJECT.
             if (diff < 0) {
-              if (rawSpeed > 6.0) {
-                // Road slosh dampening while driving
-                currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
-              } else {
-                // Stationary machinery / genset / idling: smooth monotonic burn without jumping to sensor noise dips
-                currentNormalized = (0.90 * currentNormalized) + (0.10 * fVal);
-              }
+              // Smooth consumption blend to avoid sharp slosh dips
+              currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
             }
-            // Positive diff (diff > 0) while engine is running without a refill is sensor ripple/vibration -> REJECTED!
-          }
-          // C2. Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
-          // Static resting state: gently converge to true physical resting volume
-          else {
+            // diff >= 0 while moving → silently rejected
+          } else if (ign) {
+            // C2. STOPPED + IGNITION ON (idling, genset, machinery running)
+            // Fuel is being consumed. Positive diff = sensor noise → REJECT.
+            if (diff < 0) {
+              currentNormalized = (0.92 * currentNormalized) + (0.08 * fVal);
+            }
+            // diff > 0 while idling → silently rejected
+          } else {
+            // C3. STOPPED + IGNITION OFF (vehicle parked)
+            // Allow gentle sensor settling convergence for small fluctuations.
+            // Large deviations without a confirmed theft window → slant parking or noise → ignore.
             if (Math.abs(diff) < refuelThreshold) {
-              currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+              currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
             }
+            // diff >= refuelThreshold while parked & not confirmed theft → likely slant → ignore
           }
         }
       }
