@@ -295,16 +295,18 @@ export default function FuelAnalyticsPage() {
     }
 
     setLoading(true);
-    try {
-      startIso = new Date(s).toISOString();
-      endIso = new Date(e).toISOString();
-    } catch (err) {
-      const p = getPresetRange('today');
-      startIso = p.startDate;
-      endIso = p.endDate;
-    }
 
     try {
+      let startIso, endIso;
+      try {
+        startIso = sDate.toISOString();
+        endIso = eDate.toISOString();
+      } catch (err) {
+        const p = getPresetRange('today');
+        startIso = p.startDate;
+        endIso = p.endDate;
+      }
+
       // Fetch full high-resolution history with zero-overhead smart sampling across entire date range
       const res = await axiosInstance.get(`/api/vehicles/${selectedVehicle.id}/history`, {
         params: {
