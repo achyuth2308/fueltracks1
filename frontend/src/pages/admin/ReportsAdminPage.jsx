@@ -20,7 +20,10 @@ const formatDateTime = (isoString) => {
 };
 
 const isTripReportPath = (p) => {
-  return p === '/admin/reports/trip' || p === '/admin/reports/manual-trips' || p === '/admin/reports/daily-trip';
+  return p === '/admin/reports/trip' || 
+         p === '/admin/reports/manual-trips' || 
+         p === '/admin/reports/daily-trip' ||
+         p.startsWith('/admin/reports/geofence');
 };
 
 const REPORT_TABS = [
@@ -29,11 +32,6 @@ const REPORT_TABS = [
   { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
   { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
   { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
-  { title: "Two-Way Trips", path: "/admin/reports/geofence-two-way", icon: Repeat, color: "#4F46E5", bg: "#EEF2FF" },
-  { title: "Round Trips", path: "/admin/reports/geofence-round-trip", icon: RotateCcw, color: "#059669", bg: "#ECFDF5" },
-  { title: "One-Way Trips", path: "/admin/reports/geofence-one-way", icon: ArrowRight, color: "#0284C7", bg: "#F0F9FF" },
-  { title: "Single Place Geofence", path: "/admin/reports/geofence-single-place", icon: MapPin, color: "#D97706", bg: "#FEF3C7" },
-  { title: "Geofence Transit", path: "/admin/reports/geofence-transit", icon: Navigation, color: "#7C3AED", bg: "#F5F3FF" },
   { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
 ];
 

@@ -44,7 +44,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   }));
 
   const isTripReportPath = (p) => {
-    return p === '/admin/reports/trip' || p === '/admin/reports/manual-trips' || p === '/admin/reports/daily-trip';
+    return p === '/admin/reports/trip' || 
+           p === '/admin/reports/manual-trips' || 
+           p === '/admin/reports/daily-trip' ||
+           p.startsWith('/admin/reports/geofence');
   };
 
   const [tripsExpanded, setTripsExpanded] = useState(() => {
