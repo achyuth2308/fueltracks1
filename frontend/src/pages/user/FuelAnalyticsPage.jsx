@@ -187,6 +187,18 @@ export default function FuelAnalyticsPage() {
   const [customEnd, setCustomEnd] = useState(() => getPresetRange('today').endStr);
   const [selectedInterval, setSelectedInterval] = useState('raw');
 
+  // Date input refs for reliable 100% calendar popup click
+  const startInputRef = useRef(null);
+  const endInputRef = useRef(null);
+
+  // Helper for max datetime limit (current local time)
+  const getMaxDateTimeLocal = () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  };
+  const maxDateTime = getMaxDateTimeLocal();
+
   // Data state
   const [loading, setLoading] = useState(false);
   const [historyPoints, setHistoryPoints] = useState([]);
@@ -263,12 +275,26 @@ export default function FuelAnalyticsPage() {
   // 2. Fetch History Points when selected vehicle or date changes
   const fetchVehicleFuelData = async (overrideStart, overrideEnd) => {
     if (!selectedVehicle?.id) return;
-    setLoading(true);
     setError(null);
 
-    let startIso, endIso;
     const s = overrideStart || customStart;
     const e = overrideEnd || customEnd;
+
+    // Strict boundary validation
+    const sDate = new Date(s);
+    const eDate = new Date(e);
+    const now = new Date();
+
+    if (sDate > eDate) {
+      setError('"From" date cannot be after "To" date.');
+      return;
+    }
+    if (sDate > now) {
+      setError('Selected date cannot be in the future.');
+      return;
+    }
+
+    setLoading(true);
     try {
       startIso = new Date(s).toISOString();
       endIso = new Date(e).toISOString();
@@ -1214,40 +1240,79 @@ export default function FuelAnalyticsPage() {
             
             <div className="flex flex-wrap items-center gap-2.5">
               {/* From Date-Time (DD/MM/YYYY Display) */}
-              <div className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
+              <div 
+                onClick={() => {
+                  try {
+                    startInputRef.current?.showPicker?.();
+                  } catch (e) {
+                    startInputRef.current?.focus?.();
+                  }
+                }}
+                className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer"
+                title="Click to select start date and time"
+              >
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
                   <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
                 </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none">
+                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
                   {formatDisplayDDMMYYYY(customStart)}
                 </div>
                 <input 
+                  ref={startInputRef}
                   type="datetime-local"
                   value={customStart}
+                  max={customEnd || maxDateTime}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try { e.target.showPicker?.(); } catch (err) {}
+                  }}
                   onChange={(e) => {
-                    setCustomStart(e.target.value);
+                    let val = e.target.value;
+                    if (val > maxDateTime) val = maxDateTime;
+                    setCustomStart(val);
                     setActivePreset('custom');
+                    setError(null);
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
               </div>
 
               {/* To Date-Time (DD/MM/YYYY Display) */}
-              <div className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
+              <div 
+                onClick={() => {
+                  try {
+                    endInputRef.current?.showPicker?.();
+                  } catch (e) {
+                    endInputRef.current?.focus?.();
+                  }
+                }}
+                className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer"
+                title="Click to select end date and time"
+              >
+                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
                   <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
                 </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none">
+                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
                   {formatDisplayDDMMYYYY(customEnd)}
                 </div>
                 <input 
+                  ref={endInputRef}
                   type="datetime-local"
                   value={customEnd}
+                  min={customStart}
+                  max={maxDateTime}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    try { e.target.showPicker?.(); } catch (err) {}
+                  }}
                   onChange={(e) => {
-                    setCustomEnd(e.target.value);
+                    let val = e.target.value;
+                    if (val > maxDateTime) val = maxDateTime;
+                    setCustomEnd(val);
                     setActivePreset('custom');
+                    setError(null);
                   }}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
@@ -1312,6 +1377,14 @@ export default function FuelAnalyticsPage() {
           </div>
 
         </div>
+
+        {/* Error Alert Banner */}
+        {error && (
+          <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 dark:text-red-400 text-xs font-semibold shadow-sm">
+            <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
