@@ -25,7 +25,8 @@ import {
   Compass,
   Check,
   Users,
-  Database
+  Database,
+  RotateCcw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -148,31 +149,29 @@ export default function FuelAnalyticsPage() {
   const [fetchingVehicles, setFetchingVehicles] = useState(true);
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   
-  // Recent visited vehicles state (persisted in localStorage)
-  const [recentVehicleIds, setRecentVehicleIds] = useState(() => {
-    try {
-      const saved = localStorage.getItem('ft_recent_visited_vehicles_v1');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-
-  const recordRecentVehicle = (vehicleId) => {
-    if (!vehicleId) return;
-    setRecentVehicleIds(prev => {
-      const updated = [vehicleId, ...prev.filter(id => id !== vehicleId)].slice(0, 6);
-      try {
-        localStorage.setItem('ft_recent_visited_vehicles_v1', JSON.stringify(updated));
-      } catch (e) {}
-      return updated;
-    });
-  };
+  // Auto-scroll ref and list container ref for vehicle dropdown
+  const activeVehicleRef = useRef(null);
+  const vehicleListContainerRef = useRef(null);
 
   // Searchable dropdown state
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const dropdownRef = useRef(null);
+
+  // Auto-scroll directly to the currently selected vehicle when opening dropdown
+  useEffect(() => {
+    if (isDropdownOpen) {
+      const timer = setTimeout(() => {
+        if (activeVehicleRef.current) {
+          activeVehicleRef.current.scrollIntoView({
+            block: 'center',
+            behavior: 'smooth'
+          });
+        }
+      }, 80);
+      return () => clearTimeout(timer);
+    }
+  }, [isDropdownOpen]);
 
   // Group selection state
   const [groups, setGroups] = useState([]);
@@ -242,18 +241,8 @@ export default function FuelAnalyticsPage() {
             : (Array.isArray(vehiclesRes.value?.data?.vehicles) ? vehiclesRes.value.data.vehicles : []);
           setVehicles(list);
           if (list.length > 0 && !selectedVehicle) {
-            let initialV = null;
-            try {
-              const savedRecents = JSON.parse(localStorage.getItem('ft_recent_visited_vehicles_v1') || '[]');
-              if (savedRecents.length > 0) {
-                initialV = list.find(v => v.id === savedRecents[0]);
-              }
-            } catch (e) {}
-            if (!initialV) {
-              initialV = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
-            }
+            const initialV = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
             setSelectedVehicle(initialV);
-            if (initialV?.id) recordRecentVehicle(initialV.id);
           }
         }
 
@@ -469,14 +458,6 @@ export default function FuelAnalyticsPage() {
     );
   }, [vehiclesInSelectedGroup, searchQuery]);
 
-  // Recently visited vehicles list
-  const recentVehiclesList = useMemo(() => {
-    if (!recentVehicleIds.length) return [];
-    return recentVehicleIds
-      .map(id => vehicles.find(v => v.id === id))
-      .filter(Boolean);
-  }, [recentVehicleIds, vehicles]);
-
   // Filtered groups inside group dropdown search
   const filteredGroupsList = useMemo(() => {
     const q = groupSearchQuery.toLowerCase().trim();
@@ -514,15 +495,13 @@ export default function FuelAnalyticsPage() {
       });
     }
 
-    const isCurrentValid = selectedVehicle && nextVehicles.some(v => v.id === selectedVehicle.id);
-    if (!isCurrentValid) {
-      if (nextVehicles.length > 0) {
-        const bestVehicle = nextVehicles.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.current_fuel != null) || nextVehicles[0];
-        setSelectedVehicle(bestVehicle);
-      } else {
-        setSelectedVehicle(null);
-        setHistoryPoints([]);
-      }
+    // Always select the first / default vehicle present in the newly selected group
+    if (nextVehicles.length > 0) {
+      const bestVehicle = nextVehicles.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.current_fuel != null) || nextVehicles[0];
+      setSelectedVehicle(bestVehicle);
+    } else {
+      setSelectedVehicle(null);
+      setHistoryPoints([]);
     }
   };
 
@@ -1121,9 +1100,9 @@ export default function FuelAnalyticsPage() {
                     transition={{ duration: 0.15 }}
                     className="absolute z-[9999] right-0 w-full sm:w-[380px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
                   >
-                    {/* Search inside dropdown */}
-                    <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
-                      <div className="relative">
+                    {/* Search inside dropdown with Reset button */}
+                    <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 flex items-center gap-2">
+                      <div className="relative flex-1">
                         <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
                         <input
                           type="text"
@@ -1134,85 +1113,55 @@ export default function FuelAnalyticsPage() {
                           autoFocus
                         />
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          if (vehicleListContainerRef.current) {
+                            vehicleListContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                          if (vehiclesInSelectedGroup.length > 0) {
+                            setSelectedVehicle(vehiclesInSelectedGroup[0]);
+                          }
+                        }}
+                        className="px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-emerald-500 transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                        title="Reset to first vehicle in group and scroll to top"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Reset</span>
+                      </button>
                     </div>
 
                     {/* Vehicle list */}
-                    <div className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
-                      {/* Recently Visited Section */}
-                      {recentVehiclesList.length > 0 && !searchQuery.trim() && (
-                        <div className="pb-1.5 mb-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center justify-between bg-emerald-500/5 rounded-lg mb-1">
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="w-3 h-3 text-emerald-500" />
-                              Recently Visited
-                            </span>
-                            <span className="text-[9px] font-semibold text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">Recent</span>
-                          </div>
-                          <div className="space-y-0.5">
-                            {recentVehiclesList.map((v) => {
-                              const isSelected = selectedVehicle?.id === v.id;
-                              return (
-                                <button
-                                  key={`recent-${v.id}`}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedVehicle(v);
-                                    recordRecentVehicle(v.id);
-                                    setIsDropdownOpen(false);
-                                    setSearchQuery('');
-                                  }}
-                                  className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
-                                    isSelected 
-                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' 
-                                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-2.5 truncate">
-                                    <span className={`w-2 h-2 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
-                                    <div className="truncate">
-                                      <div className="font-semibold text-slate-900 dark:text-white truncate flex items-center gap-1.5">
-                                        <span>{v.name || v.plate || v.imei}</span>
-                                        <span className="text-[9px] font-medium px-1.5 py-0.2 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400">Recent</span>
-                                      </div>
-                                      <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                                        {v.plate && <span>{v.plate}</span>}
-                                        <span>IMEI: {v.imei}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                  {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5 mt-2">
-                            <span>All Vehicles ({filteredVehicles.length})</span>
-                          </div>
-                        </div>
-                      )}
-
+                    <div 
+                      ref={vehicleListContainerRef}
+                      className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5"
+                    >
                       {filteredVehicles.length === 0 ? (
                         <div className="p-6 text-center text-xs text-slate-400">No vehicles match your search</div>
                       ) : (
-                        filteredVehicles.map((v) => {
+                        filteredVehicles.map((v, index) => {
                           const isSelected = selectedVehicle?.id === v.id;
                           return (
                             <button
                               key={v.id}
+                              ref={isSelected ? activeVehicleRef : null}
                               type="button"
                               onClick={() => {
                                 setSelectedVehicle(v);
-                                recordRecentVehicle(v.id);
                                 setIsDropdownOpen(false);
                                 setSearchQuery('');
                               }}
-                              className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs text-left rounded-xl transition-all ${
+                              className={`w-full flex items-center justify-between px-3 py-2.5 text-xs text-left rounded-xl transition-all ${
                                 isSelected 
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold' 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold ring-1 ring-emerald-500/30' 
                                   : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                               }`}
                             >
-                              <div className="flex items-center gap-3 truncate">
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0 text-right">
+                                  {index + 1}.
+                                </span>
                                 <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
                                 <div className="truncate">
                                   <div className="font-semibold text-slate-900 dark:text-white truncate">
