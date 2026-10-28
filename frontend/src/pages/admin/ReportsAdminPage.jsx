@@ -26,6 +26,65 @@ const isTripReportPath = (p) => {
          p.startsWith('/admin/reports/geofence');
 };
 
+const REPORT_DETAILS = {
+  '/admin/reports/consolidated': {
+    title: 'Vehicle Consolidated Report',
+    desc: 'Consolidated timeline of running, idling, parking, and stoppage events.',
+    icon: Users,
+    color: '#16A34A',
+    bg: '#F0FDF4',
+  },
+  '/admin/reports/distance': {
+    title: 'Daily Distance Report',
+    desc: 'Day-by-day odometer readings, distance travelled, and GPS points logged per vehicle.',
+    icon: TrendingUp,
+    color: '#0284C7',
+    bg: '#E0F2FE',
+  },
+  '/admin/reports/ignition': {
+    title: 'Engine ON / Ignition Report',
+    desc: 'Telemetry log of vehicle ignition ON/OFF states, operating duration, and addresses.',
+    icon: Zap,
+    color: '#DC2626',
+    bg: '#FFF1F2',
+  },
+  '/admin/reports/overspeeding': {
+    title: 'Overspeeding Report',
+    desc: 'Recorded instances where vehicle speeds exceeded authorized limits.',
+    icon: Gauge,
+    color: '#E11D48',
+    bg: '#FFF1F2',
+  },
+  '/admin/reports/stoppage': {
+    title: 'Stoppage Report',
+    desc: 'Detailed record of parking and stoppage durations with location addresses.',
+    icon: PauseCircle,
+    color: '#EA580C',
+    bg: '#FFF7ED',
+  },
+  '/admin/reports/individual': {
+    title: 'Individual Vehicle Report',
+    desc: 'Granular telemetry log, speed analysis, and continuous activity breakdown for a single vehicle.',
+    icon: UserCircle,
+    color: '#2563EB',
+    bg: '#EFF6FF',
+  },
+  '/admin/reports/activity': {
+    title: 'Vehicle Activity Report',
+    desc: 'Daily operating activity, runtime, and fleet utilization summary.',
+    icon: Activity,
+    color: '#0D9488',
+    bg: '#F0FDFA',
+  },
+  '/admin/reports/idle': {
+    title: 'Idle Report',
+    desc: 'Idling events where engine ignition remained ON while vehicle was stationary.',
+    icon: Clock,
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+  },
+};
+
 const MetricCard = ({ label, value, color, icon: Icon, bg }) => (
   <div style={{
     background: bg,
@@ -118,6 +177,17 @@ const ReportsAdminPage = () => {
     letterSpacing: '0.02em'
   });
 
+  const currentPath = location.pathname.replace(/\/$/, '');
+  const currentReport = REPORT_DETAILS[currentPath] || 
+    Object.entries(REPORT_DETAILS).find(([p]) => currentPath.startsWith(p))?.[1] || {
+      title: 'Analytics & Reports',
+      desc: 'Vehicle telemetry records and analytical reporting.',
+      icon: FileText,
+      color: '#0284C7',
+      bg: '#E0F2FE',
+    };
+  const ReportIcon = currentReport.icon;
+
   return (
     <div style={{ padding: '0', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
@@ -128,6 +198,52 @@ const ReportsAdminPage = () => {
 
       {activeTab === 'other-reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+          {/* Active Report Title Header */}
+          <div style={{
+            background: '#FFFFFF',
+            borderBottom: '1px solid #BAE6FD',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                background: currentReport.bg,
+                color: currentReport.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 2px 8px ${currentReport.color}20`
+              }}>
+                <ReportIcon size={20} />
+              </div>
+              <div>
+                <h1 style={{
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  margin: 0,
+                  lineHeight: 1.2
+                }}>
+                  {currentReport.title}
+                </h1>
+                <p style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  margin: '2px 0 0 0',
+                  fontWeight: 500
+                }}>
+                  {currentReport.desc}
+                </p>
+              </div>
+            </div>
+          </div>
+
           <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px', background: '#F8FAFC' }}>
             <Outlet />
           </div>
