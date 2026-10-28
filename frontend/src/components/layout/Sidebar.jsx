@@ -265,7 +265,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
 
-                  if (item.subItems) {
+                  if (item.name === 'Trips') {
                     const isParentActive = location.pathname === '/trips' || isTripReportPath(location.pathname);
                     return (
                       <div key={item.path} style={{ marginBottom: '2px' }}>
