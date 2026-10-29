@@ -712,16 +712,6 @@ async function start(io) {
            statusKey: currentStatusKey,
            statusSince
          };
-         await redis.set(
-           `vehicle:state:${imei}`,
-           JSON.stringify(updatedPayload),
-          ignition: finalIgnition,
-          odometer: finalOdometer,
-          parkedSince,
-          fuel: finalFuelLiters,
-          statusKey: currentStatusKey,
-          statusSince
-        };
         await redis.set(
           `vehicle:state:${imei}`,
           JSON.stringify(updatedPayload),
@@ -1200,8 +1190,21 @@ async function start(io) {
       if (isLive) {
         let displayedOdometer = finalOdometer;
         const baseline = parseFloat(vehicle.metadata?.odometerReading) || 0;
-        const snapshot = parseFloat(vehicle.metadata?.odometerSnapshot) || 0;
+        let snapshot = parseFloat(vehicle.metadata?.odometerSnapshot) || 0;
         if (baseline > 0) {
+          // If a baseline is configured but no initial snapshot exists, take this initial hardware reading as snapshot
+          if (snapshot === 0 && finalOdometer != null && finalOdometer > 0) {
+            snapshot = finalOdometer;
+            db.query(
+              `UPDATE vehicles 
+               SET metadata = jsonb_set(COALESCE(metadata, '{}'::jsonb), '{odometerSnapshot}', $1::jsonb) 
+               WHERE id = $2`,
+              [JSON.stringify(String(finalOdometer)), vehicleId]
+            ).catch(err => console.error(`[SUBSCRIBER] Failed to auto-persist odometerSnapshot for vehicle ${vehicleId}:`, err.message));
+
+            if (!vehicle.metadata) vehicle.metadata = {};
+            vehicle.metadata.odometerSnapshot = String(finalOdometer);
+          }
           displayedOdometer = baseline + Math.max(0, (finalOdometer || 0) - snapshot);
         }
 

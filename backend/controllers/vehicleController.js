@@ -192,6 +192,32 @@ const VehicleController = {
         }
       }
 
+      // Prepare final metadata and initialize odometerSnapshot
+      let finalMetadata = metadata ? { ...metadata } : {};
+      if (finalMetadata.engineOnStatus) {
+        finalMetadata.engineOn = finalMetadata.engineOnStatus;
+      } else if (finalMetadata.engineOn) {
+        finalMetadata.engineOnStatus = finalMetadata.engineOn;
+      }
+      if (finalMetadata.vehicleVoltage) {
+        finalMetadata.batteryVoltage = finalMetadata.vehicleVoltage;
+      } else if (finalMetadata.batteryVoltage) {
+        finalMetadata.vehicleVoltage = finalMetadata.batteryVoltage;
+      }
+
+      // If custom baseline odometerReading is set, check if device already has recorded distance
+      const initialBaseline = parseFloat(finalMetadata.odometerReading);
+      if (!isNaN(initialBaseline) && initialBaseline > 0) {
+        const vls = await db.query(
+          `SELECT vls.odometer FROM vehicle_latest_state vls 
+           JOIN vehicles v ON v.id = vls.vehicle_id 
+           WHERE v.imei = $1`,
+          [imei]
+        );
+        const currentGpsOdo = vls.rows[0]?.odometer ?? 0;
+        finalMetadata.odometerSnapshot = String(currentGpsOdo);
+      }
+
       const newVehicle = await VehicleModel.create({
         orgId: targetOrgId,
         imei,
@@ -207,7 +233,7 @@ const VehicleController = {
         apn,
         licenceIssuedDate,
         licenceExpireDate,
-        metadata,
+        metadata: finalMetadata,
         category: category || 'General',
         isSandMining: isSandMining === true
       });
@@ -358,7 +384,11 @@ const VehicleController = {
       if (metadata && metadata.odometerReading !== undefined) {
         const oldBaseline = String(oldVehicle.metadata?.odometerReading || '0');
         const newBaseline = String(metadata.odometerReading || '0');
-        if (oldBaseline !== newBaseline) {
+        const oldSnapshot = String(oldVehicle.metadata?.odometerSnapshot || '0');
+        const hasPositiveBaseline = parseFloat(newBaseline) > 0;
+
+        // Snapshot if baseline changed, or if baseline > 0 but snapshot was 0/missing
+        if (oldBaseline !== newBaseline || (hasPositiveBaseline && (oldSnapshot === '0' || !oldSnapshot))) {
           // Fetch current GPS device odometer from vehicle_latest_state
           const vls = await db.query(
             'SELECT odometer FROM vehicle_latest_state WHERE vehicle_id = $1',
@@ -366,6 +396,9 @@ const VehicleController = {
           );
           const currentGpsOdo = vls.rows[0]?.odometer ?? 0;
           finalMetadata.odometerSnapshot = String(currentGpsOdo);
+        } else if (oldSnapshot && oldSnapshot !== '0' && (!finalMetadata.odometerSnapshot || finalMetadata.odometerSnapshot === '0')) {
+          // Preserve valid existing snapshot so form submissions don't wipe it
+          finalMetadata.odometerSnapshot = oldSnapshot;
         }
       }
 
