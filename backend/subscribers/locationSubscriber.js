@@ -597,72 +597,124 @@ async function start(io) {
             }
           }
           if (calculatedAny) {
-            finalFuelLiters = Math.round(combinedLiters * 100) / 100;
-          }
-        } else {
-          const t1 = tanksMap[1] || fuelCal;
-          const t1Litres = evaluateTankLiters(t1, 1);
-          if (t1Litres != null && !isNaN(t1Litres)) {
-            finalFuelLiters = t1Litres;
-          }
-        }
-      }
+             finalFuelLiters = Math.round(combinedLiters * 100) / 100;
+           }
+         } else {
+           const t1 = tanksMap[1] || fuelCal;
+           const t1Litres = evaluateTankLiters(t1, 1);
+           if (t1Litres != null && !isNaN(t1Litres)) {
+             finalFuelLiters = t1Litres;
+           }
+         }
+       }
+ 
+       // Compute configured tank capacity from vehicle metadata
+       let vehicleTankCapacity = null;
+       const fuelMeta = vehicle.metadata || {};
+       const fuelCalMeta = fuelMeta.fuelCalibration || fuelMeta.fuel || {};
+       if (fuelCalMeta.tanks && typeof fuelCalMeta.tanks === 'object') {
+         const tVals = Object.values(fuelCalMeta.tanks);
+         const sumCap = tVals.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);
+         if (sumCap > 0) vehicleTankCapacity = Math.round(sumCap * 10) / 10;
+       }
+       if (!vehicleTankCapacity) {
+         const rawCap = parseFloat(fuelCalMeta.tankSize || fuelMeta.tankSize || fuelMeta.tankCapacity);
+         if (!isNaN(rawCap) && rawCap > 0) vehicleTankCapacity = Math.round(rawCap * 10) / 10;
+       }
 
-      // 2d. Fuel Alerts (Theft & Refill)
-      if (isLive && prevState && prevState.fuel !== undefined && finalFuelLiters !== undefined) {
-        const prevFuel = parseFloat(prevState.fuel);
-        const currFuel = parseFloat(finalFuelLiters);
-        const capacity = parseFloat(vehicle.metadata?.tankSize) || 100;
-        const fuelCfg = vehicle.metadata?.fuelConfig || {};
-        
-        const configuredMinTheft = parseFloat(fuelCfg.minTheft);
-        const configuredMinFilling = parseFloat(fuelCfg.minFilling);
+       // 2e. Speed-Adaptive Anti-Slosh Filter for Live Tracking & Mobile App
+       let liveFilteredFuel = finalFuelLiters;
+       if (finalFuelLiters != null && !isNaN(finalFuelLiters)) {
+         const prevFilt = (prevState && prevState.filteredFuel != null && !isNaN(prevState.filteredFuel))
+           ? parseFloat(prevState.filteredFuel)
+           : (prevState && prevState.fuel != null && !isNaN(prevState.fuel) ? parseFloat(prevState.fuel) : finalFuelLiters);
 
-        // Thresholds: Use technician configured values if present, else safe dynamic default
-        const theftThreshold = !isNaN(configuredMinTheft) && configuredMinTheft > 0
-          ? configuredMinTheft
-          : Math.max(5, Math.min(30, capacity * 0.05));
+         const currentSpeed = speed != null ? parseFloat(speed) : 0;
+         if (currentSpeed > 6.0) {
+           // Vehicle driving on highway: anti-slosh exponential smoothing to reject liquid wave ripples
+           liveFilteredFuel = Math.round(((0.25 * finalFuelLiters) + (0.75 * prevFilt)) * 10) / 10;
+         } else {
+           // Stationary at bunk or parked:
+           // If a genuine refuel or drain occurs (diff >= 3L), track immediately with zero delay
+           if (Math.abs(finalFuelLiters - prevFilt) >= 3.0) {
+             liveFilteredFuel = Math.round(finalFuelLiters * 10) / 10;
+           } else {
+             // Gentle settling convergence for parked liquid vibrations
+             liveFilteredFuel = Math.round(((0.5 * finalFuelLiters) + (0.5 * prevFilt)) * 10) / 10;
+           }
+         }
+         if (vehicleTankCapacity > 0) {
+           liveFilteredFuel = Math.max(0, Math.min(vehicleTankCapacity, liveFilteredFuel));
+         }
+       }
 
-        const refillThreshold = !isNaN(configuredMinFilling) && configuredMinFilling > 0
-          ? configuredMinFilling
-          : Math.max(5, Math.min(30, capacity * 0.05));
-
-        const diff = currFuel - prevFuel;
-        
-        // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
-        const isSloshing = speed > 5;
-        
-        if (!isSloshing) {
-          if (diff <= -theftThreshold) {
-            redis.publish('alerts', JSON.stringify({
-              imei: vehicle.imei, alertType: 'fuel_theft',
-              alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
-              lat, lng, deviceTime
-            }));
-          } else if (diff >= refillThreshold) {
-            redis.publish('alerts', JSON.stringify({
-              imei: vehicle.imei, alertType: 'fuel_refill',
-              alertText: `Fuel refilled by ${diff.toFixed(1)}L (threshold: ${refillThreshold}L).`,
-              lat, lng, deviceTime
-            }));
-          }
-        }
-      }
-
-      // 3. Cache updated state in Redis (fast — always per-packet)
-      // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
-      if (isLive) {
-        // State preservation: Never erase last-known GPS coordinates or voltage from Redis cache
-        // when a vehicle enters a tunnel, shed, or stationary GPS-blind spot.
-        const cachedLat = lat || (prevState && prevState.lat) || null;
-        const cachedLng = lng || (prevState && prevState.lng) || null;
-        const cachedVoltage = voltage || (prevState && prevState.voltage) || null;
-
-        const updatedPayload = {
-          ...data,
-          lat: cachedLat,
-          lng: cachedLng,
-          voltage: cachedVoltage,
+       // 2d. Fuel Alerts (Theft & Refill)
+       if (isLive && prevState && prevState.fuel !== undefined && finalFuelLiters !== undefined) {
+         const prevFuel = parseFloat(prevState.fuel);
+         const currFuel = parseFloat(finalFuelLiters);
+         const capacity = vehicleTankCapacity || parseFloat(vehicle.metadata?.tankSize) || 100;
+         const fuelCfg = vehicle.metadata?.fuelConfig || {};
+         
+         const configuredMinTheft = parseFloat(fuelCfg.minTheft);
+         const configuredMinFilling = parseFloat(fuelCfg.minFilling);
+ 
+         // Thresholds: Use technician configured values if present, else safe dynamic default
+         const theftThreshold = !isNaN(configuredMinTheft) && configuredMinTheft > 0
+           ? configuredMinTheft
+           : Math.max(5, Math.min(30, capacity * 0.05));
+ 
+         const refillThreshold = !isNaN(configuredMinFilling) && configuredMinFilling > 0
+           ? configuredMinFilling
+           : Math.max(5, Math.min(30, capacity * 0.05));
+ 
+         const diff = currFuel - prevFuel;
+         
+         // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
+         const isSloshing = speed > 5;
+         
+         if (!isSloshing) {
+           if (diff <= -theftThreshold) {
+             redis.publish('alerts', JSON.stringify({
+               imei: vehicle.imei, alertType: 'fuel_theft',
+               alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
+               lat, lng, deviceTime
+             }));
+           } else if (diff >= refillThreshold) {
+             redis.publish('alerts', JSON.stringify({
+               imei: vehicle.imei, alertType: 'fuel_refill',
+               alertText: `Fuel refilled by ${diff.toFixed(1)}L (threshold: ${refillThreshold}L).`,
+               lat, lng, deviceTime
+             }));
+           }
+         }
+       }
+ 
+       // 3. Cache updated state in Redis (fast — always per-packet)
+       // Only cache LIVE packets so historical/buffered dumps don't overwrite the true current state
+       if (isLive) {
+         // State preservation: Never erase last-known GPS coordinates or voltage from Redis cache
+         // when a vehicle enters a tunnel, shed, or stationary GPS-blind spot.
+         const cachedLat = lat || (prevState && prevState.lat) || null;
+         const cachedLng = lng || (prevState && prevState.lng) || null;
+         const cachedVoltage = voltage || (prevState && prevState.voltage) || null;
+ 
+         const updatedPayload = {
+           ...data,
+           lat: cachedLat,
+           lng: cachedLng,
+           voltage: cachedVoltage,
+           ignition: finalIgnition,
+           odometer: finalOdometer,
+           parkedSince,
+           fuel: finalFuelLiters,
+           filteredFuel: liveFilteredFuel,
+           tankCapacity: vehicleTankCapacity,
+           statusKey: currentStatusKey,
+           statusSince
+         };
+         await redis.set(
+           `vehicle:state:${imei}`,
+           JSON.stringify(updatedPayload),
           ignition: finalIgnition,
           odometer: finalOdometer,
           parkedSince,
@@ -719,7 +771,7 @@ async function start(io) {
             lng: validLng,
             speed: speed != null ? Math.round(speed) : null,
             direction: direction != null ? Math.round(direction) : null,
-            fuel: finalFuelLiters,
+            fuel: (liveFilteredFuel !== undefined && liveFilteredFuel !== null) ? liveFilteredFuel : finalFuelLiters,
             ignition: finalIgnition,
             voltage,
             odometer: finalOdometer != null ? Math.round(finalOdometer) : null,
@@ -1156,11 +1208,19 @@ async function start(io) {
         const emitLat = hasValidGps ? lat : (prevState ? prevState.lat : null);
         const emitLng = hasValidGps ? lng : (prevState ? prevState.lng : null);
 
+        const fuelPercentage = (vehicleTankCapacity && vehicleTankCapacity > 0 && liveFilteredFuel != null)
+          ? Math.max(0, Math.min(100, Math.round((liveFilteredFuel / vehicleTankCapacity) * 1000) / 10))
+          : null;
+
         const payload = {
           vehicleId, imei, name: vehicle.name, plate: vehicle.plate,
           lat: emitLat, lng: emitLng, speed, direction,
-          fuel: (finalFuelLiters !== undefined && finalFuelLiters !== null) ? finalFuelLiters : fuel,
+          fuel: (liveFilteredFuel !== undefined && liveFilteredFuel !== null) ? liveFilteredFuel : finalFuelLiters,
+          current_fuel: (liveFilteredFuel !== undefined && liveFilteredFuel !== null) ? liveFilteredFuel : finalFuelLiters,
           rawFuel: fuel,
+          raw_fuel: finalFuelLiters,
+          tank_capacity: vehicleTankCapacity,
+          fuel_percentage: fuelPercentage,
           ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true,

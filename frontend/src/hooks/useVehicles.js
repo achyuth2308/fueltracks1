@@ -102,6 +102,8 @@ export const useVehicles = (initialParams = {}) => {
                 current_speed: data.speed !== undefined ? (isOnlineStatus ? data.speed : 0) : vehicle.current_speed,
                 current_ignition: data.ignition !== undefined ? !!data.ignition : vehicle.current_ignition,
                 current_fuel: data.fuel !== undefined && data.fuel !== null ? data.fuel : vehicle.current_fuel,
+                tank_capacity: data.tank_capacity !== undefined ? data.tank_capacity : vehicle.tank_capacity,
+                fuel_percentage: data.fuel_percentage !== undefined ? data.fuel_percentage : vehicle.fuel_percentage,
                 current_voltage: data.voltage !== undefined && data.voltage !== null ? data.voltage : vehicle.current_voltage,
                 current_odometer: data.odometer !== undefined && data.odometer !== null ? data.odometer : vehicle.current_odometer,
                 current_direction: data.direction !== undefined && data.direction !== null ? data.direction : vehicle.current_direction,
