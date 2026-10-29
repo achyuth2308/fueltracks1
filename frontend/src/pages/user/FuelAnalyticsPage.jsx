@@ -40,7 +40,8 @@ import {
   Tooltip,
   Legend,
   Brush,
-  ReferenceDot
+  ReferenceDot,
+  ReferenceArea
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axios';
@@ -209,6 +210,11 @@ export default function FuelAnalyticsPage() {
   const [showNormalize, setShowNormalize] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
+
+  // Dedicated Event Layers & Intelligence (Refill, Theft, Consumption)
+  const [showRefillEvents, setShowRefillEvents] = useState(true);
+  const [showTheftEvents, setShowTheftEvents] = useState(true);
+  const [showConsumptionLayer, setShowConsumptionLayer] = useState(true);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -702,6 +708,8 @@ export default function FuelAnalyticsPage() {
     const dropEvents = [];
     const refuelPointsMap = new Map();
     const dropPointsMap = new Map();
+    const refuelIntervalMap = new Map();
+    const dropIntervalMap = new Map();
     
     // Find initial baseline fuel
     const firstValidFiltered = filteredFuels.find(f => f != null);
@@ -848,16 +856,33 @@ export default function FuelAnalyticsPage() {
             if (isStable) {
               rampHandled = true;
               const refuelLiters = Math.round(cumRise * 10) / 10;
+              const tEnd = new Date(sorted[maxRampIdx].device_time).getTime();
+              const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
+              const startFuelVal = Math.round(currentNormalized * 10) / 10;
+              const endFuelVal = Math.round(maxRampVal * 10) / 10;
+
               const refuelObj = {
-                time: formatIST(pt.device_time),
+                id: refuelEvents.length + 1,
+                startIdx: i,
+                endIdx: maxRampIdx,
+                startTime: formatIST(pt.device_time),
+                endTime: formatIST(sorted[maxRampIdx].device_time),
+                startTimeStr: formatIST(pt.device_time),
+                endTimeStr: formatIST(sorted[maxRampIdx].device_time),
+                startDate: formatDateIST(pt.device_time),
+                endDate: formatDateIST(sorted[maxRampIdx].device_time),
+                startFuel: startFuelVal,
+                endFuel: endFuelVal,
                 liters: refuelLiters,
-                level: Math.round(maxRampVal * 10) / 10
+                level: endFuelVal,
+                durationMin: durMin
               };
               refuelEvents.push(refuelObj);
               refuelPointsMap.set(maxRampIdx, refuelObj);
 
-              // Smooth out the ramp in normalized curve
+              // Map all points in this refill interval
               for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
+                refuelIntervalMap.set(fillIdx, refuelObj);
                 if (filteredFuels[fillIdx] != null) {
                   currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
                 }
@@ -920,15 +945,33 @@ export default function FuelAnalyticsPage() {
             if (cumDrop >= theftThreshold) {
               rampHandled = true;
               const dropLiters = Math.round(cumDrop * 10) / 10;
+              const tEnd = new Date(sorted[minRampIdx].device_time).getTime();
+              const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
+              const startFuelVal = Math.round(currentNormalized * 10) / 10;
+              const endFuelVal = Math.round(minRampVal * 10) / 10;
+
               const dropObj = {
-                time: formatIST(pt.device_time),
+                id: dropEvents.length + 1,
+                startIdx: i,
+                endIdx: minRampIdx,
+                startTime: formatIST(pt.device_time),
+                endTime: formatIST(sorted[minRampIdx].device_time),
+                startTimeStr: formatIST(pt.device_time),
+                endTimeStr: formatIST(sorted[minRampIdx].device_time),
+                startDate: formatDateIST(pt.device_time),
+                endDate: formatDateIST(sorted[minRampIdx].device_time),
+                startFuel: startFuelVal,
+                endFuel: endFuelVal,
                 liters: dropLiters,
-                level: Math.round(minRampVal * 10) / 10
+                level: endFuelVal,
+                durationMin: durMin
               };
               dropEvents.push(dropObj);
               dropPointsMap.set(minRampIdx, dropObj);
 
+              // Map all points in this theft interval
               for (let fillIdx = i; fillIdx <= minRampIdx; fillIdx++) {
+                dropIntervalMap.set(fillIdx, dropObj);
                 if (filteredFuels[fillIdx] != null) {
                   currentNormalized = Math.min(currentNormalized, filteredFuels[fillIdx]);
                 }
@@ -1093,6 +1136,8 @@ export default function FuelAnalyticsPage() {
 
       const refEv = refuelPointsMap.get(i);
       const dropEv = dropPointsMap.get(i);
+      const inRefill = refuelIntervalMap.get(i);
+      const inDrop = dropIntervalMap.get(i);
 
       chartPoints.push({
         timestamp: new Date(pt.device_time).getTime(),
@@ -1104,6 +1149,19 @@ export default function FuelAnalyticsPage() {
         fuel: normF, // Backward compatibility
         refuelLiters: refEv ? refEv.liters : null,
         dropLiters: dropEv ? dropEv.liters : null,
+        // Event Highlights & Interval Tracking
+        isRefillInterval: !!inRefill,
+        refillEvent: inRefill || null,
+        refillHighlightFuel: inRefill ? filtF : null,
+        isRefillStart: inRefill && inRefill.startIdx === i,
+        isRefillEnd: inRefill && inRefill.endIdx === i,
+
+        isTheftInterval: !!inDrop,
+        theftEvent: inDrop || null,
+        theftHighlightFuel: inDrop ? filtF : null,
+        isTheftStart: inDrop && inDrop.startIdx === i,
+        isTheftEnd: inDrop && inDrop.endIdx === i,
+
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
         engineVal: (rawSpeed > 6.0 || ign) ? 1 : 0,
@@ -1620,252 +1678,576 @@ export default function FuelAnalyticsPage() {
             </div>
           </div>
 
-          {/* Chart Container */}
-          <div className="h-[380px] w-full pt-4">
-            {loading ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
-                <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
-                <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
+          {/* Side-by-Side: Correlation Graph on Left + Fuel Intelligence Panel on Right */}
+          <div className="flex flex-col lg:flex-row gap-5 items-stretch pt-2">
+            
+            {/* Left: Correlation Graph (Reduced horizontally towards left) */}
+            <div className="flex-1 min-w-0">
+              <div className="h-[390px] w-full">
+                {loading ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+                    <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
+                  </div>
+                ) : processedData.chartData.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                    <Fuel className="w-10 h-10 opacity-30" />
+                    <span className="text-sm font-medium">No telemetry packets found for this period</span>
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
+                      
+                      <XAxis 
+                        dataKey="timeStr" 
+                        stroke="#64748b" 
+                        fontSize={11} 
+                        tickLine={false} 
+                      />
+
+                      {/* Left Y Axis: Fuel (Litres) */}
+                      <YAxis 
+                        yAxisId="fuel" 
+                        width={50}
+                        domain={[0, Math.ceil(tankCapacity * 1.05)]} 
+                        stroke="#0284c7" 
+                        fontSize={11} 
+                        tickLine={false}
+                        orientation="left"
+                        unit="L"
+                      />
+
+                      {/* Right Y Axis: Speed (km/h) */}
+                      <YAxis 
+                        yAxisId="speed" 
+                        domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
+                        stroke="#06b6d4" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        orientation="right"
+                        unit="km/h"
+                      />
+
+                      {/* Hidden Y Axis for Engine Ignition baseline step line */}
+                      <YAxis 
+                        yAxisId="engine" 
+                        domain={[0, 10]} 
+                        hide={true}
+                      />
+
+                      {/* High Precision Multi-Layer Tooltip with Dedicated Emerald Refill and Crimson Theft Cards */}
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const pt = payload[0].payload;
+                          const hasRefill = showRefillEvents && (pt.refillEvent || pt.refuelLiters);
+                          const hasTheft = showTheftEvents && (pt.theftEvent || pt.dropLiters);
+
+                          return (
+                            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[240px] max-w-[320px]">
+                              {/* 1. GREEN REFILL CARD (IF HOVERING IN REFILL WINDOW) */}
+                              {hasRefill && (
+                                <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-950/90 to-slate-900 border border-emerald-500/50 shadow-md">
+                                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1.5 mb-1.5">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                      REFILL DETECTED
+                                    </span>
+                                    <span className="font-mono text-emerald-300 font-bold">
+                                      +{pt.refillEvent?.liters || pt.refuelLiters} L
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.refillEvent?.startTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start Fuel:</span>
+                                      <span className="font-mono text-emerald-300 font-bold">{pt.refillEvent?.startFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.refillEvent?.endTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End Fuel:</span>
+                                      <span className="font-mono text-emerald-300 font-bold">{pt.refillEvent?.endFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Duration:</span>
+                                      <span className="font-mono text-slate-200">{pt.refillEvent?.durationMin || '—'} min</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Speed:</span>
+                                      <span className="font-mono text-cyan-300">{pt.speed} km/h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* 2. RED THEFT CARD (IF HOVERING IN THEFT WINDOW) */}
+                              {hasTheft && (
+                                <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-950/90 to-slate-900 border border-rose-500/50 shadow-md">
+                                  <div className="flex items-center justify-between text-xs font-bold text-rose-400 border-b border-rose-500/30 pb-1.5 mb-1.5">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+                                      THEFT / DRAIN DETECTED
+                                    </span>
+                                    <span className="font-mono text-rose-300 font-bold">
+                                      -{pt.theftEvent?.liters || pt.dropLiters} L
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.theftEvent?.startTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start Fuel:</span>
+                                      <span className="font-mono text-rose-300 font-bold">{pt.theftEvent?.startFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.theftEvent?.endTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End Fuel:</span>
+                                      <span className="font-mono text-rose-300 font-bold">{pt.theftEvent?.endFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Duration:</span>
+                                      <span className="font-mono text-slate-200">{pt.theftEvent?.durationMin || '—'} min</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Speed:</span>
+                                      <span className="font-mono text-cyan-300">{pt.speed} km/h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Standard Point Header */}
+                              <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
+                                <span className="text-slate-300 font-mono">{pt.dateStr}</span>
+                                <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
+                              </div>
+                              
+                              {/* Speed */}
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-cyan-400 font-medium flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                                  Speed:
+                                </span>
+                                <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
+                              </div>
+
+                              {/* Filtered Fuel */}
+                              <div className="flex items-center justify-between gap-4">
+                                <span className="text-sky-400 font-medium flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-sky-500" />
+                                  Filter Fuel:
+                                </span>
+                                <span className="font-bold text-sky-300 font-mono">
+                                  {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
+                                </span>
+                              </div>
+
+                              {/* Normalize */}
+                              {(showNormalize || showConsumptionLayer) && (
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                                    Normalize:
+                                  </span>
+                                  <span className="font-bold text-red-400 font-mono">
+                                    {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* All Fuel Data */}
+                              {showAllFuel && (
+                                <div className="flex items-center justify-between gap-4 text-slate-300">
+                                  <span className="flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                    All Fuel:
+                                  </span>
+                                  <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
+                                </div>
+                              )}
+
+                              {/* Engine Status */}
+                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
+                                <span className="text-amber-400 font-medium flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                  Engine:
+                                </span>
+                                <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                  {pt.engineVal === 1 ? 'ON' : 'OFF'}
+                                </span>
+                              </div>
+
+                              {/* Odometer */}
+                              <div className="flex items-center justify-between gap-4 text-slate-300">
+                                <span className="text-slate-400">Odometer:</span>
+                                <span className="font-mono font-medium">{pt.odometer} km</span>
+                              </div>
+
+                              {/* Vehicle Battery */}
+                              <div className="flex items-center justify-between gap-4 text-slate-300">
+                                <span className="text-slate-400">Vehicle Battery:</span>
+                                <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+
+                      {/* 1. Filtered Fuel Area (Translucent Glass Background Tint) */}
+                      {showFilteredFuel && (
+                        <Area
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="filteredFuel"
+                          stroke="#0284c7"
+                          strokeWidth={2}
+                          strokeOpacity={0.85}
+                          fillOpacity={1}
+                          fill="url(#filteredFuelGradient)"
+                          connectNulls={true}
+                          dot={false}
+                          name="Filtered Fuel Data (L)"
+                        />
+                      )}
+
+                      {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
+                      {showAllFuel && (
+                        <Line
+                          yAxisId="fuel"
+                          type="linear"
+                          dataKey="rawFuel"
+                          stroke="#64748b"
+                          strokeWidth={1.2}
+                          strokeOpacity={0.55}
+                          strokeDasharray="2 2"
+                          dot={{ r: 1.5, fill: '#64748b', strokeWidth: 0, fillOpacity: 0.55 }}
+                          connectNulls={true}
+                          name="All Fuel Data (L)"
+                        />
+                      )}
+
+                      {/* 3. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
+                      {showEngine && (
+                        <Line
+                          yAxisId="engine"
+                          type="stepAfter"
+                          dataKey="engineVal"
+                          stroke="#eab308"
+                          strokeWidth={2.5}
+                          dot={false}
+                          name="Engine (ON/OFF)"
+                        />
+                      )}
+
+                      {/* 4. Speed Line (Cyan Line on Right Axis) */}
+                      {showSpeed && (
+                        <Line
+                          yAxisId="speed"
+                          type="monotone"
+                          dataKey="speed"
+                          stroke="#06b6d4"
+                          strokeWidth={1.8}
+                          dot={false}
+                          name="Speed (km/h)"
+                        />
+                      )}
+
+                      {/* 5. Master Hero: Normalize / Consumption Line (RED) */}
+                      {(showNormalize || showConsumptionLayer) && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="normalizedFuel"
+                          stroke="#ef4444"
+                          strokeWidth={3.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={true}
+                          name="Normalize / Consumption (L)"
+                        />
+                      )}
+
+                      {/* 6. Refill Highlight Curve (Emerald Green on refill intervals) */}
+                      {showRefillEvents && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="refillHighlightFuel"
+                          stroke="#10b981"
+                          strokeWidth={4.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#10b981', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={false}
+                          name="Refill Highlight"
+                          isAnimationActive={false}
+                        />
+                      )}
+
+                      {/* 7. Theft Highlight Curve (Crimson Red on theft intervals) */}
+                      {showTheftEvents && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="theftHighlightFuel"
+                          stroke="#ef4444"
+                          strokeWidth={4.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={false}
+                          name="Theft Highlight"
+                          isAnimationActive={false}
+                        />
+                      )}
+
+                      {/* 8. Refill Starting & Ending Reference Dots & Bands */}
+                      {showRefillEvents && processedData.refuels.map((r, idx) => (
+                        <React.Fragment key={`ref-marks-${idx}`}>
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={r.startTimeStr}
+                            y={r.startFuel}
+                            r={5}
+                            fill="#10b981"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={r.endTimeStr}
+                            y={r.endFuel}
+                            r={6}
+                            fill="#059669"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceArea
+                            yAxisId="fuel"
+                            x1={r.startTimeStr}
+                            x2={r.endTimeStr}
+                            fill="#10b981"
+                            fillOpacity={0.15}
+                            stroke="#10b981"
+                            strokeOpacity={0.4}
+                            strokeDasharray="2 2"
+                          />
+                        </React.Fragment>
+                      ))}
+
+                      {/* 9. Theft Starting & Ending Reference Dots & Bands */}
+                      {showTheftEvents && processedData.drops.map((d, idx) => (
+                        <React.Fragment key={`theft-marks-${idx}`}>
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={d.startTimeStr}
+                            y={d.startFuel}
+                            r={5}
+                            fill="#ef4444"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={d.endTimeStr}
+                            y={d.endFuel}
+                            r={6}
+                            fill="#b91c1c"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceArea
+                            yAxisId="fuel"
+                            x1={d.startTimeStr}
+                            x2={d.endTimeStr}
+                            fill="#ef4444"
+                            fillOpacity={0.16}
+                            stroke="#ef4444"
+                            strokeOpacity={0.4}
+                            strokeDasharray="2 2"
+                          />
+                        </React.Fragment>
+                      ))}
+
+                      <Brush 
+                        dataKey="timeStr" 
+                        height={24} 
+                        stroke="#38bdf8" 
+                        fill="#0f172a" 
+                        travellerWidth={10}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
               </div>
-            ) : processedData.chartData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
-                <Fuel className="w-10 h-10 opacity-30" />
-                <span className="text-sm font-medium">No telemetry packets found for this period</span>
+            </div>
+
+            {/* Right Column: Dedicated Fuel Intelligence & Event Layer Control Panel */}
+            <div className="w-full lg:w-[280px] xl:w-[310px] shrink-0 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
+              <div className="space-y-4">
+                {/* Panel Title */}
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/80 pb-3">
+                  <div className="flex items-center gap-2">
+                    <Flame className="w-4 h-4 text-emerald-500" />
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      Fuel Intelligence
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Live Engine
+                  </span>
+                </div>
+
+                {/* 3 Interactive Layer Checkboxes */}
+                <div className="space-y-2.5">
+                  {/* 1. Refill Checkbox */}
+                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    showRefillEvents
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-sm ring-1 ring-emerald-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showRefillEvents}
+                      onChange={(e) => setShowRefillEvents(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                          1. Refill
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
+                          +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {processedData.refuels.length} refuels detected (settled curve)
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* 2. Theft / Drain Checkbox */}
+                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    showTheftEvents
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-sm ring-1 ring-rose-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showTheftEvents}
+                      onChange={(e) => setShowTheftEvents(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                          2. Theft / Drain
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
+                          -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {processedData.drops.length} siphons (anti-slope verified)
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* 3. Consumption Checkbox */}
+                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                    showConsumptionLayer
+                      ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-sm ring-1 ring-sky-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showConsumptionLayer}
+                      onChange={(e) => setShowConsumptionLayer(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                          3. Consumption
+                        </span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
+                          {processedData.fuelConsumed.toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        Monotonic burn ({processedData.mileageKmpl} km/L)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Event Audit Snippet */}
+                <div className="space-y-1.5 pt-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                    Detected Events
+                  </span>
+                  <div className="max-h-[120px] overflow-y-auto space-y-1.5 pr-1">
+                    {processedData.refuels.length === 0 && processedData.drops.length === 0 ? (
+                      <div className="text-[11px] text-slate-400 italic py-2 text-center">
+                        No refill or theft events in selected range
+                      </div>
+                    ) : (
+                      <>
+                        {showRefillEvents && processedData.refuels.map((r, idx) => (
+                          <div key={`ref-${idx}`} className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-semibold">
+                              <span>⛽ Refill:</span>
+                              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">{r.startTimeStr}</span>
+                            </div>
+                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">+{r.liters} L</span>
+                          </div>
+                        ))}
+                        {showTheftEvents && processedData.drops.map((d, idx) => (
+                          <div key={`drp-${idx}`} className="flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px]">
+                            <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300 font-semibold">
+                              <span>⚠️ Theft:</span>
+                              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">{d.startTimeStr}</span>
+                            </div>
+                            <span className="font-bold font-mono text-rose-600 dark:text-rose-400">-{d.liters} L</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
-                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
 
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
-                  
-                  <XAxis 
-                    dataKey="timeStr" 
-                    stroke="#64748b" 
-                    fontSize={11} 
-                    tickLine={false} 
-                  />
-
-                  {/* Left Y Axis: Fuel (Litres) */}
-                  <YAxis 
-                    yAxisId="fuel" 
-                    width={50}
-                    domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                    stroke="#0284c7" 
-                    fontSize={11} 
-                    tickLine={false}
-                    orientation="left"
-                    unit="L"
-                  />
-
-                  {/* Right Y Axis: Speed (km/h) */}
-                  <YAxis 
-                    yAxisId="speed" 
-                    domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
-                    stroke="#06b6d4" 
-                    fontSize={11} 
-                    tickLine={false} 
-                    orientation="right"
-                    unit="km/h"
-                  />
-
-                  {/* Hidden Y Axis for Engine Ignition baseline step line */}
-                  <YAxis 
-                    yAxisId="engine" 
-                    domain={[0, 10]} 
-                    hide={true}
-                  />
-
-                  {/* High Precision Multi-Layer Tooltip */}
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const pt = payload[0].payload;
-                      return (
-                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white min-w-[220px]">
-                          <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
-                            <span className="text-slate-300 font-mono">{pt.dateStr}</span>
-                            <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
-                          </div>
-                          
-                          {/* Speed */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-cyan-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                              Speed:
-                            </span>
-                            <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
-                          </div>
-
-                          {/* Normalize */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-red-400 font-semibold flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-red-500" />
-                              Normalize:
-                            </span>
-                            <span className="font-bold text-red-400 font-mono">
-                              {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
-                            </span>
-                          </div>
-
-                          {/* Filtered Fuel */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-sky-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-sky-500" />
-                              Filter Fuel:
-                            </span>
-                            <span className="font-bold text-sky-300 font-mono">
-                              {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
-                            </span>
-                          </div>
-
-                          {/* All Fuel Data */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-slate-400" />
-                              All Fuel:
-                            </span>
-                            <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
-                          </div>
-
-                          {/* Engine Status */}
-                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
-                            <span className="text-amber-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-amber-400" />
-                              Engine:
-                            </span>
-                            <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                              {pt.engineVal === 1 ? 'ON' : 'OFF'}
-                            </span>
-                          </div>
-
-                          {/* Refill / Drain Highlight */}
-                          {pt.refuelLiters && (
-                            <div className="flex items-center justify-between gap-4 py-1 px-2 rounded-lg bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 font-bold">
-                              <span>⛽ Refuel Event:</span>
-                              <span className="font-mono">+{pt.refuelLiters} Ltrs</span>
-                            </div>
-                          )}
-                          {pt.dropLiters && (
-                            <div className="flex items-center justify-between gap-4 py-1 px-2 rounded-lg bg-red-950/80 border border-red-500/40 text-red-400 font-bold">
-                              <span>⚠️ Theft / Drain:</span>
-                              <span className="font-mono">-{pt.dropLiters} Ltrs</span>
-                            </div>
-                          )}
-
-                          {/* Odometer */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Odometer:</span>
-                            <span className="font-mono font-medium">{pt.odometer} km</span>
-                          </div>
-
-                          {/* Vehicle Battery */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Vehicle Battery:</span>
-                            <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
-                          </div>
-
-                          {/* Status */}
-                          {pt.status && (
-                            <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between">
-                              <span>Status:</span>
-                              <span className="text-slate-200 font-semibold">{pt.status}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }}
-                  />
-
-                  {/* 1. Filtered Fuel Area (Translucent Glass Background Tint) */}
-                  {showFilteredFuel && (
-                    <Area
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="filteredFuel"
-                      stroke="#0284c7"
-                      strokeWidth={2}
-                      strokeOpacity={0.85}
-                      fillOpacity={1}
-                      fill="url(#filteredFuelGradient)"
-                      connectNulls={true}
-                      dot={false}
-                      name="Filtered Fuel Data (L)"
-                    />
-                  )}
-
-                  {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
-                  {showAllFuel && (
-                    <Line
-                      yAxisId="fuel"
-                      type="linear"
-                      dataKey="rawFuel"
-                      stroke="#64748b"
-                      strokeWidth={1.2}
-                      strokeOpacity={0.55}
-                      strokeDasharray="2 2"
-                      dot={{ r: 1.5, fill: '#64748b', strokeWidth: 0, fillOpacity: 0.55 }}
-                      connectNulls={true}
-                      name="All Fuel Data (L)"
-                    />
-                  )}
-
-                  {/* 3. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
-                  {showEngine && (
-                    <Line
-                      yAxisId="engine"
-                      type="stepAfter"
-                      dataKey="engineVal"
-                      stroke="#eab308"
-                      strokeWidth={2.5}
-                      dot={false}
-                      name="Engine (ON/OFF)"
-                    />
-                  )}
-
-                  {/* 4. Speed Line (Cyan Line on Right Axis) */}
-                  {showSpeed && (
-                    <Line
-                      yAxisId="speed"
-                      type="monotone"
-                      dataKey="speed"
-                      stroke="#06b6d4"
-                      strokeWidth={1.8}
-                      dot={false}
-                      name="Speed (km/h)"
-                    />
-                  )}
-
-                  {/* 5. Master Hero: Normalize Line (RED) - Rendered LAST so it is ALWAYS on TOP of all other layers */}
-                  {showNormalize && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="normalizedFuel"
-                      stroke="#ef4444"
-                      strokeWidth={4}
-                      dot={false}
-                      activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
-                      connectNulls={true}
-                      name="Normalize (L)"
-                    />
-                  )}
-
-                  <Brush 
-                    dataKey="timeStr" 
-                    height={24} 
-                    stroke="#38bdf8" 
-                    fill="#0f172a" 
-                    travellerWidth={10}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
+              {/* Quick Help Note */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700/80 text-[10px] text-slate-400 flex items-center justify-between">
+                <span>Hover curve for event card</span>
+                <span className="font-mono text-slate-500">5-10m settling</span>
+              </div>
+            </div>
           </div>
         </div>
 
