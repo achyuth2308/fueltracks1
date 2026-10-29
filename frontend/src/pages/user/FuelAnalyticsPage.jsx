@@ -2208,41 +2208,6 @@ export default function FuelAnalyticsPage() {
                     </div>
                   </label>
                 </div>
-
-                {/* Event Audit Snippet */}
-                <div className="space-y-1 pt-1">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
-                    Detected Events
-                  </span>
-                  <div className="max-h-[90px] overflow-y-auto space-y-1 pr-1">
-                    {processedData.refuels.length === 0 && processedData.drops.length === 0 ? (
-                      <div className="text-[10px] text-slate-400 italic py-1.5 text-center">
-                        No events in range
-                      </div>
-                    ) : (
-                      <>
-                        {showRefillEvents && processedData.refuels.map((r, idx) => (
-                          <div key={`ref-${idx}`} className="flex items-center justify-between p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
-                            <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold truncate">
-                              <span>⛽</span>
-                              <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 truncate">{r.startTimeStr}</span>
-                            </div>
-                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 shrink-0">+{r.liters} L</span>
-                          </div>
-                        ))}
-                        {showTheftEvents && processedData.drops.map((d, idx) => (
-                          <div key={`drp-${idx}`} className="flex items-center justify-between p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px]">
-                            <div className="flex items-center gap-1 text-rose-700 dark:text-rose-300 font-semibold truncate">
-                              <span>⚠️</span>
-                              <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 truncate">{d.startTimeStr}</span>
-                            </div>
-                            <span className="font-bold font-mono text-rose-600 dark:text-rose-400 shrink-0">-{d.liters} L</span>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
               </div>
 
               {/* Quick Help Note */}
