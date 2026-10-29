@@ -471,67 +471,70 @@ const OnBoardDevicePage = () => {
               </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 180px', minWidth: '160px', maxWidth: '220px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
-                  Licence Type <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <SearchableSelect
-                  options={LICENCE_TYPE_OPTIONS}
-                  value={licenceType}
-                  onChange={(val) => setLicenceType(val || 'Starter')}
-                  placeholder="-- Select Licence Type --"
-                  searchPlaceholder="Search licence type..."
-                  triggerStyle={{
-                    height: '38px',
-                    padding: '7px 12px',
-                    fontSize: '13px',
-                    borderColor: '#CBD5E1',
-                    borderRadius: '7px',
-                    background: '#FFFFFF'
-                  }}
-                />
-              </div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '32px 16px' }}>
+              <div style={{ width: '100%', maxWidth: '340px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Licence Type <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <SearchableSelect
+                    options={LICENCE_TYPE_OPTIONS}
+                    value={licenceType}
+                    onChange={(val) => setLicenceType(val || 'Starter')}
+                    placeholder="-- Select Licence Type --"
+                    searchPlaceholder="Search licence type..."
+                    triggerStyle={{
+                      height: '40px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
+                      borderColor: '#CBD5E1',
+                      borderRadius: '8px',
+                      background: '#FFFFFF'
+                    }}
+                  />
+                </div>
 
-              <div style={{ flex: '1 1 140px', minWidth: '120px', maxWidth: '180px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
-                  Quantity <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder="Enter Quantity"
-                  style={inputStyle}
-                  value={numDevices}
-                  onChange={e => setNumDevices(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleStep1Submit(); }}
-                />
-              </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Quantity <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="Enter Quantity"
+                    style={{ ...inputStyle, height: '40px', borderRadius: '8px' }}
+                    value={numDevices}
+                    onChange={e => setNumDevices(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleStep1Submit(); }}
+                  />
+                </div>
 
-              <div style={{ flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={handleStep1Submit}
-                  style={{
-                    height: '38px',
-                    padding: '0 24px',
-                    borderRadius: '7px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#FFFFFF',
-                    background: '#f97316',
-                    border: 'none',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 8px rgba(249,115,22,0.25)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s ease'
-                  }}
-                >
-                  Next Step
-                </button>
+                <div style={{ marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleStep1Submit}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '0 24px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      background: '#f97316',
+                      border: 'none',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(249,115,22,0.25)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Next Step
+                  </button>
+                </div>
               </div>
             </div>
           </div>

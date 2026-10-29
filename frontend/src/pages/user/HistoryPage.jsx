@@ -214,6 +214,11 @@ const HistoryPage = () => {
     : allVehicles;
 
   const fetchRouteHistory = async (overrideStart, overrideEnd) => {
+    const isExpired = vehicle?.licence_expire_date && new Date(vehicle.licence_expire_date) < new Date();
+    if (isExpired) {
+      setError('Vehicle license has expired. Route history playback is locked until renewed.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setIsPlaying(false);

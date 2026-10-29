@@ -211,7 +211,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
           {/* New Device Fields */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <Field label="Server Name">
-              <input type="text" value={form.serverName} onChange={e => update('serverName', e.target.value)} placeholder="137.184.248.156"
+              <input type="text" value={form.serverName} onChange={e => update('serverName', e.target.value)} placeholder="5.223.61.229:5001"
                 style={inputStyle(focused === 'serverName')} onFocus={() => setFocused('serverName')} onBlur={() => setFocused(null)} />
             </Field>
             <Field label="GPS SIM No">

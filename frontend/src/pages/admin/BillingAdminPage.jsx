@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
-import { Loader2, AlertTriangle, Search, FileText, CalendarX2, CreditCard, DollarSign, Edit3, Clock, CheckCircle, Settings, Download, ChevronDown } from 'lucide-react';
+import { Loader2, AlertTriangle, Search, FileText, CalendarX2, CreditCard, DollarSign, Edit3, Clock, CheckCircle, Settings, Download, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import SetRenewalAmountModal from '../../components/modals/SetRenewalAmountModal';
 
@@ -121,6 +121,34 @@ const BillingAdminPage = () => {
   const activeCount = licenses.filter(l => l.status === 'Active').length;
   const expiringCount = licenses.filter(l => l.status === 'Expiring').length;
   const expiredCount = licenses.filter(l => l.status === 'Expired').length;
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 25;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery, statusFilter]);
+
+  const currentList = activeTab === 'licenses' ? filteredLicenses : filteredTransactions;
+  const totalPages = Math.ceil(currentList.length / pageSize) || 1;
+  const activePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (activePage - 1) * pageSize;
+  const paginatedLicenses = filteredLicenses.slice(startIndex, startIndex + pageSize);
+  const paginatedTransactions = filteredTransactions.slice(startIndex, startIndex + pageSize);
+
+  const getPageNumbers = () => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (activePage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    if (activePage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', activePage - 1, activePage, activePage + 1, '...', totalPages];
+  };
 
   const handleExportExcel = (filterType = 'all') => {
     let exportList = licenses;
@@ -454,8 +482,18 @@ const BillingAdminPage = () => {
             </div>
           ) : activeTab === 'licenses' ? (
             /* TAB 1: VEHICLE LICENSES & EXPIRY MANAGEMENT */
-            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <table
+                className="pastel-table"
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  textAlign: 'left',
+                  whiteSpace: 'nowrap',
+                  height: filteredLicenses.length === 0 ? '100%' : 'auto',
+                  flex: filteredLicenses.length === 0 ? 1 : 'none'
+                }}
+              >
                 <thead>
                   <tr style={{ background: '#1e1b4b' }}>
                     {[
@@ -469,11 +507,11 @@ const BillingAdminPage = () => {
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody style={{ height: filteredLicenses.length === 0 ? '100%' : 'auto' }}>
                   {filteredLicenses.length === 0 ? (
-                    <tr>
-                      <td colSpan="12" style={{ padding: '80px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
+                    <tr style={{ height: '100%' }}>
+                      <td colSpan="12" style={{ height: '100%', padding: '40px 20px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', transform: 'translateX(-120px)', opacity: 0.7 }}>
                           <CalendarX2 size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
                           <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
                             {statusFilter !== 'all' ? `No ${statusFilter.toLowerCase()} vehicle licenses found` : 'No vehicle licenses found'}
@@ -489,7 +527,7 @@ const BillingAdminPage = () => {
                         </div>
                       </td>
                     </tr>
-                  ) : filteredLicenses.map((l, index) => {
+                  ) : paginatedLicenses.map((l, index) => {
                     const isExp = l.status === 'Expired';
                     const isExpiring = l.status === 'Expiring';
                     const planLabel = l.durationMonths === 12
@@ -586,8 +624,18 @@ const BillingAdminPage = () => {
             </div>
           ) : (
             /* TAB 2: TRANSACTION HISTORY */
-            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1 }}>
-              <table className="pastel-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+            <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <table
+                className="pastel-table"
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  textAlign: 'left',
+                  whiteSpace: 'nowrap',
+                  height: filteredTransactions.length === 0 ? '100%' : 'auto',
+                  flex: filteredTransactions.length === 0 ? 1 : 'none'
+                }}
+              >
                 <thead>
                   <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
                     {[
@@ -600,18 +648,18 @@ const BillingAdminPage = () => {
                     ))}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody style={{ height: filteredTransactions.length === 0 ? '100%' : 'auto' }}>
                   {filteredTransactions.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" style={{ padding: '80px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.5 }}>
+                    <tr style={{ height: '100%' }}>
+                      <td colSpan="7" style={{ height: '100%', padding: '40px 20px', textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }}>
                           <Clock size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
                           <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No renewal transactions yet</div>
                           <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Transactions will appear here when users renew licenses.</div>
                         </div>
                       </td>
                     </tr>
-                  ) : filteredTransactions.map((t) => (
+                  ) : paginatedTransactions.map((t) => (
                     <tr
                       key={t.id || t.payment_id}
                       style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}
@@ -651,6 +699,161 @@ const BillingAdminPage = () => {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Footer bar with Showing info and Pagination */}
+          {!loading && !error && currentList.length > 0 && (
+            <div style={{
+              padding: '10px 20px',
+              background: '#ffffff',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              flexWrap: 'wrap',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '12px',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+              flexShrink: 0
+            }}>
+              {/* Left: Showing info */}
+              <div style={{ fontSize: '13px', color: '#64748b' }}>
+                <span>
+                  Showing <strong style={{ color: '#0f172a' }}>{startIndex + 1}</strong> to{' '}
+                  <strong style={{ color: '#0f172a' }}>{Math.min(startIndex + pageSize, currentList.length)}</strong> of{' '}
+                  <strong style={{ color: '#0f172a' }}>{currentList.length}</strong> entries
+                </span>
+              </div>
+
+              {/* Right: Page Numbers matching FuelTracks UI theme */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {/* Previous page button */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={activePage === 1}
+                    aria-label="Previous page"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'transparent',
+                      color: activePage === 1 ? '#cbd5e1' : '#475569',
+                      cursor: activePage === 1 ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => {
+                      if (activePage !== 1) {
+                        e.currentTarget.style.background = '#f1f5f9';
+                        e.currentTarget.style.color = '#0f172a';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = activePage === 1 ? '#cbd5e1' : '#475569';
+                    }}
+                  >
+                    <ChevronLeft size={18} strokeWidth={2.5} />
+                  </button>
+
+                  {/* Page numbers */}
+                  {getPageNumbers().map((item, i) => {
+                    if (item === '...') {
+                      return (
+                        <span
+                          key={`ellipsis-${i}`}
+                          style={{
+                            width: '28px',
+                            textAlign: 'center',
+                            color: '#94a3b8',
+                            fontSize: '14px',
+                            userSelect: 'none'
+                          }}
+                        >
+                          …
+                        </span>
+                      );
+                    }
+
+                    const isActive = item === activePage;
+                    return (
+                      <button
+                        type="button"
+                        key={item}
+                        onClick={() => setCurrentPage(item)}
+                        style={{
+                          width: '32px',
+                          height: '32px',
+                          borderRadius: '50%',
+                          border: 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '13px',
+                          fontWeight: isActive ? 700 : 600,
+                          color: isActive ? '#ffffff' : '#475569',
+                          background: isActive ? '#1e1b4b' : 'transparent',
+                          cursor: isActive ? 'default' : 'pointer',
+                          transition: 'all 0.15s',
+                          boxShadow: isActive ? '0 2px 4px rgba(30, 27, 75, 0.25)' : 'none'
+                        }}
+                        onMouseEnter={e => {
+                          if (!isActive) {
+                            e.currentTarget.style.background = '#f1f5f9';
+                            e.currentTarget.style.color = '#0f172a';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!isActive) {
+                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.color = '#475569';
+                          }
+                        }}
+                      >
+                        {item}
+                      </button>
+                    );
+                  })}
+
+                  {/* Next page button */}
+                  <button
+                    type="button"
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={activePage === totalPages}
+                    aria-label="Next page"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: '32px',
+                      height: '32px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'transparent',
+                      color: activePage === totalPages ? '#cbd5e1' : '#475569',
+                      cursor: activePage === totalPages ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={e => {
+                      if (activePage !== totalPages) {
+                        e.currentTarget.style.background = '#f1f5f9';
+                        e.currentTarget.style.color = '#0f172a';
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = activePage === totalPages ? '#cbd5e1' : '#475569';
+                    }}
+                  >
+                    <ChevronRight size={18} strokeWidth={2.5} />
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

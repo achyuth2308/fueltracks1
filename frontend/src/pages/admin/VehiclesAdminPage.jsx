@@ -32,6 +32,52 @@ const StatusDot = ({ online }) => (
   </div>
 );
 
+const DEVICE_TYPE_PORTS = {
+  'BSTPL': '5000',
+  'AIS140': '5001',
+  'CONCOX': '5002',
+  'AIS140 V2': '5003',
+  'AIS140V2': '5003',
+  'VOLTY': '5004',
+  'FMB 920': '5005',
+  'FMB920': '5005',
+  'PT06': '5006',
+  'EC08': '5007',
+  'GT06': '5007',
+  'GT06N': '5007',
+  'GT06N (9964)': '5007',
+  'PN02': '5008',
+  'V5 4G': '5009',
+  'V54G': '5009',
+  'BSTPL-17IS': '5010',
+  'BSTPL17IS': '5010',
+  'VOLTYFUEL': '5011'
+};
+
+const getServerAddress = (vehicle) => {
+  if (vehicle.server_name && vehicle.server_name !== 'Voltsys') {
+    return vehicle.server_name;
+  }
+  const meta = vehicle.metadata || {};
+  if (meta.serverName && meta.serverName !== 'Voltsys') {
+    return meta.serverName;
+  }
+  let port = meta.portNo || meta.port;
+  if (!port) {
+    const rawType = vehicle.deviceType || vehicle.device_version || meta.deviceModel || meta.deviceType || '';
+    const norm = String(rawType).trim().toUpperCase();
+    if (DEVICE_TYPE_PORTS[norm]) {
+      port = DEVICE_TYPE_PORTS[norm];
+    } else {
+      const sortedKeys = Object.keys(DEVICE_TYPE_PORTS).sort((a, b) => b.length - a.length);
+      const foundKey = sortedKeys.find(k => norm.includes(k.toUpperCase()) || k.toUpperCase().includes(norm));
+      port = foundKey ? DEVICE_TYPE_PORTS[foundKey] : '5001';
+    }
+  }
+  const ip = meta.ipAddress && !meta.ipAddress.includes('fueltracks.in') ? meta.ipAddress : '5.223.61.229';
+  return `${ip}:${port}`;
+};
+
 const CATEGORIES = ['All', 'TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
 
 const VehiclesAdminPage = () => {
@@ -200,8 +246,8 @@ const VehiclesAdminPage = () => {
           valB = b.imei || b.device_id || '';
           break;
         case 'serverName':
-          valA = a.server_name || metaA.serverName || 'Voltsys';
-          valB = b.server_name || metaB.serverName || 'Voltsys';
+          valA = getServerAddress(a);
+          valB = getServerAddress(b);
           break;
         case 'lastCommTime':
           valA = a.last_seen || a.last_comm_time || metaA.lastCommTime || 0;
@@ -676,7 +722,7 @@ const VehiclesAdminPage = () => {
                         {/* 6. Server Name */}
                         <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
                           <span style={{ display: 'inline-block', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                            {v.server_name || meta.serverName || 'Voltsys'}
+                            {getServerAddress(v)}
                           </span>
                         </td>
 

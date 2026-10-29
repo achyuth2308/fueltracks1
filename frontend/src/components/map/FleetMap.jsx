@@ -341,6 +341,10 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
   const newLat = parseFloat(vehicle.lat);
   const newLng = parseFloat(vehicle.lng);
   const warning = getExpiryWarning(vehicle.licence_expire_date);
+  // Paywall: hide expired vehicle marker completely from live map
+  if (warning && warning.type === 'expired') {
+    return null;
+  }
   const clusterRank = vehicle._clusterRank || 0;
   const speed = (status === 'offline' || status === 'unreachable' || !vehicle.is_online) ? 0 : Math.round(vehicle.current_speed || 0);
   const course = vehicle.current_direction || vehicle.direction || vehicle.course || vehicle.heading || 0;
@@ -580,7 +584,10 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick, liveRouteMe
   const map = useMap();
 
   // Step 1: resolve / validate every vehicle's coordinates
-  const resolved = vehicles.map((vehicle, idx) => {
+  const resolved = vehicles.filter(v => {
+    const w = getExpiryWarning(v.licence_expire_date);
+    return !(w && w.type === 'expired');
+  }).map((vehicle, idx) => {
     let finalLat = parseFloat(vehicle.lat);
     let finalLng = parseFloat(vehicle.lng);
     const hasValidCoords = !isNaN(finalLat) && !isNaN(finalLng)
