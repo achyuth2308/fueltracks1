@@ -1743,7 +1743,7 @@ export default function FuelAnalyticsPage() {
                         hide={true}
                       />
 
-                      {/* High Precision Multi-Layer Tooltip with Dedicated Emerald Refill and Crimson Theft Cards */}
+                      {/* High Precision Multi-Layer Tooltip with Dedicated Side-by-Side Cards (Left: Event Card, Right: Telemetry Card) */}
                       <Tooltip 
                         content={({ active, payload }) => {
                           if (!active || !payload?.length) return null;
@@ -1752,20 +1752,20 @@ export default function FuelAnalyticsPage() {
                           const hasTheft = showTheftEvents && (pt.theftEvent || pt.dropLiters);
 
                           return (
-                            <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[240px] max-w-[320px]">
-                              {/* 1. GREEN REFILL CARD (IF HOVERING IN REFILL WINDOW) */}
+                            <div className="flex flex-row items-stretch gap-3 pointer-events-none select-none drop-shadow-2xl">
+                              {/* CARD 1 (LEFT SIDE): DEDICATED REFILL CARD */}
                               {hasRefill && (
-                                <div className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-950/90 to-slate-900 border border-emerald-500/50 shadow-md">
-                                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1.5 mb-1.5">
+                                <div className="bg-slate-900/95 backdrop-blur-md border border-emerald-500/60 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[210px] max-w-[240px] flex flex-col justify-between">
+                                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1.5 mb-0.5">
                                     <span className="flex items-center gap-1.5">
                                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                                       REFILL DETECTED
                                     </span>
-                                    <span className="font-mono text-emerald-300 font-bold">
+                                    <span className="font-mono text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40">
                                       +{pt.refillEvent?.liters || pt.refuelLiters} L
                                     </span>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] pt-1">
                                     <div>
                                       <span className="text-slate-400 text-[10px] block">Start:</span>
                                       <span className="font-mono text-slate-200 font-semibold">{pt.refillEvent?.startTime || pt.timeStr}</span>
@@ -1794,19 +1794,19 @@ export default function FuelAnalyticsPage() {
                                 </div>
                               )}
 
-                              {/* 2. RED THEFT CARD (IF HOVERING IN THEFT WINDOW) */}
+                              {/* CARD 1 (LEFT SIDE): DEDICATED THEFT CARD */}
                               {hasTheft && (
-                                <div className="p-2.5 rounded-xl bg-gradient-to-br from-rose-950/90 to-slate-900 border border-rose-500/50 shadow-md">
-                                  <div className="flex items-center justify-between text-xs font-bold text-rose-400 border-b border-rose-500/30 pb-1.5 mb-1.5">
+                                <div className="bg-slate-900/95 backdrop-blur-md border border-rose-500/60 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[210px] max-w-[240px] flex flex-col justify-between">
+                                  <div className="flex items-center justify-between text-xs font-bold text-rose-400 border-b border-rose-500/30 pb-1.5 mb-0.5">
                                     <span className="flex items-center gap-1.5">
                                       <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-                                      THEFT / DRAIN DETECTED
+                                      THEFT / DRAIN
                                     </span>
-                                    <span className="font-mono text-rose-300 font-bold">
+                                    <span className="font-mono text-rose-300 font-bold bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/40">
                                       -{pt.theftEvent?.liters || pt.dropLiters} L
                                     </span>
                                   </div>
-                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px]">
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] pt-1">
                                     <div>
                                       <span className="text-slate-400 text-[10px] block">Start:</span>
                                       <span className="font-mono text-slate-200 font-semibold">{pt.theftEvent?.startTime || pt.timeStr}</span>
@@ -1835,77 +1835,80 @@ export default function FuelAnalyticsPage() {
                                 </div>
                               )}
 
-                              {/* Standard Point Header */}
-                              <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
-                                <span className="text-slate-300 font-mono">{pt.dateStr}</span>
-                                <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
-                              </div>
-                              
-                              {/* Speed */}
-                              <div className="flex items-center justify-between gap-4">
-                                <span className="text-cyan-400 font-medium flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                                  Speed:
-                                </span>
-                                <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
-                              </div>
-
-                              {/* Filtered Fuel */}
-                              <div className="flex items-center justify-between gap-4">
-                                <span className="text-sky-400 font-medium flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-sky-500" />
-                                  Filter Fuel:
-                                </span>
-                                <span className="font-bold text-sky-300 font-mono">
-                                  {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
-                                </span>
-                              </div>
-
-                              {/* Normalize */}
-                              {(showNormalize || showConsumptionLayer) && (
+                              {/* CARD 2 (RIGHT SIDE): STANDARD TELEMETRY CURSOR CARD */}
+                              <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl text-xs space-y-1.5 text-white min-w-[210px] max-w-[250px]">
+                                {/* Standard Point Header */}
+                                <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
+                                  <span className="text-slate-300 font-mono">{pt.dateStr}</span>
+                                  <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
+                                </div>
+                                
+                                {/* Speed */}
                                 <div className="flex items-center justify-between gap-4">
-                                  <span className="text-red-400 font-semibold flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                                    Normalize:
+                                  <span className="text-cyan-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                                    Speed:
                                   </span>
-                                  <span className="font-bold text-red-400 font-mono">
-                                    {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
+                                  <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
+                                </div>
+
+                                {/* Filtered Fuel */}
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-sky-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-sky-500" />
+                                    Filter Fuel:
+                                  </span>
+                                  <span className="font-bold text-sky-300 font-mono">
+                                    {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
                                   </span>
                                 </div>
-                              )}
 
-                              {/* All Fuel Data */}
-                              {showAllFuel && (
+                                {/* Normalize */}
+                                {(showNormalize || showConsumptionLayer) && (
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                                      Normalize:
+                                    </span>
+                                    <span className="font-bold text-red-400 font-mono">
+                                      {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* All Fuel Data */}
+                                {showAllFuel && (
+                                  <div className="flex items-center justify-between gap-4 text-slate-300">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                      All Fuel:
+                                    </span>
+                                    <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
+                                  </div>
+                                )}
+
+                                {/* Engine Status */}
+                                <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
+                                  <span className="text-amber-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                    Engine:
+                                  </span>
+                                  <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                    {pt.engineVal === 1 ? 'ON' : 'OFF'}
+                                  </span>
+                                </div>
+
+                                {/* Odometer */}
                                 <div className="flex items-center justify-between gap-4 text-slate-300">
-                                  <span className="flex items-center gap-1.5">
-                                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                                    All Fuel:
-                                  </span>
-                                  <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
+                                  <span className="text-slate-400">Odometer:</span>
+                                  <span className="font-mono font-medium">{pt.odometer} km</span>
                                 </div>
-                              )}
 
-                              {/* Engine Status */}
-                              <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
-                                <span className="text-amber-400 font-medium flex items-center gap-1.5">
-                                  <span className="w-2 h-2 rounded-full bg-amber-400" />
-                                  Engine:
-                                </span>
-                                <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                  {pt.engineVal === 1 ? 'ON' : 'OFF'}
-                                </span>
-                              </div>
-
-                              {/* Odometer */}
-                              <div className="flex items-center justify-between gap-4 text-slate-300">
-                                <span className="text-slate-400">Odometer:</span>
-                                <span className="font-mono font-medium">{pt.odometer} km</span>
-                              </div>
-
-                              {/* Vehicle Battery */}
-                              <div className="flex items-center justify-between gap-4 text-slate-300">
-                                <span className="text-slate-400">Vehicle Battery:</span>
-                                <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
+                                {/* Vehicle Battery */}
+                                <div className="flex items-center justify-between gap-4 text-slate-300">
+                                  <span className="text-slate-400">Vehicle Battery:</span>
+                                  <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
+                                </div>
                               </div>
                             </div>
                           );
