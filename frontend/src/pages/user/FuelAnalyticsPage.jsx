@@ -1541,42 +1541,20 @@ export default function FuelAnalyticsPage() {
               </p>
             </div>
 
-            {/* Quick Presets & 5-Layer Telematics Visibility Toggles inside Graph Card */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Quick Presets */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs font-medium shrink-0">
-                {[
-                  { id: 'today', label: 'Today' },
-                  { id: 'yesterday', label: 'Yesterday' },
-                  { id: '24h', label: 'Last 24h' },
-                  { id: '7d', label: '7 Days' },
-                ].map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => handleSelectPreset(tab.id)}
-                    className={`px-3 py-1.5 rounded-lg transition-all text-xs font-semibold ${
-                      activePreset === tab.id
-                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+            {/* 5-Layer Telematics Visibility Toggles inside Graph Card */}
+            <div className="flex items-center flex-wrap gap-2 shrink-0">
               {/* Layer 1: All Fuel Data */}
               <button
                 type="button"
                 onClick={() => setShowAllFuel(!showAllFuel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showAllFuel
-                    ? 'bg-slate-200 dark:bg-slate-700/60 text-slate-800 dark:text-slate-100 border-slate-400/50 shadow-sm font-semibold'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-slate-800'
+                    ? 'bg-slate-200 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 border-slate-400/60 shadow-sm'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
               >
-                <span className="w-2 h-2 rounded-full bg-slate-500" />
+                <span className={`w-2 h-2 rounded-full ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
                 All Fuel Data
               </button>
 
@@ -1584,14 +1562,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowFilteredFuel(!showFilteredFuel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showFilteredFuel
-                    ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-400/60 shadow-sm ring-1 ring-sky-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Anti-Slosh Smoothed Fuel Curve"
               >
-                <span className="w-2 h-2 rounded-full bg-sky-600" />
+                <span className={`w-2 h-2 rounded-full ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
                 Filtered Fuel Data
               </button>
 
@@ -1599,14 +1577,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowNormalize(!showNormalize)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showNormalize
-                    ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/50 shadow-sm ring-1 ring-red-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-400/60 shadow-sm ring-1 ring-rose-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Monotonic Physical Reality Consumption Curve"
               >
-                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className={`w-2 h-2 rounded-full ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
                 Normalize
               </button>
 
@@ -1614,14 +1592,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowEngine(!showEngine)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showEngine
-                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-400/60 shadow-sm ring-1 ring-amber-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Engine Ignition Status"
               >
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className={`w-2 h-2 rounded-full ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
                 Engine
               </button>
 
@@ -1629,14 +1607,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowSpeed(!showSpeed)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showSpeed
-                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border-cyan-400/60 shadow-sm ring-1 ring-cyan-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Speed Secondary Axis"
               >
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span className={`w-2 h-2 rounded-full ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
                 Speed
               </button>
             </div>
