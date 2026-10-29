@@ -63,6 +63,9 @@ const ALL_TYPES_MAP = {};
 ALERT_GROUPS.forEach(g => g.types.forEach(t => { ALL_TYPES_MAP[t.key] = { ...t, group: g }; }));
 ALL_TYPES_MAP['main_battery_disconnected'] = { key: 'main_battery_disconnected', label: 'Main Battery Disconnected', group: ALERT_GROUPS[0] };
 ALL_TYPES_MAP['main_battery_connected'] = { key: 'main_battery_connected', label: 'Main Battery Connected', group: ALERT_GROUPS[2] };
+ALL_TYPES_MAP['fuel_theft'] = { key: 'fuel_theft', label: 'Fuel Theft Alert', group: ALERT_GROUPS[0] };
+ALL_TYPES_MAP['fuel_refill'] = { key: 'fuel_refill', label: 'Fuel Refill Detected', group: ALERT_GROUPS[2] };
+ALL_TYPES_MAP['fuel_refill_final'] = { key: 'fuel_refill_final', label: 'Fuel Refill Confirmed', group: ALERT_GROUPS[2] };
 
 function getAlertMeta(alertType) {
   const key = (alertType || '').toLowerCase();

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, RotateCw, Download,
-  Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, Box,
+  Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, ArrowLeft, Box,
   Table, Plus, Trash2, Upload, FileSpreadsheet, Activity, Cpu, Sparkles, Check, Info,
   ChevronDown, Gauge
 } from 'lucide-react';
@@ -1013,31 +1013,31 @@ const EditCalibratePage = () => {
   const isAnalogMode = fuelType && fuelType.toLowerCase().includes('analog');
 
   return (
-    <div className="pastel-page-bg" style={{ padding: '28px 32px', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+    <div className="pastel-page-bg calib-page-container" style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%' }}>
 
         {/* Top Header & Breadcrumb Bar */}
-        <div style={{
+        <div className="calib-header-wrap" style={{
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          marginBottom: '22px',
+          marginBottom: '10px',
           flexWrap: 'wrap'
         }}>
-          <h1 style={{
+          <h1 className="calib-header-title" style={{
             fontSize: '24px',
             fontWeight: 800,
             color: '#0f172a',
             letterSpacing: '-0.02em',
             margin: 0
           }}>
-            Edit Calibrate
+            Fuel Calibration
           </h1>
 
-          <div style={{ width: '1px', height: '20px', background: '#cbd5e1' }} />
+          <div className="calib-header-sep" style={{ width: '1px', height: '20px', background: '#cbd5e1' }} />
 
           {/* Breadcrumb line */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' }}>
+          <div className="calib-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
@@ -1051,17 +1051,57 @@ const EditCalibratePage = () => {
               type="button"
               onClick={() => navigate('/admin/vehicles')}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#64748b', fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
             >
               Vehicle list
             </button>
             <ChevronRight size={13} color="#94a3b8" />
-            <span style={{ color: '#64748b', fontWeight: 500 }}>Edit Calibrate</span>
+            <button
+              type="button"
+              onClick={() => id && navigate(`/admin/vehicles/edit/${id}`)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#64748b', fontWeight: 600 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+            >
+              {displayVehicleId}
+            </button>
             <ChevronRight size={13} color="#94a3b8" />
-            <span style={{ color: '#ea580c', fontWeight: 700 }}>{displayVehicleId}</span>
+            <span style={{ color: '#ea580c', fontWeight: 700 }}>Fuel Calibration</span>
           </div>
 
-          {/* Top Right Live Fuel Action Button */}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Top Right Action Buttons */}
+          <div className="calib-header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => id ? navigate(`/admin/vehicles/edit/${id}`) : navigate('/admin/vehicles')}
+              style={{
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '7px 14px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.color = '#0f172a';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.color = '#334155';
+              }}
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Vehicle</span>
+            </button>
             <button
               type="button"
               onClick={() => setShowLiveFuelModal(true)}
@@ -1106,15 +1146,15 @@ const EditCalibratePage = () => {
           <div style={{
             background: '#fef2f2',
             border: '1px solid #fecaca',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '8px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             color: '#dc2626',
-            fontSize: '13.5px',
+            fontSize: '13px',
             fontWeight: 600,
-            marginBottom: '18px',
+            marginBottom: '10px',
             boxShadow: '0 2px 6px rgba(220, 38, 38, 0.06)'
           }}>
             <AlertTriangle size={18} />
@@ -1126,15 +1166,15 @@ const EditCalibratePage = () => {
           <div style={{
             background: '#f0fdf4',
             border: '1px solid #bbf7d0',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '8px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             color: '#16a34a',
-            fontSize: '13.5px',
+            fontSize: '13px',
             fontWeight: 600,
-            marginBottom: '18px',
+            marginBottom: '10px',
             boxShadow: '0 2px 6px rgba(22, 163, 74, 0.06)'
           }}>
             <CheckCircle size={18} />
@@ -1151,10 +1191,10 @@ const EditCalibratePage = () => {
           overflow: 'hidden'
         }}>
           {/* Card Top Tab Bar */}
-          <div style={{
+          <div className="calib-tabs-bar" style={{
             background: '#fafbfc',
             borderBottom: '1px solid #f1f5f9',
-            padding: '14px 24px',
+            padding: '6px 12px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
@@ -1172,13 +1212,13 @@ const EditCalibratePage = () => {
                     background: isSelected ? '#f97316' : '#f1f5f9',
                     color: isSelected ? '#ffffff' : '#64748b',
                     border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 22px',
-                    fontSize: '13.5px',
+                    borderRadius: '7px',
+                    padding: '6px 16px',
+                    fontSize: '13px',
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 2px 8px rgba(249, 115, 22, 0.3)' : 'none',
+                    boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.28)' : 'none',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px'
@@ -1198,7 +1238,7 @@ const EditCalibratePage = () => {
 
             {/* Sensors Switcher (when sensorCount > 1) */}
             {sensorCount > 1 && (
-              <div style={{
+              <div className="calib-sensor-switcher" style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -1253,41 +1293,242 @@ const EditCalibratePage = () => {
           </div>
 
           {/* Form Body */}
-          <form onSubmit={handleSave} style={{ padding: '30px 28px 36px 28px' }}>
+          <form onSubmit={handleSave} className="calib-card-body">
 
             {/* SECTION 1: General Configuration */}
-            <div style={{
-              marginBottom: '32px',
+            <div className="calib-section-box" style={{
+              marginBottom: '10px',
               background: '#f8fafc',
               border: '1px solid #f1f5f9',
-              borderRadius: '10px',
-              padding: '20px 24px'
+              borderRadius: '8px',
+              padding: '10px 12px'
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                marginBottom: '16px',
-                paddingBottom: '10px',
+                marginBottom: '8px',
+                paddingBottom: '6px',
                 borderBottom: '1px solid #e2e8f0'
               }}>
                 <Settings2 size={16} color="#ea580c" />
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                <h3 style={{ fontSize: '14.5px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                   General Configuration
                 </h3>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginLeft: '6px' }}>
-                  (Vehicle Identity & Sensor Specifications)
-                </span>
               </div>
 
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px 24px'
-              }}>
+              <style>{`
+                .calib-page-container {
+                  padding: 8px 12px;
+                }
+                .calib-card-body {
+                  padding: 10px 12px 14px 12px;
+                }
+                .calib-grid-3 {
+                  display: grid;
+                  grid-template-columns: repeat(3, minmax(0, 1fr));
+                  gap: 8px 10px;
+                  margin-bottom: 8px;
+                }
+                .calib-grid-2 {
+                  display: grid;
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 8px 10px;
+                  margin-bottom: 8px;
+                }
+                .calib-footer-actions {
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  gap: 14px;
+                  margin-top: 20px;
+                  padding-top: 16px;
+                  border-top: 1px solid #f1f5f9;
+                }
+                .calib-tools-bar {
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  height: 38px;
+                }
+                .calib-tank-preview-card {
+                  margin-top: 12px;
+                  margin-bottom: 16px;
+                  background: #fafbfc;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 10px;
+                  padding: 16px 20px;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 12px;
+                  position: relative;
+                  max-width: 100%;
+                  box-sizing: border-box;
+                }
+                @media (max-width: 900px) {
+                  .calib-grid-3 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                  }
+                }
+                @media (max-width: 768px) {
+                  .calib-page-container {
+                    padding: 10px 8px !important;
+                  }
+                  .calib-card-body {
+                    padding: 12px 10px 18px 10px !important;
+                  }
+                  .calib-grid-3, .calib-grid-2 {
+                    grid-template-columns: 1fr !important;
+                    gap: 10px 0 !important;
+                    margin-bottom: 10px !important;
+                  }
+                  .calib-header-wrap {
+                    flex-direction: column !important;
+                    align-items: flex-start !important;
+                    gap: 8px !important;
+                    margin-bottom: 14px !important;
+                  }
+                  .calib-header-title {
+                    font-size: 20px !important;
+                  }
+                  .calib-header-sep {
+                    display: none !important;
+                  }
+                  .calib-breadcrumb {
+                    font-size: 12px !important;
+                    gap: 6px !important;
+                  }
+                  .calib-header-actions {
+                    margin-left: 0 !important;
+                    width: 100% !important;
+                    justify-content: flex-start !important;
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                    gap: 8px !important;
+                  }
+                  .calib-header-actions button {
+                    flex: 1 1 calc(50% - 6px) !important;
+                    justify-content: center !important;
+                    min-width: 135px !important;
+                    padding: 8px 10px !important;
+                    font-size: 12.5px !important;
+                  }
+                  .calib-tabs-bar {
+                    padding: 10px 12px !important;
+                    gap: 8px !important;
+                  }
+                  .calib-sensor-switcher {
+                    margin-left: 0 !important;
+                    padding-left: 0 !important;
+                    border-left: none !important;
+                    width: 100% !important;
+                    margin-top: 4px !important;
+                  }
+                  .calib-section-box {
+                    padding: 12px 10px !important;
+                  }
+                  .calib-tools-bar {
+                    height: auto !important;
+                    flex-wrap: wrap !important;
+                    gap: 6px !important;
+                  }
+                  .calib-tools-bar button {
+                    height: 36px !important;
+                  }
+                  .calib-tank-preview-card {
+                    padding: 12px 10px !important;
+                  }
+                  .calib-tank-preview-row {
+                    flex-direction: column !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                  }
+                  .calib-tank-rect-box {
+                    max-width: 100% !important;
+                  }
+                  .calib-cylinder-svg {
+                    max-width: 100% !important;
+                    height: auto !important;
+                  }
+                  .calib-manual-submode-bar {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 10px !important;
+                  }
+                  .calib-manual-radios {
+                    gap: 16px !important;
+                  }
+                  .calib-manual-inputs {
+                    justify-content: space-between !important;
+                    width: 100% !important;
+                  }
+                  .calib-table th, .calib-table td {
+                    padding: 8px 8px !important;
+                    font-size: 12px !important;
+                  }
+                  .calib-footer-actions {
+                    flex-direction: column-reverse !important;
+                    width: 100% !important;
+                    gap: 10px !important;
+                    margin-top: 14px !important;
+                    padding-top: 14px !important;
+                  }
+                  .calib-footer-actions button {
+                    width: 100% !important;
+                    justify-content: center !important;
+                    padding: 11px !important;
+                  }
+                  .calib-modal-overlay {
+                    padding: 10px !important;
+                  }
+                  .calib-modal-box {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 16px 14px !important;
+                    border-radius: 10px !important;
+                  }
+                  .calib-modal-freq-table th, .calib-modal-freq-table td {
+                    padding: 6px 4px !important;
+                    font-size: 11px !important;
+                  }
+                }
+                @media (max-width: 480px) {
+                  .calib-header-title {
+                    font-size: 18px !important;
+                  }
+                  .calib-header-actions button {
+                    flex: 1 1 100% !important;
+                    width: 100% !important;
+                  }
+                  .calib-tools-bar button {
+                    flex: 1 1 45% !important;
+                  }
+                  .calib-manual-inputs {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 8px !important;
+                  }
+                  .calib-manual-inputs > div {
+                    justify-content: space-between !important;
+                    width: 100% !important;
+                  }
+                  .calib-manual-inputs input {
+                    width: 110px !important;
+                  }
+                  .calib-manual-inputs button {
+                    width: 100% !important;
+                    justify-content: center !important;
+                  }
+                }
+              `}</style>
+
+              {/* ROW 1: Vehicle Identity Information (Read-Only) */}
+              <div className="calib-grid-3">
                 {/* Vehicle ID (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Vehicle ID
                   </label>
                   <input
@@ -1297,13 +1538,14 @@ const EditCalibratePage = () => {
                     value={displayVehicleId}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
@@ -1313,7 +1555,7 @@ const EditCalibratePage = () => {
 
                 {/* Vehicle Name (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Vehicle Name
                   </label>
                   <input
@@ -1323,13 +1565,14 @@ const EditCalibratePage = () => {
                     value={vehicleName || vehicle?.name || ''}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
@@ -1339,7 +1582,7 @@ const EditCalibratePage = () => {
 
                 {/* Device Id / IMEI No (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Device Id / IMEI No
                   </label>
                   <input
@@ -1349,23 +1592,30 @@ const EditCalibratePage = () => {
                     value={vehicle?.imei || ''}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
                     }}
                   />
                 </div>
+              </div>
 
+              {/* Subtle separation between Vehicle Identity & Calibration Hardware */}
+              <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 14px 0' }} />
+
+              {/* ROW 2: Hardware Configuration & Calibration Mode (Editable) */}
+              <div className="calib-grid-3">
                 {/* No. of Tank */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     No.of Tank <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -1376,12 +1626,12 @@ const EditCalibratePage = () => {
                     onChange={e => setNoOfTank(e.target.value)}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1399,7 +1649,7 @@ const EditCalibratePage = () => {
 
                 {/* No. of Sensor */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     No.of Sensor <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -1417,12 +1667,12 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1438,57 +1688,46 @@ const EditCalibratePage = () => {
                   />
                 </div>
 
-                {/* Sensor Type */}
+                {/* Sensor Details */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    {sensorCount > 1 ? `Sensor Type (Sensor ${activeSensor})` : 'Sensor Type'}
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Sensor Details
                   </label>
-                  <FuelTracksSelect
-                    value={sensorType}
-                    onChange={setSensorType}
-                    options={sensorTypeOptions}
-                    placeholder="-- Select --"
-                    height="40px"
+                  <input
+                    type="text"
+                    value={sensorDetails}
+                    onChange={e => setSensorDetails(e.target.value)}
+                    placeholder="Specifications, notes..."
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      fontSize: '13px',
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => {
+                      e.target.style.borderColor = '#f97316';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = '#cbd5e1';
+                      e.target.style.boxShadow = 'none';
+                    }}
                   />
                 </div>
+              </div>
 
-                {/* Calibrate Type */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    {sensorCount > 1 ? `Calibrate Type (Sensor ${activeSensor})` : 'Calibrate Type'}
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    {['Auto', 'Manual', 'Direct'].map(type => {
-                      const isSelected = calibrateType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setCalibrateType(type)}
-                          style={{
-                            padding: '7px 18px',
-                            borderRadius: '20px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            border: isSelected ? '1px solid #f97316' : '1px solid #cbd5e1',
-                            background: isSelected ? '#f97316' : '#ffffff',
-                            color: isSelected ? '#ffffff' : '#475569',
-                            cursor: 'pointer',
-                            boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.25)' : 'none',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {type}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
+              {/* ROW 3: Detection Thresholds (Theft & Filling) & Calibrate Type */}
+              <div className="calib-grid-3">
                 {/* Minimum Theft */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Minimum Theft <span style={{ fontSize: '11px', color: '#64748b' }}>(Note: In litres)</span>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Minimum Theft <span style={{ fontSize: '11px', color: '#64748b' }}>(In litres)</span>
                   </label>
                   <input
                     type="number"
@@ -1502,12 +1741,12 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1525,8 +1764,8 @@ const EditCalibratePage = () => {
 
                 {/* Minimum Filling */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Minimum Filling <span style={{ fontSize: '11px', color: '#64748b' }}>(Note: In litres)</span>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Minimum Filling <span style={{ fontSize: '11px', color: '#64748b' }}>(In litres)</span>
                   </label>
                   <input
                     type="number"
@@ -1540,12 +1779,12 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1561,37 +1800,38 @@ const EditCalibratePage = () => {
                   />
                 </div>
 
-                {/* Sensor Details */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Sensor Details
+                {/* Calibrate Type */}
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    {sensorCount > 1 ? `Calibrate Type (Sensor ${activeSensor})` : 'Calibrate Type'}
                   </label>
-                  <textarea
-                    rows={2}
-                    value={sensorDetails}
-                    onChange={e => setSensorDetails(e.target.value)}
-                    placeholder="Enter sensor specifications or installation details..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      fontSize: '13px',
-                      color: '#0f172a',
-                      outline: 'none',
-                      boxSizing: 'border-box',
-                      resize: 'vertical'
-                    }}
-                    onFocus={e => {
-                      e.target.style.borderColor = '#f97316';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = '#cbd5e1';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
+                  <div style={{ display: 'flex', gap: '6px', height: '38px', alignItems: 'center' }}>
+                    {['Auto', 'Manual', 'Direct'].map(type => {
+                      const isSelected = calibrateType === type;
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setCalibrateType(type)}
+                          style={{
+                            flex: 1,
+                            height: '38px',
+                            borderRadius: '6px',
+                            fontSize: '12.5px',
+                            fontWeight: 700,
+                            border: isSelected ? '1px solid #f97316' : '1px solid #cbd5e1',
+                            background: isSelected ? '#f97316' : '#ffffff',
+                            color: isSelected ? '#ffffff' : '#475569',
+                            cursor: 'pointer',
+                            boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.25)' : 'none',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          {type}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1603,14 +1843,14 @@ const EditCalibratePage = () => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 flexWrap: 'wrap',
-                gap: '12px',
-                marginBottom: '18px',
-                paddingBottom: '12px',
+                gap: '10px',
+                marginBottom: '8px',
+                paddingBottom: '6px',
                 borderBottom: '1px solid #e2e8f0'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <SlidersHorizontal size={16} color="#ea580c" />
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                  <h3 style={{ fontSize: '14.5px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                     {tankCount > 1 
                       ? (sensorCount > 1 ? `Tank ${activeTank} — Sensor ${activeSensor} Calibration` : `Tank ${activeTank} Parameters`)
                       : (sensorCount > 1 ? `Sensor ${activeSensor} Calibration Details` : 'Tank Calibration Details')
@@ -1663,17 +1903,13 @@ const EditCalibratePage = () => {
               </div>
 
               {/* Row 1: Mode of Vehicle, Fuel Type, Tank Size */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '18px 24px',
-                marginBottom: '20px'
-              }}>
+              <div className="calib-grid-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Mode of Vehicle
                   </label>
                   <FuelTracksSelect
+                    height="38px"
                     value={modeOfVehicle}
                     onChange={setModeOfVehicle}
                     options={modeOptions}
@@ -1682,10 +1918,11 @@ const EditCalibratePage = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     {sensorCount > 1 ? `Fuel Type / Channel (Sensor ${activeSensor})` : 'Fuel Type'}
                   </label>
                   <FuelTracksSelect
+                    height="38px"
                     value={fuelType}
                     onChange={handleFuelTypeChange}
                     options={fuelTypeOptions}
@@ -1694,8 +1931,8 @@ const EditCalibratePage = () => {
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                    Tank Size <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(Note: In Litres)</span>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Tank Size <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(In Litres)</span>
                   </label>
                   <input
                     type="number"
@@ -1710,12 +1947,12 @@ const EditCalibratePage = () => {
                     placeholder="e.g. 500"
                     style={{
                       width: '100%',
-                      height: '42px',
-                      padding: '0 14px',
+                      height: '38px',
+                      padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1736,17 +1973,13 @@ const EditCalibratePage = () => {
               {calibrateType === 'Auto' && (
                 <>
                   {/* Row 2: Fuel Tank Shape, Fuel Tank Position, Calculate */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '18px 24px',
-                    marginBottom: '20px'
-                  }}>
+                  <div className="calib-grid-3">
                     <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         Fuel Tank Shape
                       </label>
                       <FuelTracksSelect
+                        height="38px"
                         value={fuelTankShape}
                         onChange={setFuelTankShape}
                         options={tankShapeOptions}
@@ -1755,10 +1988,11 @@ const EditCalibratePage = () => {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         Fuel Tank Position
                       </label>
                       <FuelTracksSelect
+                        height="38px"
                         value={fuelTankPosition}
                         onChange={setFuelTankPosition}
                         options={tankPositionOptions}
@@ -1766,30 +2000,29 @@ const EditCalibratePage = () => {
                       />
                     </div>
 
-                    {(fuelTankShape === 'Rectangle' || fuelTankShape === 'Cylinder') && (
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Calculate
-                        </label>
-                        <FuelTracksSelect
-                          value={calculate}
-                          onChange={setCalculate}
-                          options={calculateOptions}
-                          placeholder="-- SELECT --"
-                        />
-                      </div>
-                    )}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Calculate
+                      </label>
+                      <FuelTracksSelect
+                        height="38px"
+                        value={calculate}
+                        onChange={val => {
+                          setCalculate(val);
+                          if (val === 'Yes' && !fuelTankShape) {
+                            setFuelTankShape('Rectangle');
+                          }
+                        }}
+                        options={calculateOptions}
+                        placeholder="-- SELECT --"
+                      />
+                    </div>
                   </div>
 
-                  {/* Row 3: Minimum & Maximum Calibration Sensor Value */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '18px 24px',
-                    marginBottom: '20px'
-                  }}>
+                  {/* Row 3: Minimum & Maximum Calibration Sensor Value + Live Diagnostics Buttons */}
+                  <div className="calib-grid-3">
                     <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Minimum Voltage (V)'
                           : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
@@ -1804,12 +2037,12 @@ const EditCalibratePage = () => {
                         placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '0.00' : '0'}
                         style={{
                           width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
+                          height: '38px',
+                          padding: '0 12px',
                           borderRadius: '6px',
                           border: '1px solid #cbd5e1',
                           background: '#ffffff',
-                          fontSize: '13.5px',
+                          fontSize: '13px',
                           color: '#0f172a',
                           outline: 'none',
                           boxSizing: 'border-box'
@@ -1826,7 +2059,7 @@ const EditCalibratePage = () => {
                     </div>
 
                     <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                         {fuelType && fuelType.toLowerCase().includes('analog')
                           ? 'Maximum Voltage (V)'
                           : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
@@ -1841,12 +2074,12 @@ const EditCalibratePage = () => {
                         placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '5.00' : '4095'}
                         style={{
                           width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
+                          height: '38px',
+                          padding: '0 12px',
                           borderRadius: '6px',
                           border: '1px solid #cbd5e1',
                           background: '#ffffff',
-                          fontSize: '13.5px',
+                          fontSize: '13px',
                           color: '#0f172a',
                           outline: 'none',
                           boxSizing: 'border-box'
@@ -1861,18 +2094,156 @@ const EditCalibratePage = () => {
                         }}
                       />
                     </div>
+
+                    {/* Diagnostics & Live Telemetry Tools */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Live Diagnostics & Tools
+                      </label>
+                      <div className="calib-tools-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (fuelType && fuelType.toLowerCase().includes('analog')) {
+                              setFreqModalViewMode('volt');
+                            } else {
+                              setFreqModalViewMode('frequency');
+                            }
+                            setShowFrequencyModal(true);
+                          }}
+                          style={{
+                            background: '#fff7ed',
+                            color: '#ea580c',
+                            border: '1px solid #fed7aa',
+                            borderRadius: '6px',
+                            padding: '0 12px',
+                            height: '38px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#ffedd5';
+                            e.currentTarget.style.borderColor = '#fdba74';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#fff7ed';
+                            e.currentTarget.style.borderColor = '#fed7aa';
+                          }}
+                        >
+                          Show Frequency
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setShowLiveFuelModal(true)}
+                          style={{
+                            background: '#ecfdf5',
+                            color: '#059669',
+                            border: '1px solid #a7f3d0',
+                            borderRadius: '6px',
+                            padding: '0 12px',
+                            height: '38px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#d1fae5';
+                            e.currentTarget.style.borderColor = '#6ee7b7';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#ecfdf5';
+                            e.currentTarget.style.borderColor = '#a7f3d0';
+                          }}
+                        >
+                          <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: '#10b981',
+                            boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                          }} />
+                          Live Fuel
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={loadVehicleData}
+                          title="Reload Calibration Data"
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            border: '1px solid #cbd5e1',
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#e2e8f0';
+                            e.currentTarget.style.color = '#0f172a';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#f1f5f9';
+                            e.currentTarget.style.color = '#475569';
+                          }}
+                        >
+                          <RotateCw size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleExportCalibration}
+                          title="Export Calibration Settings"
+                          style={{
+                            background: '#f0fdf4',
+                            color: '#16a34a',
+                            border: '1px solid #bbf7d0',
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#dcfce7';
+                            e.currentTarget.style.borderColor = '#86efac';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#f0fdf4';
+                            e.currentTarget.style.borderColor = '#bbf7d0';
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Dynamic Dimension Inputs for Cylinder */}
                   {fuelTankShape === 'Cylinder' && (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                      gap: '18px 24px',
-                      marginBottom: '20px'
-                    }}>
+                    <div className="calib-grid-2">
                       <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                           Radius <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
                         </label>
                         <input
@@ -1883,12 +2254,12 @@ const EditCalibratePage = () => {
                           placeholder="Radius"
                           style={{
                             width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
+                            height: '38px',
+                            padding: '0 12px',
                             borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
-                            fontSize: '13.5px',
+                            fontSize: '13px',
                             color: '#0f172a',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -1905,7 +2276,7 @@ const EditCalibratePage = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                           Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
                         </label>
                         <input
@@ -1916,12 +2287,12 @@ const EditCalibratePage = () => {
                           placeholder="Length"
                           style={{
                             width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
+                            height: '38px',
+                            padding: '0 12px',
                             borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
-                            fontSize: '13.5px',
+                            fontSize: '13px',
                             color: '#0f172a',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -1941,14 +2312,9 @@ const EditCalibratePage = () => {
 
                   {/* Dynamic Dimension Inputs for Rectangle when Calculate === 'Yes' */}
                   {fuelTankShape === 'Rectangle' && calculate === 'Yes' && (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                      gap: '18px 24px',
-                      marginBottom: '24px'
-                    }}>
+                    <div className="calib-grid-3">
                       <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                           Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
                         </label>
                         <input
@@ -1959,12 +2325,12 @@ const EditCalibratePage = () => {
                           placeholder="Length"
                           style={{
                             width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
+                            height: '38px',
+                            padding: '0 12px',
                             borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
-                            fontSize: '13.5px',
+                            fontSize: '13px',
                             color: '#0f172a',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -1981,7 +2347,7 @@ const EditCalibratePage = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                           Height <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
                         </label>
                         <input
@@ -1992,12 +2358,12 @@ const EditCalibratePage = () => {
                           placeholder="Height"
                           style={{
                             width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
+                            height: '38px',
+                            padding: '0 12px',
                             borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
-                            fontSize: '13.5px',
+                            fontSize: '13px',
                             color: '#0f172a',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -2014,7 +2380,7 @@ const EditCalibratePage = () => {
                       </div>
 
                       <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                           Width <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
                         </label>
                         <input
@@ -2025,12 +2391,12 @@ const EditCalibratePage = () => {
                           placeholder="Width"
                           style={{
                             width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
+                            height: '38px',
+                            padding: '0 12px',
                             borderRadius: '6px',
                             border: '1px solid #cbd5e1',
                             background: '#ffffff',
-                            fontSize: '13.5px',
+                            fontSize: '13px',
                             color: '#0f172a',
                             outline: 'none',
                             boxSizing: 'border-box'
@@ -2050,18 +2416,18 @@ const EditCalibratePage = () => {
 
                   {/* DEDICATED VISUAL TANK CARD (SHOWN BASED ON VALUES, NEVER HIDDEN) */}
                   {fuelTankShape && (
-                    <div style={{
-                      marginTop: '16px',
-                      marginBottom: '24px',
+                    <div className="calib-tank-preview-card" style={{
+                      marginTop: '12px',
+                      marginBottom: '16px',
                       background: '#fafbfc',
                       border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
-                      padding: '24px 28px',
+                      borderRadius: '10px',
+                      padding: '16px 20px',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '16px',
+                      gap: '12px',
                       position: 'relative'
                     }}>
                       {/* Card Title & Info */}
@@ -2073,7 +2439,7 @@ const EditCalibratePage = () => {
                         flexWrap: 'wrap',
                         gap: '10px',
                         borderBottom: '1px solid #e2e8f0',
-                        paddingBottom: '12px'
+                        paddingBottom: '8px'
                       }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                           <Box size={16} color="#ea580c" />
@@ -2116,7 +2482,7 @@ const EditCalibratePage = () => {
                           gap: '8px',
                           padding: '16px 0'
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                             {/* Left Dimension Badge: Height */}
                             {heightMm && (
                               <div style={{
@@ -2152,9 +2518,10 @@ const EditCalibratePage = () => {
                               )}
 
                               {/* Sharp Rectangle Box in Theme Light Orange with NO CURVES */}
-                              <div style={{
+                              <div className="calib-tank-rect-box" style={{
                                 width: `${visualTankDimensions.widthPx}px`,
                                 height: `${visualTankDimensions.heightPx}px`,
+                                maxWidth: '100%',
                                 background: '#f97316',
                                 borderRadius: '0px',
                                 border: '2px solid #ea580c',
@@ -2213,9 +2580,9 @@ const EditCalibratePage = () => {
                             {/* Conditionally Render Vertical vs Horizontal Cylinder in Theme Orange */}
                             {fuelTankPosition === 'Vertical' ? (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                                   {/* Standing Vertical Cylinder in Theme Orange */}
-                                  <svg width="200" height="240" viewBox="0 0 200 240" style={{ overflow: 'visible' }}>
+                                  <svg className="calib-cylinder-svg" width="200" height="240" viewBox="0 0 200 240" style={{ maxWidth: '100%', height: 'auto', overflow: 'visible' }}>
                                     <defs>
                                       <linearGradient id="cylinderThemeOrangeGradV" x1="0" y1="0" x2="1" y2="0">
                                         <stop offset="0%" stopColor="#f97316" />
@@ -2316,7 +2683,7 @@ const EditCalibratePage = () => {
                               </div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                   {/* Left Dimension Badge: Height */}
                                   <div style={{
                                     fontSize: '11.5px',
@@ -2331,7 +2698,7 @@ const EditCalibratePage = () => {
                                   </div>
 
                                   {/* Lying Horizontal Cylinder in Theme Orange */}
-                                  <svg width="260" height="150" viewBox="0 0 260 150" style={{ overflow: 'visible' }}>
+                                  <svg className="calib-cylinder-svg" width="260" height="150" viewBox="0 0 260 150" style={{ maxWidth: '100%', height: 'auto', overflow: 'visible' }}>
                                     <defs>
                                       <linearGradient id="cylinderThemeOrangeGradH" x1="0" y1="0" x2="0" y2="1">
                                         <stop offset="0%" stopColor="#fb923c" />
@@ -2412,28 +2779,28 @@ const EditCalibratePage = () => {
 
               {/* WHEN CALIBRATE TYPE IS MANUAL: Render Multi-Point Step-by-Step Calibration Table */}
               {calibrateType === 'Manual' && (
-                <div style={{ marginTop: '16px' }}>
+                <div style={{ marginTop: '12px' }}>
                   {/* Sub-mode Selection Bar: Upload Calibration vs Calibration Details */}
-                  <div style={{
+                  <div className="calib-manual-submode-bar" style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
                     flexWrap: 'wrap',
-                    gap: '16px',
-                    padding: '14px 18px',
+                    gap: '12px',
+                    padding: '10px 14px',
                     background: '#fafbfc',
                     border: '1px solid #e2e8f0',
                     borderRadius: '8px',
-                    marginBottom: '20px'
+                    marginBottom: '14px'
                   }}>
                     {/* Radio Buttons for Sub-mode */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
+                    <div className="calib-manual-radios" style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
                       <label style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '6px',
                         cursor: 'pointer',
-                        fontSize: '13.5px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         color: manualSubMode === 'details' ? '#0f172a' : '#64748b'
                       }}>
@@ -2442,7 +2809,7 @@ const EditCalibratePage = () => {
                           name="manualSubMode"
                           checked={manualSubMode === 'details'}
                           onChange={() => setManualSubMode('details')}
-                          style={{ accentColor: '#f97316', width: '17px', height: '17px', cursor: 'pointer' }}
+                          style={{ accentColor: '#f97316', width: '16px', height: '16px', cursor: 'pointer' }}
                         />
                         <span>Calibration Details</span>
                       </label>
@@ -2450,9 +2817,9 @@ const EditCalibratePage = () => {
                       <label style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '8px',
+                        gap: '6px',
                         cursor: 'pointer',
-                        fontSize: '13.5px',
+                        fontSize: '13px',
                         fontWeight: 700,
                         color: manualSubMode === 'upload' ? '#0f172a' : '#64748b'
                       }}>
@@ -2461,7 +2828,7 @@ const EditCalibratePage = () => {
                           name="manualSubMode"
                           checked={manualSubMode === 'upload'}
                           onChange={() => setManualSubMode('upload')}
-                          style={{ accentColor: '#f97316', width: '17px', height: '17px', cursor: 'pointer' }}
+                          style={{ accentColor: '#f97316', width: '16px', height: '16px', cursor: 'pointer' }}
                         />
                         <span>Upload Calibration</span>
                       </label>
@@ -2469,9 +2836,9 @@ const EditCalibratePage = () => {
 
                     {/* Difference of Ltrs & Add Count controls (Shown when in Calibration Details) */}
                     {manualSubMode === 'details' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                      <div className="calib-manual-inputs" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
                             Difference of Ltrs
                           </span>
                           <input
@@ -2484,8 +2851,8 @@ const EditCalibratePage = () => {
                             placeholder="1"
                             style={{
                               width: '75px',
-                              height: '36px',
-                              padding: '0 10px',
+                              height: '34px',
+                              padding: '0 8px',
                               borderRadius: '6px',
                               border: '1px solid #cbd5e1',
                               background: '#ffffff',
@@ -2507,8 +2874,8 @@ const EditCalibratePage = () => {
                           />
                         </div>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
                             Add Count
                           </span>
                           <input
@@ -2519,9 +2886,9 @@ const EditCalibratePage = () => {
                             onChange={e => setAddCount(e.target.value)}
                             placeholder="Count"
                             style={{
-                              width: '85px',
-                              height: '36px',
-                              padding: '0 10px',
+                              width: '80px',
+                              height: '34px',
+                              padding: '0 8px',
                               borderRadius: '6px',
                               border: '1px solid #cbd5e1',
                               background: '#ffffff',
@@ -2547,18 +2914,18 @@ const EditCalibratePage = () => {
                           type="button"
                           onClick={handleGenerateSteps}
                           style={{
-                            height: '36px',
-                            padding: '0 16px',
+                            height: '34px',
+                            padding: '0 14px',
                             borderRadius: '6px',
                             background: '#f97316',
                             color: '#ffffff',
                             border: 'none',
-                            fontSize: '13px',
+                            fontSize: '12.5px',
                             fontWeight: 800,
                             cursor: 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '5px',
                             boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)',
                             transition: 'all 0.15s ease'
                           }}
@@ -2581,8 +2948,8 @@ const EditCalibratePage = () => {
                       overflow: 'hidden',
                       boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
                     }}>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                      <div className="calib-table-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <table className="calib-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
                           <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
                               <th style={{ padding: '12px 18px', width: '42%' }}>Litre</th>
@@ -2960,14 +3327,14 @@ const EditCalibratePage = () => {
 
               {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & Streamlined Pre-Calibrated Sensor Configuration */}
               {calibrateType === 'Direct' && (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   
                   {/* Transmission Unit Selector */}
                   <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                       Transmission Unit
                     </label>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                       <label
                         onClick={() => setDirectUnit('Litres')}
                         style={{
@@ -2975,7 +3342,7 @@ const EditCalibratePage = () => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '10px',
-                          padding: '10px 16px',
+                          padding: '8px 14px',
                           borderRadius: '8px',
                           border: directUnit === 'Litres' ? '2px solid #f97316' : '1px solid #cbd5e1',
                           background: directUnit === 'Litres' ? '#fff7ed' : '#ffffff',
@@ -2985,18 +3352,18 @@ const EditCalibratePage = () => {
                         }}
                       >
                         <div style={{
-                          width: '18px',
-                          height: '18px',
+                          width: '16px',
+                          height: '16px',
                           borderRadius: '50%',
                           border: directUnit === 'Litres' ? '5px solid #f97316' : '2px solid #cbd5e1',
                           background: '#ffffff',
                           flexShrink: 0
                         }} />
                         <div>
-                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
                             Direct Litres (L)
                           </div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
                             Sensor transmits fuel volume directly in litres
                           </div>
                         </div>
@@ -3009,7 +3376,7 @@ const EditCalibratePage = () => {
                           display: 'flex',
                           alignItems: 'center',
                           gap: '10px',
-                          padding: '10px 16px',
+                          padding: '8px 14px',
                           borderRadius: '8px',
                           border: directUnit === 'Percentage' ? '2px solid #f97316' : '1px solid #cbd5e1',
                           background: directUnit === 'Percentage' ? '#fff7ed' : '#ffffff',
@@ -3019,18 +3386,18 @@ const EditCalibratePage = () => {
                         }}
                       >
                         <div style={{
-                          width: '18px',
-                          height: '18px',
+                          width: '16px',
+                          height: '16px',
                           borderRadius: '50%',
                           border: directUnit === 'Percentage' ? '5px solid #f97316' : '2px solid #cbd5e1',
                           background: '#ffffff',
                           flexShrink: 0
                         }} />
                         <div>
-                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
                             Percentage (0% – 100%)
                           </div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
                             Computed automatically against Tank Size
                           </div>
                         </div>
@@ -3042,7 +3409,7 @@ const EditCalibratePage = () => {
                   <div style={{
                     border: '1px solid #e2e8f0',
                     borderRadius: '8px',
-                    padding: '12px 16px',
+                    padding: '10px 14px',
                     background: '#f8fafc'
                   }}>
                     <button
@@ -3077,12 +3444,12 @@ const EditCalibratePage = () => {
 
                     {showDirectAdvanced && (
                       <div style={{
-                        marginTop: '12px',
-                        paddingTop: '12px',
+                        marginTop: '10px',
+                        paddingTop: '10px',
                         borderTop: '1px solid #e2e8f0',
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '14px'
+                        gap: '12px'
                       }}>
                         <div>
                           <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
@@ -3138,149 +3505,150 @@ const EditCalibratePage = () => {
                 </div>
               )}
 
-              {/* Practical Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fuelType && fuelType.toLowerCase().includes('analog')) {
-                      setFreqModalViewMode('volt');
-                    } else {
-                      setFreqModalViewMode('frequency');
-                    }
-                    setShowFrequencyModal(true);
-                  }}
-                  style={{
-                    background: '#fff7ed',
-                    color: '#ea580c',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '20px',
-                    padding: '8px 20px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#ffedd5';
-                    e.currentTarget.style.borderColor = '#fdba74';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#fff7ed';
-                    e.currentTarget.style.borderColor = '#fed7aa';
-                  }}
-                >
-                  Show Frequency
-                </button>
+              {/* Practical Action Buttons (For Manual & Direct Modes) */}
+              {calibrateType !== 'Auto' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginTop: '16px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #f1f5f9'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (fuelType && fuelType.toLowerCase().includes('analog')) {
+                        setFreqModalViewMode('volt');
+                      } else {
+                        setFreqModalViewMode('frequency');
+                      }
+                      setShowFrequencyModal(true);
+                    }}
+                    style={{
+                      background: '#fff7ed',
+                      color: '#ea580c',
+                      border: '1px solid #fed7aa',
+                      borderRadius: '20px',
+                      padding: '7px 18px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#ffedd5';
+                      e.currentTarget.style.borderColor = '#fdba74';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#fff7ed';
+                      e.currentTarget.style.borderColor = '#fed7aa';
+                    }}
+                  >
+                    Show Frequency
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => setShowLiveFuelModal(true)}
-                  style={{
-                    background: '#ecfdf5',
-                    color: '#059669',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '20px',
-                    padding: '8px 20px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#d1fae5';
-                    e.currentTarget.style.borderColor = '#6ee7b7';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#ecfdf5';
-                    e.currentTarget.style.borderColor = '#a7f3d0';
-                  }}
-                >
-                  <span style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: '#10b981',
-                    boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
-                  }} />
-                  Live Fuel
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowLiveFuelModal(true)}
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '20px',
+                      padding: '7px 18px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#d1fae5';
+                      e.currentTarget.style.borderColor = '#6ee7b7';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#ecfdf5';
+                      e.currentTarget.style.borderColor = '#a7f3d0';
+                    }}
+                  >
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                    }} />
+                    Live Fuel
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={loadVehicleData}
-                  title="Reload Calibration Data"
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#e2e8f0';
-                    e.currentTarget.style.color = '#0f172a';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#f1f5f9';
-                    e.currentTarget.style.color = '#475569';
-                  }}
-                >
-                  <RotateCw size={15} />
-                </button>
+                  <button
+                    type="button"
+                    onClick={loadVehicleData}
+                    title="Reload Calibration Data"
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#e2e8f0';
+                      e.currentTarget.style.color = '#0f172a';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.color = '#475569';
+                    }}
+                  >
+                    <RotateCw size={15} />
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleExportCalibration}
-                  title="Export Calibration Settings"
-                  style={{
-                    background: '#f0fdf4',
-                    color: '#16a34a',
-                    border: '1px solid #bbf7d0',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#dcfce7';
-                    e.currentTarget.style.borderColor = '#86efac';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#f0fdf4';
-                    e.currentTarget.style.borderColor = '#bbf7d0';
-                  }}
-                >
-                  <Download size={15} />
-                </button>
-              </div>
+                  <button
+                    type="button"
+                    onClick={handleExportCalibration}
+                    title="Export Calibration Settings"
+                    style={{
+                      background: '#f0fdf4',
+                      color: '#16a34a',
+                      border: '1px solid #bbf7d0',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#dcfce7';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#bbf7d0';
+                    }}
+                  >
+                    <Download size={15} />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Bottom Centered Buttons */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '14px',
-              marginTop: '40px',
-              paddingTop: '20px',
-              borderTop: '1px solid #f1f5f9'
-            }}>
+            <div className="calib-footer-actions">
               <button
                 type="button"
                 onClick={() => navigate('/admin/vehicles')}
@@ -3358,6 +3726,7 @@ const EditCalibratePage = () => {
 
         return (
           <div
+            className="calib-modal-overlay"
             style={{
               position: 'fixed',
               inset: 0,
@@ -3372,6 +3741,7 @@ const EditCalibratePage = () => {
             onClick={() => setShowFrequencyModal(false)}
           >
             <div
+              className="calib-modal-box"
               style={{
                 background: '#ffffff',
                 borderRadius: '14px',
@@ -3549,7 +3919,7 @@ const EditCalibratePage = () => {
                     borderRadius: '8px',
                     overflow: 'hidden'
                   }}>
-                    <table style={{
+                    <table className="calib-modal-freq-table" style={{
                       width: '100%',
                       borderCollapse: 'collapse',
                       fontSize: '13px',
@@ -3681,6 +4051,7 @@ const EditCalibratePage = () => {
       {/* Excel / CSV Import Modal for Manual Calibration */}
       {showUploadModal && (
         <div
+          className="calib-modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
@@ -3699,6 +4070,7 @@ const EditCalibratePage = () => {
           }}
         >
           <div
+            className="calib-modal-box"
             style={{
               background: '#ffffff',
               borderRadius: '12px',
