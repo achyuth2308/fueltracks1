@@ -2208,6 +2208,67 @@ export default function FuelAnalyticsPage() {
                     </div>
                   </label>
                 </div>
+
+                {/* 3 Highlighted Quick Navigation Links */}
+                <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block px-0.5">
+                    Quick Navigation
+                  </span>
+
+                  {/* 1. Raw Fuel Data */}
+                  <button
+                    type="button"
+                    onClick={() => navigate('/fuel-raw-data')}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
+                    title="Open Full Raw Fuel Telemetry Logs"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Database className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <span className="truncate">1. Raw Fuel Data</span>
+                    </span>
+                    <ArrowUpRight className="w-3 h-3 text-sky-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
+                  </button>
+
+                  {/* 2. Refill History */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowRefillEvents(true);
+                      const el = document.getElementById('refill-history-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
+                    title="Jump to Detected Refuels & Event History"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Fuel className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="truncate">2. Refill History</span>
+                    </span>
+                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                      {processedData.refuels.length}
+                    </span>
+                  </button>
+
+                  {/* 3. Consumption Rate */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowConsumptionLayer(true);
+                      const el = document.getElementById('consumption-breakdown-section');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
+                    title="Jump to Trip & Consumption Breakdown Table"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span className="truncate">3. Consumption Rate</span>
+                    </span>
+                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+                      {processedData.mileageKmpl} km/L
+                    </span>
+                  </button>
+                </div>
               </div>
 
               {/* Quick Help Note */}
@@ -2331,44 +2392,46 @@ export default function FuelAnalyticsPage() {
         </div>
 
         {/* ── REFUEL & ABNORMAL DRAIN EVENT BADGES ── */}
-        {(processedData.refuels.length > 0 || processedData.drops.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            
-            {/* Refuels */}
-            <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
-                <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {processedData.refuels.map((r, idx) => (
-                  <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
-                    <span className="text-slate-400">at {r.time}</span>
-                  </div>
-                ))}
+        <div id="refill-history-section">
+          {(processedData.refuels.length > 0 || processedData.drops.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Refuels */}
+              <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
+                <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
+                  <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {processedData.refuels.map((r, idx) => (
+                    <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
+                      <span className="text-slate-400">at {r.time}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-            {/* Drains */}
-            <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
-                <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {processedData.drops.map((d, idx) => (
-                  <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                    <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
-                    <span className="text-slate-400">at {d.time}</span>
-                  </div>
-                ))}
+              {/* Drains */}
+              <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
+                <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
+                  <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {processedData.drops.map((d, idx) => (
+                    <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+                      <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
+                      <span className="text-slate-400">at {d.time}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
 
-          </div>
-        )}
+            </div>
+          )}
+        </div>
 
         {/* ── DRIVING SESSIONS & CONSUMPTION LOG TABLE ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
+        <div id="consumption-breakdown-section" className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
           <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
             <div>
               <h3 className="font-bold text-base text-slate-900 dark:text-white">Trip & Idling Consumption Breakdown</h3>
