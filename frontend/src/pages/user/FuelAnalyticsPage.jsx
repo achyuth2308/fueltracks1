@@ -2219,128 +2219,111 @@ export default function FuelAnalyticsPage() {
           </div>
         </div>
 
-        {/* ── 2. TELEMETRY EXECUTIVE STATS BOARD (UNIFIED COMPACT BOARD) ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
+        {/* ── 2. TELEMETRY EXECUTIVE STATS BOARD (ULTRA-SLIM COMPACT STRIP) ── */}
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-sm overflow-hidden">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80 dark:divide-slate-800/80">
 
             {/* SECTION 1: ENGINE STATUS */}
-            <div className="p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider">Engine Status</span>
-                <Activity className="w-3.5 h-3.5 text-slate-400" />
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Engine Status</span>
+                <Activity className="w-3 h-3 text-slate-400" />
               </div>
-              <div className="my-0.5">
+              <div className="flex items-center gap-1.5 my-0.5">
                 {processedData.currentStatus === 'ON (Moving)' && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-xs font-bold">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     ON (Moving)
-                  </div>
+                  </span>
                 )}
                 {processedData.currentStatus === 'ON (Idle)' && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-xs font-bold">
-                    <Flame className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <Flame className="w-3 h-3 text-amber-500" />
                     ON (Idle)
-                  </div>
+                  </span>
                 )}
                 {processedData.currentStatus === 'OFF' && (
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 text-xs font-bold">
-                    <span className="w-2 h-2 rounded-full bg-slate-400"></span>
-                    Engine OFF
-                  </div>
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    OFF
+                  </span>
                 )}
               </div>
-              <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5">
-                <span>Moving: <strong className="text-slate-700 dark:text-slate-200">{processedData.movingHours}h</strong></span>
-                <span>Idling: <strong className="text-slate-700 dark:text-slate-200">{processedData.idleHours}h</strong></span>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Mov: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.movingHours}h</strong> • Idle: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.idleHours}h</strong>
               </div>
             </div>
 
             {/* SECTION 2: SPEED METRICS */}
-            <div className="p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider">Speed</span>
-                <Gauge className="w-3.5 h-3.5 text-cyan-500" />
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Speed</span>
+                <Gauge className="w-3 h-3 text-cyan-500" />
               </div>
-              <div className="my-0.5 flex items-baseline gap-1">
-                <span className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
                   {processedData.currentSpeed}
                 </span>
-                <span className="text-[11px] text-slate-400 font-semibold">km/h</span>
+                <span className="text-[10px] text-slate-400 font-semibold">km/h</span>
               </div>
-              <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5">
-                <span>Max: <strong className="text-slate-700 dark:text-slate-200">{processedData.maxSpeed} km/h</strong></span>
-                <span>Avg: <strong className="text-slate-700 dark:text-slate-200">{processedData.avgSpeed} km/h</strong></span>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Max: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.maxSpeed}</strong> • Avg: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.avgSpeed} km/h</strong>
               </div>
             </div>
 
             {/* SECTION 3: LIVE FUEL LEVEL */}
-            <div className="p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
-                <span className="text-[11px] font-semibold uppercase tracking-wider">Fuel Level</span>
-                <span className="text-[11px] font-bold text-emerald-500">{fuelPercent}%</span>
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Fuel Level</span>
+                <span className="text-[10px] font-bold text-emerald-500">{fuelPercent}%</span>
               </div>
-              <div className="my-0.5 flex items-baseline gap-1">
-                <span className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
                   {processedData.currentFuel}
                 </span>
-                <span className="text-[11px] text-slate-400 font-semibold">L</span>
-                <span className="text-[10px] text-slate-400">/ {tankCapacity}L</span>
+                <span className="text-[10px] text-slate-400 font-semibold">L</span>
+                <span className="text-[9px] text-slate-400">/ {tankCapacity}L</span>
               </div>
-              {/* Micro Progress Bar */}
-              <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 mt-1 overflow-hidden">
-                <div 
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    fuelPercent < 15 ? 'bg-red-500' : (fuelPercent < 35 ? 'bg-amber-500' : 'bg-emerald-500')
-                  }`}
-                  style={{ width: `${fuelPercent}%` }}
-                />
-              </div>
-              <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5">
-                <span>Start: <strong className="text-slate-700 dark:text-slate-200">{processedData.startFuel}L</strong></span>
-                <span>End: <strong className="text-slate-700 dark:text-slate-200">{processedData.endFuel}L</strong></span>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Start: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.startFuel}L</strong> • End: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.endFuel}L</strong>
               </div>
             </div>
 
             {/* SECTION 4: DISTANCE TRAVELED */}
-            <div className="p-3.5 flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1.5">
-                <span className="text-[11px] font-semibold uppercase tracking-wider">Distance</span>
-                <Compass className="w-3.5 h-3.5 text-violet-500" />
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Distance</span>
+                <Compass className="w-3 h-3 text-violet-500" />
               </div>
-              <div className="my-0.5 flex items-baseline gap-1">
-                <span className="text-2xl font-black font-mono tracking-tight text-slate-900 dark:text-white">
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
                   {processedData.totalDistance}
                 </span>
-                <span className="text-[11px] text-slate-400 font-semibold">km</span>
+                <span className="text-[10px] text-slate-400 font-semibold">km</span>
               </div>
-              <div className="mt-2 text-[10px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-1.5">
-                <span>Period: <strong className="text-slate-700 dark:text-slate-200">{activePreset}</strong></span>
-                <span>Odo: <strong className="text-slate-700 dark:text-slate-200">{selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'} km</strong></span>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Period: <strong className="text-slate-700 dark:text-slate-300 font-mono">{activePreset}</strong> • Odo: <strong className="text-slate-700 dark:text-slate-300 font-mono">{selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'}</strong>
               </div>
             </div>
 
             {/* SECTION 5: HERO FUEL ECONOMY & MILEAGE */}
-            <div className="p-3.5 flex flex-col justify-between bg-emerald-500/[0.04] dark:bg-emerald-950/20">
-              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-1.5">
-                <span className="text-[11px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-500" /> Fuel Economy
+            <div className="py-2 px-3 flex flex-col justify-center bg-emerald-500/[0.03] dark:bg-emerald-950/20">
+              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-500" /> Fuel Economy
                 </span>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
+                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
                   Efficiency
                 </span>
               </div>
-              <div className="my-0.5 flex items-baseline gap-1">
-                <span className="text-2xl font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
                   {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}
                 </span>
-                <span className="text-[11px] text-emerald-700 dark:text-emerald-300 font-bold">km / L</span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">km / L</span>
               </div>
-              <div className="mt-2 text-[10px] text-slate-600 dark:text-slate-400 flex items-center justify-between border-t border-emerald-500/20 pt-1.5">
-                <span>Consumed: <strong className="text-emerald-600 dark:text-emerald-400">{processedData.fuelConsumed} L</strong></span>
-                <span>Dist: <strong className="text-slate-700 dark:text-slate-200">{processedData.totalDistance} km</strong></span>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Burned: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{processedData.fuelConsumed}L</strong> • Dist: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.totalDistance}km</strong>
               </div>
             </div>
 
