@@ -2106,26 +2106,26 @@ export default function FuelAnalyticsPage() {
               </div>
             </div>
 
-            {/* Right Column: Dedicated Fuel Intelligence & Event Layer Control Panel */}
-            <div className="w-full lg:w-[280px] xl:w-[310px] shrink-0 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
-              <div className="space-y-4">
+            {/* Right Column: Dedicated Fuel Intelligence & Event Layer Control Panel (Compact & Sleek) */}
+            <div className="w-full lg:w-[220px] xl:w-[230px] shrink-0 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
+              <div className="space-y-2.5">
                 {/* Panel Title */}
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/80 pb-3">
-                  <div className="flex items-center gap-2">
-                    <Flame className="w-4 h-4 text-emerald-500" />
-                    <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/80 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
                       Fuel Intelligence
                     </span>
                   </div>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Live Engine
                   </span>
                 </div>
 
                 {/* 3 Interactive Layer Checkboxes */}
-                <div className="space-y-2.5">
+                <div className="space-y-2">
                   {/* 1. Refill Checkbox */}
-                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
                     showRefillEvents
                       ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-sm ring-1 ring-emerald-500/20'
                       : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
@@ -2134,26 +2134,26 @@ export default function FuelAnalyticsPage() {
                       type="checkbox"
                       checked={showRefillEvents}
                       onChange={(e) => setShowRefillEvents(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                           1. Refill
                         </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
                           +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {processedData.refuels.length} refuels detected (settled curve)
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        {processedData.refuels.length} refuels (settled)
                       </p>
                     </div>
                   </label>
 
                   {/* 2. Theft / Drain Checkbox */}
-                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
                     showTheftEvents
                       ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-sm ring-1 ring-rose-500/20'
                       : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
@@ -2162,26 +2162,26 @@ export default function FuelAnalyticsPage() {
                       type="checkbox"
                       checked={showTheftEvents}
                       onChange={(e) => setShowTheftEvents(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-rose-500" />
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
                           2. Theft / Drain
                         </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
                           -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {processedData.drops.length} siphons (anti-slope verified)
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        {processedData.drops.length} siphons verified
                       </p>
                     </div>
                   </label>
 
                   {/* 3. Consumption Checkbox */}
-                  <label className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
                     showConsumptionLayer
                       ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-sm ring-1 ring-sky-500/20'
                       : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
@@ -2190,53 +2190,53 @@ export default function FuelAnalyticsPage() {
                       type="checkbox"
                       checked={showConsumptionLayer}
                       onChange={(e) => setShowConsumptionLayer(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                          <span className="w-2 h-2 rounded-full bg-sky-500" />
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
                           3. Consumption
                         </span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
                           {processedData.fuelConsumed.toFixed(1)} L
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        Monotonic burn ({processedData.mileageKmpl} km/L)
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        Burn ({processedData.mileageKmpl} km/L)
                       </p>
                     </div>
                   </label>
                 </div>
 
                 {/* Event Audit Snippet */}
-                <div className="space-y-1.5 pt-2">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                <div className="space-y-1 pt-1">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400">
                     Detected Events
                   </span>
-                  <div className="max-h-[120px] overflow-y-auto space-y-1.5 pr-1">
+                  <div className="max-h-[90px] overflow-y-auto space-y-1 pr-1">
                     {processedData.refuels.length === 0 && processedData.drops.length === 0 ? (
-                      <div className="text-[11px] text-slate-400 italic py-2 text-center">
-                        No refill or theft events in selected range
+                      <div className="text-[10px] text-slate-400 italic py-1.5 text-center">
+                        No events in range
                       </div>
                     ) : (
                       <>
                         {showRefillEvents && processedData.refuels.map((r, idx) => (
-                          <div key={`ref-${idx}`} className="flex items-center justify-between p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px]">
-                            <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-semibold">
-                              <span>⛽ Refill:</span>
-                              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">{r.startTimeStr}</span>
+                          <div key={`ref-${idx}`} className="flex items-center justify-between p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[10px]">
+                            <div className="flex items-center gap-1 text-emerald-700 dark:text-emerald-300 font-semibold truncate">
+                              <span>⛽</span>
+                              <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 truncate">{r.startTimeStr}</span>
                             </div>
-                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400">+{r.liters} L</span>
+                            <span className="font-bold font-mono text-emerald-600 dark:text-emerald-400 shrink-0">+{r.liters} L</span>
                           </div>
                         ))}
                         {showTheftEvents && processedData.drops.map((d, idx) => (
-                          <div key={`drp-${idx}`} className="flex items-center justify-between p-2 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[11px]">
-                            <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-300 font-semibold">
-                              <span>⚠️ Theft:</span>
-                              <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">{d.startTimeStr}</span>
+                          <div key={`drp-${idx}`} className="flex items-center justify-between p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-[10px]">
+                            <div className="flex items-center gap-1 text-rose-700 dark:text-rose-300 font-semibold truncate">
+                              <span>⚠️</span>
+                              <span className="font-mono text-[9px] text-slate-500 dark:text-slate-400 truncate">{d.startTimeStr}</span>
                             </div>
-                            <span className="font-bold font-mono text-rose-600 dark:text-rose-400">-{d.liters} L</span>
+                            <span className="font-bold font-mono text-rose-600 dark:text-rose-400 shrink-0">-{d.liters} L</span>
                           </div>
                         ))}
                       </>
@@ -2246,8 +2246,8 @@ export default function FuelAnalyticsPage() {
               </div>
 
               {/* Quick Help Note */}
-              <div className="pt-3 border-t border-slate-200 dark:border-slate-700/80 text-[10px] text-slate-400 flex items-center justify-between">
-                <span>Hover curve for event card</span>
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 text-[9px] text-slate-400 flex items-center justify-between">
+                <span>Hover curve for event</span>
                 <span className="font-mono text-slate-500">5-10m settling</span>
               </div>
             </div>
