@@ -660,7 +660,9 @@ export default function FuelAnalyticsPage() {
     // 1. First pass: extract calibrated raw sensor fuel and motion states
     const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
 
-    // 2. Anti-Slosh Moving Median Filter (Window 5) + Exponential Smoothing (EMA) -> "Filtered Fuel Data"
+    // 2. Speed-Adaptive Anti-Slosh Filter: Window 5 Median + Conditional EMA -> "Filtered Fuel Data"
+    // When stationary (speed <= 6 km/h): zero road slosh. Median tracks real refuel/drain immediately without 12-min lag.
+    // When moving (speed > 6 km/h): apply anti-slosh exponential smoothing to reject highway road ripples.
     const filteredFuels = new Array(sorted.length).fill(null);
     let lastEma = null;
     for (let i = 0; i < sorted.length; i++) {
@@ -671,9 +673,21 @@ export default function FuelAnalyticsPage() {
       if (windowVals.length > 0) {
         windowVals.sort((a, b) => a - b);
         const median = windowVals[Math.floor(windowVals.length / 2)];
+        const spd = parseFloat(sorted[i]?.speed) || 0;
+
         if (lastEma == null) {
           lastEma = median;
+        } else if (spd <= 6.0) {
+          // Stationary at bunk or parked: no road slosh waves.
+          // If fuel changes meaningfully (refuel or drain), track median directly so no 12-min lag occurs.
+          // For tiny settling variations (< 3L), gently converge.
+          if (Math.abs(median - lastEma) >= 3.0) {
+            lastEma = median;
+          } else {
+            lastEma = (0.5 * median) + (0.5 * lastEma);
+          }
         } else {
+          // Moving on road: heavy EMA filter rejects highway liquid slosh waves
           lastEma = (0.25 * median) + (0.75 * lastEma);
         }
         filteredFuels[i] = Math.max(0, Math.min(tankCapacity, Math.round(lastEma * 10) / 10));
@@ -693,15 +707,15 @@ export default function FuelAnalyticsPage() {
     const firstValidFiltered = filteredFuels.find(f => f != null);
     let currentNormalized = firstValidFiltered != null ? firstValidFiltered : 0;
 
-    // Helper: Is the vehicle STOPPED (speed=0 or GPS jitter <=1 km/h)?
+    // Helper: Is the vehicle STOPPED (speed=0 or GPS jitter <= 6 km/h)?
     // Refills happen at speed=0 regardless of ignition (people fill with engine running).
-    const isStopped = (pt) => (parseFloat(pt.speed) || 0) <= 1.0;
+    const isStopped = (pt) => (parseFloat(pt.speed) || 0) <= 6.0;
 
     // Helper: Is ignition OFF?
     const isIgnOff = (pt) => !(pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1);
 
-    // Helper: Is the vehicle moving (speed > 2 km/h)?
-    const isMoving = (pt) => (parseFloat(pt.speed) || 0) > 2.0;
+    // Helper: Is the vehicle moving (speed > 6 km/h)?
+    const isMoving = (pt) => (parseFloat(pt.speed) || 0) > 6.0;
 
     // Pre-compute ignition-state transition pairs for slant-parking theft detection.
     // For theft: compare avg fuel in last 5 min before ignition OFF
@@ -787,11 +801,11 @@ export default function FuelAnalyticsPage() {
 
         // ================================================================
         // A. REFUEL DETECTION
-        // Rule: speed must be 0 (or GPS jitter ≤1 km/h). Ignition state
-        // doesn't matter — some drivers fill with engine running.
+        // Rule: speed must be 0 (stationary, speed <= 6 km/h with GPS jitter).
+        // Ignition state doesn't matter — some drivers fill with engine running.
         // The fuel must show a sustained RISE >= refuelThreshold.
         // ================================================================
-        if (rawSpeed <= 1.0 && diff >= 2.0) {
+        if (rawSpeed <= 6.0 && diff >= 2.0) {
           const tStart = new Date(pt.device_time).getTime();
           let maxRampVal = fVal;
           let maxRampIdx = i;
@@ -806,7 +820,7 @@ export default function FuelAnalyticsPage() {
             if ((nextTime - tStart) > 25 * 60 * 1000) break;
 
             // Vehicle moved -> stationary refueling session has ended
-            if (nextSpd > 2.0) break;
+            if (nextSpd > 6.0) break;
 
             const nextF = filteredFuels[k];
             if (nextF != null && nextF > maxRampVal) {
@@ -866,7 +880,7 @@ export default function FuelAnalyticsPage() {
         // Condition: speed==0, ignition OFF, sustained drop >= theftThreshold,
         //            AND confirmed by the pre/post ign transition pair.
         // ================================================================
-        if (!rampHandled && rawSpeed <= 1.0 && !ign && diff <= -2.0) {
+        if (!rampHandled && rawSpeed <= 6.0 && !ign && diff <= -2.0) {
           // Check if this point falls in a confirmed theft window
           // (a pre/post ignition pair where the fuel drop was confirmed)
           let isConfirmedTheft = false;
@@ -892,7 +906,7 @@ export default function FuelAnalyticsPage() {
               const nextTime = new Date(nextPt.device_time).getTime();
 
               if ((nextTime - tStart) > 25 * 60 * 1000) break;
-              if (nextSpd > 2.0 || nextIgn) break; // Stop at motion or engine start
+              if (nextSpd > 6.0 || nextIgn) break; // Stop at motion or engine start
 
               const nextF = filteredFuels[k];
               if (nextF != null && nextF < minRampVal) {
@@ -932,7 +946,7 @@ export default function FuelAnalyticsPage() {
         // (applied when not a verified refill or theft event)
         // ================================================================
         if (!rampHandled) {
-          if (rawSpeed > 2.0) {
+          if (rawSpeed > 6.0) {
             // C1. VEHICLE MOVING:
             if (diff >= refuelThreshold) {
               // LATE CATCH: If vehicle departed bunk or sensor scrutinized data stepped up,
