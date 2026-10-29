@@ -545,12 +545,13 @@ async function start(io) {
               }
             }
           }
-          return parseFloat(rawVal) || 0;
+          if (rawVal == null || isNaN(parseFloat(rawVal))) return null;
+          return parseFloat(rawVal);
         };
 
         // Helper to evaluate a single tank (with single or multiple sensors)
         const evaluateTankLiters = (tankCfg, tankIndex) => {
-          if (!tankCfg) return 0;
+          if (!tankCfg) return null;
           const capacity = parseFloat(tankCfg.tankSize || (tankIndex === 1 ? vehicle.metadata.tankSize : 0));
           const shape = tankCfg.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
           const position = tankCfg.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
@@ -573,11 +574,15 @@ async function start(io) {
             } else if (formula === 'Failover') {
               return s1Litres != null ? s1Litres : s2Litres;
             } else {
-              return s1Litres != null ? s1Litres : (s2Litres != null ? s2Litres : fuel);
+              return s1Litres != null ? s1Litres : (s2Litres != null ? s2Litres : (fuel ?? null));
             }
           } else {
             // Single sensor for this tank
             const raw = tankIndex === 1 ? fuel : (data[`fuel${tankIndex}`] ?? data[`fuel_${tankIndex}`] ?? data.fuel2 ?? data.fuel_2 ?? data.lls2 ?? fuel);
+            // If the vehicle has no configured capacity and no incoming raw fuel, don't invent 0 litres
+            if ((raw == null || isNaN(parseFloat(raw))) && (!capacity || capacity <= 0)) {
+              return null;
+            }
             const activeSensorCfg = configuredSensors[1] || tankCfg;
             return evaluateSensorLiters(activeSensorCfg, raw, capacity, shape, position);
           }
@@ -597,16 +602,20 @@ async function start(io) {
             }
           }
           if (calculatedAny) {
-             finalFuelLiters = Math.round(combinedLiters * 100) / 100;
-           }
-         } else {
-           const t1 = tanksMap[1] || fuelCal;
-           const t1Litres = evaluateTankLiters(t1, 1);
-           if (t1Litres != null && !isNaN(t1Litres)) {
-             finalFuelLiters = t1Litres;
-           }
-         }
-       }
+            finalFuelLiters = Math.round(combinedLiters * 100) / 100;
+          } else if (fuel == null) {
+            finalFuelLiters = null;
+          }
+        } else {
+          const t1 = tanksMap[1] || fuelCal;
+          const t1Litres = evaluateTankLiters(t1, 1);
+          if (t1Litres != null && !isNaN(t1Litres)) {
+            finalFuelLiters = t1Litres;
+          } else if (fuel == null) {
+            finalFuelLiters = null;
+          }
+        }
+      }
  
        // Compute configured tank capacity from vehicle metadata
        let vehicleTankCapacity = null;
