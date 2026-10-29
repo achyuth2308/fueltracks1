@@ -1166,384 +1166,356 @@ export default function FuelAnalyticsPage() {
     <div className="min-h-screen bg-[#F0F4F8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
       <div className="w-full space-y-5">
 
-        {/* ── TOP HEADER & CONTROLS BAR (Compact Single Row) ── */}
-        <div className="relative z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 px-4 py-2.5 rounded-2xl shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2.5">
+        {/* ── LINE 1: HEADER TITLE ── */}
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-md shadow-emerald-500/20 text-white shrink-0">
+            <Fuel className="w-5 h-5" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+            Fuel Analytics
+          </h1>
+        </div>
+
+        {/* ── LINE 2: CONTROLS BAR (Group, Vehicle, From, To, Interval, Apply) ── */}
+        <div className="relative z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 px-4 py-3 rounded-2xl shadow-sm">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             
-            {/* Left Controls: Title, Group Selector, Vehicle Selector, From, To, Interval, Apply */}
-            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5 flex-1 min-w-0">
-              
-              {/* Compact Title (Subtitle removed) */}
-              <div className="flex items-center gap-2 pr-1 shrink-0">
-                <div className="p-1.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg shadow-sm text-white shrink-0">
-                  <Fuel className="w-4 h-4" />
+            {/* Group Selector Dropdown */}
+            <div className="relative min-w-[140px] sm:min-w-[170px] shrink-0" ref={groupDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGroupDropdownOpen(!isGroupDropdownOpen);
+                  setIsDropdownOpen(false);
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                title="Filter vehicles by fleet group"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="font-semibold truncate text-slate-800 dark:text-slate-100 text-xs">
+                    {selectedGroupLabel}
+                  </span>
                 </div>
-                <h1 className="text-sm sm:text-base font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent whitespace-nowrap">
-                  Fuel Analytics
-                </h1>
-              </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isGroupDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-              {/* Group Selector Dropdown */}
-              <div className="relative min-w-[140px] sm:min-w-[170px] shrink-0" ref={groupDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsGroupDropdownOpen(!isGroupDropdownOpen);
-                    setIsDropdownOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
-                  title="Filter vehicles by fleet group"
-                >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    <span className="font-semibold truncate text-slate-800 dark:text-slate-100 text-xs">
-                      {selectedGroupLabel}
-                    </span>
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isGroupDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                <AnimatePresence>
-                  {isGroupDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-[9999] left-0 w-full sm:w-[260px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
-                    >
-                      {/* Search inside group dropdown */}
-                      {availableGroups.list.length > 5 && (
-                        <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
-                          <div className="relative">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                            <input
-                              type="text"
-                              value={groupSearchQuery}
-                              onChange={(e) => setGroupSearchQuery(e.target.value)}
-                              placeholder="Search groups..."
-                              className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500"
-                              autoFocus
-                            />
-                          </div>
+              <AnimatePresence>
+                {isGroupDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-[9999] left-0 w-full sm:w-[260px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
+                  >
+                    {/* Search inside group dropdown */}
+                    {availableGroups.list.length > 5 && (
+                      <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                          <input
+                            type="text"
+                            value={groupSearchQuery}
+                            onChange={(e) => setGroupSearchQuery(e.target.value)}
+                            placeholder="Search groups..."
+                            className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500"
+                            autoFocus
+                          />
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Group items */}
-                      <div className="overflow-y-auto max-h-64 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
-                        {/* All Groups Option */}
-                        <button
-                          type="button"
-                          onClick={() => handleSelectGroup('all')}
-                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
-                            selectedGroupId === 'all'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span className="truncate">All Groups</span>
-                          </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                            {vehicles.length}
-                          </span>
-                        </button>
+                    {/* Group items */}
+                    <div className="overflow-y-auto max-h-64 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
+                      {/* All Groups Option */}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectGroup('all')}
+                        className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
+                          selectedGroupId === 'all'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span className="truncate">All Groups</span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                          {vehicles.length}
+                        </span>
+                      </button>
 
-                        {/* Individual Groups */}
-                        {filteredGroupsList.map(g => {
-                          const isSelected = selectedGroupId === g.id;
-                          return (
-                            <button
-                              key={g.id}
-                              type="button"
-                              onClick={() => handleSelectGroup(g.id)}
-                              className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
-                                isSelected
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
-                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                              }`}
-                            >
-                              <span className="truncate font-medium">{g.name}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                                  {g.count}
-                                </span>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                              </div>
-                            </button>
-                          );
-                        })}
-
-                        {/* Unassigned Option (if any exist) */}
-                        {availableGroups.unassignedCount > 0 && (
+                      {/* Individual Groups */}
+                      {filteredGroupsList.map(g => {
+                        const isSelected = selectedGroupId === g.id;
+                        return (
                           <button
+                            key={g.id}
                             type="button"
-                            onClick={() => handleSelectGroup('__unassigned__')}
+                            onClick={() => handleSelectGroup(g.id)}
                             className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
-                              selectedGroupId === '__unassigned__'
+                              isSelected
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                             }`}
                           >
-                            <span className="truncate text-slate-500 italic">Unassigned</span>
+                            <span className="truncate font-medium">{g.name}</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                                {availableGroups.unassignedCount}
+                                {g.count}
                               </span>
-                              {selectedGroupId === '__unassigned__' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
                             </div>
                           </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        );
+                      })}
 
-              {/* Custom Searchable Vehicle Dropdown */}
-              <div className="relative min-w-[200px] sm:min-w-[260px] shrink-0" ref={dropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <span className={`w-2 h-2 rounded-full shrink-0 ${
-                      selectedVehicle?.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'
-                    }`} />
-                    <span className="font-semibold truncate text-slate-900 dark:text-white">
-                      {selectedVehicle ? (selectedVehicle.name || selectedVehicle.plate || selectedVehicle.imei) : 'Select Vehicle...'}
-                    </span>
-                    {selectedVehicle?.name && selectedVehicle?.plate && (
-                      <span className="text-[11px] text-slate-400 truncate hidden xl:inline">
-                        ({selectedVehicle.plate})
-                      </span>
-                    )}
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-
-                <AnimatePresence>
-                  {isDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-[9999] left-0 sm:left-auto sm:right-0 w-full sm:w-[360px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
-                    >
-                      {/* Search inside dropdown with Reset button */}
-                      <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 flex items-center gap-2">
-                        <div className="relative flex-1">
-                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search vehicle name, plate or IMEI..."
-                            className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500 shadow-sm"
-                            autoFocus
-                          />
-                        </div>
+                      {/* Unassigned Option (if any exist) */}
+                      {availableGroups.unassignedCount > 0 && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSearchQuery('');
-                            if (vehicleListContainerRef.current) {
-                              vehicleListContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-                            }
-                            if (vehiclesInSelectedGroup.length > 0) {
-                              setSelectedVehicle(vehiclesInSelectedGroup[0]);
-                            }
-                          }}
-                          className="px-2 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-emerald-500 transition-all flex items-center gap-1 shrink-0 shadow-sm"
-                          title="Reset to first vehicle in group and scroll to top"
+                          onClick={() => handleSelectGroup('__unassigned__')}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
+                            selectedGroupId === '__unassigned__'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                          }`}
                         >
-                          <RotateCcw className="w-3 h-3 text-slate-400" />
-                          <span>Reset</span>
+                          <span className="truncate text-slate-500 italic">Unassigned</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                              {availableGroups.unassignedCount}
+                            </span>
+                            {selectedGroupId === '__unassigned__' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                          </div>
                         </button>
-                      </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
-                      {/* Vehicle list */}
-                      <div 
-                        ref={vehicleListContainerRef}
-                        className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5"
-                      >
-                        {filteredVehicles.length === 0 ? (
-                          <div className="p-6 text-center text-xs text-slate-400">No vehicles match your search</div>
-                        ) : (
-                          filteredVehicles.map((v, index) => {
-                            const isSelected = selectedVehicle?.id === v.id;
-                            return (
-                              <button
-                                key={v.id}
-                                ref={isSelected ? activeVehicleRef : null}
-                                type="button"
-                                onClick={() => {
-                                  setSelectedVehicle(v);
-                                  setIsDropdownOpen(false);
-                                  setSearchQuery('');
-                                }}
-                                className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
-                                  isSelected 
-                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold ring-1 ring-emerald-500/30' 
-                                    : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2 truncate">
-                                  <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0 text-right">
-                                    {index + 1}.
-                                  </span>
-                                  <span className={`w-2 h-2 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
-                                  <div className="truncate">
-                                    <div className="font-semibold text-slate-900 dark:text-white truncate">
-                                      {v.name || v.plate || v.imei}
-                                    </div>
-                                    <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
-                                      {v.plate && <span>{v.plate}</span>}
-                                      <span>IMEI: {v.imei}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
-                              </button>
-                            );
-                          })
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* From Date-Time */}
-              <div 
-                onClick={() => {
-                  try { startInputRef.current?.showPicker?.(); } catch (e) { startInputRef.current?.focus?.(); }
-                }}
-                className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer shrink-0"
-                title="Click to select start date and time"
-              >
-                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
-                </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
-                  {formatDisplayDDMMYYYY(customStart)}
-                </div>
-                <input 
-                  ref={startInputRef}
-                  type="datetime-local"
-                  value={customStart}
-                  max={customEnd || maxDateTime}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    try { e.target.showPicker?.(); } catch (err) {}
-                  }}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val > maxDateTime) val = maxDateTime;
-                    setCustomStart(val);
-                    setActivePreset('custom');
-                    setError(null);
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-
-              {/* To Date-Time */}
-              <div 
-                onClick={() => {
-                  try { endInputRef.current?.showPicker?.(); } catch (e) { endInputRef.current?.focus?.(); }
-                }}
-                className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer shrink-0"
-                title="Click to select end date and time"
-              >
-                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
-                  <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
-                </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
-                  {formatDisplayDDMMYYYY(customEnd)}
-                </div>
-                <input 
-                  ref={endInputRef}
-                  type="datetime-local"
-                  value={customEnd}
-                  min={customStart}
-                  max={maxDateTime}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    try { e.target.showPicker?.(); } catch (err) {}
-                  }}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val > maxDateTime) val = maxDateTime;
-                    setCustomEnd(val);
-                    setActivePreset('custom');
-                    setError(null);
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-
-              {/* Sampling Interval Selector */}
-              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-2.5 py-1.5 shadow-sm shrink-0">
-                <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
-                  <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
-                </div>
-                <select
-                  value={selectedInterval}
-                  onChange={(e) => setSelectedInterval(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
-                  title="Select Sampling Interval"
-                >
-                  {INTERVAL_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Apply Button */}
+            {/* Custom Searchable Vehicle Dropdown */}
+            <div className="relative min-w-[200px] sm:min-w-[260px] shrink-0" ref={dropdownRef}>
               <button
                 type="button"
-                onClick={() => fetchVehicleFuelData(customStart, customEnd)}
-                disabled={loading}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/20 disabled:opacity-50 shrink-0"
-                title="Apply Date-Time Range"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
               >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{loading ? 'Loading...' : 'Apply Range'}</span>
+                <div className="flex items-center gap-2 truncate">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    selectedVehicle?.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'
+                  }`} />
+                  <span className="font-semibold truncate text-slate-900 dark:text-white">
+                    {selectedVehicle ? (selectedVehicle.name || selectedVehicle.plate || selectedVehicle.imei) : 'Select Vehicle...'}
+                  </span>
+                  {selectedVehicle?.name && selectedVehicle?.plate && (
+                    <span className="text-[11px] text-slate-400 truncate hidden xl:inline">
+                      ({selectedVehicle.plate})
+                    </span>
+                  )}
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
+
+              <AnimatePresence>
+                {isDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-[9999] left-0 sm:left-auto sm:right-0 w-full sm:w-[360px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
+                  >
+                    {/* Search inside dropdown with Reset button */}
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search vehicle name, plate or IMEI..."
+                          className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500 shadow-sm"
+                          autoFocus
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery('');
+                          if (vehicleListContainerRef.current) {
+                            vehicleListContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                          }
+                          if (vehiclesInSelectedGroup.length > 0) {
+                            setSelectedVehicle(vehiclesInSelectedGroup[0]);
+                          }
+                        }}
+                        className="px-2 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-emerald-500 transition-all flex items-center gap-1 shrink-0 shadow-sm"
+                        title="Reset to first vehicle in group and scroll to top"
+                      >
+                        <RotateCcw className="w-3 h-3 text-slate-400" />
+                        <span>Reset</span>
+                      </button>
+                    </div>
+
+                    {/* Vehicle list */}
+                    <div 
+                      ref={vehicleListContainerRef}
+                      className="overflow-y-auto max-h-72 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5"
+                    >
+                      {filteredVehicles.length === 0 ? (
+                        <div className="p-6 text-center text-xs text-slate-400">No vehicles match your search</div>
+                      ) : (
+                        filteredVehicles.map((v, index) => {
+                          const isSelected = selectedVehicle?.id === v.id;
+                          return (
+                            <button
+                              key={v.id}
+                              ref={isSelected ? activeVehicleRef : null}
+                              type="button"
+                              onClick={() => {
+                                setSelectedVehicle(v);
+                                setIsDropdownOpen(false);
+                                setSearchQuery('');
+                              }}
+                              className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
+                                isSelected 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold ring-1 ring-emerald-500/30' 
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0 text-right">
+                                  {index + 1}.
+                                </span>
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
+                                <div className="truncate">
+                                  <div className="font-semibold text-slate-900 dark:text-white truncate">
+                                    {v.name || v.plate || v.imei}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center gap-2 mt-0.5">
+                                    {v.plate && <span>{v.plate}</span>}
+                                    <span>IMEI: {v.imei}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Right: Quick Presets */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs font-medium shrink-0 ml-auto">
-              {[
-                { id: 'today', label: 'Today' },
-                { id: 'yesterday', label: 'Yesterday' },
-                { id: '24h', label: 'Last 24h' },
-                { id: '7d', label: '7 Days' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleSelectPreset(tab.id)}
-                  className={`px-2.5 py-1 rounded-lg transition-all text-xs ${
-                    activePreset === tab.id
-                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            {/* From Date-Time */}
+            <div 
+              onClick={() => {
+                try { startInputRef.current?.showPicker?.(); } catch (e) { startInputRef.current?.focus?.(); }
+              }}
+              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer shrink-0"
+              title="Click to select start date and time"
+            >
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
+                <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
+              </div>
+              <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
+                {formatDisplayDDMMYYYY(customStart)}
+              </div>
+              <input 
+                ref={startInputRef}
+                type="datetime-local"
+                value={customStart}
+                max={customEnd || maxDateTime}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try { e.target.showPicker?.(); } catch (err) {}
+                }}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val > maxDateTime) val = maxDateTime;
+                  setCustomStart(val);
+                  setActivePreset('custom');
+                  setError(null);
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
             </div>
 
+            {/* To Date-Time */}
+            <div 
+              onClick={() => {
+                try { endInputRef.current?.showPicker?.(); } catch (e) { endInputRef.current?.focus?.(); }
+              }}
+              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer shrink-0"
+              title="Click to select end date and time"
+            >
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
+                <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
+              </div>
+              <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
+                {formatDisplayDDMMYYYY(customEnd)}
+              </div>
+              <input 
+                ref={endInputRef}
+                type="datetime-local"
+                value={customEnd}
+                min={customStart}
+                max={maxDateTime}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try { e.target.showPicker?.(); } catch (err) {}
+                }}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val > maxDateTime) val = maxDateTime;
+                  setCustomEnd(val);
+                  setActivePreset('custom');
+                  setError(null);
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+            </div>
+
+            {/* Sampling Interval Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm shrink-0">
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
+              </div>
+              <select
+                value={selectedInterval}
+                onChange={(e) => setSelectedInterval(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
+                title="Select Sampling Interval"
+              >
+                {INTERVAL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Apply Button */}
+            <button
+              type="button"
+              onClick={() => fetchVehicleFuelData(customStart, customEnd)}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/20 disabled:opacity-50 shrink-0"
+              title="Apply Date-Time Range"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Loading...' : 'Apply Range'}</span>
+            </button>
           </div>
         </div>
 
@@ -1558,7 +1530,7 @@ export default function FuelAnalyticsPage() {
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Sliders className="w-5 h-5 text-emerald-500" />
@@ -1569,8 +1541,30 @@ export default function FuelAnalyticsPage() {
               </p>
             </div>
 
-            {/* 5-Layer Telematics Visibility Toggles (Reference System) */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            {/* Quick Presets & 5-Layer Telematics Visibility Toggles inside Graph Card */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Quick Presets */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs font-medium shrink-0">
+                {[
+                  { id: 'today', label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: '24h', label: 'Last 24h' },
+                  { id: '7d', label: '7 Days' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(tab.id)}
+                    className={`px-3 py-1.5 rounded-lg transition-all text-xs font-semibold ${
+                      activePreset === tab.id
+                        ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
               {/* Layer 1: All Fuel Data */}
               <button
                 type="button"
