@@ -1190,108 +1190,6 @@ const EditCalibratePage = () => {
           boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04)',
           overflow: 'hidden'
         }}>
-          {/* Card Top Tab Bar */}
-          <div className="calib-tabs-bar" style={{
-            background: '#fafbfc',
-            borderBottom: '1px solid #f1f5f9',
-            padding: '6px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            flexWrap: 'wrap'
-          }}>
-            {/* Tanks Switcher */}
-            {Array.from({ length: tankCount }, (_, i) => i + 1).map(tankNum => {
-              const isSelected = activeTank === tankNum;
-              return (
-                <button
-                  key={tankNum}
-                  type="button"
-                  onClick={() => handleSwitchTank(tankNum)}
-                  style={{
-                    background: isSelected ? '#f97316' : '#f1f5f9',
-                    color: isSelected ? '#ffffff' : '#64748b',
-                    border: 'none',
-                    borderRadius: '7px',
-                    padding: '6px 16px',
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.28)' : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  onMouseEnter={e => {
-                    if (isSelected) e.currentTarget.style.background = '#ea580c';
-                  }}
-                  onMouseLeave={e => {
-                    if (isSelected) e.currentTarget.style.background = '#f97316';
-                  }}
-                >
-                  <Fuel size={14} />
-                  <span>{`Tank ${tankNum}`}</span>
-                </button>
-              );
-            })}
-
-            {/* Sensors Switcher (when sensorCount > 1) */}
-            {sensorCount > 1 && (
-              <div className="calib-sensor-switcher" style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginLeft: tankCount > 0 ? '16px' : '0',
-                paddingLeft: tankCount > 0 ? '16px' : '0',
-                borderLeft: tankCount > 0 ? '1px solid #e2e8f0' : 'none',
-                flexWrap: 'wrap'
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Cpu size={14} color="#ea580c" />
-                  Sensors:
-                </span>
-                <div style={{
-                  display: 'inline-flex',
-                  background: '#f1f5f9',
-                  padding: '3px',
-                  borderRadius: '8px',
-                  gap: '4px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sensorNum => {
-                    const isSelected = activeSensor === sensorNum;
-                    return (
-                      <button
-                        key={sensorNum}
-                        type="button"
-                        onClick={() => handleSwitchSensor(sensorNum)}
-                        style={{
-                          background: isSelected ? '#f97316' : 'transparent',
-                          color: isSelected ? '#ffffff' : '#64748b',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '6px 14px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <Cpu size={12} />
-                        <span>{`Sensor ${sensorNum}`}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Form Body */}
           <form onSubmit={handleSave} className="calib-card-body">
 
@@ -1722,8 +1620,8 @@ const EditCalibratePage = () => {
                 </div>
               </div>
 
-              {/* ROW 3: Detection Thresholds (Theft & Filling) & Calibrate Type */}
-              <div className="calib-grid-3">
+              {/* ROW 3: Detection Thresholds (Theft & Filling) */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 10px' }}>
                 {/* Minimum Theft */}
                 <div>
                   <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
@@ -1799,39 +1697,181 @@ const EditCalibratePage = () => {
                     }}
                   />
                 </div>
+              </div>
+            </div>
 
-                {/* Calibrate Type */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
-                    {sensorCount > 1 ? `Calibrate Type (Sensor ${activeSensor})` : 'Calibrate Type'}
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px', height: '38px', alignItems: 'center' }}>
-                    {['Auto', 'Manual', 'Direct'].map(type => {
-                      const isSelected = calibrateType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setCalibrateType(type)}
-                          style={{
-                            flex: 1,
-                            height: '38px',
-                            borderRadius: '6px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            border: isSelected ? '1px solid #f97316' : '1px solid #cbd5e1',
-                            background: isSelected ? '#f97316' : '#ffffff',
-                            color: isSelected ? '#ffffff' : '#475569',
-                            cursor: 'pointer',
-                            boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.25)' : 'none',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {type}
-                        </button>
-                      );
-                    })}
-                  </div>
+            {/* BAR: Tanks, Calibration Type & Sensor Number (After General Configuration) */}
+            <div style={{
+              background: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              marginBottom: '10px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px'
+            }}>
+              {/* 1. Tank Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <Fuel size={14} color="#ea580c" />
+                  Tank:
+                </span>
+                <div style={{ display: 'inline-flex', gap: '6px' }}>
+                  {Array.from({ length: tankCount }, (_, i) => i + 1).map(tankNum => {
+                    const isSelected = activeTank === tankNum;
+                    return (
+                      <button
+                        key={tankNum}
+                        type="button"
+                        onClick={() => handleSwitchTank(tankNum)}
+                        style={{
+                          background: isSelected ? '#f97316' : '#ffffff',
+                          color: isSelected ? '#ffffff' : '#475569',
+                          border: isSelected ? '1px solid #ea580c' : '1px solid #cbd5e1',
+                          borderRadius: '6px',
+                          padding: '6px 16px',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.28)' : 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <Fuel size={13} />
+                        <span>{`Tank ${tankNum}`}</span>
+                      </button>
+                    );
+                  })}
+                  {tankCount === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNoOfTank('2');
+                        handleSwitchTank(2);
+                      }}
+                      title="Add Tank 2"
+                      style={{
+                        background: '#ffffff',
+                        color: '#ea580c',
+                        border: '1px dashed #cbd5e1',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Plus size={12} />
+                      <span>Add Tank 2</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. Calibration Type */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                  Calibration Type:
+                </span>
+                <div style={{ display: 'inline-flex', background: '#ffffff', padding: '3px', borderRadius: '7px', gap: '4px', border: '1px solid #cbd5e1' }}>
+                  {['Auto', 'Manual', 'Direct'].map(type => {
+                    const isSelected = calibrateType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setCalibrateType(type)}
+                        style={{
+                          height: '30px',
+                          padding: '0 14px',
+                          borderRadius: '5px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          border: 'none',
+                          background: isSelected ? '#f97316' : 'transparent',
+                          color: isSelected ? '#ffffff' : '#475569',
+                          cursor: 'pointer',
+                          boxShadow: isSelected ? '0 2px 4px rgba(249, 115, 22, 0.25)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Sensor Number Switcher */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <Cpu size={14} color="#ea580c" />
+                  Sensor Number:
+                </span>
+                <div style={{ display: 'inline-flex', background: '#ffffff', padding: '3px', borderRadius: '7px', gap: '4px', border: '1px solid #cbd5e1', alignItems: 'center' }}>
+                  {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sensorNum => {
+                    const isSelected = activeSensor === sensorNum;
+                    return (
+                      <button
+                        key={sensorNum}
+                        type="button"
+                        onClick={() => handleSwitchSensor(sensorNum)}
+                        style={{
+                          background: isSelected ? '#f97316' : 'transparent',
+                          color: isSelected ? '#ffffff' : '#64748b',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '5px',
+                          boxShadow: isSelected ? '0 2px 4px rgba(249, 115, 22, 0.25)' : 'none',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <Cpu size={12} />
+                        <span>{`Sensor ${sensorNum}`}</span>
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const nextSensor = sensorCount + 1;
+                      setNoOfSensor(String(nextSensor));
+                      handleSwitchSensor(nextSensor);
+                    }}
+                    title="Add another sensor to this tank"
+                    style={{
+                      background: 'transparent',
+                      color: '#ea580c',
+                      border: '1px dashed #cbd5e1',
+                      borderRadius: '5px',
+                      padding: '4px 8px',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                  >
+                    <Plus size={12} />
+                    <span>Add Sensor</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1851,55 +1891,11 @@ const EditCalibratePage = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                   <SlidersHorizontal size={16} color="#ea580c" />
                   <h3 style={{ fontSize: '14.5px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                    {tankCount > 1 
-                      ? (sensorCount > 1 ? `Tank ${activeTank} — Sensor ${activeSensor} Calibration` : `Tank ${activeTank} Parameters`)
-                      : (sensorCount > 1 ? `Sensor ${activeSensor} Calibration Details` : 'Tank Calibration Details')
-                    }
+                    {`Tank ${activeTank}${sensorCount > 1 ? ` — Sensor ${activeSensor}` : ''} Calibration Details`}
                   </h3>
                 </div>
 
-                {sensorCount > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Configure:</span>
-                    <div style={{
-                      display: 'inline-flex',
-                      background: '#f1f5f9',
-                      padding: '3px',
-                      borderRadius: '8px',
-                      gap: '4px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sNum => {
-                        const isSel = activeSensor === sNum;
-                        return (
-                          <button
-                            key={sNum}
-                            type="button"
-                            onClick={() => handleSwitchSensor(sNum)}
-                            style={{
-                              background: isSel ? '#f97316' : 'transparent',
-                              color: isSel ? '#ffffff' : '#64748b',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '5px 14px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              boxShadow: isSel ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <Cpu size={12} />
-                            <span>{`Sensor ${sNum}`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+                
               </div>
 
               {/* Row 1: Mode of Vehicle, Fuel Type, Tank Size */}
