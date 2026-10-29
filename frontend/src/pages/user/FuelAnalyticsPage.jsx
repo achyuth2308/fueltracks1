@@ -9,6 +9,8 @@ import {
   RefreshCw, 
   Search, 
   ChevronDown, 
+  ChevronLeft,
+  ChevronRight,
   TrendingUp, 
   TrendingDown, 
   AlertCircle, 
@@ -26,9 +28,16 @@ import {
   Check,
   Users,
   Database,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet,
+  FileText,
+  X,
+  ArrowUpDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -215,6 +224,13 @@ export default function FuelAnalyticsPage() {
   const [showRefillEvents, setShowRefillEvents] = useState(true);
   const [showTheftEvents, setShowTheftEvents] = useState(true);
   const [showConsumptionLayer, setShowConsumptionLayer] = useState(true);
+
+  // On-Demand Bottom Table Selection State ('raw' | 'refills' | 'consumption' | null)
+  const [activeTableTab, setActiveTableTab] = useState(null);
+  const [rawSearchQuery, setRawSearchQuery] = useState('');
+  const [rawSortOrder, setRawSortOrder] = useState('desc');
+  const [rawPageSize, setRawPageSize] = useState(50);
+  const [rawCurrentPage, setRawCurrentPage] = useState(1);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -1220,6 +1236,160 @@ export default function FuelAnalyticsPage() {
     return Math.min(100, Math.max(0, Math.round((processedData.currentFuel / tankCapacity) * 100)));
   }, [processedData.currentFuel, tankCapacity]);
 
+  // Process Raw Fuel Data rows from chartData
+  const processedRawRows = useMemo(() => {
+    if (!processedData.chartData || !processedData.chartData.length) return [];
+    return processedData.chartData.map((pt, idx) => {
+      let eventTag = 'Normal Telemetry';
+      let eventType = 'normal';
+      if (pt.refuelLiters) {
+        eventTag = `Refill (+${pt.refuelLiters}L)`;
+        eventType = 'refill';
+      } else if (pt.dropLiters) {
+        eventTag = `Drain (-${pt.dropLiters}L)`;
+        eventType = 'drop';
+      } else if (pt.isRefillInterval) {
+        eventTag = 'Refill Window';
+        eventType = 'refill-window';
+      } else if (pt.isTheftInterval) {
+        eventTag = 'Theft Window';
+        eventType = 'theft-window';
+      }
+
+      const dateTimeStr = pt.dateStr && pt.timeStr ? `${pt.dateStr} ${pt.timeStr}` : (pt.timeStr || '—');
+
+      return {
+        index: idx + 1,
+        timestamp: pt.timestamp,
+        dateTimeStr,
+        speed: pt.speed ?? 0,
+        status: pt.status || 'OFF',
+        rawFuel: pt.rawFuel != null ? pt.rawFuel : null,
+        filteredFuel: pt.filteredFuel != null ? pt.filteredFuel : null,
+        normalizedFuel: pt.normalizedFuel != null ? pt.normalizedFuel : null,
+        odometer: pt.odometer != null ? pt.odometer : '—',
+        volt: pt.volt != null ? pt.volt : '—',
+        eventTag,
+        eventType
+      };
+    });
+  }, [processedData.chartData]);
+
+  // Search and Sort Filter for Raw Fuel Data
+  const filteredRawRows = useMemo(() => {
+    let list = [...processedRawRows];
+    if (rawSearchQuery.trim()) {
+      const q = rawSearchQuery.toLowerCase().trim();
+      list = list.filter(r =>
+        r.dateTimeStr.toLowerCase().includes(q) ||
+        String(r.speed).includes(q) ||
+        r.status.toLowerCase().includes(q) ||
+        (r.rawFuel != null && String(r.rawFuel).includes(q)) ||
+        (r.filteredFuel != null && String(r.filteredFuel).includes(q)) ||
+        (r.normalizedFuel != null && String(r.normalizedFuel).includes(q)) ||
+        r.eventTag.toLowerCase().includes(q) ||
+        String(r.odometer).includes(q) ||
+        String(r.volt).includes(q)
+      );
+    }
+
+    if (rawSortOrder === 'desc') {
+      list.sort((a, b) => b.timestamp - a.timestamp);
+    } else {
+      list.sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    return list;
+  }, [processedRawRows, rawSearchQuery, rawSortOrder]);
+
+  // Raw Fuel Data Pagination
+  const rawTotalPages = useMemo(() => {
+    if (rawPageSize === 'all') return 1;
+    return Math.max(1, Math.ceil(filteredRawRows.length / Number(rawPageSize)));
+  }, [filteredRawRows.length, rawPageSize]);
+
+  const paginatedRawRows = useMemo(() => {
+    if (rawPageSize === 'all') return filteredRawRows;
+    const size = Number(rawPageSize);
+    const start = (rawCurrentPage - 1) * size;
+    return filteredRawRows.slice(start, start + size);
+  }, [filteredRawRows, rawCurrentPage, rawPageSize]);
+
+  // Reset to page 1 on search or sorting changes
+  useEffect(() => {
+    setRawCurrentPage(1);
+  }, [rawSearchQuery, rawPageSize, rawSortOrder]);
+
+  // Excel Export
+  const handleExportRawExcel = () => {
+    if (!filteredRawRows.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = filteredRawRows.map((r, idx) => ({
+      '#': idx + 1,
+      'Timestamp (IST)': r.dateTimeStr,
+      'Speed (km/h)': r.speed,
+      'Engine Status': r.status,
+      'Raw Fuel (L)': r.rawFuel != null ? r.rawFuel : '—',
+      'Filtered Fuel (L)': r.filteredFuel != null ? r.filteredFuel : '—',
+      'Normalized Fuel (L)': r.normalizedFuel != null ? r.normalizedFuel : '—',
+      'Odometer (km)': r.odometer,
+      'Voltage (V)': r.volt,
+      'Event Classification': r.eventTag
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Raw Fuel Data');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Raw_Fuel_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // PDF Export
+  const handleExportRawPDF = () => {
+    if (!filteredRawRows.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const imei = selectedVehicle?.imei || '—';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Raw Fuel Packet Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | IMEI: ${imei} | Tank Capacity: ${tankCapacity}L | Period: ${customStart.replace('T', ' ')} to ${customEnd.replace('T', ' ')} | Records: ${filteredRawRows.length} | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'Timestamp (IST)', 'Speed', 'Engine', 'Raw Fuel (L)',
+      'Filtered (L)', 'Normalized (L)', 'Odometer', 'Voltage', 'Event Tag'
+    ];
+
+    const tableRows = filteredRawRows.map((r, idx) => [
+      idx + 1,
+      r.dateTimeStr,
+      `${r.speed} km/h`,
+      r.status,
+      r.rawFuel != null ? `${r.rawFuel} L` : '—',
+      r.filteredFuel != null ? `${r.filteredFuel} L` : '—',
+      r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—',
+      r.odometer !== '—' ? `${r.odometer} km` : '—',
+      r.volt !== '—' ? `${r.volt} V` : '—',
+      r.eventTag
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Raw_Fuel_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-[#F0F4F8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
       <div className="w-full space-y-5">
@@ -2218,33 +2388,55 @@ export default function FuelAnalyticsPage() {
                   {/* 1. Raw Fuel Data */}
                   <button
                     type="button"
-                    onClick={() => navigate('/fuel-raw-data')}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
-                    title="Open Full Raw Fuel Telemetry Logs"
+                    onClick={() => {
+                      setActiveTableTab(prev => prev === 'raw' ? null : 'raw');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'raw'
+                        ? 'bg-sky-600 text-white ring-2 ring-sky-500/40 shadow-sky-500/20'
+                        : 'bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800/60'
+                    }`}
+                    title="Toggle On-Demand Raw Fuel Telemetry Table"
                   >
                     <span className="flex items-center gap-1.5 truncate">
-                      <Database className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <Database className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'raw' ? 'text-white' : 'text-sky-500'}`} />
                       <span className="truncate">1. Raw Fuel Data</span>
                     </span>
-                    <ArrowUpRight className="w-3 h-3 text-sky-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform shrink-0" />
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'raw' ? 'bg-white/25 text-white font-bold' : 'bg-sky-500/20 text-sky-700 dark:text-sky-300'
+                    }`}>
+                      {processedRawRows.length}
+                    </span>
                   </button>
 
                   {/* 2. Refill History */}
                   <button
                     type="button"
                     onClick={() => {
-                      setShowRefillEvents(true);
-                      const el = document.getElementById('refill-history-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      setActiveTableTab(prev => prev === 'refills' ? null : 'refills');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
                     }}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
-                    title="Jump to Detected Refuels & Event History"
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'refills'
+                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40 shadow-emerald-500/20'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60'
+                    }`}
+                    title="Toggle Detected Refuels & Event History"
                   >
                     <span className="flex items-center gap-1.5 truncate">
-                      <Fuel className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <Fuel className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'refills' ? 'text-white' : 'text-emerald-500'}`} />
                       <span className="truncate">2. Refill History</span>
                     </span>
-                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 shrink-0">
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'refills' ? 'bg-white/25 text-white font-bold' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    }`}>
                       {processedData.refuels.length}
                     </span>
                   </button>
@@ -2253,18 +2445,26 @@ export default function FuelAnalyticsPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setShowConsumptionLayer(true);
-                      const el = document.getElementById('consumption-breakdown-section');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                      setActiveTableTab(prev => prev === 'consumption' ? null : 'consumption');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
                     }}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60 transition-all text-[11px] font-bold group cursor-pointer shadow-xs"
-                    title="Jump to Trip & Consumption Breakdown Table"
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'consumption'
+                        ? 'bg-amber-600 text-white ring-2 ring-amber-500/40 shadow-amber-500/20'
+                        : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60'
+                    }`}
+                    title="Toggle Trip & Consumption Breakdown Table"
                   >
                     <span className="flex items-center gap-1.5 truncate">
-                      <TrendingUp className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'consumption' ? 'text-white' : 'text-amber-500'}`} />
                       <span className="truncate">3. Consumption Rate</span>
                     </span>
-                    <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 shrink-0">
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'consumption' ? 'bg-white/25 text-white font-bold' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                    }`}>
                       {processedData.mileageKmpl} km/L
                     </span>
                   </button>
@@ -2391,115 +2591,471 @@ export default function FuelAnalyticsPage() {
           </div>
         </div>
 
-        {/* ── REFUEL & ABNORMAL DRAIN EVENT BADGES ── */}
-        <div id="refill-history-section">
-          {(processedData.refuels.length > 0 || processedData.drops.length > 0) && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              
-              {/* Refuels */}
-              <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
-                <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
-                  <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {processedData.refuels.map((r, idx) => (
-                    <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                      <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
-                      <span className="text-slate-400">at {r.time}</span>
+        {/* ── ON-DEMAND ANIMATED TABLES CONTAINER (INITIALLY EMPTY) ── */}
+        <div id="analytics-tables-container" className="space-y-4">
+          <AnimatePresence mode="wait">
+            {/* 1. RAW FUEL DATA TABLE */}
+            {activeTableTab === 'raw' && (
+              <motion.div
+                key="raw-fuel-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Header with Title, Period & Export Buttons */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                      <Database className="w-5 h-5" />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Drains */}
-              <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
-                <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
-                  <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
-                </h3>
-                <div className="flex flex-wrap gap-2">
-                  {processedData.drops.map((d, idx) => (
-                    <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                      <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
-                      <span className="text-slate-400">at {d.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-          )}
-        </div>
-
-        {/* ── DRIVING SESSIONS & CONSUMPTION LOG TABLE ── */}
-        <div id="consumption-breakdown-section" className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">Trip & Idling Consumption Breakdown</h3>
-              <p className="text-xs text-slate-400">Segment-wise fuel burn and distance correlation</p>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg">
-              {processedData.sessions.length} Sessions
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Engine Status</th>
-                  <th className="px-4 py-3">Start Time (IST)</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Distance</th>
-                  <th className="px-4 py-3">Fuel Consumed</th>
-                  <th className="px-4 py-3">Max Speed</th>
-                  <th className="px-4 py-3">Mileage</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {processedData.sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
-                      No driving sessions recorded in this time range.
-                    </td>
-                  </tr>
-                ) : (
-                  processedData.sessions.map((s, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                          s.status === 'ON (Moving)' 
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                            : (s.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400')
-                        }`}>
-                          {s.status}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Raw Fuel Telemetry Data Audit
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                          {filteredRawRows.length} Packets
                         </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {formatIST(s.startTime)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {s.durationMin} mins
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
-                        {s.distanceKm > 0 ? `${s.distanceKm} km` : '0 km'}
-                      </td>
-                      <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-bold">
-                        {s.consumed > 0 ? `${s.consumed} L` : '0 L'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {s.maxSpeed} km/h
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
-                        {s.consumed > 0 && s.distanceKm > 0 ? `${Math.round((s.distanceKm / s.consumed) * 10) / 10} km/L` : '—'}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Tank: <strong className="text-slate-700 dark:text-slate-300">{tankCapacity}L</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportRawExcel}
+                      disabled={!filteredRawRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Telemetry as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportRawPDF}
+                      disabled={!filteredRawRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Telemetry as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Raw Fuel Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Synchronized Date-Time & Filter Bar */}
+                <div className="p-3 sm:px-5 sm:py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-3">
+                  
+                  {/* Left: Quick Date Presets & Date Inputs */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Presets */}
+                    <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs">
+                      {[
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: 'last24h', label: 'Last 24h' },
+                        { id: 'last7d', label: 'Last 7d' }
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSelectPreset(p.id)}
+                          className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all ${
+                            activePreset === p.id
+                              ? 'bg-sky-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* From & To Date-Time Pickers with Sync Button */}
+                    <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs text-xs">
+                      <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <input
+                        type="datetime-local"
+                        value={customStart}
+                        max={customEnd || maxDateTime}
+                        onChange={(e) => {
+                          setCustomStart(e.target.value);
+                          setActivePreset('custom');
+                        }}
+                        className="bg-transparent text-xs text-slate-800 dark:text-slate-200 font-mono focus:outline-none"
+                        title="Start Date & Time"
+                      />
+                      <span className="text-slate-400 text-xs px-0.5">→</span>
+                      <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                      <input
+                        type="datetime-local"
+                        value={customEnd}
+                        min={customStart}
+                        max={maxDateTime}
+                        onChange={(e) => {
+                          setCustomEnd(e.target.value);
+                          setActivePreset('custom');
+                        }}
+                        className="bg-transparent text-xs text-slate-800 dark:text-slate-200 font-mono focus:outline-none"
+                        title="End Date & Time"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fetchVehicleFuelData(customStart, customEnd)}
+                        disabled={loading}
+                        className="ml-1.5 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        title="Sync telemetry packets for this date range"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                        <span>Sync</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: Search, Sort Order, Page Size */}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="relative min-w-[170px]">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={rawSearchQuery}
+                        onChange={(e) => setRawSearchQuery(e.target.value)}
+                        placeholder="Search packets..."
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-sky-500 text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* Sort Order */}
+                    <button
+                      type="button"
+                      onClick={() => setRawSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      title="Toggle Chronological Sort Order"
+                    >
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{rawSortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                    </button>
+
+                    {/* Page Size Selector */}
+                    <select
+                      value={rawPageSize}
+                      onChange={(e) => setRawPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value={25}>25 / page</option>
+                      <option value={50}>50 / page</option>
+                      <option value={100}>100 / page</option>
+                      <option value={250}>250 / page</option>
+                      <option value="all">All Records</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Records */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-2.5">#</th>
+                        <th className="px-3.5 py-2.5">Timestamp (IST)</th>
+                        <th className="px-3.5 py-2.5">Speed</th>
+                        <th className="px-3.5 py-2.5">Engine Status</th>
+                        <th className="px-3.5 py-2.5">Raw Fuel</th>
+                        <th className="px-3.5 py-2.5">Filtered Fuel</th>
+                        <th className="px-3.5 py-2.5">Normalized Fuel</th>
+                        <th className="px-3.5 py-2.5">Odometer</th>
+                        <th className="px-3.5 py-2.5">Voltage</th>
+                        <th className="px-3.5 py-2.5">Classification</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {paginatedRawRows.length === 0 ? (
+                        <tr>
+                          <td colSpan="10" className="px-4 py-12 text-center text-slate-400">
+                            {loading ? 'Fetching telemetry packets...' : 'No telemetry packets recorded for this period.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedRawRows.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-sky-500/5 dark:hover:bg-sky-500/10 transition-colors">
+                            <td className="px-3.5 py-2 text-slate-400 font-mono text-[11px]">{r.index}</td>
+                            <td className="px-3.5 py-2 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.dateTimeStr}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                              {r.speed} <span className="text-[10px] text-slate-400">km/h</span>
+                            </td>
+                            <td className="px-3.5 py-2 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.status === 'ON (Moving)'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                  : (r.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  r.status === 'ON (Moving)' ? 'bg-emerald-500 animate-pulse' : (r.status === 'ON (Idle)' ? 'bg-amber-500' : 'bg-slate-400')
+                                }`} />
+                                {r.status}
+                              </span>
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {r.rawFuel != null ? `${r.rawFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                              {r.filteredFuel != null ? `${r.filteredFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {r.odometer !== '—' ? `${r.odometer} km` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {r.volt !== '—' ? `${r.volt} V` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                r.eventType === 'refill'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                  : (r.eventType === 'drop'
+                                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                                    : (r.eventType === 'refill-window'
+                                      ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                                      : (r.eventType === 'theft-window'
+                                        ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300'
+                                        : 'text-slate-400')))
+                              }`}>
+                                {r.eventTag}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination & Summary Footer */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="font-medium">
+                    {filteredRawRows.length === 0 ? (
+                      'No records'
+                    ) : (
+                      rawPageSize === 'all' ? (
+                        `Showing all ${filteredRawRows.length} records`
+                      ) : (
+                        `Showing ${(rawCurrentPage - 1) * Number(rawPageSize) + 1} to ${Math.min(rawCurrentPage * Number(rawPageSize), filteredRawRows.length)} of ${filteredRawRows.length} records`
+                      )
+                    )}
+                  </div>
+
+                  {rawPageSize !== 'all' && rawTotalPages > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setRawCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={rawCurrentPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {rawCurrentPage} / {rawTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRawCurrentPage(p => Math.min(rawTotalPages, p + 1))}
+                        disabled={rawCurrentPage === rawTotalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Next Page"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 2. REFILL & ABNORMAL DRAIN EVENT BADGES */}
+            {activeTableTab === 'refills' && (
+              <motion.div
+                key="refills-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="refill-history-section"
+                className="space-y-3"
+              >
+                <div className="flex items-center justify-between px-1">
+                  <div className="flex items-center gap-2">
+                    <Fuel className="w-4 h-4 text-emerald-500" />
+                    <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
+                      Refill & Sudden Drain Events History
+                    </h3>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab(null)}
+                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                    title="Close"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Refuels */}
+                  <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
+                    <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
+                      <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
+                    </h3>
+                    {processedData.refuels.length === 0 ? (
+                      <p className="text-xs text-slate-400">No refuel events detected in this period.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {processedData.refuels.map((r, idx) => (
+                          <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+                            <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
+                            <span className="text-slate-400">at {r.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Drains */}
+                  <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
+                    <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
+                      <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
+                    </h3>
+                    {processedData.drops.length === 0 ? (
+                      <p className="text-xs text-slate-400">No sudden fuel drops detected in this period.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {processedData.drops.map((d, idx) => (
+                          <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+                            <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
+                            <span className="text-slate-400">at {d.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 3. DRIVING SESSIONS & CONSUMPTION LOG TABLE */}
+            {activeTableTab === 'consumption' && (
+              <motion.div
+                key="consumption-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="consumption-breakdown-section"
+                className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-base text-slate-900 dark:text-white">Trip & Idling Consumption Breakdown</h3>
+                    <p className="text-xs text-slate-400">Segment-wise fuel burn and distance correlation</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg">
+                      {processedData.sessions.length} Sessions
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                      title="Close"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                      <tr>
+                        <th className="px-4 py-3">#</th>
+                        <th className="px-4 py-3">Engine Status</th>
+                        <th className="px-4 py-3">Start Time (IST)</th>
+                        <th className="px-4 py-3">Duration</th>
+                        <th className="px-4 py-3">Distance</th>
+                        <th className="px-4 py-3">Fuel Consumed</th>
+                        <th className="px-4 py-3">Max Speed</th>
+                        <th className="px-4 py-3">Mileage</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {processedData.sessions.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
+                            No driving sessions recorded in this time range.
+                          </td>
+                        </tr>
+                      ) : (
+                        processedData.sessions.map((s, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                            <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                                s.status === 'ON (Moving)' 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                                  : (s.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400')
+                              }`}>
+                                {s.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                              {formatIST(s.startTime)}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                              {s.durationMin} mins
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
+                              {s.distanceKm > 0 ? `${s.distanceKm} km` : '0 km'}
+                            </td>
+                            <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-bold">
+                              {s.consumed > 0 ? `${s.consumed} L` : '0 L'}
+                            </td>
+                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
+                              {s.maxSpeed} km/h
+                            </td>
+                            <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
+                              {s.consumed > 0 && s.distanceKm > 0 ? `${Math.round((s.distanceKm / s.consumed) * 10) / 10} km/L` : '—'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
       </div>
