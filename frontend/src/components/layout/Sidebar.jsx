@@ -14,8 +14,11 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Cpu,
   Navigation,
+  MapPin,
+  Clock,
   ShieldAlert,
   RefreshCw,
   Bell,
@@ -26,7 +29,6 @@ import {
   Droplets,
   Fuel,
   Database,
-  ChevronDown,
   X,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
@@ -38,12 +40,36 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [brandProfile, setBrandProfile] = useState(null);
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
-    'Fuel Analytics': location.pathname.startsWith('/fuel-')
+    'Fuel Analytics': location.pathname.startsWith('/fuel-'),
+    'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
   }));
+
+  const isTripReportPath = (p) => {
+    return p === '/admin/reports/trip' || 
+           p === '/admin/reports/manual-trips' || 
+           p === '/admin/reports/daily-trip' ||
+           p.startsWith('/admin/reports/geofence');
+  };
+
+  const [tripsExpanded, setTripsExpanded] = useState(() => {
+    return location.pathname === '/trips' || isTripReportPath(location.pathname);
+  });
+  const [tripReportExpanded, setTripReportExpanded] = useState(() => {
+    return isTripReportPath(location.pathname);
+  });
 
   useEffect(() => {
     if (location.pathname.startsWith('/fuel-')) {
       setOpenSubMenus(prev => ({ ...prev, 'Fuel Analytics': true }));
+    }
+    if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
+      setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
+    }
+    if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
+      setTripsExpanded(true);
+    }
+    if (isTripReportPath(location.pathname)) {
+      setTripReportExpanded(true);
     }
   }, [location.pathname]);
 
@@ -74,7 +100,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
-        { name: 'Trips', path: '/trips', icon: RouteIcon, roles: ['customer'] },
+        {
+          name: 'Trips',
+          path: '/trips',
+          icon: RouteIcon,
+          roles: ['customer', 'superadmin', 'dealer'],
+          subItems: [
+            { name: 'Total Trip', path: '/trips?type=total', type: 'total' },
+            { name: 'Automated Trips', path: '/trips?type=automated', type: 'automated' },
+            { name: 'Manual Trips', path: '/trips?type=manual', type: 'manual' },
+          ],
+        },
         {
           name: 'Fuel Analytics',
           path: '/fuel-analytics',
@@ -95,7 +131,20 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
         { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
         { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
-        { name: 'Reports', path: '/admin/reports/daily-trip', icon: FileText, roles: ['customer'] },
+        {
+          name: 'Reports',
+          path: '/admin/reports/consolidated',
+          icon: FileText,
+          roles: ['customer', 'superadmin', 'dealer'],
+          subItems: [
+            { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
+            { name: 'Daily Distance', path: '/admin/reports/distance' },
+            { name: 'Engine ON', path: '/admin/reports/ignition' },
+            { name: 'Overspeeding', path: '/admin/reports/overspeeding' },
+            { name: 'Stoppage', path: '/admin/reports/stoppage' },
+            { name: 'Individual', path: '/admin/reports/individual' },
+          ],
+        },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
         { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
@@ -215,6 +264,226 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 {collapsed && group.label && <div style={{ height: '8px' }} />}
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
+
+                  if (item.name === 'Trips') {
+                    const isParentActive = location.pathname === '/trips' || isTripReportPath(location.pathname);
+                    return (
+                      <div key={item.path} style={{ marginBottom: '2px' }}>
+                        <div
+                          onClick={() => {
+                            if (collapsed) setCollapsed(false);
+                            setTripsExpanded(prev => !prev);
+                          }}
+                          className={`text-[12px] md:text-[13px] px-2.5 py-2 mb-1 gap-2.5 rounded-[8px] cursor-pointer ${
+                            isParentActive ? 'text-white font-semibold shadow-xs' : 'text-slate-200 font-medium hover:text-white'
+                          }`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: collapsed ? 'center' : 'flex-start',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            position: 'relative',
+                            backgroundColor: isParentActive ? 'rgba(255, 255, 255, 0.16)' : 'transparent',
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isParentActive) e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                          }}
+                          onMouseLeave={(e) => {
+                            if (!isParentActive) e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          {isParentActive && !collapsed && (
+                            <div style={{
+                              position: 'absolute', left: 0, top: '15%', bottom: '15%', width: '3px',
+                              background: brandProfile?.primary_color || '#a855f7', borderRadius: '0 3px 3px 0'
+                            }} />
+                          )}
+                          <div className="w-[16px] flex items-center justify-center shrink-0">
+                            <Icon className="w-full h-full" />
+                          </div>
+                          {!collapsed && (
+                            <>
+                              <span style={{ flex: 1 }}>{item.name}</span>
+                              <ChevronDown
+                                size={14}
+                                style={{
+                                  transform: tripsExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s ease',
+                                  opacity: 0.8,
+                                }}
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        {/* Dropdown Sub-Items Under Trips */}
+                        {tripsExpanded && !collapsed && (
+                          <div style={{
+                            paddingLeft: '14px',
+                            marginLeft: '12px',
+                            borderLeft: '2px solid rgba(255, 255, 255, 0.12)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '3px',
+                            marginTop: '2px',
+                            marginBottom: '6px',
+                          }}>
+                            {/* 1. Add Geofence (navigates to /trips) */}
+                            <NavLink
+                              to="/trips"
+                              onClick={() => {
+                                if (toggleMobileSidebar) toggleMobileSidebar(false);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '5px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                textDecoration: 'none',
+                                color: location.pathname === '/trips' ? '#FFFFFF' : '#CBD5E1',
+                                background: location.pathname === '/trips' ? 'rgba(255, 255, 255, 0.18)' : 'transparent',
+                                fontWeight: location.pathname === '/trips' ? 800 : 500,
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (location.pathname !== '/trips') {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                  e.currentTarget.style.color = '#FFFFFF';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (location.pathname !== '/trips') {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                  e.currentTarget.style.color = '#CBD5E1';
+                                }
+                              }}
+                            >
+                              <div style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: location.pathname === '/trips' ? (brandProfile?.primary_color || '#38BDF8') : 'rgba(255, 255, 255, 0.35)',
+                                flexShrink: 0,
+                              }} />
+                              <span>Add Geofence</span>
+                            </NavLink>
+
+                            {/* 2. Trip Report Submenu */}
+                            <div>
+                              <div
+                                onClick={() => setTripReportExpanded(prev => !prev)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '5px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  color: isTripReportPath(location.pathname) ? '#FFFFFF' : '#CBD5E1',
+                                  background: isTripReportPath(location.pathname) ? 'rgba(255, 255, 255, 0.14)' : 'transparent',
+                                  fontWeight: 700,
+                                  transition: 'all 0.15s ease',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                  e.currentTarget.style.color = '#FFFFFF';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!isTripReportPath(location.pathname)) {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                    e.currentTarget.style.color = '#CBD5E1';
+                                  }
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <div style={{
+                                    width: '6px',
+                                    height: '6px',
+                                    borderRadius: '50%',
+                                    background: isTripReportPath(location.pathname) ? (brandProfile?.primary_color || '#38BDF8') : 'rgba(255, 255, 255, 0.35)',
+                                    flexShrink: 0,
+                                  }} />
+                                  <span>Trip Report</span>
+                                </div>
+                                <ChevronDown
+                                  size={12}
+                                  style={{
+                                    transform: tripReportExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                    transition: 'transform 0.2s ease',
+                                    opacity: 0.8,
+                                  }}
+                                />
+                              </div>
+
+                              {/* Nested Reports: Automated Trips, Manual Trips, Total Trip */}
+                              {tripReportExpanded && (
+                                <div style={{
+                                  paddingLeft: '12px',
+                                  marginLeft: '8px',
+                                  borderLeft: '1.5px solid rgba(255, 255, 255, 0.12)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  gap: '2px',
+                                  marginTop: '2px',
+                                }}>
+                                  {[
+                                    { name: 'Automated Trips', path: '/admin/reports/trip' },
+                                    { name: 'Manual Trips', path: '/admin/reports/manual-trips' },
+                                    { name: 'Total Trip (Full Day)', path: '/admin/reports/daily-trip' },
+                                  ].map((rItem) => {
+                                    const isRActive = location.pathname === rItem.path;
+                                    return (
+                                      <NavLink
+                                        key={rItem.path}
+                                        to={rItem.path}
+                                        onClick={() => {
+                                          if (toggleMobileSidebar) toggleMobileSidebar(false);
+                                        }}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          gap: '6px',
+                                          padding: '4px 8px',
+                                          borderRadius: '5px',
+                                          fontSize: '11px',
+                                          textDecoration: 'none',
+                                          color: isRActive ? '#FFFFFF' : '#94A3B8',
+                                          background: isRActive ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+                                          fontWeight: isRActive ? 800 : 500,
+                                          transition: 'all 0.15s ease',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (!isRActive) {
+                                            e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                            e.currentTarget.style.color = '#FFFFFF';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (!isRActive) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                            e.currentTarget.style.color = '#94A3B8';
+                                          }
+                                        }}
+                                      >
+                                        <span style={{ fontSize: '10px', opacity: isRActive ? 1 : 0.6 }}>•</span>
+                                        <span>{rItem.name}</span>
+                                      </NavLink>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+
                   const [itemPathBase, itemSearch] = item.path.split('?');
                   const hasSubItems = Array.isArray(item.subItems) && item.subItems.length > 0;
                   const isAnySubActive = hasSubItems && item.subItems.some(sub => location.pathname === sub.path);
@@ -225,7 +494,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                   } else if (item.path === '/admin/audit-logs') {
                     customIsActive = location.pathname === item.path && !location.search.includes('archived=true');
                   } else if (item.name === 'Reports') {
-                    customIsActive = location.pathname.startsWith('/admin/reports');
+                    customIsActive = location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname);
                   } else if (hasSubItems) {
                     customIsActive = isAnySubActive || location.pathname === item.path;
                   } else {

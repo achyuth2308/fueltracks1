@@ -26,7 +26,8 @@ export const getVehicleType = (vehicle = {}) => {
 };
 
 export const NO_DATA_OPTIONS = [
-  { label: '1 hr (Default)', value: 1 },
+  { label: '30 min (Default)', value: 0.5 },
+  { label: '1 hr', value: 1 },
   { label: '3 hrs', value: 3 },
   { label: '6 hrs', value: 6 },
   { label: '12 hrs', value: 12 },
@@ -35,15 +36,19 @@ export const NO_DATA_OPTIONS = [
 
 export const getNoDataThresholdHours = () => {
   try {
-    const val = parseFloat(localStorage.getItem('ft_nodata_threshold_hours'));
-    if (!isNaN(val) && val > 0) return val;
+    const saved = localStorage.getItem('ft_nodata_threshold_hours_v2');
+    if (saved !== null) {
+      const val = parseFloat(saved);
+      if (!isNaN(val) && val > 0) return val;
+    }
   } catch (_) {}
-  return 1; // Default 1 hour
+  return 0.5; // Default: 30 minutes (0.5 hour)
 };
 
 export const setNoDataThresholdHours = (hours) => {
   try {
-    const val = Math.max(1, parseFloat(hours) || 1);
+    const val = Math.max(0.1, parseFloat(hours) || 0.5);
+    localStorage.setItem('ft_nodata_threshold_hours_v2', val.toString());
     localStorage.setItem('ft_nodata_threshold_hours', val.toString());
     window.dispatchEvent(new CustomEvent('nodata-threshold-changed', { detail: val }));
   } catch (_) {}

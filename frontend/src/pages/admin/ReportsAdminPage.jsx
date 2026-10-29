@@ -19,21 +19,71 @@ const formatDateTime = (isoString) => {
   return formatLocalTime(isoString);
 };
 
-const REPORT_TABS = [
-  { title: "Full Day Trips (Consolidated)", path: "/admin/reports/daily-trip", icon: Route, color: "#10B981", bg: "#ECFDF5" },
-  { title: "Automated Trips", path: "/admin/reports/trip", icon: Map, color: "#9333EA", bg: "#F3E8FF" },
-  { title: "Vehicle Consolidated", path: "/admin/reports/consolidated", icon: Users, color: "#16A34A", bg: "#F0FDF4" },
-  { title: "Daily Distance", path: "/admin/reports/distance", icon: TrendingUp, color: "#0284C7", bg: "#E0F2FE" },
-  { title: "Engine ON", path: "/admin/reports/ignition", icon: Zap, color: "#DC2626", bg: "#FFF1F2" },
-  { title: "Overspeeding", path: "/admin/reports/overspeeding", icon: Gauge, color: "#E11D48", bg: "#FFF1F2" },
-  { title: "Stoppage", path: "/admin/reports/stoppage", icon: PauseCircle, color: "#EA580C", bg: "#FFF7ED" },
-  { title: "Two-Way Trips", path: "/admin/reports/geofence-two-way", icon: Repeat, color: "#4F46E5", bg: "#EEF2FF" },
-  { title: "Round Trips", path: "/admin/reports/geofence-round-trip", icon: RotateCcw, color: "#059669", bg: "#ECFDF5" },
-  { title: "One-Way Trips", path: "/admin/reports/geofence-one-way", icon: ArrowRight, color: "#0284C7", bg: "#F0F9FF" },
-  { title: "Single Place Geofence", path: "/admin/reports/geofence-single-place", icon: MapPin, color: "#D97706", bg: "#FEF3C7" },
-  { title: "Geofence Transit", path: "/admin/reports/geofence-transit", icon: Navigation, color: "#7C3AED", bg: "#F5F3FF" },
-  { title: "Individual", path: "/admin/reports/individual", icon: UserCircle, color: "#2563EB", bg: "#EFF6FF" },
-];
+const isTripReportPath = (p) => {
+  return p === '/admin/reports/trip' || 
+         p === '/admin/reports/manual-trips' || 
+         p === '/admin/reports/daily-trip' ||
+         p.startsWith('/admin/reports/geofence');
+};
+
+const REPORT_DETAILS = {
+  '/admin/reports/consolidated': {
+    title: 'Vehicle Consolidated Report',
+    desc: 'Consolidated timeline of running, idling, parking, and stoppage events.',
+    icon: Users,
+    color: '#16A34A',
+    bg: '#F0FDF4',
+  },
+  '/admin/reports/distance': {
+    title: 'Daily Distance Report',
+    desc: 'Day-by-day odometer readings, distance travelled, and GPS points logged per vehicle.',
+    icon: TrendingUp,
+    color: '#0284C7',
+    bg: '#E0F2FE',
+  },
+  '/admin/reports/ignition': {
+    title: 'Engine ON / Ignition Report',
+    desc: 'Telemetry log of vehicle ignition ON/OFF states, operating duration, and addresses.',
+    icon: Zap,
+    color: '#DC2626',
+    bg: '#FFF1F2',
+  },
+  '/admin/reports/overspeeding': {
+    title: 'Overspeeding Report',
+    desc: 'Recorded instances where vehicle speeds exceeded authorized limits.',
+    icon: Gauge,
+    color: '#E11D48',
+    bg: '#FFF1F2',
+  },
+  '/admin/reports/stoppage': {
+    title: 'Stoppage Report',
+    desc: 'Detailed record of parking and stoppage durations with location addresses.',
+    icon: PauseCircle,
+    color: '#EA580C',
+    bg: '#FFF7ED',
+  },
+  '/admin/reports/individual': {
+    title: 'Individual Vehicle Report',
+    desc: 'Granular telemetry log, speed analysis, and continuous activity breakdown for a single vehicle.',
+    icon: UserCircle,
+    color: '#2563EB',
+    bg: '#EFF6FF',
+  },
+  '/admin/reports/activity': {
+    title: 'Vehicle Activity Report',
+    desc: 'Daily operating activity, runtime, and fleet utilization summary.',
+    icon: Activity,
+    color: '#0D9488',
+    bg: '#F0FDFA',
+  },
+  '/admin/reports/idle': {
+    title: 'Idle Report',
+    desc: 'Idling events where engine ignition remained ON while vehicle was stationary.',
+    icon: Clock,
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+  },
+};
 
 const MetricCard = ({ label, value, color, icon: Icon, bg }) => (
   <div style={{
@@ -104,6 +154,15 @@ const ReportsAdminPage = () => {
 
   const today = formatLocalDate(new Date());
 
+  const isTripReport = isTripReportPath(location.pathname);
+  if (isTripReport) {
+    return (
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <Outlet />
+      </div>
+    );
+  }
+
   const tabStyle = (tab) => ({
     padding: '14px 24px',
     background: 'transparent',
@@ -118,40 +177,73 @@ const ReportsAdminPage = () => {
     letterSpacing: '0.02em'
   });
 
+  const currentPath = location.pathname.replace(/\/$/, '');
+  const currentReport = REPORT_DETAILS[currentPath] || 
+    Object.entries(REPORT_DETAILS).find(([p]) => currentPath.startsWith(p))?.[1] || {
+      title: 'Analytics & Reports',
+      desc: 'Vehicle telemetry records and analytical reporting.',
+      icon: FileText,
+      color: '#0284C7',
+      bg: '#E0F2FE',
+    };
+  const ReportIcon = currentReport.icon;
+
   return (
     <div style={{ padding: '0', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
       <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports/dashboard')}>Fleet Dashboard</button>
-        <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/trip')}>Analytics & Reports</button>
+        <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/consolidated')}>Analytics & Reports</button>
       </div>
 
       {activeTab === 'other-reports' && (
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-          <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', background: '#FFFFFF', borderBottom: '1px solid #BAE6FD', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
-            {REPORT_TABS.map(tab => {
-              const isActive = location.pathname.startsWith(tab.path);
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.path}
-                  onClick={() => navigate(tab.path)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-                    background: isActive ? tab.color : tab.bg,
-                    color: isActive ? '#FFFFFF' : tab.color,
-                    border: `1.5px solid ${tab.color}`,
-                    borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '12px',
-                    boxShadow: isActive ? `0 4px 12px ${tab.color}44` : 'none',
-                    transition: 'all 0.2s ease', whiteSpace: 'nowrap', flexShrink: 0
-                  }}
-                >
-                  <Icon size={15} color={isActive ? '#FFFFFF' : tab.color} />
-                  {tab.title}
-                </button>
-              )
-            })}
+          {/* Active Report Title Header */}
+          <div style={{
+            background: '#FFFFFF',
+            borderBottom: '1px solid #BAE6FD',
+            padding: '12px 20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '8px',
+                background: currentReport.bg,
+                color: currentReport.color,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 2px 8px ${currentReport.color}20`
+              }}>
+                <ReportIcon size={20} />
+              </div>
+              <div>
+                <h1 style={{
+                  fontSize: '17px',
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  margin: 0,
+                  lineHeight: 1.2
+                }}>
+                  {currentReport.title}
+                </h1>
+                <p style={{
+                  fontSize: '12px',
+                  color: '#64748B',
+                  margin: '2px 0 0 0',
+                  fontWeight: 500
+                }}>
+                  {currentReport.desc}
+                </p>
+              </div>
+            </div>
           </div>
+
           <div style={{ flex: 1, overflow: 'auto', padding: '12px 14px', background: '#F8FAFC' }}>
             <Outlet />
           </div>

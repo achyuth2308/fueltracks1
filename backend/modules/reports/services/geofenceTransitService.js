@@ -67,7 +67,20 @@ function normalizeGeofenceCoords(rawCoords) {
   return points;
 }
 
-// Check if a point is inside a geofence object
+// Fast Bounding Box calculation for polygon
+function getPolygonBBox(pts) {
+  let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (p.lat < minLat) minLat = p.lat;
+    if (p.lat > maxLat) maxLat = p.lat;
+    if (p.lng < minLng) minLng = p.lng;
+    if (p.lng > maxLng) maxLng = p.lng;
+  }
+  return { minLat, maxLat, minLng, maxLng };
+}
+
+// Check if a point is inside a geofence object with fast bounding-box rejection
 function isInsideGeofence(lat, lng, geofence) {
   if (!geofence || lat == null || lng == null) return false;
 
@@ -76,6 +89,15 @@ function isInsideGeofence(lat, lng, geofence) {
     const cLng = Number(geofence.center_lng);
     const radius = Number(geofence.radius) || 200;
     if (isNaN(cLat) || isNaN(cLng)) return false;
+    
+    // Fast degree bounding box check (1 deg lat ~ 111,000m)
+    // Avoids expensive trigonometric calls (Math.sin, Math.cos, Math.atan2) for 99% of points
+    const degLat = radius / 111000;
+    const degLng = radius / (111000 * (Math.cos(cLat * Math.PI / 180) || 1));
+    if (Math.abs(lat - cLat) > degLat || Math.abs(lng - cLng) > degLng) {
+      return false;
+    }
+
     const dist = getHaversineMeters(lat, lng, cLat, cLng);
     return dist <= radius;
   }
@@ -83,6 +105,18 @@ function isInsideGeofence(lat, lng, geofence) {
   // Polygon
   const pts = geofence._normalizedCoords || normalizeGeofenceCoords(geofence.coordinates);
   geofence._normalizedCoords = pts;
+  if (!geofence._bbox && pts.length >= 3) {
+    geofence._bbox = getPolygonBBox(pts);
+  }
+
+  // Fast bounding-box rejection avoids heavy ray-casting for 99% of points
+  if (geofence._bbox) {
+    const b = geofence._bbox;
+    if (lat < b.minLat || lat > b.maxLat || lng < b.minLng || lng > b.maxLng) {
+      return false;
+    }
+  }
+
   return isPointInPolygon(lat, lng, pts);
 }
 
@@ -161,20 +195,23 @@ class GeofenceTransitService {
     vRes.rows.forEach(r => { vehicleMap[r.id] = r; });
 
     // 3. Fetch Geofences
-    let geofencesToTest = [];
-    if (fromGeofenceId && toGeofenceId) {
-      const gRes = await db.query(
-        'SELECT * FROM geofences WHERE id IN ($1, $2)',
-        [fromGeofenceId, toGeofenceId]
-      );
-      geofencesToTest = gRes.rows;
-    } else if (fromGeofenceId) {
-      const gRes = await db.query('SELECT * FROM geofences WHERE id = $1', [fromGeofenceId]);
-      geofencesToTest = gRes.rows;
-    } else {
-      // Load geofences associated with vehicles or org
-      const gRes = await db.query('SELECT * FROM geofences WHERE is_active = true LIMIT 100');
-      geofencesToTest = gRes.rows;
+    let geofencesQuery = 'SELECT * FROM geofences WHERE is_active = true';
+    let gParams = [];
+    if (orgId) {
+      geofencesQuery += ' AND (org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1))';
+      gParams.push(orgId);
+    }
+    const gRes = await db.query(geofencesQuery, gParams);
+    let geofencesToTest = gRes.rows;
+
+    // Also fetch any specifically requested geofences if they were not in the above list
+    if (fromGeofenceId && !geofencesToTest.some(g => g.id === fromGeofenceId)) {
+      const fRes = await db.query('SELECT * FROM geofences WHERE id = $1', [fromGeofenceId]);
+      if (fRes.rows[0]) geofencesToTest.push(fRes.rows[0]);
+    }
+    if (toGeofenceId && !geofencesToTest.some(g => g.id === toGeofenceId)) {
+      const tRes = await db.query('SELECT * FROM geofences WHERE id = $1', [toGeofenceId]);
+      if (tRes.rows[0]) geofencesToTest.push(tRes.rows[0]);
     }
 
     // Pre-cache normalized coordinates
@@ -188,52 +225,71 @@ class GeofenceTransitService {
     const selectedFrom = fromGeofenceId ? geofenceMap[fromGeofenceId] : null;
     const selectedTo = toGeofenceId ? geofenceMap[toGeofenceId] : null;
 
+    // Batch query assigned geofences for all target vehicles in 1 single round-trip (avoids N queries in loop)
+    const assignedRes = await db.query(`
+      SELECT vg.vehicle_id, g.* FROM geofences g
+      JOIN vehicle_geofences vg ON g.id = vg.geofence_id
+      WHERE vg.vehicle_id = ANY($1::uuid[]) AND g.is_active = true
+    `, [vehicleIds]);
+    const vehicleGeofencesMap = {};
+    assignedRes.rows.forEach(g => {
+      if (!g._normalizedCoords) {
+        g._normalizedCoords = normalizeGeofenceCoords(g.coordinates);
+      }
+      geofenceMap[g.id] = g;
+      if (!vehicleGeofencesMap[g.vehicle_id]) vehicleGeofencesMap[g.vehicle_id] = [];
+      vehicleGeofencesMap[g.vehicle_id].push(g);
+    });
+
     const allReportRows = [];
 
     // 4. Process each vehicle's GPS trajectory
     for (const vId of vehicleIds) {
       const vInfo = vehicleMap[vId] || {};
 
-      // Fetch chronological points
+      // Fetch chronological points with indexed lookup and safe limit (prevents excessive RAM/CPU)
       const ptsRes = await db.query(`
-        SELECT lat, lng, speed, odometer, device_time
+        SELECT lat, lng, speed, odometer, fuel, device_time
         FROM gps_points
         WHERE vehicle_id = $1
           AND device_time BETWEEN $2 AND $3
           AND lat IS NOT NULL AND lng IS NOT NULL
         ORDER BY device_time ASC
+        LIMIT 15000
       `, [vId, startDate, endDate]);
 
       const points = ptsRes.rows;
       if (points.length < 2) continue;
 
-      // Determine geofence set to evaluate for this vehicle
-      let targetFrom = selectedFrom;
-      let targetTo = selectedTo;
-
-      // If specific geofences weren't selected, find all geofences assigned to this vehicle
-      let activeGeofences = geofencesToTest;
-      if (!targetFrom && !targetTo) {
-        const assignedRes = await db.query(`
-          SELECT g.* FROM geofences g
-          JOIN vehicle_geofences vg ON g.id = vg.geofence_id
-          WHERE vg.vehicle_id = $1 AND g.is_active = true
-        `, [vId]);
-        if (assignedRes.rows.length > 0) {
-          activeGeofences = assignedRes.rows;
-          activeGeofences.forEach(g => {
-            g._normalizedCoords = normalizeGeofenceCoords(g.coordinates);
-            geofenceMap[g.id] = g;
-          });
+      const assignedList = vehicleGeofencesMap[vId] || [];
+      // Include all vehicle-assigned geofences plus any newly created active geofences so historical transitions are always found
+      const activeGeofences = [...assignedList];
+      for (const g of geofencesToTest) {
+        if (!activeGeofences.some(existing => existing.id === g.id)) {
+          activeGeofences.push(g);
         }
+      }
+      activeGeofences.forEach(g => {
+        if (!g._normalizedCoords) {
+          g._normalizedCoords = normalizeGeofenceCoords(g.coordinates);
+        }
+        geofenceMap[g.id] = g;
+      });
+
+      // Ensure explicitly filtered geofences are included in activeGeofences if available
+      if (selectedFrom && !activeGeofences.some(g => g.id === selectedFrom.id)) {
+        activeGeofences.push(selectedFrom);
+      }
+      if (selectedTo && !activeGeofences.some(g => g.id === selectedTo.id)) {
+        activeGeofences.push(selectedTo);
       }
 
       const vehicleTrips = this.detectGeofenceTransitions({
         vehicle: vInfo,
         points,
         geofences: activeGeofences,
-        fromGeofence: targetFrom,
-        toGeofence: targetTo,
+        fromGeofence: selectedFrom,
+        toGeofence: selectedTo,
         mode,
       });
 
@@ -245,139 +301,41 @@ class GeofenceTransitService {
   }
 
   /**
-   * Core State-Machine to detect transitions between geofences
+   * Unified State-Machine to detect transitions between geofences
+   * Supports:
+   *  - Single-way between distinct geofences (A -> B, A -> C, B -> C, etc.)
+   *  - Round trip loop / same location (A -> A, B -> B, C -> C)
+   *  - Two-way shuttles (A <-> B)
+   *  - All combinations with flexible From/To filters
    */
   detectGeofenceTransitions({ vehicle, points, geofences, fromGeofence, toGeofence, mode }) {
     const results = [];
     const n = points.length;
     if (n < 2 || geofences.length === 0) return results;
 
-    const isSameLocationMode = mode === 'same_location' || (fromGeofence && toGeofence && fromGeofence.id === toGeofence.id);
-
     // Identify which geofence each point is in (null if in transit)
     const pointGeoMap = new Array(n);
     for (let i = 0; i < n; i++) {
       const p = points[i];
       let insideId = null;
-
-      if (fromGeofence && isInsideGeofence(p.lat, p.lng, fromGeofence)) {
-        insideId = fromGeofence.id;
-      } else if (toGeofence && isInsideGeofence(p.lat, p.lng, toGeofence)) {
-        insideId = toGeofence.id;
-      } else if (!fromGeofence && !toGeofence) {
-        for (const g of geofences) {
-          if (isInsideGeofence(p.lat, p.lng, g)) {
-            insideId = g.id;
-            break;
-          }
+      for (const g of geofences) {
+        if (isInsideGeofence(p.lat, p.lng, g)) {
+          insideId = g.id;
+          break;
         }
       }
       pointGeoMap[i] = insideId;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // CASE A: SAME LOCATION LOOP (Origin == Destination == G)
-    // Departure: Last point inside G before leaving
-    // Arrival: First point re-entering G
-    // ─────────────────────────────────────────────────────────────
-    if (isSameLocationMode) {
-      const targetG = fromGeofence || toGeofence || geofences[0];
-      if (!targetG) return results;
+    const geofenceLookup = {};
+    geofences.forEach(g => { geofenceLookup[g.id] = g; });
 
-      let inLoop = false;
-      let departPoint = null;
-      let departIndex = -1;
-      let accumulatedDistanceM = 0;
-      let maxSpeed = 0;
-      let previewPoints = [];
-
-      for (let i = 0; i < n; i++) {
-        const p = points[i];
-        const isInside = pointGeoMap[i] === targetG.id;
-
-        if (isInside) {
-          if (inLoop) {
-            // Re-entered the same geofence -> Loop completed!
-            const arrivePoint = p;
-            const durationSec = (new Date(arrivePoint.device_time) - new Date(departPoint.device_time)) / 1000;
-            const distKm = Number((accumulatedDistanceM / 1000).toFixed(2));
-
-            // Filter out minor boundary fluctuations (must be > 60s and > 0.1 km)
-            if (durationSec >= 60 && distKm >= 0.1) {
-              const avgSpeed = durationSec > 0 ? Number(((distKm / (durationSec / 3600))).toFixed(1)) : 0;
-
-              results.push({
-                vehicle_id: vehicle.id,
-                vehicle_name: vehicle.name,
-                plate: vehicle.plate,
-                org_name: vehicle.org_name,
-                trip_type: 'same_location',
-                trip_label: 'Same Location Loop',
-                from_geofence_id: targetG.id,
-                from_geofence_name: targetG.name,
-                from_geofence_color: targetG.color || '#3B82F6',
-                departure_time: departPoint.device_time,
-                to_geofence_id: targetG.id,
-                to_geofence_name: targetG.name,
-                to_geofence_color: targetG.color || '#3B82F6',
-                arrival_time: arrivePoint.device_time,
-                duration_seconds: Math.round(durationSec),
-                duration_formatted: formatDuration(durationSec),
-                distance_km: distKm,
-                avg_speed_kmh: avgSpeed,
-                max_speed_kmh: Math.round(maxSpeed),
-                start_lat: departPoint.lat,
-                start_lng: departPoint.lng,
-                end_lat: arrivePoint.lat,
-                end_lng: arrivePoint.lng,
-                path_preview: previewPoints.slice(0, 50),
-              });
-            }
-
-            inLoop = false;
-            accumulatedDistanceM = 0;
-            maxSpeed = 0;
-            previewPoints = [];
-          }
-
-          departPoint = p;
-          departIndex = i;
-        } else {
-          // Outside geofence
-          if (departPoint && !inLoop) {
-            inLoop = true;
-            accumulatedDistanceM = 0;
-            maxSpeed = p.speed || 0;
-            previewPoints = [{ lat: departPoint.lat, lng: departPoint.lng }];
-          }
-
-          if (inLoop && i > 0) {
-            const prev = points[i - 1];
-            const segDist = getHaversineMeters(prev.lat, prev.lng, p.lat, p.lng);
-            if (segDist < 5000) accumulatedDistanceM += segDist;
-            if (p.speed > maxSpeed) maxSpeed = p.speed;
-            if (previewPoints.length < 50 && i % Math.max(1, Math.floor(n / 100)) === 0) {
-              previewPoints.push({ lat: p.lat, lng: p.lng });
-            }
-          }
-        }
-      }
-
-      return results;
-    }
-
-    // ─────────────────────────────────────────────────────────────
-    // CASE B: SINGLE-WAY (A -> B) & TWO-WAY (A <-> B)
-    // ─────────────────────────────────────────────────────────────
     let currentOriginG = null;
     let departPoint = null;
     let accumulatedDistanceM = 0;
     let maxSpeed = 0;
     let inTransit = false;
     let previewPoints = [];
-
-    const geofenceLookup = {};
-    geofences.forEach(g => { geofenceLookup[g.id] = g; });
 
     for (let i = 0; i < n; i++) {
       const p = points[i];
@@ -386,46 +344,60 @@ class GeofenceTransitService {
       if (gId) {
         const currentG = geofenceLookup[gId];
 
-        if (inTransit && currentOriginG && currentG.id !== currentOriginG.id) {
-          // Arrived at a different geofence!
+        if (inTransit && currentOriginG) {
           const destG = currentG;
+          const isSameGeofence = currentOriginG.id === destG.id;
+          const arrivePoint = p;
+          const durationSec = (new Date(arrivePoint.device_time) - new Date(departPoint.device_time)) / 1000;
+          const distKm = Number((accumulatedDistanceM / 1000).toFixed(2));
 
-          // Check if this transition matches the requested mode/pair
-          let shouldInclude = false;
-          let tripType = 'single_way';
-          let tripLabel = 'Single-Way';
+          // Minimum thresholds to filter minor GPS drift:
+          // Transit between different geofences: >= 30s and >= 0.05 km
+          // Same geofence loop: >= 60s and >= 0.10 km
+          const validMovement = isSameGeofence
+            ? (durationSec >= 60 && distKm >= 0.1)
+            : (durationSec >= 30 && distKm >= 0.05);
 
-          if (fromGeofence && toGeofence) {
-            if (currentOriginG.id === fromGeofence.id && destG.id === toGeofence.id) {
+          if (validMovement) {
+            let shouldInclude = false;
+            let tripType = isSameGeofence ? 'same_location' : 'single_way';
+            let tripLabel = isSameGeofence
+              ? `${currentOriginG.name} → ${currentOriginG.name} (Loop)`
+              : `${currentOriginG.name} → ${destG.name}`;
+
+            if (fromGeofence && toGeofence) {
+              if (currentOriginG.id === fromGeofence.id && destG.id === toGeofence.id) {
+                shouldInclude = true;
+                if (mode === 'two_way') {
+                  tripType = 'outbound';
+                  tripLabel = `Outbound (${fromGeofence.name} → ${toGeofence.name})`;
+                }
+              } else if (mode === 'two_way' && currentOriginG.id === toGeofence.id && destG.id === fromGeofence.id) {
+                shouldInclude = true;
+                tripType = 'inbound';
+                tripLabel = `Inbound (${toGeofence.name} → ${fromGeofence.name})`;
+              }
+            } else if (fromGeofence) {
+              if (currentOriginG.id === fromGeofence.id) {
+                shouldInclude = true;
+              }
+            } else if (toGeofence) {
+              if (destG.id === toGeofence.id) {
+                shouldInclude = true;
+              }
+            } else {
+              // No specific filter -> Include ALL transitions and loops
               shouldInclude = true;
-              tripType = (mode === 'two_way') ? 'outbound' : 'single_way';
-              tripLabel = (mode === 'two_way') ? 'Outbound Leg (A → B)' : 'Single-Way (A → B)';
-            } else if (mode === 'two_way' && currentOriginG.id === toGeofence.id && destG.id === fromGeofence.id) {
-              shouldInclude = true;
-              tripType = 'inbound';
-              tripLabel = 'Inbound Leg (B → A)';
             }
-          } else if (fromGeofence) {
-            if (currentOriginG.id === fromGeofence.id) {
-              shouldInclude = true;
-            }
-          } else if (toGeofence) {
-            if (destG.id === toGeofence.id) {
-              shouldInclude = true;
-            }
-          } else {
-            // General multi-way between any active geofences
-            shouldInclude = true;
-            tripLabel = `${currentOriginG.name} → ${destG.name}`;
-          }
 
-          if (shouldInclude) {
-            const arrivePoint = p;
-            const durationSec = (new Date(arrivePoint.device_time) - new Date(departPoint.device_time)) / 1000;
-            const distKm = Number((accumulatedDistanceM / 1000).toFixed(2));
-
-            if (durationSec >= 30 && distKm >= 0.05) {
+            if (shouldInclude) {
               const avgSpeed = durationSec > 0 ? Number(((distKm / (durationSec / 3600))).toFixed(1)) : 0;
+              const startFuel = parseFloat(departPoint.fuel);
+              const endFuel = parseFloat(arrivePoint.fuel);
+              let fuelConsumed = null;
+              if (!isNaN(startFuel) && !isNaN(endFuel) && startFuel > endFuel) {
+                fuelConsumed = Number((startFuel - endFuel).toFixed(1));
+              }
 
               results.push({
                 vehicle_id: vehicle.id,
@@ -440,13 +412,14 @@ class GeofenceTransitService {
                 departure_time: departPoint.device_time,
                 to_geofence_id: destG.id,
                 to_geofence_name: destG.name,
-                to_geofence_color: destG.color || '#10B981',
+                to_geofence_color: destG.color || (isSameGeofence ? '#3B82F6' : '#10B981'),
                 arrival_time: arrivePoint.device_time,
                 duration_seconds: Math.round(durationSec),
                 duration_formatted: formatDuration(durationSec),
                 distance_km: distKm,
                 avg_speed_kmh: avgSpeed,
                 max_speed_kmh: Math.round(maxSpeed),
+                fuel_consumed: fuelConsumed,
                 start_lat: departPoint.lat,
                 start_lng: departPoint.lng,
                 end_lat: arrivePoint.lat,
@@ -462,11 +435,11 @@ class GeofenceTransitService {
           previewPoints = [];
         }
 
-        // Update origin geofence anchor
+        // Anchor updates to current geofence
         currentOriginG = currentG;
         departPoint = p;
       } else {
-        // Point is outside all geofences -> In Transit!
+        // Point is outside all geofences -> in transit
         if (currentOriginG && !inTransit) {
           inTransit = true;
           accumulatedDistanceM = 0;

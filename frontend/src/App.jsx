@@ -142,7 +142,7 @@ function App() {
                   <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
                   <Route path="routes" element={<Navigate to="/dashboard" replace />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
-                    <Route index element={<Navigate to="daily-trip" replace />} />
+                    <Route index element={<Navigate to="consolidated" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
                     <Route path="daily-trip" element={<DailyTripReportPage />} />
@@ -153,7 +153,7 @@ function App() {
                     <Route path="idle" element={<IdleReportPage />} />
                     <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
-                    <Route path="manual-trips" element={<Navigate to="/admin/reports/daily-trip" replace />} />
+                    <Route path="manual-trips" element={<ManualTripsReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
                     <Route path="activity" element={<VehicleActivityReportPage />} />
                     <Route path="geofence-transit" element={<GeofenceTransitReportPage />} />
