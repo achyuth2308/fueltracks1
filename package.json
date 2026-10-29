@@ -18,6 +18,8 @@
     "sim:safetypark": "node scripts/simulate_safety_park.js",
     "db:init": "node scripts/dbInit.js",
     "db:migrate": "node scripts/runMigrations.js",
+    "test": "node --test backend/tests",
+    "test:whatsapp": "node --test tests/whatsapp",
     "db:timescale": "echo 'Run on server: sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql'",
     "start:frontend": "npm --prefix frontend run dev",
     "build:frontend": "npm --prefix frontend run build",

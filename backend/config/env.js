@@ -41,6 +41,17 @@ const env = {
   BREVO_SENDER_EMAIL: process.env.BREVO_SENDER_EMAIL || '',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 
+  // WhatsApp Cloud API (Meta Graph API)
+  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true',
+  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN || '',
+  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+  WHATSAPP_WABA_ID: process.env.WHATSAPP_WABA_ID || '',
+  WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET || '',
+  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
+  WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION || 'v21.0',
+  WHATSAPP_API_BASE_URL: process.env.WHATSAPP_API_BASE_URL || 'https://graph.facebook.com',
+  WHATSAPP_RATE_PER_SEC: parseInt(process.env.WHATSAPP_RATE_PER_SEC) || 20,
+
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
 };
@@ -74,6 +85,26 @@ if (env.NODE_ENV === 'production') {
 
   if (env.CORS_ORIGIN === '*') {
     console.warn('[ENV] WARNING: CORS_ORIGIN is set to * — all origins are accepted. Set to your domain in production.');
+  }
+
+  if (env.WHATSAPP_API_BASE_URL && !env.WHATSAPP_API_BASE_URL.startsWith('https://')) {
+    console.error(`[ENV] FATAL: WHATSAPP_API_BASE_URL must use HTTPS in production. Provided: ${env.WHATSAPP_API_BASE_URL}`);
+    process.exit(1);
+  }
+}
+
+// Validate WhatsApp credentials when WHATSAPP_ENABLED is true
+env.WHATSAPP_CREDENTIALS_VALID = true;
+if (env.WHATSAPP_ENABLED) {
+  const waRequired = ['WHATSAPP_ACCESS_TOKEN', 'WHATSAPP_PHONE_NUMBER_ID', 'WHATSAPP_WABA_ID', 'WHATSAPP_APP_SECRET', 'WHATSAPP_VERIFY_TOKEN'];
+  const waMissing = waRequired.filter(key => !process.env[key]);
+  if (waMissing.length > 0) {
+    env.WHATSAPP_CREDENTIALS_VALID = false;
+    if (env.NODE_ENV === 'production') {
+      console.error(`[ENV] ERROR: WHATSAPP_ENABLED is true in production but missing credentials: ${waMissing.join(', ')}. WhatsApp outbox will be paused without crashing the API.`);
+    } else {
+      console.warn(`[ENV] WHATSAPP_ENABLED is true but missing credentials: ${waMissing.join(', ')}. Using mock mode in non-production.`);
+    }
   }
 }
 

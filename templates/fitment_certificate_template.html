@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Certificate of GPS Fitment - Template</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 15mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #0f172a;
+      background: #ffffff;
+      line-height: 1.3;
+      font-size: 8.8pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cert-page {
+      position: relative;
+      width: 100%;
+      max-width: 180mm;
+      margin: 0 auto;
+      background: #ffffff;
+    }
+
+    /* 5% Opacity Watermark placed strictly behind content */
+    .watermark {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-28deg);
+      font-size: 42pt;
+      font-weight: 900;
+      color: #0f172a;
+      opacity: 0.05;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+      white-space: nowrap;
+    }
+
+    .cert-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Monospace formatting strictly for identifiers */
+    .mono {
+      font-family: "JetBrains Mono", "Courier New", Courier, monospace;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    /* Header */
+    .header-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 2mm;
+    }
+
+    .header-table td {
+      vertical-align: top;
+    }
+
+    .company-title {
+      font-size: 11pt;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.01em;
+      margin-bottom: 1mm;
+    }
+
+    .company-meta {
+      font-size: 7.5pt;
+      color: #334155;
+      line-height: 1.35;
+      max-width: 135mm;
+    }
+
+    .qr-box {
+      width: 28mm;
+      text-align: right;
+    }
+
+    .qr-img {
+      width: 22mm;
+      height: 22mm;
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+      padding: 0.8mm;
+      background: #fff;
+    }
+
+    .qr-caption {
+      font-size: 6pt;
+      color: #475569;
+      text-transform: uppercase;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      margin-top: 0.5mm;
+      text-align: center;
+    }
+
+    .divider-thick {
+      height: 1.8pt;
+      background: #0f172a;
+      margin-bottom: 2mm;
+    }
+
+    /* Title Bar */
+    .title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-bottom: 0.75pt solid #cbd5e1;
+      padding-bottom: 1.5mm;
+      margin-bottom: 2mm;
+    }
+
+    .title-main {
+      font-size: 12pt;
+      font-weight: 900;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .title-sub {
+      font-size: 7.5pt;
+      color: #475569;
+      font-weight: 600;
+      margin-top: 0.3mm;
+    }
+
+    .cert-badge {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .cert-badge-lbl {
+      font-size: 6.8pt;
+      color: #475569;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .cert-badge-val {
+      font-size: 10pt;
+      color: #0f172a;
+    }
+
+    .opening-statement {
+      font-size: 7.5pt;
+      color: #1e293b;
+      line-height: 1.35;
+      margin-bottom: 2.2mm;
+      background: #f8fafc;
+      border-left: 2.5pt solid #0f172a;
+      padding: 1.5mm 2.5mm;
+      border-radius: 1.5pt;
+    }
+
+    /* Section Styling */
+    .sec-block {
+      margin-bottom: 2.2mm;
+    }
+
+    .sec-header {
+      font-size: 7.8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: #0f172a;
+      background: #f1f5f9;
+      padding: 1mm 2.5mm;
+      border-left: 2pt solid #334155;
+      margin-bottom: 1.2mm;
+      border-radius: 1pt;
+    }
+
+    /* Two-column grid with fixed cell widths */
+    .grid-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 0.75pt solid #cbd5e1;
+      background: #ffffff;
+      table-layout: fixed;
+    }
+
+    .grid-table td {
+      border: 0.75pt solid #e2e8f0;
+      padding: 1.5mm 2.5mm;
+      vertical-align: top;
+    }
+
+    .lbl {
+      display: block;
+      font-size: 6.5pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #444444; /* Dark grey for crisp print legibility */
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4mm;
+    }
+
+    .val {
+      font-size: 8.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.25;
+      word-wrap: break-word;
+    }
+
+    .val-wrap {
+      white-space: normal;
+      word-break: normal;
+    }
+
+    /* Installation Checks Table */
+    .checks-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 0.75pt solid #cbd5e1;
+      font-size: 7.2pt;
+    }
+
+    .checks-table th {
+      background: #f8fafc;
+      font-size: 6.8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #444444;
+      border: 0.75pt solid #cbd5e1;
+      padding: 1mm 2mm;
+      text-align: left;
+    }
+
+    .checks-table td {
+      border: 0.75pt solid #e2e8f0;
+      padding: 1mm 2mm;
+      vertical-align: middle;
+    }
+
+    .status-pass {
+      display: inline-block;
+      font-size: 6.5pt;
+      font-weight: 800;
+      color: #166534;
+      background: #dcfce7;
+      border: 0.5pt solid #86efac;
+      padding: 0.3mm 1.6mm;
+      border-radius: 1.5pt;
+      letter-spacing: 0.02em;
+    }
+
+    /* Customer Confirmation Box */
+    .confirmation-box {
+      border: 0.75pt solid #cbd5e1;
+      background: #f8fafc;
+      padding: 1.8mm 2.5mm;
+      margin-bottom: 2mm;
+      border-radius: 1.5pt;
+      font-size: 7.2pt;
+      color: #334155;
+      line-height: 1.35;
+    }
+
+    .confirmation-head {
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #0f172a;
+      font-size: 7.5pt;
+      margin-bottom: 0.5mm;
+    }
+
+    .legal-tag {
+      font-size: 6pt;
+      font-weight: 700;
+      color: #b45309;
+      background: #fef3c7;
+      padding: 0.1mm 1mm;
+      border-radius: 1pt;
+      margin-left: 0.8mm;
+    }
+
+    /* Computer-generated notice & Footer */
+    .auth-banner {
+      border: 0.75pt dashed #cbd5e1;
+      background: #ffffff;
+      padding: 1.2mm 2.5mm;
+      text-align: center;
+      font-size: 7pt;
+      font-weight: 700;
+      color: #475569;
+      margin-bottom: 2mm;
+      border-radius: 1.5pt;
+    }
+
+    .footer-bar {
+      border-top: 0.75pt solid #cbd5e1;
+      padding-top: 1.2mm;
+      font-size: 6.5pt;
+      color: #475569;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-note {
+      max-width: 125mm;
+      line-height: 1.25;
+    }
+
+    .verification-box {
+      text-align: right;
+      font-size: 6.8pt;
+      font-weight: 700;
+      color: #0f172a;
+      white-space: nowrap;
+    }
+
+  </style>
+</head>
+<body>
+
+<div class="cert-page">
+  <!-- 5% Background Watermark -->
+  <div class="watermark">FuelTracks GPS Tracking</div>
+
+  <div class="cert-content">
+
+    <!-- HEADER -->
+    <table class="header-table">
+      <tr>
+        <td style="width: 110px; vertical-align: middle; padding-right: 10px;">
+          <img src="{{logo_base64}}" alt="FuelTracks Logo" style="width: 105px; height: auto; max-height: 44px; object-fit: contain; display: block;">
+        </td>
+        <td style="vertical-align: middle;">
+          <div class="company-title">FuelTracks Technologies Pvt. Ltd.</div>
+          <div class="company-meta">
+            H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079<br>
+            Phone: <strong>9000666914</strong> | Web: <strong>www.fueltracks.in</strong> | Email: <strong>info@fueltracks.in</strong>
+          </div>
+        </td>
+        <td class="qr-box">
+          <img src="{{qr_code_base64}}" alt="QR Code" class="qr-img">
+          <div class="qr-caption">Scan to verify</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="divider-thick"></div>
+
+    <!-- DOCUMENT TITLE BAR -->
+    <div class="title-bar">
+      <div>
+        <div class="title-main">Certificate of GPS Fitment</div>
+        <div class="title-sub">GPS Tracking Device Installation</div>
+      </div>
+      <div class="cert-badge">
+        <div class="cert-badge-lbl">Certificate Number</div>
+        <div class="cert-badge-val mono">{{certificate_no}}</div>
+      </div>
+    </div>
+
+    <!-- OPENING STATEMENT -->
+    <div class="opening-statement">
+      This is to certify that a GPS tracking device has been fitted in the vehicle described below. It was checked, sealed and found working at the time of installation.
+    </div>
+
+    <!-- 1. VEHICLE DETAILS (Two-Column Grid) -->
+    <div class="sec-block">
+      <div class="sec-header">1. Vehicle Details</div>
+      <table class="grid-table">
+        <tr>
+          <td style="width: 50%;">
+            <span class="lbl">Vehicle Registration No.</span>
+            <div class="val" style="font-size: 10.5pt; color: #0f172a;">{{vehicle_reg}}</div>
+          </td>
+          <td style="width: 50%;">
+            <span class="lbl">Make &amp; Model</span>
+            <div class="val">{{vehicle_make_model}}</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span class="lbl">Chassis Number</span>
+            <div class="val mono" style="font-size: 9.5pt;">{{chassis_no}}</div>
+          </td>
+          <td>
+            <span class="lbl">Engine Number</span>
+            <div class="val mono" style="font-size: 9.5pt;">{{engine_no}}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 2. CUSTOMER DETAILS (Two-Column Grid) -->
+    <div class="sec-block">
+      <div class="sec-header">2. Customer Details</div>
+      <table class="grid-table">
+        <tr>
+          <td style="width: 50%;">
+            <span class="lbl">Customer Name</span>
+            <div class="val" style="font-size: 9.5pt;">{{customer_name}}</div>
+          </td>
+          <td style="width: 50%;">
+            <span class="lbl">Customer Phone Number</span>
+            <div class="val">{{customer_phone}}</div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <span class="lbl">Customer Full Address</span>
+            <div class="val val-wrap" style="font-weight: 500; font-size: 8.5pt; color: #1e293b; line-height: 1.4;">
+              {{customer_address}}
+            </div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 3. GPS DEVICE DETAILS (Two-Column Grid with Dedicated Field Cells) -->
+    <div class="sec-block">
+      <div class="sec-header">3. GPS Device Details</div>
+      <table class="grid-table">
+        <tr>
+          <td style="width: 50%;">
+            <span class="lbl">Device Model</span>
+            <div class="val">{{device_model}}</div>
+          </td>
+          <td style="width: 50%;">
+            <span class="lbl">IMEI Number</span>
+            <div class="val mono" style="font-size: 10pt;">{{imei}}</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span class="lbl">GPS SIM 1 Number</span>
+            <div class="val mono" style="font-size: 9.5pt;">{{sim_number}}</div>
+          </td>
+          <td>
+            <span class="lbl">SIM Operator</span>
+            <div class="val">{{sim_operator}}</div>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <span class="lbl">Fitment Location in Vehicle</span>
+            <div class="val">{{fitment_location}}</div>
+          </td>
+          <td>
+            <span class="lbl">Seal Number (if used)</span>
+            <div class="val mono">{{seal_number}}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 4. INSTALLATION CHECKS (Pass / Fail Table) -->
+    <div class="sec-block">
+      <div class="sec-header">4. Installation Checks</div>
+      <table class="checks-table">
+        <tr>
+          <th style="width: 38%;">Installation Check</th>
+          <th style="width: 12%; text-align: center;">Result</th>
+          <th style="width: 38%;">Installation Check</th>
+          <th style="width: 12%; text-align: center;">Result</th>
+        </tr>
+        <tr>
+          <td>1. GPS Signal &amp; Satellite Fix</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+          <td>4. Ignition Detection</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+        </tr>
+        <tr>
+          <td>2. Cellular Network Signal</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+          <td>5. Data Reaching the Platform</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+        </tr>
+        <tr>
+          <td>3. Main Power Connection</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+          <td style="color: #64748b; font-style: italic;">All Hardware Pre-Checks</td>
+          <td style="text-align: center;"><span class="status-pass">&#x2714; PASS</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- 5. INSTALLATION & VALIDITY (DD/MM/YYYY) -->
+    <div class="sec-block">
+      <div class="sec-header">5. Installation &amp; Validity</div>
+      <table class="grid-table">
+        <tr>
+          <td style="width: 33.33%;">
+            <span class="lbl">Installation Date (DD/MM/YYYY)</span>
+            <div class="val mono" style="font-size: 9.5pt;">{{installed_date}}</div>
+          </td>
+          <td style="width: 33.33%;">
+            <span class="lbl">Certificate Issue Date (DD/MM/YYYY)</span>
+            <div class="val mono" style="font-size: 9.5pt;">{{cert_issue_date}}</div>
+          </td>
+          <td style="width: 33.33%;">
+            <span class="lbl">Service / Validity Expiry Date (DD/MM/YYYY)</span>
+            <div class="val mono" style="font-size: 9.5pt; color: #b91c1c;">{{expiry_date}}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <!-- CUSTOMER CONFIRMATION (Plain text only, NO signature line) -->
+    <div class="confirmation-box">
+      <div class="confirmation-head">
+        Customer Confirmation
+        <span class="legal-tag">[Subject to Legal Review]</span>
+      </div>
+      <div>
+        The customer, <strong>{{customer_name}}</strong>, confirms that the GPS device was installed satisfactorily in vehicle <strong>{{vehicle_reg}}</strong> and agrees not to tamper with, remove or relocate the device. Any problem caused by tampering is the customer's responsibility, and FuelTracks Technologies Pvt. Ltd. will not be liable for it.
+      </div>
+    </div>
+
+    <!-- AUTHENTICITY NOTICE -->
+    <div class="auth-banner">
+      &#x2714; This is a computer-generated certificate and does not require a signature.
+    </div>
+
+    <!-- FOOTER -->
+    <div class="footer-bar">
+      <div class="footer-note">
+        <strong>Validity Note:</strong> The validity date may differ from the installation date because the SIM in the device may have been activated earlier. The device may stop reporting if it is tampered with or if GSM/GPS signal is lost.
+      </div>
+      <div class="verification-box">
+        <span style="font-size: 6.8pt; color: #475569; text-transform: uppercase;">Verification Code:</span><br>
+        <span class="mono" style="font-size: 9pt; color: #0f172a;">{{verification_code}}</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

@@ -67,11 +67,11 @@ class TripController {
 
       // Set Redis keys for live accumulation
       await redis.set(ACTIVE_TRIP_KEY(trip.vehicle_id), id, 'EX', 7 * 24 * 60 * 60); // 7 day safety cap
-      await redis.set(TRIP_DIST_KEY(id), '0');
-      await redis.set(TRIP_PTS_KEY(id), '0');
-      await redis.set(TRIP_MAXSPD_KEY(id), '0');
-      await redis.set(TRIP_SPDSUM_KEY(id), '0');
-      await redis.set(TRIP_START_KEY(id), Date.now().toString());
+      await redis.set(TRIP_DIST_KEY(id), '0', 'EX', 48 * 3600);
+      await redis.set(TRIP_PTS_KEY(id), '0', 'EX', 48 * 3600);
+      await redis.set(TRIP_MAXSPD_KEY(id), '0', 'EX', 48 * 3600);
+      await redis.set(TRIP_SPDSUM_KEY(id), '0', 'EX', 48 * 3600);
+      await redis.set(TRIP_START_KEY(id), Date.now().toString(), 'EX', 48 * 3600);
 
       res.json({ success: true, data: started });
     } catch (err) {

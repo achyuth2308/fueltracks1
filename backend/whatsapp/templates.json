@@ -1,0 +1,76 @@
+[
+  {
+    "name": "fuel_refill_alert",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Fuel refill confirmed for {{1}}. Added {{2}} L. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Reply STOP to unsubscribe.",
+        "example": {
+          "body_text": [
+            [
+              "MH12AB1234",
+              "45.0",
+              "15.0",
+              "60.0",
+              "29 Oct, 11:30 AM",
+              "Pune Central Station"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "fuel_theft_alert",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Fuel theft alert for {{1}}. Fuel dropped by {{2}} L while the vehicle was stationary. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Map: {{7}}. Please check immediately.",
+        "example": {
+          "body_text": [
+            [
+              "MH12AB1234",
+              "25.0",
+              "80.0",
+              "55.0",
+              "29 Oct, 11:30 AM",
+              "Highway Bypass, Pune",
+              "https://maps.google.com/?q=18.5204,73.8567"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "daily_fleet_report",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "Daily fleet report for {{1}} on {{2}}. Vehicles: {{3}}. Distance: {{4}} km. Fuel used: {{5}} L. Refills: {{6}} ({{7}} L). Theft alerts: {{8}}. Idle time: {{9}}. Full report is available at app.fueltracks.in.",
+        "example": {
+          "body_text": [
+            [
+              "Logistics Fleet Corp",
+              "28 Oct 2026",
+              "12",
+              "1245.5",
+              "310.2",
+              "4",
+              "180.0",
+              "0",
+              "3h 15m"
+            ]
+          ]
+        }
+      }
+    ]
+  }
+]
+

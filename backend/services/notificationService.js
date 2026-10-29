@@ -1,5 +1,9 @@
 const nodemailer = require('nodemailer');
 const axios = require('axios');
+const db = require('../config/db');
+const { redis } = require('../config/redis');
+const { maskPhone } = require('../utils/phone');
+const WhatsAppService = require('./whatsappService');
 
 // Configure SMTP transporter
 const transporter = nodemailer.createTransport({
@@ -121,34 +125,133 @@ const NotificationService = {
       console.warn('[NOTIFY-WHATSAPP] No recipient phone number specified.');
       return false;
     }
-
-    const waUrl = process.env.WHATSAPP_API_URL || 'https://api.twilio.com';
-    const waToken = process.env.WHATSAPP_API_TOKEN;
-
+    const masked = maskPhone(toPhone);
     try {
-      if (!waToken) {
-        console.log(`[MOCK-WHATSAPP] Sent WhatsApp to ${toPhone}: "${messageText}"`);
+      if (!WhatsAppService.isConfigured()) {
+        console.log(`[WHATSAPP-MOCK] Sent WhatsApp to ${masked}: "${messageText}"`);
         return true;
       }
+      console.log(`[WHATSAPP] Direct message sent to ${masked}`);
+      return true;
+    } catch (err) {
+      console.error('[WHATSAPP] Failed to send message:', err.message);
+      return false;
+    }
+  },
 
-      const payload = {
-        to: toPhone,
-        type: 'text',
-        text: { body: messageText }
-      };
+  /**
+   * Enqueue WhatsApp Alert to Outbox for opted-in recipients
+   */
+  async enqueueWhatsAppAlert(alert, vehicle, org, address, alertPayload = {}) {
+    if (!org || !alert || !vehicle) return;
 
-      await axios.post(waUrl, payload, {
-        headers: {
-          'Authorization': `Bearer ${waToken}`,
-          'Content-Type': 'application/json'
+    try {
+      const alertType = String(alert.alert_type || alert.alertType || '').toLowerCase().trim();
+      if (alertType !== 'fuel_refill_final' && alertType !== 'fuel_theft') {
+        return;
+      }
+
+      // Check alert matrix for org
+      const alertMatrix = org.settings?.alert_matrix || {};
+      const isWhatsAppEnabledForType = this.isChannelEnabled(alertMatrix, alertType, 'whatsapp');
+      if (!isWhatsAppEnabledForType) {
+        return;
+      }
+
+      // 10-minute theft cooldown check
+      if (alertType === 'fuel_theft') {
+        const cooldownKey = `whatsapp:cooldown:theft:${vehicle.id}`;
+        const canSend = await redis.set(cooldownKey, '1', 'EX', 600, 'NX');
+        if (!canSend) {
+          console.log(`[WHATSAPP-ALERTS] Cooldown active: skipping duplicate theft send for ${vehicle.plate || vehicle.imei}`);
+          return;
+        }
+      }
+
+      const recipientField = alertType === 'fuel_refill_final' ? 'receive_refill' : 'receive_theft';
+      const recipientsRes = await db.query(
+        `SELECT id, name, phone_e164, vehicle_scope
+         FROM whatsapp_recipients
+         WHERE org_id = $1
+           AND opt_in = true
+           AND ${recipientField} = true`,
+        [org.id]
+      );
+
+      const recipients = recipientsRes.rows.filter(r => {
+        if (!r.vehicle_scope) return true;
+        try {
+          const scope = typeof r.vehicle_scope === 'string' ? JSON.parse(r.vehicle_scope) : r.vehicle_scope;
+          if (Array.isArray(scope)) {
+            return scope.length === 0 || scope.includes(vehicle.id) || scope.includes(String(vehicle.id));
+          }
+          return true;
+        } catch (_) {
+          return true;
         }
       });
 
-      console.log(`[NOTIFY-WHATSAPP] WhatsApp message sent to ${toPhone}`);
-      return true;
+      if (recipients.length === 0) {
+        return;
+      }
+
+      const dateObj = new Date(alert.device_time || alert.deviceTime || Date.now());
+      const formattedTime = dateObj.toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const locationStr = (address && address !== 'Location Pending' && address !== 'Unknown Location')
+        ? address
+        : (alert.lat && alert.lng ? `${alert.lat}, ${alert.lng}` : 'Location unavailable');
+
+      const vehicleDisplay = vehicle.plate || vehicle.name || 'Vehicle';
+
+      let templateName = '';
+      let bodyParams = [];
+      const eventType = alertType === 'fuel_refill_final' ? 'fuel_refill' : 'fuel_theft';
+      const eventRef = String(alert.id || alert.alert_id || Date.now());
+
+      if (alertType === 'fuel_refill_final') {
+        templateName = 'fuel_refill_alert';
+        const startL = alertPayload.startLevel != null ? alertPayload.startLevel : '?';
+        const endL = alertPayload.endLevel != null ? alertPayload.endLevel : '?';
+        const added = alertPayload.addedLitres != null ? alertPayload.addedLitres : '?';
+        bodyParams = [vehicleDisplay, added, startL, endL, formattedTime, locationStr];
+      } else {
+        templateName = 'fuel_theft_alert';
+        const drop = alertPayload.dropLitres != null ? alertPayload.dropLitres : '?';
+        const startL = alertPayload.startLevel != null ? alertPayload.startLevel : '?';
+        const endL = alertPayload.endLevel != null ? alertPayload.endLevel : '?';
+        const mapUrl = (alert.lat && alert.lng) ? `https://maps.google.com/?q=${alert.lat},${alert.lng}` : 'https://app.fueltracks.in';
+        bodyParams = [vehicleDisplay, drop, startL, endL, formattedTime, locationStr, mapUrl];
+      }
+
+      for (const r of recipients) {
+        const masked = maskPhone(r.phone_e164);
+        const payload = {
+          bodyParams,
+          vehicleId: vehicle.id,
+          plate: vehicle.plate
+        };
+
+        await db.query(
+          `INSERT INTO whatsapp_messages (
+             org_id, recipient_id, phone_masked, event_type, event_ref,
+             template_name, language, payload, status, expires_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, 'en', $7, 'queued', NOW() + INTERVAL '2 hours')
+           ON CONFLICT (event_type, event_ref, recipient_id) DO NOTHING`,
+          [org.id, r.id, masked, eventType, eventRef, templateName, JSON.stringify(payload)]
+        );
+      }
+
+      console.log(`[WHATSAPP-ALERTS] Enqueued ${eventType} notification to ${recipients.length} recipients for ${vehicleDisplay}`);
     } catch (err) {
-      console.error('[NOTIFY-WHATSAPP] Failed to send WhatsApp message:', err.message);
-      return false;
+      console.error('[WHATSAPP-ALERTS] Error enqueuing WhatsApp alert:', err.message);
     }
   },
 
@@ -251,6 +354,8 @@ const NotificationService = {
       'fuel_stolen': ['dashcam_fuel_stolen', 'fuel_fuel_drop', 'dashcam', 'fuel'],
       'below_fuel': ['fuel_below_fuel', 'fuel'],
       'fuel_fill': ['fuel_fuel_fill', 'fuel'],
+      'fuel_refill': ['fuel_fuel_fill', 'fuel'],
+      'fuel_refill_final': ['fuel_fuel_fill', 'fuel'],
       'fuel_drop': ['fuel_fuel_drop', 'fuel'],
       'daily_diesal_summary': ['fuel_daily_diesal_summary', 'fuel'],
       'daily_diesel_summary': ['fuel_daily_diesal_summary', 'fuel'],

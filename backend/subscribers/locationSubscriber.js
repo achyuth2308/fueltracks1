@@ -15,6 +15,7 @@ const { gpsQuery } = require('../config/db'); // GPS writes use a separate isola
 const env = require('../config/env');
 const webhookService = require('../services/webhookService'); // Civil Supply webhook push
 const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
+const FuelEventAggregator = require('../services/fuelEventAggregator');
 let subscriber = null;
 
 // Bounded global queue for distance recomputes (concurrency 2, max 1000)
@@ -637,7 +638,13 @@ async function start(io) {
             redis.publish('alerts', JSON.stringify({
               imei: vehicle.imei, alertType: 'fuel_theft',
               alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
-              lat, lng, deviceTime
+              lat, lng, deviceTime,
+              alertPayload: {
+                startLevel: prevFuel,
+                endLevel: currFuel,
+                dropLitres: Math.round(Math.abs(diff) * 10) / 10,
+                theftThreshold
+              }
             }));
           } else if (diff >= refillThreshold) {
             redis.publish('alerts', JSON.stringify({
@@ -647,6 +654,11 @@ async function start(io) {
             }));
           }
         }
+
+        // 2e. Refill session state machine (debounces multi-packet fills into confirmed single alert)
+        FuelEventAggregator.processRefillPacket(
+          vehicle, currFuel, prevFuel, speed, ignition, lat, lng, deviceTime
+        ).catch(() => {});
       }
 
       // 3. Cache updated state in Redis (fast — always per-packet)
@@ -969,7 +981,7 @@ async function start(io) {
           let idleStart = await redis.get(idleKey);
           if (!idleStart || wasAsleep) {
             // If it was asleep, it wasn't actively idling. Reset the idle start time!
-            await redis.set(idleKey, currentDeviceTimeMs);
+            await redis.set(idleKey, currentDeviceTimeMs, 'EX', 48 * 3600);
           } else {
             const idleStartMs = parseInt(idleStart, 10);
             const idleDurationMin = (currentDeviceTimeMs - idleStartMs) / 60000;
