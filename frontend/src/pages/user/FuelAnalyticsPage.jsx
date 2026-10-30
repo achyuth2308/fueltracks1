@@ -252,6 +252,11 @@ export default function FuelAnalyticsPage() {
   const [rawPageSize, setRawPageSize] = useState(50);
   const [rawCurrentPage, setRawCurrentPage] = useState(1);
 
+  // Consumption Rate Table Filter Controls
+  const [consumptionMileageInput, setConsumptionMileageInput] = useState(5);
+  const [consumptionIgnitionFilter, setConsumptionIgnitionFilter] = useState('all'); // 'all' | 'on' | 'off'
+  const [consumptionExcessOnly, setConsumptionExcessOnly] = useState(false);
+
   // Close dropdowns on outside click
   useEffect(() => {
     function handleClickOutside(event) {
@@ -1177,31 +1182,65 @@ export default function FuelAnalyticsPage() {
       sumSpd += rawSpeed;
       speedSamples++;
 
-      // Session grouping (moving vs idle)
-      if (!currentSession || currentSession.status !== engineState) {
+      // Session grouping (continuous operating trips vs parked intervals)
+      const isEngineActive = ign || rawSpeed > 5.0;
+      const opState = isEngineActive ? 'ON' : 'OFF';
+
+      if (!currentSession || currentSession.opState !== opState) {
         if (currentSession) {
-          currentSession.endTime = pt.device_time;
+          const endPt = sorted[i - 1] || pt;
+          currentSession.endPoint = endPt;
+          currentSession.endTime = endPt.device_time;
+          currentSession.toTimeFull = formatFullIST(endPt.device_time);
           currentSession.endFuel = normF;
+          currentSession.currentFuel = normF;
           currentSession.endDist = cumulativeDist;
-          currentSession.durationMin = Math.max(1, Math.round((new Date(pt.device_time) - new Date(currentSession.startTime)) / 60000));
-          currentSession.consumed = (currentSession.startFuel && currentSession.endFuel && currentSession.startFuel > currentSession.endFuel)
-            ? Math.round((currentSession.startFuel - currentSession.endFuel) * 10) / 10 : 0;
-          currentSession.distanceKm = Math.round((currentSession.endDist - currentSession.startDist) * 100) / 100;
+          currentSession.durationMin = Math.max(1, Math.round((new Date(endPt.device_time) - new Date(currentSession.startTime)) / 60000));
+          
+          const rawBurn = (currentSession.startFuel != null && currentSession.endFuel != null && currentSession.startFuel > currentSession.endFuel)
+            ? (currentSession.startFuel - currentSession.endFuel) : 0;
+          currentSession.consumed = Math.round(rawBurn * 100) / 100;
+          currentSession.actualConsumption = currentSession.consumed;
+          
+          const distCovered = Math.max(0, currentSession.endDist - currentSession.startDist);
+          currentSession.distanceKm = Math.round(distCovered * 10) / 10;
+          currentSession.km = Math.round(distCovered);
+          
+          currentSession.kmpl = (currentSession.consumed > 0 && currentSession.distanceKm > 0)
+            ? Math.round((currentSession.distanceKm / currentSession.consumed) * 100) / 100 : 0;
+
+          const totalPts = currentSession.totalPoints || 1;
+          const ignPts = currentSession.ignPoints || 0;
+          currentSession.ignOnPercent = Math.round((ignPts / totalPts) * 100);
+
+          currentSession.startAddress = currentSession.startPoint?.address || (currentSession.startPoint?.lat && currentSession.startPoint?.lng ? `${Number(currentSession.startPoint.lat).toFixed(4)}, ${Number(currentSession.startPoint.lng).toFixed(4)}` : 'Captured Location');
+          currentSession.endAddress = endPt.address || (endPt.lat && endPt.lng ? `${Number(endPt.lat).toFixed(4)}, ${Number(endPt.lng).toFixed(4)}` : 'Captured Location');
+
           sessions.push(currentSession);
         }
         currentSession = {
           id: sessions.length + 1,
-          status: engineState,
+          opState: opState,
+          status: opState === 'ON' ? (rawSpeed > 6.0 ? 'ON (Moving)' : 'ON (Idle)') : 'OFF',
+          startPoint: pt,
           startTime: pt.device_time,
+          fromTimeFull: formatFullIST(pt.device_time),
           endTime: pt.device_time,
+          toTimeFull: formatFullIST(pt.device_time),
           startFuel: normF,
+          previousFuel: normF,
           endFuel: normF,
+          currentFuel: normF,
           startDist: cumulativeDist,
           endDist: cumulativeDist,
           maxSpeed: rawSpeed,
-          avgSpeed: rawSpeed
+          avgSpeed: rawSpeed,
+          totalPoints: 1,
+          ignPoints: ign ? 1 : 0
         };
       } else {
+        currentSession.totalPoints = (currentSession.totalPoints || 0) + 1;
+        if (ign) currentSession.ignPoints = (currentSession.ignPoints || 0) + 1;
         if (rawSpeed > currentSession.maxSpeed) currentSession.maxSpeed = rawSpeed;
       }
 
@@ -1243,7 +1282,37 @@ export default function FuelAnalyticsPage() {
       });
     }
 
-    if (currentSession) sessions.push(currentSession);
+    if (currentSession) {
+      const endPt = sorted[sorted.length - 1];
+      currentSession.endPoint = endPt;
+      currentSession.endTime = endPt.device_time;
+      currentSession.toTimeFull = formatFullIST(endPt.device_time);
+      currentSession.endFuel = normalizedFuels[sorted.length - 1];
+      currentSession.currentFuel = normalizedFuels[sorted.length - 1];
+      currentSession.endDist = cumulativeDist;
+      currentSession.durationMin = Math.max(1, Math.round((new Date(endPt.device_time) - new Date(currentSession.startTime)) / 60000));
+      
+      const rawBurn = (currentSession.startFuel != null && currentSession.endFuel != null && currentSession.startFuel > currentSession.endFuel)
+        ? (currentSession.startFuel - currentSession.endFuel) : 0;
+      currentSession.consumed = Math.round(rawBurn * 100) / 100;
+      currentSession.actualConsumption = currentSession.consumed;
+      
+      const distCovered = Math.max(0, currentSession.endDist - currentSession.startDist);
+      currentSession.distanceKm = Math.round(distCovered * 10) / 10;
+      currentSession.km = Math.round(distCovered);
+      
+      currentSession.kmpl = (currentSession.consumed > 0 && currentSession.distanceKm > 0)
+        ? Math.round((currentSession.distanceKm / currentSession.consumed) * 100) / 100 : 0;
+
+      const totalPts = currentSession.totalPoints || 1;
+      const ignPts = currentSession.ignPoints || 0;
+      currentSession.ignOnPercent = Math.round((ignPts / totalPts) * 100);
+
+      currentSession.startAddress = currentSession.startPoint?.address || (currentSession.startPoint?.lat && currentSession.startPoint?.lng ? `${Number(currentSession.startPoint.lat).toFixed(4)}, ${Number(currentSession.startPoint.lng).toFixed(4)}` : 'Captured Location');
+      currentSession.endAddress = endPt.address || (endPt.lat && endPt.lng ? `${Number(endPt.lat).toFixed(4)}, ${Number(endPt.lng).toFixed(4)}` : 'Captured Location');
+
+      sessions.push(currentSession);
+    }
 
     // Initial and Final Fuel calculation based on Normalized Fuel
     const validNorms = normalizedFuels.filter(p => p != null);
@@ -1281,7 +1350,7 @@ export default function FuelAnalyticsPage() {
       currentFuel: endF,
       refuels: refuelEvents,
       drops: dropEvents,
-      sessions: sessions.slice(-10).reverse() // Show top 10 recent sessions
+      sessions: sessions.slice().reverse() // Show all sessions chronological reverse (newest first)
     };
   }, [historyPoints, tankCapacity, refuelThreshold, theftThreshold, selectedInterval]);
 
@@ -1511,6 +1580,183 @@ export default function FuelAnalyticsPage() {
 
     const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
     doc.save(`Fuel_Fill_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Fuel Theft Excel Export
+  const handleExportTheftExcel = () => {
+    if (!processedData.drops.length) return;
+    const exportData = processedData.drops.map((d, idx) => ({
+      '#': idx + 1,
+      'From Time': d.fromTimeFull,
+      'To Time': d.toTimeFull,
+      'Previous Fuel (Ltrs)': d.previousFuel,
+      'Current Fuel (Ltrs)': d.currentFuel,
+      'Fuel Theft (Ltrs)': d.fuelTheft || d.liters,
+      'Odo': d.odo,
+      'Address': d.address
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fuel Theft');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Fuel_Theft_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Fuel Theft PDF Export
+  const handleExportTheftPDF = () => {
+    if (!processedData.drops.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Fuel Theft & Drain Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Total Thefts: ${processedData.drops.length} | Net Stolen: ${processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)} L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Previous Fuel (L)', 'Current Fuel (L)',
+      'Fuel Theft (L)', 'Odo', 'Address'
+    ];
+
+    const tableRows = processedData.drops.map((d, idx) => [
+      idx + 1,
+      d.fromTimeFull,
+      d.toTimeFull,
+      d.previousFuel,
+      d.currentFuel,
+      d.fuelTheft || d.liters,
+      d.odo,
+      d.address
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [255, 241, 242] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Fuel_Theft_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Filtered & Evaluated Consumption Rate Rows
+  const filteredConsumptionRows = useMemo(() => {
+    if (!processedData.sessions || !processedData.sessions.length) return [];
+    const baselineKmpl = Number(consumptionMileageInput) > 0 ? Number(consumptionMileageInput) : 5;
+
+    return processedData.sessions
+      .map((s, idx) => {
+        const dist = s.distanceKm || 0;
+        const actual = s.actualConsumption != null ? s.actualConsumption : (s.consumed || 0);
+        const expected = baselineKmpl > 0 ? Math.round((dist / baselineKmpl) * 100) / 100 : 0;
+        const excess = Math.max(0, Math.round((actual - expected) * 100) / 100);
+
+        return {
+          ...s,
+          index: idx + 1,
+          expectedConsumption: expected.toFixed(2),
+          excessConsumption: excess.toFixed(2),
+          excessNum: excess
+        };
+      })
+      .filter(s => {
+        // Ignition Filter
+        if (consumptionIgnitionFilter === 'on' && s.ignOnPercent < 50) return false;
+        if (consumptionIgnitionFilter === 'off' && s.ignOnPercent >= 50) return false;
+        if (consumptionIgnitionFilter === 'all' && s.opState === 'OFF' && s.distanceKm === 0 && s.actualConsumption === 0) return false;
+        // Excess Consumption Filter toggle
+        if (consumptionExcessOnly && s.excessNum <= 0.05) return false;
+        return true;
+      });
+  }, [processedData.sessions, consumptionMileageInput, consumptionIgnitionFilter, consumptionExcessOnly]);
+
+  // Total Excess Consumption (Ltrs)
+  const totalExcessConsumption = useMemo(() => {
+    return filteredConsumptionRows
+      .reduce((acc, s) => acc + (s.excessNum || 0), 0)
+      .toFixed(2);
+  }, [filteredConsumptionRows]);
+
+  // Consumption Excel Export
+  const handleExportConsumptionExcel = () => {
+    if (!filteredConsumptionRows.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = filteredConsumptionRows.map((s, idx) => ({
+      '#': idx + 1,
+      'From Time': s.fromTimeFull,
+      'To Time': s.toTimeFull,
+      'Ign ON %': s.ignOnPercent,
+      'Distance (Kms)': s.distanceKm,
+      'Previous Fuel (Ltrs)': s.previousFuel,
+      'Current Fuel (Ltrs)': s.currentFuel,
+      'Actual Consumption (Ltrs)': s.actualConsumption,
+      'Kmpl': s.kmpl > 0 ? s.kmpl : '—',
+      'Expected Consumption (Ltrs)': s.expectedConsumption,
+      'Excess Consumption (Ltrs)': s.excessConsumption,
+      'Start Location': s.startAddress,
+      'End Location': s.endAddress
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Consumption Rate');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Consumption_Rate_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Consumption PDF Export
+  const handleExportConsumptionPDF = () => {
+    if (!filteredConsumptionRows.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Consumption Rate Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Baseline Mileage: ${consumptionMileageInput} km/L | Total Excess: ${totalExcessConsumption} L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Ign %', 'Dist(Km)', 'Prev Fuel', 'Curr Fuel',
+      'Actual (L)', 'Kmpl', 'Exp (L)', 'Excess (L)', 'Start Location', 'End Location'
+    ];
+
+    const tableRows = filteredConsumptionRows.map((s, idx) => [
+      idx + 1,
+      s.fromTimeFull,
+      s.toTimeFull,
+      `${s.ignOnPercent}%`,
+      s.distanceKm,
+      s.previousFuel,
+      s.currentFuel,
+      s.actualConsumption,
+      s.kmpl > 0 ? s.kmpl : '—',
+      s.expectedConsumption,
+      s.excessConsumption,
+      s.startAddress,
+      s.endAddress
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Consumption_Rate_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
@@ -3160,22 +3406,24 @@ export default function FuelAnalyticsPage() {
                   <button
                     type="button"
                     onClick={() => setActiveTableTab('refills')}
-                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs"
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
                   >
                     Fuel Fill ({processedData.refuels.length})
                   </button>
                   <button
                     type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setActiveTableTab('consumption')}
-                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   >
                     Consumption Rate ({processedData.sessions.length})
                   </button>
-                  {processedData.drops.length > 0 && (
-                    <span className="ml-auto text-xs font-semibold text-rose-500">
-                      Theft/Drops: {processedData.drops.length}
-                    </span>
-                  )}
                 </div>
 
                 {/* Fixed Outer Frame & Scrollable Inside Table */}
@@ -3263,7 +3511,176 @@ export default function FuelAnalyticsPage() {
               </motion.div>
             )}
 
-            {/* 3. DRIVING SESSIONS & CONSUMPTION LOG TABLE */}
+            {/* 3. FUEL THEFT REPORT TABLE */}
+            {activeTableTab === 'theft' && (
+              <motion.div
+                key="theft-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="fuel-theft-section"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Header with Sub-tabs and Exports */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <Flame className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Fuel Theft & Drain Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                          {processedData.drops.length} Thefts
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Theft: <strong className="text-rose-600 dark:text-rose-400 font-mono">{processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)}L</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportTheftExcel}
+                      disabled={!processedData.drops.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Thefts as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportTheftPDF}
+                      disabled={!processedData.drops.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Thefts as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Thefts Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-tabs matching reference UI */}
+                <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Consumption Rate ({processedData.sessions.length})
+                  </button>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap text-rose-600 dark:text-rose-400">Fuel Theft (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Odo ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Address ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">G-Map</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {processedData.drops.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="px-4 py-12 text-center text-slate-400">
+                            No fuel theft or drain events recorded in this time range.
+                          </td>
+                        </tr>
+                      ) : (
+                        processedData.drops.map((d, idx) => (
+                          <tr key={idx} className="hover:bg-rose-500/5 dark:hover:bg-rose-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.toTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.previousFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {d.currentFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                              {d.fuelTheft || d.liters}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.odo}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate whitespace-nowrap" title={d.address}>
+                              {d.address}
+                            </td>
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              {d.lat && d.lng ? (
+                                <a
+                                  href={`https://www.google.com/maps?q=${d.lat},${d.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-semibold underline underline-offset-2"
+                                >
+                                  Link
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer summary */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {processedData.drops.length} theft events</span>
+                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
+                    Total Theft: {processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)} Liters
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 4. CONSUMPTION RATE TABLE (MATCHING REFERENCE UI) */}
             {activeTableTab === 'consumption' && (
               <motion.div
                 key="consumption-table"
@@ -3272,85 +3689,232 @@ export default function FuelAnalyticsPage() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
                 id="consumption-breakdown-section"
-                className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
               >
-                <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-base text-slate-900 dark:text-white">Trip & Idling Consumption Breakdown</h3>
-                    <p className="text-xs text-slate-400">Segment-wise fuel burn and distance correlation</p>
+                {/* Table Top Header with Exports and Close */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Consumption Rate Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                          {filteredConsumptionRows.length} Segments
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Burn: <strong className="text-amber-600 dark:text-amber-400 font-mono">{processedData.fuelConsumed}L</strong> • Avg Kmpl: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}</strong>
+                      </p>
+                    </div>
                   </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg">
-                      {processedData.sessions.length} Sessions
-                    </span>
+                    <button
+                      type="button"
+                      onClick={handleExportConsumptionExcel}
+                      disabled={!filteredConsumptionRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Consumption Rate as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportConsumptionPDF}
+                      disabled={!filteredConsumptionRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Consumption Rate as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setActiveTableTab(null)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                      title="Close"
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Consumption Table"
                     >
                       <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
 
-                <div className="overflow-x-auto">
+                {/* Sub-tabs bar matching screenshot */}
+                <div className="px-4 py-2 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
+                  >
+                    Consumption Rate
+                  </button>
+                </div>
+
+                {/* Filter Toolbar: Mileage input, Ignition dropdown, Excess Consumption Toggle */}
+                <div className="px-4 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/30 flex flex-wrap items-center gap-4 text-xs font-medium">
+                  {/* Mileage Input */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Mileage :</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="100"
+                      value={consumptionMileageInput}
+                      onChange={(e) => setConsumptionMileageInput(Math.max(0.1, Number(e.target.value) || 1))}
+                      className="w-18 px-2.5 py-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-amber-500 text-center"
+                    />
+                  </div>
+
+                  {/* Ignition Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Ignition :</span>
+                    <select
+                      value={consumptionIgnitionFilter}
+                      onChange={(e) => setConsumptionIgnitionFilter(e.target.value)}
+                      className="px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All</option>
+                      <option value="on">Ignition ON (&gt;=50%)</option>
+                      <option value="off">Ignition OFF (&lt;50%)</option>
+                    </select>
+                  </div>
+
+                  {/* Excess Consumption Filter Switch */}
+                  <div className="flex items-center gap-2 sm:ml-auto">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">
+                      Excess Consumption Filter :
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConsumptionExcessOnly(prev => !prev)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        consumptionExcessOnly ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                      title="Toggle Excess Consumption Only"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          consumptionExcessOnly ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
                   <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
                       <tr>
-                        <th className="px-4 py-3">#</th>
-                        <th className="px-4 py-3">Engine Status</th>
-                        <th className="px-4 py-3">Start Time (IST)</th>
-                        <th className="px-4 py-3">Duration</th>
-                        <th className="px-4 py-3">Distance</th>
-                        <th className="px-4 py-3">Fuel Consumed</th>
-                        <th className="px-4 py-3">Max Speed</th>
-                        <th className="px-4 py-3">Mileage</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3 py-3 whitespace-nowrap text-center">Ign ON % ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Distance (Kms) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Actual Consumption (Ltrs) ⬍</th>
+                        <th className="px-3 py-3 whitespace-nowrap text-center">Kmpl ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Expected Consumption (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap text-amber-600 dark:text-amber-400">Excess Consumption (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Start Location ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">End Location ⬍</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                      {processedData.sessions.length === 0 ? (
+                      {filteredConsumptionRows.length === 0 ? (
                         <tr>
-                          <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
-                            No driving sessions recorded in this time range.
+                          <td colSpan="12" className="px-4 py-12 text-center text-slate-400">
+                            No driving or idling segments match the selected criteria.
                           </td>
                         </tr>
                       ) : (
-                        processedData.sessions.map((s, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                            <td className="px-4 py-3">
-                              <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                                s.status === 'ON (Moving)' 
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                                  : (s.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400')
+                        filteredConsumptionRows.map((s, idx) => (
+                          <tr key={idx} className="hover:bg-amber-500/5 dark:hover:bg-amber-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.toTimeFull}
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-center whitespace-nowrap">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                s.ignOnPercent >= 80 
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' 
+                                  : (s.ignOnPercent > 0 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-800 text-slate-500')
                               }`}>
-                                {s.status}
+                                {s.ignOnPercent}
                               </span>
                             </td>
-                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                              {formatIST(s.startTime)}
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {s.distanceKm}
                             </td>
-                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                              {s.durationMin} mins
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.previousFuel != null ? s.previousFuel : '—'}
                             </td>
-                            <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
-                              {s.distanceKm > 0 ? `${s.distanceKm} km` : '0 km'}
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.currentFuel != null ? s.currentFuel : '—'}
                             </td>
-                            <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-bold">
-                              {s.consumed > 0 ? `${s.consumed} L` : '0 L'}
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                              {s.actualConsumption}
                             </td>
-                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                              {s.maxSpeed} km/h
+                            <td className="px-3 py-2.5 font-mono text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.kmpl > 0 ? s.kmpl : '—'}
                             </td>
-                            <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
-                              {s.consumed > 0 && s.distanceKm > 0 ? `${Math.round((s.distanceKm / s.consumed) * 10) / 10} km/L` : '—'}
+                            <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {s.expectedConsumption}
+                            </td>
+                            <td className={`px-3.5 py-2.5 font-mono font-bold whitespace-nowrap ${
+                              s.excessNum > 0.05 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
+                            }`}>
+                              {s.excessConsumption}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-[180px] truncate whitespace-nowrap" title={s.startAddress}>
+                              {s.startAddress}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-[180px] truncate whitespace-nowrap" title={s.endAddress}>
+                              {s.endAddress}
                             </td>
                           </tr>
                         ))
                       )}
                     </tbody>
                   </table>
+                </div>
+
+                {/* Footer with Total Excess Consumption */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {filteredConsumptionRows.length} segments</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                      Total Excess Consumption (Ltrs):
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono font-bold text-sm">
+                      {totalExcessConsumption}
+                    </span>
+                  </div>
                 </div>
               </motion.div>
             )}
