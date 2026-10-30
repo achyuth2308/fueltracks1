@@ -880,7 +880,14 @@ export default function FuelAnalyticsPage() {
           }
 
           const cumRise = maxRampVal - currentNormalized;
-          if (cumRise >= refuelThreshold) {
+          const tEnd = new Date(sorted[maxRampIdx].device_time).getTime();
+          const fillDurationMs = tEnd - tStart;
+
+          // PHYSICAL TELEMATICS LAW:
+          // A real fuel pump dispenses at ~25-45 L/min. To pump >= refuelThreshold (>= 9L),
+          // it must physically take at least 45 seconds across multiple consecutive packets (maxRampIdx > i).
+          // An instantaneous jump (fillDurationMs < 45s or maxRampIdx === i) is road tilt/slosh, NOT a refuel!
+          if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 45 * 1000) {
             // Post-ramp stability: fuel must stay elevated (protects against single-packet noise spikes)
             let isStable = true;
             let stableChecks = 0;
@@ -897,8 +904,7 @@ export default function FuelAnalyticsPage() {
             if (isStable) {
               rampHandled = true;
               const refuelLiters = Math.round(cumRise * 10) / 10;
-              const tEnd = new Date(sorted[maxRampIdx].device_time).getTime();
-              const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
+              const durMin = Math.max(1, Math.round(fillDurationMs / 60000));
               const startFuelVal = Math.round(currentNormalized * 10) / 10;
               const endFuelVal = Math.round(maxRampVal * 10) / 10;
 
@@ -1001,11 +1007,12 @@ export default function FuelAnalyticsPage() {
             }
 
             const cumDrop = currentNormalized - minRampVal;
-            if (cumDrop >= theftThreshold) {
+            const tEnd = new Date(sorted[minRampIdx].device_time).getTime();
+            const drainDurationMs = tEnd - tStart;
+            if (cumDrop >= theftThreshold && minRampIdx > i && drainDurationMs >= 30 * 1000) {
               rampHandled = true;
               const dropLiters = Math.round(cumDrop * 10) / 10;
-              const tEnd = new Date(sorted[minRampIdx].device_time).getTime();
-              const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
+              const durMin = Math.max(1, Math.round(drainDurationMs / 60000));
               const startFuelVal = Math.round(currentNormalized * 10) / 10;
               const endFuelVal = Math.round(minRampVal * 10) / 10;
 
