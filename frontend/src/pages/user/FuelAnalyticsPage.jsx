@@ -90,6 +90,26 @@ function formatDateIST(isoString) {
   }
 }
 
+// Exact format matching Fuel Fill report: HH:mm:ss DD-MM-YYYY
+function formatFullIST(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '—';
+    const time = d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${time} ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+  } catch (e) {
+    return '—';
+  }
+}
+
 // Preset range builder
 function getPresetRange(preset) {
   const now = new Date();
@@ -877,6 +897,13 @@ export default function FuelAnalyticsPage() {
               const startFuelVal = Math.round(currentNormalized * 10) / 10;
               const endFuelVal = Math.round(maxRampVal * 10) / 10;
 
+              const startPt = pt;
+              const endPt = sorted[maxRampIdx];
+              const odoVal = endPt.odometer != null ? Math.round(Number(endPt.odometer)) : (startPt.odometer != null ? Math.round(Number(startPt.odometer)) : (selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'));
+              const latVal = endPt.lat || startPt.lat || null;
+              const lngVal = endPt.lng || startPt.lng || null;
+              const addressVal = endPt.address || startPt.address || (latVal && lngVal ? `${Number(latVal).toFixed(4)}, ${Number(lngVal).toFixed(4)}` : 'Captured Location');
+
               const refuelObj = {
                 id: refuelEvents.length + 1,
                 startIdx: i,
@@ -885,13 +912,24 @@ export default function FuelAnalyticsPage() {
                 endTime: formatIST(sorted[maxRampIdx].device_time),
                 startTimeStr: formatIST(pt.device_time),
                 endTimeStr: formatIST(sorted[maxRampIdx].device_time),
+                fromTimeFull: formatFullIST(pt.device_time),
+                toTimeFull: formatFullIST(sorted[maxRampIdx].device_time),
                 startDate: formatDateIST(pt.device_time),
                 endDate: formatDateIST(sorted[maxRampIdx].device_time),
+                time: formatIST(sorted[maxRampIdx].device_time),
                 startFuel: startFuelVal,
                 endFuel: endFuelVal,
+                previousFuel: startFuelVal,
+                currentFuel: endFuelVal,
+                consumptionDuringFill: '0.00',
                 liters: refuelLiters,
+                fuelFill: refuelLiters,
                 level: endFuelVal,
-                durationMin: durMin
+                durationMin: durMin,
+                odo: odoVal,
+                address: addressVal,
+                lat: latVal,
+                lng: lngVal
               };
               refuelEvents.push(refuelObj);
               refuelPointsMap.set(maxRampIdx, refuelObj);
@@ -966,6 +1004,13 @@ export default function FuelAnalyticsPage() {
               const startFuelVal = Math.round(currentNormalized * 10) / 10;
               const endFuelVal = Math.round(minRampVal * 10) / 10;
 
+              const startPtTheft = pt;
+              const endPtTheft = sorted[minRampIdx];
+              const odoValTheft = endPtTheft.odometer != null ? Math.round(Number(endPtTheft.odometer)) : (startPtTheft.odometer != null ? Math.round(Number(startPtTheft.odometer)) : (selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'));
+              const latValTheft = endPtTheft.lat || startPtTheft.lat || null;
+              const lngValTheft = endPtTheft.lng || startPtTheft.lng || null;
+              const addressValTheft = endPtTheft.address || startPtTheft.address || (latValTheft && lngValTheft ? `${Number(latValTheft).toFixed(4)}, ${Number(lngValTheft).toFixed(4)}` : 'Captured Location');
+
               const dropObj = {
                 id: dropEvents.length + 1,
                 startIdx: i,
@@ -974,13 +1019,23 @@ export default function FuelAnalyticsPage() {
                 endTime: formatIST(sorted[minRampIdx].device_time),
                 startTimeStr: formatIST(pt.device_time),
                 endTimeStr: formatIST(sorted[minRampIdx].device_time),
+                fromTimeFull: formatFullIST(pt.device_time),
+                toTimeFull: formatFullIST(sorted[minRampIdx].device_time),
                 startDate: formatDateIST(pt.device_time),
                 endDate: formatDateIST(sorted[minRampIdx].device_time),
+                time: formatIST(sorted[minRampIdx].device_time),
                 startFuel: startFuelVal,
                 endFuel: endFuelVal,
+                previousFuel: startFuelVal,
+                currentFuel: endFuelVal,
                 liters: dropLiters,
+                fuelTheft: dropLiters,
                 level: endFuelVal,
-                durationMin: durMin
+                durationMin: durMin,
+                odo: odoValTheft,
+                address: addressValTheft,
+                lat: latValTheft,
+                lng: lngValTheft
               };
               dropEvents.push(dropObj);
               dropPointsMap.set(minRampIdx, dropObj);
@@ -1388,6 +1443,74 @@ export default function FuelAnalyticsPage() {
 
     const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
     doc.save(`Raw_Fuel_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Refill History Excel Export
+  const handleExportRefillsExcel = () => {
+    if (!processedData.refuels.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = processedData.refuels.map((r, idx) => ({
+      '#': idx + 1,
+      'From Time': r.fromTimeFull,
+      'To Time': r.toTimeFull,
+      'Previous Fuel (L)': r.previousFuel,
+      'Current Fuel (L)': r.currentFuel,
+      'Consumption During Fuel Fill (L)': r.consumptionDuringFill,
+      'Fuel Fill (L)': r.fuelFill,
+      'Odometer (km)': r.odo,
+      'Address': r.address
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fuel Fill Details');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Fuel_Fill_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Refill History PDF Export
+  const handleExportRefillsPDF = () => {
+    if (!processedData.refuels.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const imei = selectedVehicle?.imei || '—';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Fuel Fill Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Total Refill: ${processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Previous Fuel (L)', 'Current Fuel (L)',
+      'Consumption During Fill', 'Fuel Fill (L)', 'Odo', 'Address'
+    ];
+
+    const tableRows = processedData.refuels.map((r, idx) => [
+      idx + 1,
+      r.fromTimeFull,
+      r.toTimeFull,
+      r.previousFuel,
+      r.currentFuel,
+      r.consumptionDuringFill,
+      r.fuelFill,
+      r.odo,
+      r.address
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 253, 244] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Fuel_Fill_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
@@ -2591,6 +2714,77 @@ export default function FuelAnalyticsPage() {
           </div>
         </div>
 
+        {/* ── FUEL FILL AND THEFT DETAILS PERMANENT SUMMARY BOARD ── */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-xs overflow-hidden">
+          <div className="px-4 py-2 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800/80 text-center">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-wide">
+              Fuel fill and theft details
+            </h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20 w-1/4">
+                    Vehicle Group
+                  </td>
+                  <td className="px-4 py-2 font-semibold text-slate-800 dark:text-slate-200 w-1/4">
+                    {selectedGroupLabel}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20 w-1/4">
+                    Total Distance
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200 w-1/4">
+                    {processedData.totalDistance}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Start Fuel Level
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {processedData.startFuel}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    End Fuel Level
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {processedData.endFuel}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Fill
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Theft
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-rose-600 dark:text-rose-400">
+                    {processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Consume
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {processedData.fuelConsumed}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Kmpl
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '0.00'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         {/* ── ON-DEMAND ANIMATED TABLES CONTAINER (INITIALLY EMPTY) ── */}
         <div id="analytics-tables-container" className="space-y-4">
           <AnimatePresence mode="wait">
@@ -2894,7 +3088,7 @@ export default function FuelAnalyticsPage() {
               </motion.div>
             )}
 
-            {/* 2. REFILL & ABNORMAL DRAIN EVENT BADGES */}
+            {/* 2. FUEL FILL & THEFT REPORT TABLE */}
             {activeTableTab === 'refills' && (
               <motion.div
                 key="refills-table"
@@ -2903,63 +3097,168 @@ export default function FuelAnalyticsPage() {
                 exit={{ opacity: 0, y: -12 }}
                 transition={{ duration: 0.25 }}
                 id="refill-history-section"
-                className="space-y-3"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
               >
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <Fuel className="w-4 h-4 text-emerald-500" />
-                    <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200">
-                      Refill & Sudden Drain Events History
-                    </h3>
+                {/* Table Header with Sub-tabs and Exports */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <Fuel className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Fuel Fill Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                          {processedData.refuels.length} Refills
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Filled: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}L</strong>
+                      </p>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTableTab(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-                    title="Close"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportRefillsExcel}
+                      disabled={!processedData.refuels.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Refills as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportRefillsPDF}
+                      disabled={!processedData.refuels.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Refills as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Refills Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Refuels */}
-                  <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
-                    <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
-                      <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
-                    </h3>
-                    {processedData.refuels.length === 0 ? (
-                      <p className="text-xs text-slate-400">No refuel events detected in this period.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {processedData.refuels.map((r, idx) => (
-                          <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                            <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
-                            <span className="text-slate-400">at {r.time}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Sub-tabs matching reference UI */}
+                <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                  >
+                    Consumption Rate ({processedData.sessions.length})
+                  </button>
+                  {processedData.drops.length > 0 && (
+                    <span className="ml-auto text-xs font-semibold text-rose-500">
+                      Theft/Drops: {processedData.drops.length}
+                    </span>
+                  )}
+                </div>
 
-                  {/* Drains */}
-                  <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
-                    <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
-                      <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
-                    </h3>
-                    {processedData.drops.length === 0 ? (
-                      <p className="text-xs text-slate-400">No sudden fuel drops detected in this period.</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2">
-                        {processedData.drops.map((d, idx) => (
-                          <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                            <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
-                            <span className="text-slate-400">at {d.time}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1">
+                            Consumption During Fuel Fill <Info className="w-3 h-3 text-slate-400" />
+                          </span>
+                        </th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Fuel Fill</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Odo ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Address ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">G-Map</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {processedData.refuels.length === 0 ? (
+                        <tr>
+                          <td colSpan="9" className="px-4 py-12 text-center text-slate-400">
+                            No fuel refill events recorded in this time range.
+                          </td>
+                        </tr>
+                      ) : (
+                        processedData.refuels.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.toTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.previousFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {r.currentFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {r.consumptionDuringFill}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {r.fuelFill}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.odo}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate whitespace-nowrap" title={r.address}>
+                              {r.address}
+                            </td>
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              {r.lat && r.lng ? (
+                                <a
+                                  href={`https://www.google.com/maps?q=${r.lat},${r.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-semibold underline underline-offset-2"
+                                >
+                                  Link
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer summary */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {processedData.refuels.length} refuel events</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    Net Added: {processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)} Liters
+                  </span>
                 </div>
               </motion.div>
             )}
