@@ -7,6 +7,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  optimizeDeps: {
+    include: ['qrcode', 'html2canvas-pro', 'jspdf'],
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
