@@ -1689,9 +1689,10 @@ function startFmb920Server(port) {
               // e.g. 253 = green driving, 239 = ignition change
               if (record.eventIoId === 239) {
                 const text = ignition ? 'Ignition ON' : 'Ignition OFF';
+                const ignType = ignition ? 'ignition_on' : 'ignition_off';
                 await publisher.publishAlert({
                   imei: sessionImei,
-                  alertType: 'stoppage',
+                  alertType: ignType,
                   alertText: text,
                   lat, lng, speed,
                   deviceTime: record.timestamp.toISOString()
