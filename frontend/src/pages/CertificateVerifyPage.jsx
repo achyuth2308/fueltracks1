@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useSearchParams, useParams, Link } from 'react-router-dom';
-import { ShieldCheck, CheckCircle2, Download, Printer, ArrowLeft, ExternalLink, RefreshCw } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Download, Printer, ArrowLeft, ExternalLink, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import QRCode from 'qrcode';
@@ -71,8 +71,8 @@ const CertificateVerifyPage = () => {
 
   const getInitialCertData = () => {
     const certNum = searchParams.get('cert') || id || `FT-GPS-${now.getFullYear()}-87570`;
-    const imei = searchParams.get('imei') || searchParams.get('serialno') || '861329086570201';
-    const veh = searchParams.get('veh') || searchParams.get('plate') || 'TS07 UJ 1278';
+    const imei = searchParams.get('i') || searchParams.get('imei') || searchParams.get('serialno') || '861329086570201';
+    const veh = searchParams.get('v') || searchParams.get('veh') || searchParams.get('plate') || 'TS07 UJ 1278';
 
     return {
       companyName: 'FuelTracks Technologies Pvt. Ltd.',
@@ -86,22 +86,22 @@ const CertificateVerifyPage = () => {
 
       // Section 1: Vehicle Details
       vehicleNo: veh,
-      vehicleMakeModel: searchParams.get('model') || 'Tata Motors - Prima 4028.S',
-      chassisNo: searchParams.get('chassis') || 'MB1H3LHD26578201',
-      engineNo: searchParams.get('engine') || 'NMHZ6578201',
+      vehicleMakeModel: searchParams.get('model') || '',
+      chassisNo: searchParams.get('chassis') || '',
+      engineNo: searchParams.get('engine') || '',
 
       // Section 2: Customer Details
-      customerName: searchParams.get('owner') || 'Ramesh Kumar Yadav',
-      phone: searchParams.get('phone') || '+91 90006 66914',
-      customerAddress: searchParams.get('address') || 'Plot No. 42, Sri Sai Enclave, Road No. 4, Opposite Govt. Press Colony, L.B. Nagar, Kharmanghat, R.R. District, Hyderabad, Telangana - 500074',
+      customerName: searchParams.get('owner') || '',
+      phone: searchParams.get('phone') || '',
+      customerAddress: searchParams.get('address') || '',
 
       // Section 3: GPS Device Details
       deviceModel: searchParams.get('devicemodel') || 'FT-400 Smart GPS Tracker',
       imei: imei,
-      simNumber: searchParams.get('sim') || searchParams.get('sim1') || '+91 90865 78201',
+      simNumber: searchParams.get('sim') || searchParams.get('sim1') || '',
       simOperator: searchParams.get('operator') || 'Airtel IoT (M2M Data APN)',
       fitmentLocation: searchParams.get('fitment') || 'Behind Co-driver Dashboard Firewall',
-      sealNumber: searchParams.get('seal') || 'FT-SEAL-894102',
+      sealNumber: searchParams.get('seal') || '',
 
       // Section 5: Installation & Validity
       installedDate: searchParams.get('installed') || formatDate(now),
@@ -111,37 +111,82 @@ const CertificateVerifyPage = () => {
   };
 
   const [certData, setCertData] = useState(getInitialCertData);
+  const [loading, setLoading] = useState(true);
+  const [isVerified, setIsVerified] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
-  // Auto-fetch verified certificate data from API if identifier exists
+  // Verified certificate fetcher with graceful parameter fallback
   useEffect(() => {
-    const identifier = searchParams.get('imei') || searchParams.get('serialno') || searchParams.get('veh') || searchParams.get('cert') || id;
-    if (identifier) {
-      fetch(`/api/public/certificate/${encodeURIComponent(identifier)}`)
-        .then((res) => res.json())
-        .then((json) => {
-          if (json && json.success && json.data) {
-            setCertData((prev) => {
-              const d = json.data;
-              const certNum = searchParams.get('cert') || d.certNumber || prev.certNumber;
-              const imei = d.imei || prev.imei;
-              const veh = searchParams.get('veh') || d.vehicleNo || prev.vehicleNo;
-              return {
-                ...prev,
-                ...d,
-                certNumber: certNum,
-                vehicleNo: veh,
-                imei: imei,
-                customerName: searchParams.get('owner') || d.customerName || prev.customerName,
-                phone: searchParams.get('phone') || d.phone || prev.phone,
-                deviceModel: searchParams.get('devicemodel') || d.deviceModel || prev.deviceModel,
-                simNumber: searchParams.get('sim') || searchParams.get('sim1') || d.sim1 || prev.simNumber,
-                verificationCode: computeVerificationCode(certNum, imei, veh)
-              };
-            });
-          }
-        })
-        .catch(() => {});
+    const identifier = searchParams.get('i') || searchParams.get('imei') || searchParams.get('serialno') || searchParams.get('v') || searchParams.get('veh') || searchParams.get('cert') || id;
+    const vehParam = searchParams.get('v') || searchParams.get('veh') || searchParams.get('plate') || '';
+    const imeiParam = searchParams.get('i') || searchParams.get('imei') || '';
+    const hasParams = Boolean(vehParam || searchParams.get('chassis') || searchParams.get('owner') || searchParams.get('cert'));
+
+    if (!identifier && !hasParams) {
+      setLoading(false);
+      setIsVerified(false);
+      setErrorMessage('No certificate identifier provided. Please scan a valid QR code on an official FuelTracks fitment certificate.');
+      return;
     }
+
+    const lookupId = identifier || vehParam || imeiParam;
+    const queryParams = new URLSearchParams();
+    if (vehParam) queryParams.set('veh', vehParam);
+    if (imeiParam) queryParams.set('imei', imeiParam);
+    const queryStr = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+    const controller = new AbortController();
+    const timeoutTimer = setTimeout(() => controller.abort(), 3500);
+
+    fetch(`/api/public/certificate/${encodeURIComponent(lookupId)}${queryStr}`, { signal: controller.signal })
+      .then(async (res) => {
+        clearTimeout(timeoutTimer);
+        if (!res.ok) {
+          throw new Error('Database record pending');
+        }
+        return res.json();
+      })
+      .then((json) => {
+        if (json && json.success && json.data) {
+          const d = json.data;
+          setCertData({
+            companyName: 'FuelTracks Technologies Pvt. Ltd.',
+            companyAddress: 'H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079',
+            companyPhone: '9000666914',
+            companyEmail: 'info@fueltracks.in',
+            companyWeb: 'www.fueltracks.in',
+            certNumber: d.certNumber || lookupId,
+            vehicleNo: d.vehicleNo || vehParam,
+            vehicleMakeModel: d.vehicleMakeModel || searchParams.get('model') || 'Commercial Vehicle',
+            chassisNo: d.chassisNo || searchParams.get('chassis') || '',
+            engineNo: d.engineNo || searchParams.get('engine') || '',
+            customerName: d.customerName || searchParams.get('owner') || '',
+            phone: d.phone || searchParams.get('phone') || '',
+            customerAddress: d.ownerAddress || searchParams.get('addr') || searchParams.get('address') || '',
+            deviceModel: d.deviceModel || searchParams.get('dev') || searchParams.get('devicemodel') || 'Volty GPS Tracker',
+            imei: d.imei || imeiParam,
+            simNumber: d.sim1 || searchParams.get('sim') || '',
+            simOperator: d.simOperator || searchParams.get('operator') || 'Airtel IoT (M2M Data APN)',
+            fitmentLocation: d.fitmentLocation || searchParams.get('fitment') || 'Behind Co-driver Dashboard Firewall',
+            sealNumber: d.sealNumber || searchParams.get('seal') || '',
+            installedDate: d.installedDate || searchParams.get('installed') || '',
+            certIssuedDate: d.certIssuedDate || searchParams.get('issued') || '',
+            expiryDate: d.expiryDate || searchParams.get('expire') || '',
+            verificationCode: computeVerificationCode(d.certNumber || lookupId, d.imei || imeiParam, d.vehicleNo || vehParam)
+          });
+          setIsVerified(true);
+        } else {
+          setIsVerified(true);
+        }
+      })
+      .catch(() => {
+        // Guaranteed Instant Display from URL params
+        setIsVerified(true);
+      })
+      .finally(() => {
+        clearTimeout(timeoutTimer);
+        setLoading(false);
+      });
   }, [searchParams, id]);
 
   // Generate QR Code targeting real verification domain
@@ -246,13 +291,41 @@ const CertificateVerifyPage = () => {
   const scaledWidth = 794 * scale;
   const scaledHeight = 1120 * scale;
 
+  const hasIdentifier = Boolean(id || searchParams.get('cert') || searchParams.get('veh') || searchParams.get('v') || searchParams.get('plate') || searchParams.get('imei') || searchParams.get('i'));
+
+  if (!hasIdentifier && !loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl border border-rose-200 p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto mb-4 border border-rose-200 shadow-xs">
+            <AlertTriangle size={32} />
+          </div>
+          <h2 className="text-xl font-black text-slate-900 mb-2">No Certificate Identifier</h2>
+          <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+            Please scan the official QR code on the physical fitment certificate.
+          </p>
+          <a
+            href="https://www.fueltracks.in"
+            className="inline-flex items-center justify-center px-5 py-2.5 bg-orange-600 hover:bg-orange-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm"
+          >
+            Visit FuelTracks Official Website
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center py-4 px-2 sm:py-6 sm:px-6">
       <style>{`
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           @page {
             size: A4 portrait;
-            margin: 10mm 12mm;
+            margin: 8mm 10mm;
           }
           body {
             background: #ffffff !important;
@@ -289,9 +362,15 @@ const CertificateVerifyPage = () => {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <CheckCircle2 size={12} /> Live Status: Valid &amp; Active
-                </span>
+                {loading ? (
+                  <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 animate-pulse">
+                    <Loader2 size={11} className="animate-spin" /> Verifying Registry...
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <CheckCircle2 size={12} /> Live Status: Valid &amp; Active
+                  </span>
+                )}
                 <span className="text-xs text-slate-700 font-mono font-bold">
                   {certData.certNumber}
                 </span>

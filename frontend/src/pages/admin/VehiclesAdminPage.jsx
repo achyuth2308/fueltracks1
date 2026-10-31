@@ -320,9 +320,6 @@ const VehiclesAdminPage = () => {
           <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
             Vehicle Assets Registry
           </h1>
-          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
-            Manage fleet assets, telemetry hardware mapping, and full device configuration.
-          </p>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -833,14 +830,14 @@ const VehiclesAdminPage = () => {
                                   left: `${dropdownCoords?.left || 0}px`,
                                   top: `${dropdownCoords?.top || 0}px`,
                                   background: '#FFFFFF',
-                                  borderRadius: '12px',
-                                  padding: '6px',
-                                  boxShadow: '0 12px 32px rgba(15, 23, 42, 0.2), 0 4px 10px rgba(15, 23, 42, 0.08)',
+                                  borderRadius: '11px',
+                                  padding: '5px',
+                                  boxShadow: '0 10px 28px rgba(15, 23, 42, 0.18), 0 3px 8px rgba(15, 23, 42, 0.07)',
                                   zIndex: 999999,
                                   display: 'flex',
                                   flexDirection: 'column',
                                   gap: '2px',
-                                  minWidth: '195px',
+                                  minWidth: '172px',
                                   border: '1px solid #fed7aa',
                                   textAlign: 'left'
                                 }}
@@ -855,14 +852,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -879,8 +876,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -889,7 +886,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <Shuffle size={14} />
+                                    <Shuffle size={13} />
                                   </div>
                                   <span>Migration</span>
                                 </button>
@@ -904,14 +901,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -928,8 +925,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -938,7 +935,7 @@ const VehiclesAdminPage = () => {
                                     color: '#F97316',
                                     flexShrink: 0
                                   }}>
-                                    <Edit2 size={14} />
+                                    <Edit2 size={13} />
                                   </div>
                                   <span>Edit</span>
                                 </button>
@@ -953,14 +950,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -977,8 +974,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -987,7 +984,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <UserPlus size={14} />
+                                    <UserPlus size={13} />
                                   </div>
                                   <span>Add User</span>
                                 </button>
@@ -1002,14 +999,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1026,8 +1023,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -1036,7 +1033,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <Sliders size={14} />
+                                    <Sliders size={13} />
                                   </div>
                                   <span>Calibrate</span>
                                 </button>
@@ -1051,14 +1048,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1075,8 +1072,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#ECFDF5',
                                     display: 'flex',
@@ -1085,7 +1082,7 @@ const VehiclesAdminPage = () => {
                                     color: '#059669',
                                     flexShrink: 0
                                   }}>
-                                    <Fuel size={14} />
+                                    <Fuel size={13} />
                                   </div>
                                   <span>Live Fuel</span>
                                 </button>
@@ -1100,14 +1097,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1124,8 +1121,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -1134,7 +1131,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <FileText size={14} />
+                                    <FileText size={13} />
                                   </div>
                                   <span>Audit Report</span>
                                 </button>
@@ -1149,14 +1146,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1173,8 +1170,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#EFF6FF',
                                     display: 'flex',
@@ -1183,7 +1180,7 @@ const VehiclesAdminPage = () => {
                                     color: '#2563EB',
                                     flexShrink: 0
                                   }}>
-                                    <Award size={14} />
+                                    <Award size={13} />
                                   </div>
                                   <span>Fitment Certificate</span>
                                 </button>
@@ -1198,14 +1195,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1222,8 +1219,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -1232,7 +1229,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <Tag size={14} />
+                                    <Tag size={13} />
                                   </div>
                                   <span>Rename</span>
                                 </button>
@@ -1247,14 +1244,14 @@ const VehiclesAdminPage = () => {
                                   style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '10px',
+                                    gap: '9px',
                                     width: '100%',
-                                    padding: '8px 12px',
+                                    padding: '6px 10px',
                                     background: 'transparent',
                                     color: '#1E293B',
                                     border: 'none',
-                                    borderRadius: '8px',
-                                    fontSize: '13px',
+                                    borderRadius: '7px',
+                                    fontSize: '12.5px',
                                     fontWeight: 600,
                                     cursor: 'pointer',
                                     textAlign: 'left',
@@ -1271,8 +1268,8 @@ const VehiclesAdminPage = () => {
                                   }}
                                 >
                                   <div style={{
-                                    width: '26px',
-                                    height: '26px',
+                                    width: '23px',
+                                    height: '23px',
                                     borderRadius: '6px',
                                     background: '#FFF7ED',
                                     display: 'flex',
@@ -1281,7 +1278,7 @@ const VehiclesAdminPage = () => {
                                     color: '#EA580C',
                                     flexShrink: 0
                                   }}>
-                                    <RotateCw size={14} />
+                                    <RotateCw size={13} />
                                   </div>
                                   <span>Reprocess</span>
                                 </button>
@@ -1498,6 +1495,7 @@ const VehiclesAdminPage = () => {
         isOpen={Boolean(selectedFitmentVehicle)}
         vehicle={selectedFitmentVehicle}
         onClose={() => setSelectedFitmentVehicle(null)}
+        onSaved={fetchVehicles}
       />
     </div>
   );

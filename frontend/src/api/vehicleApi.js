@@ -92,3 +92,11 @@ export const updateVehicleSettings = async (id, data) => {
   const response = await axiosInstance.patch(`/api/vehicles/${id}/settings`, data);
   return response.data;
 };
+
+// RC Document Scanner (OCR)
+export const scanRcDocument = async (formData) => {
+  const response = await axiosInstance.post('/api/vehicles/scan-rc', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  return response.data;
+};

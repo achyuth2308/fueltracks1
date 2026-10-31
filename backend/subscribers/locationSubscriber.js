@@ -550,11 +550,11 @@ async function start(io) {
         };
 
         // Helper to evaluate a single tank (with single or multiple sensors)
-        const evaluateTankLiters = (tankCfg, tankIndex) => {
-          if (!tankCfg) return 0;
-          const capacity = parseFloat(tankCfg.tankSize || (tankIndex === 1 ? vehicle.metadata.tankSize : 0));
-          const shape = tankCfg.fuelTankShape || vehicle.metadata.fuelTankShape || 'Rectangle';
-          const position = tankCfg.fuelTankPosition || vehicle.metadata.fuelTankPosition || 'Horizontal';
+        const evaluateTankMetrics = (tankCfg, tankIndex) => {
+          if (!tankCfg) return { litres: 0, s1Litres: null, s2Litres: null, s1Raw: null, s2Raw: null };
+          const capacity = parseFloat(tankCfg.tankSize || (tankIndex === 1 ? vehicle.metadata?.tankSize : 0));
+          const shape = tankCfg.fuelTankShape || vehicle.metadata?.fuelTankShape || 'Rectangle';
+          const position = tankCfg.fuelTankPosition || vehicle.metadata?.fuelTankPosition || 'Horizontal';
 
           const configuredSensors = tankCfg.sensors || {};
           const sensorKeys = Object.keys(configuredSensors).filter(k => configuredSensors[k]);
@@ -567,34 +567,68 @@ async function start(io) {
             const s2Litres = evaluateSensorLiters(configuredSensors[2], s2Raw, capacity, shape, position);
 
             const formula = tankCfg.sensorFormula || 'Average';
+            let calculated = fuel;
             if (formula === 'Average' && s1Litres != null && s2Litres != null) {
-              return Math.round(((s1Litres + s2Litres) / 2) * 100) / 100;
+              calculated = Math.round(((s1Litres + s2Litres) / 2) * 100) / 100;
             } else if (formula === 'Sum' && s1Litres != null && s2Litres != null) {
-              return Math.round((s1Litres + s2Litres) * 100) / 100;
+              calculated = Math.round((s1Litres + s2Litres) * 100) / 100;
             } else if (formula === 'Failover') {
-              return s1Litres != null ? s1Litres : s2Litres;
+              calculated = s1Litres != null ? s1Litres : s2Litres;
             } else {
-              return s1Litres != null ? s1Litres : (s2Litres != null ? s2Litres : fuel);
+              calculated = s1Litres != null ? s1Litres : (s2Litres != null ? s2Litres : fuel);
             }
+            return {
+              litres: calculated,
+              s1Litres,
+              s2Litres,
+              s1Raw,
+              s2Raw
+            };
           } else {
             // Single sensor for this tank
             const raw = tankIndex === 1 ? fuel : (data[`fuel${tankIndex}`] ?? data[`fuel_${tankIndex}`] ?? data.fuel2 ?? data.fuel_2 ?? data.lls2 ?? fuel);
             const activeSensorCfg = configuredSensors[1] || tankCfg;
-            return evaluateSensorLiters(activeSensorCfg, raw, capacity, shape, position);
+            const sLitres = evaluateSensorLiters(activeSensorCfg, raw, capacity, shape, position);
+            return {
+              litres: sLitres,
+              s1Litres: sLitres,
+              s2Litres: null,
+              s1Raw: raw,
+              s2Raw: null
+            };
           }
         };
 
+        const tanksTelemetry = {};
         if (totalTanks > 1) {
           let combinedLiters = 0;
           let calculatedAny = false;
           for (let t = 1; t <= totalTanks; t++) {
             const tCfg = tanksMap[t];
             if (tCfg) {
-              const tLitres = evaluateTankLiters(tCfg, t);
-              if (tLitres != null && !isNaN(tLitres)) {
-                combinedLiters += tLitres;
+              const capacity = parseFloat(tCfg.tankSize || (t === 1 ? vehicle.metadata?.tankSize : 0)) || 0;
+              const configuredSensors = tCfg.sensors || {};
+              const sCount = Object.keys(configuredSensors).filter(k => configuredSensors[k]).length || 1;
+              const metrics = evaluateTankMetrics(tCfg, t);
+              if (metrics.litres != null && !isNaN(metrics.litres)) {
+                combinedLiters += metrics.litres;
                 calculatedAny = true;
               }
+              tanksTelemetry[t] = {
+                tankIndex: t,
+                litres: metrics.litres,
+                sensor1Litres: metrics.s1Litres,
+                sensor2Litres: metrics.s2Litres,
+                capacity: capacity,
+                fillPercentage: capacity > 0 && metrics.litres != null ? Math.min(100, Math.max(0, Math.round((metrics.litres / capacity) * 100))) : null,
+                shape: tCfg.fuelTankShape || 'Rectangle',
+                position: tCfg.fuelTankPosition || 'Horizontal',
+                fuelType: tCfg.fuelType || 'LLS Fuel 1(Serial)',
+                sensorCount: sCount,
+                sensor1Raw: metrics.s1Raw,
+                sensor2Raw: metrics.s2Raw,
+                formula: tCfg.sensorFormula || 'Average'
+              };
             }
           }
           if (calculatedAny) {
@@ -602,11 +636,30 @@ async function start(io) {
           }
         } else {
           const t1 = tanksMap[1] || fuelCal;
-          const t1Litres = evaluateTankLiters(t1, 1);
-          if (t1Litres != null && !isNaN(t1Litres)) {
-            finalFuelLiters = t1Litres;
+          const capacity = parseFloat(t1.tankSize || vehicle.metadata?.tankSize || 0) || 0;
+          const configuredSensors = t1.sensors || {};
+          const sCount = Object.keys(configuredSensors).filter(k => configuredSensors[k]).length || 1;
+          const metrics = evaluateTankMetrics(t1, 1);
+          if (metrics.litres != null && !isNaN(metrics.litres)) {
+            finalFuelLiters = metrics.litres;
           }
+          tanksTelemetry[1] = {
+            tankIndex: 1,
+            litres: metrics.litres,
+            sensor1Litres: metrics.s1Litres,
+            sensor2Litres: metrics.s2Litres,
+            capacity: capacity,
+            fillPercentage: capacity > 0 && metrics.litres != null ? Math.min(100, Math.max(0, Math.round((metrics.litres / capacity) * 100))) : null,
+            shape: t1.fuelTankShape || 'Rectangle',
+            position: t1.fuelTankPosition || 'Horizontal',
+            fuelType: t1.fuelType || 'LLS Fuel 1(Serial)',
+            sensorCount: sCount,
+            sensor1Raw: metrics.s1Raw,
+            sensor2Raw: metrics.s2Raw,
+            formula: t1.sensorFormula || 'Average'
+          };
         }
+        data.tanksTelemetry = tanksTelemetry;
       }
 
       // 2d. Fuel Alerts (Theft & Refill)
@@ -679,6 +732,7 @@ async function start(io) {
           odometer: finalOdometer,
           parkedSince,
           fuel: finalFuelLiters,
+          tanks: data.tanksTelemetry || null,
           statusKey: currentStatusKey,
           statusSince
         };
@@ -1173,6 +1227,7 @@ async function start(io) {
           lat: emitLat, lng: emitLng, speed, direction,
           fuel: (finalFuelLiters !== undefined && finalFuelLiters !== null) ? finalFuelLiters : fuel,
           rawFuel: fuel,
+          tanks: data.tanksTelemetry || null,
           ignition: finalIgnition, voltage,
           odometer: displayedOdometer,
           satellites, gsmSignal, battery, deviceTime, isOnline: true,

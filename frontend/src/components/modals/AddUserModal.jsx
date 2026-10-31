@@ -19,10 +19,8 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [newOrgName, setNewOrgName] = useState('');
   const [autoCreateGroup, setAutoCreateGroup] = useState(false);
 
-  // Extra UI Fields (Frontend only for layout matching)
+  // Extra UI Fields
   const [altEmail, setAltEmail] = useState('');
-  const [companyName, setCompanyName] = useState('');
-  const [zoho, setZoho] = useState('');
   const [defaultMap, setDefaultMap] = useState('OSM');
   const [enableDebugs, setEnableDebugs] = useState('Disable');
   const [assetUser, setAssetUser] = useState(false);
@@ -110,7 +108,6 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
     try {
       await onSave(payload);
-      // If role is dealer, also update the device limits for the selected org
       if (role === 'dealer' && orgId) {
         try {
           await adminApi.setDeviceLimits(orgId, deviceLimits);
@@ -143,86 +140,275 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   };
 
   const filteredGroups = availableGroups.filter(g => g.name.toLowerCase().includes(groupSearch.toLowerCase()));
+  const selectedGroupsList = filteredGroups.filter(g => selectedGroups.includes(g.id));
+  const unselectedGroupsList = filteredGroups.filter(g => !selectedGroups.includes(g.id));
   const isAllSelected = availableGroups.length > 0 && selectedGroups.length === availableGroups.length;
 
   if (!isOpen) return null;
 
+  const labelStyle = {
+    display: 'block',
+    fontSize: '11px',
+    fontWeight: 700,
+    color: '#475569',
+    textTransform: 'uppercase',
+    marginBottom: '3px',
+    letterSpacing: '0.02em'
+  };
+
+  const inputStyle = {
+    width: '100%',
+    height: '34px',
+    padding: '0 10px',
+    fontSize: '12.5px',
+    background: '#FFFFFF',
+    border: '1px solid #CBD5E1',
+    borderRadius: '6px',
+    color: '#111827',
+    outline: 'none',
+    boxSizing: 'border-box'
+  };
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'flex', alignItems: 'center', justifycontent: 'center', justifyContent: 'center', background: 'rgba(17, 24, 39, 0.4)', backdropFilter: 'blur(4px)', padding: '16px' }} onClick={onClose}>
-      <div style={{ position: 'relative', width: '100%', maxWidth: '900px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '12px', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+    <div
+      className="user-modal-overlay"
+      style={{
+        position: 'fixed',
+        top: '56px',
+        left: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(17, 24, 39, 0.45)',
+        backdropFilter: 'blur(4px)',
+        padding: '24px 16px',
+        boxSizing: 'border-box'
+      }}
+      onClick={onClose}
+    >
+      <div
+        className="user-modal-card"
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '620px',
+          background: '#FFFFFF',
+          border: '1px solid #E2E8F0',
+          borderRadius: '12px',
+          boxShadow: '0 20px 40px -12px rgba(0,0,0,0.22)',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+          maxHeight: 'calc(100vh - 105px)',
+          margin: 'auto'
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <style>{`
+          .user-modal-overlay {
+            top: 56px !important;
+            padding: 24px 16px !important;
+          }
+          .user-modal-card {
+            max-width: 620px;
+            width: 100%;
+            max-height: calc(100vh - 105px) !important;
+          }
+          .user-modal-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px 14px;
+          }
+          .user-modal-groups-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px 10px;
+          }
+          @media (max-width: 640px) {
+            .user-modal-overlay {
+              top: 56px !important;
+              padding: 10px 8px !important;
+            }
+            .user-modal-card {
+              max-height: calc(100vh - 78px) !important;
+              border-radius: 10px !important;
+              max-width: 100% !important;
+            }
+            .user-modal-header {
+              padding: 10px 14px !important;
+            }
+            .user-modal-body {
+              padding: 10px 12px !important;
+              gap: 8px !important;
+            }
+            .user-modal-grid {
+              grid-template-columns: 1fr !important;
+              gap: 8px !important;
+            }
+            .user-modal-groups-grid {
+              grid-template-columns: repeat(2, 1fr) !important;
+              gap: 6px !important;
+            }
+            .user-modal-groups-bar {
+              flex-direction: column !important;
+              align-items: stretch !important;
+              gap: 8px !important;
+            }
+            .user-modal-search-wrap {
+              width: 100% !important;
+            }
+            .user-modal-search-input {
+              flex: 1 !important;
+              width: 100% !important;
+            }
+          }
+          @media (max-width: 420px) {
+            .user-modal-groups-grid {
+              grid-template-columns: 1fr !important;
+            }
+          }
+        `}</style>
 
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', borderBottom: '1px solid #F1F5F9', background: '#EEF5F8' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#111827', margin: 0 }}>
+        <div
+          className="user-modal-header"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '10px 18px',
+            borderBottom: '1px solid #F1F5F9',
+            background: '#fff7ed'
+          }}
+        >
+          <h2 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
             {editingUser ? 'Edit User' : 'Create User'}
           </h2>
           <button
             onClick={onClose}
-            style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#94A3B8',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
           >
-            <X size={18} />
+            <X size={16} />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} style={{ flex: 1, overflowY: 'auto', padding: '16px 24px', background: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <form
+          onSubmit={handleSubmit}
+          className="user-modal-body"
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            padding: '14px 18px',
+            background: '#FFFFFF',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}
+        >
           {error && (
-            <div style={{ padding: '10px 14px', fontSize: '13px', fontWeight: 600, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', borderRadius: '8px' }}>
+            <div
+              style={{
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                background: '#FEF2F2',
+                color: '#DC2626',
+                border: '1px solid #FEE2E2',
+                borderRadius: '6px'
+              }}
+            >
               {error}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 20px' }}>
+          <div className="user-modal-grid">
+            {/* Customer Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label style={labelStyle}>
                 Customer Name<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="text" required value={name} onChange={(e) => setName(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                style={inputStyle}
               />
             </div>
+
+            {/* Mobile Number */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label style={labelStyle}>
                 Mobile Number<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="text" required value={phone} onChange={(e) => setPhone(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                type="text"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                style={inputStyle}
               />
             </div>
 
+            {/* Email */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label style={labelStyle}>
                 Email<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <input
-                type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Username<span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="text" required value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="off"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Alternate Email
-              </label>
-              <input
-                type="email" value={altEmail} onChange={(e) => setAltEmail(e.target.value)} placeholder="Alternate Email"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
+                style={inputStyle}
               />
             </div>
 
+            {/* Username */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
+              <label style={labelStyle}>
+                Username<span style={{ color: '#EF4444' }}>*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="off"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Alternate Email */}
+            <div>
+              <label style={labelStyle}>Alternate Email</label>
+              <input
+                type="email"
+                value={altEmail}
+                onChange={(e) => setAltEmail(e.target.value)}
+                placeholder="Alternate Email"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Organization */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                <label style={{ ...labelStyle, marginBottom: 0 }}>
                   Organization<span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 {!editingUser && (
@@ -235,14 +421,14 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: '#2563eb',
+                      color: '#ea580c',
                       fontSize: '11px',
                       fontWeight: 700,
                       cursor: 'pointer',
                       padding: 0
                     }}
                   >
-                    {isNewOrg ? '← Choose Existing Org' : '+ Create New Org'}
+                    {isNewOrg ? '← Existing Org' : '+ Create New Org'}
                   </button>
                 )}
               </div>
@@ -252,13 +438,14 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                   required
                   value={newOrgName}
                   onChange={(e) => setNewOrgName(e.target.value)}
-                  placeholder="Enter New Organization / Company Name"
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1.5px solid #3b82f6', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                  placeholder="Enter New Org Name"
+                  style={{ ...inputStyle, border: '1.5px solid #f97316' }}
                 />
               ) : (
                 <select
-                  value={orgId} onChange={(e) => setOrgId(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                  value={orgId}
+                  onChange={(e) => setOrgId(e.target.value)}
+                  style={inputStyle}
                 >
                   <option value="">SELECT</option>
                   {orgs && orgs.map(org => (
@@ -267,61 +454,63 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                 </select>
               )}
             </div>
+
+            {/* Role */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+              <label style={labelStyle}>
                 Role<span style={{ color: '#EF4444' }}>*</span>
               </label>
               <select
-                required value={role} onChange={(e) => setRole(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                required
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                style={inputStyle}
               >
                 <option value="customer">Customer</option>
                 <option value="dealer">Dealer</option>
               </select>
             </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Zoho<span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="text" value={zoho} onChange={(e) => setZoho(e.target.value)} placeholder="Zoho"
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
-              />
-            </div>
 
+            {/* Default Map */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Default Map
-              </label>
+              <label style={labelStyle}>Default Map</label>
               <select
-                value={defaultMap} onChange={(e) => setDefaultMap(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                value={defaultMap}
+                onChange={(e) => setDefaultMap(e.target.value)}
+                style={inputStyle}
               >
                 <option value="OSM">OSM</option>
                 <option value="Google">Google Maps</option>
               </select>
             </div>
+
+            {/* Enable Debugs */}
             <div>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
-                Enable Debugs
-              </label>
+              <label style={labelStyle}>Enable Debugs</label>
               <select
-                value={enableDebugs} onChange={(e) => setEnableDebugs(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                value={enableDebugs}
+                onChange={(e) => setEnableDebugs(e.target.value)}
+                style={inputStyle}
               >
                 <option value="Disable">Disable</option>
                 <option value="Enable">Enable</option>
               </select>
             </div>
 
+            {/* Password (only shown when creating a new user) */}
             {!editingUser && (
               <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+                <label style={labelStyle}>
                   Password<span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <input
-                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="new-password"
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  style={inputStyle}
                 />
               </div>
             )}
@@ -329,24 +518,35 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
           {/* Device Limits — only shown when creating a NEW Dealer role */}
           {role === 'dealer' && !editingUser && (
-            <div style={{ marginTop: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <Cpu size={14} color="#f97316" />
-                <label style={{ fontSize: '13px', fontWeight: 700, color: '#3B82F6' }}>
+            <div style={{ marginTop: '2px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                <Cpu size={13} color="#f97316" />
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#ea580c' }}>
                   Organization Device Allowances (Quota) :
                 </label>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px 20px', padding: '12px', background: '#EEF5F8', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '8px 14px',
+                  padding: '10px 12px',
+                  background: '#fff7ed',
+                  borderRadius: '6px',
+                  border: '1px solid #fed7aa'
+                }}
+              >
                 {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
                   <div key={tier}>
-                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
+                    <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
                       {tier} <span style={{ color: '#94A3B8', fontWeight: 'normal' }}>(No. of Devices)</span>
                     </label>
                     <input
-                      type="number" min="0"
+                      type="number"
+                      min="0"
                       value={deviceLimits[tier]}
                       onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
-                      style={{ width: '100%', padding: '6px 10px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '6px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                      style={{ ...inputStyle, height: '30px', fontSize: '12px' }}
                     />
                   </div>
                 ))}
@@ -354,109 +554,237 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             </div>
           )}
 
-          <div style={{ marginTop: '4px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#3B82F6', marginBottom: '6px' }}>
+          {/* User Mode Checkboxes */}
+          <div style={{ marginTop: '2px' }}>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#ea580c', marginBottom: '4px' }}>
               User Mode :
             </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '24px', paddingLeft: '4px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#111827' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', paddingLeft: '2px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#111827' }}>
                 <input
-                  type="checkbox" checked={assetUser} onChange={(e) => setAssetUser(e.target.checked)}
-                  style={{ width: '15px', height: '15px', accentColor: '#3B82F6', cursor: 'pointer' }}
+                  type="checkbox"
+                  checked={assetUser}
+                  onChange={(e) => setAssetUser(e.target.checked)}
+                  style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
                 />
                 <span style={{ fontWeight: 500 }}>Asset User</span>
               </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#111827' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12.5px', color: '#111827' }}>
                 <input
-                  type="checkbox" checked={virtualAccount} onChange={(e) => setVirtualAccount(e.target.checked)}
-                  style={{ width: '15px', height: '15px', accentColor: '#3B82F6', cursor: 'pointer' }}
+                  type="checkbox"
+                  checked={virtualAccount}
+                  onChange={(e) => setVirtualAccount(e.target.checked)}
+                  style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
                 />
                 <span style={{ fontWeight: 500 }}>Virtual Account</span>
               </label>
             </div>
           </div>
 
-          {/* Centered Update Button matching the screenshot */}
-          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '12px', marginBottom: '12px', borderBottom: '1px solid #F1F5F9', paddingBottom: '12px' }}>
+          {/* Centered Submit Button */}
+          <div style={{ display: 'flex', justifyContent: 'center', marginTop: '6px', marginBottom: '6px', borderBottom: '1px solid #F1F5F9', paddingBottom: '10px' }}>
             <button
               type="submit"
               disabled={loading}
               style={{
-                padding: '8px 24px', background: '#3B82F6', color: '#FFFFFF',
-                fontSize: '13px', fontWeight: 600, border: 'none', borderRadius: '6px',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
-                boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)'
+                padding: '7px 24px',
+                background: '#f97316',
+                color: '#FFFFFF',
+                fontSize: '12.5px',
+                fontWeight: 700,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 6px rgba(249, 115, 22, 0.28)',
+                opacity: loading ? 0.75 : 1
               }}
             >
-              {loading && <Loader2 size={14} className="animate-spin" />}
+              {loading && <Loader2 size={13} className="animate-spin" />}
               {editingUser ? 'Update User' : 'Create User'}
             </button>
           </div>
 
           {/* Groups Section */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ display: 'flex', itemsAlign: 'center', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '8px', borderBottom: '1px solid #F1F5F9' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 600, color: '#111827' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div className="user-modal-groups-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid #F1F5F9' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, color: '#111827' }}>
                 <input
-                  type="checkbox" checked={isAllSelected} onChange={handleSelectAllGroups}
-                  style={{ width: '15px', height: '15px', accentColor: '#3B82F6', cursor: 'pointer' }}
+                  type="checkbox"
+                  checked={isAllSelected}
+                  onChange={handleSelectAllGroups}
+                  style={{ width: '14px', height: '14px', accentColor: '#f97316', cursor: 'pointer' }}
                 />
                 <span>Select All Groups</span>
               </label>
 
-              <div style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="user-modal-search-wrap" style={{ display: 'flex', alignItems: 'center' }}>
                 <input
-                  type="text" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} placeholder="Search..."
-                  style={{ width: '200px', padding: '6px 12px', fontSize: '13px', border: '1px solid #CBD5E1', borderTopLeftRadius: '6px', borderBottomLeftRadius: '6px', outline: 'none', color: '#111827', background: '#FFFFFF' }}
+                  type="text"
+                  value={groupSearch}
+                  onChange={(e) => setGroupSearch(e.target.value)}
+                  placeholder="Search..."
+                  className="user-modal-search-input"
+                  style={{
+                    width: '160px',
+                    height: '30px',
+                    padding: '0 10px',
+                    fontSize: '12px',
+                    border: '1px solid #CBD5E1',
+                    borderTopLeftRadius: '6px',
+                    borderBottomLeftRadius: '6px',
+                    outline: 'none',
+                    color: '#111827',
+                    background: '#FFFFFF',
+                    boxSizing: 'border-box'
+                  }}
                 />
-                <button type="button" style={{ padding: '7px 12px', background: '#3B82F6', color: '#FFFFFF', border: '1px solid #3B82F6', borderTopRightRadius: '6px', borderBottomRightRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Search size={14} />
+                <button
+                  type="button"
+                  style={{
+                    height: '30px',
+                    padding: '0 10px',
+                    background: '#f97316',
+                    color: '#FFFFFF',
+                    border: '1px solid #f97316',
+                    borderTopRightRadius: '6px',
+                    borderBottomRightRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  <Search size={13} />
                 </button>
               </div>
             </div>
 
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 8px 0', flexWrap: 'wrap', gap: '8px' }}>
-                <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: 0 }}>
-                  Assign to Existing Groups:
-                </h4>
-                {!editingUser && (
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: selectedGroups.length > 0 ? '#64748b' : '#0284c7' }}>
-                    <input
-                      type="checkbox"
-                      checked={selectedGroups.length === 0 ? true : autoCreateGroup}
-                      disabled={selectedGroups.length === 0}
-                      onChange={(e) => setAutoCreateGroup(e.target.checked)}
-                      style={{ width: '14px', height: '14px', accentColor: '#3B82F6', cursor: selectedGroups.length === 0 ? 'not-allowed' : 'pointer' }}
-                    />
-                    <span>
-                      {selectedGroups.length === 0
-                        ? `Auto-creating group "${username || 'username'}" (since no group selected)`
-                        : `Also create a separate group "${username || 'username'}"`}
-                    </span>
-                  </label>
-                )}
+            {availableGroups.length === 0 ? (
+              <div style={{ fontSize: '11.5px', color: '#94A3B8', fontStyle: 'italic', padding: '6px 0' }}>
+                No groups available in this organization.
               </div>
-              {filteredGroups.length === 0 ? (
-                <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>No groups available in this organization.</div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px' }}>
-                  {filteredGroups.map(g => (
-                    <label key={g.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#000000' }}>
-                      <input
-                        type="checkbox" checked={selectedGroups.includes(g.id)} onChange={() => handleGroupToggle(g.id)}
-                        style={{ width: '14px', height: '14px', accentColor: '#3B82F6', cursor: 'pointer' }}
-                      />
-                      <span style={{ fontWeight: 600, textTransform: 'uppercase' }}>{g.name}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            ) : (
+              <>
+                {/* 1. SELECTED GROUPS (Only shown when at least one group is selected) */}
+                {selectedGroupsList.length > 0 && (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                      <h4 style={{ fontSize: '12px', fontWeight: 700, color: '#ea580c', margin: 0 }}>
+                        Selected Groups :
+                      </h4>
+                      <span style={{
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                        color: '#c2410c',
+                        background: '#ffedd5',
+                        padding: '1px 7px',
+                        borderRadius: '10px'
+                      }}>
+                        {selectedGroupsList.length}
+                      </span>
+                    </div>
 
+                    <div className="user-modal-groups-grid">
+                      {selectedGroupsList.map(g => (
+                        <label
+                          key={g.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '5px 8px',
+                            background: '#fff7ed',
+                            border: '1px solid #fed7aa',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '11.5px',
+                            userSelect: 'none'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            onChange={() => handleGroupToggle(g.id)}
+                            style={{ width: '13px', height: '13px', accentColor: '#f97316', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: 700, color: '#9a3412', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {g.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. UNSELECTED GROUPS */}
+                <div style={{ marginTop: selectedGroupsList.length > 0 ? '6px' : '0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                    <h4 style={{ fontSize: '12px', fontWeight: 700, color: '#475569', margin: 0 }}>
+                      Unselected Groups :
+                    </h4>
+                    <span style={{
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: '#475569',
+                      background: '#f1f5f9',
+                      padding: '1px 7px',
+                      borderRadius: '10px'
+                    }}>
+                      {unselectedGroupsList.length}
+                    </span>
+                  </div>
+
+                  {unselectedGroupsList.length === 0 ? (
+                    <div style={{
+                      padding: '8px 12px',
+                      background: '#f8fafc',
+                      borderRadius: '6px',
+                      border: '1px dashed #cbd5e1',
+                      color: '#64748b',
+                      fontSize: '11.5px',
+                      fontStyle: 'italic'
+                    }}>
+                      All available groups are currently selected.
+                    </div>
+                  ) : (
+                    <div className="user-modal-groups-grid">
+                      {unselectedGroupsList.map(g => (
+                        <label
+                          key={g.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            padding: '5px 8px',
+                            background: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '11.5px',
+                            userSelect: 'none'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            onChange={() => handleGroupToggle(g.id)}
+                            style={{ width: '13px', height: '13px', accentColor: '#f97316', cursor: 'pointer' }}
+                          />
+                          <span style={{ fontWeight: 600, color: '#334155', textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {g.name}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </form>
-
       </div>
     </div>
   );

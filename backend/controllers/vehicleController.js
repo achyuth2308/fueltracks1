@@ -4,6 +4,7 @@
 // ============================================================
 
 const VehicleModel = require('../models/vehicleModel');
+const rcOcrService = require('../services/rcOcrService');
 const GpsModel = require('../models/gpsModel');
 const GroupModel = require('../models/groupModel');
 const archiveService = require('../services/archiveService');
@@ -1066,6 +1067,15 @@ const VehicleController = {
         [thisTankNo]: thisTankData
       };
 
+      if (noOfTank && Number(noOfTank) > 0) {
+        const maxTanks = Number(noOfTank);
+        Object.keys(updatedTanks).forEach(k => {
+          if (Number(k) > maxTanks) {
+            delete updatedTanks[k];
+          }
+        });
+      }
+
       const updatedMeta = {
         ...currentMeta,
         modeOfVehicle: modeOfVehicle !== undefined ? modeOfVehicle : currentMeta.modeOfVehicle,
@@ -1594,6 +1604,51 @@ const VehicleController = {
       });
     } catch (err) {
       next(err);
+    }
+  },
+
+  /**
+   * Scan RC document images (Front & Back) via bounded OCR
+   */
+  async scanRcDocument(req, res, next) {
+    try {
+      const files = req.files || {};
+      if (!files.rcFront && !files.rcBack) {
+        return res.status(400).json({
+          success: false,
+          error: "Please upload at least one RC image (Front or Back).",
+          code: "NO_FILES_UPLOADED"
+        });
+      }
+
+      // Delegate to OCR service (bounded concurrency, non-blocking)
+      const rcData = await rcOcrService.processRcFiles(files);
+
+      return res.json({
+        success: true,
+        message: "RC document scanned successfully.",
+        data: rcData
+      });
+    } catch (err) {
+      if (err.message && err.message.startsWith("OCR_QUEUE_FULL")) {
+        return res.status(429).json({
+          success: false,
+          error: "The OCR scanner is handling maximum concurrent requests. Please wait a moment and try again.",
+          code: "OCR_QUEUE_BUSY"
+        });
+      }
+      if (err.message && err.message.startsWith("OCR_TIMEOUT")) {
+        return res.status(504).json({
+          success: false,
+          error: "OCR scanning timed out. Please ensure image is clear and under 5MB.",
+          code: "OCR_TIMEOUT"
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        error: "Failed to extract text from RC image: " + (err.message || "Unknown error"),
+        code: "OCR_EXTRACTION_FAILED"
+      });
     }
   }
 };

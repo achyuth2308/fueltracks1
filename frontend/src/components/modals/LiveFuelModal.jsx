@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   X, Fuel, Activity, Zap, Gauge, Radio, RotateCw, CheckCircle2,
-  Clock, Shield, AlertTriangle, ArrowRight, Battery, Cpu
+  Clock, Shield, AlertTriangle, ArrowRight, Battery, Cpu, Layers
 } from 'lucide-react';
 import { useSocket } from '../../hooks/useSocket';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -17,12 +17,32 @@ const LiveFuelModal = ({
   initialFuel = null,
   initialOdometer = null,
   fuelType = '',
-  sensorType = ''
+  sensorType = '',
+  initialActiveTank = 1,
+  tanksConfig = null,
+  noOfTank = 1
 }) => {
   const { socket, connected, joinVehicleRoom, leaveVehicleRoom } = useSocket();
 
+  // Multi-tank selection state: 'all' or '1', '2', etc.
+  const totalTanksCount = Math.max(
+    1,
+    parseInt(noOfTank) || (tanksConfig ? Object.keys(tanksConfig).length : 1)
+  );
+
+  const [activeTab, setActiveTab] = useState(
+    totalTanksCount > 1 ? (initialActiveTank ? String(initialActiveTank) : 'all') : '1'
+  );
+
+  useEffect(() => {
+    if (initialActiveTank) {
+      setActiveTab(String(initialActiveTank));
+    }
+  }, [initialActiveTank]);
+
   const [liveData, setLiveData] = useState({
     fuel: initialFuel !== null && !isNaN(Number(initialFuel)) ? Number(initialFuel) : null,
+    rawFuel: null,
     voltage: null,
     battery: null,
     ignition: false,
@@ -30,7 +50,8 @@ const LiveFuelModal = ({
     satellites: null,
     odometer: initialOdometer !== null && !isNaN(Number(initialOdometer)) ? Number(initialOdometer) : null,
     todayDistance: null,
-    deviceTime: null
+    deviceTime: null,
+    tanks: {}
   });
 
   // Fixed micro-buffer capped at max 20 data points (< 500 bytes of memory)
@@ -78,6 +99,7 @@ const LiveFuelModal = ({
         setLiveData(prev => ({
           ...prev,
           fuel: parsedFuel !== null ? parsedFuel : prev.fuel,
+          rawFuel: v.rawFuel ?? prev.rawFuel,
           voltage: v.current_voltage ?? v.voltage ?? prev.voltage,
           ignition: v.current_ignition !== undefined ? !!v.current_ignition : (v.ignition !== undefined ? !!v.ignition : prev.ignition),
           speed: v.current_speed ?? v.speed ?? prev.speed,
@@ -85,7 +107,8 @@ const LiveFuelModal = ({
           battery: v.battery ?? prev.battery,
           odometer: v.current_odometer ?? v.odometer ?? v.metadata?.odometerReading ?? prev.odometer,
           todayDistance: v.today_distance ?? prev.todayDistance,
-          deviceTime: v.last_seen ?? v.deviceTime ?? prev.deviceTime
+          deviceTime: v.last_seen ?? v.deviceTime ?? prev.deviceTime,
+          tanks: v.tanks || prev.tanks || {}
         }));
         if (parsedFuel !== null) {
           const initNum = Number(parsedFuel.toFixed(1));
@@ -136,6 +159,7 @@ const LiveFuelModal = ({
           return {
             ...prev,
             fuel: nextFuel,
+            rawFuel: data.rawFuel !== undefined ? data.rawFuel : prev.rawFuel,
             voltage: data.voltage !== undefined && data.voltage !== null ? data.voltage : prev.voltage,
             battery: data.battery !== undefined && data.battery !== null ? data.battery : prev.battery,
             ignition: data.ignition !== undefined ? !!data.ignition : prev.ignition,
@@ -143,7 +167,8 @@ const LiveFuelModal = ({
             satellites: data.satellites !== undefined ? data.satellites : prev.satellites,
             odometer: data.odometer !== undefined && data.odometer !== null ? data.odometer : prev.odometer,
             todayDistance: data.today_distance !== undefined && data.today_distance !== null ? data.today_distance : (data.todayDistance ?? prev.todayDistance),
-            deviceTime: data.deviceTime || now.toISOString()
+            deviceTime: data.deviceTime || now.toISOString(),
+            tanks: data.tanks || prev.tanks || {}
           };
         });
       }
@@ -196,10 +221,48 @@ const LiveFuelModal = ({
     return () => clearInterval(ticker);
   }, [lastPacketTime]);
 
-  // Calculated Tank Metrics
-  const tankCap = parseFloat(tankCapacity) > 0 ? parseFloat(tankCapacity) : 100;
-  const currentLitres = liveData.fuel !== null && liveData.fuel >= 0 ? Math.round(liveData.fuel * 10) / 10 : 0;
-  const fillPercentage = Math.min(100, Math.max(0, Math.round((currentLitres / tankCap) * 100)));
+  // Resolve Active Tank Metrics
+  const isCombinedView = activeTab === 'all' && totalTanksCount > 1;
+  const currentTankNum = parseInt(activeTab) || 1;
+  const currentTankConfig = tanksConfig?.[currentTankNum] || null;
+  const currentTankTelemetry = liveData.tanks?.[currentTankNum] || null;
+
+  // Active Capacity
+  const activeCapacity = useMemo(() => {
+    if (isCombinedView) {
+      if (tanksConfig && Object.keys(tanksConfig).length > 0) {
+        const sum = Object.values(tanksConfig).reduce((acc, t) => acc + (parseFloat(t.tankSize) || 0), 0);
+        if (sum > 0) return sum;
+      }
+      return parseFloat(tankCapacity) > 0 ? parseFloat(tankCapacity) : 100;
+    }
+    if (currentTankConfig?.tankSize) {
+      return parseFloat(currentTankConfig.tankSize) || 100;
+    }
+    if (currentTankTelemetry?.capacity) {
+      return parseFloat(currentTankTelemetry.capacity) || 100;
+    }
+    return parseFloat(tankCapacity) > 0 ? parseFloat(tankCapacity) : 100;
+  }, [isCombinedView, tanksConfig, tankCapacity, currentTankConfig, currentTankTelemetry]);
+
+  // Active Litres
+  const activeLitres = useMemo(() => {
+    if (isCombinedView) {
+      return liveData.fuel !== null && liveData.fuel >= 0 ? Math.round(liveData.fuel * 10) / 10 : 0;
+    }
+    if (currentTankTelemetry?.litres != null && !isNaN(currentTankTelemetry.litres)) {
+      return Math.round(Number(currentTankTelemetry.litres) * 10) / 10;
+    }
+    if (totalTanksCount === 1) {
+      return liveData.fuel !== null && liveData.fuel >= 0 ? Math.round(liveData.fuel * 10) / 10 : 0;
+    }
+    // Fallback if multiple tanks but individual telemetry not arrived yet
+    const capRatio = activeCapacity > 0 ? activeCapacity / (parseFloat(tankCapacity) || activeCapacity) : 1;
+    return liveData.fuel !== null && liveData.fuel >= 0 ? Math.round((liveData.fuel * capRatio) * 10) / 10 : 0;
+  }, [isCombinedView, liveData.fuel, currentTankTelemetry, totalTanksCount, activeCapacity, tankCapacity]);
+
+  // Active Percentage
+  const fillPercentage = Math.min(100, Math.max(0, Math.round((activeLitres / activeCapacity) * 100)));
 
   // Gauge Color Theme based on level
   const fillTheme = useMemo(() => {
@@ -212,7 +275,50 @@ const LiveFuelModal = ({
     return { bar: '#10b981', text: '#059669', bg: '#ecfdf5', label: 'Optimal' };
   }, [fillPercentage]);
 
-  // Render SVG Micro Sparkline (Pure math, hardware accelerated, Zero Extra RAM)
+  // Raw Sensor Signal Evaluation
+  const rawSensor1 = currentTankTelemetry?.sensor1Raw ?? liveData.rawFuel ?? null;
+  const rawSensor2 = currentTankTelemetry?.sensor2Raw ?? null;
+  const sensor1Litres = currentTankTelemetry?.sensor1Litres ?? null;
+  const sensor2Litres = currentTankTelemetry?.sensor2Litres ?? null;
+  const activeSensorCount = currentTankTelemetry?.sensorCount 
+    ?? (currentTankConfig?.noOfSensor ? Number(currentTankConfig.noOfSensor) : (currentTankConfig?.sensors ? Object.keys(currentTankConfig.sensors).length : 1));
+  const sensorFormula = currentTankTelemetry?.formula || currentTankConfig?.sensorFormula || 'Average';
+
+  // Sensor Out-of-Bounds / Health Check
+  const isS1Healthy = useMemo(() => {
+    if (rawSensor1 === null) return true;
+    const num = Number(rawSensor1);
+    if (isNaN(num)) return true;
+    return num >= 10 && num <= 4085;
+  }, [rawSensor1]);
+
+  const isS2Healthy = useMemo(() => {
+    if (rawSensor2 === null) return true;
+    const num = Number(rawSensor2);
+    if (isNaN(num)) return true;
+    return num >= 10 && num <= 4085;
+  }, [rawSensor2]);
+
+  const isSignalHealthy = isS1Healthy && isS2Healthy;
+
+  // Operating Mode Text & Badge
+  const powerState = useMemo(() => {
+    if (liveData.ignition) {
+      if (liveData.speed > 2) {
+        return { label: 'MOVING (Active Stream)', color: '#059669', bg: '#ecfdf5', dot: '#10b981' };
+      }
+      return { label: 'IDLE (Stationary)', color: '#0284c7', bg: '#f0f9ff', dot: '#0ea5e9' };
+    }
+    return {
+      label: 'SLEEP MODE (Engine OFF)',
+      color: '#475569',
+      bg: '#f1f5f9',
+      dot: '#94a3b8',
+      desc: 'Periodic heartbeat every 15-30m to protect battery'
+    };
+  }, [liveData.ignition, liveData.speed]);
+
+  // Render SVG Micro Sparkline (Anti-slosh smoothed, hardware accelerated, Zero Extra RAM)
   const renderSparkline = () => {
     if (fuelHistory.length < 2) {
       return (
@@ -228,16 +334,23 @@ const LiveFuelModal = ({
       );
     }
 
-    const vals = fuelHistory.map(p => p.val);
+    // Apply 3-point moving median smoothing to dampen slosh spikes
+    const rawVals = fuelHistory.map(p => p.val);
+    const vals = rawVals.map((val, idx, arr) => {
+      if (idx === 0 || idx === arr.length - 1) return val;
+      const windowVals = [arr[idx - 1], val, arr[idx + 1]].sort((a, b) => a - b);
+      return windowVals[1]; // median
+    });
+
     const min = Math.min(...vals);
     const max = Math.max(...vals);
     const range = (max - min) || 1;
     const w = 580;
     const h = 32;
 
-    const points = fuelHistory.map((p, idx) => {
-      const x = (idx / (fuelHistory.length - 1)) * w;
-      const y = h - ((p.val - min) / range) * (h - 8) - 4;
+    const points = vals.map((val, idx) => {
+      const x = (idx / (vals.length - 1)) * w;
+      const y = h - ((val - min) / range) * (h - 8) - 4;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     });
 
@@ -276,7 +389,7 @@ const LiveFuelModal = ({
           background: '#ffffff',
           borderRadius: '16px',
           width: '100%',
-          maxWidth: '680px',
+          maxWidth: '700px',
           boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.35)',
           border: '1px solid #e2e8f0',
           display: 'flex',
@@ -378,31 +491,84 @@ const LiveFuelModal = ({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#94a3b8',
                 cursor: 'pointer',
-                padding: '6px',
-                borderRadius: '8px',
+                color: '#94a3b8',
+                padding: '4px',
+                borderRadius: '6px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                transition: 'all 0.15s ease'
+                transition: 'color 0.15s ease'
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = '#e2e8f0';
-                e.currentTarget.style.color = '#0f172a';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = '#94a3b8';
-              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#0f172a'}
+              onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
             >
               <X size={20} />
             </button>
           </div>
         </div>
 
+        {/* Multi-Tank Selector Tabs (Shown if vehicle has multiple tanks) */}
+        {totalTanksCount > 1 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 22px 0',
+            background: '#ffffff',
+            borderBottom: '1px solid #f1f5f9'
+          }}>
+            <button
+              type="button"
+              onClick={() => setActiveTab('all')}
+              style={{
+                padding: '7px 14px',
+                borderRadius: '8px 8px 0 0',
+                fontSize: '12px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                border: 'none',
+                background: activeTab === 'all' ? '#ea580c' : '#f1f5f9',
+                color: activeTab === 'all' ? '#ffffff' : '#64748b',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <Layers size={13} />
+              All Tanks (Combined Total)
+            </button>
+
+            {Array.from({ length: totalTanksCount }, (_, i) => i + 1).map(tNum => (
+              <button
+                key={tNum}
+                type="button"
+                onClick={() => setActiveTab(String(tNum))}
+                style={{
+                  padding: '7px 14px',
+                  borderRadius: '8px 8px 0 0',
+                  fontSize: '12px',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  border: 'none',
+                  background: activeTab === String(tNum) ? '#ea580c' : '#f1f5f9',
+                  color: activeTab === String(tNum) ? '#ffffff' : '#64748b',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Fuel size={13} />
+                Tank {tNum}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Modal Body */}
-        <div style={{ padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: '14px', overflowY: 'auto', maxHeight: 'calc(85vh - 130px)' }}>
           
           {/* Main Visual Fuel Tank Display */}
           <div style={{
@@ -417,15 +583,30 @@ const LiveFuelModal = ({
           }}>
             {/* Numeric Volume & Status */}
             <div>
-              <span style={{
-                fontSize: '11.5px',
-                fontWeight: 700,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                color: '#64748b'
-              }}>
-                Current Fuel Level
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  fontSize: '11.5px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: '#64748b'
+                }}>
+                  {isCombinedView ? 'Total Fuel (All Tanks)' : `Tank ${currentTankNum} Fuel Level`}
+                </span>
+                {!isCombinedView && currentTankConfig?.fuelTankShape && (
+                  <span style={{
+                    fontSize: '10.5px',
+                    fontWeight: 700,
+                    padding: '1px 6px',
+                    borderRadius: '4px',
+                    background: '#e2e8f0',
+                    color: '#475569'
+                  }}>
+                    {currentTankConfig.fuelTankShape} ({currentTankConfig.fuelTankPosition || 'Horizontal'})
+                  </span>
+                )}
+              </div>
+
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '4px' }}>
                 <span style={{
                   fontSize: '38px',
@@ -434,7 +615,7 @@ const LiveFuelModal = ({
                   fontVariantNumeric: 'tabular-nums',
                   lineHeight: 1
                 }}>
-                  {liveData.fuel !== null ? currentLitres.toFixed(1) : '—'}
+                  {activeLitres.toFixed(1)}
                 </span>
                 <span style={{ fontSize: '18px', fontWeight: 700, color: '#64748b' }}>
                   Litres
@@ -455,9 +636,29 @@ const LiveFuelModal = ({
                 </span>
 
                 <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 600 }}>
-                  Tank Capacity: {tankCap} L
+                  Capacity: {activeCapacity} L
                 </span>
               </div>
+
+              {/* Multi-sensor summary indicator on main card */}
+              {!isCombinedView && activeSensorCount > 1 && (
+                <div style={{
+                  marginTop: '10px',
+                  fontSize: '11.5px',
+                  color: '#9a3412',
+                  background: '#fff7ed',
+                  border: '1px solid #fed7aa',
+                  borderRadius: '6px',
+                  padding: '4px 10px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 700
+                }}>
+                  <Cpu size={13} color="#ea580c" />
+                  2 Sensors Active in Tank {currentTankNum} • Rule: {sensorFormula}
+                </div>
+              )}
             </div>
 
             {/* Realistic Industrial Tank Cylinder Graphic */}
@@ -565,13 +766,172 @@ const LiveFuelModal = ({
             </div>
           </div>
 
+          {/* Tank 1 / Tank N Dedicated Dual Sensors Diagnostic Panel (Shown when Tank has 2 Sensors) */}
+          {!isCombinedView && activeSensorCount > 1 && (
+            <div style={{
+              background: '#ffffff',
+              border: '1.5px solid #fed7aa',
+              borderRadius: '12px',
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              boxShadow: '0 2px 8px rgba(234, 88, 12, 0.05)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #ffedd5', paddingBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Cpu size={16} color="#ea580c" />
+                  <span style={{ fontSize: '12.5px', fontWeight: 800, color: '#9a3412', letterSpacing: '0.02em' }}>
+                    TANK {currentTankNum} DUAL SENSORS LIVE BREAKDOWN
+                  </span>
+                </div>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  background: '#fff7ed',
+                  color: '#c2410c',
+                  border: '1px solid #fed7aa'
+                }}>
+                  Fusion Rule: {sensorFormula}
+                </span>
+              </div>
+
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '10px'
+              }}>
+                {/* SENSOR 1 */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: `1.5px solid ${isS1Healthy ? '#e2e8f0' : '#fca5a5'}`,
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                      ⚡ Sensor 1 (Front Probe)
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: isS1Healthy ? '#059669' : '#dc2626',
+                      background: isS1Healthy ? '#ecfdf5' : '#fef2f2',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      border: `1px solid ${isS1Healthy ? '#a7f3d0' : '#fecaca'}`
+                    }}>
+                      {isS1Healthy ? '✓ Signal Normal' : '⚠️ Signal Fault'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+                    <span style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                      {sensor1Litres != null ? Number(sensor1Litres).toFixed(1) : (rawSensor1 != null ? activeLitres.toFixed(1) : '—')}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Litres</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                    Raw Reading: <b style={{ color: '#0f172a' }}>{rawSensor1 ?? 'Waiting...'}</b> {fuelType.includes('BLE') ? 'BLE' : (fuelType.includes('Analog') ? 'ADC' : 'RS485')}
+                  </div>
+                </div>
+
+                {/* SENSOR 2 */}
+                <div style={{
+                  background: '#f8fafc',
+                  border: `1.5px solid ${isS2Healthy ? '#e2e8f0' : '#fca5a5'}`,
+                  borderRadius: '10px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: '#0f172a' }}>
+                      ⚡ Sensor 2 (Rear Probe)
+                    </span>
+                    <span style={{
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      color: isS2Healthy ? '#059669' : '#dc2626',
+                      background: isS2Healthy ? '#ecfdf5' : '#fef2f2',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      border: `1px solid ${isS2Healthy ? '#a7f3d0' : '#fecaca'}`
+                    }}>
+                      {isS2Healthy ? '✓ Signal Normal' : '⚠️ Signal Fault'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', marginTop: '2px' }}>
+                    <span style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                      {sensor2Litres != null ? Number(sensor2Litres).toFixed(1) : (rawSensor2 != null ? activeLitres.toFixed(1) : '—')}
+                    </span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Litres</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                    Raw Reading: <b style={{ color: '#0f172a' }}>{rawSensor2 ?? 'Waiting...'}</b> {fuelType.includes('BLE') ? 'BLE' : (fuelType.includes('Analog') ? 'ADC' : 'RS485')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Formula & Calculation Math */}
+              <div style={{
+                fontSize: '11.5px',
+                color: '#7c2d12',
+                background: '#fff7ed',
+                border: '1px solid #fed7aa',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontWeight: 600
+              }}>
+                <span style={{ fontSize: '13px' }}>📐</span>
+                <span>
+                  <b>Calculation:</b> {sensorFormula}
+                  {sensor1Litres != null && sensor2Litres != null && sensorFormula === 'Average' && (
+                    <span> ➔ ({Number(sensor1Litres).toFixed(1)}L + {Number(sensor2Litres).toFixed(1)}L) ÷ 2 = <b>{activeLitres.toFixed(1)} Litres</b></span>
+                  )}
+                  {sensorFormula !== 'Average' && (
+                    <span> ➔ Combined Tank Level: <b>{activeLitres.toFixed(1)} Litres</b></span>
+                  )}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Real-Time Sensor Telemetry Grid */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: '10px'
           }}>
-            {/* Tile 1: Vehicle Main Power Supply */}
+            {/* Tile 1: Physical Sensor Signal (ADC / Frequency / RS485) */}
+            <div style={{
+              background: '#ffffff',
+              border: `1px solid ${isSignalHealthy ? '#e2e8f0' : '#fed7aa'}`,
+              borderRadius: '10px',
+              padding: '12px 14px',
+              boxShadow: isSignalHealthy ? 'none' : '0 2px 8px rgba(234, 88, 12, 0.1)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
+                <Cpu size={14} color={isSignalHealthy ? '#0284c7' : '#ea580c'} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>RAW SENSOR SIGNAL</span>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                {rawSensor1 !== null ? `${rawSensor1} ${fuelType.includes('BLE') ? 'BLE' : (fuelType.includes('Analog') ? 'ADC' : 'RS485')}` : 'Signal Active'}
+              </div>
+              <div style={{ fontSize: '11px', color: isSignalHealthy ? '#059669' : '#ea580c', marginTop: '2px', fontWeight: 600 }}>
+                {isSignalHealthy ? '✓ Signal Calibrated' : '⚠️ Signal Out of Range'}
+              </div>
+            </div>
+
+            {/* Tile 2: Vehicle Main Power Supply */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -590,7 +950,30 @@ const LiveFuelModal = ({
               </div>
             </div>
 
-            {/* Tile 2: Odometer & Cumulative Travel */}
+            {/* Tile 3: Engine State & Movement */}
+            <div style={{
+              background: '#ffffff',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              padding: '12px 14px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
+                <Activity size={14} color={powerState.dot} />
+                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>ENGINE STATE</span>
+              </div>
+              <div style={{
+                fontSize: '14px',
+                fontWeight: 800,
+                color: powerState.color
+              }}>
+                {powerState.label}
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                {liveData.speed > 0 ? `Speed: ${liveData.speed} km/h` : 'Speed: 0 km/h (Stationary)'}
+              </div>
+            </div>
+
+            {/* Tile 4: Odometer & Cumulative Travel */}
             <div style={{
               background: '#ffffff',
               border: '1px solid #e2e8f0',
@@ -612,51 +995,9 @@ const LiveFuelModal = ({
                   : 'Cumulative Distance'}
               </div>
             </div>
-
-            {/* Tile 3: Engine Ignition & Movement */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              padding: '12px 14px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
-                <Activity size={14} color={liveData.ignition ? '#10b981' : '#94a3b8'} />
-                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>IGNITION</span>
-              </div>
-              <div style={{
-                fontSize: '15px',
-                fontWeight: 800,
-                color: liveData.ignition ? '#059669' : '#64748b'
-              }}>
-                {liveData.ignition ? 'ENGINE ON' : 'ENGINE OFF'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
-                {liveData.speed > 0 ? `Speed: ${liveData.speed} km/h` : 'Speed: 0 km/h (Stationary)'}
-              </div>
-            </div>
-
-            {/* Tile 4: Satellite & Connection Stream */}
-            <div style={{
-              background: '#ffffff',
-              border: '1px solid #e2e8f0',
-              borderRadius: '10px',
-              padding: '12px 14px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', marginBottom: '6px' }}>
-                <Radio size={14} color="#3b82f6" />
-                <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}>TELEMETRY STREAM</span>
-              </div>
-              <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
-                {liveData.satellites ? `${liveData.satellites} Satellites` : 'GPS Connected'}
-              </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
-                {connected ? 'Active Live Stream' : 'Cached Telemetry'}
-              </div>
-            </div>
           </div>
 
-          {/* Micro Sparkline: Live Sensor Stability Trend (Fixed-size 20 point buffer, <500 bytes RAM) */}
+          {/* Micro Sparkline: Live Sensor Stability Trend (Anti-slosh filter active) */}
           <div style={{
             background: '#ffffff',
             border: '1px solid #e2e8f0',
@@ -670,7 +1011,7 @@ const LiveFuelModal = ({
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Activity size={13} color="#ea580c" />
                 <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#334155' }}>
-                  Live Sensor Stability Trend
+                  Live Sensor Stability & Anti-Slosh Trend
                 </span>
                 <span style={{ fontSize: '10.5px', color: '#94a3b8' }}>
                   ({fuelHistory.length} readings)
@@ -678,11 +1019,13 @@ const LiveFuelModal = ({
               </div>
               <span style={{ fontSize: '11px', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10b981' }} />
-                {fuelHistory.length >= 2 
-                  ? Math.abs(fuelHistory[fuelHistory.length - 1].val - fuelHistory[0].val) < 0.5 
-                    ? 'Stable Level' 
-                    : 'Active Reading'
-                  : 'Monitoring...'}
+                {liveData.speed > 2 
+                  ? 'Vehicle Moving (Slosh Damped)'
+                  : fuelHistory.length >= 2 
+                    ? Math.abs(fuelHistory[fuelHistory.length - 1].val - fuelHistory[0].val) < 0.5 
+                      ? 'Stable Level' 
+                      : 'Active Telemetry'
+                    : 'Monitoring...'}
               </span>
             </div>
 
@@ -729,12 +1072,15 @@ const LiveFuelModal = ({
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
-          gap: '12px',
+          justifyContent: 'space-between',
           padding: '14px 22px',
           borderTop: '1px solid #e2e8f0',
           background: '#f8fafc'
         }}>
+          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
+            {powerState.desc ? `ℹ️ ${powerState.desc}` : 'Real-time telemetry streaming over secure WebSocket.'}
+          </div>
+
           <button
             type="button"
             onClick={onClose}

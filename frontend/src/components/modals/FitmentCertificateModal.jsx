@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw } from 'lucide-react';
+import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2 } from 'lucide-react';
+import * as vehicleApi from '../../api/vehicleApi';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import QRCode from 'qrcode';
@@ -7,6 +8,14 @@ import fuelTracksLogo from '../../assets/fueltracks_cert_logo.png';
 
 const formatDateDDMMYYYY = (dateVal) => {
   if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) return trimmed;
+    if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const [y, m, d] = trimmed.split('T')[0].split('-');
+      return `${d}/${m}/${y}`;
+    }
+  }
   const d = new Date(dateVal);
   if (isNaN(d.getTime())) return String(dateVal);
   const day = String(d.getDate()).padStart(2, '0');
@@ -26,20 +35,29 @@ const computeVerificationCode = (cert, imei, veh) => {
   return `FT-VERIFY-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(-4)}`;
 };
 
-const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
+const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
+  const [isDirty, setIsDirty] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
   const [logoBase64, setLogoBase64] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [qrMode, setQrMode] = useState('tunnel'); // 'tunnel' | 'lan' | 'prod'
-  const [tunnelLoading, setTunnelLoading] = useState(false);
-  const [networkInfo, setNetworkInfo] = useState({
-    lanIp: '',
-    lanUrl: '',
-    tunnelUrl: '',
-    prodUrl: 'https://www.fueltracks.in'
-  });
+
+  // RC Document Scanner States
+  const [showRcScanner, setShowRcScanner] = useState(false);
+  const [rcFrontFile, setRcFrontFile] = useState(null);
+  const [rcBackFile, setRcBackFile] = useState(null);
+  const [rcFrontPreview, setRcFrontPreview] = useState(vehicle?.metadata?.rcFrontUrl || null);
+  const [rcBackPreview, setRcBackPreview] = useState(vehicle?.metadata?.rcBackUrl || null);
+  const [isScanningRc, setIsScanningRc] = useState(false);
+  const [rcScanSuccess, setRcScanSuccess] = useState('');
+  const [rcScanError, setRcScanError] = useState('');
+
+  // Save to Database States
+  const [isSavingCert, setIsSavingCert] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState('');
+  const [saveError, setSaveError] = useState('');
+
   const certificateRef = useRef(null);
 
   // Pre-load logo to Base64 to guarantee instantaneous and reliable PDF canvas capture
@@ -63,14 +81,14 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
     if (!veh) return {};
     const metadata = veh.metadata || {};
 
-    const plate = veh.plate || veh.name || 'TS07 UJ 1278';
-    const imei = veh.imei || '861329086570201';
-    const imeiLast6 = imei.slice(-6);
-    const imeiLast7 = imei.slice(-7);
+    const plate = veh.plate || veh.name || metadata.registrationNo || metadata.vehicleId || 'N/A';
+    const imei = veh.imei || metadata.imei || 'N/A';
+    const imeiLast6 = imei !== 'N/A' ? imei.slice(-6) : '';
 
     const now = new Date();
     const oneYearLater = new Date();
     oneYearLater.setFullYear(now.getFullYear() + 1);
+    oneYearLater.setDate(oneYearLater.getDate() - 1); // Exact 365-day validity
 
     const installedDate = metadata.installationDate || veh.licence_issued_date
       ? formatDateDDMMYYYY(metadata.installationDate || veh.licence_issued_date)
@@ -84,7 +102,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
       ? formatDateDDMMYYYY(veh.licence_expire_date)
       : formatDateDDMMYYYY(oneYearLater);
 
-    const certNumber = metadata.certSerialNo || `FT-GPS-${now.getFullYear()}-${String(veh.id || '').replace(/\D/g, '').slice(-5).padStart(5, '0') || imei.slice(-5)}`;
+    // Unique Certificate Number derived from persistent certSerialNo or vehicle/IMEI uniqueness
+    const certNumber = metadata.certSerialNo || `FT-GPS-${now.getFullYear()}-${(imei !== 'N/A' ? imei.slice(-6) : String(veh.id || '').slice(-6) || '000001').toUpperCase()}`;
 
     return {
       // Company Details
@@ -108,17 +127,17 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
         if (make && vModel && !isDeviceName) return `${make} - ${vModel}`;
         if (vModel && !isDeviceName) return vModel;
         if (make) return `${make} Commercial Vehicle`;
-        return 'Tata Motors - Prima 4028.S';
+        return 'Commercial Vehicle';
       })(),
-      chassisNo: metadata.chassisNo || metadata.vin || `MB1H3LHD2${imeiLast7 || '6578201'}`,
-      engineNo: metadata.engineNo || metadata.engine_number || `NMHZ${imeiLast6 || '6578201'}`,
+      chassisNo: metadata.chassisNo || metadata.vin || 'N/A',
+      engineNo: metadata.engineNo || metadata.engine_number || 'N/A',
 
       // Section 2: Customer Details
-      customerName: metadata.ownerName || metadata.customerName || veh.driver_name || veh.org_name || 'Ramesh Kumar Yadav',
-      phone: metadata.ownerPhone || metadata.customerPhone || veh.driver_phone || '+91 90006 66914',
-      customerAddress: metadata.ownerAddress || metadata.address || 'Plot No. 42, Sri Sai Enclave, Road No. 4, Opposite Govt. Press Colony, L.B. Nagar, Kharmanghat, R.R. District, Hyderabad, Telangana - 500074',
+      customerName: metadata.ownerName || metadata.customerName || veh.driver_name || veh.org_name || 'N/A',
+      phone: metadata.ownerPhone || metadata.customerPhone || veh.driver_phone || 'N/A',
+      customerAddress: metadata.ownerAddress || metadata.address || 'N/A',
 
-      // Section 3: GPS Device Details (Fetched dynamically from database: Volty, Vamo, Tracknow, etc.)
+      // Section 3: GPS Device Details
       deviceModel: (() => {
         const directCandidates = [
           metadata.deviceModel,
@@ -145,11 +164,10 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
         return 'Volty GPS Tracker';
       })(),
       imei: imei,
-      // ONLY GPS SIM 1 from Database (gps_sim_no column or metadata.sim1)
-      simNumber: veh.gps_sim_no || metadata.sim1 || metadata.gpsSimNo || metadata.gps_sim_no || metadata.sim || '+91 90865 78201',
+      simNumber: veh.gps_sim_no || metadata.sim1 || metadata.gpsSimNo || metadata.gps_sim_no || metadata.sim || 'N/A',
       simOperator: metadata.primarySimOperator || metadata.telecomOperator || 'Airtel IoT (M2M Data APN)',
       fitmentLocation: metadata.fitmentLocation || 'Behind Co-driver Dashboard Firewall',
-      sealNumber: metadata.sealSerialNo || `FT-SEAL-${imei.slice(-6)}`,
+      sealNumber: metadata.sealSerialNo || (imeiLast6 ? `FT-SEAL-${imeiLast6}` : 'N/A'),
 
       // Section 5: Installation & Validity
       installedDate: installedDate,
@@ -159,101 +177,43 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
   };
 
   const [formData, setFormData] = useState({});
+  // QR Verification Domain State: 'prod' (default: fueltracks.in) or 'lan' (Wi-Fi test)
+  const [qrTargetHost, setQrTargetHost] = useState('prod');
+  const [lanIp, setLanIp] = useState('192.168.1.6');
 
-  // Auto-detect network IP and tunnel URL from backend
-  const fetchNetworkInfo = async (silent = false) => {
-    if (!silent) setTunnelLoading(true);
-    try {
-      const res = await fetch('/api/network-info');
-      const data = await res.json();
-      if (data && data.success) {
-        setNetworkInfo(data);
-        if (data.tunnelUrl) {
-          setQrMode('tunnel');
-        } else if (data.lanUrl) {
-          setQrMode('lan');
-        } else {
-          setQrMode('prod');
+  // Discover local Wi-Fi IP for optional local testing
+  useEffect(() => {
+    fetch('/api/network-info')
+      .then(res => res.json())
+      .then(info => {
+        if (info && info.success && info.lanIp) {
+          setLanIp(info.lanIp);
         }
-      }
-    } catch (err) {
-      console.warn('Network info fetch error:', err);
-    } finally {
-      if (!silent) setTunnelLoading(false);
-    }
-  };
+      })
+      .catch(() => {});
+  }, []);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchNetworkInfo();
-    }
-  }, [isOpen]);
-
-  const handleRestartTunnel = async () => {
-    setTunnelLoading(true);
-    try {
-      const res = await fetch('/api/tunnel/restart', { method: 'POST' });
-      const data = await res.json();
-      if (data && data.success && data.tunnelUrl) {
-        setNetworkInfo((prev) => ({ ...prev, tunnelUrl: data.tunnelUrl }));
-        setQrMode('tunnel');
-      } else {
-        await fetchNetworkInfo();
-      }
-    } catch (err) {
-      console.error('Failed to restart tunnel:', err);
-      await fetchNetworkInfo();
-    } finally {
-      setTunnelLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (vehicle) {
-      const initial = getInitialFormData(vehicle);
-      setFormData(initial);
-      generateQR(initial, qrMode);
-    }
-  }, [vehicle]);
-
-  const getVerificationUrl = (data, currentMode = qrMode) => {
+  const getVerificationUrl = (data, targetMode) => {
     if (!data) return '';
-    let baseUrl = '';
-
-    const isLocalhost =
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
-    if (currentMode === 'tunnel' && networkInfo.tunnelUrl) {
-      baseUrl = networkInfo.tunnelUrl;
-    } else if (currentMode === 'lan' && (networkInfo.lanUrl || networkInfo.lanIp)) {
-      baseUrl = networkInfo.lanUrl || `http://${networkInfo.lanIp}:5173`;
-    } else if (currentMode === 'prod') {
-      baseUrl = 'https://www.fueltracks.in';
-    }
-
-    if (!baseUrl) {
-      if (networkInfo.tunnelUrl) {
-        baseUrl = networkInfo.tunnelUrl;
-      } else if (!isLocalhost && typeof window !== 'undefined' && window.location.origin) {
-        baseUrl = window.location.origin;
-      } else if (networkInfo.lanUrl || networkInfo.lanIp) {
-        baseUrl = networkInfo.lanUrl || `http://${networkInfo.lanIp}:5173`;
-      } else {
-        baseUrl = 'https://www.fueltracks.in';
-      }
-    }
-
-    // Always link directly to /verify/<certificate-no>
-    return `${baseUrl}/verify/${encodeURIComponent(data.certNumber || 'FT-FC-2026-87570')}`;
+    const mode = targetMode || qrTargetHost;
+    // Official domain by default — strictly eliminates random tunnel names
+    const base = mode === 'lan' ? `http://${lanIp}:5173` : 'https://www.fueltracks.in';
+    const certNum = data.certNumber || `FT-GPS-${new Date().getFullYear()}-${data.vehicleNo || '00001'}`;
+    const veh = data.vehicleNo || '';
+    const imei = data.imei || '';
+    const query = new URLSearchParams();
+    if (veh) query.set('v', veh);
+    if (imei) query.set('i', imei);
+    const qs = query.toString() ? `?${query.toString()}` : '';
+    return `${base}/verify/${encodeURIComponent(certNum)}${qs}`;
   };
 
-  const generateQR = async (data, mode = qrMode) => {
+  const generateQR = async (data, targetMode) => {
     try {
-      const verifyUrl = getVerificationUrl(data, mode);
+      const verifyUrl = getVerificationUrl(data, targetMode);
       const url = await QRCode.toDataURL(verifyUrl, {
-        width: 160,
-        margin: 0,
+        width: 200,
+        margin: 1,
         errorCorrectionLevel: 'M',
         color: {
           dark: '#0f172a',
@@ -267,20 +227,134 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
   };
 
   useEffect(() => {
-    if (formData && Object.keys(formData).length > 0) {
-      generateQR(formData, qrMode);
+    if (vehicle) {
+      const initial = getInitialFormData(vehicle);
+      setFormData(initial);
+      generateQR(initial, qrTargetHost);
     }
-  }, [qrMode, networkInfo]);
+  }, [vehicle, qrTargetHost, lanIp]);
+
+  useEffect(() => {
+    if (formData && Object.keys(formData).length > 0) {
+      generateQR(formData, qrTargetHost);
+    }
+  }, [qrTargetHost, lanIp]);
 
   const handleInputChange = (field, value) => {
+    setIsDirty(true);
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
       if (['vehicleNo', 'imei', 'certNumber'].includes(field)) {
         updated.verificationCode = computeVerificationCode(updated.certNumber, updated.imei, updated.vehicleNo);
-        generateQR(updated, qrMode);
+        generateQR(updated);
       }
       return updated;
     });
+  };
+
+  const handleScanRc = async () => {
+    if (!rcFrontFile && !rcBackFile) {
+      setRcScanError('Please select at least one RC image (Front or Back).');
+      return;
+    }
+    setIsScanningRc(true);
+    setRcScanError('');
+    setRcScanSuccess('');
+
+    try {
+      const fd = new FormData();
+      if (rcFrontFile) fd.append('rcFront', rcFrontFile);
+      if (rcBackFile) fd.append('rcBack', rcBackFile);
+
+      const res = await vehicleApi.scanRcDocument(fd);
+      if (res && res.success && res.data) {
+        const rc = res.data;
+        setFormData((prev) => {
+          const updated = {
+            ...prev,
+            vehicleNo: rc.registrationNo || prev.vehicleNo,
+            chassisNo: rc.chassisNo || prev.chassisNo,
+            engineNo: rc.engineNo || prev.engineNo,
+            customerName: rc.ownerName || prev.customerName,
+            customerAddress: rc.ownerAddress || prev.customerAddress,
+            vehicleMakeModel: rc.vehicleMakeModel || prev.vehicleMakeModel,
+            installedDate: rc.registrationDate ? formatDateDDMMYYYY(rc.registrationDate) : prev.installedDate,
+            expiryDate: rc.fitnessUpto ? formatDateDDMMYYYY(rc.fitnessUpto) : prev.expiryDate,
+            rcFrontUrl: rc.rcFrontUrl || prev.rcFrontUrl,
+            rcBackUrl: rc.rcBackUrl || prev.rcBackUrl
+          };
+          updated.verificationCode = computeVerificationCode(updated.certNumber, updated.imei, updated.vehicleNo);
+          generateQR(updated);
+          return updated;
+        });
+
+        if (rc.rcFrontUrl) setRcFrontPreview(rc.rcFrontUrl);
+        if (rc.rcBackUrl) setRcBackPreview(rc.rcBackUrl);
+
+        setRcScanSuccess(`RC Scanned Successfully! Auto-filled: ${[rc.registrationNo, rc.chassisNo, rc.ownerName].filter(Boolean).join(' • ')}`);
+      } else {
+        setRcScanError(res?.error || 'Failed to scan RC details.');
+      }
+    } catch (err) {
+      setRcScanError(err.response?.data?.error || err.message || 'Error occurred while scanning RC document.');
+    } finally {
+      setIsScanningRc(false);
+    }
+  };
+
+  const handleSaveToDatabase = async () => {
+    if (!vehicle?.id) return;
+    setIsSavingCert(true);
+    setSaveError('');
+    setSaveSuccess('');
+
+    try {
+      const payload = {
+        name: vehicle.name || formData.vehicleNo,
+        plate: formData.vehicleNo,
+        driverName: formData.customerName,
+        driverPhone: formData.phone,
+        metadata: {
+          ...(vehicle.metadata || {}),
+          certSerialNo: formData.certNumber,
+          registrationNo: formData.vehicleNo,
+          vehicleId: formData.vehicleNo,
+          chassisNo: formData.chassisNo,
+          engineNo: formData.engineNo,
+          ownerName: formData.customerName,
+          customerName: formData.customerName,
+          ownerAddress: formData.customerAddress,
+          customerAddress: formData.customerAddress,
+          ownerPhone: formData.phone,
+          customerPhone: formData.phone,
+          vehicleMakeModel: formData.vehicleMakeModel,
+          deviceModel: formData.deviceModel,
+          fitmentLocation: formData.fitmentLocation,
+          sealSerialNo: formData.sealNumber,
+          installationDate: formData.installedDate,
+          expiryDate: formData.expiryDate,
+          rcFrontUrl: formData.rcFrontUrl || rcFrontPreview || vehicle.metadata?.rcFrontUrl,
+          rcBackUrl: formData.rcBackUrl || rcBackPreview || vehicle.metadata?.rcBackUrl
+        }
+      };
+
+      await vehicleApi.updateVehicle(vehicle.id, payload);
+      if (vehicle.metadata) {
+        Object.assign(vehicle.metadata, payload.metadata);
+      }
+      vehicle.plate = formData.vehicleNo;
+      setIsDirty(false);
+      if (onSaved) {
+        onSaved();
+      }
+
+      setSaveSuccess('Certificate and RC details saved to vehicle database!');
+      setTimeout(() => setSaveSuccess(''), 4500);
+    } catch (err) {
+      setSaveError(err.response?.data?.error || err.message || 'Failed to save certificate data.');
+    } finally {
+      setIsSavingCert(false);
+    }
   };
 
   const handleReset = () => {
@@ -288,6 +362,18 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
       const initial = getInitialFormData(vehicle);
       setFormData(initial);
       generateQR(initial);
+      setIsDirty(false);
+    }
+  };
+
+  const handleSafeClose = () => {
+    if (isDirty) {
+      if (window.confirm('You have unsaved certificate edits. Do you want to discard them?')) {
+        setIsDirty(false);
+        onClose();
+      }
+    } else {
+      onClose();
     }
   };
 
@@ -377,9 +463,13 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
     >
       <style>{`
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           @page {
             size: A4 portrait;
-            margin: 10mm 12mm;
+            margin: 8mm 10mm;
           }
           body * {
             visibility: hidden !important;
@@ -408,167 +498,328 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
       <div className="relative bg-slate-100 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[96vh] flex flex-col overflow-hidden border border-slate-300">
         
         {/* Top Header Controls Bar */}
-        <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-            <span className="font-bold text-slate-800 text-sm">
-              Certificate of GPS Fitment
+        <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center justify-between gap-3 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-xs"></span>
+            <span className="font-extrabold text-slate-800 text-sm tracking-tight">
+              Fitment Certificate
             </span>
-            <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-mono border border-slate-200 font-semibold">
+            <span className="text-[12px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-mono font-bold border border-slate-200">
               {formData.vehicleNo || 'DL01GH3456'}
             </span>
+
+            {/* Discrete Domain Switcher */}
+            <div className="hidden sm:inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-semibold text-slate-600 ml-1">
+              <button
+                type="button"
+                onClick={() => setQrTargetHost('prod')}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  qrTargetHost === 'prod' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title="Official production domain (fueltracks.in)"
+              >
+                fueltracks.in
+              </button>
+              <button
+                type="button"
+                onClick={() => setQrTargetHost('lan')}
+                className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                  qrTargetHost === 'lan' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
+                }`}
+                title={`Local Wi-Fi IP (${lanIp}:5173) for testing on mobile on the same Wi-Fi`}
+              >
+                Wi-Fi Test
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Scan RC Button */}
+            <button
+              onClick={() => setShowRcScanner(!showRcScanner)}
+              type="button"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                showRcScanner
+                  ? 'bg-orange-500 text-white shadow-xs'
+                  : 'bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200'
+              }`}
+            >
+              <Sparkles size={13} className={showRcScanner ? 'text-white' : 'text-orange-500'} />
+              <span>{showRcScanner ? 'Close Scanner' : 'Scan RC Card'}</span>
+            </button>
+
+            {/* Edit Certificate Data */}
             <button
               onClick={() => setIsEditing(!isEditing)}
               type="button"
-              className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 isEditing
-                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  ? 'bg-slate-200 text-slate-800 border border-slate-300'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200'
               }`}
             >
               <Edit3 size={13} />
-              <span>{isEditing ? 'Close Editor' : 'Edit Certificate Data'}</span>
+              <span>{isEditing ? 'Close Edit' : 'Edit'}</span>
             </button>
 
+            {/* Print */}
             <button
               onClick={handlePrint}
               type="button"
-              className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg transition-all cursor-pointer"
             >
               <Printer size={13} />
-              Print
+              <span>Print</span>
             </button>
 
+            {/* Download PDF */}
             <button
               onClick={handleDownloadPDF}
               disabled={downloading}
               type="button"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-950 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-all cursor-pointer disabled:opacity-50"
             >
               <Download size={13} />
-              {downloading ? 'Downloading...' : 'Download PDF'}
+              <span>{downloading ? 'PDF...' : 'PDF'}</span>
             </button>
 
+            {/* Save to Vehicle Database */}
             <button
-              onClick={onClose}
+              onClick={handleSaveToDatabase}
+              disabled={isSavingCert}
               type="button"
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200/60 transition-colors ml-1 cursor-pointer"
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 text-white text-xs font-bold rounded-lg shadow-sm transition-all cursor-pointer disabled:opacity-50 ${
+                isDirty
+                  ? 'bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-300 animate-pulse'
+                  : 'bg-[#f97316] hover:bg-[#ea580c]'
+              }`}
+              title="Save certificate edits & RC data directly to vehicle database"
+            >
+              {isSavingCert ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+              <span>{isSavingCert ? 'Saving...' : isDirty ? 'Save Changes *' : 'Save to Vehicle'}</span>
+            </button>
+
+            {/* Close Modal */}
+            <button
+              onClick={handleSafeClose}
+              type="button"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors ml-1 cursor-pointer"
             >
               <X size={18} />
             </button>
           </div>
         </div>
 
-        {/* QR Scan Target Selector & Verification Quick-Test Bar */}
-        <div className="bg-slate-900 text-white px-6 py-2 flex flex-wrap items-center justify-between text-xs gap-3 border-b border-slate-800 shrink-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-slate-300 flex items-center gap-1.5">
-              <Globe size={13} className="text-emerald-400" />
-              QR Target Link:
+        {/* Status Alerts */}
+        {saveSuccess && (
+          <div className="bg-emerald-50 border-b border-emerald-200 px-5 py-2 flex items-center justify-between text-xs text-emerald-800 font-bold shrink-0">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+              {saveSuccess}
             </span>
-            <div className="inline-flex rounded-lg bg-slate-800 p-0.5 border border-slate-700">
-              {networkInfo.tunnelUrl ? (
-                <button
-                  type="button"
-                  onClick={() => setQrMode('tunnel')}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                    qrMode === 'tunnel'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                  title="Accessible from ANY phone camera via Mobile Internet (Jio, Airtel, 4G, 5G)"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
-                  <Globe size={11} />
-                  <span>Cloud (All Phones)</span>
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleRestartTunnel}
-                  disabled={tunnelLoading}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium text-amber-300 hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-60"
-                  title="Click to start live Cloud Tunnel for scanning from mobile phones"
-                >
-                  <RefreshCw size={11} className={tunnelLoading ? 'animate-spin' : ''} />
-                  <span>{tunnelLoading ? 'Starting Cloud...' : 'Start Cloud Link'}</span>
-                </button>
-              )}
+            <button onClick={() => setSaveSuccess('')} className="text-emerald-600 hover:text-emerald-800 font-bold">✕</button>
+          </div>
+        )}
+        {saveError && (
+          <div className="bg-rose-50 border-b border-rose-200 px-5 py-2 flex items-center justify-between text-xs text-rose-800 font-bold shrink-0">
+            <span className="flex items-center gap-1.5">
+              <AlertCircle size={14} className="text-rose-600 shrink-0" />
+              {saveError}
+            </span>
+            <button onClick={() => setSaveError('')} className="text-rose-600 hover:text-rose-800 font-bold">✕</button>
+          </div>
+        )}
 
-              {networkInfo.lanIp && (
+        {/* Dedicated, High-End RC Document Scanner Modal */}
+        {showRcScanner && (
+          <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs animate-fadeIn">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 flex flex-col">
+              
+              {/* Modal Header */}
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-orange-50 border border-orange-200 text-orange-600 flex items-center justify-center shadow-xs">
+                    <Sparkles size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">
+                      Scan Vehicle RC Card
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Upload Front &amp; Back photos to auto-populate vehicle &amp; owner details
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => setQrMode('lan')}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                    qrMode === 'lan'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:text-white'
-                  }`}
-                  title={`Works when phone is connected to the same Wi-Fi network: ${networkInfo.lanIp}`}
+                  onClick={() => setShowRcScanner(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                 >
-                  <Wifi size={11} />
-                  <span>Wi-Fi ({networkInfo.lanIp})</span>
+                  <X size={18} />
                 </button>
-              )}
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setQrMode('prod')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
-                  qrMode === 'prod'
-                    ? 'bg-purple-600 text-white shadow-xs'
-                    : 'text-slate-300 hover:text-white'
-                }`}
-                title="Official domain fueltracks.in"
-              >
-                <span>fueltracks.in</span>
-              </button>
+              {/* Modal Body: Two Clean Photo Dropzones */}
+              <div className="p-6 space-y-4">
+                <div className="grid grid-cols-2 gap-3.5">
+                  
+                  {/* RC Front Slot */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-slate-700">RC Card Front</span>
+                      {rcFrontFile && (
+                        <label
+                          htmlFor="popup-rc-front"
+                          className="text-[11px] font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
+                        >
+                          Change
+                        </label>
+                      )}
+                    </div>
+                    <input
+                      id="popup-rc-front"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files[0];
+                        if (f) {
+                          setRcFrontFile(f);
+                          setRcFrontPreview(URL.createObjectURL(f));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    {rcFrontPreview ? (
+                      <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 h-36 flex items-center justify-center group shadow-xs">
+                        <img src={rcFrontPreview} alt="RC Front" className="h-full w-full object-contain p-1" />
+                        <label
+                          htmlFor="popup-rc-front"
+                          className="absolute inset-0 bg-slate-900/40 text-white text-xs font-bold opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                        >
+                          Change Photo
+                        </label>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="popup-rc-front"
+                        className="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 hover:text-orange-600 bg-slate-50/50 hover:bg-orange-50/30 transition-all cursor-pointer p-3 text-center"
+                      >
+                        <ImageIcon size={24} className="mb-1.5 text-slate-400" />
+                        <span className="text-xs font-bold text-slate-700">Upload Front</span>
+                        <span className="text-[10.5px] text-slate-400 mt-0.5">JPG, PNG up to 5MB</span>
+                      </label>
+                    )}
+                  </div>
+
+                  {/* RC Back Slot */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-slate-700">RC Card Back</span>
+                      {rcBackFile && (
+                        <label
+                          htmlFor="popup-rc-back"
+                          className="text-[11px] font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
+                        >
+                          Change
+                        </label>
+                      )}
+                    </div>
+                    <input
+                      id="popup-rc-back"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files[0];
+                        if (f) {
+                          setRcBackFile(f);
+                          setRcBackPreview(URL.createObjectURL(f));
+                        }
+                      }}
+                      className="hidden"
+                    />
+                    {rcBackPreview ? (
+                      <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50 h-36 flex items-center justify-center group shadow-xs">
+                        <img src={rcBackPreview} alt="RC Back" className="h-full w-full object-contain p-1" />
+                        <label
+                          htmlFor="popup-rc-back"
+                          className="absolute inset-0 bg-slate-900/40 text-white text-xs font-bold opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity cursor-pointer"
+                        >
+                          Change Photo
+                        </label>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="popup-rc-back"
+                        className="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 hover:text-orange-600 bg-slate-50/50 hover:bg-orange-50/30 transition-all cursor-pointer p-3 text-center"
+                      >
+                        <ImageIcon size={24} className="mb-1.5 text-slate-400" />
+                        <span className="text-xs font-bold text-slate-700">Upload Back</span>
+                        <span className="text-[10.5px] text-slate-400 mt-0.5">JPG, PNG up to 5MB</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Status Message */}
+                {rcScanError && (
+                  <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle size={14} className="shrink-0" />
+                    <span>{rcScanError}</span>
+                  </div>
+                )}
+                {rcScanSuccess && (
+                  <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 size={14} className="shrink-0 text-emerald-600" />
+                    <span>{rcScanSuccess}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRcScanner(false)}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <div className="flex items-center gap-2">
+                  {rcScanSuccess && (
+                    <button
+                      type="button"
+                      onClick={() => setShowRcScanner(false)}
+                      className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors cursor-pointer"
+                    >
+                      Apply &amp; View Certificate
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await handleScanRc();
+                    }}
+                    disabled={isScanningRc || (!rcFrontFile && !rcBackFile)}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-[#f97316] hover:bg-[#ea580c] active:bg-[#c2410c] text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    {isScanningRc ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        <span>Extracting Details via OCR...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        <span>{rcScanSuccess ? 'Scan Again' : 'Extract & Apply Details'}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
             </div>
-
-            {/* Quick Refresh Button */}
-            <button
-              type="button"
-              onClick={handleRestartTunnel}
-              disabled={tunnelLoading}
-              title="Refresh / Reconnect Cloud Tunnel"
-              className="p-1 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded transition-colors cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw size={12} className={tunnelLoading ? 'animate-spin text-emerald-400' : ''} />
-            </button>
-
-            <span className="text-[10px] text-slate-400 font-mono hidden md:inline truncate max-w-[280px]">
-              {getVerificationUrl(formData, qrMode)}
-            </span>
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                const link = getVerificationUrl(formData, qrMode);
-                navigator.clipboard.writeText(link);
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2000);
-              }}
-              className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-md text-[11px] font-medium cursor-pointer transition-colors"
-            >
-              {copiedLink ? <CheckCircle2 size={11} className="text-emerald-400" /> : <Copy size={11} />}
-              <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
-            </button>
-            <a
-              href={getVerificationUrl(formData, qrMode)}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-md text-[11px] font-semibold cursor-pointer transition-colors shadow-xs"
-            >
-              <span>Test Link</span>
-              <ExternalLink size={11} />
-            </a>
-          </div>
-        </div>
+        )}
 
         {/* Collapsible Edit Form Drawer */}
         {isEditing && (
@@ -722,7 +973,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
                 onClick={() => setIsEditing(false)}
                 className="flex items-center gap-1 px-3 py-1 text-xs bg-slate-900 text-white rounded font-semibold cursor-pointer"
               >
-                <Check size={12} /> Apply Changes
+                <Check size={12} /> Done Editing
               </button>
             </div>
           </div>
@@ -731,19 +982,21 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
         {/* Scrollable Document Container */}
         <div className="p-2 sm:p-6 overflow-x-auto overflow-y-auto bg-slate-200 flex justify-center">
           
-          {/* Certificate Page - Clean Single A4 Dimensions & Modern Typography */}
+          {/* Certificate Page - Strict Single A4 Fit Dimensions */}
           <div
             id="fitment-cert-print-area"
             ref={certificateRef}
             className="bg-white text-slate-900 shadow-xl relative"
             style={{
               width: '794px',
-              minHeight: '1100px',
-              padding: '28px 34px',
+              minHeight: '1060px',
+              maxHeight: '1120px',
+              padding: '20px 28px',
               fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
               boxSizing: 'border-box',
               color: '#0f172a',
-              lineHeight: 1.25
+              lineHeight: 1.2,
+              overflow: 'hidden'
             }}
           >
             {/* 5% Background Watermark */}
@@ -797,17 +1050,17 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
                 </div>
 
                 {/* QR Code */}
-                <div style={{ width: '84px', textAlign: 'center', flexShrink: 0 }}>
+                <div style={{ width: '96px', textAlign: 'center', flexShrink: 0 }}>
                   {qrCodeUrl ? (
                     <img
                       src={qrCodeUrl}
                       alt="Scan to verify"
-                      style={{ width: '74px', height: '74px', display: 'block', margin: '0 auto', border: '1px solid #e2e8f0', padding: '2px', background: '#fff' }}
+                      style={{ width: '88px', height: '88px', display: 'block', margin: '0 auto', border: '1px solid #cbd5e1', padding: '3px', background: '#ffffff', borderRadius: '4px' }}
                     />
                   ) : (
-                    <div style={{ width: '74px', height: '74px', border: '1px dashed #cbd5e1', margin: '0 auto' }} />
+                    <div style={{ width: '88px', height: '88px', border: '1px dashed #cbd5e1', margin: '0 auto' }} />
                   )}
-                  <div style={{ fontSize: '8px', color: '#475569', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>
+                  <div style={{ fontSize: '8.5px', color: '#0f172a', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '3px' }}>
                     Scan to verify
                   </div>
                 </div>
@@ -1004,7 +1257,6 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle }) => {
               <div className="border border-slate-300 bg-slate-50 p-2 rounded text-[9.2px] text-slate-700 leading-tight mb-2">
                 <div className="mb-1 flex items-center gap-1.5">
                   <span className="text-slate-950 uppercase font-black">Customer Confirmation</span>
-                  <span className="text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded text-[8px]">[Subject to Legal Review]</span>
                 </div>
                 <div>
                   The customer, <strong className="text-slate-950">{formData.customerName}</strong>, confirms that the GPS device was installed satisfactorily in vehicle <strong className="text-slate-950">{formData.vehicleNo}</strong> and agrees not to tamper with, remove or relocate the device. Any problem caused by tampering is the customer's responsibility, and FuelTracks Technologies Pvt. Ltd. will not be liable for it.

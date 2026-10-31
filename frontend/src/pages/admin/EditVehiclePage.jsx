@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, Save, ArrowLeft, Fuel, Sliders
+  Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, Save, ArrowLeft, Fuel, Sliders,
+  Sparkles, Image as ImageIcon, Upload, FileText, CheckCircle2
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
@@ -384,6 +385,74 @@ const EditVehiclePage = () => {
   const [orgs, setOrgs] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
 
+  // RC Scanner States
+  const [rcFrontFile, setRcFrontFile] = useState(null);
+  const [rcBackFile, setRcBackFile] = useState(null);
+  const [rcFrontPreview, setRcFrontPreview] = useState(null);
+  const [rcBackPreview, setRcBackPreview] = useState(null);
+  const [isScanningRc, setIsScanningRc] = useState(false);
+  const [rcScanSuccess, setRcScanSuccess] = useState('');
+  const [rcScanError, setRcScanError] = useState('');
+  const [showRcBox, setShowRcBox] = useState(false);
+
+  const handleScanRc = async () => {
+    if (!rcFrontFile && !rcBackFile) {
+      setRcScanError('Please choose at least one RC image (Front or Back).');
+      return;
+    }
+    setIsScanningRc(true);
+    setRcScanError('');
+    setRcScanSuccess('');
+
+    try {
+      const fd = new FormData();
+      if (rcFrontFile) fd.append('rcFront', rcFrontFile);
+      if (rcBackFile) fd.append('rcBack', rcBackFile);
+
+      const res = await vehicleApi.scanRcDocument(fd);
+      if (res && res.success && res.data) {
+        const rc = res.data;
+        setForm(prev => {
+          const newPlate = rc.registrationNo || prev.plate;
+          const updatedMeta = {
+            ...prev.metadata,
+            vehicleId: newPlate,
+            registrationNo: newPlate,
+            chassisNo: rc.chassisNo || prev.metadata.chassisNo,
+            engineNo: rc.engineNo || prev.metadata.engineNo,
+            ownerName: rc.ownerName || prev.metadata.ownerName,
+            driverName: rc.ownerName || prev.metadata.driverName,
+            ownerAddress: rc.ownerAddress || prev.metadata.ownerAddress,
+            vehicleModel: rc.vehicleMakeModel || prev.metadata.vehicleModel,
+            rcFrontUrl: rc.rcFrontUrl || prev.metadata.rcFrontUrl,
+            rcBackUrl: rc.rcBackUrl || prev.metadata.rcBackUrl,
+          };
+          if (rc.fuelType) updatedMeta.fuelType = rc.fuelType;
+
+          return {
+            ...prev,
+            plate: newPlate,
+            driverName: rc.ownerName || prev.driverName,
+            licenceIssuedDate: rc.registrationDate || prev.licenceIssuedDate,
+            licenceExpireDate: rc.fitnessUpto || prev.licenceExpireDate,
+            metadata: updatedMeta
+          };
+        });
+
+        if (rc.rcFrontUrl) setRcFrontPreview(rc.rcFrontUrl);
+        if (rc.rcBackUrl) setRcBackPreview(rc.rcBackUrl);
+
+        setRcScanSuccess(`RC Scanned Successfully! Auto-filled Plate: ${rc.registrationNo || 'N/A'}, Chassis: ${rc.chassisNo || 'N/A'}, Engine: ${rc.engineNo || 'N/A'}`);
+      } else {
+        setRcScanError(res?.error || 'Failed to scan RC details.');
+      }
+    } catch (err) {
+      setRcScanError(err.response?.data?.error || err.message || 'Error occurred during OCR scan.');
+    } finally {
+      setIsScanningRc(false);
+    }
+  };
+
   const getTodayStr = () => {
     const d = new Date();
     const y = d.getFullYear();
@@ -474,10 +543,15 @@ const EditVehiclePage = () => {
       // Driver Details
       driverName: '',
       driverPhone: '',
+      ownerName: '',
+      ownerAddress: '',
+      rcFrontUrl: '',
+      rcBackUrl: '',
       // Other Details
       madeIn: 'India',
       mfgDate: '',
       chassisNo: '',
+      engineNo: '',
       alternateVehicleName: '',
       description: '',
       serviceEngineer: 'Service Engineer',
@@ -532,6 +606,12 @@ const EditVehiclePage = () => {
               vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
               vehicleModel: meta.vehicleModel || v.make || 'Mazda',
               deviceModel: currentDeviceModel,
+              chassisNo: meta.chassisNo || meta.vin || '',
+              engineNo: meta.engineNo || meta.engine_number || '',
+              ownerName: meta.ownerName || meta.customerName || v.driver_name || '',
+              ownerAddress: meta.ownerAddress || meta.address || '',
+              rcFrontUrl: meta.rcFrontUrl || '',
+              rcBackUrl: meta.rcBackUrl || '',
               iccid: expandScientificNotation(meta.iccid || ''),
               telecomOperator: meta.telecomOperator || 'AIRCEL',
               installationDate: meta.installationDate || meta.installedDate || '',
@@ -667,29 +747,316 @@ const EditVehiclePage = () => {
     <div style={{ background: '#EEF5F8', minHeight: '100%', padding: '20px 28px 60px 28px', boxSizing: 'border-box' }}>
 
       {/* Top Header & Breadcrumbs matching FuelTracks UI theme */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
-        <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-          Edit Vehicle
-        </h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+            Edit Vehicle
+          </h1>
 
-        {/* Breadcrumbs */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: 600 }}>
-          <Home size={15} style={{ color: '#64748b' }} />
-          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
-          <span
-            onClick={() => navigate('/admin/vehicles')}
-            style={{ cursor: 'pointer', transition: 'color 0.15s' }}
-            onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
-            onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-          >
-            Vehicle list
-          </span>
-          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
-          <span>Vehicle Edit</span>
-          <ChevronRight size={13} style={{ color: '#94a3b8' }} />
-          <span style={{ color: '#ea580c', fontWeight: 800 }}>{currentVehicleId}</span>
+          {/* Breadcrumbs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontSize: '13px', fontWeight: 600 }}>
+            <Home size={15} style={{ color: '#64748b' }} />
+            <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+            <span
+              onClick={() => navigate('/admin/vehicles')}
+              style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+            >
+              Vehicle list
+            </span>
+            <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+            <span>Vehicle Edit</span>
+            <ChevronRight size={13} style={{ color: '#94a3b8' }} />
+            <span style={{ color: '#ea580c', fontWeight: 800 }}>{currentVehicleId}</span>
+          </div>
         </div>
+
+        {/* Action Button: Scan RC Document */}
+        <button
+          type="button"
+          onClick={() => setShowRcBox(true)}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '9px 16px',
+            borderRadius: '10px',
+            background: '#fff7ed',
+            color: '#c2410c',
+            border: '1px solid #fed7aa',
+            fontSize: '13px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#ffedd5'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#fff7ed'; }}
+        >
+          <Sparkles size={16} color="#ea580c" />
+          <span>Scan RC Document</span>
+        </button>
       </div>
+
+      {/* Modal Dialog for RC Document Scanner */}
+      {showRcBox && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 10000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            width: '100%',
+            maxWidth: '560px',
+            overflow: 'hidden',
+            border: '1px solid #e2e8f0',
+            display: 'flex',
+            flexDirection: 'column'
+          }}>
+            {/* Modal Header */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '36px',
+                  height: '36px',
+                  borderRadius: '10px',
+                  background: '#fff7ed',
+                  border: '1px solid #fed7aa',
+                  color: '#ea580c',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 800, color: '#0f172a' }}>
+                    Scan Vehicle RC Card
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                    Upload Front & Back photos to auto-populate vehicle fields
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRcBox(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#94a3b8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  fontSize: '16px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
+                {/* Front Side */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    RC Front Photo
+                  </div>
+                  <input
+                    id="edit-rc-front"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const f = e.target.files[0];
+                      if (f) {
+                        setRcFrontFile(f);
+                        setRcFrontPreview(URL.createObjectURL(f));
+                      }
+                    }}
+                  />
+                  {rcFrontPreview ? (
+                    <label htmlFor="edit-rc-front" style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      background: '#f8fafc',
+                      overflow: 'hidden',
+                      cursor: 'pointer'
+                    }}>
+                      <img src={rcFrontPreview} alt="RC Front" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    </label>
+                  ) : (
+                    <label htmlFor="edit-rc-front" style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '2px dashed #cbd5e1',
+                      background: '#f8fafc',
+                      cursor: 'pointer',
+                      padding: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <ImageIcon size={24} color="#94a3b8" style={{ marginBottom: '6px' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload Front</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>JPG, PNG up to 5MB</span>
+                    </label>
+                  )}
+                </div>
+
+                {/* Back Side */}
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                    RC Back Photo
+                  </div>
+                  <input
+                    id="edit-rc-back"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => {
+                      const f = e.target.files[0];
+                      if (f) {
+                        setRcBackFile(f);
+                        setRcBackPreview(URL.createObjectURL(f));
+                      }
+                    }}
+                  />
+                  {rcBackPreview ? (
+                    <label htmlFor="edit-rc-back" style={{
+                      position: 'relative',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0',
+                      background: '#f8fafc',
+                      overflow: 'hidden',
+                      cursor: 'pointer'
+                    }}>
+                      <img src={rcBackPreview} alt="RC Back" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                    </label>
+                  ) : (
+                    <label htmlFor="edit-rc-back" style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      height: '140px',
+                      borderRadius: '12px',
+                      border: '2px dashed #cbd5e1',
+                      background: '#f8fafc',
+                      cursor: 'pointer',
+                      padding: '12px',
+                      textAlign: 'center'
+                    }}>
+                      <ImageIcon size={24} color="#94a3b8" style={{ marginBottom: '6px' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload Back</span>
+                      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>JPG, PNG up to 5MB</span>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Status Notifications */}
+              {rcScanError && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', fontSize: '12px', fontWeight: 600 }}>
+                  {rcScanError}
+                </div>
+              )}
+              {rcScanSuccess && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', fontSize: '12px', fontWeight: 700 }}>
+                  {rcScanSuccess}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{
+              padding: '14px 20px',
+              borderTop: '1px solid #f1f5f9',
+              background: '#f8fafc',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <button
+                type="button"
+                onClick={() => setShowRcBox(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  await handleScanRc();
+                  setTimeout(() => setShowRcBox(false), 900);
+                }}
+                disabled={isScanningRc || (!rcFrontFile && !rcBackFile)}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '9px 18px',
+                  borderRadius: '10px',
+                  background: isScanningRc ? '#94a3b8' : '#ea580c',
+                  color: '#ffffff',
+                  border: 'none',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: isScanningRc ? 'not-allowed' : 'pointer',
+                  opacity: (!rcFrontFile && !rcBackFile) ? 0.6 : 1
+                }}
+              >
+                {isScanningRc ? (
+                  <>
+                    <Loader2 size={15} className="animate-spin" />
+                    <span>Extracting Details via OCR...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    <span>Extract & Auto-Fill</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status Alerts */}
       {error && (
@@ -1222,6 +1589,24 @@ const EditVehiclePage = () => {
             onFocus={() => setFocusedField('dPhone')}
             onBlur={() => setFocusedField(null)}
           />
+          <InputField
+            label="Registered Owner Name (from RC)"
+            value={form.metadata.ownerName}
+            onChange={e => updateMeta('ownerName', e.target.value)}
+            placeholder="Registered Owner Name"
+            focused={focusedField === 'ownerName'}
+            onFocus={() => setFocusedField('ownerName')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Registered Owner Address (from RC)"
+            value={form.metadata.ownerAddress}
+            onChange={e => updateMeta('ownerAddress', e.target.value)}
+            placeholder="Registered Address on RC"
+            focused={focusedField === 'ownerAddr'}
+            onFocus={() => setFocusedField('ownerAddr')}
+            onBlur={() => setFocusedField(null)}
+          />
         </div>
 
         {/* ============================================================ */}
@@ -1258,6 +1643,15 @@ const EditVehiclePage = () => {
             placeholder="Chassis Number"
             focused={focusedField === 'chassis'}
             onFocus={() => setFocusedField('chassis')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <InputField
+            label="Engine Number"
+            value={form.metadata.engineNo}
+            onChange={e => updateMeta('engineNo', e.target.value)}
+            placeholder="Engine Number"
+            focused={focusedField === 'engine'}
+            onFocus={() => setFocusedField('engine')}
             onBlur={() => setFocusedField(null)}
           />
           <InputField

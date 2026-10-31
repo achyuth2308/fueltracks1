@@ -249,6 +249,14 @@ app.get('/api/public/certificate/:identifier', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Identifier required' });
     }
 
+    const queryVeh = (req.query.veh || req.query.plate || '').trim();
+    const queryImei = (req.query.imei || '').trim();
+
+    // Extract trailing digits if identifier is like FT-GPS-2026-00081 or FT-GPS-2026-81
+    const certMatch = identifier.match(/(?:FT-GPS|FT-FC)-\d{4}-(\d+)/i);
+    const trailingNum = certMatch ? certMatch[1] : null;
+    const trailingInt = trailingNum ? String(parseInt(trailingNum, 10)) : '';
+
     const query = `
       SELECT v.*, o.name AS org_name
       FROM vehicles v
@@ -257,9 +265,23 @@ app.get('/api/public/certificate/:identifier', async (req, res) => {
          OR v.plate ILIKE $1 
          OR v.id::text = $1
          OR v.metadata->>'certSerialNo' = $1
+         OR v.metadata->>'registrationNo' ILIKE $1
+         OR v.metadata->>'vehicleId' ILIKE $1
+         OR ($2 <> '' AND (v.plate ILIKE $2 OR v.metadata->>'registrationNo' ILIKE $2 OR v.name ILIKE $2))
+         OR ($3 <> '' AND (v.imei = $3 OR v.metadata->>'imei' = $3))
+         OR ($4 <> '' AND (v.id::text ILIKE '%' || $4 OR v.imei ILIKE '%' || $4))
+      ORDER BY 
+        CASE 
+          WHEN v.metadata->>'certSerialNo' = $1 THEN 1
+          WHEN v.plate ILIKE $1 THEN 2
+          WHEN v.imei = $1 THEN 3
+          WHEN v.id::text = $1 THEN 4
+          WHEN $2 <> '' AND v.plate ILIKE $2 THEN 5
+          ELSE 6
+        END
       LIMIT 1
     `;
-    const result = await db.query(query, [identifier]);
+    const result = await db.query(query, [identifier, queryVeh, queryImei, trailingInt]);
 
     if (result.rowCount === 0) {
       const miningQuery = `
@@ -297,6 +319,12 @@ app.get('/api/public/certificate/:identifier', async (req, res) => {
     const now = new Date();
     const oneYearLater = new Date();
     oneYearLater.setFullYear(now.getFullYear() + 1);
+
+    // Auto-save certSerialNo if generated and not yet set
+    if (!metadata.certSerialNo && identifier.startsWith('FT-')) {
+      metadata.certSerialNo = identifier;
+      db.query('UPDATE vehicles SET metadata = $1 WHERE id = $2', [metadata, veh.id]).catch(() => {});
+    }
 
     const formatDate = (d) => {
       if (!d) return '';
@@ -347,7 +375,10 @@ app.get('/api/public/certificate/:identifier', async (req, res) => {
         ownerAddress: metadata.ownerAddress || metadata.address || 'Hyderabad, Telangana - 500079',
         deviceModel: deviceModelResolved,
         fitmentLocation: metadata.fitmentLocation || 'Behind Co-driver Dashboard Firewall',
-        sealNumber: metadata.sealSerialNo || `FT-SEAL-${imei.slice(-6)}`
+        sealNumber: metadata.sealSerialNo || `FT-SEAL-${imei.slice(-6)}`,
+        vehicleMakeModel: metadata.vehicleMakeModel || veh.model || 'Commercial Vehicle',
+        rcFrontUrl: metadata.rcFrontUrl || null,
+        rcBackUrl: metadata.rcBackUrl || null,
       }
     });
   } catch (err) {

@@ -7,11 +7,15 @@ const VehicleController = require('../controllers/vehicleController');
 const GeofenceRouteController = require('../controllers/geofenceRouteController');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
+const uploadRcMiddleware = require('../middleware/rcUpload');
 
 const router = express.Router();
 
 // Apply auth to all vehicle routes
 router.use(authenticate);
+
+// RC Document OCR Scanner (Bounded worker offloading)
+router.post('/scan-rc', uploadRcMiddleware, VehicleController.scanRcDocument);
 
 // CRUD
 router.get('/', VehicleController.getAllVehicles);

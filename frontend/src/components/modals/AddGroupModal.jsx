@@ -335,43 +335,31 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
               </div>
             ) : (
               <>
-                {/* SECTION 1: SELECTED VEHICLES */}
-                <div>
-                  <div style={{
-                    fontSize: '13px',
-                    fontWeight: 700,
-                    color: '#EA580C',
-                    marginBottom: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}>
-                    <span>Selected Vehicles :</span>
-                    <span style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      color: '#C2410C',
-                      background: '#FFEDD5',
-                      padding: '1px 8px',
-                      borderRadius: '10px'
-                    }}>
-                      {selectedVehicles.length}
-                    </span>
-                  </div>
-
-                  {selectedVehicles.length === 0 ? (
+                {/* SECTION 1: SELECTED VEHICLES (Only shown when at least one vehicle is selected) */}
+                {selectedVehicles.length > 0 && (
+                  <div style={{ marginBottom: '16px' }}>
                     <div style={{
-                      padding: '12px 14px',
-                      background: '#F8FAFC',
-                      borderRadius: '8px',
-                      border: '1px dashed #CBD5E1',
-                      color: '#64748B',
-                      fontSize: '12px',
-                      fontStyle: 'italic'
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      color: '#EA580C',
+                      marginBottom: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
                     }}>
-                      No vehicles selected yet. Check any vehicle below to select it.
+                      <span>Selected Vehicles :</span>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#C2410C',
+                        background: '#FFEDD5',
+                        padding: '1px 8px',
+                        borderRadius: '10px'
+                      }}>
+                        {selectedVehicles.length}
+                      </span>
                     </div>
-                  ) : (
+
                     <div style={{
                       display: 'grid',
                       gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))',
@@ -418,8 +406,8 @@ const AddGroupModal = ({ isOpen, onClose, onSave, orgs = [], editingGroup = null
                         );
                       })}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 {/* SECTION 2: SELECT THE VEHICLES (AVAILABLE / UNSELECTED) */}
                 <div>
