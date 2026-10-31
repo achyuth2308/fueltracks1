@@ -15,6 +15,7 @@ const { gpsQuery } = require('../config/db'); // GPS writes use a separate isola
 const env = require('../config/env');
 const webhookService = require('../services/webhookService'); // Civil Supply webhook push
 const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
+const minesPushService = require('../services/minesPushService'); // Mines Server Push
 let subscriber = null;
 
 // Bounded global queue for distance recomputes (concurrency 2, max 1000)
@@ -1256,6 +1257,14 @@ async function start(io) {
           });
           sclenPushService.pushToCoromandel(vehicle, {
             lat, lng, deviceTime
+          });
+          // Mines Department Push (Fire-and-forget, zero DB queries, O(1) memory lookup)
+          minesPushService.pushToMines(vehicle, {
+            lat, lng, speed, direction, voltage, battery, satellites,
+            odometer: finalOdometer, fuel: finalFuelLiters,
+            ignition: finalIgnition, deviceTime, isLive,
+            packetType: data.packetType, rawHex: data.rawHex,
+            gsmSignal
           });
         }
       }

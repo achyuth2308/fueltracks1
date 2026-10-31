@@ -1343,30 +1343,20 @@ const GpsModel = {
   /**
    * Get dashboard stats for an org
    */
-  async getDashboardStats(orgId, role) {
-    let params = [];
-    let orgWhere = '';
-
-    if (role !== 'superadmin') {
-      params.push(orgId);
-      orgWhere = `$1`;
-    }
-
+  async getDashboardStats(orgId, role, noDataMinutes = 30) {
+    const mins = Math.max(1, parseInt(noDataMinutes, 10) || 30);
     let result;
+
     if (role === 'superadmin') {
       result = await db.query(`
         SELECT
           (SELECT COUNT(*) FROM vehicles WHERE is_active = TRUE) AS total_vehicles,
           (SELECT COUNT(*) FROM vehicle_latest_state vls
            JOIN vehicles v ON v.id = vls.vehicle_id
-           WHERE v.is_active = TRUE AND (
-             vls.last_seen >= NOW() - INTERVAL '3 minutes'
-             OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
-             OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
-           )) AS online_vehicles,
+           WHERE v.is_active = TRUE AND vls.last_seen >= NOW() - ($1 || ' minutes')::INTERVAL) AS online_vehicles,
           (SELECT COUNT(*) FROM organizations) AS organizations_count,
           (SELECT COUNT(*) FROM users) AS users_count
-      `);
+      `, [mins]);
     } else {
       result = await db.query(`
         SELECT
@@ -1376,16 +1366,13 @@ const GpsModel = {
           (SELECT COUNT(*) FROM vehicle_latest_state vls
            JOIN vehicles v ON v.id = vls.vehicle_id
            JOIN organizations o ON v.org_id = o.id
-           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1) AND (
-             vls.last_seen >= NOW() - INTERVAL '3 minutes'
-             OR (vls.ignition = TRUE AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '5 minutes')
-             OR ((vls.ignition = FALSE OR vls.ignition IS NULL) AND (vls.speed <= 2.0 OR vls.speed IS NULL) AND vls.last_seen >= NOW() - INTERVAL '24 hours')
-           )) AS online_vehicles,
+           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1)
+             AND vls.last_seen >= NOW() - ($2 || ' minutes')::INTERVAL) AS online_vehicles,
           (SELECT COUNT(*) FROM organizations WHERE id = $1 OR parent_id = $1) AS organizations_count,
           (SELECT COUNT(*) FROM users u
            JOIN organizations o ON u.org_id = o.id
            WHERE o.id = $1 OR o.parent_id = $1) AS users_count
-      `, params);
+      `, [orgId, mins]);
     }
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
