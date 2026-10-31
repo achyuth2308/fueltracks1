@@ -6,6 +6,36 @@
 const db = require('../config/db');
 const { redis } = require('../config/redis');
 
+function enrichVehicleFuel(v) {
+  if (!v) return v;
+  let tankCap = null;
+  const meta = v.metadata || {};
+  const fuelCal = meta.fuelCalibration || meta.fuel || {};
+  if (fuelCal.tanks && typeof fuelCal.tanks === 'object') {
+    const tVals = Object.values(fuelCal.tanks);
+    const sumCap = tVals.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);
+    if (sumCap > 0) tankCap = Math.round(sumCap * 10) / 10;
+  }
+  if (!tankCap) {
+    const rawCap = parseFloat(fuelCal.tankSize || meta.tankSize || meta.tankCapacity);
+    if (!isNaN(rawCap) && rawCap > 0) tankCap = Math.round(rawCap * 10) / 10;
+  }
+
+  const curFuel = v.current_fuel != null && !isNaN(v.current_fuel)
+    ? Math.round(parseFloat(v.current_fuel) * 10) / 10
+    : null;
+  const fuelPercent = (tankCap > 0 && curFuel != null)
+    ? Math.max(0, Math.min(100, Math.round((curFuel / tankCap) * 1000) / 10))
+    : null;
+
+  return {
+    ...v,
+    current_fuel: curFuel,
+    tank_capacity: tankCap,
+    fuel_percentage: fuelPercent
+  };
+}
+
 const VehicleModel = {
   /**
    * Find vehicle by IMEI (used by TCP server to match packets)
@@ -74,7 +104,7 @@ const VehicleModel = {
        WHERE v.id = $1`,
       [vehicleId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? enrichVehicleFuel(result.rows[0]) : null;
   },
 
   /**
@@ -208,7 +238,7 @@ const VehicleModel = {
     );
 
     return {
-      vehicles: result.rows,
+      vehicles: result.rows.map(enrichVehicleFuel),
       pagination: {
         page,
         limit,

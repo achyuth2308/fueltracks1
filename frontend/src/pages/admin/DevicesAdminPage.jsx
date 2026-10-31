@@ -11,6 +11,7 @@ import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
+import { getNoDataThresholdHours } from '../../utils/markerUtils';
 
 const formatLastComm = (isoString) => {
   if (!isoString) return 'Never';
@@ -43,13 +44,22 @@ const DevicesAdminPage = () => {
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, ONLINE, OFFLINE, NEVER
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
+  const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
+
+  useEffect(() => {
+    const handleThresholdChange = (e) => {
+      setNoDataThreshold(e.detail || getNoDataThresholdHours());
+    };
+    window.addEventListener('nodata-threshold-changed', handleThresholdChange);
+    return () => window.removeEventListener('nodata-threshold-changed', handleThresholdChange);
+  }, []);
 
   const fetchDevices = async () => {
     setLoading(true);
     try {
-      const res = await adminApi.getDevices();
+      const res = await adminApi.getDevices({ thresholdHours: noDataThreshold });
       if (res.success) {
         const mappedDevices = res.data.map(d => ({
           id: d.id,
@@ -73,12 +83,21 @@ const DevicesAdminPage = () => {
     fetchDevices();
     api.getGroups?.().then(res => { if (res.success) setGroups(res.data); }).catch(() => { });
     api.getOrgs?.().then(res => { if (res.success) setOrgs(res.data); }).catch(() => { });
-  }, []);
+  }, [noDataThreshold]);
 
-  // Counts breakdown
+  // Helper to determine online state dynamically according to selected No Data time
+  const isDeviceOnline = (d) => {
+    if (!d.last_update) return false;
+    const lastSeenMs = new Date(d.last_update).getTime();
+    if (isNaN(lastSeenMs)) return false;
+    const thresholdMs = noDataThreshold * 3600 * 1000;
+    return (Date.now() - lastSeenMs) < thresholdMs;
+  };
+
+  // Counts breakdown strictly matching user's selected No Data threshold
   const totalCount = devices.length;
-  const onlineCount = devices.filter(d => d.is_online).length;
-  const offlineCount = devices.filter(d => !d.is_online && d.last_update).length;
+  const onlineCount = devices.filter(d => isDeviceOnline(d)).length;
+  const offlineCount = devices.filter(d => !isDeviceOnline(d) && d.last_update).length;
   const neverCount = devices.filter(d => !d.last_update).length;
 
   const filtered = devices.filter(d => {
@@ -89,8 +108,9 @@ const DevicesAdminPage = () => {
 
     if (!matchesSearch) return false;
 
-    if (statusFilter === 'ONLINE') return d.is_online;
-    if (statusFilter === 'OFFLINE') return !d.is_online && d.last_update;
+    const online = isDeviceOnline(d);
+    if (statusFilter === 'ONLINE') return online;
+    if (statusFilter === 'OFFLINE') return !online && d.last_update;
     if (statusFilter === 'NEVER') return !d.last_update;
 
     return true;
@@ -290,11 +310,12 @@ const DevicesAdminPage = () => {
                 let statusColor = '#64748b';
                 let dotColor = '#cbd5e1';
 
+                const online = isDeviceOnline(d);
                 if (!d.last_update) {
                   statusText = 'Unreachable';
                   statusColor = '#64748b';
                   dotColor = '#cbd5e1';
-                } else if (d.is_online) {
+                } else if (online) {
                   statusText = 'Online';
                   statusColor = '#059669';
                   dotColor = '#10b981';

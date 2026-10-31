@@ -4,16 +4,16 @@ import { Key, Navigation, Fuel, Clock, ArrowRight, Wifi, WifiOff } from 'lucide-
 import { formatSpeed } from '../../utils/formatUtils';
 import { getRelativeTime } from '../../utils/dateUtils';
 
-const FuelMini = ({ pct = 0 }) => {
+const FuelMini = ({ pct = 0, litres, capacity }) => {
   const color = pct > 40 ? '#16a34a' : pct > 15 ? '#f97316' : '#ef4444';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      <Fuel size={10} color={color} />
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <Fuel size={12} color={color} />
       <div style={{ flex: 1, height: '4px', background: '#f3f4f6', borderRadius: '99px', overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(100, Math.max(0, pct))}%`, height: '100%', background: color, borderRadius: '99px', transition: 'width 0.5s ease' }} />
       </div>
-      <span style={{ fontSize: '9px', fontWeight: 600, color, fontFamily: 'JetBrains Mono, monospace', minWidth: '26px' }}>
-        {Number(pct).toFixed(0)}%
+      <span style={{ fontSize: '10px', fontWeight: 600, color, fontFamily: 'JetBrains Mono, monospace', whiteSpace: 'nowrap' }}>
+        {litres != null ? `${Number(litres).toFixed(1)}L` : ''}{capacity ? ` / ${Math.round(capacity)}L` : ''} ({Number(pct).toFixed(0)}%)
       </span>
     </div>
   );
@@ -127,7 +127,13 @@ const VehicleCard = ({ vehicle, isActive, onClick, onDetailsClick }) => {
       </div>
 
       {/* Fuel bar */}
-      <FuelMini pct={fuel} />
+      {(vehicle.current_fuel != null || vehicle.tank_capacity) && (
+        <FuelMini 
+          pct={vehicle.fuel_percentage ?? (vehicle.tank_capacity ? (fuel / vehicle.tank_capacity * 100) : fuel)} 
+          litres={vehicle.current_fuel}
+          capacity={vehicle.tank_capacity}
+        />
+      )}
 
       {/* Footer / Actions */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #e5e7eb' }}>

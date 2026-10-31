@@ -944,7 +944,14 @@ const AdminController = {
 
   async getDashboardStats(req, res, next) {
     try {
-      const cacheKey = `${req.user?.role || 'user'}:${req.user?.orgId || 'root'}`;
+      let noDataMinutes = 30;
+      if (req.query.noDataMinutes) {
+        noDataMinutes = Math.max(1, parseInt(req.query.noDataMinutes, 10) || 30);
+      } else if (req.query.thresholdHours) {
+        noDataMinutes = Math.max(1, Math.round((parseFloat(req.query.thresholdHours) || 0.5) * 60));
+      }
+
+      const cacheKey = `${req.user?.role || 'user'}:${req.user?.orgId || 'root'}:${noDataMinutes}`;
       const now = Date.now();
       const cached = AdminController._statsCache.get(cacheKey);
       if (cached && (now - cached.timestamp) < AdminController._STATS_CACHE_TTL) {
@@ -954,7 +961,7 @@ const AdminController = {
         });
       }
 
-      const stats = await GpsModel.getDashboardStats(req.user.orgId, req.user.role);
+      const stats = await GpsModel.getDashboardStats(req.user.orgId, req.user.role, noDataMinutes);
       AdminController._statsCache.set(cacheKey, { timestamp: now, data: stats });
 
       res.status(200).json({
@@ -968,6 +975,14 @@ const AdminController = {
 
   async getDevices(req, res) {
     try {
+      // Parse optional threshold query param (in hours or minutes), default 30 minutes (0.5 hour)
+      let noDataMinutes = 30;
+      if (req.query.noDataMinutes) {
+        noDataMinutes = Math.max(1, parseInt(req.query.noDataMinutes, 10) || 30);
+      } else if (req.query.thresholdHours) {
+        noDataMinutes = Math.max(1, Math.round((parseFloat(req.query.thresholdHours) || 0.5) * 60));
+      }
+
       let query = `
         SELECT 
           d.*, 
@@ -975,16 +990,7 @@ const AdminController = {
           v.id as vehicle_uuid,
           COALESCE(v.name, v.plate) as vehicle_name,
           CASE 
-            -- 1. Active telemetry within 3 minutes (Moving / Live):
-            WHEN vls.last_seen >= NOW() - INTERVAL '3 minutes' THEN TRUE 
-            -- 2. Idling vehicles (Ignition ON, Speed <= 2): Preserve up to 5 minutes
-            WHEN (vls.ignition = TRUE)
-              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
-              AND vls.last_seen >= NOW() - INTERVAL '5 minutes' THEN TRUE
-            -- 3. Parked vehicles (Ignition OFF, Speed <= 2): Universal 24h Sleep Mode for ALL vehicles
-            WHEN (vls.ignition = FALSE OR vls.ignition IS NULL)
-              AND (vls.speed <= 2.0 OR vls.speed IS NULL)
-              AND vls.last_seen >= NOW() - INTERVAL '24 hours' THEN TRUE
+            WHEN vls.last_seen >= NOW() - ($1 || ' minutes')::INTERVAL THEN TRUE
             ELSE FALSE 
           END as is_online,
           vls.last_seen
@@ -993,10 +999,10 @@ const AdminController = {
         LEFT JOIN vehicles v ON d.device_id = v.imei AND v.is_active = TRUE
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
       `;
-      let params = [];
+      let params = [noDataMinutes];
 
       if (req.user.role !== 'superadmin') {
-        query += ` WHERE d.org_id = $1`;
+        query += ` WHERE d.org_id = $2`;
         params.push(req.user.orgId);
       }
 

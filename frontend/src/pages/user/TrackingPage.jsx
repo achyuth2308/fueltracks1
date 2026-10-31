@@ -653,6 +653,14 @@ const TrackingPage = ({ setAppVehicles }) => {
                   {formatDirection(hoveredVehicle.current_direction)}
                 </td>
               </tr>
+              {(hoveredVehicle.current_fuel != null || hoveredVehicle.tank_capacity) && (
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
+                  <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {formatFuel(hoveredVehicle.current_fuel, hoveredVehicle.tank_capacity)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -1262,7 +1270,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                     ...(currentSelectedVehicles.length === 1 ? [
                       { label: 'Odometer', value: formatOdometer(liveRouteMetrics[currentSelectedVehicle.id]?.dynamicOdo || currentSelectedVehicle.current_odometer), icon: Compass, color: '#64748B' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10B981' : '#64748B' },
-                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#F59E0B' },
+                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel, currentSelectedVehicle.tank_capacity), icon: BarChart2, color: '#F59E0B' },
                       { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage || currentSelectedVehicle.metadata?.batteryVoltage), icon: Cpu, color: '#8B5CF6' }
                     ] : []),
                     { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#64748B' },

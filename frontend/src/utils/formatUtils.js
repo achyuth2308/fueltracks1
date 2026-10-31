@@ -4,8 +4,15 @@ export const formatSpeed = (speed, isOnline = true) => {
   return `${Math.round(speed)} km/h`;
 };
 
-export const formatFuel = (fuel) => {
-  return fuel !== undefined && fuel !== null ? `${Number(fuel).toFixed(1)} L` : 'N/A';
+export const formatFuel = (fuel, capacity) => {
+  if (fuel === undefined || fuel === null || isNaN(Number(fuel))) return 'N/A';
+  const val = Number(fuel).toFixed(1);
+  if (capacity && Number(capacity) > 0) {
+    const cap = Math.round(Number(capacity));
+    const pct = Math.max(0, Math.min(100, Math.round((Number(fuel) / cap) * 100)));
+    return `${val} L / ${cap} L (${pct}%)`;
+  }
+  return `${val} L`;
 };
 
 export const formatOdometer = (odo) => {
