@@ -63,20 +63,39 @@ async function sendMulticast(tokens, { title, body, data = {} }) {
   }
 
   try {
+    const isTheft = data?.alertType === 'safety_park';
+    const channelId = isTheft ? 'theft_alarm_channel' : 'default_channel';
+    const soundName = isTheft ? 'police_siren' : 'default';
+
     const message = {
       tokens,
+      notification: {
+        title,
+        body,
+      },
       data: Object.assign(
-        { title, body },
+        { title, body, isTheft: isTheft ? 'true' : 'false', channelId },
         Object.fromEntries(
           Object.entries(data).map(([k, v]) => [k, String(v)])
         )
       ),
       android: { 
-        priority: 'high'
+        priority: 'high',
+        notification: {
+          channelId,
+          sound: soundName,
+          priority: isTheft ? 'max' : 'high',
+          visibility: 'public',
+          defaultSound: !isTheft,
+        }
       },
       apns: {
         payload: {
-          aps: { alert: { title, body }, sound: 'default', badge: 1 },
+          aps: {
+            alert: { title, body },
+            sound: isTheft ? 'police_siren.wav' : 'default',
+            badge: 1
+          },
         },
       },
     };

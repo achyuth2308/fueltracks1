@@ -963,29 +963,68 @@ async function start(io) {
         // Check A2: Safety Parking Alarm (Theft / Unauthorized Ignition or Movement)
         // Arms immediately whenever Safety Parking is toggled ON for this vehicle.
         if (vehicle.metadata?.safetyPark === 'YES') {
-          const isBreached = rawIgnition === true || finalIgnition === true || evalSpeed > 1;
+          const hasIgnitionOn = rawIgnition === true || finalIgnition === true;
+          // Use > 2 km/h threshold to eliminate false triggers from GPS satellite jitter/drift while idling
+          const isMovingWithIgnition = hasIgnitionOn && evalSpeed > 2;
 
-          if (isBreached) {
-            // Mark vehicle as actively breached in Redis
-            const breachKey = `vehicle:safety_park_breach:${vehicleId}`;
-            await redis.set(breachKey, '1', 'EX', 86400);
+          if (isMovingWithIgnition) {
+            // Whenever vehicle ignition is ON and speed > 2 km/h, safety parking automatically disables.
+            console.log(`[SAFETY_PARK] Vehicle ${vehicle.name} (${vehicle.plate}) ignition ON & speed ${evalSpeed} km/h > 2. Disabling Safety Parking.`);
+            const newMeta = { ...(vehicle.metadata || {}), safetyPark: 'NO' };
+            await VehicleModel.update(vehicleId, { metadata: newMeta });
+            vehicle.metadata = newMeta;
 
-            // Throttle database alerts to once every 60s so user is notified without flooding DB
-            const spKey = `vehicle:safety_park_fired:${vehicleId}`;
-            const alreadyFired = await redis.get(spKey);
-            if (!alreadyFired) {
-              const hasIgn = rawIgnition === true || finalIgnition === true;
-              const movementType = (hasIgn && evalSpeed > 1)
-                ? `Engine ON & Moving at ${Math.round(evalSpeed)} km/h`
-                : (hasIgn ? 'Engine turned ON' : `Moving at ${Math.round(evalSpeed)} km/h`);
+            // Clear Redis breach & alert throttle keys
+            await redis.del(`vehicle:safety_park_fired:${vehicleId}`);
+            await redis.del(`vehicle:safety_park_breach:${vehicleId}`);
+            await redis.del('vehicles:all');
+            await redis.del(`vehicle:obj:${vehicleId}`);
+            if (vehicle.imei) await redis.del(`vehicle:imei:${vehicle.imei}`);
 
-              alertsToTrigger.push({
-                type: 'safety_park',
-                speed: evalSpeed,
-                text: `🚨 THEFT ALARM: ${vehicle.name} (${vehicle.plate}) — ${movementType} while Safety Parking was ACTIVE! Check immediately!`,
-                deviceTime: new Date(currentDeviceTimeMs).toISOString()
+            // Notify user that Safety Parking was automatically disarmed upon vehicle drive-off
+            alertsToTrigger.push({
+              type: 'safety_park',
+              speed: evalSpeed,
+              text: `ℹ️ Safety Parking Disarmed: ${vehicle.name} (${vehicle.plate}) engine turned ON and vehicle started moving at ${Math.round(evalSpeed)} km/h.`,
+              deviceTime: new Date(currentDeviceTimeMs).toISOString()
+            });
+
+            // Broadcast real-time disabled event to web dashboard and mobile app
+            if (io) {
+              io.to(`vehicle:${vehicleId}`).emit('vehicle:safety_park', {
+                vehicleId,
+                safetyPark: 'NO'
               });
-              await redis.set(spKey, '1', 'EX', 60); // Retrigger every 60s if condition persists
+              io.to(`org:${orgId}`).emit('vehicle:safety_park', {
+                vehicleId,
+                safetyPark: 'NO'
+              });
+            }
+          } else {
+            const isBreached = rawIgnition === true || finalIgnition === true || evalSpeed > 1;
+
+            if (isBreached) {
+              // Mark vehicle as actively breached in Redis
+              const breachKey = `vehicle:safety_park_breach:${vehicleId}`;
+              await redis.set(breachKey, '1', 'EX', 86400);
+
+              // Throttle database alerts to once every 60s so user is notified without flooding DB
+              const spKey = `vehicle:safety_park_fired:${vehicleId}`;
+              const alreadyFired = await redis.get(spKey);
+              if (!alreadyFired) {
+                const hasIgn = rawIgnition === true || finalIgnition === true;
+                const movementType = (hasIgn && evalSpeed > 1)
+                  ? `Engine ON & Moving at ${Math.round(evalSpeed)} km/h`
+                  : (hasIgn ? 'Engine turned ON' : `Moving at ${Math.round(evalSpeed)} km/h`);
+
+                alertsToTrigger.push({
+                  type: 'safety_park',
+                  speed: evalSpeed,
+                  text: `🚨 THEFT ALARM: ${vehicle.name} (${vehicle.plate}) — ${movementType} while Safety Parking was ACTIVE! Check immediately!`,
+                  deviceTime: new Date(currentDeviceTimeMs).toISOString()
+                });
+                await redis.set(spKey, '1', 'EX', 60); // Retrigger every 60s if condition persists
+              }
             }
           }
         }
