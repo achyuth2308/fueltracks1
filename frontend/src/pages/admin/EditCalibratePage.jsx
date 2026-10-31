@@ -2,20 +2,2520 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, RotateCw, Download,
-  Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, Box,
+  Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, ArrowLeft, Box,
   Table, Plus, Trash2, Upload, FileSpreadsheet, Activity, Cpu, Sparkles, Check, Info,
-  ChevronDown, Gauge
+  ChevronDown, Gauge, Save
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as vehicleApi from '../../api/vehicleApi';
 import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
 import LiveFuelModal from '../../components/modals/LiveFuelModal';
 
+// ==============================================================================
+// TANK CALIBRATION BLOCK (OPTION A: REUSABLE PER-TANK COMPONENT)
+// ==============================================================================
+  const sensorTypeOptions = [
+    { value: '', label: '-- Select --' },
+    { value: 'Jointech', label: 'Jointech' },
+    { value: 'Technoton', label: 'Technoton' }
+  ];
+
+  const modeOptions = [
+    { value: '', label: '-- Select --' },
+    { value: 'Moving Vehicle', label: 'Moving Vehicle' },
+    { value: 'Machinery', label: 'Machinery' },
+    { value: 'Dispenser', label: 'Dispenser' },
+    { value: 'Diesel Generator(DG)', label: 'Diesel Generator(DG)' }
+  ];
+
+  const fuelTypeOptions = [
+    { value: '', label: '-- Select --' },
+    { value: 'Analog', label: 'Analog' },
+    { value: 'Analog 2', label: 'Analog 2' },
+    { value: 'LLS Fuel 1(Serial)', label: 'LLS Fuel 1(Serial)' },
+    { value: 'LLS Fuel 2', label: 'LLS Fuel 2' },
+    { value: 'LLS Fuel 3', label: 'LLS Fuel 3' },
+    { value: 'BLE Fuel Level 1', label: 'BLE Fuel Level 1' },
+    { value: 'BLE Fuel Level 2', label: 'BLE Fuel Level 2' },
+    { value: 'BLE Fuel Level 3', label: 'BLE Fuel Level 3' },
+    { value: 'BLE Fuel Level 4', label: 'BLE Fuel Level 4' },
+    { value: 'CAN-Bus / OBD-II', label: 'CAN-Bus / OBD-II' }
+  ];
+
+  const directUnitOptions = [
+    { value: 'Litres', label: 'Litres (Actual Volume)' },
+    { value: 'Percentage', label: 'Percentage (0 - 100%)' }
+  ];
+
+  const tankShapeOptions = [
+    { value: '', label: '-- SELECT --' },
+    { value: 'Rectangle', label: 'Rectangle' },
+    { value: 'Cylinder', label: 'Cylinder' }
+  ];
+
+  const tankPositionOptions = [
+    { value: '', label: '-- SELECT --' },
+    { value: 'Vertical', label: 'Vertical' },
+    { value: 'Horizontal', label: 'Horizontal' }
+  ];
+
+  const calculateOptions = [
+    { value: '', label: '-- SELECT --' },
+    { value: 'Yes', label: 'Yes' },
+    { value: 'No', label: 'No' }
+  ];
+
+const TankCalibrationBlock = React.memo(({
+  tankNum,
+  sensorCount,
+  initialData,
+  onChange,
+  vehicle,
+  displayVehicleId,
+  onOpenFrequencyModal,
+  onOpenLiveFuelModal,
+  onReloadData
+}) => {
+  const [activeSensor, setActiveSensor] = useState(1);
+  const [sensorNumber, setSensorNumber] = useState(initialData?.sensors?.[1]?.sensorNumber || initialData?.sensorNumber || '');
+  const [calibrateType, setCalibrateType] = useState(initialData?.calibrateType || "Auto");
+  const [tankSize, setTankSize] = useState(initialData?.tankSize !== undefined && initialData.tankSize !== null ? String(initialData.tankSize) : "");
+  const [modeOfVehicle, setModeOfVehicle] = useState(initialData?.modeOfVehicle || "");
+  const [fuelType, setFuelType] = useState(initialData?.fuelType || (tankNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
+  const isAnalogMode = Boolean(fuelType && fuelType.toLowerCase().includes("analog"));
+  const [minAdc, setMinAdc] = useState(initialData?.minAdc !== undefined && initialData.minAdc !== null ? String(initialData.minAdc) : "");
+  const [maxAdc, setMaxAdc] = useState(initialData?.maxAdc !== undefined && initialData.maxAdc !== null ? String(initialData.maxAdc) : "");
+  const [fuelTankShape, setFuelTankShape] = useState(initialData?.fuelTankShape || "");
+  const [fuelTankPosition, setFuelTankPosition] = useState(initialData?.fuelTankPosition || "");
+  const [calculate, setCalculate] = useState(initialData?.calculate || "");
+  const [lengthMm, setLengthMm] = useState(initialData?.tankLength || "");
+  const [heightMm, setHeightMm] = useState(initialData?.tankHeight || "");
+  const [widthMm, setWidthMm] = useState(initialData?.tankWidth || "");
+  const [radiusMm, setRadiusMm] = useState(initialData?.tankRadius || "");
+  const [sensorFormula, setSensorFormula] = useState(initialData?.sensorFormula || "Average");
+  const [calibrationPoints, setCalibrationPoints] = useState(Array.isArray(initialData?.calibrationPoints) ? initialData.calibrationPoints : []);
+  const [directSensorType, setDirectSensorType] = useState(initialData?.directSensorType || (tankNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
+  const [directUnit, setDirectUnit] = useState(initialData?.directUnit || "Litres");
+  const [directMultiplier, setDirectMultiplier] = useState(initialData?.directMultiplier !== undefined && initialData.directMultiplier !== null ? String(initialData.directMultiplier) : "1.0");
+  const [directOffset, setDirectOffset] = useState(initialData?.directOffset !== undefined && initialData.directOffset !== null ? String(initialData.directOffset) : "0.0");
+  const [directTestInput, setDirectTestInput] = useState("250");
+  const [showMultiplierOffset, setShowMultiplierOffset] = useState(false);
+  const [showDirectAdvanced, setShowDirectAdvanced] = useState(false);
+  const [differenceOfLtrs, setDifferenceOfLtrs] = useState(initialData?.differenceOfLtrs || "");
+  const [addCount, setAddCount] = useState(initialData?.addCount || "");
+  const [manualSubMode, setManualSubMode] = useState("details");
+  const [stepLitre, setStepLitre] = useState("10");
+  const [manualAddCount, setManualAddCount] = useState("10");
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
+  const [sensorsData, setSensorsData] = useState(initialData?.sensors || {});
+
+  // Compute Volume for Auto Mode
+  const computedLitres = useMemo(() => {
+    if (calculate !== "Yes") {
+      return tankSize && parseFloat(tankSize) > 0 ? parseFloat(tankSize) : 0;
+    }
+    if (fuelTankShape === "Rectangle") {
+      const l = parseFloat(lengthMm);
+      const h = parseFloat(heightMm);
+      const w = parseFloat(widthMm);
+      if (l > 0 && h > 0 && w > 0) {
+        return Math.round((l * h * w) / 1000000 * 100) / 100;
+      }
+    } else if (fuelTankShape === "Cylinder") {
+      const r = parseFloat(radiusMm);
+      const l = parseFloat(lengthMm);
+      if (r > 0 && l > 0) {
+        return Math.round((Math.PI * Math.pow(r, 2) * l) / 1000000 * 100) / 100;
+      }
+    }
+    return tankSize && parseFloat(tankSize) > 0 ? parseFloat(tankSize) : 0;
+  }, [fuelTankShape, calculate, lengthMm, heightMm, widthMm, radiusMm, tankSize]);
+
+  // Sync tankSize when dimensions are updated
+  useEffect(() => {
+    if (calculate !== "Yes") return;
+    if (fuelTankShape === "Rectangle") {
+      const l = parseFloat(lengthMm);
+      const h = parseFloat(heightMm);
+      const w = parseFloat(widthMm);
+      if (l > 0 && h > 0 && w > 0) {
+        const litres = Math.round((l * h * w) / 1000000 * 100) / 100;
+        setTankSize(litres.toString());
+      }
+    } else if (fuelTankShape === "Cylinder") {
+      const r = parseFloat(radiusMm);
+      const l = parseFloat(lengthMm);
+      if (r > 0 && l > 0) {
+        const litres = Math.round((Math.PI * Math.pow(r, 2) * l) / 1000000 * 100) / 100;
+        setTankSize(litres.toString());
+      }
+    }
+  }, [fuelTankShape, calculate, lengthMm, heightMm, widthMm, radiusMm]);
+
+  // Visual tank dimensions
+  const visualTankDimensions = useMemo(() => {
+    const l = parseFloat(lengthMm) || 0;
+    const h = parseFloat(heightMm) || 0;
+    let widthPx = 240;
+    let heightPx = 120;
+    if (fuelTankShape === "Rectangle") {
+      if (l > 0 && h > 0) {
+        const ratio = l / h;
+        if (fuelTankPosition === "Vertical") {
+          heightPx = 190;
+          widthPx = Math.max(155, Math.min(230, Math.round(190 / ratio)));
+        } else {
+          widthPx = Math.max(190, Math.min(280, Math.round(130 * Math.sqrt(ratio))));
+          heightPx = Math.max(90, Math.min(160, Math.round(widthPx / ratio)));
+        }
+      } else if (fuelTankPosition === "Vertical") {
+        widthPx = 160;
+        heightPx = 190;
+      } else {
+        widthPx = 240;
+        heightPx = 120;
+      }
+    }
+    return { widthPx, heightPx };
+  }, [fuelTankShape, lengthMm, heightMm, fuelTankPosition]);
+
+  // Direct simulator calculated litres
+  const directComputedLitres = useMemo(() => {
+    const raw = parseFloat(directTestInput);
+    if (isNaN(raw)) return 0;
+    const mult = parseFloat(directMultiplier);
+    const offset = parseFloat(directOffset);
+    const m = !isNaN(mult) ? mult : 1.0;
+    const o = !isNaN(offset) ? offset : 0.0;
+    const scaled = (raw * m) + o;
+    const cap = computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 0);
+    if (directUnit === "Percentage") {
+      return cap > 0 ? Math.round(((scaled / 100) * cap) * 100) / 100 : Math.round(scaled * 100) / 100;
+    }
+    return Math.round(scaled * 100) / 100;
+  }, [directTestInput, directMultiplier, directOffset, directUnit, tankSize, computedLitres]);
+
+  // Dynamic rows for Frequency Modal
+  const displayCalibrationRows = useMemo(() => {
+    if (Array.isArray(calibrationPoints) && calibrationPoints.length > 0) {
+      return calibrationPoints.map((p, idx) => {
+        const l = parseFloat(p.litres) || 0;
+        let v = p.volt !== undefined && p.volt !== "" && p.volt !== null ? parseFloat(p.volt) : null;
+        let f = p.frequency !== undefined && p.frequency !== "" && p.frequency !== null
+          ? parseFloat(p.frequency)
+          : (p.adcValue !== undefined && p.adcValue !== "" && p.adcValue !== null ? parseFloat(p.adcValue) : null);
+        if (v === null && f !== null) {
+          v = Math.round((f / 4095 * 5.0) * 100) / 100;
+        }
+        if (f === null && v !== null) {
+          f = Math.round((v / 5.0 * 4095));
+        }
+        return {
+          id: p.id || idx + 1,
+          litres: l.toFixed(2),
+          volt: v !== null ? v.toFixed(2) : "0.00",
+          frequency: f !== null ? String(f) : "0"
+        };
+      });
+    }
+    const totalLitres = computedLitres > 0 ? computedLitres : (parseFloat(tankSize) || 50);
+    const minVal = parseFloat(minAdc) || 0;
+    const isAnalog = fuelType && fuelType.toLowerCase().includes("analog");
+    const maxVal = parseFloat(maxAdc) || (isAnalog ? 5.0 : 4095);
+    const steps = 10;
+    const generated = [];
+    for (let i = 0; i <= steps; i++) {
+      const frac = i / steps;
+      const l = Math.round(totalLitres * frac * 100) / 100;
+      const raw = minVal + ((maxVal - minVal) * frac);
+      let v, f;
+      if (isAnalog) {
+        v = raw.toFixed(2);
+        f = Math.round(raw / 5.0 * 4095).toString();
+      } else {
+        f = Math.round(raw).toString();
+        v = (raw / 4095 * 5.0).toFixed(2);
+      }
+      generated.push({
+        id: i + 1,
+        litres: l.toFixed(2),
+        volt: v,
+        frequency: f
+      });
+    }
+    return generated;
+  }, [calibrationPoints, computedLitres, tankSize, minAdc, maxAdc, fuelType]);
+
+  const handleFuelTypeChange = (selectedType) => {
+    setFuelType(selectedType);
+    if (!selectedType) return;
+    const lower = selectedType.toLowerCase();
+    if (lower.includes("analog")) {
+      setMinAdc("0.00");
+      setMaxAdc("5.00");
+    } else if (lower.includes("serial") || lower.includes("lls")) {
+      setMinAdc("0");
+      setMaxAdc("4095");
+    }
+  };
+
+  const handleAddPoint = () => {
+    setCalibrationPoints(prev => {
+      const diff = parseFloat(differenceOfLtrs) || 5;
+      const last = prev[prev.length - 1];
+      const nextLitres = last ? (parseFloat(last.litres) || 0) + diff : diff;
+      return [
+        ...prev,
+        {
+          id: Date.now(),
+          litres: nextLitres,
+          volt: "",
+          frequency: ""
+        }
+      ];
+    });
+  };
+
+  const handleGenerateSteps = () => {
+    const diff = parseFloat(differenceOfLtrs);
+    const count = parseInt(addCount, 10);
+    if (!diff || diff <= 0 || !count || count <= 0) {
+      alert("Please enter valid positive values for Difference of Litres and Add Count.");
+      return;
+    }
+    setCalibrationPoints(prev => {
+      const lastLitres = prev.length > 0 ? (parseFloat(prev[prev.length - 1].litres) || 0) : 0;
+      const newRows = [];
+      for (let i = 1; i <= count; i++) {
+        const nextLitres = lastLitres + (i * diff);
+        newRows.push({
+          id: Date.now() + i,
+          litres: nextLitres,
+          volt: "",
+          frequency: ""
+        });
+      }
+      return [...prev, ...newRows];
+    });
+  };
+
+  const handleGetVolt = (rowId) => {
+    const isAnalogMode = fuelType && fuelType.toLowerCase().includes("analog");
+    const liveVolt = vehicle?.metadata?.fuelVolt !== undefined
+      ? parseFloat(vehicle.metadata.fuelVolt).toFixed(2)
+      : (vehicle?.metadata?.batteryVoltage ? parseFloat(vehicle.metadata.batteryVoltage).toFixed(2) : "0.00");
+    const liveFreq = vehicle?.metadata?.fuelFrequency !== undefined
+      ? parseFloat(vehicle.metadata.fuelFrequency).toFixed(2)
+      : (vehicle?.metadata?.fuelEmptyAdc ? String(vehicle.metadata.fuelEmptyAdc) : "134.00");
+
+    setCalibrationPoints(prev => prev.map(p => {
+      if (p.id === rowId) {
+        return {
+          ...p,
+          volt: isAnalogMode ? liveVolt : (p.volt || "0.00"),
+          frequency: !isAnalogMode ? liveFreq : (p.frequency || "0.00")
+        };
+      }
+      return p;
+    }));
+  };
+
+  const handleDeletePoint = (id) => {
+    setCalibrationPoints(prev => prev.filter(p => p.id !== id));
+  };
+
+  const handleUpdatePoint = (id, field, value) => {
+    setCalibrationPoints(prev => prev.map(p => p.id === id ? { ...p, [field]: value } : p));
+  };
+
+  const handleExportExcel = () => {
+    try {
+      const isAnalogMode = fuelType && fuelType.toLowerCase().includes("analog");
+      const sheetData = calibrationPoints.map((p, idx) => {
+        if (isAnalogMode) {
+          return {
+            "Step #": idx + 1,
+            "Litre": parseFloat(p.litres) || 0,
+            "Volt": parseFloat(p.volt) || 0
+          };
+        } else {
+          return {
+            "Step #": idx + 1,
+            "Litre": parseFloat(p.litres) || 0,
+            "Frequency": parseFloat(p.frequency !== undefined ? p.frequency : (p.adcValue !== undefined ? p.adcValue : 0)) || 0
+          };
+        }
+      });
+      const dataToExport = sheetData.length > 0 ? sheetData : (
+        isAnalogMode ? [
+          { "Step #": 1, "Litre": 10, "Volt": 0.45 },
+          { "Step #": 2, "Litre": 20, "Volt": 0.90 },
+          { "Step #": 3, "Litre": 30, "Volt": 1.35 }
+        ] : [
+          { "Step #": 1, "Litre": 10, "Frequency": 155 },
+          { "Step #": 2, "Litre": 20, "Frequency": 210 },
+          { "Step #": 3, "Litre": 30, "Frequency": 265 }
+        ]
+      );
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Tank " + tankNum);
+      XLSX.writeFile(wb, "Calibration_" + (isAnalogMode ? "Analog_Volt" : "Serial_Frequency") + "_Tank_" + tankNum + "_" + (vehicle?.plate || displayVehicleId) + ".xlsx");
+    } catch (err) {
+      console.error("Failed to export excel:", err);
+      alert("Failed to export calibration points to Excel.");
+    }
+  };
+
+  const handleFileUpload = (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    setUploadError("");
+    setUploadSuccess("");
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws, { defval: "" });
+        if (!data || data.length === 0) {
+          setUploadError("The selected file contains no data rows.");
+          return;
+        }
+        const parsed = [];
+        data.forEach((rawRow, idx) => {
+          const row = {};
+          Object.keys(rawRow).forEach(k => {
+            row[k.trim().toLowerCase()] = rawRow[k];
+          });
+          const litresVal = row["litre"] ?? row["litres"] ?? row["liters"] ?? row["fuel"] ?? row["step"] ?? row["volume"];
+          const voltVal = row["volt"] ?? row["volts"] ?? row["voltage"] ?? 0;
+          const freqVal = row["frequency"] ?? row["freq"] ?? row["sensor value (adc/rs)"] ?? row["adc"] ?? row["rs"] ?? 0;
+          const l = parseFloat(litresVal);
+          const v = parseFloat(voltVal) || 0;
+          const f = parseFloat(freqVal) || 0;
+          if (!isNaN(l)) {
+            parsed.push({
+              id: Date.now() + idx,
+              litres: l,
+              volt: v.toFixed(2),
+              frequency: f.toFixed(2)
+            });
+          }
+        });
+        if (parsed.length < 1) {
+          setUploadError("Could not find valid rows with Litre and Volt/Frequency values.");
+          return;
+        }
+        parsed.sort((a, b) => a.litres - b.litres);
+        setCalibrationPoints(parsed);
+        setUploadSuccess("Successfully imported " + parsed.length + " calibration points!");
+        setTimeout(() => setUploadSuccess(""), 2000);
+      } catch (err) {
+        console.error("Excel parse error:", err);
+        setUploadError("Failed to parse spreadsheet file. Please ensure valid file format.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const handleExportCalibration = () => {
+    let modeDetails = "";
+    if (calibrateType === "Manual") {
+      const rows = calibrationPoints.map((p, i) => "Step " + (i + 1) + ": " + p.litres + " L = " + p.adcValue + " ADC").join("\n");
+      modeDetails = "Calibration Type: Manual (Dip Table)\nCalibration Points:\n" + rows;
+    } else if (calibrateType === "Direct") {
+      modeDetails = [
+        "Calibration Type: Direct (Digital Sensor)",
+        "Sensor Protocol: " + directSensorType,
+        "Direct Unit: " + directUnit,
+        "Multiplier: " + directMultiplier,
+        "Offset: " + directOffset,
+        "Bypass ADC Conversion: Yes"
+      ].join("\n");
+    } else {
+      modeDetails = [
+        "Calibration Type: Auto (Dimension & Linear)",
+        "Minimum RS/Voltage: " + minAdc,
+        "Maximum RS/Voltage: " + maxAdc,
+        "Tank Shape: " + fuelTankShape,
+        "Tank Position: " + fuelTankPosition,
+        "Length (mm): " + (lengthMm || "N/A"),
+        "Height (mm): " + (heightMm || "N/A"),
+        "Width (mm): " + (widthMm || "N/A"),
+        "Calculated Litres: " + computedLitres
+      ].join("\n");
+    }
+    const fullText = [
+      "=== FUEL CALIBRATION REPORT - TANK " + tankNum + " ===",
+      "Vehicle: " + (vehicle?.plate || displayVehicleId) + " (" + (vehicle?.name || "N/A") + ")",
+      "Date: " + new Date().toLocaleString(),
+      "--------------------------------------------------",
+      modeDetails,
+      "--------------------------------------------------"
+    ].join("\n");
+    const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "Calibration_Tank_" + tankNum + "_" + (vehicle?.plate || displayVehicleId) + ".txt";
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Sensor Switcher within this tank
+  const handleSwitchSensor = (newSensorNum) => {
+    if (newSensorNum === activeSensor) return;
+    const currentSensorSnapshot = {
+      sensorType: fuelType && fuelType.includes("BLE") ? "BLE" : (fuelType && fuelType.includes("Analog") ? "Analog" : "Serial"),
+      sensorNumber,
+      fuelType: calibrateType === "Direct" ? directSensorType : (fuelType || ""),
+      calibrateType,
+      minAdc,
+      maxAdc,
+      differenceOfLtrs,
+      addCount,
+      calibrationPoints,
+      directSensorType,
+      directUnit,
+      directMultiplier,
+      directOffset
+    };
+
+    const nextSensors = {
+      ...sensorsData,
+      [activeSensor]: currentSensorSnapshot
+    };
+    setSensorsData(nextSensors);
+
+    const targetSensor = nextSensors[newSensorNum];
+    if (targetSensor) {
+      setSensorNumber(targetSensor.sensorNumber || "");
+      setFuelType(targetSensor.fuelType || (newSensorNum === 2 ? "LLS Fuel 2" : "LLS Fuel 1(Serial)"));
+      setCalibrateType(targetSensor.calibrateType || "Auto");
+      setMinAdc(targetSensor.minAdc !== undefined ? String(targetSensor.minAdc) : "");
+      setMaxAdc(targetSensor.maxAdc !== undefined ? String(targetSensor.maxAdc) : "");
+      setDifferenceOfLtrs(targetSensor.differenceOfLtrs || "");
+      setAddCount(targetSensor.addCount || "");
+      setCalibrationPoints(Array.isArray(targetSensor.calibrationPoints) ? targetSensor.calibrationPoints : []);
+      setDirectSensorType(targetSensor.directSensorType || (newSensorNum === 2 ? "BLE Fuel Level 2" : "BLE Fuel Level 1"));
+      setDirectUnit(targetSensor.directUnit || "Litres");
+      setDirectMultiplier(targetSensor.directMultiplier !== undefined ? String(targetSensor.directMultiplier) : "1.0");
+      setDirectOffset(targetSensor.directOffset !== undefined ? String(targetSensor.directOffset) : "0.0");
+    } else {
+      let suggestedFuelType = "LLS Fuel 2";
+      if (fuelType && fuelType.includes("BLE")) {
+        suggestedFuelType = "BLE Fuel Level " + newSensorNum;
+      } else if (fuelType && fuelType.includes("Analog")) {
+        suggestedFuelType = "Analog " + newSensorNum;
+      } else if (fuelType && fuelType.includes("LLS")) {
+        suggestedFuelType = "LLS Fuel " + newSensorNum;
+      }
+      setSensorNumber("");
+      setFuelType(suggestedFuelType);
+      setCalibrateType(calibrateType || "Auto");
+      setMinAdc(minAdc || "");
+      setMaxAdc(maxAdc || "");
+      setDifferenceOfLtrs("");
+      setAddCount("");
+      setCalibrationPoints([]);
+      setDirectSensorType("BLE Fuel Level " + newSensorNum);
+      setDirectUnit(directUnit || "Litres");
+      setDirectMultiplier("1.0");
+      setDirectOffset("0.0");
+    }
+    setActiveSensor(newSensorNum);
+  };
+
+  // Sync snapshot with parent on any change
+  useEffect(() => {
+    const currentSensorSnapshot = {
+      sensorType: fuelType && fuelType.includes("BLE") ? "BLE" : (fuelType && fuelType.includes("Analog") ? "Analog" : "Serial"),
+      sensorNumber,
+      fuelType: calibrateType === "Direct" ? directSensorType : (fuelType || "Analog"),
+      calibrateType,
+      minAdc: minAdc !== "" ? parseFloat(minAdc) : "",
+      maxAdc: maxAdc !== "" ? parseFloat(maxAdc) : "",
+      differenceOfLtrs,
+      addCount,
+      calibrationPoints: calibrationPoints.map(p => {
+        const v = parseFloat(p.volt) || 0;
+        const f = parseFloat(p.frequency) || 0;
+        const isAnalog = fuelType && fuelType.toLowerCase().includes("analog");
+        const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
+        return {
+          litres: parseFloat(p.litres) || 0,
+          volt: v,
+          frequency: f,
+          adcValue: adc
+        };
+      }),
+      directSensorType,
+      directUnit,
+      directMultiplier: parseFloat(directMultiplier) || 1.0,
+      directOffset: parseFloat(directOffset) || 0.0
+    };
+
+    const updatedSensors = {
+      ...sensorsData,
+      [activeSensor]: currentSensorSnapshot
+    };
+    if (!updatedSensors[1]) updatedSensors[1] = currentSensorSnapshot;
+
+    const parsedTankSize = computedLitres > 0 ? computedLitres : (tankSize !== "" ? parseFloat(tankSize) : 0);
+
+    if (onChange) {
+      onChange(tankNum, {
+        tankNo: tankNum,
+        sensorNumber: updatedSensors[1]?.sensorNumber || sensorNumber,
+        tankSize: parsedTankSize,
+        modeOfVehicle,
+        fuelType: updatedSensors[1]?.fuelType || (fuelType || "Analog"),
+        minAdc: updatedSensors[1]?.minAdc !== undefined ? updatedSensors[1].minAdc : (minAdc !== "" ? parseFloat(minAdc) : ""),
+        maxAdc: updatedSensors[1]?.maxAdc !== undefined ? updatedSensors[1].maxAdc : (maxAdc !== "" ? parseFloat(maxAdc) : ""),
+        fuelTankShape,
+        fuelTankPosition,
+        calculate,
+        tankLength: lengthMm,
+        tankHeight: heightMm,
+        tankWidth: widthMm,
+        tankRadius: radiusMm,
+        calibrateType: updatedSensors[1]?.calibrateType || calibrateType,
+        calibrationPoints: updatedSensors[1]?.calibrationPoints || [],
+        directSensorType: updatedSensors[1]?.directSensorType || directSensorType,
+        directUnit: updatedSensors[1]?.directUnit || directUnit,
+        directMultiplier: updatedSensors[1]?.directMultiplier !== undefined ? updatedSensors[1].directMultiplier : 1.0,
+        directOffset: updatedSensors[1]?.directOffset !== undefined ? updatedSensors[1].directOffset : 0.0,
+        sensorFormula,
+        sensors: updatedSensors
+      });
+    }
+  }, [
+    tankNum, activeSensor, calibrateType, tankSize, modeOfVehicle, fuelType,
+    minAdc, maxAdc, fuelTankShape, fuelTankPosition, calculate,
+    lengthMm, heightMm, widthMm, radiusMm, sensorFormula,
+    calibrationPoints, directSensorType, directUnit, directMultiplier,
+    directOffset, differenceOfLtrs, addCount, sensorsData, computedLitres, sensorNumber
+  ]);
+
+  return (
+    <div style={{
+      background: "#ffffff",
+      border: "1px solid #e2e8f0",
+      borderRadius: "8px",
+      padding: "12px 14px",
+      marginBottom: "14px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
+    }}>
+      {/* BAR: Tank, Calibration Type & Sensor Number (Option A) */}
+      <div className="calib-tank-bar" style={{
+        background: "#f8fafc",
+        border: "1px solid #e2e8f0",
+        borderRadius: "8px",
+        padding: "10px 14px",
+        marginBottom: "10px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "12px"
+      }}>
+        {/* 1. Tank Label */}
+        <div className="calib-tank-bar-item" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "5px" }}>
+            <Fuel size={14} color="#ea580c" />
+            Tank:
+          </span>
+          <div style={{
+            background: "#f97316",
+            color: "#ffffff",
+            border: "1px solid #ea580c",
+            borderRadius: "6px",
+            padding: "6px 16px",
+            fontSize: "12.5px",
+            fontWeight: 700,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            boxShadow: "0 2px 6px rgba(249, 115, 22, 0.28)"
+          }}>
+            <Fuel size={13} />
+            <span>{"Tank " + tankNum}</span>
+          </div>
+        </div>
+
+        {/* 2. Calibration Type */}
+        <div className="calib-tank-bar-item" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "12.5px", fontWeight: 700, color: "#334155" }}>
+            Calibration Type:
+          </span>
+          <div className="calib-calibtype-buttons" style={{ display: "inline-flex", background: "#ffffff", padding: "3px", borderRadius: "7px", gap: "4px", border: "1px solid #cbd5e1" }}>
+            {["Auto", "Manual", "Direct"].map(type => {
+              const isSelected = calibrateType === type;
+              return (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setCalibrateType(type)}
+                  style={{
+                    height: "30px",
+                    padding: "0 14px",
+                    borderRadius: "5px",
+                    fontSize: "12px",
+                    fontWeight: 700,
+                    border: "none",
+                    background: isSelected ? "#f97316" : "transparent",
+                    color: isSelected ? "#ffffff" : "#475569",
+                    cursor: "pointer",
+                    boxShadow: isSelected ? "0 2px 4px rgba(249, 115, 22, 0.25)" : "none",
+                    transition: "all 0.15s ease"
+                  }}
+                >
+                  {type}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Sensor Number (Hardware Serial / IMEI Input Field) */}
+        <div className="calib-tank-bar-item calib-sensor-num-wrap" style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+          {sensorCount > 1 && (
+            <div style={{ display: "flex", alignItems: "center", gap: "4px", marginRight: "4px" }}>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "#64748b" }}>Sensor:</span>
+              <div style={{ display: "inline-flex", background: "#ffffff", padding: "2px", borderRadius: "6px", gap: "3px", border: "1px solid #cbd5e1" }}>
+                {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sNum => (
+                  <button
+                    key={sNum}
+                    type="button"
+                    onClick={() => handleSwitchSensor(sNum)}
+                    style={{
+                      background: activeSensor === sNum ? "#f97316" : "transparent",
+                      color: activeSensor === sNum ? "#ffffff" : "#475569",
+                      border: "none",
+                      borderRadius: "4px",
+                      padding: "3px 8px",
+                      fontSize: "11.5px",
+                      fontWeight: 700,
+                      cursor: "pointer"
+                    }}
+                  >
+                    {sNum}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <label style={{ fontSize: "12.5px", fontWeight: 700, color: "#334155", display: "flex", alignItems: "center", gap: "4px", whiteSpace: "nowrap" }}>
+            <Cpu size={14} color="#ea580c" />
+            Sensor Number:
+          </label>
+          <input
+            type="text"
+            className="calib-sensor-num-input"
+            value={sensorNumber}
+            onChange={e => setSensorNumber(e.target.value)}
+            placeholder="e.g. SN / IMEI / ID..."
+            style={{
+              height: "32px",
+              width: "155px",
+              padding: "0 10px",
+              borderRadius: "6px",
+              border: "1px solid #cbd5e1",
+              background: "#ffffff",
+              fontSize: "12.5px",
+              fontWeight: 600,
+              color: "#0f172a",
+              outline: "none",
+              boxSizing: "border-box"
+            }}
+            onFocus={e => {
+              e.target.style.borderColor = "#f97316";
+              e.target.style.boxShadow = "0 0 0 3px rgba(249, 115, 22, 0.15)";
+            }}
+            onBlur={e => {
+              e.target.style.borderColor = "#cbd5e1";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+        </div>
+      </div>
+
+      {/* SECTION: Tank Calibration Details Header */}
+      <div>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: "10px",
+          marginBottom: "8px",
+          paddingBottom: "6px",
+          borderBottom: "1px solid #e2e8f0"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+            <SlidersHorizontal size={16} color="#ea580c" />
+            <h3 style={{ fontSize: "14.5px", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+              {"Tank " + tankNum + (sensorCount > 1 ? " — Sensor " + activeSensor : "") + " Calibration Details"}
+            </h3>
+          </div>
+        </div>
+{/* Row 1: Mode of Vehicle, Fuel Type, Tank Size */}
+              <div className="calib-grid-3">
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Mode of Vehicle
+                  </label>
+                  <FuelTracksSelect
+                    height="38px"
+                    value={modeOfVehicle}
+                    onChange={setModeOfVehicle}
+                    options={modeOptions}
+                    placeholder="-- Select --"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    {sensorCount > 1 ? `Fuel Type / Channel (Sensor ${activeSensor})` : 'Fuel Type'}
+                  </label>
+                  <FuelTracksSelect
+                    height="38px"
+                    value={fuelType}
+                    onChange={handleFuelTypeChange}
+                    options={fuelTypeOptions}
+                    placeholder="-- Select --"
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Tank Size <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(In Litres)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={tankSize}
+                    onWheel={e => e.target.blur()}
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (val === '' || parseFloat(val) >= 0) setTankSize(val);
+                    }}
+                    placeholder="e.g. 500"
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      padding: '0 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      fontSize: '13px',
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => {
+                      e.target.style.borderColor = '#f97316';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = '#cbd5e1';
+                      e.target.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* WHEN CALIBRATE TYPE IS AUTO: Render Min/Max ADC, Shape, Position, Dimensions, and Tank Preview */}
+              {calibrateType === 'Auto' && (
+                <>
+                  {/* Row 2: Fuel Tank Shape, Fuel Tank Position, Calculate */}
+                  <div className="calib-grid-3">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Fuel Tank Shape
+                      </label>
+                      <FuelTracksSelect
+                        height="38px"
+                        value={fuelTankShape}
+                        onChange={setFuelTankShape}
+                        options={tankShapeOptions}
+                        placeholder="-- SELECT --"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Fuel Tank Position
+                      </label>
+                      <FuelTracksSelect
+                        height="38px"
+                        value={fuelTankPosition}
+                        onChange={setFuelTankPosition}
+                        options={tankPositionOptions}
+                        placeholder="-- SELECT --"
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Calculate
+                      </label>
+                      <FuelTracksSelect
+                        height="38px"
+                        value={calculate}
+                        onChange={val => {
+                          setCalculate(val);
+                          if (val === 'Yes' && !fuelTankShape) {
+                            setFuelTankShape('Rectangle');
+                          }
+                        }}
+                        options={calculateOptions}
+                        placeholder="-- SELECT --"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Row 3: Minimum & Maximum Calibration Sensor Value + Live Diagnostics Buttons */}
+                  <div className="calib-grid-3">
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        {fuelType && fuelType.toLowerCase().includes('analog')
+                          ? 'Minimum Voltage (V)'
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
+                            ? 'Minimum RS Value'
+                            : 'Minimum (RS value/Voltage)')}
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={minAdc}
+                        onChange={e => setMinAdc(e.target.value)}
+                        placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '0.00' : '0'}
+                        style={{
+                          width: '100%',
+                          height: '38px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          fontSize: '13px',
+                          color: '#0f172a',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                        onFocus={e => {
+                          e.target.style.borderColor = '#f97316';
+                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                        }}
+                        onBlur={e => {
+                          e.target.style.borderColor = '#cbd5e1';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        {fuelType && fuelType.toLowerCase().includes('analog')
+                          ? 'Maximum Voltage (V)'
+                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
+                            ? 'Maximum RS Value'
+                            : 'Maximum (RS value/Voltage)')}
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={maxAdc}
+                        onChange={e => setMaxAdc(e.target.value)}
+                        placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '5.00' : '4095'}
+                        style={{
+                          width: '100%',
+                          height: '38px',
+                          padding: '0 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          fontSize: '13px',
+                          color: '#0f172a',
+                          outline: 'none',
+                          boxSizing: 'border-box'
+                        }}
+                        onFocus={e => {
+                          e.target.style.borderColor = '#f97316';
+                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                        }}
+                        onBlur={e => {
+                          e.target.style.borderColor = '#cbd5e1';
+                          e.target.style.boxShadow = 'none';
+                        }}
+                      />
+                    </div>
+
+                    {/* Diagnostics & Live Telemetry Tools */}
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                        Live Diagnostics & Tools
+                      </label>
+                      <div className="calib-tools-bar" style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '38px' }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+      const mode = (fuelType && fuelType.toLowerCase().includes('analog')) ? 'volt' : 'frequency';
+      if (onOpenFrequencyModal) onOpenFrequencyModal(displayCalibrationRows, mode);
+    }}
+                          style={{
+                            background: '#fff7ed',
+                            color: '#ea580c',
+                            border: '1px solid #fed7aa',
+                            borderRadius: '6px',
+                            padding: '0 12px',
+                            height: '38px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#ffedd5';
+                            e.currentTarget.style.borderColor = '#fdba74';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#fff7ed';
+                            e.currentTarget.style.borderColor = '#fed7aa';
+                          }}
+                        >
+                          Show Frequency
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { if (onOpenLiveFuelModal) onOpenLiveFuelModal(); }}
+                          style={{
+                            background: '#ecfdf5',
+                            color: '#059669',
+                            border: '1px solid #a7f3d0',
+                            borderRadius: '6px',
+                            padding: '0 12px',
+                            height: '38px',
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#d1fae5';
+                            e.currentTarget.style.borderColor = '#6ee7b7';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#ecfdf5';
+                            e.currentTarget.style.borderColor = '#a7f3d0';
+                          }}
+                        >
+                          <span style={{
+                            width: '6px',
+                            height: '6px',
+                            borderRadius: '50%',
+                            background: '#10b981',
+                            boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                          }} />
+                          Live Fuel
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={onReloadData}
+                          title="Reload Calibration Data"
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            border: '1px solid #cbd5e1',
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#e2e8f0';
+                            e.currentTarget.style.color = '#0f172a';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#f1f5f9';
+                            e.currentTarget.style.color = '#475569';
+                          }}
+                        >
+                          <RotateCw size={14} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleExportCalibration}
+                          title="Export Calibration Settings"
+                          style={{
+                            background: '#f0fdf4',
+                            color: '#16a34a',
+                            border: '1px solid #bbf7d0',
+                            width: '38px',
+                            height: '38px',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            flexShrink: 0,
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => {
+                            e.currentTarget.style.background = '#dcfce7';
+                            e.currentTarget.style.borderColor = '#86efac';
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.background = '#f0fdf4';
+                            e.currentTarget.style.borderColor = '#bbf7d0';
+                          }}
+                        >
+                          <Download size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Dynamic Dimension Inputs for Cylinder */}
+                  {fuelTankShape === 'Cylinder' && (
+                    <div className="calib-grid-2">
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Radius <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={radiusMm}
+                          onChange={e => setRadiusMm(e.target.value)}
+                          placeholder="Radius"
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={lengthMm}
+                          onChange={e => setLengthMm(e.target.value)}
+                          placeholder="Length"
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dynamic Dimension Inputs for Rectangle when Calculate === 'Yes' */}
+                  {fuelTankShape === 'Rectangle' && calculate === 'Yes' && (
+                    <div className="calib-grid-3">
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={lengthMm}
+                          onChange={e => setLengthMm(e.target.value)}
+                          placeholder="Length"
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Height <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={heightMm}
+                          onChange={e => setHeightMm(e.target.value)}
+                          placeholder="Height"
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                          Width <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          value={widthMm}
+                          onChange={e => setWidthMm(e.target.value)}
+                          placeholder="Width"
+                          style={{
+                            width: '100%',
+                            height: '38px',
+                            padding: '0 12px',
+                            borderRadius: '6px',
+                            border: '1px solid #cbd5e1',
+                            background: '#ffffff',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            outline: 'none',
+                            boxSizing: 'border-box'
+                          }}
+                          onFocus={e => {
+                            e.target.style.borderColor = '#f97316';
+                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
+                          }}
+                          onBlur={e => {
+                            e.target.style.borderColor = '#cbd5e1';
+                            e.target.style.boxShadow = 'none';
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DEDICATED VISUAL TANK CARD (SHOWN BASED ON VALUES, NEVER HIDDEN) */}
+                  {fuelTankShape && (
+                    <div className="calib-tank-preview-card" style={{
+                      marginTop: '12px',
+                      marginBottom: '16px',
+                      background: '#fafbfc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '16px 20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '12px',
+                      position: 'relative'
+                    }}>
+                      {/* Card Title & Info */}
+                      <div style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '10px',
+                        borderBottom: '1px solid #e2e8f0',
+                        paddingBottom: '8px'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Box size={16} color="#ea580c" />
+                          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
+                            {`${fuelTankShape} Tank Preview`}
+                          </span>
+                          <span style={{
+                            fontSize: '11.5px',
+                            fontWeight: 700,
+                            color: '#ea580c',
+                            background: '#fff7ed',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            border: '1px solid #fed7aa'
+                          }}>
+                            {`${fuelTankPosition}`}
+                          </span>
+                        </div>
+
+                        {/* Formula Calculation Badge */}
+                        <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>
+                          {fuelTankShape === 'Rectangle' && calculate === 'Yes' && lengthMm && heightMm && widthMm ? (
+                            <span>
+                              Volume = ({lengthMm} × {heightMm} × {widthMm}) ÷ 1,000,000 = <strong style={{ color: '#ea580c' }}>{computedLitres} Litres</strong>
+                            </span>
+                          ) : (
+                            <span>
+                              Calibrated Capacity: <strong style={{ color: '#ea580c' }}>{computedLitres || tankSize || 0} Litres</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* RECTANGLE TANK RENDERING BASED ON THE VALUES */}
+                      {fuelTankShape === 'Rectangle' && (
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '16px 0'
+                        }}>
+                          <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                            {/* Left Dimension Badge: Height */}
+                            {heightMm && (
+                              <div style={{
+                                fontSize: '11.5px',
+                                fontWeight: 700,
+                                color: '#334155',
+                                background: '#ffffff',
+                                padding: '4px 10px',
+                                borderRadius: '0px',
+                                border: '1px solid #cbd5e1',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                {`Height: ${heightMm} mm`}
+                              </div>
+                            )}
+
+                            {/* Center Column: Top Length Badge directly aligned over the Tank Box */}
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                              {/* Top Dimension Badge: Length */}
+                              {lengthMm && (
+                                <div style={{
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  background: '#ffffff',
+                                  padding: '3px 12px',
+                                  borderRadius: '0px',
+                                  border: '1px solid #cbd5e1',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {`Length: ${lengthMm} mm`}
+                                </div>
+                              )}
+
+                              {/* Sharp Rectangle Box in Theme Light Orange with NO CURVES */}
+                              <div className="calib-tank-rect-box" style={{
+                                width: `${visualTankDimensions.widthPx}px`,
+                                height: `${visualTankDimensions.heightPx}px`,
+                                maxWidth: '100%',
+                                background: '#f97316',
+                                borderRadius: '0px',
+                                border: '2px solid #ea580c',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s ease',
+                                padding: '12px',
+                                boxSizing: 'border-box'
+                              }}>
+                                <span style={{
+                                  color: '#ffffff',
+                                  fontWeight: 800,
+                                  fontSize: '19px',
+                                  letterSpacing: '-0.01em',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {`${computedLitres || tankSize || 0} Litre`}
+                                </span>
+
+                                {widthMm && (
+                                  <span style={{
+                                    color: '#ffffff',
+                                    fontWeight: 700,
+                                    fontSize: '12px',
+                                    marginTop: '6px',
+                                    whiteSpace: 'nowrap'
+                                  }}>
+                                    {`Width: ${widthMm} mm`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* CYLINDER TANK RENDERING BASED ON THE VALUES */}
+                      {fuelTankShape === 'Cylinder' && (() => {
+                        const cylinderHeightVal = radiusMm ? (parseFloat(radiusMm) * 2) : (heightMm || '940');
+                        const cylinderLengthVal = lengthMm || '650';
+                        const numLitres = computedLitres || (tankSize ? parseFloat(tankSize) : 451);
+                        const displayLitres = Math.abs(numLitres - Math.round(numLitres)) < 0.15 
+                          ? Math.round(numLitres) 
+                          : (Math.round(numLitres * 10) / 10);
+
+                        return (
+                          <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '12px',
+                            padding: '16px 0'
+                          }}>
+                            {/* Conditionally Render Vertical vs Horizontal Cylinder in Theme Orange */}
+                            {fuelTankPosition === 'Vertical' ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                                  {/* Standing Vertical Cylinder in Theme Orange */}
+                                  <svg className="calib-cylinder-svg" width="200" height="240" viewBox="0 0 200 240" style={{ maxWidth: '100%', height: 'auto', overflow: 'visible' }}>
+                                    <defs>
+                                      <linearGradient id="cylinderThemeOrangeGradV" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0%" stopColor="#f97316" />
+                                        <stop offset="35%" stopColor="#fb923c" />
+                                        <stop offset="70%" stopColor="#f97316" />
+                                        <stop offset="100%" stopColor="#ea580c" />
+                                      </linearGradient>
+                                      <filter id="cylinderOrangeShadow" x="-15%" y="-15%" width="130%" height="130%">
+                                        <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#ea580c" floodOpacity="0.2" />
+                                      </filter>
+                                    </defs>
+
+                                    {/* Vertical Cylinder Body */}
+                                    <path
+                                      d="M 35 30 L 35 190 A 65 16 0 0 0 165 190 L 165 30 Z"
+                                      fill="url(#cylinderThemeOrangeGradV)"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                      filter="url(#cylinderOrangeShadow)"
+                                    />
+
+                                    {/* Bottom Interior Depth */}
+                                    <ellipse
+                                      cx="100"
+                                      cy="190"
+                                      rx="65"
+                                      ry="16"
+                                      fill="rgba(234, 88, 12, 0.25)"
+                                      stroke="#ea580c"
+                                      strokeWidth="1.5"
+                                      strokeOpacity="0.4"
+                                    />
+
+                                    {/* Bottom Cap Front Rim */}
+                                    <path
+                                      d="M 35 190 A 65 16 0 0 0 165 190"
+                                      fill="none"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                    />
+
+                                    {/* Top Ellipse Cap */}
+                                    <ellipse
+                                      cx="100"
+                                      cy="30"
+                                      rx="65"
+                                      ry="16"
+                                      fill="#fdba74"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                    />
+
+                                    {/* Center Litres Volume Text in Crisp White */}
+                                    <text
+                                      x="100"
+                                      y="118"
+                                      textAnchor="middle"
+                                      fill="#ffffff"
+                                      fontSize="18"
+                                      fontWeight="800"
+                                      fontFamily="Inter, system-ui, -apple-system, sans-serif"
+                                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+                                    >
+                                      {`${displayLitres} Litre`}
+                                    </text>
+                                  </svg>
+
+                                  {/* Right Side Dimension Badge: Length */}
+                                  <div style={{
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    color: '#334155',
+                                    background: '#ffffff',
+                                    padding: '4px 8px',
+                                    borderRadius: '0px',
+                                    border: '1px solid #cbd5e1',
+                                    writingMode: 'vertical-rl',
+                                    textOrientation: 'mixed',
+                                    letterSpacing: '0.02em'
+                                  }}>
+                                    {`Length: ${cylinderLengthVal} mm`}
+                                  </div>
+                                </div>
+
+                                {/* Bottom Dimension Badge: Height */}
+                                <div style={{
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  background: '#ffffff',
+                                  padding: '3px 12px',
+                                  borderRadius: '0px',
+                                  border: '1px solid #cbd5e1',
+                                  marginTop: '2px'
+                                }}>
+                                  {`Height: ${cylinderHeightVal} mm`}
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                <div className="calib-tank-preview-row" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  {/* Left Dimension Badge: Height */}
+                                  <div style={{
+                                    fontSize: '11.5px',
+                                    fontWeight: 700,
+                                    color: '#334155',
+                                    background: '#ffffff',
+                                    padding: '3px 8px',
+                                    borderRadius: '0px',
+                                    border: '1px solid #cbd5e1'
+                                  }}>
+                                    {`Height: ${cylinderHeightVal} mm`}
+                                  </div>
+
+                                  {/* Lying Horizontal Cylinder in Theme Orange */}
+                                  <svg className="calib-cylinder-svg" width="260" height="150" viewBox="0 0 260 150" style={{ maxWidth: '100%', height: 'auto', overflow: 'visible' }}>
+                                    <defs>
+                                      <linearGradient id="cylinderThemeOrangeGradH" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor="#fb923c" />
+                                        <stop offset="50%" stopColor="#f97316" />
+                                        <stop offset="100%" stopColor="#ea580c" />
+                                      </linearGradient>
+                                      <filter id="cylinderOrangeHShadow" x="-15%" y="-15%" width="130%" height="130%">
+                                        <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#ea580c" floodOpacity="0.2" />
+                                      </filter>
+                                    </defs>
+
+                                    {/* Main Horizontal Cylinder body */}
+                                    <path
+                                      d="M 45 25 L 215 25 A 18 45 0 0 1 215 115 L 45 115 Z"
+                                      fill="url(#cylinderThemeOrangeGradH)"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                      filter="url(#cylinderOrangeHShadow)"
+                                    />
+
+                                    {/* Left Ellipse Cap */}
+                                    <ellipse
+                                      cx="45"
+                                      cy="70"
+                                      rx="18"
+                                      ry="45"
+                                      fill="#fdba74"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                    />
+
+                                    {/* Right End Curve */}
+                                    <path
+                                      d="M 215 25 A 18 45 0 0 1 215 115"
+                                      fill="none"
+                                      stroke="#ea580c"
+                                      strokeWidth="2.5"
+                                    />
+
+                                    {/* Center Litres Volume Text in Crisp White */}
+                                    <text
+                                      x="130"
+                                      y="76"
+                                      textAnchor="middle"
+                                      fill="#ffffff"
+                                      fontSize="18"
+                                      fontWeight="800"
+                                      fontFamily="Inter, system-ui, -apple-system, sans-serif"
+                                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
+                                    >
+                                      {`${displayLitres} Litre`}
+                                    </text>
+                                  </svg>
+                                </div>
+
+                                {/* Bottom Dimension Badge: Length */}
+                                <div style={{
+                                  fontSize: '11.5px',
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  background: '#ffffff',
+                                  padding: '3px 12px',
+                                  borderRadius: '0px',
+                                  border: '1px solid #cbd5e1',
+                                  marginTop: '2px'
+                                }}>
+                                  {`Length: ${cylinderLengthVal} mm`}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* WHEN CALIBRATE TYPE IS MANUAL: Render Multi-Point Step-by-Step Calibration Table */}
+              {calibrateType === 'Manual' && (
+                <div style={{ marginTop: '12px' }}>
+                  {/* Sub-mode Selection Bar: Upload Calibration vs Calibration Details */}
+                  <div className="calib-manual-submode-bar" style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '12px',
+                    padding: '10px 14px',
+                    background: '#fafbfc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    marginBottom: '14px'
+                  }}>
+                    {/* Radio Buttons for Sub-mode */}
+                    <div className="calib-manual-radios" style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}>
+                      <label style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: manualSubMode === 'details' ? '#0f172a' : '#64748b'
+                      }}>
+                        <input
+                          type="radio"
+                          name="manualSubMode"
+                          checked={manualSubMode === 'details'}
+                          onChange={() => setManualSubMode('details')}
+                          style={{ accentColor: '#f97316', width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <span>Calibration Details</span>
+                      </label>
+
+                      <label style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        color: manualSubMode === 'upload' ? '#0f172a' : '#64748b'
+                      }}>
+                        <input
+                          type="radio"
+                          name="manualSubMode"
+                          checked={manualSubMode === 'upload'}
+                          onChange={() => setManualSubMode('upload')}
+                          style={{ accentColor: '#f97316', width: '16px', height: '16px', cursor: 'pointer' }}
+                        />
+                        <span>Upload Calibration</span>
+                      </label>
+                    </div>
+
+                    {/* Difference of Ltrs & Add Count controls (Shown when in Calibration Details) */}
+                    {manualSubMode === 'details' && (
+                      <div className="calib-manual-inputs" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                            Difference of Ltrs
+                          </span>
+                          <input
+                            type="number"
+                            min="0.1"
+                            step="any"
+                            value={differenceOfLtrs}
+                            onWheel={e => e.target.blur()}
+                            onChange={e => setDifferenceOfLtrs(e.target.value)}
+                            placeholder="1"
+                            style={{
+                              width: '75px',
+                              height: '34px',
+                              padding: '0 8px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              outline: 'none',
+                              textAlign: 'center',
+                              boxSizing: 'border-box'
+                            }}
+                            onFocus={e => {
+                              e.target.style.borderColor = '#f97316';
+                              e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                            }}
+                            onBlur={e => {
+                              e.target.style.borderColor = '#cbd5e1';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#334155' }}>
+                            Add Count
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            value={addCount}
+                            onWheel={e => e.target.blur()}
+                            onChange={e => setAddCount(e.target.value)}
+                            placeholder="Count"
+                            style={{
+                              width: '80px',
+                              height: '34px',
+                              padding: '0 8px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              fontSize: '13px',
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              outline: 'none',
+                              textAlign: 'center',
+                              boxSizing: 'border-box'
+                            }}
+                            onFocus={e => {
+                              e.target.style.borderColor = '#f97316';
+                              e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                            }}
+                            onBlur={e => {
+                              e.target.style.borderColor = '#cbd5e1';
+                              e.target.style.boxShadow = 'none';
+                            }}
+                          />
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={handleGenerateSteps}
+                          style={{
+                            height: '34px',
+                            padding: '0 14px',
+                            borderRadius: '6px',
+                            background: '#f97316',
+                            color: '#ffffff',
+                            border: 'none',
+                            fontSize: '12.5px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '5px',
+                            boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)',
+                            transition: 'all 0.15s ease'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#ea580c'}
+                          onMouseLeave={e => e.currentTarget.style.background = '#f97316'}
+                        >
+                          <Plus size={15} />
+                          <span>Add</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* SUB-VIEW 1: CALIBRATION DETAILS TABLE */}
+                  {manualSubMode === 'details' && (
+                    <div style={{
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
+                    }}>
+                      <div className="calib-table-scroll" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                        <table className="calib-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
+                              <th className="calib-th-litre" style={{ padding: '10px 12px', width: '28%' }}>Litre</th>
+                              {isAnalogMode ? (
+                                <th className="calib-th-val" style={{ padding: '10px 12px', width: '38%' }}>Volt</th>
+                              ) : (
+                                <th className="calib-th-val" style={{ padding: '10px 12px', width: '38%' }}>Frequency</th>
+                              )}
+                              <th className="calib-th-action" style={{ padding: '10px 12px', width: '34%', textAlign: 'center' }}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {calibrationPoints.length === 0 ? (
+                              <tr>
+                                <td colSpan={3} style={{ padding: '48px 18px', textAlign: 'center', background: '#ffffff' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                                    <Table size={32} color="#cbd5e1" />
+                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#475569' }}>
+                                      No Calibration Points Added
+                                    </span>
+                                    <span style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '440px', lineHeight: 1.5 }}>
+                                      Enter a <strong>Difference of Ltrs</strong> and <strong>Add Count</strong> above then click <strong>Add</strong>, or switch to <strong>Upload Calibration</strong> to import an Excel / CSV sheet.
+                                    </span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ) : (
+                              calibrationPoints.map((point, index) => (
+                              <tr
+                                key={point.id}
+                                style={{
+                                  borderBottom: '1px solid #f1f5f9',
+                                  background: index % 2 === 0 ? '#ffffff' : '#fafbfc'
+                                }}
+                              >
+                                {/* Litre */}
+                                                                  <td className="calib-td-cell" style={{ padding: '8px 10px' }}>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={point.litres}
+                                    onWheel={e => e.target.blur()}
+                                    onChange={e => handleUpdatePoint(point.id, 'litres', e.target.value)}
+                                    placeholder="0"
+                                    style={{
+                                      width: '100%',
+                                      maxWidth: '280px',
+                                      height: '38px',
+                                      padding: '0 12px',
+                                      borderRadius: '6px',
+                                      border: '1px solid #cbd5e1',
+                                      background: '#ffffff',
+                                      fontSize: '13px',
+                                      fontWeight: 600,
+                                      color: '#0f172a',
+                                      outline: 'none',
+                                      boxSizing: 'border-box'
+                                    }}
+                                    onFocus={e => {
+                                      e.target.style.borderColor = '#f97316';
+                                      e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                                    }}
+                                    onBlur={e => {
+                                      e.target.style.borderColor = '#cbd5e1';
+                                      e.target.style.boxShadow = 'none';
+                                    }}
+                                  />
+                                </td>
+
+                                {/* Volt (ONLY for Analog) */}
+                                {isAnalogMode && (
+                                                                    <td className="calib-td-cell" style={{ padding: '8px 10px' }}>
+                                    <input
+                                      type="text"
+                                      value={point.volt !== undefined && point.volt !== null ? point.volt : ''}
+                                      onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value)}
+                                      placeholder="Enter Volt (e.g. 0.85)"
+                                      style={{
+                                        width: '100%',
+                                        maxWidth: '280px',
+                                        height: '38px',
+                                        padding: '0 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        color: '#0f172a',
+                                        outline: 'none',
+                                        boxSizing: 'border-box'
+                                      }}
+                                      onFocus={e => {
+                                        e.target.style.borderColor = '#f97316';
+                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                                      }}
+                                      onBlur={e => {
+                                        e.target.style.borderColor = '#cbd5e1';
+                                        e.target.style.boxShadow = 'none';
+                                      }}
+                                    />
+                                  </td>
+                                )}
+
+                                {/* Frequency (ONLY for Serial / Digital) */}
+                                {!isAnalogMode && (
+                                                                    <td className="calib-td-cell" style={{ padding: '8px 10px' }}>
+                                    <input
+                                      type="text"
+                                      value={point.frequency !== undefined && point.frequency !== null ? point.frequency : (point.adcValue !== undefined && point.adcValue !== null ? point.adcValue : '')}
+                                      onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value)}
+                                      placeholder="Enter Frequency (e.g. 155)"
+                                      style={{
+                                        width: '100%',
+                                        maxWidth: '280px',
+                                        height: '38px',
+                                        padding: '0 12px',
+                                        borderRadius: '6px',
+                                        border: '1px solid #cbd5e1',
+                                        background: '#ffffff',
+                                        fontSize: '13px',
+                                        fontWeight: 600,
+                                        color: '#0f172a',
+                                        outline: 'none',
+                                        boxSizing: 'border-box'
+                                      }}
+                                      onFocus={e => {
+                                        e.target.style.borderColor = '#f97316';
+                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
+                                      }}
+                                      onBlur={e => {
+                                        e.target.style.borderColor = '#cbd5e1';
+                                        e.target.style.boxShadow = 'none';
+                                      }}
+                                    />
+                                  </td>
+                                )}
+
+                                {/* Actions: Get Volt / Get Frequency & Remove */}
+                                                                  <td className="calib-td-cell" style={{ padding: '8px 10px', textAlign: 'center' }}>
+                                                                    <div className="calib-action-btns" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleGetVolt(point.id)}
+                                      style={{
+                                        background: '#fff7ed',
+                                        color: '#ea580c',
+                                        border: '1px solid #fdba74',
+                                        borderRadius: '6px',
+                                        padding: '5px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={e => {
+                                        e.currentTarget.style.background = '#f97316';
+                                        e.currentTarget.style.color = '#ffffff';
+                                        e.currentTarget.style.borderColor = '#ea580c';
+                                      }}
+                                      onMouseLeave={e => {
+                                        e.currentTarget.style.background = '#fff7ed';
+                                        e.currentTarget.style.color = '#ea580c';
+                                        e.currentTarget.style.borderColor = '#fdba74';
+                                      }}
+                                      title={isAnalogMode ? "Capture live voltage from sensor" : "Capture live frequency from sensor"}
+                                    >
+                                                                             <Activity size={13} />
+                                       <span className="calib-btn-label">{isAnalogMode ? 'Get Volt' : 'Get Frequency'}</span>
+                                       <span className="calib-btn-mobile-only">{isAnalogMode ? 'Volt' : 'Get'}</span>
+                                      
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeletePoint(point.id)}
+                                      style={{
+                                        background: '#fef2f2',
+                                        color: '#dc2626',
+                                        border: '1px solid #fecaca',
+                                        borderRadius: '6px',
+                                        padding: '5px 12px',
+                                        fontSize: '12px',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        whiteSpace: 'nowrap',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '5px',
+                                        transition: 'all 0.15s ease'
+                                      }}
+                                      onMouseEnter={e => {
+                                        e.currentTarget.style.background = '#dc2626';
+                                        e.currentTarget.style.color = '#ffffff';
+                                        e.currentTarget.style.borderColor = '#dc2626';
+                                      }}
+                                      onMouseLeave={e => {
+                                        e.currentTarget.style.background = '#fef2f2';
+                                        e.currentTarget.style.color = '#dc2626';
+                                        e.currentTarget.style.borderColor = '#fecaca';
+                                      }}
+                                      title="Remove this row"
+                                    >
+                                      <Trash2 size={13} />
+                                                                             <span className="calib-btn-label">Remove</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Bottom bar with Export helper */}
+                      <div style={{
+                        padding: '12px 18px',
+                        background: '#f8fafc',
+                        borderTop: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}>
+                        <span style={{ fontSize: '12.5px', color: '#64748b' }}>
+                          Total steps: <strong style={{ color: '#0f172a' }}>{calibrationPoints.length}</strong>
+                          {calibrationPoints.length > 0 ? (
+                            <> | Range: <strong style={{ color: '#ea580c' }}>{calibrationPoints[0]?.litres || 0} L ➔ {calibrationPoints[calibrationPoints.length - 1]?.litres || 0} L</strong></>
+                          ) : (
+                            <span style={{ color: '#94a3b8', marginLeft: '6px' }}>(Table is empty)</span>
+                          )}
+                        </span>
+
+                        {calibrationPoints.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={handleExportExcel}
+                            style={{
+                              background: '#ffffff',
+                              color: '#0f172a',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '6px',
+                              padding: '6px 14px',
+                              fontSize: '12px',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            <Download size={13} color="#16a34a" />
+                            <span>Export Sheet</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-VIEW 2: UPLOAD CALIBRATION */}
+                  {manualSubMode === 'upload' && (
+                    <div style={{
+                      background: '#ffffff',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '10px',
+                      padding: '28px',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
+                    }}>
+                      <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
+                        <FileSpreadsheet size={36} color="#ea580c" style={{ margin: '0 auto 12px auto' }} />
+                        <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
+                          Upload Calibration File
+                        </h4>
+                        <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+                          Upload an Excel (.xlsx / .xls) or CSV (.csv) file with columns for <strong>Litre</strong>, <strong>Volt</strong>, and <strong>Frequency</strong>.
+                        </p>
+
+                        {uploadError && (
+                          <div style={{
+                            background: '#fef2f2',
+                            border: '1px solid #fecaca',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            color: '#dc2626',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '16px',
+                            textAlign: 'left'
+                          }}>
+                            <AlertTriangle size={16} />
+                            <span>{uploadError}</span>
+                          </div>
+                        )}
+
+                        {uploadSuccess && (
+                          <div style={{
+                            background: '#f0fdf4',
+                            border: '1px solid #bbf7d0',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            color: '#16a34a',
+                            fontSize: '12.5px',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            marginBottom: '16px',
+                            textAlign: 'left'
+                          }}>
+                            <CheckCircle size={16} />
+                            <span>{uploadSuccess}</span>
+                          </div>
+                        )}
+
+                        {/* Upload Dropzone */}
+                        <label style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '2px dashed #fed7aa',
+                          borderRadius: '10px',
+                          padding: '36px 20px',
+                          background: '#fff7ed',
+                          cursor: 'pointer',
+                          marginBottom: '18px',
+                          transition: 'all 0.15s ease'
+                        }}>
+                          <Upload size={36} color="#f97316" style={{ marginBottom: '10px' }} />
+                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
+                            Click to choose spreadsheet file
+                          </span>
+                          <span style={{ fontSize: '12px', color: '#64748b' }}>
+                            Accepts .xlsx, .xls, .csv files
+                          </span>
+                          <input
+                            type="file"
+                            accept=".xlsx, .xls, .csv"
+                            onChange={handleFileUpload}
+                            style={{ display: 'none' }}
+                          />
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={handleExportExcel}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            fontSize: '13px',
+                            fontWeight: 700,
+                            color: '#ea580c',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          <Download size={14} />
+                          <span>Download Sample Template</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & Streamlined Pre-Calibrated Sensor Configuration */}
+              {calibrateType === 'Direct' && (
+                <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  
+                  {/* Transmission Unit Selector */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                      Transmission Unit
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                      <label
+                        onClick={() => setDirectUnit('Litres')}
+                        style={{
+                          flex: '1 1 200px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: directUnit === 'Litres' ? '2px solid #f97316' : '1px solid #cbd5e1',
+                          background: directUnit === 'Litres' ? '#fff7ed' : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          border: directUnit === 'Litres' ? '5px solid #f97316' : '2px solid #cbd5e1',
+                          background: '#ffffff',
+                          flexShrink: 0
+                        }} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
+                            Direct Litres (L)
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            Sensor transmits fuel volume directly in litres
+                          </div>
+                        </div>
+                      </label>
+
+                      <label
+                        onClick={() => setDirectUnit('Percentage')}
+                        style={{
+                          flex: '1 1 200px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '10px',
+                          padding: '8px 14px',
+                          borderRadius: '8px',
+                          border: directUnit === 'Percentage' ? '2px solid #f97316' : '1px solid #cbd5e1',
+                          background: directUnit === 'Percentage' ? '#fff7ed' : '#ffffff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '50%',
+                          border: directUnit === 'Percentage' ? '5px solid #f97316' : '2px solid #cbd5e1',
+                          background: '#ffffff',
+                          flexShrink: 0
+                        }} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
+                            Percentage (0% – 100%)
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            Computed automatically against Tank Size
+                          </div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Advanced Multiplier & Offset (Optional Collapsible) */}
+                  <div style={{
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    background: '#f8fafc'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowDirectAdvanced(prev => !prev)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        width: '100%'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Settings2 size={15} color="#ea580c" />
+                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
+                          Sensor Multiplier & Offset (Optional)
+                        </span>
+                      </div>
+                      <ChevronDown
+                        size={16}
+                        color="#64748b"
+                        style={{
+                          transform: showDirectAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.2s ease'
+                        }}
+                      />
+                    </button>
+
+                    {showDirectAdvanced && (
+                      <div style={{
+                        marginTop: '10px',
+                        paddingTop: '10px',
+                        borderTop: '1px solid #e2e8f0',
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                        gap: '12px'
+                      }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                            Multiplier (Default: 1.0)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={directMultiplier}
+                            onChange={e => setDirectMultiplier(e.target.value)}
+                            placeholder="1.0"
+                            style={{
+                              width: '100%',
+                              height: '36px',
+                              padding: '0 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+                            Offset (Default: 0.0)
+                          </label>
+                          <input
+                            type="number"
+                            step="any"
+                            value={directOffset}
+                            onChange={e => setDirectOffset(e.target.value)}
+                            placeholder="0.0"
+                            style={{
+                              width: '100%',
+                              height: '36px',
+                              padding: '0 10px',
+                              borderRadius: '6px',
+                              border: '1px solid #cbd5e1',
+                              background: '#ffffff',
+                              fontSize: '13px',
+                              outline: 'none',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+
+              {/* Practical Action Buttons (For Manual & Direct Modes) */}
+              {calibrateType !== 'Auto' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginTop: '16px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid #f1f5f9'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+      const mode = (fuelType && fuelType.toLowerCase().includes('analog')) ? 'volt' : 'frequency';
+      if (onOpenFrequencyModal) onOpenFrequencyModal(displayCalibrationRows, mode);
+    }}
+                    style={{
+                      background: '#fff7ed',
+                      color: '#ea580c',
+                      border: '1px solid #fed7aa',
+                      borderRadius: '20px',
+                      padding: '7px 18px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#ffedd5';
+                      e.currentTarget.style.borderColor = '#fdba74';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#fff7ed';
+                      e.currentTarget.style.borderColor = '#fed7aa';
+                    }}
+                  >
+                    Show Frequency
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { if (onOpenLiveFuelModal) onOpenLiveFuelModal(); }}
+                    style={{
+                      background: '#ecfdf5',
+                      color: '#059669',
+                      border: '1px solid #a7f3d0',
+                      borderRadius: '20px',
+                      padding: '7px 18px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#d1fae5';
+                      e.currentTarget.style.borderColor = '#6ee7b7';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#ecfdf5';
+                      e.currentTarget.style.borderColor = '#a7f3d0';
+                    }}
+                  >
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: '#10b981',
+                      boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
+                    }} />
+                    Live Fuel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onReloadData}
+                    title="Reload Calibration Data"
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#475569',
+                      border: '1px solid #cbd5e1',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#e2e8f0';
+                      e.currentTarget.style.color = '#0f172a';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                      e.currentTarget.style.color = '#475569';
+                    }}
+                  >
+                    <RotateCw size={15} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleExportCalibration}
+                    title="Export Calibration Settings"
+                    style={{
+                      background: '#f0fdf4',
+                      color: '#16a34a',
+                      border: '1px solid #bbf7d0',
+                      width: '34px',
+                      height: '34px',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = '#dcfce7';
+                      e.currentTarget.style.borderColor = '#86efac';
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = '#f0fdf4';
+                      e.currentTarget.style.borderColor = '#bbf7d0';
+                    }}
+                  >
+                    <Download size={15} />
+                  </button>
+                </div>
+              )}
+            
+      </div>
+    </div>
+  );
+});
+
 const EditCalibratePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [loading, setLoading] = useState(true);
+    const tanksRef = React.useRef({});
+  const [customModalRows, setCustomModalRows] = useState([]);
+  const handleTankChange = (tNum, data) => {
+    tanksRef.current[tNum] = data;
+  };
+const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vehicle, setVehicle] = useState(null);
 
@@ -35,8 +2535,8 @@ const EditCalibratePage = () => {
   const [noOfTank, setNoOfTank] = useState(1);
   const [noOfSensor, setNoOfSensor] = useState(1);
   const [sensorType, setSensorType] = useState('');
-  const [minTheft, setMinTheft] = useState('');
-  const [minFilling, setMinFilling] = useState('');
+  const [minTheft, setMinTheft] = useState('4');
+  const [minFilling, setMinFilling] = useState('4');
   const [calibrateType, setCalibrateType] = useState('Auto'); // 'Auto' | 'Manual' | 'Direct'
   const [sensorDetails, setSensorDetails] = useState('');
 
@@ -149,12 +2649,13 @@ const EditCalibratePage = () => {
         setVehicleName(v.name || '');
         const loadedNoOfTank = fuelCfg.noOfTank ?? cal.noOfTank ?? 1;
         const loadedNoOfSensor = fuelCfg.noOfSensor ?? cal.noOfSensor ?? 1;
+        const loadedSensorNumber = cal.sensorNumber || fuelCfg.sensorNumber || meta.sensorNumber || "";
         setNoOfTank(loadedNoOfTank);
         setNoOfSensor(loadedNoOfSensor);
         setSensorFormula(cal.sensorFormula || fuelCfg.sensorFormula || 'Average');
         setSensorType(fuelCfg.sensorType || cal.sensorType || meta.sensorType || '');
-        setMinTheft(fuelCfg.minTheft !== undefined && fuelCfg.minTheft !== null ? fuelCfg.minTheft : '');
-        setMinFilling(fuelCfg.minFilling !== undefined && fuelCfg.minFilling !== null ? fuelCfg.minFilling : '');
+        setMinTheft((fuelCfg.minTheft !== undefined && fuelCfg.minTheft !== null && fuelCfg.minTheft !== '') ? fuelCfg.minTheft : ((cal.minTheft !== undefined && cal.minTheft !== null && cal.minTheft !== '') ? cal.minTheft : 4));
+        setMinFilling((fuelCfg.minFilling !== undefined && fuelCfg.minFilling !== null && fuelCfg.minFilling !== '') ? fuelCfg.minFilling : ((cal.minFilling !== undefined && cal.minFilling !== null && cal.minFilling !== '') ? cal.minFilling : 4));
         setCalibrateType(cal.calibrateType || fuelCfg.calibrateType || 'Auto');
         setSensorDetails(fuelCfg.sensorDetails || '');
 
@@ -204,6 +2705,7 @@ const EditCalibratePage = () => {
         if (!tank1Sensors[1]) {
           tank1Sensors[1] = {
             sensorType: fuelCfg.sensorType || cal.sensorType || meta.sensorType || '',
+            sensorNumber: loadedSensorNumber || '',
             fuelType: cal.fuelType || meta.fuelType || 'LLS Fuel 1(Serial)',
             calibrateType: cal.calibrateType || fuelCfg.calibrateType || 'Auto',
             minAdc: cal.minAdc !== undefined && cal.minAdc !== '' ? String(cal.minAdc) : (meta.fuelEmptyAdc !== undefined && meta.fuelEmptyAdc !== null ? String(meta.fuelEmptyAdc) : ''),
@@ -774,162 +3276,74 @@ const EditCalibratePage = () => {
     return Math.round(scaled * 100) / 100;
   }, [directTestInput, directMultiplier, directOffset, directUnit, tankSize, computedLitres]);
 
-  const handleSave = async (e) => {
+    const handleSave = async (e) => {
     if (e) e.preventDefault();
     setError('');
     setSuccess('');
 
-    const parsedTankSize = computedLitres > 0 ? computedLitres : (tankSize !== '' ? parseFloat(tankSize) : 0);
+    // Option A Validation: Validate Tank 1 and (if tankCount >= 2) Tank 2
+    for (let tNum = 1; tNum <= tankCount; tNum++) {
+      const tData = tanksRef.current[tNum] || tanksData[tNum] || {};
+      const tSize = parseFloat(tData.tankSize) || 0;
+      const cType = tData.calibrateType || 'Auto';
 
-    // Validation checks for Auto, Manual, and Direct modes
-    if (calibrateType === 'Auto') {
-      if (parsedTankSize <= 0) {
-        setError('Please specify a valid Tank Size (Litres) or valid dimensions for Auto calibration.');
-        return;
-      }
-      if (minAdc !== '' && maxAdc !== '' && parseFloat(minAdc) === parseFloat(maxAdc)) {
-        setError('Minimum and Maximum (RS value/Voltage) cannot be identical.');
-        return;
-      }
-    } else if (calibrateType === 'Manual') {
-      if (!Array.isArray(calibrationPoints) || calibrationPoints.length < 2) {
-        setError('Manual calibration requires at least 2 calibration points in the table.');
-        return;
-      }
-      const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
-      const hasEmptyValues = calibrationPoints.some(p => {
-        if (isAnalog) {
-          return p.volt === undefined || p.volt === null || String(p.volt).trim() === '';
-        } else {
-          const freqVal = p.frequency !== undefined ? p.frequency : p.adcValue;
-          return freqVal === undefined || freqVal === null || String(freqVal).trim() === '';
-        }
-      });
-      if (hasEmptyValues) {
-        setError(`Please enter ${isAnalog ? 'voltage' : 'frequency'} values for all calibration rows (or click "Get ${isAnalog ? 'Volt' : 'Frequency'}").`);
-        return;
-      }
-
-      // Check strictly ascending order of litres and sensor values to prevent typos (e.g. entering 1090 after 3931)
-      for (let i = 0; i < calibrationPoints.length - 1; i++) {
-        const currLitres = parseFloat(calibrationPoints[i].litres) || 0;
-        const nextLitres = parseFloat(calibrationPoints[i + 1].litres) || 0;
-        if (nextLitres <= currLitres) {
-          setError(`Step ${i + 2} Litres (${nextLitres} L) must be greater than Step ${i + 1} Litres (${currLitres} L).`);
+      if (cType === 'Auto') {
+        if (tSize <= 0) {
+          setError(`Tank ${tNum}: Please specify a valid Tank Size (Litres) or valid dimensions for Auto calibration.`);
           return;
         }
-
-        const currVal = parseFloat(isAnalog ? calibrationPoints[i].volt : (calibrationPoints[i].frequency ?? calibrationPoints[i].adcValue)) || 0;
-        const nextVal = parseFloat(isAnalog ? calibrationPoints[i + 1].volt : (calibrationPoints[i + 1].frequency ?? calibrationPoints[i + 1].adcValue)) || 0;
-        if (nextVal <= currVal) {
-          setError(`Step ${i + 2} sensor value (${nextVal}) cannot be less than or equal to Step ${i + 1} (${currVal}). Please verify your calibration steps.`);
+        if (tData.minAdc !== '' && tData.maxAdc !== '' && parseFloat(tData.minAdc) === parseFloat(tData.maxAdc)) {
+          setError(`Tank ${tNum}: Minimum and Maximum (RS value/Voltage) cannot be identical.`);
+          return;
+        }
+      } else if (cType === 'Manual') {
+        const points = tData.calibrationPoints || [];
+        if (!Array.isArray(points) || points.length < 2) {
+          setError(`Tank ${tNum}: Manual calibration requires at least 2 calibration points in the table.`);
           return;
         }
       }
     }
 
     setSaving(true);
-
     try {
-      // 1. Snapshot current active sensor into updatedSensors
-      const currentSensorSnapshot = {
-        sensorType,
-        fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || 'Analog'),
-        calibrateType,
-        minAdc: minAdc !== '' ? parseFloat(minAdc) : '',
-        maxAdc: maxAdc !== '' ? parseFloat(maxAdc) : '',
-        differenceOfLtrs,
-        addCount,
-        calibrationPoints: calibrationPoints.map(p => {
-          const v = parseFloat(p.volt) || 0;
-          const f = parseFloat(p.frequency) || 0;
-          const isAnalog = fuelType && fuelType.toLowerCase().includes('analog');
-          const adc = (isAnalog && v > 0) ? v : (f > 0 ? f : v);
-          return {
-            litres: parseFloat(p.litres) || 0,
-            volt: v,
-            frequency: f,
-            adcValue: adc
-          };
-        }),
-        directSensorType,
-        directUnit,
-        directMultiplier: parseFloat(directMultiplier) || 1.0,
-        directOffset: parseFloat(directOffset) || 0.0
-      };
-
-      const currentTank = tanksData[activeTank] || {};
-      const currentSensors = currentTank.sensors || {};
-      const updatedSensors = {
-        ...currentSensors,
-        [activeSensor]: currentSensorSnapshot
-      };
-
-      if (!updatedSensors[1]) {
-        updatedSensors[1] = currentSensorSnapshot;
-      }
-
-      // 2. Build full active tank snapshot
-      const activeTankSnapshot = {
-        tankNo: activeTank,
-        tankSize: parsedTankSize,
-        modeOfVehicle,
-        fuelType: updatedSensors[1]?.fuelType || (fuelType || 'Analog'),
-        minAdc: updatedSensors[1]?.minAdc !== undefined ? updatedSensors[1].minAdc : (minAdc !== '' ? parseFloat(minAdc) : ''),
-        maxAdc: updatedSensors[1]?.maxAdc !== undefined ? updatedSensors[1].maxAdc : (maxAdc !== '' ? parseFloat(maxAdc) : ''),
-        fuelTankShape,
-        fuelTankPosition,
-        calculate,
-        tankLength: lengthMm,
-        tankHeight: heightMm,
-        tankWidth: widthMm,
-        tankRadius: radiusMm,
-        calibrateType: updatedSensors[1]?.calibrateType || calibrateType,
-        calibrationPoints: updatedSensors[1]?.calibrationPoints || [],
-        directSensorType: updatedSensors[1]?.directSensorType || directSensorType,
-        directUnit: updatedSensors[1]?.directUnit || directUnit,
-        directMultiplier: updatedSensors[1]?.directMultiplier !== undefined ? updatedSensors[1].directMultiplier : 1.0,
-        directOffset: updatedSensors[1]?.directOffset !== undefined ? updatedSensors[1].directOffset : 0.0,
-        noOfSensor: parseInt(noOfSensor) || 1,
-        sensorFormula,
-        sensors: updatedSensors
-      };
-
+      const tank1Data = tanksRef.current[1] || tanksData[1] || {};
       const finalTanks = {
-        ...tanksData,
-        [activeTank]: activeTankSnapshot
+        1: tank1Data,
+        ...(tankCount >= 2 ? { 2: tanksRef.current[2] || tanksData[2] || {} } : {})
       };
 
       const payload = {
         name: vehicleName,
-        tankNo: activeTank,
-        noOfTank: parseInt(noOfTank) || 1,
-        noOfSensor: parseInt(noOfSensor) || 1,
+        tankNo: 1,
+        sensorNumber: tank1Data.sensorNumber || "",
+        noOfTank: tankCount,
+        noOfSensor: sensorCount,
         sensorType: sensorType || '',
-        sensorFormula,
-        sensors: updatedSensors,
-        minTheft: parseFloat(minTheft) || 5,
-        minFilling: parseFloat(minFilling) || 9,
-        tankSize: parsedTankSize,
-        calibrateType,
-        sensorDetails,
-        modeOfVehicle: modeOfVehicle || '',
-        fuelType: calibrateType === 'Direct' ? directSensorType : (fuelType || 'Analog'),
-        minAdc: minAdc !== '' ? parseFloat(minAdc) : '',
-        maxAdc: maxAdc !== '' ? parseFloat(maxAdc) : '',
-        fuelTankShape: fuelTankShape || '',
-        fuelTankPosition: fuelTankPosition || '',
-        calculate,
-        tankLength: lengthMm,
-        tankHeight: heightMm,
-        tankWidth: widthMm,
-        tankRadius: radiusMm,
-        calibrationPoints: currentSensorSnapshot.calibrationPoints,
-        directSensorType,
-        directUnit,
-        directMultiplier: parseFloat(directMultiplier) || 1.0,
-        directOffset: parseFloat(directOffset) || 0.0,
-        tanks: finalTanks
+        sensorFormula: tank1Data.sensorFormula || sensorFormula,
+        minTheft: parseFloat(minTheft) || 4,
+        minFilling: parseFloat(minFilling) || 4,
+        tanks: finalTanks,
+        // Backward compatibility fields from tank 1
+        tankSize: tank1Data.tankSize || 0,
+        calibrateType: tank1Data.calibrateType || 'Auto',
+        modeOfVehicle: tank1Data.modeOfVehicle || '',
+        fuelType: tank1Data.fuelType || 'LLS Fuel 1(Serial)',
+        minAdc: tank1Data.minAdc !== undefined ? tank1Data.minAdc : '',
+        maxAdc: tank1Data.maxAdc !== undefined ? tank1Data.maxAdc : '',
+        fuelTankShape: tank1Data.fuelTankShape || '',
+        fuelTankPosition: tank1Data.fuelTankPosition || '',
+        calculate: tank1Data.calculate || '',
+        tankLength: tank1Data.tankLength || '',
+        tankHeight: tank1Data.tankHeight || '',
+        tankWidth: tank1Data.tankWidth || '',
+        tankRadius: tank1Data.tankRadius || '',
+        calibrationPoints: tank1Data.calibrationPoints || [],
+        directSensorType: tank1Data.directSensorType || 'BLE Fuel Level 1',
+        directUnit: tank1Data.directUnit || 'Litres',
+        directMultiplier: tank1Data.directMultiplier || 1.0,
+        directOffset: tank1Data.directOffset || 0.0,
+        sensors: tank1Data.sensors || {}
       };
 
       const res = await vehicleApi.calibrateVehicle(id, payload);
@@ -937,7 +3351,6 @@ const EditCalibratePage = () => {
         setVehicle(res.data);
       }
       setSuccess('Vehicle fuel configuration and calibration saved successfully.');
-      // Immediately open the Live Fuel Monitor so technician sees real-time fuel packets
       setShowLiveFuelModal(true);
     } catch (err) {
       console.error('Calibration save error:', err);
@@ -947,7 +3360,7 @@ const EditCalibratePage = () => {
     }
   };
 
-  const handleExportCalibration = () => {
+const handleExportCalibration = () => {
     let modeDetails = '';
     if (calibrateType === 'Manual') {
       const rows = calibrationPoints.map((p, i) => `Step ${i + 1}: ${p.litres} L = ${p.adcValue} ADC`).join('\n');
@@ -1013,31 +3426,31 @@ const EditCalibratePage = () => {
   const isAnalogMode = fuelType && fuelType.toLowerCase().includes('analog');
 
   return (
-    <div className="pastel-page-bg" style={{ padding: '28px 32px', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <div style={{ maxWidth: '1200px', width: '100%', margin: '0 auto' }}>
+    <div className="pastel-page-bg calib-page-container" style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      <div style={{ width: '100%' }}>
 
         {/* Top Header & Breadcrumb Bar */}
-        <div style={{
+        <div className="calib-header-wrap" style={{
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          marginBottom: '22px',
+          marginBottom: '10px',
           flexWrap: 'wrap'
         }}>
-          <h1 style={{
+          <h1 className="calib-header-title" style={{
             fontSize: '24px',
             fontWeight: 800,
             color: '#0f172a',
             letterSpacing: '-0.02em',
             margin: 0
           }}>
-            Edit Calibrate
+            Fuel Calibration
           </h1>
 
-          <div style={{ width: '1px', height: '20px', background: '#cbd5e1' }} />
+          <div className="calib-header-sep" style={{ width: '1px', height: '20px', background: '#cbd5e1' }} />
 
           {/* Breadcrumb line */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b' }}>
+          <div className="calib-breadcrumb" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', flexWrap: 'wrap' }}>
             <button
               type="button"
               onClick={() => navigate('/dashboard')}
@@ -1051,20 +3464,100 @@ const EditCalibratePage = () => {
               type="button"
               onClick={() => navigate('/admin/vehicles')}
               style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#64748b', fontWeight: 500 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
             >
               Vehicle list
             </button>
             <ChevronRight size={13} color="#94a3b8" />
-            <span style={{ color: '#64748b', fontWeight: 500 }}>Edit Calibrate</span>
+            <button
+              type="button"
+              onClick={() => id && navigate(`/admin/vehicles/edit/${id}`)}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', color: '#64748b', fontWeight: 600 }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+            >
+              {displayVehicleId}
+            </button>
             <ChevronRight size={13} color="#94a3b8" />
-            <span style={{ color: '#ea580c', fontWeight: 700 }}>{displayVehicleId}</span>
+            <span style={{ color: '#ea580c', fontWeight: 700 }}>Fuel Calibration</span>
           </div>
 
-          {/* Top Right Live Fuel Action Button */}
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {/* Top Right Action Buttons */}
+          <div className="calib-header-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="calib-top-save-btn"
+              style={{
+                order: 3,
+                background: '#f97316',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '7px 20px',
+                fontSize: '13px',
+                fontWeight: 800,
+                cursor: saving ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '7px',
+                boxShadow: '0 2px 8px rgba(249, 115, 22, 0.3)',
+                transition: 'all 0.15s ease',
+                opacity: saving ? 0.75 : 1
+              }}
+              onMouseEnter={e => {
+                if (!saving) {
+                  e.currentTarget.style.background = '#ea580c';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.4)';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!saving) {
+                  e.currentTarget.style.background = '#f97316';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(249, 115, 22, 0.3)';
+                }
+              }}
+            >
+              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
+              <span>{saving ? 'Saving...' : 'Save'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => id ? navigate(`/admin/vehicles/edit/${id}`) : navigate('/admin/vehicles')}
+              style={{
+                background: '#ffffff',
+                color: '#334155',
+                border: '1px solid #cbd5e1',
+                borderRadius: '8px',
+                padding: '7px 14px',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#f1f5f9';
+                e.currentTarget.style.color = '#0f172a';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#ffffff';
+                e.currentTarget.style.color = '#334155';
+              }}
+            >
+              <ArrowLeft size={14} />
+              <span>Back to Vehicle</span>
+            </button>
             <button
               type="button"
               onClick={() => setShowLiveFuelModal(true)}
+              className="calib-header-livefuel-btn"
               style={{
                 background: '#ecfdf5',
                 color: '#059669',
@@ -1106,15 +3599,15 @@ const EditCalibratePage = () => {
           <div style={{
             background: '#fef2f2',
             border: '1px solid #fecaca',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '8px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             color: '#dc2626',
-            fontSize: '13.5px',
+            fontSize: '13px',
             fontWeight: 600,
-            marginBottom: '18px',
+            marginBottom: '10px',
             boxShadow: '0 2px 6px rgba(220, 38, 38, 0.06)'
           }}>
             <AlertTriangle size={18} />
@@ -1126,15 +3619,15 @@ const EditCalibratePage = () => {
           <div style={{
             background: '#f0fdf4',
             border: '1px solid #bbf7d0',
-            borderRadius: '10px',
-            padding: '12px 18px',
+            borderRadius: '8px',
+            padding: '8px 14px',
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
             color: '#16a34a',
-            fontSize: '13.5px',
+            fontSize: '13px',
             fontWeight: 600,
-            marginBottom: '18px',
+            marginBottom: '10px',
             boxShadow: '0 2px 6px rgba(22, 163, 74, 0.06)'
           }}>
             <CheckCircle size={18} />
@@ -1150,144 +3643,368 @@ const EditCalibratePage = () => {
           boxShadow: '0 4px 16px rgba(15, 23, 42, 0.04)',
           overflow: 'hidden'
         }}>
-          {/* Card Top Tab Bar */}
-          <div style={{
-            background: '#fafbfc',
-            borderBottom: '1px solid #f1f5f9',
-            padding: '14px 24px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            flexWrap: 'wrap'
-          }}>
-            {/* Tanks Switcher */}
-            {Array.from({ length: tankCount }, (_, i) => i + 1).map(tankNum => {
-              const isSelected = activeTank === tankNum;
-              return (
-                <button
-                  key={tankNum}
-                  type="button"
-                  onClick={() => handleSwitchTank(tankNum)}
-                  style={{
-                    background: isSelected ? '#f97316' : '#f1f5f9',
-                    color: isSelected ? '#ffffff' : '#64748b',
-                    border: 'none',
-                    borderRadius: '8px',
-                    padding: '8px 22px',
-                    fontSize: '13.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: isSelected ? '0 2px 8px rgba(249, 115, 22, 0.3)' : 'none',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  onMouseEnter={e => {
-                    if (isSelected) e.currentTarget.style.background = '#ea580c';
-                  }}
-                  onMouseLeave={e => {
-                    if (isSelected) e.currentTarget.style.background = '#f97316';
-                  }}
-                >
-                  <Fuel size={14} />
-                  <span>{`Tank ${tankNum}`}</span>
-                </button>
-              );
-            })}
-
-            {/* Sensors Switcher (when sensorCount > 1) */}
-            {sensorCount > 1 && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginLeft: tankCount > 0 ? '16px' : '0',
-                paddingLeft: tankCount > 0 ? '16px' : '0',
-                borderLeft: tankCount > 0 ? '1px solid #e2e8f0' : 'none',
-                flexWrap: 'wrap'
-              }}>
-                <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Cpu size={14} color="#ea580c" />
-                  Sensors:
-                </span>
-                <div style={{
-                  display: 'inline-flex',
-                  background: '#f1f5f9',
-                  padding: '3px',
-                  borderRadius: '8px',
-                  gap: '4px',
-                  border: '1px solid #e2e8f0'
-                }}>
-                  {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sensorNum => {
-                    const isSelected = activeSensor === sensorNum;
-                    return (
-                      <button
-                        key={sensorNum}
-                        type="button"
-                        onClick={() => handleSwitchSensor(sensorNum)}
-                        style={{
-                          background: isSelected ? '#f97316' : 'transparent',
-                          color: isSelected ? '#ffffff' : '#64748b',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '6px 14px',
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '5px',
-                          boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <Cpu size={12} />
-                        <span>{`Sensor ${sensorNum}`}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Form Body */}
-          <form onSubmit={handleSave} style={{ padding: '30px 28px 36px 28px' }}>
+          <form onSubmit={handleSave} className="calib-card-body">
 
             {/* SECTION 1: General Configuration */}
-            <div style={{
-              marginBottom: '32px',
+            <div className="calib-section-box" style={{
+              marginBottom: '10px',
               background: '#f8fafc',
               border: '1px solid #f1f5f9',
-              borderRadius: '10px',
-              padding: '20px 24px'
+              borderRadius: '8px',
+              padding: '10px 12px'
             }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
-                marginBottom: '16px',
-                paddingBottom: '10px',
+                marginBottom: '8px',
+                paddingBottom: '6px',
                 borderBottom: '1px solid #e2e8f0'
               }}>
                 <Settings2 size={16} color="#ea580c" />
-                <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
+                <h3 style={{ fontSize: '14.5px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
                   General Configuration
                 </h3>
-                <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 500, marginLeft: '6px' }}>
-                  (Vehicle Identity & Sensor Specifications)
-                </span>
               </div>
 
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px 24px'
-              }}>
+              <style>{`
+                .calib-btn-mobile-only {
+                  display: none;
+                }
+                .calib-page-container {
+                  max-width: 100%;
+                  overflow-x: hidden;
+                  box-sizing: border-box;
+                  padding: 8px 12px;
+                }
+                .calib-card-body {
+                  max-width: 100%;
+                  overflow-x: hidden;
+                  box-sizing: border-box;
+                  padding: 10px 12px 14px 12px;
+                }
+                
+                .calib-grid-4 {
+                  display: grid;
+                  grid-template-columns: repeat(4, minmax(0, 1fr));
+                  gap: 8px 10px;
+                  margin-bottom: 8px;
+                }
+                .calib-grid-3 {
+                  display: grid;
+                  grid-template-columns: repeat(3, minmax(0, 1fr));
+                  gap: 8px 10px;
+                  margin-bottom: 8px;
+                }
+                .calib-grid-2 {
+                  display: grid;
+                  grid-template-columns: repeat(2, minmax(0, 1fr));
+                  gap: 8px 10px;
+                  margin-bottom: 8px;
+                }
+                .calib-footer-actions {
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  gap: 14px;
+                  margin-top: 20px;
+                  padding-top: 16px;
+                  border-top: 1px solid #f1f5f9;
+                }
+                .calib-tools-bar {
+                  display: flex;
+                  align-items: center;
+                  gap: 8px;
+                  height: 38px;
+                }
+                .calib-tank-preview-card {
+                  margin-top: 12px;
+                  margin-bottom: 16px;
+                  background: #fafbfc;
+                  border: 1px solid #e2e8f0;
+                  border-radius: 10px;
+                  padding: 16px 20px;
+                  display: flex;
+                  flex-direction: column;
+                  align-items: center;
+                  justify-content: center;
+                  gap: 12px;
+                  position: relative;
+                  max-width: 100%;
+                  box-sizing: border-box;
+                }
+                @media (max-width: 1024px) {
+                  
+                .calib-grid-4 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                  }
+                }
+                @media (max-width: 600px) {
+                  
+                .calib-grid-4 {
+                    grid-template-columns: 1fr !important;
+                  }
+                }
+                @media (max-width: 900px) {
+                  .calib-grid-3 {
+                    grid-template-columns: repeat(2, minmax(0, 1fr));
+                  }
+                }
+                @media (max-width: 768px) {
+                  .calib-page-container {
+                  max-width: 100%;
+                  overflow-x: hidden;
+                  box-sizing: border-box;
+                    padding: 10px 8px !important;
+                  }
+                  .calib-card-body {
+                  max-width: 100%;
+                  overflow-x: hidden;
+                  box-sizing: border-box;
+                    padding: 12px 10px 18px 10px !important;
+                  }
+                  .calib-grid-3, .calib-grid-2 {
+                    grid-template-columns: 1fr !important;
+                    gap: 10px 0 !important;
+                    margin-bottom: 10px !important;
+                  }
+                  .calib-header-wrap {
+                    flex-direction: column !important;
+                    align-items: flex-start !important;
+                    gap: 8px !important;
+                    margin-bottom: 14px !important;
+                  }
+                  .calib-header-title {
+                    font-size: 20px !important;
+                  }
+                  .calib-header-sep {
+                    display: none !important;
+                  }
+                  .calib-breadcrumb {
+                    font-size: 12px !important;
+                    gap: 6px !important;
+                  }
+                  .calib-header-actions {
+                    margin-left: 0 !important;
+                    width: 100% !important;
+                    justify-content: flex-start !important;
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                    gap: 8px !important;
+                  }
+                  .calib-header-actions button {
+                    flex: 1 1 calc(33.333% - 6px) !important;
+                    min-width: 110px !important;
+                    justify-content: center !important;
+
+                    padding: 8px 10px !important;
+                    font-size: 12.5px !important;
+                  }
+                  .calib-tabs-bar {
+                    padding: 10px 12px !important;
+                    gap: 8px !important;
+                  }
+                  .calib-sensor-switcher {
+                    margin-left: 0 !important;
+                    padding-left: 0 !important;
+                    border-left: none !important;
+                    width: 100% !important;
+                    margin-top: 4px !important;
+                  }
+                  .calib-section-box {
+                    padding: 12px 10px !important;
+                  }
+                  .calib-tools-bar {
+                    height: auto !important;
+                    flex-wrap: wrap !important;
+                    gap: 6px !important;
+                  }
+                  .calib-tools-bar button {
+                    height: 36px !important;
+                  }
+                  .calib-tank-preview-card {
+                    padding: 12px 10px !important;
+                  }
+                  .calib-tank-preview-row {
+                    flex-direction: column !important;
+                    align-items: center !important;
+                    gap: 8px !important;
+                  }
+                  .calib-tank-rect-box {
+                    max-width: 100% !important;
+                  }
+                  .calib-cylinder-svg {
+                    max-width: 100% !important;
+                    height: auto !important;
+                  }
+                  .calib-manual-submode-bar {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 10px !important;
+                  }
+                  .calib-manual-radios {
+                    gap: 16px !important;
+                  }
+                  .calib-manual-inputs {
+                    justify-content: space-between !important;
+                    width: 100% !important;
+                  }
+                  .calib-table th, .calib-table td {
+                    padding: 8px 8px !important;
+                    font-size: 12px !important;
+                  }
+                  .calib-footer-actions {
+                                        display: grid !important;
+                    grid-template-columns: 1fr 1fr !important;
+                    width: 100% !important;
+                    gap: 10px !important;
+                    margin-top: 14px !important;
+                    padding-top: 14px !important;
+                  }
+                  .calib-footer-actions button {
+                    width: 100% !important;
+                    justify-content: center !important;
+                    padding: 11px !important;
+                  }
+                  .calib-modal-overlay {
+                    padding: 10px !important;
+                  }
+                  .calib-modal-box {
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    padding: 16px 14px !important;
+                    border-radius: 10px !important;
+                  }
+                  .calib-modal-freq-table th, .calib-modal-freq-table td {
+                    padding: 6px 4px !important;
+                    font-size: 11px !important;
+                  }
+                }
+                @media (max-width: 640px) {
+                  
+                .calib-grid-4 {
+                    grid-template-columns: 1fr !important;
+                    gap: 10px 0 !important;
+                  }
+                  .calib-tank-bar {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 10px !important;
+                    padding: 10px 10px !important;
+                  }
+                  .calib-tank-bar-item {
+                    width: 100% !important;
+                    justify-content: space-between !important;
+                  }
+                  .calib-calibtype-buttons {
+                    display: flex !important;
+                    width: 100% !important;
+                  }
+                  .calib-calibtype-buttons button {
+                    flex: 1 1 33.333% !important;
+                    text-align: center !important;
+                    padding: 0 4px !important;
+                  }
+                  .calib-sensor-num-wrap {
+                    width: 100% !important;
+                    justify-content: space-between !important;
+                  }
+                  .calib-sensor-num-input {
+                    flex: 1 1 120px !important;
+                    width: auto !important;
+                    min-width: 100px !important;
+                  }
+                  .calib-table {
+                    min-width: 100% !important;
+                    width: 100% !important;
+                    table-layout: fixed !important;
+                  }
+                  .calib-th-litre {
+                    width: 25% !important;
+                  }
+                  .calib-th-val {
+                    width: 43% !important;
+                  }
+                  .calib-th-action {
+                    width: 32% !important;
+                  }
+                  .calib-td-cell {
+                    padding: 6px 4px !important;
+                  }
+                  .calib-table input {
+                    height: 34px !important;
+                    padding: 0 6px !important;
+                    font-size: 12px !important;
+                    border-radius: 5px !important;
+                    width: 100% !important;
+                    max-width: 100% !important;
+                    box-sizing: border-box !important;
+                  }
+                  .calib-btn-label {
+                    display: none !important;
+                  }
+                  .calib-btn-mobile-only {
+                    display: inline !important;
+                  }
+                  .calib-action-btns {
+                    gap: 4px !important;
+                    justify-content: center !important;
+                  }
+                  .calib-action-btns button {
+                    padding: 4px 6px !important;
+                    height: 34px !important;
+                    font-size: 11px !important;
+                  }
+                }
+                @media (max-width: 480px) {
+                  .calib-header-title {
+                    font-size: 18px !important;
+                  }
+                  .calib-header-actions button {
+                    width: 100% !important;
+                    min-width: 0 !important;
+                    flex: none !important;
+                  }
+                  .calib-header-actions {
+                    display: grid !important;
+                    grid-template-columns: 1fr 1fr !important;
+                    gap: 8px !important;
+                    width: 100% !important;
+                  }
+                  .calib-top-save-btn {
+                    grid-column: span 2 !important;
+                    padding: 10px !important;
+                    font-size: 13.5px !important;
+                    width: 100% !important;
+                  }
+                  .calib-tools-bar button {
+                    flex: 1 1 45% !important;
+                  }
+                  .calib-manual-inputs {
+                    flex-direction: column !important;
+                    align-items: stretch !important;
+                    gap: 8px !important;
+                  }
+                  .calib-manual-inputs > div {
+                    justify-content: space-between !important;
+                    width: 100% !important;
+                  }
+                  .calib-manual-inputs input {
+                    width: 110px !important;
+                  }
+                  .calib-manual-inputs button {
+                    width: 100% !important;
+                    justify-content: center !important;
+                  }
+                }
+              `}</style>
+
+              {/* ROW 1: Vehicle Identity Information (Read-Only) */}
+              <div className="calib-grid-3">
                 {/* Vehicle ID (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Vehicle ID
                   </label>
                   <input
@@ -1297,13 +4014,14 @@ const EditCalibratePage = () => {
                     value={displayVehicleId}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
@@ -1313,7 +4031,7 @@ const EditCalibratePage = () => {
 
                 {/* Vehicle Name (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Vehicle Name
                   </label>
                   <input
@@ -1323,13 +4041,14 @@ const EditCalibratePage = () => {
                     value={vehicleName || vehicle?.name || ''}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
@@ -1339,7 +4058,7 @@ const EditCalibratePage = () => {
 
                 {/* Device Id / IMEI No (Read-only) */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     Device Id / IMEI No
                   </label>
                   <input
@@ -1349,23 +4068,30 @@ const EditCalibratePage = () => {
                     value={vehicle?.imei || ''}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #e2e8f0',
                       background: '#f1f5f9',
-                      fontSize: '13.5px',
-                      color: '#64748b',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#475569',
                       outline: 'none',
                       boxSizing: 'border-box',
                       cursor: 'not-allowed'
                     }}
                   />
                 </div>
+              </div>
 
+              {/* Subtle separation between Vehicle Identity & Calibration Hardware */}
+              <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0 14px 0' }} />
+
+              {/* ROW 2: Hardware Configuration & Detection Thresholds (In One Line) */}
+              <div className="calib-grid-4">
                 {/* No. of Tank */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     No.of Tank <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -1376,12 +4102,12 @@ const EditCalibratePage = () => {
                     onChange={e => setNoOfTank(e.target.value)}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1399,7 +4125,7 @@ const EditCalibratePage = () => {
 
                 {/* No. of Sensor */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
                     No.of Sensor <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <input
@@ -1417,12 +4143,12 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1438,63 +4164,17 @@ const EditCalibratePage = () => {
                   />
                 </div>
 
-                {/* Sensor Type */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    {sensorCount > 1 ? `Sensor Type (Sensor ${activeSensor})` : 'Sensor Type'}
-                  </label>
-                  <FuelTracksSelect
-                    value={sensorType}
-                    onChange={setSensorType}
-                    options={sensorTypeOptions}
-                    placeholder="-- Select --"
-                    height="40px"
-                  />
-                </div>
-
-                {/* Calibrate Type */}
-                <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    {sensorCount > 1 ? `Calibrate Type (Sensor ${activeSensor})` : 'Calibrate Type'}
-                  </label>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    {['Auto', 'Manual', 'Direct'].map(type => {
-                      const isSelected = calibrateType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setCalibrateType(type)}
-                          style={{
-                            padding: '7px 18px',
-                            borderRadius: '20px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            border: isSelected ? '1px solid #f97316' : '1px solid #cbd5e1',
-                            background: isSelected ? '#f97316' : '#ffffff',
-                            color: isSelected ? '#ffffff' : '#475569',
-                            cursor: 'pointer',
-                            boxShadow: isSelected ? '0 2px 6px rgba(249, 115, 22, 0.25)' : 'none',
-                            transition: 'all 0.15s ease'
-                          }}
-                        >
-                          {type}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
                 {/* Minimum Theft */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Minimum Theft <span style={{ fontSize: '11px', color: '#64748b' }}>(Note: In litres)</span>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Minimum Theft <span style={{ fontSize: '11px', color: '#64748b' }}>(In litres)</span>
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="any"
                     value={minTheft}
+                    placeholder="4"
                     onWheel={e => e.target.blur()}
                     onChange={e => {
                       const val = e.target.value;
@@ -1502,12 +4182,12 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
-                      fontSize: '13.5px',
+                      fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
                       boxSizing: 'border-box'
@@ -1525,14 +4205,15 @@ const EditCalibratePage = () => {
 
                 {/* Minimum Filling */}
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Minimum Filling <span style={{ fontSize: '11px', color: '#64748b' }}>(Note: In litres)</span>
+                  <label style={{ display: 'block', fontSize: '12.5px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
+                    Minimum Filling <span style={{ fontSize: '11px', color: '#64748b' }}>(In litres)</span>
                   </label>
                   <input
                     type="number"
                     min="0"
                     step="any"
                     value={minFilling}
+                    placeholder="4"
                     onWheel={e => e.target.blur()}
                     onChange={e => {
                       const val = e.target.value;
@@ -1540,184 +4221,14 @@ const EditCalibratePage = () => {
                     }}
                     style={{
                       width: '100%',
-                      height: '40px',
+                      height: '38px',
                       padding: '0 12px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      fontSize: '13.5px',
-                      color: '#0f172a',
-                      outline: 'none',
-                      boxSizing: 'border-box'
-                    }}
-                    onFocus={e => {
-                      e.target.style.borderColor = '#f97316';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = '#cbd5e1';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
-
-                {/* Sensor Details */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    Sensor Details
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={sensorDetails}
-                    onChange={e => setSensorDetails(e.target.value)}
-                    placeholder="Enter sensor specifications or installation details..."
-                    style={{
-                      width: '100%',
-                      padding: '10px 12px',
                       borderRadius: '6px',
                       border: '1px solid #cbd5e1',
                       background: '#ffffff',
                       fontSize: '13px',
                       color: '#0f172a',
                       outline: 'none',
-                      boxSizing: 'border-box',
-                      resize: 'vertical'
-                    }}
-                    onFocus={e => {
-                      e.target.style.borderColor = '#f97316';
-                      e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                    }}
-                    onBlur={e => {
-                      e.target.style.borderColor = '#cbd5e1';
-                      e.target.style.boxShadow = 'none';
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* SECTION 2: Tank Parameters Form matching Screenshot */}
-            <div>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: '12px',
-                marginBottom: '18px',
-                paddingBottom: '12px',
-                borderBottom: '1px solid #e2e8f0'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <SlidersHorizontal size={16} color="#ea580c" />
-                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', margin: 0 }}>
-                    {tankCount > 1 
-                      ? (sensorCount > 1 ? `Tank ${activeTank} — Sensor ${activeSensor} Calibration` : `Tank ${activeTank} Parameters`)
-                      : (sensorCount > 1 ? `Sensor ${activeSensor} Calibration Details` : 'Tank Calibration Details')
-                    }
-                  </h3>
-                </div>
-
-                {sensorCount > 1 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b' }}>Configure:</span>
-                    <div style={{
-                      display: 'inline-flex',
-                      background: '#f1f5f9',
-                      padding: '3px',
-                      borderRadius: '8px',
-                      gap: '4px',
-                      border: '1px solid #e2e8f0'
-                    }}>
-                      {Array.from({ length: sensorCount }, (_, i) => i + 1).map(sNum => {
-                        const isSel = activeSensor === sNum;
-                        return (
-                          <button
-                            key={sNum}
-                            type="button"
-                            onClick={() => handleSwitchSensor(sNum)}
-                            style={{
-                              background: isSel ? '#f97316' : 'transparent',
-                              color: isSel ? '#ffffff' : '#64748b',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '5px 14px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              boxShadow: isSel ? '0 2px 6px rgba(249, 115, 22, 0.35)' : 'none',
-                              transition: 'all 0.15s ease'
-                            }}
-                          >
-                            <Cpu size={12} />
-                            <span>{`Sensor ${sNum}`}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Row 1: Mode of Vehicle, Fuel Type, Tank Size */}
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '18px 24px',
-                marginBottom: '20px'
-              }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                    Mode of Vehicle
-                  </label>
-                  <FuelTracksSelect
-                    value={modeOfVehicle}
-                    onChange={setModeOfVehicle}
-                    options={modeOptions}
-                    placeholder="-- Select --"
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                    {sensorCount > 1 ? `Fuel Type / Channel (Sensor ${activeSensor})` : 'Fuel Type'}
-                  </label>
-                  <FuelTracksSelect
-                    value={fuelType}
-                    onChange={handleFuelTypeChange}
-                    options={fuelTypeOptions}
-                    placeholder="-- Select --"
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                    Tank Size <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(Note: In Litres)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="any"
-                    value={tankSize}
-                    onWheel={e => e.target.blur()}
-                    onChange={e => {
-                      const val = e.target.value;
-                      if (val === '' || parseFloat(val) >= 0) setTankSize(val);
-                    }}
-                    placeholder="e.g. 500"
-                    style={{
-                      width: '100%',
-                      height: '42px',
-                      padding: '0 14px',
-                      borderRadius: '6px',
-                      border: '1px solid #cbd5e1',
-                      background: '#ffffff',
-                      fontSize: '13.5px',
-                      color: '#0f172a',
-                      outline: 'none',
                       boxSizing: 'border-box'
                     }}
                     onFocus={e => {
@@ -1731,1556 +4242,31 @@ const EditCalibratePage = () => {
                   />
                 </div>
               </div>
-
-              {/* WHEN CALIBRATE TYPE IS AUTO: Render Min/Max ADC, Shape, Position, Dimensions, and Tank Preview */}
-              {calibrateType === 'Auto' && (
-                <>
-                  {/* Row 2: Fuel Tank Shape, Fuel Tank Position, Calculate */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '18px 24px',
-                    marginBottom: '20px'
-                  }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        Fuel Tank Shape
-                      </label>
-                      <FuelTracksSelect
-                        value={fuelTankShape}
-                        onChange={setFuelTankShape}
-                        options={tankShapeOptions}
-                        placeholder="-- SELECT --"
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        Fuel Tank Position
-                      </label>
-                      <FuelTracksSelect
-                        value={fuelTankPosition}
-                        onChange={setFuelTankPosition}
-                        options={tankPositionOptions}
-                        placeholder="-- SELECT --"
-                      />
-                    </div>
-
-                    {(fuelTankShape === 'Rectangle' || fuelTankShape === 'Cylinder') && (
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Calculate
-                        </label>
-                        <FuelTracksSelect
-                          value={calculate}
-                          onChange={setCalculate}
-                          options={calculateOptions}
-                          placeholder="-- SELECT --"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Row 3: Minimum & Maximum Calibration Sensor Value */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                    gap: '18px 24px',
-                    marginBottom: '20px'
-                  }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        {fuelType && fuelType.toLowerCase().includes('analog')
-                          ? 'Minimum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
-                            ? 'Minimum RS Value'
-                            : 'Minimum (RS value/Voltage)')}
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={minAdc}
-                        onChange={e => setMinAdc(e.target.value)}
-                        placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '0.00' : '0'}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13.5px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = '#f97316';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = '#cbd5e1';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                        {fuelType && fuelType.toLowerCase().includes('analog')
-                          ? 'Maximum Voltage (V)'
-                          : (fuelType && (fuelType.toLowerCase().includes('serial') || fuelType.toLowerCase().includes('lls'))
-                            ? 'Maximum RS Value'
-                            : 'Maximum (RS value/Voltage)')}
-                      </label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={maxAdc}
-                        onChange={e => setMaxAdc(e.target.value)}
-                        placeholder={fuelType && fuelType.toLowerCase().includes('analog') ? '5.00' : '4095'}
-                        style={{
-                          width: '100%',
-                          height: '42px',
-                          padding: '0 14px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13.5px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                        onFocus={e => {
-                          e.target.style.borderColor = '#f97316';
-                          e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                        }}
-                        onBlur={e => {
-                          e.target.style.borderColor = '#cbd5e1';
-                          e.target.style.boxShadow = 'none';
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Dynamic Dimension Inputs for Cylinder */}
-                  {fuelTankShape === 'Cylinder' && (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                      gap: '18px 24px',
-                      marginBottom: '20px'
-                    }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Radius <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={radiusMm}
-                          onChange={e => setRadiusMm(e.target.value)}
-                          placeholder="Radius"
-                          style={{
-                            width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={lengthMm}
-                          onChange={e => setLengthMm(e.target.value)}
-                          placeholder="Length"
-                          style={{
-                            width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dynamic Dimension Inputs for Rectangle when Calculate === 'Yes' */}
-                  {fuelTankShape === 'Rectangle' && calculate === 'Yes' && (
-                    <div style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-                      gap: '18px 24px',
-                      marginBottom: '24px'
-                    }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Length <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={lengthMm}
-                          onChange={e => setLengthMm(e.target.value)}
-                          placeholder="Length"
-                          style={{
-                            width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Height <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={heightMm}
-                          onChange={e => setHeightMm(e.target.value)}
-                          placeholder="Height"
-                          style={{
-                            width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#334155', marginBottom: '7px' }}>
-                          Width <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 400 }}>(in mm)</span>
-                        </label>
-                        <input
-                          type="number"
-                          step="any"
-                          value={widthMm}
-                          onChange={e => setWidthMm(e.target.value)}
-                          placeholder="Width"
-                          style={{
-                            width: '100%',
-                            height: '42px',
-                            padding: '0 14px',
-                            borderRadius: '6px',
-                            border: '1px solid #cbd5e1',
-                            background: '#ffffff',
-                            fontSize: '13.5px',
-                            color: '#0f172a',
-                            outline: 'none',
-                            boxSizing: 'border-box'
-                          }}
-                          onFocus={e => {
-                            e.target.style.borderColor = '#f97316';
-                            e.target.style.boxShadow = '0 0 0 3px rgba(249, 115, 22, 0.15)';
-                          }}
-                          onBlur={e => {
-                            e.target.style.borderColor = '#cbd5e1';
-                            e.target.style.boxShadow = 'none';
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* DEDICATED VISUAL TANK CARD (SHOWN BASED ON VALUES, NEVER HIDDEN) */}
-                  {fuelTankShape && (
-                    <div style={{
-                      marginTop: '16px',
-                      marginBottom: '24px',
-                      background: '#fafbfc',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '12px',
-                      padding: '24px 28px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '16px',
-                      position: 'relative'
-                    }}>
-                      {/* Card Title & Info */}
-                      <div style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '10px',
-                        borderBottom: '1px solid #e2e8f0',
-                        paddingBottom: '12px'
-                      }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <Box size={16} color="#ea580c" />
-                          <span style={{ fontSize: '13.5px', fontWeight: 800, color: '#0f172a' }}>
-                            {`${fuelTankShape} Tank Preview`}
-                          </span>
-                          <span style={{
-                            fontSize: '11.5px',
-                            fontWeight: 700,
-                            color: '#ea580c',
-                            background: '#fff7ed',
-                            padding: '2px 8px',
-                            borderRadius: '12px',
-                            border: '1px solid #fed7aa'
-                          }}>
-                            {`${fuelTankPosition}`}
-                          </span>
-                        </div>
-
-                        {/* Formula Calculation Badge */}
-                        <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>
-                          {fuelTankShape === 'Rectangle' && calculate === 'Yes' && lengthMm && heightMm && widthMm ? (
-                            <span>
-                              Volume = ({lengthMm} × {heightMm} × {widthMm}) ÷ 1,000,000 = <strong style={{ color: '#ea580c' }}>{computedLitres} Litres</strong>
-                            </span>
-                          ) : (
-                            <span>
-                              Calibrated Capacity: <strong style={{ color: '#ea580c' }}>{computedLitres || tankSize || 0} Litres</strong>
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* RECTANGLE TANK RENDERING BASED ON THE VALUES */}
-                      {fuelTankShape === 'Rectangle' && (
-                        <div style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '16px 0'
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                            {/* Left Dimension Badge: Height */}
-                            {heightMm && (
-                              <div style={{
-                                fontSize: '11.5px',
-                                fontWeight: 700,
-                                color: '#334155',
-                                background: '#ffffff',
-                                padding: '4px 10px',
-                                borderRadius: '0px',
-                                border: '1px solid #cbd5e1',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {`Height: ${heightMm} mm`}
-                              </div>
-                            )}
-
-                            {/* Center Column: Top Length Badge directly aligned over the Tank Box */}
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                              {/* Top Dimension Badge: Length */}
-                              {lengthMm && (
-                                <div style={{
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  color: '#334155',
-                                  background: '#ffffff',
-                                  padding: '3px 12px',
-                                  borderRadius: '0px',
-                                  border: '1px solid #cbd5e1',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {`Length: ${lengthMm} mm`}
-                                </div>
-                              )}
-
-                              {/* Sharp Rectangle Box in Theme Light Orange with NO CURVES */}
-                              <div style={{
-                                width: `${visualTankDimensions.widthPx}px`,
-                                height: `${visualTankDimensions.heightPx}px`,
-                                background: '#f97316',
-                                borderRadius: '0px',
-                                border: '2px solid #ea580c',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                transition: 'all 0.2s ease',
-                                padding: '12px',
-                                boxSizing: 'border-box'
-                              }}>
-                                <span style={{
-                                  color: '#ffffff',
-                                  fontWeight: 800,
-                                  fontSize: '19px',
-                                  letterSpacing: '-0.01em',
-                                  whiteSpace: 'nowrap'
-                                }}>
-                                  {`${computedLitres || tankSize || 0} Litre`}
-                                </span>
-
-                                {widthMm && (
-                                  <span style={{
-                                    color: '#ffffff',
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                    marginTop: '6px',
-                                    whiteSpace: 'nowrap'
-                                  }}>
-                                    {`Width: ${widthMm} mm`}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* CYLINDER TANK RENDERING BASED ON THE VALUES */}
-                      {fuelTankShape === 'Cylinder' && (() => {
-                        const cylinderHeightVal = radiusMm ? (parseFloat(radiusMm) * 2) : (heightMm || '940');
-                        const cylinderLengthVal = lengthMm || '650';
-                        const numLitres = computedLitres || (tankSize ? parseFloat(tankSize) : 451);
-                        const displayLitres = Math.abs(numLitres - Math.round(numLitres)) < 0.15 
-                          ? Math.round(numLitres) 
-                          : (Math.round(numLitres * 10) / 10);
-
-                        return (
-                          <div style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '12px',
-                            padding: '16px 0'
-                          }}>
-                            {/* Conditionally Render Vertical vs Horizontal Cylinder in Theme Orange */}
-                            {fuelTankPosition === 'Vertical' ? (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-                                  {/* Standing Vertical Cylinder in Theme Orange */}
-                                  <svg width="200" height="240" viewBox="0 0 200 240" style={{ overflow: 'visible' }}>
-                                    <defs>
-                                      <linearGradient id="cylinderThemeOrangeGradV" x1="0" y1="0" x2="1" y2="0">
-                                        <stop offset="0%" stopColor="#f97316" />
-                                        <stop offset="35%" stopColor="#fb923c" />
-                                        <stop offset="70%" stopColor="#f97316" />
-                                        <stop offset="100%" stopColor="#ea580c" />
-                                      </linearGradient>
-                                      <filter id="cylinderOrangeShadow" x="-15%" y="-15%" width="130%" height="130%">
-                                        <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#ea580c" floodOpacity="0.2" />
-                                      </filter>
-                                    </defs>
-
-                                    {/* Vertical Cylinder Body */}
-                                    <path
-                                      d="M 35 30 L 35 190 A 65 16 0 0 0 165 190 L 165 30 Z"
-                                      fill="url(#cylinderThemeOrangeGradV)"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                      filter="url(#cylinderOrangeShadow)"
-                                    />
-
-                                    {/* Bottom Interior Depth */}
-                                    <ellipse
-                                      cx="100"
-                                      cy="190"
-                                      rx="65"
-                                      ry="16"
-                                      fill="rgba(234, 88, 12, 0.25)"
-                                      stroke="#ea580c"
-                                      strokeWidth="1.5"
-                                      strokeOpacity="0.4"
-                                    />
-
-                                    {/* Bottom Cap Front Rim */}
-                                    <path
-                                      d="M 35 190 A 65 16 0 0 0 165 190"
-                                      fill="none"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                    />
-
-                                    {/* Top Ellipse Cap */}
-                                    <ellipse
-                                      cx="100"
-                                      cy="30"
-                                      rx="65"
-                                      ry="16"
-                                      fill="#fdba74"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                    />
-
-                                    {/* Center Litres Volume Text in Crisp White */}
-                                    <text
-                                      x="100"
-                                      y="118"
-                                      textAnchor="middle"
-                                      fill="#ffffff"
-                                      fontSize="18"
-                                      fontWeight="800"
-                                      fontFamily="Inter, system-ui, -apple-system, sans-serif"
-                                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
-                                    >
-                                      {`${displayLitres} Litre`}
-                                    </text>
-                                  </svg>
-
-                                  {/* Right Side Dimension Badge: Length */}
-                                  <div style={{
-                                    fontSize: '11.5px',
-                                    fontWeight: 700,
-                                    color: '#334155',
-                                    background: '#ffffff',
-                                    padding: '4px 8px',
-                                    borderRadius: '0px',
-                                    border: '1px solid #cbd5e1',
-                                    writingMode: 'vertical-rl',
-                                    textOrientation: 'mixed',
-                                    letterSpacing: '0.02em'
-                                  }}>
-                                    {`Length: ${cylinderLengthVal} mm`}
-                                  </div>
-                                </div>
-
-                                {/* Bottom Dimension Badge: Height */}
-                                <div style={{
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  color: '#334155',
-                                  background: '#ffffff',
-                                  padding: '3px 12px',
-                                  borderRadius: '0px',
-                                  border: '1px solid #cbd5e1',
-                                  marginTop: '2px'
-                                }}>
-                                  {`Height: ${cylinderHeightVal} mm`}
-                                </div>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                  {/* Left Dimension Badge: Height */}
-                                  <div style={{
-                                    fontSize: '11.5px',
-                                    fontWeight: 700,
-                                    color: '#334155',
-                                    background: '#ffffff',
-                                    padding: '3px 8px',
-                                    borderRadius: '0px',
-                                    border: '1px solid #cbd5e1'
-                                  }}>
-                                    {`Height: ${cylinderHeightVal} mm`}
-                                  </div>
-
-                                  {/* Lying Horizontal Cylinder in Theme Orange */}
-                                  <svg width="260" height="150" viewBox="0 0 260 150" style={{ overflow: 'visible' }}>
-                                    <defs>
-                                      <linearGradient id="cylinderThemeOrangeGradH" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="0%" stopColor="#fb923c" />
-                                        <stop offset="50%" stopColor="#f97316" />
-                                        <stop offset="100%" stopColor="#ea580c" />
-                                      </linearGradient>
-                                      <filter id="cylinderOrangeHShadow" x="-15%" y="-15%" width="130%" height="130%">
-                                        <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#ea580c" floodOpacity="0.2" />
-                                      </filter>
-                                    </defs>
-
-                                    {/* Main Horizontal Cylinder body */}
-                                    <path
-                                      d="M 45 25 L 215 25 A 18 45 0 0 1 215 115 L 45 115 Z"
-                                      fill="url(#cylinderThemeOrangeGradH)"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                      filter="url(#cylinderOrangeHShadow)"
-                                    />
-
-                                    {/* Left Ellipse Cap */}
-                                    <ellipse
-                                      cx="45"
-                                      cy="70"
-                                      rx="18"
-                                      ry="45"
-                                      fill="#fdba74"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                    />
-
-                                    {/* Right End Curve */}
-                                    <path
-                                      d="M 215 25 A 18 45 0 0 1 215 115"
-                                      fill="none"
-                                      stroke="#ea580c"
-                                      strokeWidth="2.5"
-                                    />
-
-                                    {/* Center Litres Volume Text in Crisp White */}
-                                    <text
-                                      x="130"
-                                      y="76"
-                                      textAnchor="middle"
-                                      fill="#ffffff"
-                                      fontSize="18"
-                                      fontWeight="800"
-                                      fontFamily="Inter, system-ui, -apple-system, sans-serif"
-                                      style={{ textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}
-                                    >
-                                      {`${displayLitres} Litre`}
-                                    </text>
-                                  </svg>
-                                </div>
-
-                                {/* Bottom Dimension Badge: Length */}
-                                <div style={{
-                                  fontSize: '11.5px',
-                                  fontWeight: 700,
-                                  color: '#334155',
-                                  background: '#ffffff',
-                                  padding: '3px 12px',
-                                  borderRadius: '0px',
-                                  border: '1px solid #cbd5e1',
-                                  marginTop: '2px'
-                                }}>
-                                  {`Length: ${cylinderLengthVal} mm`}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* WHEN CALIBRATE TYPE IS MANUAL: Render Multi-Point Step-by-Step Calibration Table */}
-              {calibrateType === 'Manual' && (
-                <div style={{ marginTop: '16px' }}>
-                  {/* Sub-mode Selection Bar: Upload Calibration vs Calibration Details */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '16px',
-                    padding: '14px 18px',
-                    background: '#fafbfc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    marginBottom: '20px'
-                  }}>
-                    {/* Radio Buttons for Sub-mode */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
-                      <label style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        fontSize: '13.5px',
-                        fontWeight: 700,
-                        color: manualSubMode === 'details' ? '#0f172a' : '#64748b'
-                      }}>
-                        <input
-                          type="radio"
-                          name="manualSubMode"
-                          checked={manualSubMode === 'details'}
-                          onChange={() => setManualSubMode('details')}
-                          style={{ accentColor: '#f97316', width: '17px', height: '17px', cursor: 'pointer' }}
-                        />
-                        <span>Calibration Details</span>
-                      </label>
-
-                      <label style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        cursor: 'pointer',
-                        fontSize: '13.5px',
-                        fontWeight: 700,
-                        color: manualSubMode === 'upload' ? '#0f172a' : '#64748b'
-                      }}>
-                        <input
-                          type="radio"
-                          name="manualSubMode"
-                          checked={manualSubMode === 'upload'}
-                          onChange={() => setManualSubMode('upload')}
-                          style={{ accentColor: '#f97316', width: '17px', height: '17px', cursor: 'pointer' }}
-                        />
-                        <span>Upload Calibration</span>
-                      </label>
-                    </div>
-
-                    {/* Difference of Ltrs & Add Count controls (Shown when in Calibration Details) */}
-                    {manualSubMode === 'details' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                            Difference of Ltrs
-                          </span>
-                          <input
-                            type="number"
-                            min="0.1"
-                            step="any"
-                            value={differenceOfLtrs}
-                            onWheel={e => e.target.blur()}
-                            onChange={e => setDifferenceOfLtrs(e.target.value)}
-                            placeholder="1"
-                            style={{
-                              width: '75px',
-                              height: '36px',
-                              padding: '0 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              background: '#ffffff',
-                              fontSize: '13px',
-                              fontWeight: 700,
-                              color: '#0f172a',
-                              outline: 'none',
-                              textAlign: 'center',
-                              boxSizing: 'border-box'
-                            }}
-                            onFocus={e => {
-                              e.target.style.borderColor = '#f97316';
-                              e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                            }}
-                            onBlur={e => {
-                              e.target.style.borderColor = '#cbd5e1';
-                              e.target.style.boxShadow = 'none';
-                            }}
-                          />
-                        </div>
-
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                            Add Count
-                          </span>
-                          <input
-                            type="number"
-                            min="1"
-                            value={addCount}
-                            onWheel={e => e.target.blur()}
-                            onChange={e => setAddCount(e.target.value)}
-                            placeholder="Count"
-                            style={{
-                              width: '85px',
-                              height: '36px',
-                              padding: '0 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              background: '#ffffff',
-                              fontSize: '13px',
-                              fontWeight: 700,
-                              color: '#0f172a',
-                              outline: 'none',
-                              textAlign: 'center',
-                              boxSizing: 'border-box'
-                            }}
-                            onFocus={e => {
-                              e.target.style.borderColor = '#f97316';
-                              e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                            }}
-                            onBlur={e => {
-                              e.target.style.borderColor = '#cbd5e1';
-                              e.target.style.boxShadow = 'none';
-                            }}
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={handleGenerateSteps}
-                          style={{
-                            height: '36px',
-                            padding: '0 16px',
-                            borderRadius: '6px',
-                            background: '#f97316',
-                            color: '#ffffff',
-                            border: 'none',
-                            fontSize: '13px',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)',
-                            transition: 'all 0.15s ease'
-                          }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#ea580c'}
-                          onMouseLeave={e => e.currentTarget.style.background = '#f97316'}
-                        >
-                          <Plus size={15} />
-                          <span>Add</span>
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SUB-VIEW 1: CALIBRATION DETAILS TABLE */}
-                  {manualSubMode === 'details' && (
-                    <div style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      overflow: 'hidden',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
-                    }}>
-                      <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                          <thead>
-                            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#475569', fontWeight: 700 }}>
-                              <th style={{ padding: '12px 18px', width: '42%' }}>Litre</th>
-                              {isAnalogMode ? (
-                                <th style={{ padding: '12px 18px', width: '42%' }}>Volt</th>
-                              ) : (
-                                <th style={{ padding: '12px 18px', width: '42%' }}>Frequency</th>
-                              )}
-                              <th style={{ padding: '12px 18px', width: '16%', textAlign: 'center' }}>Action</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {calibrationPoints.length === 0 ? (
-                              <tr>
-                                <td colSpan={3} style={{ padding: '48px 18px', textAlign: 'center', background: '#ffffff' }}>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                                    <Table size={32} color="#cbd5e1" />
-                                    <span style={{ fontSize: '14px', fontWeight: 700, color: '#475569' }}>
-                                      No Calibration Points Added
-                                    </span>
-                                    <span style={{ fontSize: '12.5px', color: '#94a3b8', maxWidth: '440px', lineHeight: 1.5 }}>
-                                      Enter a <strong>Difference of Ltrs</strong> and <strong>Add Count</strong> above then click <strong>Add</strong>, or switch to <strong>Upload Calibration</strong> to import an Excel / CSV sheet.
-                                    </span>
-                                  </div>
-                                </td>
-                              </tr>
-                            ) : (
-                              calibrationPoints.map((point, index) => (
-                              <tr
-                                key={point.id}
-                                style={{
-                                  borderBottom: '1px solid #f1f5f9',
-                                  background: index % 2 === 0 ? '#ffffff' : '#fafbfc'
-                                }}
-                              >
-                                {/* Litre */}
-                                <td style={{ padding: '8px 18px' }}>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="any"
-                                    value={point.litres}
-                                    onWheel={e => e.target.blur()}
-                                    onChange={e => handleUpdatePoint(point.id, 'litres', e.target.value)}
-                                    placeholder="0"
-                                    style={{
-                                      width: '100%',
-                                      maxWidth: '280px',
-                                      height: '38px',
-                                      padding: '0 12px',
-                                      borderRadius: '6px',
-                                      border: '1px solid #cbd5e1',
-                                      background: '#ffffff',
-                                      fontSize: '13px',
-                                      fontWeight: 600,
-                                      color: '#0f172a',
-                                      outline: 'none',
-                                      boxSizing: 'border-box'
-                                    }}
-                                    onFocus={e => {
-                                      e.target.style.borderColor = '#f97316';
-                                      e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                                    }}
-                                    onBlur={e => {
-                                      e.target.style.borderColor = '#cbd5e1';
-                                      e.target.style.boxShadow = 'none';
-                                    }}
-                                  />
-                                </td>
-
-                                {/* Volt (ONLY for Analog) */}
-                                {isAnalogMode && (
-                                  <td style={{ padding: '8px 18px' }}>
-                                    <input
-                                      type="text"
-                                      value={point.volt !== undefined && point.volt !== null ? point.volt : ''}
-                                      onChange={e => handleUpdatePoint(point.id, 'volt', e.target.value)}
-                                      placeholder="Enter Volt (e.g. 0.85)"
-                                      style={{
-                                        width: '100%',
-                                        maxWidth: '280px',
-                                        height: '38px',
-                                        padding: '0 12px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #cbd5e1',
-                                        background: '#ffffff',
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        color: '#0f172a',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                      }}
-                                      onFocus={e => {
-                                        e.target.style.borderColor = '#f97316';
-                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                                      }}
-                                      onBlur={e => {
-                                        e.target.style.borderColor = '#cbd5e1';
-                                        e.target.style.boxShadow = 'none';
-                                      }}
-                                    />
-                                  </td>
-                                )}
-
-                                {/* Frequency (ONLY for Serial / Digital) */}
-                                {!isAnalogMode && (
-                                  <td style={{ padding: '8px 18px' }}>
-                                    <input
-                                      type="text"
-                                      value={point.frequency !== undefined && point.frequency !== null ? point.frequency : (point.adcValue !== undefined && point.adcValue !== null ? point.adcValue : '')}
-                                      onChange={e => handleUpdatePoint(point.id, 'frequency', e.target.value)}
-                                      placeholder="Enter Frequency (e.g. 155)"
-                                      style={{
-                                        width: '100%',
-                                        maxWidth: '280px',
-                                        height: '38px',
-                                        padding: '0 12px',
-                                        borderRadius: '6px',
-                                        border: '1px solid #cbd5e1',
-                                        background: '#ffffff',
-                                        fontSize: '13px',
-                                        fontWeight: 600,
-                                        color: '#0f172a',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                      }}
-                                      onFocus={e => {
-                                        e.target.style.borderColor = '#f97316';
-                                        e.target.style.boxShadow = '0 0 0 2px rgba(249, 115, 22, 0.15)';
-                                      }}
-                                      onBlur={e => {
-                                        e.target.style.borderColor = '#cbd5e1';
-                                        e.target.style.boxShadow = 'none';
-                                      }}
-                                    />
-                                  </td>
-                                )}
-
-                                {/* Actions: Get Volt / Get Frequency & Remove */}
-                                <td style={{ padding: '8px 18px', textAlign: 'center' }}>
-                                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleGetVolt(point.id)}
-                                      style={{
-                                        background: '#fff7ed',
-                                        color: '#ea580c',
-                                        border: '1px solid #fdba74',
-                                        borderRadius: '6px',
-                                        padding: '5px 12px',
-                                        fontSize: '12px',
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '5px',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                      onMouseEnter={e => {
-                                        e.currentTarget.style.background = '#f97316';
-                                        e.currentTarget.style.color = '#ffffff';
-                                        e.currentTarget.style.borderColor = '#ea580c';
-                                      }}
-                                      onMouseLeave={e => {
-                                        e.currentTarget.style.background = '#fff7ed';
-                                        e.currentTarget.style.color = '#ea580c';
-                                        e.currentTarget.style.borderColor = '#fdba74';
-                                      }}
-                                      title={isAnalogMode ? "Capture live voltage from sensor" : "Capture live frequency from sensor"}
-                                    >
-                                      <Activity size={13} />
-                                      <span>{isAnalogMode ? 'Get Volt' : 'Get Frequency'}</span>
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeletePoint(point.id)}
-                                      style={{
-                                        background: '#fef2f2',
-                                        color: '#dc2626',
-                                        border: '1px solid #fecaca',
-                                        borderRadius: '6px',
-                                        padding: '5px 12px',
-                                        fontSize: '12px',
-                                        fontWeight: 700,
-                                        cursor: 'pointer',
-                                        whiteSpace: 'nowrap',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        gap: '5px',
-                                        transition: 'all 0.15s ease'
-                                      }}
-                                      onMouseEnter={e => {
-                                        e.currentTarget.style.background = '#dc2626';
-                                        e.currentTarget.style.color = '#ffffff';
-                                        e.currentTarget.style.borderColor = '#dc2626';
-                                      }}
-                                      onMouseLeave={e => {
-                                        e.currentTarget.style.background = '#fef2f2';
-                                        e.currentTarget.style.color = '#dc2626';
-                                        e.currentTarget.style.borderColor = '#fecaca';
-                                      }}
-                                      title="Remove this row"
-                                    >
-                                      <Trash2 size={13} />
-                                      <span>Remove</span>
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            )))}
-                          </tbody>
-                        </table>
-                      </div>
-
-                      {/* Bottom bar with Export helper */}
-                      <div style={{
-                        padding: '12px 18px',
-                        background: '#f8fafc',
-                        borderTop: '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '12px'
-                      }}>
-                        <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-                          Total steps: <strong style={{ color: '#0f172a' }}>{calibrationPoints.length}</strong>
-                          {calibrationPoints.length > 0 ? (
-                            <> | Range: <strong style={{ color: '#ea580c' }}>{calibrationPoints[0]?.litres || 0} L ➔ {calibrationPoints[calibrationPoints.length - 1]?.litres || 0} L</strong></>
-                          ) : (
-                            <span style={{ color: '#94a3b8', marginLeft: '6px' }}>(Table is empty)</span>
-                          )}
-                        </span>
-
-                        {calibrationPoints.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={handleExportExcel}
-                            style={{
-                              background: '#ffffff',
-                              color: '#0f172a',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '6px',
-                              padding: '6px 14px',
-                              fontSize: '12px',
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            <Download size={13} color="#16a34a" />
-                            <span>Export Sheet</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUB-VIEW 2: UPLOAD CALIBRATION */}
-                  {manualSubMode === 'upload' && (
-                    <div style={{
-                      background: '#ffffff',
-                      border: '1px solid #e2e8f0',
-                      borderRadius: '10px',
-                      padding: '28px',
-                      boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
-                    }}>
-                      <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'center' }}>
-                        <FileSpreadsheet size={36} color="#ea580c" style={{ margin: '0 auto 12px auto' }} />
-                        <h4 style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', margin: '0 0 6px 0' }}>
-                          Upload Calibration File
-                        </h4>
-                        <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0', lineHeight: 1.5 }}>
-                          Upload an Excel (.xlsx / .xls) or CSV (.csv) file with columns for <strong>Litre</strong>, <strong>Volt</strong>, and <strong>Frequency</strong>.
-                        </p>
-
-                        {uploadError && (
-                          <div style={{
-                            background: '#fef2f2',
-                            border: '1px solid #fecaca',
-                            borderRadius: '8px',
-                            padding: '10px 14px',
-                            color: '#dc2626',
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '16px',
-                            textAlign: 'left'
-                          }}>
-                            <AlertTriangle size={16} />
-                            <span>{uploadError}</span>
-                          </div>
-                        )}
-
-                        {uploadSuccess && (
-                          <div style={{
-                            background: '#f0fdf4',
-                            border: '1px solid #bbf7d0',
-                            borderRadius: '8px',
-                            padding: '10px 14px',
-                            color: '#16a34a',
-                            fontSize: '12.5px',
-                            fontWeight: 600,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px',
-                            marginBottom: '16px',
-                            textAlign: 'left'
-                          }}>
-                            <CheckCircle size={16} />
-                            <span>{uploadSuccess}</span>
-                          </div>
-                        )}
-
-                        {/* Upload Dropzone */}
-                        <label style={{
-                          display: 'flex',
-                          flexDirection: 'column',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '2px dashed #fed7aa',
-                          borderRadius: '10px',
-                          padding: '36px 20px',
-                          background: '#fff7ed',
-                          cursor: 'pointer',
-                          marginBottom: '18px',
-                          transition: 'all 0.15s ease'
-                        }}>
-                          <Upload size={36} color="#f97316" style={{ marginBottom: '10px' }} />
-                          <span style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px' }}>
-                            Click to choose spreadsheet file
-                          </span>
-                          <span style={{ fontSize: '12px', color: '#64748b' }}>
-                            Accepts .xlsx, .xls, .csv files
-                          </span>
-                          <input
-                            type="file"
-                            accept=".xlsx, .xls, .csv"
-                            onChange={handleFileUpload}
-                            style={{ display: 'none' }}
-                          />
-                        </label>
-
-                        <button
-                          type="button"
-                          onClick={handleExportExcel}
-                          style={{
-                            background: 'none',
-                            border: 'none',
-                            padding: 0,
-                            fontSize: '13px',
-                            fontWeight: 700,
-                            color: '#ea580c',
-                            cursor: 'pointer',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            textDecoration: 'underline'
-                          }}
-                        >
-                          <Download size={14} />
-                          <span>Download Sample Template</span>
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* WHEN CALIBRATE TYPE IS DIRECT: Clean & Streamlined Pre-Calibrated Sensor Configuration */}
-              {calibrateType === 'Direct' && (
-                <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  
-                  {/* Transmission Unit Selector */}
-                  <div>
-                    <label style={{ display: 'block', fontSize: '13px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-                      Transmission Unit
-                    </label>
-                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                      <label
-                        onClick={() => setDirectUnit('Litres')}
-                        style={{
-                          flex: '1 1 200px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '10px 16px',
-                          borderRadius: '8px',
-                          border: directUnit === 'Litres' ? '2px solid #f97316' : '1px solid #cbd5e1',
-                          background: directUnit === 'Litres' ? '#fff7ed' : '#ffffff',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          userSelect: 'none'
-                        }}
-                      >
-                        <div style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          border: directUnit === 'Litres' ? '5px solid #f97316' : '2px solid #cbd5e1',
-                          background: '#ffffff',
-                          flexShrink: 0
-                        }} />
-                        <div>
-                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Litres' ? '#9a3412' : '#0f172a' }}>
-                            Direct Litres (L)
-                          </div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                            Sensor transmits fuel volume directly in litres
-                          </div>
-                        </div>
-                      </label>
-
-                      <label
-                        onClick={() => setDirectUnit('Percentage')}
-                        style={{
-                          flex: '1 1 200px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '10px',
-                          padding: '10px 16px',
-                          borderRadius: '8px',
-                          border: directUnit === 'Percentage' ? '2px solid #f97316' : '1px solid #cbd5e1',
-                          background: directUnit === 'Percentage' ? '#fff7ed' : '#ffffff',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                          userSelect: 'none'
-                        }}
-                      >
-                        <div style={{
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          border: directUnit === 'Percentage' ? '5px solid #f97316' : '2px solid #cbd5e1',
-                          background: '#ffffff',
-                          flexShrink: 0
-                        }} />
-                        <div>
-                          <div style={{ fontSize: '13.5px', fontWeight: 700, color: directUnit === 'Percentage' ? '#9a3412' : '#0f172a' }}>
-                            Percentage (0% – 100%)
-                          </div>
-                          <div style={{ fontSize: '11.5px', color: '#64748b' }}>
-                            Computed automatically against Tank Size
-                          </div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-
-                  {/* Advanced Multiplier & Offset (Optional Collapsible) */}
-                  <div style={{
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '8px',
-                    padding: '12px 16px',
-                    background: '#f8fafc'
-                  }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowDirectAdvanced(prev => !prev)}
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        padding: 0,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        width: '100%'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <Settings2 size={15} color="#ea580c" />
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#334155' }}>
-                          Sensor Multiplier & Offset (Optional)
-                        </span>
-                      </div>
-                      <ChevronDown
-                        size={16}
-                        color="#64748b"
-                        style={{
-                          transform: showDirectAdvanced ? 'rotate(180deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.2s ease'
-                        }}
-                      />
-                    </button>
-
-                    {showDirectAdvanced && (
-                      <div style={{
-                        marginTop: '12px',
-                        paddingTop: '12px',
-                        borderTop: '1px solid #e2e8f0',
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                        gap: '14px'
-                      }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                            Multiplier (Default: 1.0)
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            value={directMultiplier}
-                            onChange={e => setDirectMultiplier(e.target.value)}
-                            placeholder="1.0"
-                            style={{
-                              width: '100%',
-                              height: '36px',
-                              padding: '0 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              background: '#ffffff',
-                              fontSize: '13px',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
-                            Offset (Default: 0.0)
-                          </label>
-                          <input
-                            type="number"
-                            step="any"
-                            value={directOffset}
-                            onChange={e => setDirectOffset(e.target.value)}
-                            placeholder="0.0"
-                            style={{
-                              width: '100%',
-                              height: '36px',
-                              padding: '0 10px',
-                              borderRadius: '6px',
-                              border: '1px solid #cbd5e1',
-                              background: '#ffffff',
-                              fontSize: '13px',
-                              outline: 'none',
-                              boxSizing: 'border-box'
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
-
-              {/* Practical Action Buttons */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (fuelType && fuelType.toLowerCase().includes('analog')) {
-                      setFreqModalViewMode('volt');
-                    } else {
-                      setFreqModalViewMode('frequency');
-                    }
-                    setShowFrequencyModal(true);
-                  }}
-                  style={{
-                    background: '#fff7ed',
-                    color: '#ea580c',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '20px',
-                    padding: '8px 20px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 2px rgba(234, 88, 12, 0.08)'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#ffedd5';
-                    e.currentTarget.style.borderColor = '#fdba74';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#fff7ed';
-                    e.currentTarget.style.borderColor = '#fed7aa';
-                  }}
-                >
-                  Show Frequency
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowLiveFuelModal(true)}
-                  style={{
-                    background: '#ecfdf5',
-                    color: '#059669',
-                    border: '1px solid #a7f3d0',
-                    borderRadius: '20px',
-                    padding: '8px 20px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                    boxShadow: '0 1px 2px rgba(5, 150, 105, 0.08)',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#d1fae5';
-                    e.currentTarget.style.borderColor = '#6ee7b7';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#ecfdf5';
-                    e.currentTarget.style.borderColor = '#a7f3d0';
-                  }}
-                >
-                  <span style={{
-                    width: '7px',
-                    height: '7px',
-                    borderRadius: '50%',
-                    background: '#10b981',
-                    boxShadow: '0 0 6px rgba(16, 185, 129, 0.8)'
-                  }} />
-                  Live Fuel
-                </button>
-
-                <button
-                  type="button"
-                  onClick={loadVehicleData}
-                  title="Reload Calibration Data"
-                  style={{
-                    background: '#f1f5f9',
-                    color: '#475569',
-                    border: '1px solid #cbd5e1',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#e2e8f0';
-                    e.currentTarget.style.color = '#0f172a';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#f1f5f9';
-                    e.currentTarget.style.color = '#475569';
-                  }}
-                >
-                  <RotateCw size={15} />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={handleExportCalibration}
-                  title="Export Calibration Settings"
-                  style={{
-                    background: '#f0fdf4',
-                    color: '#16a34a',
-                    border: '1px solid #bbf7d0',
-                    width: '36px',
-                    height: '36px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = '#dcfce7';
-                    e.currentTarget.style.borderColor = '#86efac';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = '#f0fdf4';
-                    e.currentTarget.style.borderColor = '#bbf7d0';
-                  }}
-                >
-                  <Download size={15} />
-                </button>
-              </div>
             </div>
 
+            {/* OPTION A: SEQUENTIAL TANK CONFIGURATION BLOCKS */}
+            {Array.from({ length: tankCount }, (_, i) => i + 1).map(tankNum => (
+              <div key={tankNum} style={{ marginTop: tankNum > 1 ? '16px' : '0px' }}>
+                <TankCalibrationBlock
+                  tankNum={tankNum}
+                  sensorCount={sensorCount}
+                  initialData={tanksData[tankNum] || (tankNum === 1 ? tanksData[1] : null)}
+                  onChange={handleTankChange}
+                  vehicle={vehicle}
+                  displayVehicleId={displayVehicleId}
+                  onOpenFrequencyModal={(rows, mode) => {
+                    setCustomModalRows(rows);
+                    setFreqModalViewMode(mode || 'volt');
+                    setShowFrequencyModal(true);
+                  }}
+                  onOpenLiveFuelModal={() => setShowLiveFuelModal(true)}
+                  onReloadData={loadVehicleData}
+                />
+              </div>
+            ))}
+            
             {/* Bottom Centered Buttons */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              gap: '14px',
-              marginTop: '40px',
-              paddingTop: '20px',
-              borderTop: '1px solid #f1f5f9'
-            }}>
+            <div className="calib-footer-actions">
               <button
                 type="button"
                 onClick={() => navigate('/admin/vehicles')}
@@ -3352,12 +4338,14 @@ const EditCalibratePage = () => {
 
       {/* Show Frequency / Litre & Volt Dual-Column Modal */}
       {showFrequencyModal && (() => {
-        const half = Math.ceil(displayCalibrationRows.length / 2);
-        const leftHalf = displayCalibrationRows.slice(0, half);
-        const rightHalf = displayCalibrationRows.slice(half);
+        const rowsToUse = customModalRows.length > 0 ? customModalRows : displayCalibrationRows;
+        const half = Math.ceil(rowsToUse.length / 2);
+        const leftHalf = rowsToUse.slice(0, half);
+        const rightHalf = rowsToUse.slice(half);
 
         return (
           <div
+            className="calib-modal-overlay"
             style={{
               position: 'fixed',
               inset: 0,
@@ -3372,6 +4360,7 @@ const EditCalibratePage = () => {
             onClick={() => setShowFrequencyModal(false)}
           >
             <div
+              className="calib-modal-box"
               style={{
                 background: '#ffffff',
                 borderRadius: '14px',
@@ -3549,7 +4538,7 @@ const EditCalibratePage = () => {
                     borderRadius: '8px',
                     overflow: 'hidden'
                   }}>
-                    <table style={{
+                    <table className="calib-modal-freq-table" style={{
                       width: '100%',
                       borderCollapse: 'collapse',
                       fontSize: '13px',
@@ -3681,6 +4670,7 @@ const EditCalibratePage = () => {
       {/* Excel / CSV Import Modal for Manual Calibration */}
       {showUploadModal && (
         <div
+          className="calib-modal-overlay"
           style={{
             position: 'fixed',
             inset: 0,
@@ -3699,6 +4689,7 @@ const EditCalibratePage = () => {
           }}
         >
           <div
+            className="calib-modal-box"
             style={{
               background: '#ffffff',
               borderRadius: '12px',

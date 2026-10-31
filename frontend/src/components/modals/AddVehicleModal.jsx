@@ -26,8 +26,39 @@ const inputStyle = (focused) => ({
   transition: 'all 0.15s', boxSizing: 'border-box',
 });
 
+const getTodayStr = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+};
+
+const calculateLicenceExpiryDate = (issuedDateStr) => {
+  if (!issuedDateStr) return '';
+  let parts;
+  if (typeof issuedDateStr === 'string' && issuedDateStr.includes('-')) {
+    parts = issuedDateStr.split('T')[0].split('-');
+  }
+  if (!parts || parts.length !== 3) {
+    const parsed = new Date(issuedDateStr);
+    if (isNaN(parsed.getTime())) return '';
+    parts = [parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()];
+  }
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const dt = new Date(y, m, d);
+  dt.setFullYear(dt.getFullYear() + 1);
+  dt.setDate(dt.getDate() - 1);
+  const outY = dt.getFullYear();
+  const outM = String(dt.getMonth() + 1).padStart(2, '0');
+  const outD = String(dt.getDate()).padStart(2, '0');
+  return `${outY}-${outM}-${outD}`;
+};
+
 const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] }) => {
-  const [form, setForm] = useState({ imei: '', name: '', plate: '', model: '', make: '', driverName: '', driverPhone: '', serverName: '', gpsSimNo: '', deviceVersion: '', timezone: '', apn: '', licenceIssuedDate: '', licenceExpireDate: '', orgId: '', groupIds: [] });
+  const [form, setForm] = useState({ imei: '', name: '', plate: '', model: '', make: '', driverName: '', driverPhone: '', serverName: '', gpsSimNo: '', deviceVersion: '', timezone: '', apn: '', licenceIssuedDate: getTodayStr(), licenceExpireDate: calculateLicenceExpiryDate(getTodayStr()), orgId: '', groupIds: [] });
   const [availableGroups, setAvailableGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -46,7 +77,9 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
         orgId: vehicle.org_id || '', groupIds: vehicle.groups ? vehicle.groups.map(g => g.id) : []
       });
     } else {
-      setForm({ imei: '', name: '', plate: '', model: '', make: '', driverName: '', driverPhone: '', serverName: '', gpsSimNo: '', deviceVersion: '', timezone: '', apn: '', licenceIssuedDate: '', licenceExpireDate: '', orgId: orgs.length > 0 ? orgs[0].id : '', groupIds: [] });
+      const todayStr = getTodayStr();
+      const defaultExpireStr = calculateLicenceExpiryDate(todayStr);
+      setForm({ imei: '', name: '', plate: '', model: '', make: '', driverName: '', driverPhone: '', serverName: '', gpsSimNo: '', deviceVersion: '', timezone: '', apn: '', licenceIssuedDate: todayStr, licenceExpireDate: defaultExpireStr, orgId: orgs.length > 0 ? orgs[0].id : '', groupIds: [] });
     }
     setError(null);
   }, [vehicle, isOpen, orgs]);
@@ -58,7 +91,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
         const filtered = res.data.filter(g => g.org_id === (form.orgId || vehicle?.org_id));
         setAvailableGroups(filtered);
       }
-    }).catch(() => {});
+    }).catch(() => { });
   }, [form.orgId, isOpen, vehicle]);
 
   const update = (key, val) => setForm(prev => ({ ...prev, [key]: val }));
@@ -178,7 +211,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
           {/* New Device Fields */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <Field label="Server Name">
-              <input type="text" value={form.serverName} onChange={e => update('serverName', e.target.value)} placeholder="137.184.248.156"
+              <input type="text" value={form.serverName} onChange={e => update('serverName', e.target.value)} placeholder="5.223.61.229:5001"
                 style={inputStyle(focused === 'serverName')} onFocus={() => setFocused('serverName')} onBlur={() => setFocused(null)} />
             </Field>
             <Field label="GPS SIM No">
@@ -204,8 +237,21 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <Field label="Licence Issued Date">
-              <CustomDatePicker value={form.licenceIssuedDate} onChange={e => update('licenceIssuedDate', e.target.value)}
-                style={inputStyle(focused === 'licenceIssuedDate')} onFocus={() => setFocused('licenceIssuedDate')} onBlur={() => setFocused(null)} />
+              <CustomDatePicker
+                value={form.licenceIssuedDate}
+                onChange={e => {
+                  const newIssued = e.target.value;
+                  const newExpiry = calculateLicenceExpiryDate(newIssued);
+                  setForm(prev => ({
+                    ...prev,
+                    licenceIssuedDate: newIssued,
+                    licenceExpireDate: newExpiry
+                  }));
+                }}
+                style={inputStyle(focused === 'licenceIssuedDate')}
+                onFocus={() => setFocused('licenceIssuedDate')}
+                onBlur={() => setFocused(null)}
+              />
             </Field>
             <Field label="Licence Expire Date">
               <CustomDatePicker value={form.licenceExpireDate} onChange={e => update('licenceExpireDate', e.target.value)}
@@ -254,7 +300,7 @@ const AddVehicleModal = ({ isOpen, onClose, onSave, vehicle = null, orgs = [] })
           <button type="button" onClick={onClose} style={{ padding: '8px 16px', background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: '7px', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', fontFamily: 'Inter, sans-serif', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = '#FFFFFF'}>
             Cancel
           </button>
-          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#ea580c' : '#f97316', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if(!loading) e.currentTarget.style.background = '#7ea0b6' }} onMouseLeave={e => { if(!loading) e.currentTarget.style.background = '#f97316' }}>
+          <button type="button" onClick={handleSubmit} disabled={loading} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 18px', background: loading ? '#ea580c' : '#f97316', border: 'none', borderRadius: '7px', color: 'white', fontSize: '12px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', fontFamily: 'Inter, sans-serif', boxShadow: '0 4px 12px rgba(249,115,22,0.2)', transition: 'background 0.15s' }} onMouseEnter={e => { if (!loading) e.currentTarget.style.background = '#7ea0b6' }} onMouseLeave={e => { if (!loading) e.currentTarget.style.background = '#f97316' }}>
             {loading ? <><Loader2 size={13} style={{ animation: 'spin 0.75s linear infinite' }} /> Saving...</> : <>{vehicle ? 'Update Vehicle' : 'Register Vehicle'}</>}
           </button>
         </div>

@@ -248,10 +248,19 @@ const VehicleModel = {
     };
   },
 
-  /**
-   * Create a new vehicle (IMEI is required!)
-   */
   async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining }) {
+    let finalIssuedDate = licenceIssuedDate || null;
+    let finalExpireDate = licenceExpireDate || null;
+    if (finalIssuedDate && !finalExpireDate) {
+      const d = new Date(finalIssuedDate);
+      if (!isNaN(d.getTime())) {
+        const exp = new Date(d.getTime());
+        exp.setFullYear(exp.getFullYear() + 1);
+        exp.setDate(exp.getDate() - 1);
+        finalExpireDate = exp;
+      }
+    }
+
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -261,7 +270,7 @@ const VehicleModel = {
         `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata, category, is_sand_mining)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING *`,
-        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}, category || 'General', isSandMining || false]
+        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, finalIssuedDate, finalExpireDate, metadata || {}, category || 'General', isSandMining || false]
       );
       const vehicle = result.rows[0];
 

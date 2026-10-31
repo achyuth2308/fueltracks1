@@ -2,12 +2,12 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search, Eye,
-  Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, X, Building2, Users2,
+  Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search,
+  Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, Building2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
-  Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown, Copy, Check,
-  Cpu, Calendar, User, Fuel, Settings, FileText,
-  Shuffle, UserPlus, Sliders, RotateCw
+  Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown,
+  Cpu, Fuel, Settings, FileText,
+  Shuffle, UserPlus, Sliders, RotateCw, Award
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
@@ -18,6 +18,7 @@ import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGene
 import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
 import ReprocessModal from '../../components/modals/ReprocessModal';
 import LiveFuelModal from '../../components/modals/LiveFuelModal';
+import FitmentCertificateModal from '../../components/modals/FitmentCertificateModal';
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
@@ -30,6 +31,52 @@ const StatusDot = ({ online }) => (
     </span>
   </div>
 );
+
+const DEVICE_TYPE_PORTS = {
+  'BSTPL': '5000',
+  'AIS140': '5001',
+  'CONCOX': '5002',
+  'AIS140 V2': '5003',
+  'AIS140V2': '5003',
+  'VOLTY': '5004',
+  'FMB 920': '5005',
+  'FMB920': '5005',
+  'PT06': '5006',
+  'EC08': '5007',
+  'GT06': '5007',
+  'GT06N': '5007',
+  'GT06N (9964)': '5007',
+  'PN02': '5008',
+  'V5 4G': '5009',
+  'V54G': '5009',
+  'BSTPL-17IS': '5010',
+  'BSTPL17IS': '5010',
+  'VOLTYFUEL': '5011'
+};
+
+const getServerAddress = (vehicle) => {
+  if (vehicle.server_name && vehicle.server_name !== 'Voltsys') {
+    return vehicle.server_name;
+  }
+  const meta = vehicle.metadata || {};
+  if (meta.serverName && meta.serverName !== 'Voltsys') {
+    return meta.serverName;
+  }
+  let port = meta.portNo || meta.port;
+  if (!port) {
+    const rawType = vehicle.deviceType || vehicle.device_version || meta.deviceModel || meta.deviceType || '';
+    const norm = String(rawType).trim().toUpperCase();
+    if (DEVICE_TYPE_PORTS[norm]) {
+      port = DEVICE_TYPE_PORTS[norm];
+    } else {
+      const sortedKeys = Object.keys(DEVICE_TYPE_PORTS).sort((a, b) => b.length - a.length);
+      const foundKey = sortedKeys.find(k => norm.includes(k.toUpperCase()) || k.toUpperCase().includes(norm));
+      port = foundKey ? DEVICE_TYPE_PORTS[foundKey] : '5001';
+    }
+  }
+  const ip = meta.ipAddress && !meta.ipAddress.includes('fueltracks.in') ? meta.ipAddress : '5.223.61.229';
+  return `${ip}:${port}`;
+};
 
 const CATEGORIES = ['All', 'TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
 
@@ -57,15 +104,12 @@ const VehiclesAdminPage = () => {
   const [sortKey, setSortKey] = useState(null);
   const [sortOrder, setSortOrder] = useState('asc'); // 'asc' or 'desc'
 
-  // Details Panel / Drawer State
-  const [viewingVehicle, setViewingVehicle] = useState(null);
-  const [drawerSearch, setDrawerSearch] = useState('');
-  const [copiedKey, setCopiedKey] = useState(null);
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
   const [reprocessingVehicle, setReprocessingVehicle] = useState(null);
   const [liveFuelVehicle, setLiveFuelVehicle] = useState(null);
+  const [selectedFitmentVehicle, setSelectedFitmentVehicle] = useState(null);
   const [activeActionDropdownId, setActiveActionDropdownId] = useState(null);
   const [dropdownCoords, setDropdownCoords] = useState(null);
 
@@ -85,12 +129,6 @@ const VehiclesAdminPage = () => {
     };
   }, [activeActionDropdownId]);
 
-  const handleCopy = (text, key) => {
-    if (!text || text === '-') return;
-    navigator.clipboard?.writeText(String(text));
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 1800);
-  };
 
   const handleSort = (key) => {
     if (sortKey === key) {
@@ -142,7 +180,6 @@ const VehiclesAdminPage = () => {
       try {
         const res = await vehicleApi.deleteVehicle(id);
         if (res.success) {
-          if (viewingVehicle?.id === id) setViewingVehicle(null);
           fetchVehicles();
         }
       } catch (err) {
@@ -209,8 +246,8 @@ const VehiclesAdminPage = () => {
           valB = b.imei || b.device_id || '';
           break;
         case 'serverName':
-          valA = a.server_name || metaA.serverName || 'Voltsys';
-          valB = b.server_name || metaB.serverName || 'Voltsys';
+          valA = getServerAddress(a);
+          valB = getServerAddress(b);
           break;
         case 'lastCommTime':
           valA = a.last_seen || a.last_comm_time || metaA.lastCommTime || 0;
@@ -647,16 +684,15 @@ const VehiclesAdminPage = () => {
                     return (
                       <tr
                         key={v.id}
-                        onClick={() => setViewingVehicle(v)}
                         style={{
-                          borderBottom: '1px solid #e0e7ff', cursor: 'pointer',
+                          borderBottom: '1px solid #e0e7ff',
                           height: '40px',
-                          background: viewingVehicle?.id === v.id ? '#f5f3ff' : 'transparent',
+                          background: 'transparent',
                           transition: 'background 0.15s',
                           whiteSpace: 'nowrap'
                         }}
-                        onMouseEnter={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = '#f8fafc'; }}
-                        onMouseLeave={e => { if (viewingVehicle?.id !== v.id) e.currentTarget.style.background = 'transparent'; }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                       >
                         {/* 1. Licence ID */}
                         <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
@@ -686,7 +722,7 @@ const VehiclesAdminPage = () => {
                         {/* 6. Server Name */}
                         <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
                           <span style={{ display: 'inline-block', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                            {v.server_name || meta.serverName || 'Voltsys'}
+                            {getServerAddress(v)}
                           </span>
                         </td>
 
@@ -1103,6 +1139,55 @@ const VehiclesAdminPage = () => {
                                   <span>Audit Report</span>
                                 </button>
 
+                                {/* 5b. Fitment Certificate */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveActionDropdownId(null);
+                                    setSelectedFitmentVehicle(v);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '10px',
+                                    width: '100%',
+                                    padding: '8px 12px',
+                                    background: 'transparent',
+                                    color: '#1E293B',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    fontSize: '13px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    textAlign: 'left',
+                                    transition: 'all 0.15s ease',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  onMouseEnter={e => {
+                                    e.currentTarget.style.background = '#EFF6FF';
+                                    e.currentTarget.style.color = '#2563EB';
+                                  }}
+                                  onMouseLeave={e => {
+                                    e.currentTarget.style.background = 'transparent';
+                                    e.currentTarget.style.color = '#1E293B';
+                                  }}
+                                >
+                                  <div style={{
+                                    width: '26px',
+                                    height: '26px',
+                                    borderRadius: '6px',
+                                    background: '#EFF6FF',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: '#2563EB',
+                                    flexShrink: 0
+                                  }}>
+                                    <Award size={14} />
+                                  </div>
+                                  <span>Fitment Certificate</span>
+                                </button>
+
                                 {/* 6. Rename */}
                                 <button
                                   type="button"
@@ -1369,416 +1454,6 @@ const VehiclesAdminPage = () => {
         </div>
       </div>
 
-      {/* Slide-over Drawer / Modal: ALL FIELDS OF VEHICLE */}
-      {viewingVehicle && (() => {
-        const meta = viewingVehicle.metadata || {};
-
-        const renderField = (label, value, isCode = false, copyId = null) => {
-          const strVal = value !== undefined && value !== null && value !== '' ? String(value) : '-';
-          const matches = !drawerSearch ||
-            label.toLowerCase().includes(drawerSearch.toLowerCase()) ||
-            strVal.toLowerCase().includes(drawerSearch.toLowerCase());
-          if (!matches) return null;
-
-          return (
-            <div
-              key={label}
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '8px 12px',
-                background: '#f8fafc',
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                gap: '12px'
-              }}
-            >
-              <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>{label}</span>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', maxWidth: '65%' }}>
-                <span style={{
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  color: strVal === '-' ? '#94a3b8' : '#0f172a',
-                  fontFamily: isCode ? 'monospace' : 'inherit',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  textAlign: 'right'
-                }}>
-                  {strVal}
-                </span>
-                {copyId && strVal !== '-' && (
-                  <button
-                    type="button"
-                    onClick={() => handleCopy(strVal, copyId)}
-                    title="Copy to clipboard"
-                    style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px', color: copiedKey === copyId ? '#16a34a' : '#94a3b8' }}
-                  >
-                    {copiedKey === copyId ? <Check size={12} /> : <Copy size={12} />}
-                  </button>
-                )}
-              </div>
-            </div>
-          );
-        };
-
-        const renderSection = (title, icon, fields) => {
-          const renderedFields = fields.filter(Boolean);
-          if (renderedFields.length === 0) return null;
-
-          return (
-            <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-              <div style={{
-                padding: '10px 14px',
-                background: '#f1f5f9',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '12px',
-                fontWeight: 800,
-                color: '#1e293b',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em'
-              }}>
-                {icon}
-                <span>{title}</span>
-                <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#64748b', fontWeight: 600, background: '#ffffff', padding: '1px 6px', borderRadius: '4px' }}>
-                  {renderedFields.length} fields
-                </span>
-              </div>
-              <div style={{ padding: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '8px' }}>
-                {renderedFields}
-              </div>
-            </div>
-          );
-        };
-
-        // Extra metadata items not explicitly handled above
-        const standardMetaKeys = new Set([
-          'licenceId', 'vehicleId', 'registrationNo', 'vehicleTypeSelect', 'vehicleModel', 'deviceModel',
-          'vlttdSlno', 'vltdSlno', 'iccid', 'sim1', 'sim2', 'simNo', 'sim', 'telecomOperator',
-          'installationDate', 'onboardDate', 'onboardingDate', 'installedDate', 'madeIn', 'mfgDate',
-          'chassisNo', 'engineNo', 'rtoLocation', 'location', 'serviceEngineer', 'serviceEngineerPhone',
-          'salesman', 'salesmanPhone', 'ticketId', 'sensorNo', 'vehicleVoltage', 'batteryVoltage',
-          'engineOnStatus', 'engineOn', 'ownerName', 'ownerPhone', 'customerName', 'customerPhone',
-          'aadharNo', 'panNo', 'email', 'username', 'password', 'fuelType', 'tankSize', 'fuelEmptyAdc',
-          'fuelFullAdc', 'expectedMileage', 'deviceOdo', 'assetTrack', 'safetyPark', 'rigMode', 'acToggle',
-          'externalDevice', 'secondaryEngine', 'odometerReading', 'odoDistance', 'overSpeedLimit',
-          'overspeedDurationAlert', 'idleDurationAlert', 'parkingDurationAlert', 'enableDebugs', 'ipAddress', 'portNo', 'lowBattery',
-          'serverName', 'timezone', 'lastCommTime', 'plan_duration_months', 'odometerSnapshot'
-        ]);
-
-        const extraMetaEntries = Object.entries(meta).filter(([k, v]) => !standardMetaKeys.has(k) && typeof v !== 'object');
-
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: 'rgba(15, 23, 42, 0.5)',
-              backdropFilter: 'blur(3px)',
-              zIndex: 9999,
-              display: 'flex',
-              justifyContent: 'flex-end',
-              animation: 'fadeIn 0.2s ease-in-out'
-            }}
-            onClick={() => setViewingVehicle(null)}
-          >
-            <div
-              style={{
-                width: '740px',
-                maxWidth: '96vw',
-                height: '100%',
-                background: '#ffffff',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '-8px 0 30px rgba(0,0,0,0.25)',
-                animation: 'slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-                overflow: 'hidden'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Drawer Top Header */}
-              <div style={{
-                padding: '16px 20px',
-                background: '#1e1b4b',
-                color: '#ffffff',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                gap: '12px',
-                borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    width: '42px',
-                    height: '42px',
-                    borderRadius: '10px',
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#f97316'
-                  }}>
-                    <Truck size={22} />
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <h2 style={{ fontSize: '18px', fontWeight: 800, margin: 0, color: '#ffffff' }}>
-                        {viewingVehicle.name || viewingVehicle.plate || 'Vehicle Details'}
-                      </h2>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 800,
-                        background: viewingVehicle.is_online ? '#10b981' : '#64748b',
-                        color: '#ffffff',
-                        textTransform: 'uppercase'
-                      }}>
-                        {viewingVehicle.is_online ? 'LIVE ONLINE' : 'OFFLINE'}
-                      </span>
-                      <span style={{
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        fontSize: '10px',
-                        fontWeight: 700,
-                        background: 'rgba(255, 255, 255, 0.15)',
-                        color: '#e2e8f0'
-                      }}>
-                        {viewingVehicle.category || 'General'}
-                      </span>
-                    </div>
-                    <p style={{ margin: '3px 0 0 0', fontSize: '12px', color: '#cbd5e1', fontFamily: 'monospace' }}>
-                      ID: {meta.vehicleId || viewingVehicle.plate || viewingVehicle.imei || '-'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Header Action Buttons */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    onClick={() => navigate(`/vehicles/${viewingVehicle.id}`)}
-                    title="Open Live Tracking Monitor"
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      border: '1px solid rgba(255, 255, 255, 0.2)',
-                      color: '#ffffff',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
-                  >
-                    <Eye size={14} /> Monitor
-                  </button>
-                  <button
-                    onClick={() => navigate(`/admin/vehicles/edit/${viewingVehicle.id}`)}
-                    title="Edit Full Vehicle Details"
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '8px',
-                      background: '#ea580c',
-                      border: 'none',
-                      color: '#ffffff',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      cursor: 'pointer',
-                      transition: 'background 0.15s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#c2410c'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#ea580c'}
-                  >
-                    <Edit2 size={14} /> Edit
-                  </button>
-                  <button
-                    onClick={() => setViewingVehicle(null)}
-                    title="Close details"
-                    style={{
-                      background: 'transparent',
-                      border: 'none',
-                      color: '#94a3b8',
-                      cursor: 'pointer',
-                      padding: '6px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      transition: 'color 0.15s'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.color = '#ffffff'}
-                    onMouseLeave={e => e.currentTarget.style.color = '#94a3b8'}
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-header Filter Search Bar */}
-              <div style={{
-                padding: '10px 20px',
-                background: '#f8fafc',
-                borderBottom: '1px solid #e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <Search size={14} color="#64748b" />
-                <input
-                  type="text"
-                  value={drawerSearch}
-                  onChange={(e) => setDrawerSearch(e.target.value)}
-                  placeholder="Filter through all vehicle fields (e.g. pan, sim, chassis, voltage, battery, mileage)..."
-                  style={{
-                    flex: 1,
-                    border: 'none',
-                    background: 'transparent',
-                    fontSize: '12px',
-                    outline: 'none',
-                    color: '#0f172a'
-                  }}
-                />
-                {drawerSearch && (
-                  <button
-                    onClick={() => setDrawerSearch('')}
-                    style={{ border: 'none', background: 'transparent', color: '#94a3b8', cursor: 'pointer', fontSize: '11px', fontWeight: 600 }}
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-
-              {/* Drawer Content Body: All Fields Organized */}
-              <div style={{
-                flex: 1,
-                overflowY: 'auto',
-                padding: '16px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '16px',
-                background: '#f8fafc'
-              }}>
-                {/* 1. Asset & Registration Details */}
-                {renderSection('1. Asset & Registration Information', <Truck size={15} color="#ea580c" />, [
-                  renderField('Licence ID', viewingVehicle.licenceId || meta.licenceId || viewingVehicle.licence_no, true, 'licenceId'),
-                  renderField('Vehicle ID', meta.vehicleId || viewingVehicle.plate, false, 'vehicleId'),
-                  renderField('Vehicle Name', viewingVehicle.name, false, 'name'),
-                  renderField('Registration (Plate)', viewingVehicle.plate || meta.registrationNo, true, 'plate'),
-                  renderField('Vehicle Type', viewingVehicle.model || meta.vehicleTypeSelect),
-                  renderField('Vehicle Model / Make', viewingVehicle.make || meta.vehicleModel),
-                  renderField('Organization Name', viewingVehicle.org_name || user?.org_name),
-                  renderField('Category', viewingVehicle.category || 'General'),
-                  renderField('Assigned Groups', viewingVehicle.group_name || 'Unassigned'),
-                  renderField('Sand Mining', viewingVehicle.is_sand_mining ? 'Enabled' : 'Disabled')
-                ])}
-
-                {/* 2. Device & Hardware Telemetry */}
-                {renderSection('2. Device & Telemetry Hardware', <Cpu size={15} color="#3b82f6" />, [
-                  renderField('Device ID (IMEI)', viewingVehicle.imei || viewingVehicle.device_id, true, 'imei'),
-                  renderField('Device Type / Version', viewingVehicle.device_version || meta.deviceModel || viewingVehicle.deviceType || viewingVehicle.model),
-                  renderField('VLTD Serial No (SLNO)', meta.vlttdSlno || meta.vltdSlno, true, 'vltdSlno'),
-                  renderField('GPS SIM 1 (Sim No)', viewingVehicle.gps_sim_no || meta.sim1 || meta.simNo || meta.sim, true, 'sim1'),
-                  renderField('SIM 2', meta.sim2, true, 'sim2'),
-                  renderField('ICCID', meta.iccid, true, 'iccid'),
-                  renderField('Telecom Operator', meta.telecomOperator),
-                  renderField('Server Name', viewingVehicle.server_name || meta.serverName || 'Voltsys'),
-                  renderField('Server IP & Port', meta.ipAddress && meta.portNo ? `${meta.ipAddress}:${meta.portNo}` : (meta.ipAddress || meta.portNo || '-')),
-                  renderField('APN', viewingVehicle.apn),
-                  renderField('Timezone', viewingVehicle.timezone || meta.timezone || 'IST'),
-                  renderField('Sensor No', meta.sensorNo, true, 'sensorNo')
-                ])}
-
-                {/* 3. Live Telemetry & Engine State */}
-                {renderSection('3. Telemetry & Engine State', <Activity size={15} color="#10b981" />, [
-                  renderField('Communication Status', viewingVehicle.is_online ? 'Live / Online' : 'Offline / Sleep'),
-                  renderField('Last Comm Time', viewingVehicle.last_seen ? formatLocalTime(viewingVehicle.last_seen) : (viewingVehicle.last_comm_time || meta.lastCommTime || '-')),
-                  renderField('Ignition State', viewingVehicle.current_ignition !== undefined ? (viewingVehicle.current_ignition ? 'ON' : 'OFF') : (meta.engineOnStatus || meta.engineOn || '-')),
-                  renderField('Current Speed', viewingVehicle.current_speed !== undefined ? `${viewingVehicle.current_speed} km/h` : '0 km/h'),
-                  renderField('Current Odometer', viewingVehicle.current_odometer !== undefined ? `${Number(viewingVehicle.current_odometer).toLocaleString()} km` : (meta.odometerReading ? `${meta.odometerReading} km` : '-')),
-                  renderField('Today Travel Distance', viewingVehicle.today_distance !== undefined ? `${Number(viewingVehicle.today_distance).toFixed(1)} km` : '0 km'),
-                  renderField('Vehicle Voltage', viewingVehicle.current_voltage ? `${viewingVehicle.current_voltage} V` : (meta.vehicleVoltage ? `${meta.vehicleVoltage} V` : '-')),
-                  renderField('Battery Voltage', viewingVehicle.current_battery ? `${viewingVehicle.current_battery} V` : (meta.batteryVoltage ? `${meta.batteryVoltage} V` : '-')),
-                  renderField('GPS Coordinates', viewingVehicle.lat && viewingVehicle.lng ? `${Number(viewingVehicle.lat).toFixed(6)}, ${Number(viewingVehicle.lng).toFixed(6)}` : '-'),
-                  renderField('Chassis No', meta.chassisNo, true, 'chassisNo'),
-                  renderField('Engine No', meta.engineNo, true, 'engineNo'),
-                  renderField('Secondary Engine', meta.secondaryEngine)
-                ])}
-
-                {/* 4. Dates & Lifespan */}
-                {renderSection('4. Lifespan & Validity Dates', <Calendar size={15} color="#8b5cf6" />, [
-                  renderField('Onboard Date', meta.onboardingDate || meta.onboardDate || (viewingVehicle.created_at ? formatLocalDate(viewingVehicle.created_at) : '-')),
-                  renderField('Licence Issued Date', viewingVehicle.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate ? formatLocalDate(viewingVehicle.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate) : '-'),
-                  renderField('Licence Expire Date', viewingVehicle.licence_expire_date || meta.licenceExpireDate || meta.expiryDate ? formatLocalDate(viewingVehicle.licence_expire_date || meta.licenceExpireDate || meta.expiryDate) : '-'),
-                  renderField('Manufacturing Date (Mfg)', meta.mfgDate ? formatLocalDate(meta.mfgDate) : meta.mfgDate),
-                  renderField('Made In', meta.madeIn || 'India')
-                ])}
-
-                {/* 5. Owner KYC & User Account */}
-                {renderSection('5. Owner KYC & Account', <User size={15} color="#0284c7" />, [
-                  renderField('Owner / Customer Name', meta.ownerName || meta.customerName || viewingVehicle.driver_name),
-                  renderField('Owner Mobile / Phone', meta.ownerPhone || meta.customerPhone || viewingVehicle.driver_phone, true, 'ownerPhone'),
-                  renderField('Email Address', meta.email),
-                  renderField('System Username', meta.username || viewingVehicle.username),
-                  renderField('RTO Location', meta.rtoLocation || meta.location),
-                  renderField('Aadhar Number', meta.aadharNo, true, 'aadharNo'),
-                  renderField('PAN Number', meta.panNo, true, 'panNo')
-                ])}
-
-                {/* 6. Personnel & Field Support */}
-                {renderSection('6. Field Support & Personnel', <Users2 size={15} color="#d97706" />, [
-                  renderField('Service Engineer', meta.serviceEngineer ? `${meta.serviceEngineer} (${meta.serviceEngineerPhone || 'No Phone'})` : '-'),
-                  renderField('Salesman', meta.salesman ? `${meta.salesman} (${meta.salesmanPhone || 'No Phone'})` : '-'),
-                  renderField('Ticket ID', meta.ticketId, true, 'ticketId')
-                ])}
-
-                {/* 7. Fuel & Threshold Settings */}
-                {renderSection('7. Fuel & Calibration Settings', <Fuel size={15} color="#16a34a" />, [
-                  renderField('Fuel Type', meta.fuelType),
-                  renderField('Tank Capacity', meta.tankSize ? `${meta.tankSize} L` : '-'),
-                  renderField('Expected Mileage', meta.expectedMileage ? `${meta.expectedMileage} km/L` : '-'),
-                  renderField('Fuel Calibration ADC', meta.fuelEmptyAdc || meta.fuelFullAdc ? `Empty: ${meta.fuelEmptyAdc || '0'} | Full: ${meta.fuelFullAdc || '0'}` : '-'),
-                  renderField('Over Speed Limit', meta.overSpeedLimit ? `${meta.overSpeedLimit} km/h` : '-'),
-                  renderField('Overspeed Duration Alert', meta.overspeedDurationAlert ? `${meta.overspeedDurationAlert} min` : '-'),
-                  renderField('Idle Duration Alert', meta.idleDurationAlert ? `${meta.idleDurationAlert} min` : '60 min (default 1 hr)'),
-                  renderField('Parking Duration Alert', meta.parkingDurationAlert ? `${meta.parkingDurationAlert} min` : '60 min (default 1 hr)'),
-                  renderField('Low Battery Alert Threshold', meta.lowBattery ? `${meta.lowBattery} V` : '-')
-                ])}
-
-                {/* 8. Feature Toggles */}
-                {renderSection('8. Feature Flags & Toggles', <Settings size={15} color="#475569" />, [
-                  renderField('Device ODO', meta.deviceOdo || 'NO'),
-                  renderField('Asset Tracking', meta.assetTrack || 'NO'),
-                  renderField('Safety Park', meta.safetyPark || 'NO'),
-                  renderField('RIG Mode', meta.rigMode || 'NO'),
-                  renderField('AC Toggle', meta.acToggle || 'NO'),
-                  renderField('External Device', meta.externalDevice || 'NO')
-                ])}
-
-                {/* 9. Additional Custom Metadata Attributes (if any) */}
-                {extraMetaEntries.length > 0 && renderSection('9. Additional Custom Attributes', <FileText size={15} color="#64748b" />,
-                  extraMetaEntries.map(([k, val]) => renderField(k, String(val)))
-                )}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Bulk Excel Upload Modal */}
       {isExcelModalOpen && (
         <ExcelBulkUploadModal
@@ -1816,6 +1491,13 @@ const VehiclesAdminPage = () => {
         fuelType={liveFuelVehicle?.metadata?.fuelCalibration?.fuelType || liveFuelVehicle?.metadata?.fuelType}
         sensorType={liveFuelVehicle?.metadata?.sensorType}
         onClose={() => setLiveFuelVehicle(null)}
+      />
+
+      {/* Fitment & Calibration Certificate Modal */}
+      <FitmentCertificateModal
+        isOpen={Boolean(selectedFitmentVehicle)}
+        vehicle={selectedFitmentVehicle}
+        onClose={() => setSelectedFitmentVehicle(null)}
       />
     </div>
   );

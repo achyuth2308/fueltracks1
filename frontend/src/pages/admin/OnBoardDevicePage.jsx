@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
+import { Cpu, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
@@ -361,113 +361,122 @@ const OnBoardDevicePage = () => {
   };
 
   const inputStyle = {
-    width: '100%', padding: '10px 14px', borderRadius: '8px',
-    border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none',
-    color: '#475569', // Distinct Dark Slate Grey for entered values
-    background: '#FFFFFF', boxSizing: 'border-box'
+    width: '100%',
+    height: '38px',
+    padding: '7px 12px',
+    borderRadius: '7px',
+    border: '1px solid #CBD5E1',
+    fontSize: '13px',
+    outline: 'none',
+    color: '#0F172A',
+    background: '#FFFFFF',
+    boxSizing: 'border-box',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)'
   };
 
   return (
-    <div style={{ padding: '32px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+    <div style={{ padding: '14px 20px', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
 
       {/* Header and Breadcrumbs */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-          <Cpu size={24} color="#f97316" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+          <Cpu size={20} color="#f97316" />
           Add Device
         </h1>
       </div>
 
       {message && (
-        <div style={{ padding: '16px', background: '#D1FAE5', border: '1px solid #A7F3D0', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#059669', marginBottom: '24px' }}>
-          <CheckCircle size={20} />
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>{message}</div>
+        <div style={{ padding: '10px 14px', background: '#D1FAE5', border: '1px solid #A7F3D0', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', color: '#059669', marginBottom: '12px' }}>
+          <CheckCircle size={18} />
+          <div style={{ fontSize: '13px', fontWeight: 600 }}>{message}</div>
         </div>
       )}
 
       {error && (
-        <div style={{ padding: '16px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '12px', color: '#B91C1C', marginBottom: '24px' }}>
-          <AlertCircle size={20} />
-          <div style={{ fontSize: '14px', fontWeight: 600 }}>{error}</div>
+        <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FCA5A5', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '10px', color: '#B91C1C', marginBottom: '12px' }}>
+          <AlertCircle size={18} />
+          <div style={{ fontSize: '13px', fontWeight: 600 }}>{error}</div>
         </div>
       )}
 
       {/* Minimalist Bulk Onboarding Callout */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 mb-6">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-            <FileSpreadsheet size={22} className="text-orange-500" />
+      <div className="bg-white rounded-xl border border-slate-200/90 px-4 py-2.5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
+            <FileSpreadsheet size={16} className="text-orange-500" />
           </div>
-          <div className="flex items-center gap-2.5">
-            <span className="text-base font-bold text-slate-800">Bulk Onboarding</span>
-            <span className="text-xs font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2.5 py-0.5 rounded-md">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-slate-800">Bulk Onboarding</span>
+            <span className="text-[11px] font-semibold text-orange-600 bg-orange-50 border border-orange-200 px-2 py-0.5 rounded">
               Fast Import
             </span>
           </div>
         </div>
 
-        <div className="flex items-center flex-wrap gap-3 shrink-0">
+        <div className="flex items-center flex-wrap gap-2 shrink-0">
           <button
             onClick={() => setIsGoogleFormModalOpen(true)}
-            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <Globe size={16} className="text-slate-500" />
+            <Globe size={14} className="text-slate-500" />
             <span>Google Form</span>
           </button>
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
-            className="px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-xs"
+            className="px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-lg font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <Download size={16} className="text-slate-500" />
+            <Download size={14} className="text-slate-500" />
             <span>Excel Template</span>
           </button>
           <button
             onClick={() => setIsExcelModalOpen(true)}
-            className="px-5 py-2.5 bg-slate-900 hover:bg-black text-white rounded-xl font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all cursor-pointer shadow-sm"
+            className="px-3.5 py-1.5 bg-slate-900 hover:bg-black text-white rounded-lg font-semibold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
           >
-            <FileSpreadsheet size={16} className="text-amber-400" />
+            <FileSpreadsheet size={14} className="text-amber-400" />
             <span>Upload Excel</span>
           </button>
         </div>
       </div>
 
-      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '32px', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+      <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', padding: '16px 20px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
 
         {step === 1 && (
-          <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-              {/* Quota Banner - only for dealers */}
-              {isDealer && (
-                <div style={{ background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                    <Shield size={16} color="#f97316" />
-                    <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>
-                      Device Allowance — {licenceType}
-                    </span>
-                    {quotaLoading && <Loader2 size={13} color="#94A3B8" className="animate-spin" />}
-                  </div>
-                  {quota ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                      {[
-                        { label: 'Total Allowed', value: quota.limits?.[licenceType] ?? 0, color: '#475569', bg: '#F1F5F9' },
-                        { label: 'Already Used', value: quota.used?.[licenceType] ?? 0, color: '#DC2626', bg: '#FEF2F2' },
-                        { label: 'Available', value: quota.available?.[licenceType] ?? 0, color: '#059669', bg: '#D1FAE5' },
-                      ].map(({ label, value, color, bg }) => (
-                        <div key={label} style={{ background: bg, borderRadius: '8px', padding: '10px 14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '22px', fontWeight: 800, color }}>{value}</div>
-                          <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', marginTop: '2px' }}>{label}</div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '13px', color: '#94A3B8' }}>Loading quota information...</div>
-                  )}
+          <div>
+            {/* Quota Banner - only for dealers */}
+            {isDealer && (
+              <div style={{ background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '14px 18px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <Shield size={16} color="#f97316" />
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>
+                    Device Allowance — {licenceType}
+                  </span>
+                  {quotaLoading && <Loader2 size={13} color="#94A3B8" className="animate-spin" />}
                 </div>
-              )}
+                {quota ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                    {[
+                      { label: 'Total Allowed', value: quota.limits?.[licenceType] ?? 0, color: '#475569', bg: '#F1F5F9' },
+                      { label: 'Already Used', value: quota.used?.[licenceType] ?? 0, color: '#DC2626', bg: '#FEF2F2' },
+                      { label: 'Available', value: quota.available?.[licenceType] ?? 0, color: '#059669', bg: '#D1FAE5' },
+                    ].map(({ label, value, color, bg }) => (
+                      <div key={label} style={{ background: bg, borderRadius: '8px', padding: '8px 12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 800, color }}>{value}</div>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', marginTop: '2px' }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '13px', color: '#94A3B8' }}>Loading quota information...</div>
+                )}
+              </div>
+            )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4">
-                <label className="text-[14px] font-[600] text-gray-900 w-full sm:w-[40%] mb-2 sm:mb-0">Licence Type :</label>
-                <div className="w-full sm:w-[60%]">
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '32px 16px' }}>
+              <div style={{ width: '100%', maxWidth: '340px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Licence Type <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <SearchableSelect
                     options={LICENCE_TYPE_OPTIONS}
                     value={licenceType}
@@ -475,76 +484,108 @@ const OnBoardDevicePage = () => {
                     placeholder="-- Select Licence Type --"
                     searchPlaceholder="Search licence type..."
                     triggerStyle={{
-                      padding: '10px 14px',
-                      fontSize: '14px',
+                      height: '40px',
+                      padding: '8px 12px',
+                      fontSize: '13px',
                       borderColor: '#CBD5E1',
+                      borderRadius: '8px',
                       background: '#FFFFFF'
                     }}
                   />
                 </div>
-              </div>
 
-              <div className="flex flex-col border-b border-slate-100 pb-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between">
-                  <label className="text-[14px] font-[600] text-gray-900 w-full sm:w-[40%] mb-2 sm:mb-0">Quantity :</label>
+                <div>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                    Quantity <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
-                    type="number" min="1"
+                    type="number"
+                    min="1"
                     placeholder="Enter Quantity"
-                    className="w-full sm:w-[60%] px-[14px] py-[10px] rounded-[8px] border border-slate-300 text-[14px] outline-none text-gray-900"
+                    style={{ ...inputStyle, height: '40px', borderRadius: '8px' }}
                     value={numDevices}
                     onChange={e => setNumDevices(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleStep1Submit(); }}
                   />
                 </div>
-              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '16px' }}>
-                <button
-                  onClick={handleStep1Submit}
-                  style={{ padding: '10px 32px', borderRadius: '8px', fontSize: '14px', fontWeight: 600, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)' }}
-                >
-                  Next Step
-                </button>
+                <div style={{ marginTop: '6px' }}>
+                  <button
+                    type="button"
+                    onClick={handleStep1Submit}
+                    style={{
+                      width: '100%',
+                      height: '42px',
+                      padding: '0 24px',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 700,
+                      color: '#FFFFFF',
+                      background: '#f97316',
+                      border: 'none',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(249,115,22,0.25)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    Next Step
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-
         {step === 2 && (
           <div>
-            <div style={{ marginBottom: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Business Information</h2>
-            </div>
+            {/* Business Information Section Header with Segmented Pill Toggle */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-4 bg-orange-500 rounded-full inline-block" />
+                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>Business Information</h2>
+              </div>
 
-            {/* Top Toggle */}
-            <div className="flex flex-col sm:flex-row gap-4 sm:gap-12 mb-8 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'new' ? '#f97316' : '#111827' }}>
-                <input
-                  type="radio"
-                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
-                  checked={userType === 'new'}
-                  onChange={() => setUserType('new')}
-                />
-                New User
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, color: userType === 'existing' ? '#f97316' : '#111827' }}>
-                <input
-                  type="radio"
-                  style={{ accentColor: '#f97316', width: '16px', height: '16px' }}
-                  checked={userType === 'existing'}
-                  onChange={() => setUserType('existing')}
-                />
-                Existing User
-              </label>
+              {/* Segmented Pill Toggle */}
+              <div className="inline-flex items-center p-1 bg-slate-100 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setUserType('new')}
+                  className={`px-4 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    userType === 'new'
+                      ? 'bg-white text-orange-600 shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  New User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUserType('existing')}
+                  className={`px-4 py-1 text-xs font-semibold rounded-md transition-all cursor-pointer ${
+                    userType === 'existing'
+                      ? 'bg-white text-orange-600 shadow-xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Existing User
+                </button>
+              </div>
             </div>
 
             {/* User Details Form */}
             {userType === 'new' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>User Name *</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    User Name <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
-                    type="text" placeholder="User Name"
+                    type="text"
+                    placeholder="Enter User Name"
                     style={inputStyle}
                     autoComplete="new-password"
                     value={newUser.username}
@@ -552,34 +593,42 @@ const OnBoardDevicePage = () => {
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Mobile Number *</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Mobile Number <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
-                    type="text" placeholder="Mobile Number"
+                    type="text"
+                    placeholder="Enter Mobile Number"
                     style={inputStyle}
                     value={newUser.phone}
                     onChange={e => setNewUser({ ...newUser, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Email *</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Email <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <input
-                    type="email" placeholder="Email"
+                    type="email"
+                    placeholder="Enter Email"
                     style={inputStyle}
                     value={newUser.email}
                     onChange={e => setNewUser({ ...newUser, email: e.target.value })}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '8px' }}>Password *</label>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Password <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showPassword ? 'text' : 'password'}
-                      placeholder="Password"
+                      placeholder="Enter Password"
                       style={{
                         ...inputStyle,
-                        paddingRight: '36px',
+                        paddingRight: '32px',
                         borderColor: isPasswordError ? '#EF4444' : '#CBD5E1',
-                        boxShadow: isPasswordError ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : 'none'
+                        boxShadow: isPasswordError ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.03)'
                       }}
                       autoComplete="new-password"
                       value={newUser.password}
@@ -589,33 +638,33 @@ const OnBoardDevicePage = () => {
                       }}
                       onBlur={() => setPasswordTouched(true)}
                     />
-                    <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                    <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
                       {isPasswordError ? (
-                        <AlertCircle size={16} color="#EF4444" />
+                        <AlertCircle size={15} color="#EF4444" />
                       ) : newUser.password ? (
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
                           style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', color: '#94A3B8', display: 'flex', alignItems: 'center' }}
                         >
-                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                       ) : null}
                     </div>
                   </div>
                   {isPasswordError && (
-                    <div style={{ color: '#EF4444', fontSize: '12px', marginTop: '6px', fontWeight: 500 }}>
+                    <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '3px', fontWeight: 500 }}>
                       Please, Enter minimum 6 characters or more
                     </div>
                   )}
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-5">
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select User</label>
-                  </div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Select User <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <SearchableSelect
                     options={users
                       .filter(u => u.role !== 'superadmin')
@@ -629,12 +678,13 @@ const OnBoardDevicePage = () => {
                     placeholder="-- Choose User --"
                     searchPlaceholder="Search user..."
                     emptyMessage="No users found"
+                    triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select Group</label>
-                  </div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Select Group <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
                   <SearchableSelect
                     options={groups.map(g => ({
                       value: g.id,
@@ -645,12 +695,13 @@ const OnBoardDevicePage = () => {
                     placeholder="-- Choose Group --"
                     searchPlaceholder="Search group..."
                     emptyMessage="No groups found"
+                    triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}
                   />
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label style={{ fontSize: '13px', fontWeight: 600, color: '#111827', margin: 0 }}>Select Organization</label>
-                  </div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Select Organization
+                  </label>
                   <SearchableSelect
                     options={orgs.map(o => ({
                       value: o.id,
@@ -661,49 +712,57 @@ const OnBoardDevicePage = () => {
                     placeholder="-- Choose Organization --"
                     searchPlaceholder="Search organization..."
                     emptyMessage="No organizations found"
+                    triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}
                   />
                 </div>
               </div>
             )}
 
-            <hr style={{ borderTop: '1px solid #F1F5F9', borderBottom: 'none', margin: '0 0 32px 0' }} />
-
-            <div style={{ marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
+            {/* Device Configuration Header */}
+            <div className="flex items-center gap-2 mb-3 mt-4 pt-4 border-t border-slate-100">
+              <span className="w-1.5 h-4 bg-orange-500 rounded-full inline-block" />
+              <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#111827', margin: 0 }}>Device Configuration</h2>
+              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500, marginLeft: '4px' }}>
+                ({devices.length} {devices.length === 1 ? 'device' : 'devices'})
+              </span>
             </div>
 
             {/* Device Table */}
             {devices.length > 0 && (
-              <div style={{ overflowX: 'auto', border: '1px solid #E2E8F0', borderRadius: '12px', marginBottom: '40px' }}>
+              <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '8px', marginBottom: '20px', background: '#FFFFFF', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ background: '#F1F5F9', color: '#000000' }}>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, width: '40px', borderRight: '1px solid #E2E8F0' }}>No</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Device ID(IMEI)</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Device Type</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
-                      <th style={{ padding: '14px 16px', fontSize: '13px', fontWeight: 700, textAlign: 'center' }}>Action</th>
+                    <tr style={{ background: '#F8FAFC', color: '#334155', borderBottom: '1px solid #CBD5E1' }}>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, width: '44px', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>No</th>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, width: '190px', borderRight: '1px solid #E2E8F0' }}>LicenceId ({licenceType})</th>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>
+                        Device ID(IMEI) <span style={{ color: '#EF4444' }}>*</span>
+                      </th>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0', minWidth: '240px' }}>
+                        Device Type <span style={{ color: '#EF4444' }}>*</span>
+                      </th>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
+                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, textAlign: 'center', width: '140px' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {devices.map((device, idx) => (
                       <React.Fragment key={device.id}>
-                        <tr style={{ borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-                          <td style={{ padding: '14px 16px', fontSize: '14px', fontWeight: 600, color: '#475569', textAlign: 'center', borderRight: '1px solid #F1F5F9' }}>{idx + 1}</td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
-                            <div style={{ padding: '8px 12px', background: '#EEF5F8', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '13px', color: '#64748B', fontFamily: 'monospace' }}>
+                        <tr style={{ borderBottom: '1px solid #E2E8F0', background: '#FFFFFF' }}>
+                          <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>{idx + 1}</td>
+                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
+                            <div style={{ padding: '5px 10px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#334155', fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.02em' }}>
                               {device.licenceId}
                             </div>
                           </td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
                             <input
                               type="text" placeholder="Enter Device ID" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
-                              style={{ ...inputStyle, padding: '8px 12px' }}
+                              style={{ ...inputStyle, height: '34px', padding: '4px 10px', fontSize: '12px' }}
                             />
                           </td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9', minWidth: '240px' }}>
+                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0', minWidth: '240px' }}>
                             <SearchableSelect
                               options={DEVICE_TYPE_OPTIONS}
                               value={device.deviceType}
@@ -713,26 +772,42 @@ const OnBoardDevicePage = () => {
                               emptyMessage="No device type found"
                               usePortal={true}
                               triggerStyle={{
-                                padding: '8px 12px',
-                                fontSize: '13px',
+                                height: '34px',
+                                padding: '4px 10px',
+                                fontSize: '12px',
                                 borderColor: '#CBD5E1',
+                                borderRadius: '6px',
                                 background: '#FFFFFF'
                               }}
                             />
                           </td>
-                          <td style={{ padding: '14px 16px', borderRight: '1px solid #F1F5F9' }}>
+                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
                             <input
                               type="text" placeholder="Enter Vehicle Id" value={device.vehicleId}
                               onChange={(e) => updateDevice(idx, 'vehicleId', e.target.value)}
-                              style={{ ...inputStyle, padding: '8px 12px' }}
+                              style={{ ...inputStyle, height: '34px', padding: '4px 10px', fontSize: '12px' }}
                             />
                           </td>
-                          <td style={{ padding: '14px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                             <button
                               type="button"
                               onClick={() => toggleRowExpansion(idx)}
-                              style={{ padding: '8px 16px', background: '#f97316', color: '#FFF', fontSize: '12px', fontWeight: 600, border: 'none', borderRadius: '6px', cursor: 'pointer', boxShadow: '0 2px 4px rgba(249,115,22,0.2)' }}
+                              style={{
+                                padding: '6px 14px',
+                                background: expandedRows[idx] ? '#F1F5F9' : '#f97316',
+                                color: expandedRows[idx] ? '#334155' : '#FFFFFF',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                border: expandedRows[idx] ? '1px solid #CBD5E1' : 'none',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                boxShadow: expandedRows[idx] ? 'none' : '0 2px 4px rgba(249,115,22,0.2)'
+                              }}
                             >
+                              {expandedRows[idx] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                               {expandedRows[idx] ? 'Hide Details' : 'Show Details'}
                             </button>
                           </td>
@@ -740,20 +815,20 @@ const OnBoardDevicePage = () => {
                         {expandedRows[idx] && (
                           <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #E2E8F0' }}>
                             <td style={{ borderRight: '1px solid #F1F5F9' }}></td>
-                            <td colSpan="5" style={{ padding: '24px' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            <td colSpan="5" style={{ padding: '12px 14px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {/* Row 1: 4 fields */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Vehicle Name</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Vehicle Name</label>
                                     <input
                                       type="text" placeholder="Vehicle Name" value={device.vehicleName}
                                       onChange={(e) => updateDevice(idx, 'vehicleName', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Vehicle Type</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Vehicle Type</label>
                                     <SearchableSelect
                                       options={VEHICLE_TYPE_OPTIONS}
                                       value={device.vehicleTypeSelect}
@@ -763,35 +838,35 @@ const OnBoardDevicePage = () => {
                                       emptyMessage="No vehicle type found"
                                       usePortal={true}
                                       triggerStyle={{
-                                        padding: '10px 14px',
-                                        fontSize: '14px',
+                                        padding: '5px 8px',
+                                        fontSize: '12px',
                                         borderColor: '#CBD5E1',
                                         background: '#FFFFFF'
                                       }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>GPS SIM No</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>GPS SIM No</label>
                                     <input
                                       type="text" placeholder="GPS SIM No" value={device.gpsSimNo}
                                       onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Odo Distance</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Odo Distance</label>
                                     <input
                                       type="text" placeholder="Odo Distance" value={device.odoDistance}
                                       onChange={(e) => updateDevice(idx, 'odoDistance', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                 </div>
 
                                 {/* Row 2: 5 fields */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Service Engineer</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Service Engineer</label>
                                     <SearchableSelect
                                       options={users.map(u => ({
                                         value: u.name || u.email,
@@ -805,15 +880,15 @@ const OnBoardDevicePage = () => {
                                       emptyMessage="No engineer found"
                                       usePortal={true}
                                       triggerStyle={{
-                                        padding: '10px 14px',
-                                        fontSize: '14px',
+                                        padding: '5px 8px',
+                                        fontSize: '12px',
                                         borderColor: '#CBD5E1',
                                         background: '#FFFFFF'
                                       }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Salesman</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Salesman</label>
                                     <SearchableSelect
                                       options={users.map(u => ({
                                         value: u.name || u.email,
@@ -827,35 +902,35 @@ const OnBoardDevicePage = () => {
                                       emptyMessage="No salesman found"
                                       usePortal={true}
                                       triggerStyle={{
-                                        padding: '10px 14px',
-                                        fontSize: '14px',
+                                        padding: '5px 8px',
+                                        fontSize: '12px',
                                         borderColor: '#CBD5E1',
                                         background: '#FFFFFF'
                                       }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Support Person</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Support Person</label>
                                     <input
                                       type="text" placeholder="Support Person" value={device.supportPerson || ''}
                                       onChange={(e) => updateDevice(idx, 'supportPerson', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Ticket Id</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Ticket Id</label>
                                     <input
                                       type="text" placeholder="Ticket Id" value={device.ticketId}
                                       onChange={(e) => updateDevice(idx, 'ticketId', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#111827', marginBottom: '6px', display: 'block' }}>Sensor No</label>
+                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Sensor No</label>
                                     <input
                                       type="text" placeholder="Sensor No" value={device.sensorNo}
                                       onChange={(e) => updateDevice(idx, 'sensorNo', e.target.value)}
-                                      style={{ ...inputStyle, padding: '10px 14px' }}
+                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
                                 </div>
@@ -871,14 +946,30 @@ const OnBoardDevicePage = () => {
             )}
 
             {/* Final Submit Button */}
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '8px' }}>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                style={{ padding: '14px 48px', borderRadius: '10px', fontSize: '15px', fontWeight: 700, color: '#FFFFFF', background: '#f97316', border: 'none', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(249,115,22,0.3)' }}
+                style={{
+                  padding: '9px 36px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  background: '#f97316',
+                  border: 'none',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  opacity: isSubmitting ? 0.7 : 1,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 3px 10px rgba(249,115,22,0.3)',
+                  transition: 'all 0.15s ease'
+                }}
               >
-                {isSubmitting ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
-                {devices.length > 1 ? 'Submit Devices' : 'Submit'}
+                {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                <span>{devices.length > 1 ? 'Submit Devices' : 'Submit'}</span>
               </button>
             </div>
           </div>

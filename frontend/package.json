@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -17,6 +17,7 @@
     "date-fns": "^4.4.0",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.40.0",
+    "html2canvas-pro": "^2.5.2",
     "jimp": "^1.6.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
@@ -24,6 +25,7 @@
     "leaflet.gridlayer.googlemutant": "^0.16.0",
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^1.17.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.6",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.6",

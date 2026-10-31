@@ -272,8 +272,9 @@ async function autoProvisionDeviceAndVehicle(reg) {
     };
 
     const issuedDate = new Date();
-    const expireDate = new Date();
+    const expireDate = new Date(issuedDate.getTime());
     expireDate.setFullYear(expireDate.getFullYear() + 1);
+    expireDate.setDate(expireDate.getDate() - 1);
 
     await client.query(
       `INSERT INTO vehicles 

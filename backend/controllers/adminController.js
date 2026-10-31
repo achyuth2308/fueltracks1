@@ -89,6 +89,19 @@ const AdminController = {
         });
       }
 
+      // Preemptive Duplicate Check: No 2 organizations can have the same name
+      const dupOrg = await db.query(
+        'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1',
+        [name]
+      );
+      if (dupOrg.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `An organization with the name "${name.trim()}" already exists.`,
+          code: 'DUPLICATE_ORG_NAME'
+        });
+      }
+
       // Check restrictions
       if (req.user.role !== 'superadmin') {
         // Dealers can only create customer organizations under themselves
@@ -166,6 +179,21 @@ const AdminController = {
             success: false,
             error: 'Access denied to update organization.',
             code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // Duplicate Check on Rename
+      if (name && name.trim().toLowerCase() !== (oldOrg.name || '').trim().toLowerCase()) {
+        const dupOrg = await db.query(
+          'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id != $2 LIMIT 1',
+          [name, id]
+        );
+        if (dupOrg.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `An organization with the name "${name.trim()}" already exists.`,
+            code: 'DUPLICATE_ORG_NAME'
           });
         }
       }
@@ -313,7 +341,7 @@ const AdminController = {
 
   async createUser(req, res, next) {
     try {
-      const { email, username, password, role, name, phone, orgId, groupIds } = req.body;
+      const { email, username, password, role, name, phone, orgId, groupIds, newOrgName, autoCreateGroup } = req.body;
 
       if (!email || !password || !role) {
         return res.status(400).json({
@@ -323,9 +351,38 @@ const AdminController = {
         });
       }
 
+      // Preemptive Duplicate Checks for User
+      if (username && username.trim()) {
+        const dupUser = await db.query(
+          'SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1)) LIMIT 1',
+          [username]
+        );
+        if (dupUser.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `The username "${username.trim()}" is already taken. Please choose a different username.`,
+            code: 'DUPLICATE_USERNAME'
+          });
+        }
+      }
+
+      if (email && email.trim()) {
+        const dupEmail = await db.query(
+          'SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) LIMIT 1',
+          [email]
+        );
+        if (dupEmail.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `A user with email "${email.trim()}" already exists.`,
+            code: 'DUPLICATE_EMAIL'
+          });
+        }
+      }
+
       // Check role authorization
       if (req.user.role !== 'superadmin') {
-        // Dealer cannot create superadmins, and must place user in own or child org
+        // Dealer cannot create superadmins
         if (role === 'superadmin') {
           return res.status(403).json({
             success: false,
@@ -333,8 +390,49 @@ const AdminController = {
             code: 'FORBIDDEN'
           });
         }
+      }
 
-        const targetOrg = await OrgModel.findById(orgId || req.user.orgId);
+      // Check if an existing org was explicitly provided:
+      let targetOrgId = (orgId && typeof orgId === 'string' && orgId.trim() && orgId !== 'auto') ? orgId.trim() : null;
+
+      // If NO organization was chosen (empty, null, or 'auto') OR a newOrgName was explicitly provided:
+      // AUTOMATICALLY create / use organization with username (or newOrgName)!
+      if (!targetOrgId || (newOrgName && newOrgName.trim())) {
+        const finalOrgName = (newOrgName && newOrgName.trim())
+          ? newOrgName.trim()
+          : (username || name || email).trim();
+
+        const parentOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
+
+        // Check if an organization with this name already exists in this scope
+        let existingOrg;
+        if (parentOrgId) {
+          existingOrg = await db.query(
+            `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND (parent_id = $2 OR id = $2) LIMIT 1`,
+            [finalOrgName, parentOrgId]
+          );
+        } else {
+          existingOrg = await db.query(
+            `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+            [finalOrgName]
+          );
+        }
+
+        if (existingOrg && existingOrg.rows.length > 0) {
+          targetOrgId = existingOrg.rows[0].id;
+        } else {
+          const createdOrg = await OrgModel.create({
+            name: finalOrgName,
+            type: role === 'dealer' ? 'dealer' : 'customer',
+            parentId: parentOrgId,
+            email: email.toLowerCase().trim(),
+            phone: phone || null,
+            contactPerson: name || null
+          });
+          targetOrgId = createdOrg.id;
+        }
+      } else if (req.user.role !== 'superadmin') {
+        const targetOrg = await OrgModel.findById(targetOrgId);
         if (!targetOrg || (targetOrg.id !== req.user.orgId && targetOrg.parent_id !== req.user.orgId)) {
           return res.status(403).json({
             success: false,
@@ -344,7 +442,6 @@ const AdminController = {
         }
       }
 
-      const targetOrgId = orgId || req.user.orgId;
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -358,29 +455,10 @@ const AdminController = {
         phone
       });
 
-      // Handle user group assignments - ALWAYS ensure a group with the username is created
-      const autoGroupName = (username || name || email).trim();
-      let autoGroupId = null;
-      if (autoGroupName) {
-        const existingGroup = await db.query(
-          `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
-          [targetOrgId, autoGroupName]
-        );
-        if (existingGroup.rows.length > 0) {
-          autoGroupId = existingGroup.rows[0].id;
-        } else {
-          const createdGroup = await GroupModel.create({
-            orgId: targetOrgId,
-            name: autoGroupName,
-            description: `Auto-created group for user ${autoGroupName}`
-          });
-          autoGroupId = createdGroup.id;
-        }
-      }
-
+      // Handle user group assignments
       const allGroupIds = new Set();
-      if (autoGroupId) allGroupIds.add(autoGroupId);
 
+      // 1. Assign selected existing groups if provided
       if (groupIds && Array.isArray(groupIds) && groupIds.length > 0) {
         for (const gId of groupIds) {
           if (req.user.role === 'superadmin') {
@@ -388,6 +466,31 @@ const AdminController = {
           } else {
             const belongs = await GroupModel.belongsToOrg(gId, targetOrgId);
             if (belongs) allGroupIds.add(gId);
+          }
+        }
+      }
+
+      // 2. Only auto-create a group if:
+      //    a) explicitly requested via autoCreateGroup === true, OR
+      //    b) no existing groups were selected at all (fallback to ensure user has a group)
+      const shouldAutoCreate = autoCreateGroup === true || allGroupIds.size === 0;
+
+      if (shouldAutoCreate) {
+        const autoGroupName = (username || name || email).trim();
+        if (autoGroupName) {
+          const existingGroup = await db.query(
+            `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+            [targetOrgId, autoGroupName]
+          );
+          if (existingGroup.rows.length > 0) {
+            allGroupIds.add(existingGroup.rows[0].id);
+          } else {
+            const createdGroup = await GroupModel.create({
+              orgId: targetOrgId,
+              name: autoGroupName,
+              description: `Auto-created group for user ${autoGroupName}`
+            });
+            allGroupIds.add(createdGroup.id);
           }
         }
       }
@@ -462,6 +565,35 @@ const AdminController = {
         isActive: oldUser.is_active,
         groupNames: oldGroupNames
       };
+
+      // Duplicate Checks on Update
+      if (username && username.trim().toLowerCase() !== (oldUser.username || '').trim().toLowerCase()) {
+        const dupUser = await db.query(
+          'SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1)) AND id != $2 LIMIT 1',
+          [username, id]
+        );
+        if (dupUser.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `The username "${username.trim()}" is already taken. Please choose a different username.`,
+            code: 'DUPLICATE_USERNAME'
+          });
+        }
+      }
+
+      if (email && email.trim().toLowerCase() !== (oldUser.email || '').trim().toLowerCase()) {
+        const dupEmail = await db.query(
+          'SELECT id FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) AND id != $2 LIMIT 1',
+          [email, id]
+        );
+        if (dupEmail.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `A user with email "${email.trim()}" already exists.`,
+            code: 'DUPLICATE_EMAIL'
+          });
+        }
+      }
 
       const updated = await UserModel.update(id, {
         email: email ? email.toLowerCase().trim() : undefined,
@@ -605,11 +737,24 @@ const AdminController = {
     try {
       const { name, description, orgId, vehicleIds } = req.body;
 
-      if (!name) {
+      if (!name || !name.trim()) {
         return res.status(400).json({
           success: false,
           error: 'Group name is required.',
           code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Preemptive Duplicate Check: No 2 groups can have the same name
+      const dupGroup = await db.query(
+        'SELECT id FROM groups WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1',
+        [name]
+      );
+      if (dupGroup.rows.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: `A group with the name "${name.trim()}" already exists. Please choose a different name.`,
+          code: 'DUPLICATE_GROUP_NAME'
         });
       }
 
@@ -694,6 +839,21 @@ const AdminController = {
       };
 
       const targetOrgId = (orgId !== undefined && orgId !== null && orgId !== '') ? orgId : oldGroup.org_id;
+      // Duplicate Check on Group Rename
+      if (name && name.trim().toLowerCase() !== (oldGroup.name || '').trim().toLowerCase()) {
+        const dupGroup = await db.query(
+          'SELECT id FROM groups WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND id != $2 LIMIT 1',
+          [name, id]
+        );
+        if (dupGroup.rows.length > 0) {
+          return res.status(400).json({
+            success: false,
+            error: `A group with the name "${name.trim()}" already exists. Please choose a different name.`,
+            code: 'DUPLICATE_GROUP_NAME'
+          });
+        }
+      }
+
       const updated = await GroupModel.update(id, { name, description, isActive, orgId: targetOrgId });
 
       if (vehicleIds && Array.isArray(vehicleIds)) {
@@ -926,16 +1086,29 @@ const AdminController = {
           v.imei AS device_id, 
           v.model AS device_model, 
           v.gps_sim_no, 
+          v.driver_name,
+          v.driver_phone,
           v.licence_issued_date, 
           v.licence_expire_date, 
           v.metadata,
           d.licence_id, 
           o.name AS org_name, 
-          p.name AS dealer_name
+          p.name AS dealer_name,
+          u.username,
+          u.name AS user_name,
+          u.phone AS user_phone,
+          u.email AS user_email
         FROM vehicles v
         JOIN organizations o ON v.org_id = o.id
         LEFT JOIN organizations p ON o.parent_id = p.id
         LEFT JOIN devices d ON v.imei = d.device_id
+        LEFT JOIN LATERAL (
+          SELECT username, name, phone, email 
+          FROM users 
+          WHERE org_id = v.org_id 
+          ORDER BY created_at ASC 
+          LIMIT 1
+        ) u ON TRUE
         WHERE ${whereClause}
         ORDER BY v.licence_expire_date ASC
       `;
@@ -983,6 +1156,13 @@ const AdminController = {
           }
         }
 
+        const username = metadata.username || row.username || '-';
+        const customerName = metadata.ownerName || metadata.customerName || row.user_name || row.driver_name || '-';
+        const phone = metadata.ownerPhone || metadata.customerPhone || row.user_phone || row.driver_phone || '-';
+        const email = metadata.ownerEmail || metadata.email || metadata.customerEmail || row.user_email || '-';
+        const gpsSimNo1 = row.gps_sim_no || metadata.sim1 || '-';
+        const gpsSimNo2 = metadata.sim2 || metadata.gps_sim_no_2 || '-';
+
         return {
           dbVehicleId: row.db_vehicle_id,
           licenceId: row.licence_id || '-',
@@ -993,7 +1173,13 @@ const AdminController = {
           organization: row.org_name,
           deviceModel: row.device_model || '-',
           dealerName: row.dealer_name || row.org_name,
-          gpsSimNo: row.gps_sim_no || '-',
+          username,
+          customerName,
+          phone,
+          email,
+          gpsSimNo: gpsSimNo1,
+          gpsSimNo1,
+          gpsSimNo2,
           licenceIssuedDate: row.licence_issued_date,
           licenceExpiryDate: row.licence_expire_date,
           status: status,

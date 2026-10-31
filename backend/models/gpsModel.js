@@ -1274,6 +1274,10 @@ const GpsModel = {
         prefKey = 'geofence';
       } else if (type === 'main_battery_disconnected' || type === 'main_battery_connected' || type === 'power_cut' || type === 'battery') {
         prefKey = 'power_cut';
+      } else if (type === 'fuel_refill_final' || type === 'fuel_refill' || type === 'fuel_fill') {
+        prefKey = 'fuel_refill';
+      } else if (type === 'fuel_theft' || type === 'theft') {
+        prefKey = 'fuel_theft';
       }
     }
 

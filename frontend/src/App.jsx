@@ -67,6 +67,8 @@ import TripManagerPage from './pages/user/TripManagerPage';
 import MiningRegistrationsAdminPage from './pages/admin/MiningRegistrationsAdminPage';
 import AdminTerminalPage from './pages/admin/AdminTerminalPage';
 import FuelWatcherPage from './pages/admin/FuelWatcherPage';
+import WhatsAppSettingsPage from './pages/admin/WhatsAppSettingsPage';
+import CertificateVerifyPage from './pages/CertificateVerifyPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -77,11 +79,19 @@ function App() {
       <AuthProvider>
         <SocketProvider>
           <Routes>
-            {/* Public authentication route */}
+            {/* Public authentication and verification routes */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="/verify/certificate" element={<CertificateVerifyPage />} />
+            <Route path="/verify/certificate/:id" element={<CertificateVerifyPage />} />
+            <Route path="/verify" element={<CertificateVerifyPage />} />
+            <Route path="/verify/:id" element={<CertificateVerifyPage />} />
+            <Route path="/certificate" element={<CertificateVerifyPage />} />
+            <Route path="/certificate/verify" element={<CertificateVerifyPage />} />
+            <Route path="/certificate/:id" element={<CertificateVerifyPage />} />
+            <Route path="/ShowVehDetails.html" element={<CertificateVerifyPage />} />
 
             {/* Guarded dashboard route layout shell */}
             <Route path="/" element={<DashboardLayout vehicles={vehicles} />}>
@@ -129,6 +139,7 @@ function App() {
                   <Route path="dealer-profile" element={<DealerProfilePage />} />
                   <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                   <Route path="settings" element={<SettingsAdminPage />} />
+                  <Route path="whatsapp" element={<WhatsAppSettingsPage />} />
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
                   <Route path="terminal" element={<AdminTerminalPage />} />
                   <Route path="fuel-watcher" element={<FuelWatcherPage />} />

@@ -15,6 +15,9 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deviceLimits, setDeviceLimits] = useState({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+  const [isNewOrg, setIsNewOrg] = useState(false);
+  const [newOrgName, setNewOrgName] = useState('');
+  const [autoCreateGroup, setAutoCreateGroup] = useState(false);
 
   // Extra UI Fields (Frontend only for layout matching)
   const [altEmail, setAltEmail] = useState('');
@@ -43,7 +46,10 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setPhone('');
       setPassword('');
       setRole('customer');
-      setOrgId(orgs.length > 0 ? orgs[0].id : '');
+      setOrgId('');
+      setIsNewOrg(false);
+      setNewOrgName('');
+      setAutoCreateGroup(false);
       setSelectedGroups([]);
       setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
     }
@@ -78,6 +84,11 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       return;
     }
 
+    if (isNewOrg && !newOrgName.trim()) {
+      setError('Please enter a name for the new Organization.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -87,8 +98,10 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       email,
       phone,
       role,
-      orgId,
-      groupIds: selectedGroups
+      orgId: isNewOrg ? undefined : orgId,
+      newOrgName: isNewOrg ? newOrgName.trim() : undefined,
+      groupIds: selectedGroups,
+      autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true
     };
 
     if (password) {
@@ -207,21 +220,53 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               />
             </div>
 
-            {orgs && orgs.length > 0 && (
-              <div>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
                   Organization<span style={{ color: '#EF4444' }}>*</span>
                 </label>
+                {!editingUser && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNewOrg(!isNewOrg);
+                      setError(null);
+                    }}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: 0
+                    }}
+                  >
+                    {isNewOrg ? '← Choose Existing Org' : '+ Create New Org'}
+                  </button>
+                )}
+              </div>
+              {isNewOrg ? (
+                <input
+                  type="text"
+                  required
+                  value={newOrgName}
+                  onChange={(e) => setNewOrgName(e.target.value)}
+                  placeholder="Enter New Organization / Company Name"
+                  style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1.5px solid #3b82f6', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
+                />
+              ) : (
                 <select
-                  required value={orgId} onChange={(e) => setOrgId(e.target.value)}
+                  value={orgId} onChange={(e) => setOrgId(e.target.value)}
                   style={{ width: '100%', padding: '8px 12px', fontSize: '13px', background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: '8px', color: '#111827', outline: 'none', boxSizing: 'border-box' }}
                 >
-                  {orgs.map(org => (
+                  <option value="">SELECT</option>
+                  {orgs && orgs.map(org => (
                     <option key={org.id} value={org.id}>{org.name}</option>
                   ))}
                 </select>
-              </div>
-            )}
+              )}
+            </div>
             <div>
               <label style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>
                 Role<span style={{ color: '#EF4444' }}>*</span>
@@ -371,7 +416,27 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             </div>
 
             <div>
-              <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: '0 0 8px 0' }}>Select the Groups:</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '0 0 8px 0', flexWrap: 'wrap', gap: '8px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#111827', margin: 0 }}>
+                  Assign to Existing Groups:
+                </h4>
+                {!editingUser && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: selectedGroups.length > 0 ? '#64748b' : '#0284c7' }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedGroups.length === 0 ? true : autoCreateGroup}
+                      disabled={selectedGroups.length === 0}
+                      onChange={(e) => setAutoCreateGroup(e.target.checked)}
+                      style={{ width: '14px', height: '14px', accentColor: '#3B82F6', cursor: selectedGroups.length === 0 ? 'not-allowed' : 'pointer' }}
+                    />
+                    <span>
+                      {selectedGroups.length === 0
+                        ? `Auto-creating group "${username || 'username'}" (since no group selected)`
+                        : `Also create a separate group "${username || 'username'}"`}
+                    </span>
+                  </label>
+                )}
+              </div>
               {filteredGroups.length === 0 ? (
                 <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>No groups available in this organization.</div>
               ) : (
