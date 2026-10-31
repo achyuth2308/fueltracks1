@@ -25,8 +25,16 @@ export default function VehicleAlertSettingsModal({ isOpen, onClose, vehicle, on
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
 
+  const isIgnitionOn = vehicle.current_ignition === true || vehicle.ignition === true;
+  const currentSpeed = parseFloat(vehicle.current_speed ?? vehicle.speed ?? 0);
+  const isMovingWithIgnition = isIgnitionOn && currentSpeed > 2;
+
   const handleSave = async (e) => {
     e.preventDefault();
+    if (safetyPark && isMovingWithIgnition) {
+      setError('Cannot enable Safety Parking while vehicle ignition is ON and speed > 2 km/h. Vehicle must be stopped with engine OFF.');
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -403,16 +411,24 @@ export default function VehicleAlertSettingsModal({ isOpen, onClose, vehicle, on
               </label>
               <button
                 type="button"
-                onClick={() => setSafetyPark(!safetyPark)}
+                onClick={() => {
+                  if (!safetyPark && isMovingWithIgnition) {
+                    setError('Cannot enable Safety Parking while vehicle ignition is ON and speed > 2 km/h. Vehicle must be stopped with engine OFF.');
+                    return;
+                  }
+                  setError(null);
+                  setSafetyPark(!safetyPark);
+                }}
+                disabled={!safetyPark && isMovingWithIgnition}
                 style={{
                   padding: '4px 12px',
                   borderRadius: '20px',
                   border: 'none',
-                  background: safetyPark ? '#DC2626' : '#CBD5E1',
-                  color: '#FFFFFF',
+                  background: safetyPark ? '#DC2626' : (isMovingWithIgnition ? '#E2E8F0' : '#CBD5E1'),
+                  color: (isMovingWithIgnition && !safetyPark) ? '#94A3B8' : '#FFFFFF',
                   fontSize: '11px',
                   fontWeight: 800,
-                  cursor: 'pointer',
+                  cursor: (isMovingWithIgnition && !safetyPark) ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '4px',
@@ -426,6 +442,12 @@ export default function VehicleAlertSettingsModal({ isOpen, onClose, vehicle, on
             <p style={{ fontSize: '12px', color: safetyPark ? '#991B1B' : '#64748B', margin: 0, lineHeight: 1.4 }}>
               When armed, if this vehicle moves (speed &gt; 1 km/h) or the engine turns ON, an immediate continuous police siren will sound across the application until turned off.
             </p>
+            {isMovingWithIgnition && (
+              <div style={{ marginTop: '8px', fontSize: '12px', color: '#DC2626', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <AlertCircle size={14} />
+                Vehicle is currently moving with ignition ON ({Math.round(currentSpeed)} km/h). Safety Parking cannot be armed.
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}

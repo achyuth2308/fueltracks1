@@ -138,6 +138,16 @@ const VehicleDetailPage = () => {
   const handleToggleSafetyPark = async () => {
     const isCurrentlyArmed = vehicle?.metadata?.safetyPark === 'YES';
     const nextVal = !isCurrentlyArmed;
+
+    if (nextVal) {
+      const isIgnitionOn = vehicle?.current_ignition === true || vehicle?.ignition === true;
+      const currentSpeed = parseFloat(vehicle?.current_speed ?? vehicle?.speed ?? 0);
+      if (isIgnitionOn && currentSpeed > 2) {
+        alert('Cannot enable Safety Parking while vehicle ignition is ON and speed > 2 km/h. Vehicle must be stopped with engine OFF.');
+        return;
+      }
+    }
+
     setSafetyParkLoading(true);
     try {
       const res = await vehicleApi.updateVehicleSettings(id, { safetyPark: nextVal ? 'YES' : 'NO' });
@@ -151,7 +161,7 @@ const VehicleDetailPage = () => {
         } : prev);
       }
     } catch (err) {
-      alert('Failed to update Safety Parking state');
+      alert(err.response?.data?.error || 'Failed to update Safety Parking state');
     } finally {
       setSafetyParkLoading(false);
     }
@@ -275,14 +285,28 @@ const VehicleDetailPage = () => {
       }
     };
 
+    const handleSafetyParkUpdate = (data) => {
+      if (data?.vehicleId === id && data?.safetyPark !== undefined) {
+        setVehicle(prev => !prev ? null : {
+          ...prev,
+          metadata: {
+            ...(prev.metadata || {}),
+            safetyPark: data.safetyPark
+          }
+        });
+      }
+    };
+
     socket.on('location:update', handleUpdate);
     socket.on('alert:new', handleAlert);
     socket.on('vehicle:state', handleVehicleState);
+    socket.on('vehicle:safety_park', handleSafetyParkUpdate);
 
     return () => {
       socket.off('location:update', handleUpdate);
       socket.off('alert:new', handleAlert);
       socket.off('vehicle:state', handleVehicleState);
+      socket.off('vehicle:safety_park', handleSafetyParkUpdate);
     };
   }, [socket, id]);
 
@@ -431,40 +455,56 @@ const VehicleDetailPage = () => {
           </button>
 
           {/* Safety Parking (Theft Alarm) Action Button */}
-          <button
-            onClick={handleToggleSafetyPark}
-            disabled={safetyParkLoading}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              borderRadius: '8px',
-              background: vehicle.metadata?.safetyPark === 'YES' ? '#EFF6FF' : '#F8FAFC',
-              color: vehicle.metadata?.safetyPark === 'YES' ? '#1D4ED8' : '#475569',
-              border: vehicle.metadata?.safetyPark === 'YES' ? '1px solid #BFDBFE' : '1px solid #CBD5E1',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: safetyParkLoading ? 'wait' : 'pointer',
-              boxShadow: vehicle.metadata?.safetyPark === 'YES' ? '0 0 0 2px rgba(59, 130, 246, 0.25)' : 'none',
-              transition: 'all 0.15s'
-            }}
-            title={vehicle.metadata?.safetyPark === 'YES' ? "Safety Parking is ARMED: Police siren will trigger if engine turns ON or vehicle moves >1 km/h!" : "Click to arm Safety Parking"}
-          >
-            {safetyParkLoading ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : vehicle.metadata?.safetyPark === 'YES' ? (
-              <>
-                <ShieldCheck size={15} color="#2563EB" />
-                <span>Safety Park: ARMED</span>
-              </>
-            ) : (
-              <>
-                <Shield size={15} color="#64748B" />
-                <span>Safety Park: OFF</span>
-              </>
-            )}
-          </button>
+          {(() => {
+            const isArmed = vehicle.metadata?.safetyPark === 'YES';
+            const isIgnitionOn = vehicle.current_ignition === true || vehicle.ignition === true;
+            const currentSpeed = parseFloat(vehicle.current_speed ?? vehicle.speed ?? 0);
+            const isMovingWithIgnition = isIgnitionOn && currentSpeed > 2;
+
+            return (
+              <button
+                onClick={handleToggleSafetyPark}
+                disabled={safetyParkLoading || (!isArmed && isMovingWithIgnition)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  background: isArmed ? '#EFF6FF' : (isMovingWithIgnition ? '#F1F5F9' : '#F8FAFC'),
+                  color: isArmed ? '#1D4ED8' : (isMovingWithIgnition ? '#94A3B8' : '#475569'),
+                  border: isArmed ? '1px solid #BFDBFE' : '1px solid #CBD5E1',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: safetyParkLoading ? 'wait' : (isMovingWithIgnition && !isArmed ? 'not-allowed' : 'pointer'),
+                  boxShadow: isArmed ? '0 0 0 2px rgba(59, 130, 246, 0.25)' : 'none',
+                  transition: 'all 0.15s',
+                  opacity: (!isArmed && isMovingWithIgnition) ? 0.7 : 1
+                }}
+                title={
+                  isArmed
+                    ? "Safety Parking is ARMED: Police siren will trigger if engine turns ON or vehicle moves >1 km/h!"
+                    : (isMovingWithIgnition
+                        ? "Cannot arm Safety Parking: Vehicle ignition is ON and speed > 0"
+                        : "Click to arm Safety Parking")
+                }
+              >
+                {safetyParkLoading ? (
+                  <Loader2 size={15} className="animate-spin" />
+                ) : isArmed ? (
+                  <>
+                    <ShieldCheck size={15} color="#2563EB" />
+                    <span>Safety Park: ARMED</span>
+                  </>
+                ) : (
+                  <>
+                    <Shield size={15} color={isMovingWithIgnition ? "#94A3B8" : "#64748B"} />
+                    <span>Safety Park: OFF</span>
+                  </>
+                )}
+              </button>
+            );
+          })()}
 
           {/* Test Police Siren Button */}
           <button

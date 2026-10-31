@@ -192,12 +192,23 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         return; // Suppress noisy battery chatter
       }
 
-      // CRITICAL: Emergency Safety Parking Theft Alarms bypass all role and preference filters!
+      // Safety Parking Theft Alarms:
+      // Only sound the police siren and show emergency banner for the customer who owns this vehicle
       if (type === 'safety_park') {
         setAlerts((prev) => [data, ...prev]);
-        setLatestToast(data);
-        setTimeout(() => setLatestToast(null), 8000);
-        startPoliceSiren(data);
+
+        // Never play police siren or hijack screen for superadmin or dealer
+        if (user?.role === 'superadmin' || user?.role === 'dealer') {
+          return;
+        }
+
+        // For customers / vehicle owners, only trigger siren if vehicle is in their assigned list
+        const isUserVehicle = !vehicles || vehicles.length === 0 || vehicles.some(v => v.id === data.vehicleId || v.imei === data.imei);
+        if (isUserVehicle) {
+          setLatestToast(data);
+          setTimeout(() => setLatestToast(null), 8000);
+          startPoliceSiren(data);
+        }
         return;
       }
 
@@ -556,14 +567,27 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
       </div>
 
-      {/* Active Police Siren Emergency Theft Banner */}
+      {/* Active Police Siren Emergency Theft Banner & Red Screen Edge Border */}
       {activeSirenAlert && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 9999999,
+        <>
+          {/* Full Screen Red Pulsing Border Line around entire screen */}
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 9999998,
+            boxSizing: 'border-box',
+            border: '5px solid #EF4444',
+            boxShadow: 'inset 0 0 35px rgba(239, 68, 68, 0.75), 0 0 25px rgba(239, 68, 68, 0.5)',
+            animation: 'sirenPulse 1s ease-in-out infinite'
+          }} />
+
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 9999999,
           background: 'linear-gradient(90deg, #DC2626, #B91C1C, #7F1D1D)',
           color: '#FFFFFF',
           padding: '12px 24px',
@@ -645,6 +669,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             </button>
           </div>
         </div>
+        </>
       )}
 
       {/* Global Live Toast Notification */}

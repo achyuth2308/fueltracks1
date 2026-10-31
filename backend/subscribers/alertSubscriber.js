@@ -270,8 +270,10 @@ async function start(io) {
       // Emit to single vehicle room
       io.to(`vehicle:${vehicleId}`).emit('alert:new', payload);
 
-      // Emit to organization room
-      io.to(`org:${orgId}`).emit('alert:new', payload);
+      // Emit to organization room for general fleet events, but exclude safety_park theft sirens so admins are not spammed
+      if (finalAlertType !== 'safety_park') {
+        io.to(`org:${orgId}`).emit('alert:new', payload);
+      }
 
       // 5.5 Cache in Redis for instant Topbar retrieval
       try {

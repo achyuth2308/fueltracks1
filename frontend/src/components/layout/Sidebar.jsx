@@ -104,7 +104,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           name: 'Trips',
           path: '/trips',
           icon: RouteIcon,
-          roles: ['customer', 'superadmin', 'dealer'],
+          roles: ['customer'],
           subItems: [
             { name: 'Total Trip', path: '/trips?type=total', type: 'total' },
             { name: 'Automated Trips', path: '/trips?type=automated', type: 'automated' },
@@ -135,7 +135,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           name: 'Reports',
           path: '/admin/reports/consolidated',
           icon: FileText,
-          roles: ['customer', 'superadmin', 'dealer'],
+          roles: ['customer'],
           subItems: [
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
             { name: 'Daily Distance', path: '/admin/reports/distance' },

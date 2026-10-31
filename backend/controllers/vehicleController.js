@@ -368,6 +368,33 @@ const VehicleController = {
           finalMetadata.odometerSnapshot = String(currentGpsOdo);
         }
       }
+      if (finalMetadata && (finalMetadata.safetyPark === 'YES' || finalMetadata.safetyPark === true)) {
+        let isIgnitionOn = oldVehicle.current_ignition === true;
+        let currentSpeed = parseFloat(oldVehicle.current_speed) || 0;
+
+        if (oldVehicle.imei) {
+          try {
+            const stateRaw = await redis.get(`vehicle:state:${oldVehicle.imei}`);
+            if (stateRaw) {
+              const liveState = JSON.parse(stateRaw);
+              if (liveState.finalIgnition !== undefined || liveState.ignition !== undefined) {
+                isIgnitionOn = liveState.finalIgnition === true || liveState.ignition === true;
+              }
+              if (liveState.speed !== undefined) {
+                currentSpeed = parseFloat(liveState.speed) || 0;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (isIgnitionOn && currentSpeed > 2) {
+          return res.status(400).json({
+            success: false,
+            error: 'Cannot enable Safety Parking while vehicle is running and moving (ignition ON and speed > 2 km/h). Vehicle must be stopped with engine OFF.',
+            code: 'SAFETY_PARK_NOT_ALLOWED'
+          });
+        }
+      }
 
       const updated = await VehicleModel.update(id, {
         name,
@@ -549,6 +576,36 @@ const VehicleController = {
       if (alertConfig !== undefined && typeof alertConfig === 'object') newMetadata.alertConfig = alertConfig;
       if (safetyPark !== undefined) {
         const isSafetyParkOn = safetyPark === 'YES' || safetyPark === true;
+
+        if (isSafetyParkOn) {
+          // Disallow enabling Safety Parking if vehicle has ignition ON and speed > 0
+          let isIgnitionOn = vehicle.current_ignition === true;
+          let currentSpeed = parseFloat(vehicle.current_speed) || 0;
+
+          if (vehicle.imei) {
+            try {
+              const stateRaw = await redis.get(`vehicle:state:${vehicle.imei}`);
+              if (stateRaw) {
+                const liveState = JSON.parse(stateRaw);
+                if (liveState.finalIgnition !== undefined || liveState.ignition !== undefined) {
+                  isIgnitionOn = liveState.finalIgnition === true || liveState.ignition === true;
+                }
+                if (liveState.speed !== undefined) {
+                  currentSpeed = parseFloat(liveState.speed) || 0;
+                }
+              }
+            } catch (_) {}
+          }
+
+          if (isIgnitionOn && currentSpeed > 2) {
+            return res.status(400).json({
+              success: false,
+              error: 'Cannot enable Safety Parking while vehicle is running and moving (ignition ON and speed > 2 km/h). Vehicle must be stopped with engine OFF.',
+              code: 'SAFETY_PARK_NOT_ALLOWED'
+            });
+          }
+        }
+
         newMetadata.safetyPark = isSafetyParkOn ? 'YES' : 'NO';
         if (!isSafetyParkOn) {
           await redis.del(`vehicle:safety_park_fired:${id}`);

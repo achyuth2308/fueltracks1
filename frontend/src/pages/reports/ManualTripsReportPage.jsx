@@ -234,7 +234,7 @@ const ManualTripsReportPage = () => {
 
   const columns = [
     'S.No', 'Vehicle', 'Trip Pair', 'Origin Geofence', 'Departure Time',
-    'Destination Geofence', 'Arrival Time', 'Trip Type', 'Duration',
+    'Destination Geofence', 'Arrival Time', 'Duration',
     'Distance (km)', 'Max Speed (km/h)', 'Avg Speed (km/h)', 'Fuel (L)'
   ];
 
@@ -247,7 +247,6 @@ const ManualTripsReportPage = () => {
       'Departure Time': row.departure_time ? formatLocalTime(row.departure_time) : '-',
       'Destination Geofence': row.to_geofence_name || 'End',
       'Arrival Time': row.arrival_time ? formatLocalTime(row.arrival_time) : '-',
-      'Trip Type': row.trip_type === 'same_location' ? 'Round Loop' : 'Point-to-Point',
       'Duration': formatDuration(row.duration_seconds),
       'Distance (km)': row.distance_km || 0,
       'Max Speed (km/h)': row.max_speed_kmh || 0,
@@ -747,20 +746,6 @@ const ManualTripsReportPage = () => {
                   <td style={{ padding: '12px 14px', fontSize: '12px', color: '#1E293B', fontWeight: 600 }}>{formatLocalTime(row.departure_time)}</td>
                   <td style={{ padding: '12px 14px', fontSize: '12px', color: '#475569', fontWeight: 600 }}>{row.to_geofence_name}</td>
                   <td style={{ padding: '12px 14px', fontSize: '12px', color: '#1E293B', fontWeight: 600 }}>{formatLocalTime(row.arrival_time)}</td>
-                  
-                  {/* Trip Type Badge */}
-                  <td style={{ padding: '12px 14px' }}>
-                    <span style={{
-                      padding: '3px 8px',
-                      borderRadius: '12px',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      background: row.trip_type === 'same_location' ? '#ECFDF5' : '#F0F9FF',
-                      color: row.trip_type === 'same_location' ? '#059669' : '#0284C7',
-                    }}>
-                      {row.trip_type === 'same_location' ? 'Round Loop' : 'Point-to-Point'}
-                    </span>
-                  </td>
 
                   <td style={{ padding: '12px 14px', fontSize: '12px', color: '#0F172A', fontWeight: 700 }}>
                     {formatDuration(row.duration_seconds)}
