@@ -886,7 +886,7 @@ const GeofenceOneWayReportPage = () => {
             </label>
             <CustomDatePicker
               value={startDate}
-              onChange={(val) => setStartDate(val)}
+              onChange={(e) => setStartDate(e?.target?.value !== undefined ? e.target.value : String(e || ''))}
               showTimeSelect={true}
               placeholder="Start Date & Time"
             />
@@ -899,7 +899,7 @@ const GeofenceOneWayReportPage = () => {
             </label>
             <CustomDatePicker
               value={endDate}
-              onChange={(val) => setEndDate(val)}
+              onChange={(e) => setEndDate(e?.target?.value !== undefined ? e.target.value : String(e || ''))}
               showTimeSelect={true}
               placeholder="End Date & Time"
             />

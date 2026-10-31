@@ -657,7 +657,7 @@ const GeofenceRoundTripReportPage = () => {
               </label>
               <CustomDatePicker
                 value={startDate}
-                onChange={(val) => setStartDate(val)}
+                onChange={(e) => setStartDate(e?.target?.value !== undefined ? e.target.value : String(e || ''))}
                 className="h-9 text-xs"
               />
             </div>
@@ -668,7 +668,7 @@ const GeofenceRoundTripReportPage = () => {
               </label>
               <CustomDatePicker
                 value={endDate}
-                onChange={(val) => setEndDate(val)}
+                onChange={(e) => setEndDate(e?.target?.value !== undefined ? e.target.value : String(e || ''))}
                 className="h-9 text-xs"
               />
             </div>
@@ -747,7 +747,7 @@ const GeofenceRoundTripReportPage = () => {
               )}
             </div>
             <span className="text-xs text-slate-500">
-              Showing range from {startDate.replace('T', ' ')} to {endDate.replace('T', ' ')}
+              Showing range from {String(startDate?.target?.value || startDate || '').replace('T', ' ')} to {String(endDate?.target?.value || endDate || '').replace('T', ' ')}
             </span>
           </div>
 
