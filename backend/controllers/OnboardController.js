@@ -263,8 +263,9 @@ const OnboardController = {
         const vehicleNameValue = vehicleName || `Vehicle ${deviceId}`;
 
         const issuedDate = new Date();
-        const expireDate = new Date();
+        const expireDate = new Date(issuedDate.getTime());
         expireDate.setFullYear(expireDate.getFullYear() + 1);
+        expireDate.setDate(expireDate.getDate() - 1);
 
         await client.query(
           `INSERT INTO vehicles 
@@ -709,6 +710,7 @@ const OnboardController = {
         }
         const expireDate = new Date(issuedDate.getTime());
         expireDate.setFullYear(expireDate.getFullYear() + 1);
+        expireDate.setDate(expireDate.getDate() - 1);
 
         // 5. Upsert Vehicle
         const vehicleRes = await client.query(

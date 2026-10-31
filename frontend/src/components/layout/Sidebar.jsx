@@ -35,6 +35,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const { user, logout, restoreAdmin, hasAdminSession } = useAuth();
+  const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!localStorage.getItem('adminToken'));
   const navigate = useNavigate();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -614,7 +615,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           borderTop: '1px solid #475569',
           flexShrink: 0,
         }}>
-          {hasAdminSession && (
+          {isImpersonating && (
             <button
               onClick={handleRestoreAdmin}
               className="text-[12px] md:text-[14px] px-2 py-1.5 md:px-3 md:py-2.5 mb-1 md:mb-2 gap-2 md:gap-3 rounded-[6px] md:rounded-[10px] hover:bg-[#64748b]"

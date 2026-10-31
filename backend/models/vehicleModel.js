@@ -6,6 +6,36 @@
 const db = require('../config/db');
 const { redis } = require('../config/redis');
 
+function enrichVehicleFuel(v) {
+  if (!v) return v;
+  let tankCap = null;
+  const meta = v.metadata || {};
+  const fuelCal = meta.fuelCalibration || meta.fuel || {};
+  if (fuelCal.tanks && typeof fuelCal.tanks === 'object') {
+    const tVals = Object.values(fuelCal.tanks);
+    const sumCap = tVals.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);
+    if (sumCap > 0) tankCap = Math.round(sumCap * 10) / 10;
+  }
+  if (!tankCap) {
+    const rawCap = parseFloat(fuelCal.tankSize || meta.tankSize || meta.tankCapacity);
+    if (!isNaN(rawCap) && rawCap > 0) tankCap = Math.round(rawCap * 10) / 10;
+  }
+
+  const curFuel = v.current_fuel != null && !isNaN(v.current_fuel)
+    ? Math.round(parseFloat(v.current_fuel) * 10) / 10
+    : null;
+  const fuelPercent = (tankCap > 0 && curFuel != null)
+    ? Math.max(0, Math.min(100, Math.round((curFuel / tankCap) * 1000) / 10))
+    : null;
+
+  return {
+    ...v,
+    current_fuel: curFuel,
+    tank_capacity: tankCap,
+    fuel_percentage: fuelPercent
+  };
+}
+
 const VehicleModel = {
   /**
    * Find vehicle by IMEI (used by TCP server to match packets)
@@ -74,7 +104,7 @@ const VehicleModel = {
        WHERE v.id = $1`,
       [vehicleId]
     );
-    return result.rows[0] || null;
+    return result.rows[0] ? enrichVehicleFuel(result.rows[0]) : null;
   },
 
   /**
@@ -208,7 +238,7 @@ const VehicleModel = {
     );
 
     return {
-      vehicles: result.rows,
+      vehicles: result.rows.map(enrichVehicleFuel),
       pagination: {
         page,
         limit,
@@ -218,10 +248,19 @@ const VehicleModel = {
     };
   },
 
-  /**
-   * Create a new vehicle (IMEI is required!)
-   */
   async create({ orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate, licenceExpireDate, metadata, category, isSandMining }) {
+    let finalIssuedDate = licenceIssuedDate || null;
+    let finalExpireDate = licenceExpireDate || null;
+    if (finalIssuedDate && !finalExpireDate) {
+      const d = new Date(finalIssuedDate);
+      if (!isNaN(d.getTime())) {
+        const exp = new Date(d.getTime());
+        exp.setFullYear(exp.getFullYear() + 1);
+        exp.setDate(exp.getDate() - 1);
+        finalExpireDate = exp;
+      }
+    }
+
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
@@ -231,7 +270,7 @@ const VehicleModel = {
         `INSERT INTO vehicles (org_id, imei, name, plate, model, driver_name, driver_phone, server_name, gps_sim_no, device_version, timezone, apn, licence_issued_date, licence_expire_date, metadata, category, is_sand_mining)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
          RETURNING *`,
-        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, licenceIssuedDate || null, licenceExpireDate || null, metadata || {}, category || 'General', isSandMining || false]
+        [orgId, imei, name, plate, model, driverName, driverPhone, serverName, gpsSimNo, deviceVersion, timezone, apn, finalIssuedDate, finalExpireDate, metadata || {}, category || 'General', isSandMining || false]
       );
       const vehicle = result.rows[0];
 

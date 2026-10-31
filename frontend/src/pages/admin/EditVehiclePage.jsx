@@ -95,7 +95,7 @@ const SelectField = ({ label, value, onChange, options, placeholder = "-- Select
   return (
     <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', position: 'relative' }}>
       <label style={labelStyle}>{label}</label>
-      
+
       {/* Trigger Button */}
       <div
         onClick={() => setIsOpen(!isOpen)}
@@ -359,7 +359,7 @@ const getDevicePort = (model) => {
   if (DEVICE_MODEL_PORTS[norm]) return DEVICE_MODEL_PORTS[norm];
   // Sort keys by descending length so compound keys like 'VOLTYFUEL' match before 'VOLTY'
   const sortedKeys = Object.keys(DEVICE_MODEL_PORTS).sort((a, b) => b.length - a.length);
-  const found = sortedKeys.find(key => 
+  const found = sortedKeys.find(key =>
     norm.includes(key.toUpperCase()) || key.toUpperCase().includes(norm)
   );
   return found ? DEVICE_MODEL_PORTS[found] : '5007';
@@ -384,6 +384,37 @@ const EditVehiclePage = () => {
   const [orgs, setOrgs] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
 
+  const getTodayStr = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+  };
+
+  const calculateLicenceExpiryDate = (issuedDateStr) => {
+    if (!issuedDateStr) return '';
+    let parts;
+    if (typeof issuedDateStr === 'string' && issuedDateStr.includes('-')) {
+      parts = issuedDateStr.split('T')[0].split('-');
+    }
+    if (!parts || parts.length !== 3) {
+      const parsed = new Date(issuedDateStr);
+      if (isNaN(parsed.getTime())) return '';
+      parts = [parsed.getFullYear(), parsed.getMonth() + 1, parsed.getDate()];
+    }
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10) - 1;
+    const d = parseInt(parts[2], 10);
+    const dt = new Date(y, m, d);
+    dt.setFullYear(dt.getFullYear() + 1);
+    dt.setDate(dt.getDate() - 1);
+    const outY = dt.getFullYear();
+    const outM = String(dt.getMonth() + 1).padStart(2, '0');
+    const outD = String(dt.getDate()).padStart(2, '0');
+    return `${outY}-${outM}-${outD}`;
+  };
+
   // Form State containing ONLY the requested fields
   const [form, setForm] = useState({
     imei: '',
@@ -395,8 +426,8 @@ const EditVehiclePage = () => {
     deviceVersion: 'GT06N (9964)',
     timezone: 'IST',
     apn: '',
-    licenceIssuedDate: '',
-    licenceExpireDate: '',
+    licenceIssuedDate: getTodayStr(),
+    licenceExpireDate: calculateLicenceExpiryDate(getTodayStr()),
     orgId: '',
     driverName: '',
     driverPhone: '',
@@ -432,6 +463,7 @@ const EditVehiclePage = () => {
       engineOnStatus: 'Ignition',
       vehicleVoltage: '',
       odometerReading: '0',
+      odometerSnapshot: '0',
       overSpeedLimit: '60',
       expectedMileage: '0',
       enableDebugs: 'Disable',
@@ -526,6 +558,7 @@ const EditVehiclePage = () => {
               engineOnStatus: meta.engineOnStatus || meta.engineOn || 'Ignition',
               vehicleVoltage: meta.vehicleVoltage || meta.batteryVoltage || '',
               odometerReading: meta.odometerReading || meta.odoDistance || '0',
+              odometerSnapshot: meta.odometerSnapshot || '0',
               overSpeedLimit: meta.overSpeedLimit || '60',
               expectedMileage: meta.expectedMileage || '0',
               enableDebugs: meta.enableDebugs || 'Disable',
@@ -847,7 +880,20 @@ const EditVehiclePage = () => {
             label="Licence Issued Date"
             type="date"
             value={form.licenceIssuedDate}
-            onChange={e => { updateField('licenceIssuedDate', e.target.value); updateMeta('licenceIssuedDate', e.target.value); }}
+            onChange={e => {
+              const newIssued = e.target.value;
+              const newExpiry = calculateLicenceExpiryDate(newIssued);
+              setForm(prev => ({
+                ...prev,
+                licenceIssuedDate: newIssued,
+                licenceExpireDate: newExpiry,
+                metadata: {
+                  ...prev.metadata,
+                  licenceIssuedDate: newIssued,
+                  licenceExpireDate: newExpiry
+                }
+              }));
+            }}
             focused={focusedField === 'licIss'}
             onFocus={() => setFocusedField('licIss')}
             onBlur={() => setFocusedField(null)}

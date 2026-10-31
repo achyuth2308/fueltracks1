@@ -5,6 +5,7 @@
 // ============================================================
 
 const { redis, createSubscriber } = require('../config/redis');
+const db = require('../config/db');
 const OrgModel = require('../models/orgModel');
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
@@ -170,7 +171,7 @@ async function start(io) {
           }
           // State transition: connected/unknown -> disconnected
           try {
-            await redis.set(batteryStateKey, 'disconnected');
+            await redis.set(batteryStateKey, 'disconnected', 'EX', 48 * 3600);
           } catch (rErr) {
             console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
           }
@@ -185,7 +186,7 @@ async function start(io) {
             // Initial state: device startup with battery already connected.
             // Latch state without firing an alert since it was never disconnected.
             try {
-              await redis.set(batteryStateKey, 'connected');
+              await redis.set(batteryStateKey, 'connected', 'EX', 48 * 3600);
             } catch (rErr) {
               console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
             }
@@ -193,7 +194,7 @@ async function start(io) {
           }
           // State transition: disconnected -> connected
           try {
-            await redis.set(batteryStateKey, 'connected');
+            await redis.set(batteryStateKey, 'connected', 'EX', 48 * 3600);
           } catch (rErr) {
             console.warn('[SUBSCRIBER] Redis battery state set warning:', rErr.message);
           }
@@ -237,7 +238,18 @@ async function start(io) {
 
       // Dispatch external notifications (Email, SMS, Telegram, WhatsApp) based on org alert matrix & settings
       try {
-        const org = await OrgModel.findById(orgId);
+        let org = null;
+        try {
+          const cached = await redis.get(`org:minimal:${orgId}`);
+          if (cached) org = JSON.parse(cached);
+        } catch (_) {}
+        if (!org) {
+          const oRes = await db.query('SELECT id, name, type, settings, email, phone FROM organizations WHERE id = $1', [orgId]);
+          if (oRes.rows.length > 0) {
+            org = oRes.rows[0];
+            await redis.set(`org:minimal:${orgId}`, JSON.stringify(org), 'EX', 120).catch(() => {});
+          }
+        }
         if (org) {
           await NotificationService.dispatchAlertWithMatrix(org, finalAlertType, finalAlertText, {
             name: vehicle.name,
@@ -246,6 +258,8 @@ async function start(io) {
             address,
             deviceTime
           });
+          // Enqueue WhatsApp alert to DB outbox
+          await NotificationService.enqueueWhatsAppAlert(alert, vehicle, org, address, data.alertPayload || {});
         }
       } catch (notifyErr) {
         console.error('[SUBSCRIBER] Error sending alert notifications:', notifyErr.message);

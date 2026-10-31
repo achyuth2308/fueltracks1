@@ -109,6 +109,18 @@ module.exports = {
       error_file: '/var/log/pm2/fueltracks-disk-monitor-error.log',
       out_file: '/var/log/pm2/fueltracks-disk-monitor-out.log',
       merge_logs: true,
+    },
+    {
+      name: 'fueltracks-daily-report',
+      script: 'backend/jobs/dailyReportJob.js',
+      instances: 1,
+      exec_mode: 'fork',
+      cron_restart: '*/15 * * * *', // Run every 15 minutes to match customer IST configured times
+      autorestart: false,
+      env_production: { NODE_ENV: 'production' },
+      error_file: '/var/log/pm2/fueltracks-daily-report-error.log',
+      out_file: '/var/log/pm2/fueltracks-daily-report-out.log',
+      merge_logs: true,
     }
   ],
 };

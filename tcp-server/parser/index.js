@@ -23,6 +23,10 @@ const {
   parseVamoGeneralPacket,
   parseVamoHealthPacket,
 } = require('./ais140V2Parser');
+const {
+  parseApmkGeneralPacket,
+  parseApmkHealthPacket,
+} = require('./apmkParser');
 const { parseVoltyPacket } = require('./voltyParser');
 
 /**
@@ -32,6 +36,24 @@ const { parseVoltyPacket } = require('./voltyParser');
  */
 function parsePacket(raw) {
   const trimmed = raw.trim();
+
+  // ---- APMK PROTOCOL — isolated vendor variant of AIS140 V2 ($PVT,APMK and $HEL,APMK) ----
+  if (trimmed.startsWith('$PVT,APMK') || trimmed.startsWith('$PVT,apmk')) {
+    try {
+      const apmkParsed = parseApmkGeneralPacket(trimmed);
+      if (apmkParsed) return apmkParsed;
+    } catch (e) {
+      console.warn(`[PARSER - APMK] Error parsing APMK PVT packet: ${e.message}`);
+    }
+  }
+  if (trimmed.startsWith('$HEL,APMK') || trimmed.startsWith('$HEL,apmk')) {
+    try {
+      const apmkHealth = parseApmkHealthPacket(trimmed);
+      if (apmkHealth) return apmkHealth;
+    } catch (e) {
+      console.warn(`[PARSER - APMK] Error parsing APMK HEL packet: ${e.message}`);
+    }
+  }
 
   // ---- VAMO PROTOCOL — must be checked BEFORE Volty because VAMO also uses $PVT/$HEL headers ----
   // VAMO devices are AIS140 V2 variant that transmit $PVT,VAMO,... and $HEL,VAMO,...
@@ -53,9 +75,9 @@ function parsePacket(raw) {
     }
   }
 
-  // ---- VOLTY PROTOCOL (VLT1/Volty signature only — VAMO excluded above) ----
+  // ---- VOLTY PROTOCOL (VLT1/Volty signature only — VAMO & APMK excluded above) ----
   if (trimmed.includes('VLT1') || trimmed.includes('Volty') || trimmed.startsWith('$VLT') ||
-      ((trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD')) && !trimmed.includes(',VAMO,'))) {
+      ((trimmed.startsWith('$PVT') || trimmed.startsWith('$HEL') || trimmed.startsWith('$SET') || trimmed.startsWith('$DOD')) && !trimmed.includes(',VAMO,') && !trimmed.includes(',APMK,'))) {
     try {
       const voltyParsed = parseVoltyPacket(trimmed);
       if (voltyParsed) return voltyParsed;

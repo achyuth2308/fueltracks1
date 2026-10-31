@@ -32,6 +32,8 @@ const MiningRegistrationController = require('./controllers/miningRegistrationCo
 const path = require('path');
 const publicApiRoutes = require('./routes/publicApiRoutes');
 const geocodeRoutes = require('./routes/geocodeRoutes');
+const { webhookRouter: whatsappWebhookRoutes, apiRouter: whatsappApiRoutes } = require('./routes/whatsappRoutes');
+const whatsappWorker = require('./jobs/whatsappWorker');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -67,6 +69,7 @@ const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 50000 : 25000,
   keyGenerator: (req) => getClientIp(req),
+  skip: (req) => req.originalUrl && req.originalUrl.startsWith('/api/webhooks/whatsapp'),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -81,6 +84,7 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: isDev ? 1000 : 200,
   keyGenerator: (req) => getClientIp(req),
+  skip: (req) => req.originalUrl && req.originalUrl.startsWith('/api/webhooks/whatsapp'),
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -142,7 +146,12 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: '1mb' })); // JSON parser with body size limit
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev')); // HTTP Logging
 
 // Apply global no-cache headers for API routes
@@ -180,6 +189,10 @@ app.use('/api/alerts', alertsRoutes);
 // app.use('/api/trips', tripRoutes); // Manual trips removed per user request
 app.use('/api/mining-registrations', miningRegistrationRoutes);
 
+// ─── WhatsApp Webhooks & Management API ───────────────────────
+app.use('/api/webhooks/whatsapp', whatsappWebhookRoutes);
+app.use('/api/whatsapp', whatsappApiRoutes);
+
 // ─── Third-Party Public API ───────────────────────────────────
 // Auth: X-API-Key header (no JWT required)
 app.use('/api/v1', publicApiRoutes);
@@ -188,6 +201,160 @@ app.use('/api/geocode', geocodeRoutes);
 const sclenRoutes = require('./routes/sclenRoutes');
 app.use('/api', sclenRoutes); // Mounts /api/GET_INFORMATION_BY_RTO
 
+
+const tunnelService = require('./services/tunnelService');
+
+// Dynamic Network Info for QR Code verification
+app.get('/api/network-info', async (req, res) => {
+  try {
+    const lanIp = tunnelService.getLanIp();
+    const tunnelUrl = await tunnelService.getTunnelUrl(5173);
+
+    res.json({
+      success: true,
+      lanIp,
+      port: 5173,
+      lanUrl: `http://${lanIp}:5173`,
+      tunnelUrl: tunnelUrl || '',
+      prodUrl: 'https://www.fueltracks.in'
+    });
+  } catch (err) {
+    console.error('Error in /api/network-info:', err);
+    res.json({
+      success: true,
+      lanIp: 'localhost',
+      port: 5173,
+      lanUrl: 'http://localhost:5173',
+      tunnelUrl: '',
+      prodUrl: 'https://www.fueltracks.in'
+    });
+  }
+});
+
+app.post('/api/tunnel/restart', async (req, res) => {
+  try {
+    tunnelService.cleanup();
+    const newUrl = await tunnelService.startTunnel(5173);
+    res.json({ success: true, tunnelUrl: newUrl });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Public endpoint for certificate verification (no auth required)
+app.get('/api/public/certificate/:identifier', async (req, res) => {
+  try {
+    const { identifier } = req.params;
+    if (!identifier) {
+      return res.status(400).json({ success: false, message: 'Identifier required' });
+    }
+
+    const query = `
+      SELECT v.*, o.name AS org_name
+      FROM vehicles v
+      LEFT JOIN organizations o ON v.org_id = o.id
+      WHERE v.imei = $1 
+         OR v.plate ILIKE $1 
+         OR v.id::text = $1
+         OR v.metadata->>'certSerialNo' = $1
+      LIMIT 1
+    `;
+    const result = await db.query(query, [identifier]);
+
+    if (result.rowCount === 0) {
+      const miningQuery = `
+        SELECT * FROM mining_registrations 
+        WHERE imei_number = $1 OR vehicle_number ILIKE $1 
+        LIMIT 1
+      `;
+      const miningResult = await db.query(miningQuery, [identifier]).catch(() => ({ rowCount: 0, rows: [] }));
+      
+      if (miningResult.rowCount > 0) {
+        const m = miningResult.rows[0];
+        return res.json({
+          success: true,
+          data: {
+            vehicleNo: m.vehicle_number,
+            imei: m.imei_number,
+            engineNo: m.engine_number,
+            chassisNo: m.chassis_number,
+            customerName: m.customer_name,
+            phone: m.customer_phone,
+            ownerAddress: m.fo_address,
+            vltModel: m.device_model,
+            certNumber: `FT-FC-2026-${(m.imei_number || '').slice(-5)}`,
+            tacNo: 'AL9189'
+          }
+        });
+      }
+
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    const veh = result.rows[0];
+    const metadata = veh.metadata || {};
+    const imei = veh.imei || identifier;
+    const now = new Date();
+    const oneYearLater = new Date();
+    oneYearLater.setFullYear(now.getFullYear() + 1);
+
+    const formatDate = (d) => {
+      if (!d) return '';
+      const date = new Date(d);
+      if (isNaN(date.getTime())) return String(d);
+      return `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
+    };
+
+    // Resolve device model from database (Volty, Vamo, Tracknow, etc.)
+    const resolveDeviceModel = (v, meta) => {
+      const candidate = (
+        meta.deviceModel ||
+        meta.device_model ||
+        v.device_model ||
+        v.device_version ||
+        meta.deviceVersion ||
+        v.server_name ||
+        meta.serverName ||
+        meta.deviceType ||
+        ''
+      ).trim();
+
+      if (candidate) return candidate;
+
+      const vm = (v.model || '').trim();
+      if (vm && /^(volty|vamo|tracknow|teltonika|queclink|concox|convex|weft|gt06|smart|ft-)/i.test(vm)) {
+        return vm;
+      }
+      return 'Volty GPS Tracker';
+    };
+
+    const deviceModelResolved = resolveDeviceModel(veh, metadata);
+
+    return res.json({
+      success: true,
+      data: {
+        certNumber: metadata.certSerialNo || `FT-GPS-${now.getFullYear()}-${String(veh.id || '').replace(/\D/g, '').slice(-5).padStart(5, '0') || imei.slice(-5)}`,
+        vehicleNo: veh.plate || veh.name,
+        imei: imei,
+        sim1: veh.gps_sim_no || metadata.sim1 || metadata.gpsSimNo || metadata.sim || `+91 ${imei.slice(-10)}`,
+        installedDate: metadata.installationDate ? formatDate(metadata.installationDate) : formatDate(veh.licence_issued_date || now),
+        certIssuedDate: formatDate(veh.licence_issued_date || now),
+        expiryDate: formatDate(veh.licence_expire_date || oneYearLater),
+        customerName: metadata.ownerName || metadata.customerName || veh.driver_name || veh.org_name || 'Fleet Customer',
+        phone: metadata.ownerPhone || metadata.customerPhone || veh.driver_phone || '9000666914',
+        chassisNo: metadata.chassisNo || metadata.vin || `MB1H3LHD2${imei.slice(-7)}`,
+        engineNo: metadata.engineNo || metadata.engine_number || `NMHZ${imei.slice(-6)}`,
+        ownerAddress: metadata.ownerAddress || metadata.address || 'Hyderabad, Telangana - 500079',
+        deviceModel: deviceModelResolved,
+        fitmentLocation: metadata.fitmentLocation || 'Behind Co-driver Dashboard Firewall',
+        sealNumber: metadata.sealSerialNo || `FT-SEAL-${imei.slice(-6)}`
+      }
+    });
+  } catch (err) {
+    console.error('Certificate verification error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Mount Static File Serving for Uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -200,12 +367,19 @@ app.get('/health', async (req, res) => {
     // Check Redis status
     await redisConfig.redis.ping();
 
+    let whatsappHealth = { enabled: env.WHATSAPP_ENABLED };
+    try {
+      const { getQueueStatus } = require('./jobs/whatsappWorker');
+      whatsappHealth = await getQueueStatus();
+    } catch (_) {}
+
     res.status(200).json({
       success: true,
       status: 'OK',
       services: {
         database: 'connected',
         redis: 'connected',
+        whatsapp: whatsappHealth
       },
     });
   } catch (err) {
@@ -513,6 +687,15 @@ async function bootstrap() {
       }
     }, 5 * 60 * 1000);
 
+    // 5c. WhatsApp Outbox Worker (processes queued WhatsApp alert & report messages)
+    if (env.WHATSAPP_ENABLED) {
+      try {
+        whatsappWorker.start(3000);
+      } catch (waErr) {
+        console.error('[WHATSAPP-WORKER] Startup warning:', waErr.message);
+      }
+    }
+
   } catch (err) {
     console.error('[BOOT] Bootstrap failed:', err);
     process.exit(1);
@@ -528,6 +711,7 @@ async function shutdown() {
     try {
       await locationSubscriber.stop();
       await alertSubscriber.stop();
+      try { whatsappWorker.stop(); } catch (_) {}
       await redisConfig.redis.quit();
       await db.pool.end();
       console.log('[SERVER] Connections closed. Exit complete.');

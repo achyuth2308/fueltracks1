@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation, Truck } from 'lucide-react';
+import { Search, CreditCard, ShieldAlert, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation, Truck } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -11,6 +11,7 @@ import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, STATUS_CONFIG, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle) return null;
@@ -60,7 +61,9 @@ const TrackingPage = ({ setAppVehicles }) => {
     }
   }, [user, navigate]);
 
-  const { vehicles, groups, loading, error, refetch } = useVehicles();
+  const { vehicles, groups, loading, error, refetch, fetchVehicles } = useVehicles();
+  const [showRazorpayModal, setShowRazorpayModal] = useState(false);
+  const [vehicleForRenewal, setVehicleForRenewal] = useState(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const toggleGroupCollapse = (groupId) => setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
   const [selectedVehicles, setSelectedVehicles] = useState([]);
@@ -266,7 +269,8 @@ const TrackingPage = ({ setAppVehicles }) => {
     }
     const warning = getExpiryWarning(vehicle);
     if (warning && warning.type === 'expired') {
-      setExpiredModalVehicle(prev => prev?.id === vehicle.id ? null : vehicle);
+      setExpiredModalVehicle(vehicle);
+      return; // Paywall: Do NOT select or display tracking on the map!
     } else {
       setExpiredModalVehicle(null);
     }
@@ -281,6 +285,11 @@ const TrackingPage = ({ setAppVehicles }) => {
   };
 
   const handleMultiTrackClick = (vehicle) => {
+    const warning = getExpiryWarning(vehicle);
+    if (warning && warning.type === 'expired') {
+      setExpiredModalVehicle(vehicle);
+      return;
+    }
     setSelectedVehicles(prev => {
       if (prev.some(v => v.id === vehicle.id)) return prev;
       return [...prev, vehicle];
@@ -462,15 +471,24 @@ const TrackingPage = ({ setAppVehicles }) => {
               </div>
 
               {/* Body Content */}
-              <div style={{ padding: '24px 20px', background: '#FFFFFF' }}>
+              <div style={{ padding: '20px', background: '#FFFFFF' }}>
+                <div style={{ fontWeight: 700, fontSize: '15px', color: '#111827', marginBottom: '4px' }}>
+                  {expiredModalVehicle.name} ({expiredModalVehicle.plate || expiredModalVehicle.imei})
+                </div>
+                <div style={{ fontSize: '13px', color: '#64748B', marginBottom: '14px' }}>
+                  License Expired on: <strong style={{ color: '#DC2626' }}>{formatLocalDate(expiredModalVehicle.licence_expire_date)}</strong>
+                </div>
                 <p style={{
                   margin: 0,
-                  color: '#DC2626',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  lineHeight: '1.5'
+                  color: '#991B1B',
+                  fontSize: '13px',
+                  lineHeight: '1.5',
+                  background: '#FEF2F2',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid #FECACA'
                 }}>
-                  Your license has expired. Please contact sales team or renew yourself
+                  🔒 Live GPS tracking, playback, and reports are locked for this vehicle. Please renew now to unlock immediate access.
                 </p>
               </div>
 
@@ -481,23 +499,46 @@ const TrackingPage = ({ setAppVehicles }) => {
                 borderTop: '1px solid #E2E8F0',
                 display: 'flex',
                 justifyContent: 'flex-end',
+                alignItems: 'center',
                 gap: '10px'
               }}>
                 <button
                   onClick={() => setExpiredModalVehicle(null)}
                   style={{
-                    padding: '6px 18px',
+                    padding: '7px 16px',
                     background: '#FFFFFF',
                     color: '#475569',
                     border: '1px solid #CBD5E1',
                     borderRadius: '6px',
                     fontSize: '13px',
                     fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                    cursor: 'pointer'
                   }}
                 >
                   Close
+                </button>
+                <button
+                  onClick={() => {
+                    setVehicleForRenewal(expiredModalVehicle);
+                    setShowRazorpayModal(true);
+                  }}
+                  style={{
+                    padding: '7px 18px',
+                    background: '#f97316',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <CreditCard size={15} />
+                  Renew Now
                 </button>
               </div>
             </motion.div>
@@ -612,6 +653,14 @@ const TrackingPage = ({ setAppVehicles }) => {
                   {formatDirection(hoveredVehicle.current_direction)}
                 </td>
               </tr>
+              {(hoveredVehicle.current_fuel != null || hoveredVehicle.tank_capacity) && (
+                <tr>
+                  <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
+                  <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
+                    {formatFuel(hoveredVehicle.current_fuel, hoveredVehicle.tank_capacity)}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
 
@@ -1221,7 +1270,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                     ...(currentSelectedVehicles.length === 1 ? [
                       { label: 'Odometer', value: formatOdometer(liveRouteMetrics[currentSelectedVehicle.id]?.dynamicOdo || currentSelectedVehicle.current_odometer), icon: Compass, color: '#64748B' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10B981' : '#64748B' },
-                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel), icon: BarChart2, color: '#F59E0B' },
+                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel, currentSelectedVehicle.tank_capacity), icon: BarChart2, color: '#F59E0B' },
                       { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage || currentSelectedVehicle.metadata?.batteryVoltage), icon: Cpu, color: '#8B5CF6' }
                     ] : []),
                     { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#64748B' },
@@ -1423,6 +1472,20 @@ const TrackingPage = ({ setAppVehicles }) => {
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />
+      <DummyRazorpayModal
+        isOpen={showRazorpayModal}
+        onClose={() => {
+          setShowRazorpayModal(false);
+          setVehicleForRenewal(null);
+        }}
+        vehicle={vehicleForRenewal}
+        onSuccess={() => {
+          setShowRazorpayModal(false);
+          setExpiredModalVehicle(null);
+          setVehicleForRenewal(null);
+          if (fetchVehicles) fetchVehicles();
+        }}
+      />
     </div>
   );
 };

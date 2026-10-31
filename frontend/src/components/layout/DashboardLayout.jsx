@@ -6,7 +6,7 @@ import { useAuth } from '../../hooks/useAuth';
 import ErrorBoundary from '../ErrorBoundary';
 
 const DashboardLayout = ({ vehicles = [] }) => {
-  const { user, isAuthenticated, loading, restoreAdmin, hasAdminSession } = useAuth();
+  const { user, isAuthenticated, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
   const location = useLocation();
   const isHistoryPage = location.pathname.endsWith('/history');

@@ -10,7 +10,8 @@ import { applyBrowserBranding, getFullImageUrl } from '../../utils/branding';
 import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
-  const { user } = useAuth();
+  const { user, restoreAdmin, hasAdminSession } = useAuth();
+  const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!localStorage.getItem('adminToken'));
   const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
@@ -80,6 +81,20 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     window.addEventListener('test-police-siren', handleManualTestSiren);
     return () => window.removeEventListener('test-police-siren', handleManualTestSiren);
   }, []);
+
+  const handleRestoreAdmin = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      const res = await restoreAdmin();
+      if (res?.success) {
+        window.location.href = '/dashboard';
+      } else {
+        alert(res?.error || 'Failed to restore admin session');
+      }
+    } catch (err) {
+      alert('Error restoring admin session');
+    }
+  };
 
   useEffect(() => {
     const loadProfile = () => {
@@ -565,6 +580,34 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             {connected ? 'Live' : 'Off'}
           </span>
         </div>
+
+        {/* Return to Admin Button if Impersonating */}
+        {isImpersonating && (
+          <button
+            onClick={handleRestoreAdmin}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '5px 12px',
+              borderRadius: '8px',
+              background: '#d97706',
+              color: '#ffffff',
+              border: 'none',
+              fontWeight: 700,
+              fontSize: '12px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+              transition: 'all 0.2s',
+            }}
+            className="hover:bg-amber-600 active:scale-95"
+            title="Return to Admin Session"
+          >
+            <ShieldAlert size={15} className="text-amber-200" />
+            <span className="hidden sm:inline">Return to Admin</span>
+            <span className="sm:hidden">Admin</span>
+          </button>
+        )}
       </div>
 
       {/* Active Police Siren Emergency Theft Banner & Red Screen Edge Border */}

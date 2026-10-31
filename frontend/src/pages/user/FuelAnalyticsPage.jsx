@@ -9,6 +9,8 @@ import {
   RefreshCw, 
   Search, 
   ChevronDown, 
+  ChevronLeft,
+  ChevronRight,
   TrendingUp, 
   TrendingDown, 
   AlertCircle, 
@@ -26,9 +28,16 @@ import {
   Check,
   Users,
   Database,
-  RotateCcw
+  RotateCcw,
+  FileSpreadsheet,
+  FileText,
+  X,
+  ArrowUpDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -40,7 +49,8 @@ import {
   Tooltip,
   Legend,
   Brush,
-  ReferenceDot
+  ReferenceDot,
+  ReferenceArea
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axios';
@@ -75,6 +85,26 @@ function formatDateIST(isoString) {
       month: 'short',
       year: 'numeric'
     });
+  } catch (e) {
+    return '—';
+  }
+}
+
+// Exact format matching Fuel Fill report: HH:mm:ss DD-MM-YYYY
+function formatFullIST(isoString) {
+  if (!isoString) return '—';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '—';
+    const time = d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${time} ${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
   } catch (e) {
     return '—';
   }
@@ -209,6 +239,23 @@ export default function FuelAnalyticsPage() {
   const [showNormalize, setShowNormalize] = useState(false);
   const [showEngine, setShowEngine] = useState(false);
   const [showSpeed, setShowSpeed] = useState(false);
+
+  // Dedicated Event Layers & Intelligence (Refill, Theft, Consumption)
+  const [showRefillEvents, setShowRefillEvents] = useState(true);
+  const [showTheftEvents, setShowTheftEvents] = useState(true);
+  const [showConsumptionLayer, setShowConsumptionLayer] = useState(true);
+
+  // On-Demand Bottom Table Selection State ('raw' | 'refills' | 'consumption' | null)
+  const [activeTableTab, setActiveTableTab] = useState(null);
+  const [rawSearchQuery, setRawSearchQuery] = useState('');
+  const [rawSortOrder, setRawSortOrder] = useState('desc');
+  const [rawPageSize, setRawPageSize] = useState(50);
+  const [rawCurrentPage, setRawCurrentPage] = useState(1);
+
+  // Consumption Rate Table Filter Controls
+  const [consumptionMileageInput, setConsumptionMileageInput] = useState(5);
+  const [consumptionIgnitionFilter, setConsumptionIgnitionFilter] = useState('all'); // 'all' | 'on' | 'off'
+  const [consumptionExcessOnly, setConsumptionExcessOnly] = useState(false);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -660,7 +707,9 @@ export default function FuelAnalyticsPage() {
     // 1. First pass: extract calibrated raw sensor fuel and motion states
     const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
 
-    // 2. Anti-Slosh Moving Median Filter (Window 5) + Exponential Smoothing (EMA) -> "Filtered Fuel Data"
+    // 2. Speed-Adaptive Anti-Slosh Filter: Window 5 Median + Conditional EMA -> "Filtered Fuel Data"
+    // When stationary (speed <= 6 km/h): zero road slosh. Median tracks real refuel/drain immediately without 12-min lag.
+    // When moving (speed > 6 km/h): apply anti-slosh exponential smoothing to reject highway road ripples.
     const filteredFuels = new Array(sorted.length).fill(null);
     let lastEma = null;
     for (let i = 0; i < sorted.length; i++) {
@@ -671,9 +720,21 @@ export default function FuelAnalyticsPage() {
       if (windowVals.length > 0) {
         windowVals.sort((a, b) => a - b);
         const median = windowVals[Math.floor(windowVals.length / 2)];
+        const spd = parseFloat(sorted[i]?.speed) || 0;
+
         if (lastEma == null) {
           lastEma = median;
+        } else if (spd <= 6.0) {
+          // Stationary at bunk or parked: no road slosh waves.
+          // If fuel changes meaningfully (refuel or drain), track median directly so no 12-min lag occurs.
+          // For tiny settling variations (< 3L), gently converge.
+          if (Math.abs(median - lastEma) >= 3.0) {
+            lastEma = median;
+          } else {
+            lastEma = (0.5 * median) + (0.5 * lastEma);
+          }
         } else {
+          // Moving on road: heavy EMA filter rejects highway liquid slosh waves
           lastEma = (0.25 * median) + (0.75 * lastEma);
         }
         filteredFuels[i] = Math.max(0, Math.min(tankCapacity, Math.round(lastEma * 10) / 10));
@@ -686,76 +747,373 @@ export default function FuelAnalyticsPage() {
     const normalizedFuels = new Array(sorted.length).fill(null);
     const refuelEvents = [];
     const dropEvents = [];
+    const refuelPointsMap = new Map();
+    const dropPointsMap = new Map();
+    const refuelIntervalMap = new Map();
+    const dropIntervalMap = new Map();
     
     // Find initial baseline fuel
     const firstValidFiltered = filteredFuels.find(f => f != null);
     let currentNormalized = firstValidFiltered != null ? firstValidFiltered : 0;
 
+    // Helper: Is the vehicle STOPPED (speed=0 or GPS jitter <= 6 km/h)?
+    // Refills happen at speed=0 regardless of ignition (people fill with engine running).
+    const isStopped = (pt) => (parseFloat(pt.speed) || 0) <= 6.0;
+
+    // Helper: Is ignition OFF?
+    const isIgnOff = (pt) => !(pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1);
+
+    // Helper: Is the vehicle moving (speed > 6 km/h)?
+    const isMoving = (pt) => (parseFloat(pt.speed) || 0) > 6.0;
+
+    // Pre-compute ignition-state transition pairs for slant-parking theft detection.
+    // For theft: compare avg fuel in last 5 min before ignition OFF
+    //            vs avg fuel in first 5 min after next ignition ON.
+    //            If drop >= theftThreshold AND fuel stays low after start -> real theft.
+    //            If fuel recovers after vehicle moves -> slant parking -> NOT theft.
+    const PRE_POST_WINDOW = 5 * 60 * 1000; // 5-minute observation window
+
+    const ignOffTransitionFuel = new Map(); // idx -> avg pre-park fuel
+    const ignOnTransitionFuel  = new Map(); // idx -> avg post-start fuel
+
+    for (let i = 1; i < sorted.length; i++) {
+      const prevIgnOn = sorted[i-1].ignition === true || sorted[i-1].ignition === 'true' || sorted[i-1].ignition === 1;
+      const currIgnOn = sorted[i].ignition === true || sorted[i].ignition === 'true' || sorted[i].ignition === 1;
+      const tCurr = new Date(sorted[i].device_time).getTime();
+
+      // Ignition ON -> OFF transition (parking event)
+      if (prevIgnOn && !currIgnOn) {
+        // Collect fuel values from last 5 min before this point (while engine was ON and stopped)
+        const preFuels = [];
+        for (let j = i - 1; j >= 0; j--) {
+          const tJ = new Date(sorted[j].device_time).getTime();
+          if (tCurr - tJ > PRE_POST_WINDOW) break;
+          if (filteredFuels[j] != null) preFuels.push(filteredFuels[j]);
+        }
+        if (preFuels.length > 0) {
+          const avg = preFuels.reduce((s, v) => s + v, 0) / preFuels.length;
+          ignOffTransitionFuel.set(i, avg);
+        }
+      }
+
+      // Ignition OFF -> ON transition (engine start event)
+      if (!prevIgnOn && currIgnOn) {
+        // Collect fuel values from first 5 min after this point
+        const postFuels = [];
+        for (let j = i; j < sorted.length; j++) {
+          const tJ = new Date(sorted[j].device_time).getTime();
+          if (tJ - tCurr > PRE_POST_WINDOW) break;
+          if (filteredFuels[j] != null) postFuels.push(filteredFuels[j]);
+        }
+        if (postFuels.length > 0) {
+          const avg = postFuels.reduce((s, v) => s + v, 0) / postFuels.length;
+          ignOnTransitionFuel.set(i, avg);
+        }
+      }
+    }
+
+    // Build a quick lookup: for each ignition-OFF transition, find the NEXT ignition-ON transition
+    const offToOnPairs = []; // [{offIdx, onIdx, preFuel, postFuel}]
+    const offIdxs = Array.from(ignOffTransitionFuel.keys()).sort((a,b) => a - b);
+    const onIdxs  = Array.from(ignOnTransitionFuel.keys()).sort((a,b) => a - b);
+    for (const offIdx of offIdxs) {
+      const nextOnIdx = onIdxs.find(idx => idx > offIdx);
+      if (nextOnIdx !== undefined) {
+        offToOnPairs.push({
+          offIdx,
+          onIdx: nextOnIdx,
+          preFuel: ignOffTransitionFuel.get(offIdx),
+          postFuel: ignOnTransitionFuel.get(nextOnIdx)
+        });
+      }
+    }
+
+    // Mark theft-confirmed windows: between offIdx and onIdx where drop > theftThreshold
+    // (will be checked later in the main loop)
+    const confirmedTheftWindows = new Set(); // Set of offIdx values that are real thefts
+    for (const pair of offToOnPairs) {
+      const drop = pair.preFuel - pair.postFuel;
+      if (drop >= theftThreshold) {
+        confirmedTheftWindows.add(pair.offIdx);
+      }
+    }
+
     for (let i = 0; i < sorted.length; i++) {
       const pt = sorted[i];
       const rawSpeed = parseFloat(pt.speed) || 0;
       const ign = pt.ignition === true || pt.ignition === 'true' || pt.ignition === 1;
-      const isEngineOn = rawSpeed > 6.0 || ign; // 6 km/h speed threshold
       const fVal = filteredFuels[i];
 
       if (fVal != null) {
         const diff = fVal - currentNormalized;
+        let rampHandled = false;
 
-        // A. Valid Refill: Sustained jump >= refuelThreshold while vehicle is stationary/stopped
-        if (diff >= refuelThreshold && rawSpeed <= 6.0) {
-          let isSustained = true;
-          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
-            if (filteredFuels[k] != null && filteredFuels[k] < currentNormalized + (refuelThreshold * 0.6)) {
-              isSustained = false;
+        // ================================================================
+        // A. REFUEL DETECTION
+        // Rule: speed must be 0 (stationary, speed <= 6 km/h with GPS jitter).
+        // Ignition state doesn't matter — some drivers fill with engine running.
+        // The fuel must show a sustained RISE >= refuelThreshold.
+        // ================================================================
+        if (rawSpeed <= 6.0 && diff >= 2.0) {
+          const tStart = new Date(pt.device_time).getTime();
+          let maxRampVal = fVal;
+          let maxRampIdx = i;
+          let k = i + 1;
+
+          while (k < sorted.length) {
+            const nextPt = sorted[k];
+            const nextSpd = parseFloat(nextPt.speed) || 0;
+            const nextTime = new Date(nextPt.device_time).getTime();
+
+            // Time window: 25 minutes max for a refueling stop
+            if ((nextTime - tStart) > 25 * 60 * 1000) break;
+
+            // Vehicle moved -> stationary refueling session has ended
+            if (nextSpd > 6.0) break;
+
+            const nextF = filteredFuels[k];
+            if (nextF != null && nextF > maxRampVal) {
+              maxRampVal = nextF;
+              maxRampIdx = k;
+            }
+            k++;
+          }
+
+          const cumRise = maxRampVal - currentNormalized;
+          const tEnd = new Date(sorted[maxRampIdx].device_time).getTime();
+          const fillDurationMs = tEnd - tStart;
+
+          // PHYSICAL TELEMATICS LAW:
+          // A real fuel pump dispenses at ~25-45 L/min. To pump >= refuelThreshold (>= 9L),
+          // it must physically take at least 45 seconds across multiple consecutive packets (maxRampIdx > i).
+          // An instantaneous jump (fillDurationMs < 45s or maxRampIdx === i) is road tilt/slosh, NOT a refuel!
+          if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 45 * 1000) {
+            // Post-ramp stability: fuel must stay elevated (protects against single-packet noise spikes)
+            let isStable = true;
+            let stableChecks = 0;
+            for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
+              const sf = filteredFuels[s];
+              if (sf == null) continue;
+              if (sf < currentNormalized + (cumRise * 0.5)) {
+                isStable = false;
+                break;
+              }
+              stableChecks++;
+            }
+
+            if (isStable) {
+              rampHandled = true;
+              const refuelLiters = Math.round(cumRise * 10) / 10;
+              const durMin = Math.max(1, Math.round(fillDurationMs / 60000));
+              const startFuelVal = Math.round(currentNormalized * 10) / 10;
+              const endFuelVal = Math.round(maxRampVal * 10) / 10;
+
+              const startPt = pt;
+              const endPt = sorted[maxRampIdx];
+              const odoVal = endPt.odometer != null ? Math.round(Number(endPt.odometer)) : (startPt.odometer != null ? Math.round(Number(startPt.odometer)) : (selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'));
+              const latVal = endPt.lat || startPt.lat || null;
+              const lngVal = endPt.lng || startPt.lng || null;
+              const addressVal = endPt.address || startPt.address || (latVal && lngVal ? `${Number(latVal).toFixed(4)}, ${Number(lngVal).toFixed(4)}` : 'Captured Location');
+
+              const refuelObj = {
+                id: refuelEvents.length + 1,
+                startIdx: i,
+                endIdx: maxRampIdx,
+                startTime: formatIST(pt.device_time),
+                endTime: formatIST(sorted[maxRampIdx].device_time),
+                startTimeStr: formatIST(pt.device_time),
+                endTimeStr: formatIST(sorted[maxRampIdx].device_time),
+                fromTimeFull: formatFullIST(pt.device_time),
+                toTimeFull: formatFullIST(sorted[maxRampIdx].device_time),
+                startDate: formatDateIST(pt.device_time),
+                endDate: formatDateIST(sorted[maxRampIdx].device_time),
+                time: formatIST(sorted[maxRampIdx].device_time),
+                startFuel: startFuelVal,
+                endFuel: endFuelVal,
+                previousFuel: startFuelVal,
+                currentFuel: endFuelVal,
+                consumptionDuringFill: '0.00',
+                liters: refuelLiters,
+                fuelFill: refuelLiters,
+                level: endFuelVal,
+                durationMin: durMin,
+                odo: odoVal,
+                address: addressVal,
+                lat: latVal,
+                lng: lngVal
+              };
+              refuelEvents.push(refuelObj);
+              refuelPointsMap.set(maxRampIdx, refuelObj);
+
+              // Map all points in this refill interval
+              for (let fillIdx = i; fillIdx <= maxRampIdx; fillIdx++) {
+                refuelIntervalMap.set(fillIdx, refuelObj);
+                if (filteredFuels[fillIdx] != null) {
+                  currentNormalized = Math.max(currentNormalized, filteredFuels[fillIdx]);
+                }
+                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+              }
+              currentNormalized = maxRampVal;
+              i = maxRampIdx;
+              continue;
+            }
+          }
+        }
+
+        // ================================================================
+        // B. THEFT / SIPHON DETECTION
+        // Uses pre-parking vs post-start fuel comparison to eliminate
+        // slant-parking false positives:
+        //   - Slant: parked on slope → fuel drops → vehicle moves → fuel recovers → NOT theft
+        //   - Theft: parked → fuel drops → vehicle starts → fuel stays low → REAL theft
+        //
+        // Condition: speed==0, ignition OFF, sustained drop >= theftThreshold,
+        //            AND confirmed by the pre/post ign transition pair.
+        // ================================================================
+        if (!rampHandled && rawSpeed <= 6.0 && !ign && diff <= -2.0) {
+          // Check if this point falls in a confirmed theft window
+          // (a pre/post ignition pair where the fuel drop was confirmed)
+          let isConfirmedTheft = false;
+          for (const pair of offToOnPairs) {
+            if (i >= pair.offIdx && i < pair.onIdx) {
+              if (confirmedTheftWindows.has(pair.offIdx)) {
+                isConfirmedTheft = true;
+              }
               break;
             }
           }
-          if (isSustained) {
-            currentNormalized = fVal;
-            refuelEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(diff * 10) / 10,
-              level: fVal
-            });
-          }
-        }
-        // B. Valid Theft / Drain: Drop <= -theftThreshold while engine is OFF
-        else if (diff <= -theftThreshold && !isEngineOn) {
-          let isSustained = true;
-          for (let k = i + 1; k < Math.min(sorted.length, i + 3); k++) {
-            if (filteredFuels[k] != null && filteredFuels[k] > currentNormalized - (theftThreshold * 0.6)) {
-              isSustained = false;
-              break;
+
+          if (isConfirmedTheft) {
+            const tStart = new Date(pt.device_time).getTime();
+            let minRampVal = fVal;
+            let minRampIdx = i;
+            let k = i + 1;
+
+            while (k < sorted.length) {
+              const nextPt = sorted[k];
+              const nextSpd = parseFloat(nextPt.speed) || 0;
+              const nextIgn = nextPt.ignition === true || nextPt.ignition === 'true' || nextPt.ignition === 1;
+              const nextTime = new Date(nextPt.device_time).getTime();
+
+              if ((nextTime - tStart) > 25 * 60 * 1000) break;
+              if (nextSpd > 6.0 || nextIgn) break; // Stop at motion or engine start
+
+              const nextF = filteredFuels[k];
+              if (nextF != null && nextF < minRampVal) {
+                minRampVal = nextF;
+                minRampIdx = k;
+              }
+              k++;
+            }
+
+            const cumDrop = currentNormalized - minRampVal;
+            const tEnd = new Date(sorted[minRampIdx].device_time).getTime();
+            const drainDurationMs = tEnd - tStart;
+            if (cumDrop >= theftThreshold && minRampIdx > i && drainDurationMs >= 30 * 1000) {
+              rampHandled = true;
+              const dropLiters = Math.round(cumDrop * 10) / 10;
+              const durMin = Math.max(1, Math.round(drainDurationMs / 60000));
+              const startFuelVal = Math.round(currentNormalized * 10) / 10;
+              const endFuelVal = Math.round(minRampVal * 10) / 10;
+
+              const startPtTheft = pt;
+              const endPtTheft = sorted[minRampIdx];
+              const odoValTheft = endPtTheft.odometer != null ? Math.round(Number(endPtTheft.odometer)) : (startPtTheft.odometer != null ? Math.round(Number(startPtTheft.odometer)) : (selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'));
+              const latValTheft = endPtTheft.lat || startPtTheft.lat || null;
+              const lngValTheft = endPtTheft.lng || startPtTheft.lng || null;
+              const addressValTheft = endPtTheft.address || startPtTheft.address || (latValTheft && lngValTheft ? `${Number(latValTheft).toFixed(4)}, ${Number(lngValTheft).toFixed(4)}` : 'Captured Location');
+
+              const dropObj = {
+                id: dropEvents.length + 1,
+                startIdx: i,
+                endIdx: minRampIdx,
+                startTime: formatIST(pt.device_time),
+                endTime: formatIST(sorted[minRampIdx].device_time),
+                startTimeStr: formatIST(pt.device_time),
+                endTimeStr: formatIST(sorted[minRampIdx].device_time),
+                fromTimeFull: formatFullIST(pt.device_time),
+                toTimeFull: formatFullIST(sorted[minRampIdx].device_time),
+                startDate: formatDateIST(pt.device_time),
+                endDate: formatDateIST(sorted[minRampIdx].device_time),
+                time: formatIST(sorted[minRampIdx].device_time),
+                startFuel: startFuelVal,
+                endFuel: endFuelVal,
+                previousFuel: startFuelVal,
+                currentFuel: endFuelVal,
+                liters: dropLiters,
+                fuelTheft: dropLiters,
+                level: endFuelVal,
+                durationMin: durMin,
+                odo: odoValTheft,
+                address: addressValTheft,
+                lat: latValTheft,
+                lng: lngValTheft
+              };
+              dropEvents.push(dropObj);
+              dropPointsMap.set(minRampIdx, dropObj);
+
+              // Map all points in this theft interval
+              for (let fillIdx = i; fillIdx <= minRampIdx; fillIdx++) {
+                dropIntervalMap.set(fillIdx, dropObj);
+                if (filteredFuels[fillIdx] != null) {
+                  currentNormalized = Math.min(currentNormalized, filteredFuels[fillIdx]);
+                }
+                normalizedFuels[fillIdx] = Math.max(0, Math.min(tankCapacity, Math.round(currentNormalized * 10) / 10));
+              }
+              currentNormalized = minRampVal;
+              i = minRampIdx;
+              continue;
             }
           }
-          if (isSustained) {
-            currentNormalized = fVal;
-            dropEvents.push({
-              time: formatIST(pt.device_time),
-              liters: Math.round(Math.abs(diff) * 10) / 10,
-              level: fVal
-            });
-          }
         }
-        // C. Engine ON (Driving or Idling / Machinery / Genset running)
-        // Fuel is actively being consumed: fuel CANNOT rise without a verified refill!
-        else if (isEngineOn) {
-          if (diff < 0) {
-            if (rawSpeed > 6.0) {
-              // Road slosh dampening while driving
-              currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
-            } else {
-              // Stationary machinery / genset / idling: smooth monotonic burn without jumping to sensor noise dips
-              currentNormalized = (0.90 * currentNormalized) + (0.10 * fVal);
+
+        // ================================================================
+        // C. STANDARD MOTION & CONSUMPTION RULES
+        // (applied when not a verified refill or theft event)
+        // ================================================================
+        if (!rampHandled) {
+          if (rawSpeed > 6.0) {
+            // C1. VEHICLE MOVING:
+            if (diff >= refuelThreshold) {
+              // LATE CATCH: If vehicle departed bunk or sensor scrutinized data stepped up,
+              // check if the higher fuel reading is sustained over the next 5 packets (~1.5 min).
+              let sustainedCount = 0;
+              let sampleCount = 0;
+              const lookAhead = Math.min(sorted.length, i + 6);
+              for (let j = i + 1; j < lookAhead; j++) {
+                const fj = filteredFuels[j];
+                if (fj != null) {
+                  sampleCount++;
+                  if (fj >= currentNormalized + (refuelThreshold * 0.6)) {
+                    sustainedCount++;
+                  }
+                }
+              }
+              if (sampleCount === 0 || sustainedCount >= Math.ceil(sampleCount * 0.75)) {
+                // Confirmed sustained refuel level on highway -> catch up to filtered fuel
+                currentNormalized = fVal;
+              }
+              // If not sustained (road bump slosh), diff is safely rejected
+            } else if (diff < 0) {
+              // Normal consumption while moving: smooth blend rejects sharp slosh dips
+              currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
             }
-          }
-          // Positive diff (diff > 0) while engine is running without a refill is sensor ripple/vibration -> REJECTED!
-        }
-        // D. Engine OFF & Parked (rawSpeed <= 6.0 and !isEngineOn)
-        // Static resting state: gently converge to true physical resting volume
-        else {
-          if (Math.abs(diff) < refuelThreshold) {
-            currentNormalized = (0.85 * currentNormalized) + (0.15 * fVal);
+            // diff between 0 and refuelThreshold while moving: road slosh ripple -> silently rejected
+          } else if (ign) {
+            // C2. STOPPED + IGNITION ON (idling, genset, machinery running)
+            // Fuel is being consumed. Positive diff = sensor noise → REJECT.
+            if (diff < 0) {
+              currentNormalized = (0.92 * currentNormalized) + (0.08 * fVal);
+            }
+            // diff > 0 while idling → silently rejected
+          } else {
+            // C3. STOPPED + IGNITION OFF (vehicle parked)
+            // Allow gentle sensor settling convergence for small fluctuations.
+            // Large deviations without a confirmed theft window → slant parking or noise → ignore.
+            if (Math.abs(diff) < refuelThreshold) {
+              currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
+            }
+            // diff >= refuelThreshold while parked & not confirmed theft → likely slant → ignore
           }
         }
       }
@@ -831,33 +1189,72 @@ export default function FuelAnalyticsPage() {
       sumSpd += rawSpeed;
       speedSamples++;
 
-      // Session grouping (moving vs idle)
-      if (!currentSession || currentSession.status !== engineState) {
+      // Session grouping (continuous operating trips vs parked intervals)
+      const isEngineActive = ign || rawSpeed > 5.0;
+      const opState = isEngineActive ? 'ON' : 'OFF';
+
+      if (!currentSession || currentSession.opState !== opState) {
         if (currentSession) {
-          currentSession.endTime = pt.device_time;
+          const endPt = sorted[i - 1] || pt;
+          currentSession.endPoint = endPt;
+          currentSession.endTime = endPt.device_time;
+          currentSession.toTimeFull = formatFullIST(endPt.device_time);
           currentSession.endFuel = normF;
+          currentSession.currentFuel = normF;
           currentSession.endDist = cumulativeDist;
-          currentSession.durationMin = Math.max(1, Math.round((new Date(pt.device_time) - new Date(currentSession.startTime)) / 60000));
-          currentSession.consumed = (currentSession.startFuel && currentSession.endFuel && currentSession.startFuel > currentSession.endFuel)
-            ? Math.round((currentSession.startFuel - currentSession.endFuel) * 10) / 10 : 0;
-          currentSession.distanceKm = Math.round((currentSession.endDist - currentSession.startDist) * 100) / 100;
+          currentSession.durationMin = Math.max(1, Math.round((new Date(endPt.device_time) - new Date(currentSession.startTime)) / 60000));
+          
+          const rawBurn = (currentSession.startFuel != null && currentSession.endFuel != null && currentSession.startFuel > currentSession.endFuel)
+            ? (currentSession.startFuel - currentSession.endFuel) : 0;
+          currentSession.consumed = Math.round(rawBurn * 100) / 100;
+          currentSession.actualConsumption = currentSession.consumed;
+          
+          const distCovered = Math.max(0, currentSession.endDist - currentSession.startDist);
+          currentSession.distanceKm = Math.round(distCovered * 10) / 10;
+          currentSession.km = Math.round(distCovered);
+          
+          currentSession.kmpl = (currentSession.consumed > 0 && currentSession.distanceKm > 0)
+            ? Math.round((currentSession.distanceKm / currentSession.consumed) * 100) / 100 : 0;
+
+          const totalPts = currentSession.totalPoints || 1;
+          const ignPts = currentSession.ignPoints || 0;
+          currentSession.ignOnPercent = Math.round((ignPts / totalPts) * 100);
+
+          currentSession.startAddress = currentSession.startPoint?.address || (currentSession.startPoint?.lat && currentSession.startPoint?.lng ? `${Number(currentSession.startPoint.lat).toFixed(4)}, ${Number(currentSession.startPoint.lng).toFixed(4)}` : 'Captured Location');
+          currentSession.endAddress = endPt.address || (endPt.lat && endPt.lng ? `${Number(endPt.lat).toFixed(4)}, ${Number(endPt.lng).toFixed(4)}` : 'Captured Location');
+
           sessions.push(currentSession);
         }
         currentSession = {
           id: sessions.length + 1,
-          status: engineState,
+          opState: opState,
+          status: opState === 'ON' ? (rawSpeed > 6.0 ? 'ON (Moving)' : 'ON (Idle)') : 'OFF',
+          startPoint: pt,
           startTime: pt.device_time,
+          fromTimeFull: formatFullIST(pt.device_time),
           endTime: pt.device_time,
+          toTimeFull: formatFullIST(pt.device_time),
           startFuel: normF,
+          previousFuel: normF,
           endFuel: normF,
+          currentFuel: normF,
           startDist: cumulativeDist,
           endDist: cumulativeDist,
           maxSpeed: rawSpeed,
-          avgSpeed: rawSpeed
+          avgSpeed: rawSpeed,
+          totalPoints: 1,
+          ignPoints: ign ? 1 : 0
         };
       } else {
+        currentSession.totalPoints = (currentSession.totalPoints || 0) + 1;
+        if (ign) currentSession.ignPoints = (currentSession.ignPoints || 0) + 1;
         if (rawSpeed > currentSession.maxSpeed) currentSession.maxSpeed = rawSpeed;
       }
+
+      const refEv = refuelPointsMap.get(i);
+      const dropEv = dropPointsMap.get(i);
+      const inRefill = refuelIntervalMap.get(i);
+      const inDrop = dropIntervalMap.get(i);
 
       chartPoints.push({
         timestamp: new Date(pt.device_time).getTime(),
@@ -867,6 +1264,21 @@ export default function FuelAnalyticsPage() {
         filteredFuel: filtF,
         normalizedFuel: normF,
         fuel: normF, // Backward compatibility
+        refuelLiters: refEv ? refEv.liters : null,
+        dropLiters: dropEv ? dropEv.liters : null,
+        // Event Highlights & Interval Tracking
+        isRefillInterval: !!inRefill,
+        refillEvent: inRefill || null,
+        refillHighlightFuel: inRefill ? filtF : null,
+        isRefillStart: inRefill && inRefill.startIdx === i,
+        isRefillEnd: inRefill && inRefill.endIdx === i,
+
+        isTheftInterval: !!inDrop,
+        theftEvent: inDrop || null,
+        theftHighlightFuel: inDrop ? filtF : null,
+        isTheftStart: inDrop && inDrop.startIdx === i,
+        isTheftEnd: inDrop && inDrop.endIdx === i,
+
         speed: Math.round(rawSpeed),
         distance: Math.round(cumulativeDist * 10) / 10,
         engineVal: (rawSpeed > 6.0 || ign) ? 1 : 0,
@@ -877,7 +1289,37 @@ export default function FuelAnalyticsPage() {
       });
     }
 
-    if (currentSession) sessions.push(currentSession);
+    if (currentSession) {
+      const endPt = sorted[sorted.length - 1];
+      currentSession.endPoint = endPt;
+      currentSession.endTime = endPt.device_time;
+      currentSession.toTimeFull = formatFullIST(endPt.device_time);
+      currentSession.endFuel = normalizedFuels[sorted.length - 1];
+      currentSession.currentFuel = normalizedFuels[sorted.length - 1];
+      currentSession.endDist = cumulativeDist;
+      currentSession.durationMin = Math.max(1, Math.round((new Date(endPt.device_time) - new Date(currentSession.startTime)) / 60000));
+      
+      const rawBurn = (currentSession.startFuel != null && currentSession.endFuel != null && currentSession.startFuel > currentSession.endFuel)
+        ? (currentSession.startFuel - currentSession.endFuel) : 0;
+      currentSession.consumed = Math.round(rawBurn * 100) / 100;
+      currentSession.actualConsumption = currentSession.consumed;
+      
+      const distCovered = Math.max(0, currentSession.endDist - currentSession.startDist);
+      currentSession.distanceKm = Math.round(distCovered * 10) / 10;
+      currentSession.km = Math.round(distCovered);
+      
+      currentSession.kmpl = (currentSession.consumed > 0 && currentSession.distanceKm > 0)
+        ? Math.round((currentSession.distanceKm / currentSession.consumed) * 100) / 100 : 0;
+
+      const totalPts = currentSession.totalPoints || 1;
+      const ignPts = currentSession.ignPoints || 0;
+      currentSession.ignOnPercent = Math.round((ignPts / totalPts) * 100);
+
+      currentSession.startAddress = currentSession.startPoint?.address || (currentSession.startPoint?.lat && currentSession.startPoint?.lng ? `${Number(currentSession.startPoint.lat).toFixed(4)}, ${Number(currentSession.startPoint.lng).toFixed(4)}` : 'Captured Location');
+      currentSession.endAddress = endPt.address || (endPt.lat && endPt.lng ? `${Number(endPt.lat).toFixed(4)}, ${Number(endPt.lng).toFixed(4)}` : 'Captured Location');
+
+      sessions.push(currentSession);
+    }
 
     // Initial and Final Fuel calculation based on Normalized Fuel
     const validNorms = normalizedFuels.filter(p => p != null);
@@ -915,7 +1357,7 @@ export default function FuelAnalyticsPage() {
       currentFuel: endF,
       refuels: refuelEvents,
       drops: dropEvents,
-      sessions: sessions.slice(-10).reverse() // Show top 10 recent sessions
+      sessions: sessions.slice().reverse() // Show all sessions chronological reverse (newest first)
     };
   }, [historyPoints, tankCapacity, refuelThreshold, theftThreshold, selectedInterval]);
 
@@ -925,170 +1367,562 @@ export default function FuelAnalyticsPage() {
     return Math.min(100, Math.max(0, Math.round((processedData.currentFuel / tankCapacity) * 100)));
   }, [processedData.currentFuel, tankCapacity]);
 
+  // Process Raw Fuel Data rows from chartData
+  const processedRawRows = useMemo(() => {
+    if (!processedData.chartData || !processedData.chartData.length) return [];
+    return processedData.chartData.map((pt, idx) => {
+      let eventTag = 'Normal Telemetry';
+      let eventType = 'normal';
+      if (pt.refuelLiters) {
+        eventTag = `Refill (+${pt.refuelLiters}L)`;
+        eventType = 'refill';
+      } else if (pt.dropLiters) {
+        eventTag = `Drain (-${pt.dropLiters}L)`;
+        eventType = 'drop';
+      } else if (pt.isRefillInterval) {
+        eventTag = 'Refill Window';
+        eventType = 'refill-window';
+      } else if (pt.isTheftInterval) {
+        eventTag = 'Theft Window';
+        eventType = 'theft-window';
+      }
+
+      const dateTimeStr = pt.dateStr && pt.timeStr ? `${pt.dateStr} ${pt.timeStr}` : (pt.timeStr || '—');
+
+      return {
+        index: idx + 1,
+        timestamp: pt.timestamp,
+        dateTimeStr,
+        speed: pt.speed ?? 0,
+        status: pt.status || 'OFF',
+        rawFuel: pt.rawFuel != null ? pt.rawFuel : null,
+        filteredFuel: pt.filteredFuel != null ? pt.filteredFuel : null,
+        normalizedFuel: pt.normalizedFuel != null ? pt.normalizedFuel : null,
+        odometer: pt.odometer != null ? pt.odometer : '—',
+        volt: pt.volt != null ? pt.volt : '—',
+        eventTag,
+        eventType
+      };
+    });
+  }, [processedData.chartData]);
+
+  // Search and Sort Filter for Raw Fuel Data
+  const filteredRawRows = useMemo(() => {
+    let list = [...processedRawRows];
+    if (rawSearchQuery.trim()) {
+      const q = rawSearchQuery.toLowerCase().trim();
+      list = list.filter(r =>
+        r.dateTimeStr.toLowerCase().includes(q) ||
+        String(r.speed).includes(q) ||
+        r.status.toLowerCase().includes(q) ||
+        (r.rawFuel != null && String(r.rawFuel).includes(q)) ||
+        (r.filteredFuel != null && String(r.filteredFuel).includes(q)) ||
+        (r.normalizedFuel != null && String(r.normalizedFuel).includes(q)) ||
+        r.eventTag.toLowerCase().includes(q) ||
+        String(r.odometer).includes(q) ||
+        String(r.volt).includes(q)
+      );
+    }
+
+    if (rawSortOrder === 'desc') {
+      list.sort((a, b) => b.timestamp - a.timestamp);
+    } else {
+      list.sort((a, b) => a.timestamp - b.timestamp);
+    }
+
+    return list;
+  }, [processedRawRows, rawSearchQuery, rawSortOrder]);
+
+  // Raw Fuel Data Pagination
+  const rawTotalPages = useMemo(() => {
+    if (rawPageSize === 'all') return 1;
+    return Math.max(1, Math.ceil(filteredRawRows.length / Number(rawPageSize)));
+  }, [filteredRawRows.length, rawPageSize]);
+
+  const paginatedRawRows = useMemo(() => {
+    if (rawPageSize === 'all') return filteredRawRows;
+    const size = Number(rawPageSize);
+    const start = (rawCurrentPage - 1) * size;
+    return filteredRawRows.slice(start, start + size);
+  }, [filteredRawRows, rawCurrentPage, rawPageSize]);
+
+  // Reset to page 1 on search or sorting changes
+  useEffect(() => {
+    setRawCurrentPage(1);
+  }, [rawSearchQuery, rawPageSize, rawSortOrder]);
+
+  // Excel Export
+  const handleExportRawExcel = () => {
+    if (!filteredRawRows.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = filteredRawRows.map((r, idx) => ({
+      '#': idx + 1,
+      'Timestamp (IST)': r.dateTimeStr,
+      'Speed (km/h)': r.speed,
+      'Engine Status': r.status,
+      'Raw Fuel (L)': r.rawFuel != null ? r.rawFuel : '—',
+      'Filtered Fuel (L)': r.filteredFuel != null ? r.filteredFuel : '—',
+      'Normalized Fuel (L)': r.normalizedFuel != null ? r.normalizedFuel : '—',
+      'Odometer (km)': r.odometer,
+      'Voltage (V)': r.volt,
+      'Event Classification': r.eventTag
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Raw Fuel Data');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Raw_Fuel_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // PDF Export
+  const handleExportRawPDF = () => {
+    if (!filteredRawRows.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const imei = selectedVehicle?.imei || '—';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Raw Fuel Packet Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | IMEI: ${imei} | Tank Capacity: ${tankCapacity}L | Period: ${customStart.replace('T', ' ')} to ${customEnd.replace('T', ' ')} | Records: ${filteredRawRows.length} | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'Timestamp (IST)', 'Speed', 'Engine', 'Raw Fuel (L)',
+      'Filtered (L)', 'Normalized (L)', 'Odometer', 'Voltage', 'Event Tag'
+    ];
+
+    const tableRows = filteredRawRows.map((r, idx) => [
+      idx + 1,
+      r.dateTimeStr,
+      `${r.speed} km/h`,
+      r.status,
+      r.rawFuel != null ? `${r.rawFuel} L` : '—',
+      r.filteredFuel != null ? `${r.filteredFuel} L` : '—',
+      r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—',
+      r.odometer !== '—' ? `${r.odometer} km` : '—',
+      r.volt !== '—' ? `${r.volt} V` : '—',
+      r.eventTag
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Raw_Fuel_Data_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Refill History Excel Export
+  const handleExportRefillsExcel = () => {
+    if (!processedData.refuels.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = processedData.refuels.map((r, idx) => ({
+      '#': idx + 1,
+      'From Time': r.fromTimeFull,
+      'To Time': r.toTimeFull,
+      'Previous Fuel (L)': r.previousFuel,
+      'Current Fuel (L)': r.currentFuel,
+      'Consumption During Fuel Fill (L)': r.consumptionDuringFill,
+      'Fuel Fill (L)': r.fuelFill,
+      'Odometer (km)': r.odo,
+      'Address': r.address
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fuel Fill Details');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Fuel_Fill_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Refill History PDF Export
+  const handleExportRefillsPDF = () => {
+    if (!processedData.refuels.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const imei = selectedVehicle?.imei || '—';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Fuel Fill Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Total Refill: ${processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Previous Fuel (L)', 'Current Fuel (L)',
+      'Consumption During Fill', 'Fuel Fill (L)', 'Odo', 'Address'
+    ];
+
+    const tableRows = processedData.refuels.map((r, idx) => [
+      idx + 1,
+      r.fromTimeFull,
+      r.toTimeFull,
+      r.previousFuel,
+      r.currentFuel,
+      r.consumptionDuringFill,
+      r.fuelFill,
+      r.odo,
+      r.address
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [5, 150, 105], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 253, 244] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Fuel_Fill_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Fuel Theft Excel Export
+  const handleExportTheftExcel = () => {
+    if (!processedData.drops.length) return;
+    const exportData = processedData.drops.map((d, idx) => ({
+      '#': idx + 1,
+      'From Time': d.fromTimeFull,
+      'To Time': d.toTimeFull,
+      'Previous Fuel (Ltrs)': d.previousFuel,
+      'Current Fuel (Ltrs)': d.currentFuel,
+      'Fuel Theft (Ltrs)': d.fuelTheft || d.liters,
+      'Odo': d.odo,
+      'Address': d.address
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Fuel Theft');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Fuel_Theft_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Fuel Theft PDF Export
+  const handleExportTheftPDF = () => {
+    if (!processedData.drops.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Fuel Theft & Drain Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Total Thefts: ${processedData.drops.length} | Net Stolen: ${processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)} L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Previous Fuel (L)', 'Current Fuel (L)',
+      'Fuel Theft (L)', 'Odo', 'Address'
+    ];
+
+    const tableRows = processedData.drops.map((d, idx) => [
+      idx + 1,
+      d.fromTimeFull,
+      d.toTimeFull,
+      d.previousFuel,
+      d.currentFuel,
+      d.fuelTheft || d.liters,
+      d.odo,
+      d.address
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [255, 241, 242] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Fuel_Theft_Report_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
+  // Filtered & Evaluated Consumption Rate Rows
+  const filteredConsumptionRows = useMemo(() => {
+    if (!processedData.sessions || !processedData.sessions.length) return [];
+    const baselineKmpl = Number(consumptionMileageInput) > 0 ? Number(consumptionMileageInput) : 5;
+
+    return processedData.sessions
+      .map((s, idx) => {
+        const dist = s.distanceKm || 0;
+        const actual = s.actualConsumption != null ? s.actualConsumption : (s.consumed || 0);
+        const expected = baselineKmpl > 0 ? Math.round((dist / baselineKmpl) * 100) / 100 : 0;
+        const excess = Math.max(0, Math.round((actual - expected) * 100) / 100);
+
+        return {
+          ...s,
+          index: idx + 1,
+          expectedConsumption: expected.toFixed(2),
+          excessConsumption: excess.toFixed(2),
+          excessNum: excess
+        };
+      })
+      .filter(s => {
+        // Ignition Filter
+        if (consumptionIgnitionFilter === 'on' && s.ignOnPercent < 50) return false;
+        if (consumptionIgnitionFilter === 'off' && s.ignOnPercent >= 50) return false;
+        if (consumptionIgnitionFilter === 'all' && s.opState === 'OFF' && s.distanceKm === 0 && s.actualConsumption === 0) return false;
+        // Excess Consumption Filter toggle
+        if (consumptionExcessOnly && s.excessNum <= 0.05) return false;
+        return true;
+      });
+  }, [processedData.sessions, consumptionMileageInput, consumptionIgnitionFilter, consumptionExcessOnly]);
+
+  // Total Excess Consumption (Ltrs)
+  const totalExcessConsumption = useMemo(() => {
+    return filteredConsumptionRows
+      .reduce((acc, s) => acc + (s.excessNum || 0), 0)
+      .toFixed(2);
+  }, [filteredConsumptionRows]);
+
+  // Consumption Excel Export
+  const handleExportConsumptionExcel = () => {
+    if (!filteredConsumptionRows.length) return;
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+    const exportData = filteredConsumptionRows.map((s, idx) => ({
+      '#': idx + 1,
+      'From Time': s.fromTimeFull,
+      'To Time': s.toTimeFull,
+      'Ign ON %': s.ignOnPercent,
+      'Distance (Kms)': s.distanceKm,
+      'Previous Fuel (Ltrs)': s.previousFuel,
+      'Current Fuel (Ltrs)': s.currentFuel,
+      'Actual Consumption (Ltrs)': s.actualConsumption,
+      'Kmpl': s.kmpl > 0 ? s.kmpl : '—',
+      'Expected Consumption (Ltrs)': s.expectedConsumption,
+      'Excess Consumption (Ltrs)': s.excessConsumption,
+      'Start Location': s.startAddress,
+      'End Location': s.endAddress
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Consumption Rate');
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    XLSX.writeFile(wb, `Consumption_Rate_${safePlate}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
+  // Consumption PDF Export
+  const handleExportConsumptionPDF = () => {
+    if (!filteredConsumptionRows.length) return;
+    const doc = new jsPDF('landscape');
+    const vName = selectedVehicle?.plate || selectedVehicle?.name || 'Vehicle';
+
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('FuelTracks Telematics — Consumption Rate Audit Report', 14, 12);
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Vehicle: ${vName} | Group: ${selectedGroupLabel} | Baseline Mileage: ${consumptionMileageInput} km/L | Total Excess: ${totalExcessConsumption} L | Generated: ${formatIST(new Date().toISOString())}`, 14, 18);
+
+    const tableColumn = [
+      '#', 'From Time', 'To Time', 'Ign %', 'Dist(Km)', 'Prev Fuel', 'Curr Fuel',
+      'Actual (L)', 'Kmpl', 'Exp (L)', 'Excess (L)', 'Start Location', 'End Location'
+    ];
+
+    const tableRows = filteredConsumptionRows.map((s, idx) => [
+      idx + 1,
+      s.fromTimeFull,
+      s.toTimeFull,
+      `${s.ignOnPercent}%`,
+      s.distanceKm,
+      s.previousFuel,
+      s.currentFuel,
+      s.actualConsumption,
+      s.kmpl > 0 ? s.kmpl : '—',
+      s.expectedConsumption,
+      s.excessConsumption,
+      s.startAddress,
+      s.endAddress
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 22,
+      styles: { fontSize: 7, cellPadding: 1.5 },
+      headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] }
+    });
+
+    const safePlate = (selectedVehicle?.plate || selectedVehicle?.name || 'vehicle').replace(/[^a-zA-Z0-9]/g, '_');
+    doc.save(`Consumption_Rate_${safePlate}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  };
+
   return (
     <div className="min-h-screen bg-[#F0F4F8] dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 transition-colors duration-200">
       <div className="w-full space-y-5">
 
-        {/* ── TOP HEADER & CONTROLS BAR ── */}
-        <div className="relative z-50 flex flex-col gap-4 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm">
-          
-          {/* Top Row: Title & Searchable Vehicle Selector */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg shadow-emerald-500/20 text-white">
-                <Fuel className="w-6 h-6" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                  Fuel Analytics
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                  Precision fuel telemetry, synchronized graphs & consumption breakdown
-                </p>
-              </div>
-            </div>
+        {/* ── LINE 1: HEADER TITLE ── */}
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-md shadow-emerald-500/20 text-white shrink-0">
+            <Fuel className="w-5 h-5" />
+          </div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 dark:from-white dark:via-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
+            Fuel Analytics
+          </h1>
+        </div>
 
-            {/* Top Right: Group Selector + Searchable Vehicle Selector */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              {/* Group Selector Dropdown */}
-              <div className="relative min-w-[170px] sm:min-w-[190px]" ref={groupDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsGroupDropdownOpen(!isGroupDropdownOpen);
-                    setIsDropdownOpen(false);
-                  }}
-                  className="w-full flex items-center justify-between gap-2.5 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs sm:text-sm font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
-                  title="Filter vehicles by fleet group"
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Users className="w-4 h-4 text-emerald-500 shrink-0" />
-                    <span className="font-semibold truncate text-slate-800 dark:text-slate-100">
-                      {selectedGroupLabel}
-                    </span>
-                  </div>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isGroupDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
+        {/* ── LINE 2: CONTROLS BAR (Group, Vehicle, From, To, Interval, Apply) ── */}
+        <div className="relative z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 px-4 py-3 rounded-2xl shadow-sm">
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+            
+            {/* Group Selector Dropdown */}
+            <div className="relative min-w-[140px] sm:min-w-[170px] shrink-0" ref={groupDropdownRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsGroupDropdownOpen(!isGroupDropdownOpen);
+                  setIsDropdownOpen(false);
+                }}
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                title="Filter vehicles by fleet group"
+              >
+                <div className="flex items-center gap-1.5 truncate">
+                  <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span className="font-semibold truncate text-slate-800 dark:text-slate-100 text-xs">
+                    {selectedGroupLabel}
+                  </span>
+                </div>
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isGroupDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-                <AnimatePresence>
-                  {isGroupDropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -6, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -6, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute z-[9999] left-0 sm:right-auto sm:left-0 w-full sm:w-[260px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
-                    >
-                      {/* Search inside group dropdown */}
-                      {availableGroups.list.length > 5 && (
-                        <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
-                          <div className="relative">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
-                            <input
-                              type="text"
-                              value={groupSearchQuery}
-                              onChange={(e) => setGroupSearchQuery(e.target.value)}
-                              placeholder="Search groups..."
-                              className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500"
-                              autoFocus
-                            />
-                          </div>
+              <AnimatePresence>
+                {isGroupDropdownOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.98 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute z-[9999] left-0 w-full sm:w-[260px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
+                  >
+                    {/* Search inside group dropdown */}
+                    {availableGroups.list.length > 5 && (
+                      <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70">
+                        <div className="relative">
+                          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
+                          <input
+                            type="text"
+                            value={groupSearchQuery}
+                            onChange={(e) => setGroupSearchQuery(e.target.value)}
+                            placeholder="Search groups..."
+                            className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500"
+                            autoFocus
+                          />
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {/* Group items */}
-                      <div className="overflow-y-auto max-h-64 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
-                        {/* All Groups Option */}
-                        <button
-                          type="button"
-                          onClick={() => handleSelectGroup('all')}
-                          className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
-                            selectedGroupId === 'all'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                            <span className="truncate">All Groups</span>
-                          </div>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                            {vehicles.length}
-                          </span>
-                        </button>
+                    {/* Group items */}
+                    <div className="overflow-y-auto max-h-64 divide-y divide-slate-100 dark:divide-slate-800/60 p-1.5">
+                      {/* All Groups Option */}
+                      <button
+                        type="button"
+                        onClick={() => handleSelectGroup('all')}
+                        className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
+                          selectedGroupId === 'all'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                            : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <Users className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span className="truncate">All Groups</span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                          {vehicles.length}
+                        </span>
+                      </button>
 
-                        {/* Individual Groups */}
-                        {filteredGroupsList.map(g => {
-                          const isSelected = selectedGroupId === g.id;
-                          return (
-                            <button
-                              key={g.id}
-                              type="button"
-                              onClick={() => handleSelectGroup(g.id)}
-                              className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
-                                isSelected
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
-                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
-                              }`}
-                            >
-                              <span className="truncate font-medium">{g.name}</span>
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                                  {g.count}
-                                </span>
-                                {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
-                              </div>
-                            </button>
-                          );
-                        })}
-
-                        {/* Unassigned Option (if any exist) */}
-                        {availableGroups.unassignedCount > 0 && (
+                      {/* Individual Groups */}
+                      {filteredGroupsList.map(g => {
+                        const isSelected = selectedGroupId === g.id;
+                        return (
                           <button
+                            key={g.id}
                             type="button"
-                            onClick={() => handleSelectGroup('__unassigned__')}
-                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
-                              selectedGroupId === '__unassigned__'
+                            onClick={() => handleSelectGroup(g.id)}
+                            className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
+                              isSelected
                                 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
                                 : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
                             }`}
                           >
-                            <span className="truncate text-slate-500 italic">Unassigned</span>
+                            <span className="truncate font-medium">{g.name}</span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
-                                {availableGroups.unassignedCount}
+                                {g.count}
                               </span>
-                              {selectedGroupId === '__unassigned__' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
                             </div>
                           </button>
-                        )}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                        );
+                      })}
 
-              {/* Custom Searchable Vehicle Dropdown */}
-              <div className="relative min-w-[240px] sm:min-w-[320px]" ref={dropdownRef}>
+                      {/* Unassigned Option (if any exist) */}
+                      {availableGroups.unassignedCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectGroup('__unassigned__')}
+                          className={`w-full flex items-center justify-between px-3 py-1.5 text-xs text-left rounded-xl transition-all ${
+                            selectedGroupId === '__unassigned__'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span className="truncate text-slate-500 italic">Unassigned</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-200/70 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium">
+                              {availableGroups.unassignedCount}
+                            </span>
+                            {selectedGroupId === '__unassigned__' && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />}
+                          </div>
+                        </button>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Custom Searchable Vehicle Dropdown */}
+            <div className="relative min-w-[200px] sm:min-w-[260px] shrink-0" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full flex items-center justify-between gap-3 px-4 py-2.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-sm font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
               >
-                <div className="flex items-center gap-2.5 truncate">
-                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                    selectedVehicle?.is_online ? 'bg-emerald-500 ring-4 ring-emerald-500/20' : 'bg-slate-400'
+                <div className="flex items-center gap-2 truncate">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${
+                    selectedVehicle?.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'
                   }`} />
-                  <span className="font-semibold truncate">
+                  <span className="font-semibold truncate text-slate-900 dark:text-white">
                     {selectedVehicle ? (selectedVehicle.name || selectedVehicle.plate || selectedVehicle.imei) : 'Select Vehicle...'}
                   </span>
                   {selectedVehicle?.name && selectedVehicle?.plate && (
-                    <span className="text-xs text-slate-400 truncate hidden sm:inline">
+                    <span className="text-[11px] text-slate-400 truncate hidden xl:inline">
                       ({selectedVehicle.plate})
                     </span>
                   )}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               <AnimatePresence>
@@ -1098,18 +1932,18 @@ export default function FuelAnalyticsPage() {
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -6, scale: 0.98 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute z-[9999] right-0 w-full sm:w-[380px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
+                    className="absolute z-[9999] left-0 sm:left-auto sm:right-0 w-full sm:w-[360px] mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden flex flex-col"
                   >
                     {/* Search inside dropdown with Reset button */}
-                    <div className="p-2.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 flex items-center gap-2">
+                    <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/70 flex items-center gap-2">
                       <div className="relative flex-1">
-                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2" />
                         <input
                           type="text"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           placeholder="Search vehicle name, plate or IMEI..."
-                          className="w-full pl-9 pr-3 py-2 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                          className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-emerald-500 shadow-sm"
                           autoFocus
                         />
                       </div>
@@ -1124,10 +1958,10 @@ export default function FuelAnalyticsPage() {
                             setSelectedVehicle(vehiclesInSelectedGroup[0]);
                           }
                         }}
-                        className="px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-emerald-500 transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                        className="px-2 py-1 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:border-emerald-500 transition-all flex items-center gap-1 shrink-0 shadow-sm"
                         title="Reset to first vehicle in group and scroll to top"
                       >
-                        <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+                        <RotateCcw className="w-3 h-3 text-slate-400" />
                         <span>Reset</span>
                       </button>
                     </div>
@@ -1152,7 +1986,7 @@ export default function FuelAnalyticsPage() {
                                 setIsDropdownOpen(false);
                                 setSearchQuery('');
                               }}
-                              className={`w-full flex items-center justify-between px-3 py-2.5 text-xs text-left rounded-xl transition-all ${
+                              className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-xl transition-all ${
                                 isSelected 
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold ring-1 ring-emerald-500/30' 
                                   : 'hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-300'
@@ -1162,7 +1996,7 @@ export default function FuelAnalyticsPage() {
                                 <span className="font-mono text-[10px] text-slate-400 w-5 shrink-0 text-right">
                                   {index + 1}.
                                 </span>
-                                <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
+                                <span className={`w-2 h-2 rounded-full shrink-0 ${v.is_online ? 'bg-emerald-500 ring-2 ring-emerald-500/20' : 'bg-slate-400'}`} />
                                 <div className="truncate">
                                   <div className="font-semibold text-slate-900 dark:text-white truncate">
                                     {v.name || v.plate || v.imei}
@@ -1173,7 +2007,7 @@ export default function FuelAnalyticsPage() {
                                   </div>
                                 </div>
                               </div>
-                              {isSelected && <Check className="w-4 h-4 text-emerald-500 shrink-0 ml-2" />}
+                              {isSelected && <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0 ml-2" />}
                             </button>
                           );
                         })
@@ -1182,151 +2016,111 @@ export default function FuelAnalyticsPage() {
                   </motion.div>
                 )}
               </AnimatePresence>
-              </div>
             </div>
-          </div>
 
-          {/* Date-Time Range Selection Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
-            
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* From Date-Time (DD/MM/YYYY Display) */}
-              <div 
-                onClick={() => {
-                  try {
-                    startInputRef.current?.showPicker?.();
-                  } catch (e) {
-                    startInputRef.current?.focus?.();
-                  }
+            {/* From Date-Time */}
+            <div 
+              onClick={() => {
+                try { startInputRef.current?.showPicker?.(); } catch (e) { startInputRef.current?.focus?.(); }
+              }}
+              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer shrink-0"
+              title="Click to select start date and time"
+            >
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
+                <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
+              </div>
+              <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
+                {formatDisplayDDMMYYYY(customStart)}
+              </div>
+              <input 
+                ref={startInputRef}
+                type="datetime-local"
+                value={customStart}
+                max={customEnd || maxDateTime}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try { e.target.showPicker?.(); } catch (err) {}
                 }}
-                className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer"
-                title="Click to select start date and time"
-              >
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
-                  <Calendar className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">From</span>
-                </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
-                  {formatDisplayDDMMYYYY(customStart)}
-                </div>
-                <input 
-                  ref={startInputRef}
-                  type="datetime-local"
-                  value={customStart}
-                  max={customEnd || maxDateTime}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    try { e.target.showPicker?.(); } catch (err) {}
-                  }}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val > maxDateTime) val = maxDateTime;
-                    setCustomStart(val);
-                    setActivePreset('custom');
-                    setError(null);
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-
-              {/* To Date-Time (DD/MM/YYYY Display) */}
-              <div 
-                onClick={() => {
-                  try {
-                    endInputRef.current?.showPicker?.();
-                  } catch (e) {
-                    endInputRef.current?.focus?.();
-                  }
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val > maxDateTime) val = maxDateTime;
+                  setCustomStart(val);
+                  setActivePreset('custom');
+                  setError(null);
                 }}
-                className="relative flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer"
-                title="Click to select end date and time"
-              >
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
-                  <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
-                </div>
-                <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
-                  {formatDisplayDDMMYYYY(customEnd)}
-                </div>
-                <input 
-                  ref={endInputRef}
-                  type="datetime-local"
-                  value={customEnd}
-                  min={customStart}
-                  max={maxDateTime}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    try { e.target.showPicker?.(); } catch (err) {}
-                  }}
-                  onChange={(e) => {
-                    let val = e.target.value;
-                    if (val > maxDateTime) val = maxDateTime;
-                    setCustomEnd(val);
-                    setActivePreset('custom');
-                    setError(null);
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-              </div>
-
-              {/* Sampling Interval Selector (Matching Reference System) */}
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm">
-                <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                  <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
-                </div>
-                <select
-                  value={selectedInterval}
-                  onChange={(e) => setSelectedInterval(e.target.value)}
-                  className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
-                  title="Select Sampling Interval (Downsamples points for smoother visualization and fast rendering)"
-                >
-                  {INTERVAL_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Apply Button */}
-              <button
-                type="button"
-                onClick={() => fetchVehicleFuelData(customStart, customEnd)}
-                disabled={loading}
-                className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
-                title="Apply Date-Time Range"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-                <span>{loading ? 'Loading...' : 'Apply Range'}</span>
-              </button>
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
             </div>
 
-            {/* Quick Presets */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 text-xs font-medium">
-              {[
-                { id: 'today', label: 'Today' },
-                { id: 'yesterday', label: 'Yesterday' },
-                { id: '24h', label: 'Last 24h' },
-                { id: '7d', label: '7 Days' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleSelectPreset(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    activePreset === tab.id
-                      ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+            {/* To Date-Time */}
+            <div 
+              onClick={() => {
+                try { endInputRef.current?.showPicker?.(); } catch (e) { endInputRef.current?.focus?.(); }
+              }}
+              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer shrink-0"
+              title="Click to select end date and time"
+            >
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
+                <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">To</span>
+              </div>
+              <div className="font-mono text-xs font-semibold text-slate-800 dark:text-slate-100 select-none pointer-events-none">
+                {formatDisplayDDMMYYYY(customEnd)}
+              </div>
+              <input 
+                ref={endInputRef}
+                type="datetime-local"
+                value={customEnd}
+                min={customStart}
+                max={maxDateTime}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  try { e.target.showPicker?.(); } catch (err) {}
+                }}
+                onChange={(e) => {
+                  let val = e.target.value;
+                  if (val > maxDateTime) val = maxDateTime;
+                  setCustomEnd(val);
+                  setActivePreset('custom');
+                  setError(null);
+                }}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
             </div>
 
+            {/* Sampling Interval Selector */}
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm shrink-0">
+              <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
+                <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
+              </div>
+              <select
+                value={selectedInterval}
+                onChange={(e) => setSelectedInterval(e.target.value)}
+                className="bg-transparent text-xs font-semibold text-slate-800 dark:text-slate-100 focus:outline-none cursor-pointer pr-1"
+                title="Select Sampling Interval"
+              >
+                {INTERVAL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Apply Button */}
+            <button
+              type="button"
+              onClick={() => fetchVehicleFuelData(customStart, customEnd)}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/20 disabled:opacity-50 shrink-0"
+              title="Apply Date-Time Range"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>{loading ? 'Loading...' : 'Apply Range'}</span>
+            </button>
           </div>
-
         </div>
 
         {/* Error Alert Banner */}
@@ -1340,7 +2134,7 @@ export default function FuelAnalyticsPage() {
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
           
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Sliders className="w-5 h-5 text-emerald-500" />
@@ -1351,20 +2145,20 @@ export default function FuelAnalyticsPage() {
               </p>
             </div>
 
-            {/* 5-Layer Telematics Visibility Toggles (Reference System) */}
-            <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+            {/* 5-Layer Telematics Visibility Toggles inside Graph Card */}
+            <div className="flex items-center flex-wrap gap-2 shrink-0">
               {/* Layer 1: All Fuel Data */}
               <button
                 type="button"
                 onClick={() => setShowAllFuel(!showAllFuel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showAllFuel
-                    ? 'bg-slate-200 dark:bg-slate-700/60 text-slate-800 dark:text-slate-100 border-slate-400/50 shadow-sm font-semibold'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-transparent hover:text-slate-800'
+                    ? 'bg-slate-200 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 border-slate-400/60 shadow-sm'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
               >
-                <span className="w-2 h-2 rounded-full bg-slate-500" />
+                <span className={`w-2 h-2 rounded-full ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
                 All Fuel Data
               </button>
 
@@ -1372,14 +2166,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowFilteredFuel(!showFilteredFuel)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showFilteredFuel
-                    ? 'bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-400/60 shadow-sm ring-1 ring-sky-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Anti-Slosh Smoothed Fuel Curve"
               >
-                <span className="w-2 h-2 rounded-full bg-sky-600" />
+                <span className={`w-2 h-2 rounded-full ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
                 Filtered Fuel Data
               </button>
 
@@ -1387,14 +2181,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowNormalize(!showNormalize)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showNormalize
-                    ? 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/50 shadow-sm ring-1 ring-red-500/20'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-400/60 shadow-sm ring-1 ring-rose-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Monotonic Physical Reality Consumption Curve"
               >
-                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className={`w-2 h-2 rounded-full ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
                 Normalize
               </button>
 
@@ -1402,14 +2196,14 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowEngine(!showEngine)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showEngine
-                    ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-400/60 shadow-sm ring-1 ring-amber-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Engine Ignition Status"
               >
-                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className={`w-2 h-2 rounded-full ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
                 Engine
               </button>
 
@@ -1417,497 +2211,1721 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowSpeed(!showSpeed)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all ${
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showSpeed
-                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/50 shadow-sm'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-400 border-transparent hover:text-slate-300'
+                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border-cyan-400/60 shadow-sm ring-1 ring-cyan-500/20'
+                    : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Speed Secondary Axis"
               >
-                <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                <span className={`w-2 h-2 rounded-full ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
                 Speed
               </button>
             </div>
           </div>
 
-          {/* Chart Container */}
-          <div className="h-[380px] w-full pt-4">
-            {loading ? (
-              <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
-                <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
-                <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
-              </div>
-            ) : processedData.chartData.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
-                <Fuel className="w-10 h-10 opacity-30" />
-                <span className="text-sm font-medium">No telemetry packets found for this period</span>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
-                      <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-
-                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
-                  
-                  <XAxis 
-                    dataKey="timeStr" 
-                    stroke="#64748b" 
-                    fontSize={11} 
-                    tickLine={false} 
-                  />
-
-                  {/* Left Y Axis: Fuel (Litres) */}
-                  <YAxis 
-                    yAxisId="fuel" 
-                    width={50}
-                    domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                    stroke="#0284c7" 
-                    fontSize={11} 
-                    tickLine={false}
-                    orientation="left"
-                    unit="L"
-                  />
-
-                  {/* Right Y Axis: Speed (km/h) */}
-                  <YAxis 
-                    yAxisId="speed" 
-                    domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
-                    stroke="#06b6d4" 
-                    fontSize={11} 
-                    tickLine={false} 
-                    orientation="right"
-                    unit="km/h"
-                  />
-
-                  {/* Hidden Y Axis for Engine Ignition baseline step line */}
-                  <YAxis 
-                    yAxisId="engine" 
-                    domain={[0, 10]} 
-                    hide={true}
-                  />
-
-                  {/* High Precision Multi-Layer Tooltip */}
-                  <Tooltip 
-                    content={({ active, payload }) => {
-                      if (!active || !payload?.length) return null;
-                      const pt = payload[0].payload;
-                      return (
-                        <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3 rounded-xl shadow-2xl text-xs space-y-1.5 text-white min-w-[220px]">
-                          <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
-                            <span className="text-slate-300 font-mono">{pt.dateStr}</span>
-                            <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
-                          </div>
-                          
-                          {/* Speed */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-cyan-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                              Speed:
-                            </span>
-                            <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
-                          </div>
-
-                          {/* Normalize */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-red-400 font-semibold flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-red-500" />
-                              Normalize:
-                            </span>
-                            <span className="font-bold text-red-400 font-mono">
-                              {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
-                            </span>
-                          </div>
-
-                          {/* Filtered Fuel */}
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="text-sky-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-sky-500" />
-                              Filter Fuel:
-                            </span>
-                            <span className="font-bold text-sky-300 font-mono">
-                              {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
-                            </span>
-                          </div>
-
-                          {/* All Fuel Data */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-slate-400" />
-                              All Fuel:
-                            </span>
-                            <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
-                          </div>
-
-                          {/* Engine Status */}
-                          <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
-                            <span className="text-amber-400 font-medium flex items-center gap-1.5">
-                              <span className="w-2 h-2 rounded-full bg-amber-400" />
-                              Engine:
-                            </span>
-                            <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                              {pt.engineVal === 1 ? 'ON' : 'OFF'}
-                            </span>
-                          </div>
-
-                          {/* Odometer */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Odometer:</span>
-                            <span className="font-mono font-medium">{pt.odometer} km</span>
-                          </div>
-
-                          {/* Vehicle Battery */}
-                          <div className="flex items-center justify-between gap-4 text-slate-300">
-                            <span className="text-slate-400">Vehicle Battery:</span>
-                            <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
-                          </div>
-
-                          {/* Status */}
-                          {pt.status && (
-                            <div className="text-[10px] text-slate-400 pt-1 border-t border-slate-800/60 flex items-center justify-between">
-                              <span>Status:</span>
-                              <span className="text-slate-200 font-semibold">{pt.status}</span>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    }}
-                  />
-
-                  {/* 1. Filtered Fuel Area (Translucent Glass Background Tint) */}
-                  {showFilteredFuel && (
-                    <Area
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="filteredFuel"
-                      stroke="#0284c7"
-                      strokeWidth={2}
-                      strokeOpacity={0.85}
-                      fillOpacity={1}
-                      fill="url(#filteredFuelGradient)"
-                      connectNulls={true}
-                      name="Filtered Fuel Data (L)"
-                    />
-                  )}
-
-                  {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
-                  {showAllFuel && (
-                    <Line
-                      yAxisId="fuel"
-                      type="linear"
-                      dataKey="rawFuel"
-                      stroke="#64748b"
-                      strokeWidth={1.2}
-                      strokeOpacity={0.55}
-                      strokeDasharray="2 2"
-                      dot={{ r: 1.5, fill: '#64748b', strokeWidth: 0, fillOpacity: 0.55 }}
-                      connectNulls={true}
-                      name="All Fuel Data (L)"
-                    />
-                  )}
-
-                  {/* 3. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
-                  {showEngine && (
-                    <Line
-                      yAxisId="engine"
-                      type="stepAfter"
-                      dataKey="engineVal"
-                      stroke="#eab308"
-                      strokeWidth={2.5}
-                      dot={false}
-                      name="Engine (ON/OFF)"
-                    />
-                  )}
-
-                  {/* 4. Speed Line (Cyan Line on Right Axis) */}
-                  {showSpeed && (
-                    <Line
-                      yAxisId="speed"
-                      type="monotone"
-                      dataKey="speed"
-                      stroke="#06b6d4"
-                      strokeWidth={1.8}
-                      dot={false}
-                      name="Speed (km/h)"
-                    />
-                  )}
-
-                  {/* 5. Master Hero: Normalize Line (RED) - Rendered LAST so it is ALWAYS on TOP of all other layers */}
-                  {showNormalize && (
-                    <Line
-                      yAxisId="fuel"
-                      type="monotone"
-                      dataKey="normalizedFuel"
-                      stroke="#ef4444"
-                      strokeWidth={4}
-                      dot={false}
-                      activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
-                      connectNulls={true}
-                      name="Normalize (L)"
-                    />
-                  )}
-
-                  <Brush 
-                    dataKey="timeStr" 
-                    height={24} 
-                    stroke="#38bdf8" 
-                    fill="#0f172a" 
-                    travellerWidth={10}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* ── 2. TELEMETRY EXECUTIVE KPI CARDS (BELOW GRAPH) ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-
-          {/* CARD 1: ENGINE STATUS (Strictly Moving / Idle / OFF) */}
-          <div className="relative overflow-hidden bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Engine Status</span>
-              <Activity className="w-4 h-4 text-slate-400" />
-            </div>
-
-            <div className="my-1">
-              {processedData.currentStatus === 'ON (Moving)' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 text-sm font-bold">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  ON (Moving)
-                </div>
-              )}
-              {processedData.currentStatus === 'ON (Idle)' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 text-sm font-bold">
-                  <Flame className="w-3.5 h-3.5" />
-                  ON (Idle)
-                </div>
-              )}
-              {processedData.currentStatus === 'OFF' && (
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 text-sm font-bold">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
-                  Engine OFF
-                </div>
-              )}
-            </div>
-
-            <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2">
-              <span>Moving: <strong className="text-slate-700 dark:text-slate-200">{processedData.movingHours}h</strong></span>
-              <span>Idling: <strong className="text-slate-700 dark:text-slate-200">{processedData.idleHours}h</strong></span>
-            </div>
-          </div>
-
-          {/* CARD 2: SPEED METRICS */}
-          <div className="relative overflow-hidden bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Speed</span>
-              <Gauge className="w-4 h-4 text-cyan-500" />
-            </div>
-
-            <div className="my-1 flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                {processedData.currentSpeed}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">km/h</span>
-            </div>
-
-            <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2">
-              <span>Max: <strong className="text-slate-700 dark:text-slate-200">{processedData.maxSpeed} km/h</strong></span>
-              <span>Avg: <strong className="text-slate-700 dark:text-slate-200">{processedData.avgSpeed} km/h</strong></span>
-            </div>
-          </div>
-
-          {/* CARD 3: LIVE FUEL LEVEL */}
-          <div className="relative overflow-hidden bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-1">
-              <span className="text-xs font-semibold uppercase tracking-wider">Fuel Level</span>
-              <span className="text-xs font-bold text-emerald-500">{fuelPercent}%</span>
-            </div>
-
-            <div className="my-1 flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400">
-                {processedData.currentFuel}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">L</span>
-              <span className="text-[11px] text-slate-400">/ {tankCapacity}L</span>
-            </div>
-
-            {/* Fuel Progress Bar */}
-            <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-2 mt-2 overflow-hidden">
-              <div 
-                className={`h-full rounded-full transition-all duration-500 ${
-                  fuelPercent < 15 ? 'bg-red-500' : (fuelPercent < 35 ? 'bg-amber-500' : 'bg-emerald-500')
-                }`}
-                style={{ width: `${fuelPercent}%` }}
-              />
-            </div>
-
-            <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2">
-              <span>Start: <strong className="text-slate-700 dark:text-slate-200">{processedData.startFuel}L</strong></span>
-              <span>End: <strong className="text-slate-700 dark:text-slate-200">{processedData.endFuel}L</strong></span>
-            </div>
-          </div>
-
-          {/* CARD 4: DISTANCE TRAVELED */}
-          <div className="relative overflow-hidden bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-2">
-              <span className="text-xs font-semibold uppercase tracking-wider">Distance</span>
-              <Compass className="w-4 h-4 text-violet-500" />
-            </div>
-
-            <div className="my-1 flex items-baseline gap-1.5">
-              <span className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
-                {processedData.totalDistance}
-              </span>
-              <span className="text-xs text-slate-400 font-semibold">km</span>
-            </div>
-
-            <div className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2">
-              <span>Period: <strong className="text-slate-700 dark:text-slate-200">{activePreset}</strong></span>
-              <span>Odo: <strong className="text-slate-700 dark:text-slate-200">{selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'} km</strong></span>
-            </div>
-          </div>
-
-          {/* CARD 5: HERO FUEL ECONOMY & MILEAGE */}
-          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-cyan-500/10 dark:from-emerald-950/40 dark:via-slate-900/60 dark:to-teal-950/30 border border-emerald-500/30 dark:border-emerald-500/20 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
-            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider flex items-center gap-1.5">
-                <TrendingUp className="w-4 h-4 text-emerald-500" /> Fuel Economy
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold">
-                Efficiency
-              </span>
-            </div>
-
-            <div className="my-1 flex items-baseline gap-1.5">
-              <span className="text-3xl font-black tracking-tight text-emerald-600 dark:text-emerald-400">
-                {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}
-              </span>
-              <span className="text-xs text-emerald-700 dark:text-emerald-300 font-bold">km / L</span>
-            </div>
-
-            <div className="mt-3 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between border-t border-emerald-500/20 pt-2">
-              <span>Consumed: <strong className="text-emerald-600 dark:text-emerald-400">{processedData.fuelConsumed} L</strong></span>
-              <span>Dist: <strong className="text-slate-700 dark:text-slate-200">{processedData.totalDistance} km</strong></span>
-            </div>
-          </div>
-
-        </div>
-
-        {/* ── REFUEL & ABNORMAL DRAIN EVENT BADGES ── */}
-        {(processedData.refuels.length > 0 || processedData.drops.length > 0) && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Side-by-Side: Correlation Graph on Left + Fuel Intelligence Panel on Right */}
+          <div className="flex flex-col lg:flex-row gap-5 items-stretch pt-2">
             
-            {/* Refuels */}
-            <div className="bg-emerald-500/5 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-2 mb-2">
-                <ArrowUpRight className="w-4 h-4" /> Detected Refuels ({processedData.refuels.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {processedData.refuels.map((r, idx) => (
-                  <div key={idx} className="bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                    <span className="font-semibold text-emerald-600 dark:text-emerald-300">+{r.liters} L</span>
-                    <span className="text-slate-400">at {r.time}</span>
+            {/* Left: Correlation Graph (Reduced horizontally towards left) */}
+            <div className="flex-1 min-w-0">
+              <div className="h-[390px] w-full">
+                {loading ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+                    <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Drains */}
-            <div className="bg-red-500/5 dark:bg-red-950/20 border border-red-500/20 rounded-2xl p-4">
-              <h3 className="text-sm font-bold text-red-600 dark:text-red-400 flex items-center gap-2 mb-2">
-                <ArrowDownRight className="w-4 h-4" /> Sudden Fuel Drops ({processedData.drops.length})
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {processedData.drops.map((d, idx) => (
-                  <div key={idx} className="bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
-                    <span className="font-semibold text-red-600 dark:text-red-300">-{d.liters} L</span>
-                    <span className="text-slate-400">at {d.time}</span>
+                ) : processedData.chartData.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                    <Fuel className="w-10 h-10 opacity-30" />
+                    <span className="text-sm font-medium">No telemetry packets found for this period</span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* ── DRIVING SESSIONS & CONSUMPTION LOG TABLE ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-            <div>
-              <h3 className="font-bold text-base text-slate-900 dark:text-white">Trip & Idling Consumption Breakdown</h3>
-              <p className="text-xs text-slate-400">Segment-wise fuel burn and distance correlation</p>
-            </div>
-            <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg">
-              {processedData.sessions.length} Sessions
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 font-semibold uppercase tracking-wider text-[10px]">
-                <tr>
-                  <th className="px-4 py-3">#</th>
-                  <th className="px-4 py-3">Engine Status</th>
-                  <th className="px-4 py-3">Start Time (IST)</th>
-                  <th className="px-4 py-3">Duration</th>
-                  <th className="px-4 py-3">Distance</th>
-                  <th className="px-4 py-3">Fuel Consumed</th>
-                  <th className="px-4 py-3">Max Speed</th>
-                  <th className="px-4 py-3">Mileage</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
-                {processedData.sessions.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-4 py-8 text-center text-slate-400">
-                      No driving sessions recorded in this time range.
-                    </td>
-                  </tr>
                 ) : (
-                  processedData.sessions.map((s, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                      <td className="px-4 py-3 text-slate-400">{idx + 1}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                          s.status === 'ON (Moving)' 
-                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                            : (s.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-400')
-                        }`}>
-                          {s.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {formatIST(s.startTime)}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {s.durationMin} mins
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-slate-900 dark:text-white">
-                        {s.distanceKm > 0 ? `${s.distanceKm} km` : '0 km'}
-                      </td>
-                      <td className="px-4 py-3 text-emerald-600 dark:text-emerald-400 font-bold">
-                        {s.consumed > 0 ? `${s.consumed} L` : '0 L'}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
-                        {s.maxSpeed} km/h
-                      </td>
-                      <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-200">
-                        {s.consumed > 0 && s.distanceKm > 0 ? `${Math.round((s.distanceKm / s.consumed) * 10) / 10} km/L` : '—'}
-                      </td>
-                    </tr>
-                  ))
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
+                          <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+
+                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
+                      
+                      <XAxis 
+                        dataKey="timeStr" 
+                        stroke="#64748b" 
+                        fontSize={11} 
+                        tickLine={false} 
+                      />
+
+                      {/* Left Y Axis: Fuel (Litres) */}
+                      <YAxis 
+                        yAxisId="fuel" 
+                        width={50}
+                        domain={[0, Math.ceil(tankCapacity * 1.05)]} 
+                        stroke="#0284c7" 
+                        fontSize={11} 
+                        tickLine={false}
+                        orientation="left"
+                        unit="L"
+                      />
+
+                      {/* Right Y Axis: Speed (km/h) */}
+                      <YAxis 
+                        yAxisId="speed" 
+                        domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
+                        stroke="#06b6d4" 
+                        fontSize={11} 
+                        tickLine={false} 
+                        orientation="right"
+                        unit="km/h"
+                      />
+
+                      {/* Hidden Y Axis for Engine Ignition baseline step line */}
+                      <YAxis 
+                        yAxisId="engine" 
+                        domain={[0, 10]} 
+                        hide={true}
+                      />
+
+                      {/* High Precision Multi-Layer Tooltip with Dedicated Side-by-Side Cards (Left: Event Card, Right: Telemetry Card) */}
+                      <Tooltip 
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const pt = payload[0].payload;
+                          const hasRefill = showRefillEvents && (pt.refillEvent || pt.refuelLiters);
+                          const hasTheft = showTheftEvents && (pt.theftEvent || pt.dropLiters);
+
+                          return (
+                            <div className="flex flex-row items-stretch gap-3 pointer-events-none select-none drop-shadow-2xl">
+                              {/* CARD 1 (LEFT SIDE): DEDICATED REFILL CARD */}
+                              {hasRefill && (
+                                <div className="bg-slate-900/95 backdrop-blur-md border border-emerald-500/60 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[210px] max-w-[240px] flex flex-col justify-between">
+                                  <div className="flex items-center justify-between text-xs font-bold text-emerald-400 border-b border-emerald-500/30 pb-1.5 mb-0.5">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                      REFILL DETECTED
+                                    </span>
+                                    <span className="font-mono text-emerald-300 font-bold bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40">
+                                      +{pt.refillEvent?.liters || pt.refuelLiters} L
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] pt-1">
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.refillEvent?.startTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start Fuel:</span>
+                                      <span className="font-mono text-emerald-300 font-bold">{pt.refillEvent?.startFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.refillEvent?.endTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End Fuel:</span>
+                                      <span className="font-mono text-emerald-300 font-bold">{pt.refillEvent?.endFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Duration:</span>
+                                      <span className="font-mono text-slate-200">{pt.refillEvent?.durationMin || '—'} min</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Speed:</span>
+                                      <span className="font-mono text-cyan-300">{pt.speed} km/h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* CARD 1 (LEFT SIDE): DEDICATED THEFT CARD */}
+                              {hasTheft && (
+                                <div className="bg-slate-900/95 backdrop-blur-md border border-rose-500/60 p-3.5 rounded-2xl shadow-2xl text-xs space-y-2 text-white min-w-[210px] max-w-[240px] flex flex-col justify-between">
+                                  <div className="flex items-center justify-between text-xs font-bold text-rose-400 border-b border-rose-500/30 pb-1.5 mb-0.5">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+                                      THEFT / DRAIN
+                                    </span>
+                                    <span className="font-mono text-rose-300 font-bold bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/40">
+                                      -{pt.theftEvent?.liters || pt.dropLiters} L
+                                    </span>
+                                  </div>
+                                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] pt-1">
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.theftEvent?.startTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Start Fuel:</span>
+                                      <span className="font-mono text-rose-300 font-bold">{pt.theftEvent?.startFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End:</span>
+                                      <span className="font-mono text-slate-200 font-semibold">{pt.theftEvent?.endTime || pt.timeStr}</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">End Fuel:</span>
+                                      <span className="font-mono text-rose-300 font-bold">{pt.theftEvent?.endFuel ?? pt.filteredFuel} L</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Duration:</span>
+                                      <span className="font-mono text-slate-200">{pt.theftEvent?.durationMin || '—'} min</span>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-400 text-[10px] block">Speed:</span>
+                                      <span className="font-mono text-cyan-300">{pt.speed} km/h</span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* CARD 2 (RIGHT SIDE): STANDARD TELEMETRY CURSOR CARD */}
+                              <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 p-3.5 rounded-2xl shadow-2xl text-xs space-y-1.5 text-white min-w-[210px] max-w-[250px]">
+                                {/* Standard Point Header */}
+                                <div className="font-bold border-b border-slate-800 pb-1.5 flex items-center justify-between gap-4">
+                                  <span className="text-slate-300 font-mono">{pt.dateStr}</span>
+                                  <span className="text-emerald-400 font-mono font-bold">{pt.timeStr}</span>
+                                </div>
+                                
+                                {/* Speed */}
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-cyan-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                                    Speed:
+                                  </span>
+                                  <span className="font-bold text-cyan-300 font-mono">{pt.speed} km/h</span>
+                                </div>
+
+                                {/* Filtered Fuel */}
+                                <div className="flex items-center justify-between gap-4">
+                                  <span className="text-sky-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-sky-500" />
+                                    Filter Fuel:
+                                  </span>
+                                  <span className="font-bold text-sky-300 font-mono">
+                                    {pt.filteredFuel != null ? `${pt.filteredFuel} Ltrs` : '—'}
+                                  </span>
+                                </div>
+
+                                {/* Normalize */}
+                                {(showNormalize || showConsumptionLayer) && (
+                                  <div className="flex items-center justify-between gap-4">
+                                    <span className="text-red-400 font-semibold flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                                      Normalize:
+                                    </span>
+                                    <span className="font-bold text-red-400 font-mono">
+                                      {pt.normalizedFuel != null ? `${pt.normalizedFuel} Ltrs` : '—'}
+                                    </span>
+                                  </div>
+                                )}
+
+                                {/* All Fuel Data */}
+                                {showAllFuel && (
+                                  <div className="flex items-center justify-between gap-4 text-slate-300">
+                                    <span className="flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                                      All Fuel:
+                                    </span>
+                                    <span className="font-mono">{pt.rawFuel != null ? `${pt.rawFuel} Ltrs` : '—'}</span>
+                                  </div>
+                                )}
+
+                                {/* Engine Status */}
+                                <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-800/80">
+                                  <span className="text-amber-400 font-medium flex items-center gap-1.5">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400" />
+                                    Engine:
+                                  </span>
+                                  <span className={`font-bold font-mono ${pt.engineVal === 1 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                    {pt.engineVal === 1 ? 'ON' : 'OFF'}
+                                  </span>
+                                </div>
+
+                                {/* Odometer */}
+                                <div className="flex items-center justify-between gap-4 text-slate-300">
+                                  <span className="text-slate-400">Odometer:</span>
+                                  <span className="font-mono font-medium">{pt.odometer} km</span>
+                                </div>
+
+                                {/* Vehicle Battery */}
+                                <div className="flex items-center justify-between gap-4 text-slate-300">
+                                  <span className="text-slate-400">Vehicle Battery:</span>
+                                  <span className="font-mono font-medium text-amber-300">{(pt.vehicleBattery || pt.volt || '25.38')} V</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        }}
+                      />
+
+                      {/* 1. Filtered Fuel Area (Translucent Glass Background Tint) */}
+                      {showFilteredFuel && (
+                        <Area
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="filteredFuel"
+                          stroke="#0284c7"
+                          strokeWidth={2}
+                          strokeOpacity={0.85}
+                          fillOpacity={1}
+                          fill="url(#filteredFuelGradient)"
+                          connectNulls={true}
+                          dot={false}
+                          name="Filtered Fuel Data (L)"
+                        />
+                      )}
+
+                      {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
+                      {showAllFuel && (
+                        <Line
+                          yAxisId="fuel"
+                          type="linear"
+                          dataKey="rawFuel"
+                          stroke="#64748b"
+                          strokeWidth={1.2}
+                          strokeOpacity={0.55}
+                          strokeDasharray="2 2"
+                          dot={{ r: 1.5, fill: '#64748b', strokeWidth: 0, fillOpacity: 0.55 }}
+                          connectNulls={true}
+                          name="All Fuel Data (L)"
+                        />
+                      )}
+
+                      {/* 3. Engine Ignition Baseline Step Line (Yellow Line at Bottom) */}
+                      {showEngine && (
+                        <Line
+                          yAxisId="engine"
+                          type="stepAfter"
+                          dataKey="engineVal"
+                          stroke="#eab308"
+                          strokeWidth={2.5}
+                          dot={false}
+                          name="Engine (ON/OFF)"
+                        />
+                      )}
+
+                      {/* 4. Speed Line (Cyan Line on Right Axis) */}
+                      {showSpeed && (
+                        <Line
+                          yAxisId="speed"
+                          type="monotone"
+                          dataKey="speed"
+                          stroke="#06b6d4"
+                          strokeWidth={1.8}
+                          dot={false}
+                          name="Speed (km/h)"
+                        />
+                      )}
+
+                      {/* 5. Master Hero: Normalize / Consumption Line (RED) */}
+                      {(showNormalize || showConsumptionLayer) && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="normalizedFuel"
+                          stroke="#ef4444"
+                          strokeWidth={3.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={true}
+                          name="Normalize / Consumption (L)"
+                        />
+                      )}
+
+                      {/* 6. Refill Highlight Curve (Emerald Green on refill intervals) */}
+                      {showRefillEvents && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="refillHighlightFuel"
+                          stroke="#10b981"
+                          strokeWidth={4.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#10b981', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={false}
+                          name="Refill Highlight"
+                          isAnimationActive={false}
+                        />
+                      )}
+
+                      {/* 7. Theft Highlight Curve (Crimson Red on theft intervals) */}
+                      {showTheftEvents && (
+                        <Line
+                          yAxisId="fuel"
+                          type="monotone"
+                          dataKey="theftHighlightFuel"
+                          stroke="#ef4444"
+                          strokeWidth={4.5}
+                          dot={false}
+                          activeDot={{ r: 6, fill: '#ef4444', stroke: '#ffffff', strokeWidth: 2 }}
+                          connectNulls={false}
+                          name="Theft Highlight"
+                          isAnimationActive={false}
+                        />
+                      )}
+
+                      {/* 8. Refill Starting & Ending Reference Dots & Bands */}
+                      {showRefillEvents && processedData.refuels.map((r, idx) => (
+                        <React.Fragment key={`ref-marks-${idx}`}>
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={r.startTimeStr}
+                            y={r.startFuel}
+                            r={5}
+                            fill="#10b981"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={r.endTimeStr}
+                            y={r.endFuel}
+                            r={6}
+                            fill="#059669"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceArea
+                            yAxisId="fuel"
+                            x1={r.startTimeStr}
+                            x2={r.endTimeStr}
+                            fill="#10b981"
+                            fillOpacity={0.15}
+                            stroke="#10b981"
+                            strokeOpacity={0.4}
+                            strokeDasharray="2 2"
+                          />
+                        </React.Fragment>
+                      ))}
+
+                      {/* 9. Theft Starting & Ending Reference Dots & Bands */}
+                      {showTheftEvents && processedData.drops.map((d, idx) => (
+                        <React.Fragment key={`theft-marks-${idx}`}>
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={d.startTimeStr}
+                            y={d.startFuel}
+                            r={5}
+                            fill="#ef4444"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceDot
+                            yAxisId="fuel"
+                            x={d.endTimeStr}
+                            y={d.endFuel}
+                            r={6}
+                            fill="#b91c1c"
+                            stroke="#ffffff"
+                            strokeWidth={2}
+                            isFront={true}
+                          />
+                          <ReferenceArea
+                            yAxisId="fuel"
+                            x1={d.startTimeStr}
+                            x2={d.endTimeStr}
+                            fill="#ef4444"
+                            fillOpacity={0.16}
+                            stroke="#ef4444"
+                            strokeOpacity={0.4}
+                            strokeDasharray="2 2"
+                          />
+                        </React.Fragment>
+                      ))}
+
+                      <Brush 
+                        dataKey="timeStr" 
+                        height={24} 
+                        stroke="#38bdf8" 
+                        fill="#0f172a" 
+                        travellerWidth={10}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
                 )}
+              </div>
+            </div>
+
+            {/* Right Column: Dedicated Fuel Intelligence & Event Layer Control Panel (Compact & Sleek) */}
+            <div className="w-full lg:w-[220px] xl:w-[230px] shrink-0 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
+              <div className="space-y-2.5">
+                {/* Panel Title */}
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/80 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Flame className="w-3.5 h-3.5 text-emerald-500" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                      Fuel Intelligence
+                    </span>
+                  </div>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Live Engine
+                  </span>
+                </div>
+
+                {/* 3 Interactive Layer Checkboxes */}
+                <div className="space-y-2">
+                  {/* 1. Refill Checkbox */}
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
+                    showRefillEvents
+                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-sm ring-1 ring-emerald-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showRefillEvents}
+                      onChange={(e) => setShowRefillEvents(e.target.checked)}
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                          1. Refill
+                        </span>
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
+                          +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        {processedData.refuels.length} refuels (settled)
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* 2. Theft / Drain Checkbox */}
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
+                    showTheftEvents
+                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-sm ring-1 ring-rose-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showTheftEvents}
+                      onChange={(e) => setShowTheftEvents(e.target.checked)}
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                          2. Theft / Drain
+                        </span>
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
+                          -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        {processedData.drops.length} siphons verified
+                      </p>
+                    </div>
+                  </label>
+
+                  {/* 3. Consumption Checkbox */}
+                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
+                    showConsumptionLayer
+                      ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-sm ring-1 ring-sky-500/20'
+                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={showConsumptionLayer}
+                      onChange={(e) => setShowConsumptionLayer(e.target.checked)}
+                      className="mt-0.5 w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                          3. Consumption
+                        </span>
+                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
+                          {processedData.fuelConsumed.toFixed(1)} L
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
+                        Burn ({processedData.mileageKmpl} km/L)
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* 3 Highlighted Quick Navigation Links */}
+                <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block px-0.5">
+                    Quick Navigation
+                  </span>
+
+                  {/* 1. Raw Fuel Data */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTableTab(prev => prev === 'raw' ? null : 'raw');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'raw'
+                        ? 'bg-sky-600 text-white ring-2 ring-sky-500/40 shadow-sky-500/20'
+                        : 'bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800/60'
+                    }`}
+                    title="Toggle On-Demand Raw Fuel Telemetry Table"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Database className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'raw' ? 'text-white' : 'text-sky-500'}`} />
+                      <span className="truncate">1. Raw Fuel Data</span>
+                    </span>
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'raw' ? 'bg-white/25 text-white font-bold' : 'bg-sky-500/20 text-sky-700 dark:text-sky-300'
+                    }`}>
+                      {processedRawRows.length}
+                    </span>
+                  </button>
+
+                  {/* 2. Refill History */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTableTab(prev => prev === 'refills' ? null : 'refills');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'refills'
+                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40 shadow-emerald-500/20'
+                        : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60'
+                    }`}
+                    title="Toggle Detected Refuels & Event History"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <Fuel className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'refills' ? 'text-white' : 'text-emerald-500'}`} />
+                      <span className="truncate">2. Refill History</span>
+                    </span>
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'refills' ? 'bg-white/25 text-white font-bold' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
+                    }`}>
+                      {processedData.refuels.length}
+                    </span>
+                  </button>
+
+                  {/* 3. Consumption Rate */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTableTab(prev => prev === 'consumption' ? null : 'consumption');
+                      setTimeout(() => {
+                        const el = document.getElementById('analytics-tables-container');
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 50);
+                    }}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
+                      activeTableTab === 'consumption'
+                        ? 'bg-amber-600 text-white ring-2 ring-amber-500/40 shadow-amber-500/20'
+                        : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60'
+                    }`}
+                    title="Toggle Trip & Consumption Breakdown Table"
+                  >
+                    <span className="flex items-center gap-1.5 truncate">
+                      <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'consumption' ? 'text-white' : 'text-amber-500'}`} />
+                      <span className="truncate">3. Consumption Rate</span>
+                    </span>
+                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
+                      activeTableTab === 'consumption' ? 'bg-white/25 text-white font-bold' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
+                    }`}>
+                      {processedData.mileageKmpl} km/L
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Quick Help Note */}
+              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 text-[9px] text-slate-400 flex items-center justify-between">
+                <span>Hover curve for event</span>
+                <span className="font-mono text-slate-500">5-10m settling</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 2. TELEMETRY EXECUTIVE STATS BOARD (ULTRA-SLIM COMPACT STRIP) ── */}
+        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-sm overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80 dark:divide-slate-800/80">
+
+            {/* SECTION 1: ENGINE STATUS */}
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Engine Status</span>
+                <Activity className="w-3 h-3 text-slate-400" />
+              </div>
+              <div className="flex items-center gap-1.5 my-0.5">
+                {processedData.currentStatus === 'ON (Moving)' && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    ON (Moving)
+                  </span>
+                )}
+                {processedData.currentStatus === 'ON (Idle)' && (
+                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
+                    <Flame className="w-3 h-3 text-amber-500" />
+                    ON (Idle)
+                  </span>
+                )}
+                {processedData.currentStatus === 'OFF' && (
+                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    OFF
+                  </span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Mov: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.movingHours}h</strong> • Idle: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.idleHours}h</strong>
+              </div>
+            </div>
+
+            {/* SECTION 2: SPEED METRICS */}
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Speed</span>
+                <Gauge className="w-3 h-3 text-cyan-500" />
+              </div>
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                  {processedData.currentSpeed}
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">km/h</span>
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Max: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.maxSpeed}</strong> • Avg: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.avgSpeed} km/h</strong>
+              </div>
+            </div>
+
+            {/* SECTION 3: LIVE FUEL LEVEL */}
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Fuel Level</span>
+                <span className="text-[10px] font-bold text-emerald-500">{fuelPercent}%</span>
+              </div>
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+                  {processedData.currentFuel}
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">L</span>
+                <span className="text-[9px] text-slate-400">/ {tankCapacity}L</span>
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Start: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.startFuel}L</strong> • End: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.endFuel}L</strong>
+              </div>
+            </div>
+
+            {/* SECTION 4: DISTANCE TRAVELED */}
+            <div className="py-2 px-3 flex flex-col justify-center">
+              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider">Distance</span>
+                <Compass className="w-3 h-3 text-violet-500" />
+              </div>
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
+                  {processedData.totalDistance}
+                </span>
+                <span className="text-[10px] text-slate-400 font-semibold">km</span>
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Period: <strong className="text-slate-700 dark:text-slate-300 font-mono">{activePreset}</strong> • Odo: <strong className="text-slate-700 dark:text-slate-300 font-mono">{selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'}</strong>
+              </div>
+            </div>
+
+            {/* SECTION 5: HERO FUEL ECONOMY & MILEAGE */}
+            <div className="py-2 px-3 flex flex-col justify-center bg-emerald-500/[0.03] dark:bg-emerald-950/20">
+              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3 text-emerald-500" /> Fuel Economy
+                </span>
+                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
+                  Efficiency
+                </span>
+              </div>
+              <div className="flex items-baseline gap-1 my-0.5">
+                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
+                  {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}
+                </span>
+                <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">km / L</span>
+              </div>
+              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                Burned: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{processedData.fuelConsumed}L</strong> • Dist: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.totalDistance}km</strong>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* ── FUEL FILL AND THEFT DETAILS PERMANENT SUMMARY BOARD ── */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-xs overflow-hidden">
+          <div className="px-4 py-2 bg-slate-50/70 dark:bg-slate-800/50 border-b border-slate-200/80 dark:border-slate-800/80 text-center">
+            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200 tracking-wide">
+              Fuel fill and theft details
+            </h4>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <tbody className="divide-y divide-slate-200/70 dark:divide-slate-800/70">
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20 w-1/4">
+                    Vehicle Group
+                  </td>
+                  <td className="px-4 py-2 font-semibold text-slate-800 dark:text-slate-200 w-1/4">
+                    {selectedGroupLabel}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20 w-1/4">
+                    Total Distance
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200 w-1/4">
+                    {processedData.totalDistance}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Start Fuel Level
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {processedData.startFuel}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    End Fuel Level
+                  </td>
+                  <td className="px-4 py-2 font-mono font-semibold text-slate-800 dark:text-slate-200">
+                    {processedData.endFuel}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Fill
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Theft
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-rose-600 dark:text-rose-400">
+                    {processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)}
+                  </td>
+                </tr>
+                <tr className="divide-x divide-slate-200/70 dark:divide-slate-800/70">
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Total Fuel Consume
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                    {processedData.fuelConsumed}
+                  </td>
+                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400 font-medium bg-slate-50/40 dark:bg-slate-800/20">
+                    Kmpl
+                  </td>
+                  <td className="px-4 py-2 font-mono font-bold text-slate-800 dark:text-slate-200">
+                    {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '0.00'}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* ── ON-DEMAND ANIMATED TABLES CONTAINER (INITIALLY EMPTY) ── */}
+        <div id="analytics-tables-container" className="space-y-4">
+          <AnimatePresence mode="wait">
+            {/* 1. RAW FUEL DATA TABLE */}
+            {activeTableTab === 'raw' && (
+              <motion.div
+                key="raw-fuel-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Header with Title, Period & Export Buttons */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
+                      <Database className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Raw Fuel Telemetry Data Audit
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-700 dark:text-sky-300">
+                          {filteredRawRows.length} Packets
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Tank: <strong className="text-slate-700 dark:text-slate-300">{tankCapacity}L</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportRawExcel}
+                      disabled={!filteredRawRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Telemetry as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportRawPDF}
+                      disabled={!filteredRawRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Telemetry as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Raw Fuel Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Synchronized Date-Time & Filter Bar */}
+                <div className="p-3 sm:px-5 sm:py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex flex-wrap items-center justify-between gap-3">
+                  
+                  {/* Left: Quick Date Presets & Date Inputs */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Presets */}
+                    <div className="flex items-center gap-1 bg-white dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs">
+                      {[
+                        { id: 'today', label: 'Today' },
+                        { id: 'yesterday', label: 'Yesterday' },
+                        { id: 'last24h', label: 'Last 24h' },
+                        { id: 'last7d', label: 'Last 7d' }
+                      ].map(p => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSelectPreset(p.id)}
+                          className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all ${
+                            activePreset === p.id
+                              ? 'bg-sky-600 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* From & To Date-Time Pickers with Sync Button */}
+                    <div className="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xs text-xs">
+                      <Calendar className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+                      <input
+                        type="datetime-local"
+                        value={customStart}
+                        max={customEnd || maxDateTime}
+                        onChange={(e) => {
+                          setCustomStart(e.target.value);
+                          setActivePreset('custom');
+                        }}
+                        className="bg-transparent text-xs text-slate-800 dark:text-slate-200 font-mono focus:outline-none"
+                        title="Start Date & Time"
+                      />
+                      <span className="text-slate-400 text-xs px-0.5">→</span>
+                      <Clock className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                      <input
+                        type="datetime-local"
+                        value={customEnd}
+                        min={customStart}
+                        max={maxDateTime}
+                        onChange={(e) => {
+                          setCustomEnd(e.target.value);
+                          setActivePreset('custom');
+                        }}
+                        className="bg-transparent text-xs text-slate-800 dark:text-slate-200 font-mono focus:outline-none"
+                        title="End Date & Time"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fetchVehicleFuelData(customStart, customEnd)}
+                        disabled={loading}
+                        className="ml-1.5 px-2.5 py-1 rounded-lg bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        title="Sync telemetry packets for this date range"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                        <span>Sync</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Right: Search, Sort Order, Page Size */}
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    <div className="relative min-w-[170px]">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+                      <input
+                        type="text"
+                        value={rawSearchQuery}
+                        onChange={(e) => setRawSearchQuery(e.target.value)}
+                        placeholder="Search packets..."
+                        className="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl focus:outline-none focus:ring-1.5 focus:ring-sky-500 text-slate-900 dark:text-white"
+                      />
+                    </div>
+
+                    {/* Sort Order */}
+                    <button
+                      type="button"
+                      onClick={() => setRawSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/60 font-semibold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      title="Toggle Chronological Sort Order"
+                    >
+                      <ArrowUpDown className="w-3.5 h-3.5 text-slate-400" />
+                      <span>{rawSortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                    </button>
+
+                    {/* Page Size Selector */}
+                    <select
+                      value={rawPageSize}
+                      onChange={(e) => setRawPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value={25}>25 / page</option>
+                      <option value={50}>50 / page</option>
+                      <option value={100}>100 / page</option>
+                      <option value={250}>250 / page</option>
+                      <option value="all">All Records</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Records */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-2.5">#</th>
+                        <th className="px-3.5 py-2.5">Timestamp (IST)</th>
+                        <th className="px-3.5 py-2.5">Speed</th>
+                        <th className="px-3.5 py-2.5">Engine Status</th>
+                        <th className="px-3.5 py-2.5">Raw Fuel</th>
+                        <th className="px-3.5 py-2.5">Filtered Fuel</th>
+                        <th className="px-3.5 py-2.5">Normalized Fuel</th>
+                        <th className="px-3.5 py-2.5">Odometer</th>
+                        <th className="px-3.5 py-2.5">Voltage</th>
+                        <th className="px-3.5 py-2.5">Classification</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {paginatedRawRows.length === 0 ? (
+                        <tr>
+                          <td colSpan="10" className="px-4 py-12 text-center text-slate-400">
+                            {loading ? 'Fetching telemetry packets...' : 'No telemetry packets recorded for this period.'}
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedRawRows.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-sky-500/5 dark:hover:bg-sky-500/10 transition-colors">
+                            <td className="px-3.5 py-2 text-slate-400 font-mono text-[11px]">{r.index}</td>
+                            <td className="px-3.5 py-2 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.dateTimeStr}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                              {r.speed} <span className="text-[10px] text-slate-400">km/h</span>
+                            </td>
+                            <td className="px-3.5 py-2 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                r.status === 'ON (Moving)'
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                  : (r.status === 'ON (Idle)' ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-500')
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                  r.status === 'ON (Moving)' ? 'bg-emerald-500 animate-pulse' : (r.status === 'ON (Idle)' ? 'bg-amber-500' : 'bg-slate-400')
+                                }`} />
+                                {r.status}
+                              </span>
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {r.rawFuel != null ? `${r.rawFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
+                              {r.filteredFuel != null ? `${r.filteredFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {r.odometer !== '—' ? `${r.odometer} km` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {r.volt !== '—' ? `${r.volt} V` : '—'}
+                            </td>
+                            <td className="px-3.5 py-2 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                                r.eventType === 'refill'
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
+                                  : (r.eventType === 'drop'
+                                    ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/30'
+                                    : (r.eventType === 'refill-window'
+                                      ? 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                                      : (r.eventType === 'theft-window'
+                                        ? 'bg-orange-500/15 text-orange-700 dark:text-orange-300'
+                                        : 'text-slate-400')))
+                              }`}>
+                                {r.eventTag}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination & Summary Footer */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="font-medium">
+                    {filteredRawRows.length === 0 ? (
+                      'No records'
+                    ) : (
+                      rawPageSize === 'all' ? (
+                        `Showing all ${filteredRawRows.length} records`
+                      ) : (
+                        `Showing ${(rawCurrentPage - 1) * Number(rawPageSize) + 1} to ${Math.min(rawCurrentPage * Number(rawPageSize), filteredRawRows.length)} of ${filteredRawRows.length} records`
+                      )
+                    )}
+                  </div>
+
+                  {rawPageSize !== 'all' && rawTotalPages > 1 && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setRawCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={rawCurrentPage === 1}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                      </button>
+                      <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
+                        {rawCurrentPage} / {rawTotalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRawCurrentPage(p => Math.min(rawTotalPages, p + 1))}
+                        disabled={rawCurrentPage === rawTotalPages}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                        title="Next Page"
+                      >
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
+            {/* 2. FUEL FILL & THEFT REPORT TABLE */}
+            {activeTableTab === 'refills' && (
+              <motion.div
+                key="refills-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="refill-history-section"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Header with Sub-tabs and Exports */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <Fuel className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Fuel Fill Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                          {processedData.refuels.length} Refills
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Filled: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)}L</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportRefillsExcel}
+                      disabled={!processedData.refuels.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Refills as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportRefillsPDF}
+                      disabled={!processedData.refuels.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Refills as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Refills Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-tabs matching reference UI */}
+                <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Consumption Rate ({processedData.sessions.length})
+                  </button>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">
+                          <span className="inline-flex items-center gap-1">
+                            Consumption During Fuel Fill <Info className="w-3 h-3 text-slate-400" />
+                          </span>
+                        </th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Fuel Fill</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Odo ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Address ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">G-Map</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {processedData.refuels.length === 0 ? (
+                        <tr>
+                          <td colSpan="9" className="px-4 py-12 text-center text-slate-400">
+                            No fuel refill events recorded in this time range.
+                          </td>
+                        </tr>
+                      ) : (
+                        processedData.refuels.map((r, idx) => (
+                          <tr key={idx} className="hover:bg-emerald-500/5 dark:hover:bg-emerald-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.toTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.previousFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {r.currentFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {r.consumptionDuringFill}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                              {r.fuelFill}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {r.odo}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate whitespace-nowrap" title={r.address}>
+                              {r.address}
+                            </td>
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              {r.lat && r.lng ? (
+                                <a
+                                  href={`https://www.google.com/maps?q=${r.lat},${r.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-semibold underline underline-offset-2"
+                                >
+                                  Link
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer summary */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {processedData.refuels.length} refuel events</span>
+                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">
+                    Net Added: {processedData.refuels.reduce((acc, r) => acc + (r.liters || 0), 0).toFixed(2)} Liters
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 3. FUEL THEFT REPORT TABLE */}
+            {activeTableTab === 'theft' && (
+              <motion.div
+                key="theft-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="fuel-theft-section"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Header with Sub-tabs and Exports */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                      <Flame className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Fuel Theft & Drain Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300">
+                          {processedData.drops.length} Thefts
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Theft: <strong className="text-rose-600 dark:text-rose-400 font-mono">{processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)}L</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportTheftExcel}
+                      disabled={!processedData.drops.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Thefts as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportTheftPDF}
+                      disabled={!processedData.drops.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Thefts as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Thefts Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-tabs matching reference UI */}
+                <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Consumption Rate ({processedData.sessions.length})
+                  </button>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap text-rose-600 dark:text-rose-400">Fuel Theft (Ltrs)</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Odo ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Address ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">G-Map</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {processedData.drops.length === 0 ? (
+                        <tr>
+                          <td colSpan="8" className="px-4 py-12 text-center text-slate-400">
+                            No fuel theft or drain events recorded in this time range.
+                          </td>
+                        </tr>
+                      ) : (
+                        processedData.drops.map((d, idx) => (
+                          <tr key={idx} className="hover:bg-rose-500/5 dark:hover:bg-rose-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.toTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.previousFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {d.currentFuel}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-rose-600 dark:text-rose-400 whitespace-nowrap">
+                              {d.fuelTheft || d.liters}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {d.odo}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-xs truncate whitespace-nowrap" title={d.address}>
+                              {d.address}
+                            </td>
+                            <td className="px-3.5 py-2.5 whitespace-nowrap">
+                              {d.lat && d.lng ? (
+                                <a
+                                  href={`https://www.google.com/maps?q=${d.lat},${d.lng}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-semibold underline underline-offset-2"
+                                >
+                                  Link
+                                </a>
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer summary */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {processedData.drops.length} theft events</span>
+                  <span className="font-mono text-rose-600 dark:text-rose-400 font-bold">
+                    Total Theft: {processedData.drops.reduce((acc, d) => acc + (d.liters || 0), 0).toFixed(2)} Liters
+                  </span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 4. CONSUMPTION RATE TABLE (MATCHING REFERENCE UI) */}
+            {activeTableTab === 'consumption' && (
+              <motion.div
+                key="consumption-table"
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -12 }}
+                transition={{ duration: 0.25 }}
+                id="consumption-breakdown-section"
+                className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden"
+              >
+                {/* Table Top Header with Exports and Close */}
+                <div className="p-4 sm:p-5 border-b border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                      <TrendingUp className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-base text-slate-900 dark:text-white">
+                          Consumption Rate Details
+                        </h3>
+                        <span className="text-[10px] font-bold font-mono px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300">
+                          {filteredConsumptionRows.length} Segments
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Vehicle: <strong className="text-slate-700 dark:text-slate-300">{selectedVehicle?.plate || selectedVehicle?.name || 'Selected'}</strong> • Total Burn: <strong className="text-amber-600 dark:text-amber-400 font-mono">{processedData.fuelConsumed}L</strong> • Avg Kmpl: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Right Actions: Excel, PDF, Close */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleExportConsumptionExcel}
+                      disabled={!filteredConsumptionRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Consumption Rate as Excel Spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Excel</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExportConsumptionPDF}
+                      disabled={!filteredConsumptionRows.length}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-xs disabled:opacity-50 transition-all cursor-pointer"
+                      title="Download Consumption Rate as PDF Audit Report"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveTableTab(null)}
+                      className="p-1.5 rounded-xl text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                      title="Close Consumption Table"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Sub-tabs bar matching screenshot */}
+                <div className="px-4 py-2 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/70 dark:bg-slate-900/60 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('refills')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Fill ({processedData.refuels.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('theft')}
+                    className="px-3 py-1 rounded-lg text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                  >
+                    Fuel Theft ({processedData.drops.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTableTab('consumption')}
+                    className="px-3 py-1 rounded-lg border-2 border-slate-800 dark:border-slate-300 font-bold text-xs text-slate-900 dark:text-white bg-white dark:bg-slate-800 shadow-2xs cursor-pointer"
+                  >
+                    Consumption Rate
+                  </button>
+                </div>
+
+                {/* Filter Toolbar: Mileage input, Ignition dropdown, Excess Consumption Toggle */}
+                <div className="px-4 py-3 border-b border-slate-200/80 dark:border-slate-800/80 bg-slate-50/40 dark:bg-slate-900/30 flex flex-wrap items-center gap-4 text-xs font-medium">
+                  {/* Mileage Input */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Mileage :</span>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0.5"
+                      max="100"
+                      value={consumptionMileageInput}
+                      onChange={(e) => setConsumptionMileageInput(Math.max(0.1, Number(e.target.value) || 1))}
+                      className="w-18 px-2.5 py-1 text-xs font-mono font-bold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-amber-500 text-center"
+                    />
+                  </div>
+
+                  {/* Ignition Filter */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">Ignition :</span>
+                    <select
+                      value={consumptionIgnitionFilter}
+                      onChange={(e) => setConsumptionIgnitionFilter(e.target.value)}
+                      className="px-2.5 py-1 text-xs font-semibold text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none cursor-pointer"
+                    >
+                      <option value="all">All</option>
+                      <option value="on">Ignition ON (&gt;=50%)</option>
+                      <option value="off">Ignition OFF (&lt;50%)</option>
+                    </select>
+                  </div>
+
+                  {/* Excess Consumption Filter Switch */}
+                  <div className="flex items-center gap-2 sm:ml-auto">
+                    <span className="text-slate-600 dark:text-slate-400 font-semibold">
+                      Excess Consumption Filter :
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConsumptionExcessOnly(prev => !prev)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        consumptionExcessOnly ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
+                      }`}
+                      title="Toggle Excess Consumption Only"
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
+                          consumptionExcessOnly ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Fixed Outer Frame & Scrollable Inside Table */}
+                <div className="max-h-[480px] overflow-y-auto overflow-x-auto relative">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-100/95 dark:bg-slate-800/95 backdrop-blur-xs text-slate-600 dark:text-slate-300 font-bold uppercase tracking-wider text-[10px] shadow-xs border-b border-slate-200 dark:border-slate-700/80">
+                      <tr>
+                        <th className="px-3.5 py-3 whitespace-nowrap">From Time ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">To Time ⬍</th>
+                        <th className="px-3 py-3 whitespace-nowrap text-center">Ign ON % ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Distance (Kms) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Previous Fuel (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Current Fuel (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Actual Consumption (Ltrs) ⬍</th>
+                        <th className="px-3 py-3 whitespace-nowrap text-center">Kmpl ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Expected Consumption (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap text-amber-600 dark:text-amber-400">Excess Consumption (Ltrs) ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">Start Location ⬍</th>
+                        <th className="px-3.5 py-3 whitespace-nowrap">End Location ⬍</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                      {filteredConsumptionRows.length === 0 ? (
+                        <tr>
+                          <td colSpan="12" className="px-4 py-12 text-center text-slate-400">
+                            No driving or idling segments match the selected criteria.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredConsumptionRows.map((s, idx) => (
+                          <tr key={idx} className="hover:bg-amber-500/5 dark:hover:bg-amber-500/10 transition-colors">
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.fromTimeFull}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.toTimeFull}
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-center whitespace-nowrap">
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                s.ignOnPercent >= 80 
+                                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' 
+                                  : (s.ignOnPercent > 0 ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300' : 'bg-slate-200 dark:bg-slate-800 text-slate-500')
+                              }`}>
+                                {s.ignOnPercent}
+                              </span>
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-semibold text-slate-900 dark:text-white whitespace-nowrap">
+                              {s.distanceKm}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.previousFuel != null ? s.previousFuel : '—'}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.currentFuel != null ? s.currentFuel : '—'}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-100 whitespace-nowrap">
+                              {s.actualConsumption}
+                            </td>
+                            <td className="px-3 py-2.5 font-mono text-center font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              {s.kmpl > 0 ? s.kmpl : '—'}
+                            </td>
+                            <td className="px-3.5 py-2.5 font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                              {s.expectedConsumption}
+                            </td>
+                            <td className={`px-3.5 py-2.5 font-mono font-bold whitespace-nowrap ${
+                              s.excessNum > 0.05 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-400'
+                            }`}>
+                              {s.excessConsumption}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-[180px] truncate whitespace-nowrap" title={s.startAddress}>
+                              {s.startAddress}
+                            </td>
+                            <td className="px-3.5 py-2.5 text-slate-600 dark:text-slate-300 max-w-[180px] truncate whitespace-nowrap" title={s.endAddress}>
+                              {s.endAddress}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer with Total Excess Consumption */}
+                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <span>Showing {filteredConsumptionRows.length} segments</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-700 dark:text-slate-300">
+                      Total Excess Consumption (Ltrs):
+                    </span>
+                    <span className="px-2.5 py-0.5 rounded-lg bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono font-bold text-sm">
+                      {totalExcessConsumption}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
       </div>

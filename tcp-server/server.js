@@ -34,6 +34,7 @@ const protocolStats = {
   'EC08':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'V54G':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTYFUEL':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'APMK':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -52,6 +53,7 @@ const FMB920_PORT      = parseInt(process.env.FMB920_TCP_PORT) || 5005;
 const EC08_PORT        = process.env.EC08_TCP_PORT || 5007;
 const V54G_PORT        = process.env.V5_4G_TCP_PORT || 5009;
 const VOLTYFUEL_PORT   = parseInt(process.env.VOLTYFUEL_TCP_PORT) || 5011;
+const APMK_PORT        = parseInt(process.env.APMK_TCP_PORT) || 5012;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -156,6 +158,11 @@ const commandAdapters = {
     // Command wrapped in 0x40 binary frame by dispatchCommand()
     immobilize: () => '__VOLTYFUEL_BINARY_IMMOBILIZE__',
     mobilize:   () => '__VOLTYFUEL_BINARY_MOBILIZE__',
+  },
+  APMK: {
+    // APMK uses standard AIS140 V2 relay commands
+    immobilize: () => 'STOPELEC1\r\n',
+    mobilize:   () => 'STARTELEC1\r\n',
   },
 };
 
@@ -279,6 +286,16 @@ const pn02Server = initPn02Server(PN02_PORT, protocolStats, connectedDevices, pu
 
 // Start VoltyFuel (TranSync NAV 140) Server on port 5011
 const voltyFuelServer = initVoltyFuelServer(VOLTYFUEL_PORT, protocolStats, connectedDevices, publisher);
+
+// Start APMK Server on Port 5012
+// Delimiter is '*' (AIS140 V2 format)
+// Allowed headers: $PVT,APMK and $HEL,APMK
+const apmkServer = createProtocolServer(
+  APMK_PORT,
+  '*',
+  'APMK',
+  ['$PVT,APMK', '$HEL,APMK', '$PVT,apmk', '$HEL,apmk']
+);
 
 /**
  * Factory to create a TCP server for a specific protocol configuration
@@ -766,10 +783,10 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
 
       
     // ================================================================
-    // AIS140 V2 PACKET TYPES
+    // AIS140 V2 & APMK PACKET TYPES
     // ================================================================
 
-    } else if (parsed.packetType === 'AIS140V2_GENERAL') {
+    } else if (parsed.packetType === 'AIS140V2_GENERAL' || parsed.packetType === 'APMK_GENERAL') {
       // General/Normal packet — treat the same as $NRM for location tracking
       const fLat = parseFloat(parsed.lat);
       const fLng = parseFloat(parsed.lng);
@@ -779,14 +796,14 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
 
       if (!isValidGps || isZeroCoords) {
         // GPS not fixed — still mark device as online via heartbeat
-        console.log(`[TCP - ${protocolName}] V2 General: GPS not fixed for ${parsed.imei} (valid=${isValidGps}, zero=${isZeroCoords}). Publishing heartbeat.`);
+        console.log(`[TCP - ${protocolName}] ${parsed.packetType}: GPS not fixed for ${parsed.imei} (valid=${isValidGps}, zero=${isZeroCoords}). Publishing heartbeat.`);
         connectedDevices.set(parsed.imei, { socket, clientId, protocolName, lastPacket: new Date() });
         await publisher.publishHeartbeat(
           parsed.imei, parsed.battery, parsed.gsmSignal,
           parsed.ignition, parsed.deviceTime, parsed.rawPacket, parsed.packetType
         );
         totalPacketsParsed++;
-        if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+        if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       } else {
         connectedDevices.set(parsed.imei, {
           socket,
@@ -798,17 +815,17 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
         });
         await publisher.publishLocation(parsed);
         totalPacketsParsed++;
-        if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+        if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       }
 
       // If the general packet carries an alert (pktTypeCode != NR), also publish alert
       if (parsed.pktTypeCode && parsed.pktTypeCode !== 'NR' && parsed.alertText) {
         await publisher.publishAlert(parsed);
-        console.log(`[TCP - ${protocolName}] V2 Alert from ${parsed.imei}: ${parsed.pktTypeCode} - ${parsed.alertText}`);
+        console.log(`[TCP - ${protocolName}] Alert from ${parsed.imei}: ${parsed.pktTypeCode} - ${parsed.alertText}`);
       }
 
-    } else if (parsed.packetType === 'AIS140V2_HEALTH') {
-      console.log(`[TCP - ${protocolName}] V2 Health from ${parsed.imei}: Battery ${parsed.batteryPercent}%, Mem ${parsed.memoryPercent}%`);
+    } else if (parsed.packetType === 'AIS140V2_HEALTH' || parsed.packetType === 'APMK_HEALTH') {
+      console.log(`[TCP - ${protocolName}] Health from ${parsed.imei}: Battery ${parsed.batteryPercent}%`);
       if (parsed.imei) {
         connectedDevices.set(parsed.imei, {
           socket,
@@ -826,7 +843,7 @@ async function processPacket(raw, socket, clientId, protocolName, allowedHeaders
           parsed.packetType
         );
       }
-      if (protocolStats['AIS140V2']) protocolStats['AIS140V2'].lastSuccessfulPacketAt = new Date().toISOString();
+      if (protocolStats[protocolName]) protocolStats[protocolName].lastSuccessfulPacketAt = new Date().toISOString();
       totalPacketsParsed++;
 
     } else if (parsed.packetType === 'AIS140V2_EMERGENCY') {
