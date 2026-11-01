@@ -12,6 +12,7 @@ const GroupModel = require('../models/groupModel');
 const VehicleModel = require('../models/vehicleModel');
 const GpsModel = require('../models/gpsModel');
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 const AuditService = require('../services/auditService');
 
 const AdminController = {
@@ -993,11 +994,18 @@ const AdminController = {
             WHEN vls.last_seen >= NOW() - ($1 || ' minutes')::INTERVAL THEN TRUE
             ELSE FALSE 
           END as is_online,
-          vls.last_seen
+          vls.last_seen,
+          grp.group_names
         FROM devices d
         LEFT JOIN organizations o ON d.org_id = o.id
         LEFT JOIN vehicles v ON d.device_id = v.imei AND v.is_active = TRUE
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        LEFT JOIN LATERAL (
+          SELECT ARRAY_AGG(g.name) as group_names
+          FROM vehicle_groups vg
+          JOIN groups g ON vg.group_id = g.id
+          WHERE vg.vehicle_id = v.id
+        ) grp ON TRUE
       `;
       let params = [noDataMinutes];
 
@@ -1009,7 +1017,64 @@ const AdminController = {
       query += ` ORDER BY d.created_at DESC`;
 
       const result = await db.query(query, params);
-      res.json({ success: true, data: result.rows });
+
+      // ── High-speed Redis lookup for API push status (< 1ms, zero DB load) ──
+      const imeis = result.rows.map(r => r.device_id).filter(Boolean);
+      let redisStatuses = [];
+      if (imeis.length > 0 && redis) {
+        try {
+          const keys = imeis.map(i => `api_push_status:${i}`);
+          redisStatuses = await redis.mget(keys);
+        } catch (e) {
+          console.warn('[REDIS-API-STATUS]', e.message);
+        }
+      }
+
+      const rows = result.rows.map((row, idx) => {
+        const groupsArr = row.group_names || [];
+        const isMining = groupsArr.some(g => /mining|mines|tnreal/i.test(g));
+        const isSathyadeva = (row.org_name && /sathyadeva/i.test(row.org_name)) || groupsArr.some(g => /sathyadeva/i.test(g));
+        const isCivilSupplies = groupsArr.some(g => /civil|tgscscl/i.test(g));
+
+        let configuredTarget = null;
+        if (isMining) configuredTarget = 'Mines Server';
+        else if (isSathyadeva) configuredTarget = 'SCLEN (Coromandel)';
+        else if (isCivilSupplies) configuredTarget = 'TGSCSCL';
+
+        let apiPropagation = null;
+        const rawRedis = redisStatuses[idx];
+        if (rawRedis) {
+          try {
+            apiPropagation = JSON.parse(rawRedis);
+          } catch (_) {}
+        }
+
+        // If no push packet was recorded in Redis yet but vehicle is bound to a target
+        if (!apiPropagation && configuredTarget) {
+          apiPropagation = {
+            target: configuredTarget,
+            status: row.is_online ? 'STANDBY' : 'IDLE',
+            code: 0,
+            message: row.is_online ? 'Standby (Waiting for GPS)' : 'Standby (Vehicle Offline)',
+            timestamp: null
+          };
+        } else if (!apiPropagation && !configuredTarget) {
+          apiPropagation = {
+            target: 'Internal Only',
+            status: 'NONE',
+            code: 0,
+            message: '— Internal Only',
+            timestamp: null
+          };
+        }
+
+        return {
+          ...row,
+          api_propagation: apiPropagation
+        };
+      });
+
+      res.json({ success: true, data: rows });
     } catch (err) {
       console.error('Error fetching devices:', err);
       res.status(500).json({ success: false, error: 'Failed to fetch devices' });
