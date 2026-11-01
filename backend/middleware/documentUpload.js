@@ -13,8 +13,9 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 const env = require('../config/env');
-const { getScannerPool } = require('../config/db');
+const { getScannerPool } = require('../config/scannerDb');
 const { checkDiskSpace } = require('../services/documentScanner/diskGuard');
+const { canAccessOrg } = require('../services/documentScanner/orgScopeService');
 
 const STORAGE_DIR = env.DOCUMENT_SCANNER_STORAGE_DIR;
 
@@ -59,7 +60,7 @@ const upload = multer({
  */
 async function preUploadGuard(req, res, next) {
   // 1. Feature Flag Guard
-  if (!env.DOCUMENT_SCANNER_ENABLED && process.env.DOCUMENT_SCANNER_ENABLED !== 'true') {
+  if (!env.isScannerEnabled()) {
     return res.status(404).json({
       success: false,
       code: 'MODULE_DISABLED',
@@ -77,15 +78,52 @@ async function preUploadGuard(req, res, next) {
     });
   }
 
-  // 3. Queue Depth & Backpressure Check
-  const pool = getScannerPool();
+  // 3. Target Organization Resolution & Authorization (Query Parameter)
+  let targetOrgId = req.query.target_org_id || req.query.org_id;
+
+  if (req.user?.role === 'superadmin') {
+    if (!targetOrgId) {
+      return res.status(422).json({
+        success: false,
+        code: 'TARGET_ORG_REQUIRED',
+        error: 'target_org_id query parameter is required for superadmin upload.'
+      });
+    }
+  } else if (req.user?.role === 'dealer') {
+    if (!targetOrgId) {
+      targetOrgId = req.user.orgId;
+    }
+  } else {
+    // Only superadmin and dealer allowed in v1
+    return res.status(403).json({
+      success: false,
+      code: 'FORBIDDEN',
+      error: 'Access denied. Required role: superadmin or dealer'
+    });
+  }
+
+  const pool = getScannerPool('fueltracks-scanner-api');
+  const orgCheck = await canAccessOrg(pool, req.user, targetOrgId);
+  if (!orgCheck.allowed) {
+    const status = orgCheck.code === 'ORG_NOT_FOUND' ? 404 : 403;
+    return res.status(status).json({
+      success: false,
+      code: orgCheck.code || 'FORBIDDEN',
+      error: orgCheck.error
+    });
+  }
+
+  req.targetOrgId = targetOrgId;
+  req.targetOrg = orgCheck.org;
+
+  // 4. Queue Depth & Backpressure Check
   if (pool) {
     try {
-      const orgId = req.user?.orgId;
+      const orgId = req.targetOrgId;
       const countRes = await pool.query(`
         SELECT 
-          COUNT(*) FILTER (WHERE org_id = $1 AND status IN ('queued', 'processing')) AS org_queued,
-          COUNT(*) FILTER (WHERE status IN ('queued', 'processing')) AS global_queued
+          COUNT(*) FILTER (WHERE org_id = $1 AND status = 'queued') AS org_queued,
+          COUNT(*) FILTER (WHERE status = 'queued') AS global_queued
         FROM document_scans
         WHERE deleted_at IS NULL
       `, [orgId]);
@@ -162,3 +200,4 @@ module.exports = {
   handleDocumentUpload,
   STORAGE_DIR
 };
+
