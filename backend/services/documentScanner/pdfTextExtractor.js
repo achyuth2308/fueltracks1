@@ -24,13 +24,15 @@ async function extractPdfTextLayer(filePath) {
   const rawBytes = fs.readFileSync(filePath);
   const data = new Uint8Array(rawBytes);
 
-  const loadingTask = pdfjsLib.getDocument({
+  const docParams = {
     data,
     isEvalSupported: false,
     disableFontFace: true,
     useSystemFonts: false,
     standardFontDataUrl: null
-  });
+  };
+  extractPdfTextLayer._lastGetDocumentParams = docParams;
+  const loadingTask = pdfjsLib.getDocument(docParams);
 
   const doc = await loadingTask.promise;
   const pageCount = doc.numPages;
@@ -127,3 +129,4 @@ module.exports = {
   MAX_PDF_PAGES,
   extractPdfTextLayer
 };
+

@@ -17,6 +17,32 @@ describe('Feature Flag & Error Robustness Tests', () => {
     } catch (_) {}
   });
 
+  test('strict DOCUMENT_SCANNER_ENABLED parsing handles true, TRUE, false, 0, empty, unset', () => {
+    assert.strictEqual(env.parseStrictBoolean('true'), true);
+    assert.strictEqual(env.parseStrictBoolean('TRUE'), true);
+    assert.strictEqual(env.parseStrictBoolean(' true '), true);
+    assert.strictEqual(env.parseStrictBoolean('false'), false);
+    assert.strictEqual(env.parseStrictBoolean('FALSE'), false);
+    assert.strictEqual(env.parseStrictBoolean('0'), false);
+    assert.strictEqual(env.parseStrictBoolean('1'), false);
+    assert.strictEqual(env.parseStrictBoolean(''), false);
+    assert.strictEqual(env.parseStrictBoolean(undefined), false);
+    assert.strictEqual(env.parseStrictBoolean(null), false);
+  });
+
+  test('pdfTextExtractor invokes getDocument with isEvalSupported:false, disableFontFace:true, useSystemFonts:false', async () => {
+    const { extractPdfTextLayer } = require('../services/documentScanner/pdfTextExtractor');
+    const testPdf = path.join(__dirname, 'fixtures', 'volty_sample.pdf');
+    if (fs.existsSync(testPdf)) {
+      await extractPdfTextLayer(testPdf);
+      const params = extractPdfTextLayer._lastGetDocumentParams;
+      assert.ok(params, 'getDocument parameters must be recorded');
+      assert.strictEqual(params.isEvalSupported, false, 'isEvalSupported must be false for CVE-2024-4367 mitigation');
+      assert.strictEqual(params.disableFontFace, true, 'disableFontFace must be true');
+      assert.strictEqual(params.useSystemFonts, false, 'useSystemFonts must be false');
+    }
+  });
+
   test('idle / flag-off worker holds zero Tesseract workers', () => {
     // Verify Tesseract worker has not been initialized
     assert.strictEqual(ocrProvider.worker, null, 'OcrProvider must hold zero active workers when idle or flag is off');

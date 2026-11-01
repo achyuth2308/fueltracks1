@@ -126,8 +126,8 @@ class OcrProvider {
       return text;
     } catch (err) {
       this._recordFailure();
-      // If worker crashed, dispose instance so next job re-initializes cleanly
-      if (err.message.includes('dead') || err.message.includes('Worker')) {
+      // If worker crashed or timed out, terminate and dispose instance so next job re-initializes cleanly
+      if (err.message.includes('dead') || err.message.includes('Worker') || err.message.includes('OCR_TIMEOUT')) {
         await this.terminateWorker();
       }
       throw err;
@@ -138,3 +138,4 @@ class OcrProvider {
 }
 
 module.exports = new OcrProvider();
+

@@ -51,3 +51,4 @@ if (fs.existsSync(edgePath)) {
 } else {
   console.error('Edge executable not found');
 }
+

@@ -5,7 +5,15 @@
 
 require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
 
+// Helper to parse booleans strictly (only 'true', case-insensitive)
+function parseStrictBoolean(val) {
+  if (!val) return false;
+  return String(val).trim().toLowerCase() === 'true';
+}
+
 const env = {
+  parseStrictBoolean,
+  isScannerEnabled: () => parseStrictBoolean(process.env.DOCUMENT_SCANNER_ENABLED),
   // Node
   NODE_ENV: process.env.NODE_ENV || 'development',
 
@@ -56,7 +64,7 @@ const env = {
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
 
   // Document Scanner & Extractor Module
-  DOCUMENT_SCANNER_ENABLED: process.env.DOCUMENT_SCANNER_ENABLED === 'true',
+  DOCUMENT_SCANNER_ENABLED: parseStrictBoolean(process.env.DOCUMENT_SCANNER_ENABLED),
   DOCUMENT_SCANNER_STORAGE_DIR: process.env.DOCUMENT_SCANNER_STORAGE_DIR || require('path').join(__dirname, '..', 'storage', 'document_scans'),
   DOCUMENT_SCANNER_CONFIDENCE_THRESHOLD: parseFloat(process.env.DOCUMENT_SCANNER_CONFIDENCE_THRESHOLD) || 0.85,
   DOCUMENT_SCANNER_WORKERS: parseInt(process.env.DOCUMENT_SCANNER_WORKERS, 10) || 1,
