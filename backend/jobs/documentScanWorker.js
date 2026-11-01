@@ -9,7 +9,7 @@
 //  - Graceful shutdown handling (releases current claim on SIGTERM)
 // ============================================================
 
-const { getScannerPool } = require('../config/db');
+const { getScannerPool } = require('../config/scannerDb');
 const env = require('../config/env');
 const scannerService = require('../services/documentScanner/scannerService');
 const ocrProvider = require('../services/documentScanner/ocrProvider');
@@ -104,7 +104,7 @@ async function pollAndProcess() {
   if (!isRunning || isShuttingDown) return;
 
   // 1. Feature Flag Guard: If disabled, stay idle and do not query database
-  if (!env.DOCUMENT_SCANNER_ENABLED && process.env.DOCUMENT_SCANNER_ENABLED !== 'true') {
+  if (!env.isScannerEnabled()) {
     setTimeout(pollAndProcess, 5000);
     return;
   }
@@ -211,3 +211,4 @@ module.exports = {
   claimNextJob,
   recoverStuckJobs
 };
+

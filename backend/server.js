@@ -197,7 +197,9 @@ app.use('/api/whatsapp', whatsappApiRoutes);
 // ─── Third-Party Public API ───────────────────────────────────
 // Auth: X-API-Key header (no JWT required)
 app.use('/api/v1', publicApiRoutes);
-app.use('/api/v1/document-scans', documentScanRoutes);
+if (env.isScannerEnabled()) {
+  app.use('/api/v1/document-scans', documentScanRoutes);
+}
 app.use('/api/geocode', geocodeRoutes);
 
 const sclenRoutes = require('./routes/sclenRoutes');

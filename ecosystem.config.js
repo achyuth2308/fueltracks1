@@ -16,7 +16,7 @@ module.exports = {
       exec_mode: 'fork',
 
       // Cap heap to avoid OOM on t3.medium (4GB); Node will GC more aggressively before this
-      node_args: '--max-old-space-size=512 --heapsnapshot-near-heap-limit=1 --diagnostic-dir=/home/fueltracks/snapshots',
+      node_args: '--max-old-space-size=1024 --heapsnapshot-near-heap-limit=1 --diagnostic-dir=/home/fueltracks/snapshots',
 
       env_production: {
         NODE_ENV: 'production',
@@ -116,11 +116,11 @@ module.exports = {
       script: 'backend/jobs/documentScanWorker.js',
       instances: 1,
       exec_mode: 'fork',
-      node_args: '--max-old-space-size=512',
-      max_memory_restart: '512M',
+      node_args: '--max-old-space-size=768',
+      max_memory_restart: '1G', // ~1.5x of 644MB measured peak RSS
       kill_timeout: 10000,
       restart_delay: 5000,
-      env_production: { NODE_ENV: 'production' },
+      env_production: { NODE_ENV: 'production', SCANNER_PROCESS_NAME: 'fueltracks-scanner-worker' },
       error_file: '/var/log/pm2/fueltracks-scanner-error.log',
       out_file: '/var/log/pm2/fueltracks-scanner-out.log',
       merge_logs: true,
@@ -134,7 +134,7 @@ module.exports = {
       exec_mode: 'fork',
       cron_restart: '0 3 * * *', // Daily at 3:00 AM UTC
       autorestart: false,
-      env_production: { NODE_ENV: 'production' },
+      env_production: { NODE_ENV: 'production', SCANNER_PROCESS_NAME: 'fueltracks-scanner-purge' },
       error_file: '/var/log/pm2/fueltracks-scanner-purge-error.log',
       out_file: '/var/log/pm2/fueltracks-scanner-purge-out.log',
       merge_logs: true,

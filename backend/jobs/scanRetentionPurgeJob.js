@@ -9,7 +9,7 @@
 // ============================================================
 
 const fs = require('fs');
-const { getScannerPool } = require('../config/db');
+const { getScannerPool } = require('../config/scannerDb');
 const env = require('../config/env');
 
 const BATCH_SIZE = 100;
@@ -20,7 +20,7 @@ async function sleep(ms) {
 }
 
 async function runRetentionPurge() {
-  const pool = getScannerPool();
+  const pool = getScannerPool('fueltracks-scanner-purge', 1);
   if (!pool) return;
 
   const aadhaarDays = env.AADHAAR_RETENTION_DAYS || 7;
@@ -38,7 +38,7 @@ async function runRetentionPurge() {
         SELECT id, file_path FROM document_scans
         WHERE document_type = 'aadhaar'
           AND status != 'purged'
-          AND created_at < NOW() - ($1 || ' days')::interval
+          AND (status IN ('rejected', 'confirmed') OR created_at < NOW() - ($1 || ' days')::interval)
         LIMIT $2
       `, [String(aadhaarDays), BATCH_SIZE]);
 
@@ -151,3 +151,4 @@ if (require.main === module) {
 module.exports = {
   runRetentionPurge
 };
+
