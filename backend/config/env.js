@@ -54,6 +54,16 @@ const env = {
 
   // CORS
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
+
+  // Document Scanner & Extractor Module
+  DOCUMENT_SCANNER_ENABLED: process.env.DOCUMENT_SCANNER_ENABLED === 'true',
+  DOCUMENT_SCANNER_STORAGE_DIR: process.env.DOCUMENT_SCANNER_STORAGE_DIR || require('path').join(__dirname, '..', 'storage', 'document_scans'),
+  DOCUMENT_SCANNER_CONFIDENCE_THRESHOLD: parseFloat(process.env.DOCUMENT_SCANNER_CONFIDENCE_THRESHOLD) || 0.85,
+  DOCUMENT_SCANNER_WORKERS: parseInt(process.env.DOCUMENT_SCANNER_WORKERS, 10) || 1,
+  AADHAAR_HMAC_PEPPER: process.env.AADHAAR_HMAC_PEPPER || 'fueltracks-dev-aadhaar-pepper-default-salt-value-change-in-prod-64c',
+  AADHAAR_RETENTION_DAYS: parseInt(process.env.AADHAAR_RETENTION_DAYS, 10) || 7,
+  SCAN_RETENTION_DAYS: parseInt(process.env.SCAN_RETENTION_DAYS, 10) || 90,
+  DISK_GUARD_MIN_FREE_MB: parseInt(process.env.DISK_GUARD_MIN_FREE_MB, 10) || 500,
 };
 
 // Known-bad placeholder values that should never reach production
@@ -65,6 +75,13 @@ const KNOWN_WEAK_SECRETS = [
 ];
 
 // Validate critical env vars in production
+if (env.DOCUMENT_SCANNER_ENABLED && env.NODE_ENV === 'production') {
+  if (!process.env.AADHAAR_HMAC_PEPPER || process.env.AADHAAR_HMAC_PEPPER.length < 32) {
+    console.error('[ENV] AADHAAR_HMAC_PEPPER must be set and at least 32 characters when DOCUMENT_SCANNER_ENABLED=true in production');
+    process.exit(1);
+  }
+}
+
 if (env.NODE_ENV === 'production') {
   const required = ['DB_HOST', 'DB_PASS', 'JWT_SECRET'];
   const missing = required.filter(key => !process.env[key]);

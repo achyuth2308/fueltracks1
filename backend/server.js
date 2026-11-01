@@ -34,6 +34,7 @@ const publicApiRoutes = require('./routes/publicApiRoutes');
 const geocodeRoutes = require('./routes/geocodeRoutes');
 const { webhookRouter: whatsappWebhookRoutes, apiRouter: whatsappApiRoutes } = require('./routes/whatsappRoutes');
 const whatsappWorker = require('./jobs/whatsappWorker');
+const documentScanRoutes = require('./routes/documentScanRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -196,6 +197,7 @@ app.use('/api/whatsapp', whatsappApiRoutes);
 // ─── Third-Party Public API ───────────────────────────────────
 // Auth: X-API-Key header (no JWT required)
 app.use('/api/v1', publicApiRoutes);
+app.use('/api/v1/document-scans', documentScanRoutes);
 app.use('/api/geocode', geocodeRoutes);
 
 const sclenRoutes = require('./routes/sclenRoutes');

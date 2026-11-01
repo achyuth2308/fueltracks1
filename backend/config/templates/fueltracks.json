@@ -1,0 +1,73 @@
+{
+  "id": "fueltracks",
+  "name": "FuelTracks GPS Fitment Certificate",
+  "document_type": "fitment_certificate",
+  "classification": {
+    "required_keywords": [
+      "CERTIFICATE OF GPS FITMENT",
+      "FuelTracks Technologies"
+    ],
+    "optional_keywords": [
+      "SCAN TO VERIFY",
+      "1. VEHICLE DETAILS",
+      "3. GPS DEVICE DETAILS",
+      "5. INSTALLATION & VALIDITY"
+    ]
+  },
+  "certificate_number": {
+    "regex": "FT-GPS-\\d{4}-\\w+"
+  },
+  "verification_code": {
+    "regex": "FT-VERIFY-[A-Za-z0-9]+-[A-Za-z0-9]+-[A-Za-z0-9]+"
+  },
+  "date_formats": ["DD/MM/YYYY", "DD-MM-YYYY", "DD.MM.YYYY"],
+  "sections": [
+    {
+      "name": "header",
+      "labels": {
+        "certificate_number": ["CERTIFICATE NUMBER"],
+        "verification_code": ["VERIFICATION CODE:"]
+      }
+    },
+    {
+      "name": "vehicle",
+      "anchor": "1. VEHICLE DETAILS",
+      "labels": {
+        "vehicle_registration_no": ["VEHICLE REGISTRATION NO.", "VEHICLE REGISTRATION NO"],
+        "make_model": ["MAKE & MODEL", "MAKE AND MODEL"],
+        "chassis_number": ["CHASSIS NUMBER"],
+        "engine_number": ["ENGINE NUMBER"]
+      }
+    },
+    {
+      "name": "customer",
+      "anchor": "2. CUSTOMER DETAILS",
+      "labels": {
+        "owner_name": ["CUSTOMER NAME"],
+        "customer_phone": ["CUSTOMER PHONE NUMBER"],
+        "customer_address": ["CUSTOMER FULL ADDRESS", "CUSTOMER ADDRESS"]
+      }
+    },
+    {
+      "name": "device",
+      "anchor": "3. GPS DEVICE DETAILS",
+      "labels": {
+        "device_name": ["DEVICE MODEL", "DEVICE MAKE / MODEL"],
+        "imei_number": ["IMEI NUMBER"],
+        "sim_number": ["GPS SIM 1 NUMBER", "GPS SIM NUMBER", "SIM NUMBER"],
+        "sim_operator": ["SIM OPERATOR"],
+        "fitment_location": ["FITMENT LOCATION IN VEHICLE"],
+        "seal_number": ["SEAL NUMBER (IF USED)", "SEAL NUMBER"]
+      }
+    },
+    {
+      "name": "dates",
+      "anchor": "5. INSTALLATION & VALIDITY",
+      "labels": {
+        "installation_date": ["INSTALLATION DATE (DD/MM/YYYY)", "INSTALLATION DATE"],
+        "issued_date": ["CERTIFICATE ISSUE DATE (DD/MM/YYYY)", "CERTIFICATE ISSUE DATE"],
+        "expiry_date": ["SERVICE / VALIDITY EXPIRY DATE", "VALIDITY EXPIRY DATE"]
+      }
+    }
+  ]
+}
