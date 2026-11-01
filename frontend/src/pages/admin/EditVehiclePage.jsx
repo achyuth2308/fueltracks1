@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, Save, ArrowLeft, Fuel, Sliders,
-  Sparkles, Image as ImageIcon, Upload, FileText, CheckCircle2
+  Sparkles, Image as ImageIcon, ClipboardPaste, Upload, FileText, CheckCircle2
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
@@ -394,6 +394,77 @@ const EditVehiclePage = () => {
   const [rcScanSuccess, setRcScanSuccess] = useState('');
   const [rcScanError, setRcScanError] = useState('');
   const [showRcBox, setShowRcBox] = useState(false);
+  const [activePasteSlot, setActivePasteSlot] = useState('front');
+
+  const handlePastedFile = (file, slot = null) => {
+    if (!file || !file.type.startsWith('image/')) {
+      setRcScanError('Only image files (JPG, PNG, WebP) can be pasted.');
+      setTimeout(() => setRcScanError(''), 3500);
+      return;
+    }
+    const targetSlot = slot || (rcFrontFile && !rcBackFile ? 'back' : 'front');
+    if (targetSlot === 'front') {
+      setRcFrontFile(file);
+      setRcFrontPreview(URL.createObjectURL(file));
+      setRcScanSuccess('RC Front photo pasted from clipboard!');
+    } else {
+      setRcBackFile(file);
+      setRcBackPreview(URL.createObjectURL(file));
+      setRcScanSuccess('RC Back photo pasted from clipboard!');
+    }
+    setRcScanError('');
+    setTimeout(() => setRcScanSuccess(''), 3500);
+  };
+
+  const handlePasteFromClipboard = async (targetSlot = 'front') => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type);
+              const ext = type.split('/')[1] || 'png';
+              const file = new File([blob], `rc_${targetSlot}_${Date.now()}.${ext}`, { type });
+              handlePastedFile(file, targetSlot);
+              return;
+            }
+          }
+        }
+        setRcScanError('No image found in clipboard. Copy an image first, then paste.');
+        setTimeout(() => setRcScanError(''), 4000);
+      } else {
+        setRcScanError('Press Ctrl+V on your keyboard to paste the image.');
+        setTimeout(() => setRcScanError(''), 4000);
+      }
+    } catch (err) {
+      console.warn('Clipboard read error:', err);
+      setRcScanError('Clipboard access blocked. Please press Ctrl+V to paste directly.');
+      setTimeout(() => setRcScanError(''), 4000);
+    }
+  };
+
+  // Global Ctrl+V listener while RC Scanner box is open
+  useEffect(() => {
+    if (!showRcBox) return;
+    const onWindowPaste = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handlePastedFile(file, activePasteSlot);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [showRcBox, activePasteSlot, rcFrontFile, rcBackFile]);
 
   const handleScanRc = async () => {
     if (!rcFrontFile && !rcBackFile) {
@@ -878,8 +949,29 @@ const EditVehiclePage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
                 {/* Front Side */}
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    RC Front Photo
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>RC Front Photo</span>
+                    <button
+                      type="button"
+                      onClick={() => handlePasteFromClipboard('front')}
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#475569',
+                        background: '#f1f5f9',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Paste image into Front slot (or press Ctrl+V)"
+                    >
+                      <ClipboardPaste size={12} />
+                      Paste
+                    </button>
                   </div>
                   <input
                     id="edit-rc-front"
@@ -895,45 +987,96 @@ const EditVehiclePage = () => {
                     }}
                   />
                   {rcFrontPreview ? (
-                    <label htmlFor="edit-rc-front" style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '140px',
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      background: '#f8fafc',
-                      overflow: 'hidden',
-                      cursor: 'pointer'
-                    }}>
+                    <label
+                      htmlFor="edit-rc-front"
+                      tabIndex={0}
+                      onFocus={() => setActivePasteSlot('front')}
+                      onPaste={(e) => {
+                        const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) {
+                          e.preventDefault();
+                          handlePastedFile(file, 'front');
+                        }
+                      }}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '140px',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        background: '#f8fafc',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <img src={rcFrontPreview} alt="RC Front" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                     </label>
                   ) : (
-                    <label htmlFor="edit-rc-front" style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '140px',
-                      borderRadius: '12px',
-                      border: '2px dashed #cbd5e1',
-                      background: '#f8fafc',
-                      cursor: 'pointer',
-                      padding: '12px',
-                      textAlign: 'center'
-                    }}>
-                      <ImageIcon size={24} color="#94a3b8" style={{ marginBottom: '6px' }} />
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload Front</span>
-                      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>JPG, PNG up to 5MB</span>
+                    <label
+                      htmlFor="edit-rc-front"
+                      tabIndex={0}
+                      onFocus={() => setActivePasteSlot('front')}
+                      onPaste={(e) => {
+                        const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) {
+                          e.preventDefault();
+                          handlePastedFile(file, 'front');
+                        }
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = Array.from(e.dataTransfer?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) handlePastedFile(file, 'front');
+                      }}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '140px',
+                        borderRadius: '12px',
+                        border: '2px dashed #cbd5e1',
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        padding: '12px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <ImageIcon size={22} color="#94a3b8" style={{ marginBottom: '4px' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload or Paste RC</span>
+                      <span style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>Browse, drag &amp; drop, or Ctrl+V</span>
                     </label>
                   )}
                 </div>
 
                 {/* Back Side */}
                 <div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '6px' }}>
-                    RC Back Photo
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#334155' }}>RC Back Photo (Optional)</span>
+                    <button
+                      type="button"
+                      onClick={() => handlePasteFromClipboard('back')}
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        color: '#475569',
+                        background: '#f1f5f9',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        padding: '2px 8px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="Paste image into Back slot (or press Ctrl+V)"
+                    >
+                      <ClipboardPaste size={12} />
+                      Paste
+                    </button>
                   </div>
                   <input
                     id="edit-rc-back"
@@ -949,37 +1092,67 @@ const EditVehiclePage = () => {
                     }}
                   />
                   {rcBackPreview ? (
-                    <label htmlFor="edit-rc-back" style={{
-                      position: 'relative',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '140px',
-                      borderRadius: '12px',
-                      border: '1px solid #e2e8f0',
-                      background: '#f8fafc',
-                      overflow: 'hidden',
-                      cursor: 'pointer'
-                    }}>
+                    <label
+                      htmlFor="edit-rc-back"
+                      tabIndex={0}
+                      onFocus={() => setActivePasteSlot('back')}
+                      onPaste={(e) => {
+                        const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) {
+                          e.preventDefault();
+                          handlePastedFile(file, 'back');
+                        }
+                      }}
+                      style={{
+                        position: 'relative',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '140px',
+                        borderRadius: '12px',
+                        border: '1px solid #e2e8f0',
+                        background: '#f8fafc',
+                        overflow: 'hidden',
+                        cursor: 'pointer'
+                      }}
+                    >
                       <img src={rcBackPreview} alt="RC Back" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                     </label>
                   ) : (
-                    <label htmlFor="edit-rc-back" style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      height: '140px',
-                      borderRadius: '12px',
-                      border: '2px dashed #cbd5e1',
-                      background: '#f8fafc',
-                      cursor: 'pointer',
-                      padding: '12px',
-                      textAlign: 'center'
-                    }}>
-                      <ImageIcon size={24} color="#94a3b8" style={{ marginBottom: '6px' }} />
-                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload Back</span>
-                      <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>JPG, PNG up to 5MB</span>
+                    <label
+                      htmlFor="edit-rc-back"
+                      tabIndex={0}
+                      onFocus={() => setActivePasteSlot('back')}
+                      onPaste={(e) => {
+                        const file = Array.from(e.clipboardData?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) {
+                          e.preventDefault();
+                          handlePastedFile(file, 'back');
+                        }
+                      }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = Array.from(e.dataTransfer?.files || []).find(f => f.type.startsWith('image/'));
+                        if (file) handlePastedFile(file, 'back');
+                      }}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        height: '140px',
+                        borderRadius: '12px',
+                        border: '2px dashed #cbd5e1',
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        padding: '12px',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <ImageIcon size={22} color="#94a3b8" style={{ marginBottom: '4px' }} />
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Upload or Paste Back</span>
+                      <span style={{ fontSize: '10.5px', color: '#94a3b8', marginTop: '2px' }}>Browse, drag &amp; drop, or Ctrl+V</span>
                     </label>
                   )}
                 </div>

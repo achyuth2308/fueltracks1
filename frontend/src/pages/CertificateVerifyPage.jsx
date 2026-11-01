@@ -191,7 +191,7 @@ const CertificateVerifyPage = () => {
 
   // Generate QR Code targeting real verification domain
   useEffect(() => {
-    const verifyTarget = `https://www.fueltracks.in/verify/${encodeURIComponent(certData.certNumber)}`;
+    const verifyTarget = `https://app.fueltracks.in/verify/${encodeURIComponent(certData.certNumber)}`;
     QRCode.toDataURL(verifyTarget, {
       width: 160,
       margin: 0,

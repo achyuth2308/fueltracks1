@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2 } from 'lucide-react';
+import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2, ClipboardPaste } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
@@ -52,6 +52,77 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
   const [isScanningRc, setIsScanningRc] = useState(false);
   const [rcScanSuccess, setRcScanSuccess] = useState('');
   const [rcScanError, setRcScanError] = useState('');
+  const [activePasteSlot, setActivePasteSlot] = useState('front');
+
+  const handlePastedFile = (file, slot = null) => {
+    if (!file || !file.type.startsWith('image/')) {
+      setRcScanError('Only image files (JPG, PNG, WebP) can be pasted.');
+      setTimeout(() => setRcScanError(''), 3500);
+      return;
+    }
+    const targetSlot = slot || (rcFrontFile && !rcBackFile ? 'back' : 'front');
+    if (targetSlot === 'front') {
+      setRcFrontFile(file);
+      setRcFrontPreview(URL.createObjectURL(file));
+      setRcScanSuccess('RC Front photo pasted from clipboard!');
+    } else {
+      setRcBackFile(file);
+      setRcBackPreview(URL.createObjectURL(file));
+      setRcScanSuccess('RC Back photo pasted from clipboard!');
+    }
+    setRcScanError('');
+    setTimeout(() => setRcScanSuccess(''), 3500);
+  };
+
+  const handlePasteFromClipboard = async (targetSlot = 'front') => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          for (const type of item.types) {
+            if (type.startsWith('image/')) {
+              const blob = await item.getType(type);
+              const ext = type.split('/')[1] || 'png';
+              const file = new File([blob], `rc_${targetSlot}_${Date.now()}.${ext}`, { type });
+              handlePastedFile(file, targetSlot);
+              return;
+            }
+          }
+        }
+        setRcScanError('No image found in clipboard. Copy an image first, then paste.');
+        setTimeout(() => setRcScanError(''), 4000);
+      } else {
+        setRcScanError('Press Ctrl+V on your keyboard to paste the image.');
+        setTimeout(() => setRcScanError(''), 4000);
+      }
+    } catch (err) {
+      console.warn('Clipboard read error:', err);
+      setRcScanError('Clipboard access blocked. Please press Ctrl+V to paste directly.');
+      setTimeout(() => setRcScanError(''), 4000);
+    }
+  };
+
+  // Global Ctrl+V listener while RC Scanner modal is open
+  useEffect(() => {
+    if (!showRcScanner) return;
+    const onWindowPaste = (e) => {
+      if (['INPUT', 'TEXTAREA'].includes(e.target?.tagName)) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            handlePastedFile(file, activePasteSlot);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', onWindowPaste);
+    return () => window.removeEventListener('paste', onWindowPaste);
+  }, [showRcScanner, activePasteSlot, rcFrontFile, rcBackFile]);
 
   // Save to Database States
   const [isSavingCert, setIsSavingCert] = useState(false);
@@ -197,7 +268,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     if (!data) return '';
     const mode = targetMode || qrTargetHost;
     // Official domain by default — strictly eliminates random tunnel names
-    const base = mode === 'lan' ? `http://${lanIp}:5173` : 'https://www.fueltracks.in';
+    const base = mode === 'lan' ? `http://${lanIp}:5173` : 'https://app.fueltracks.in';
     const certNum = data.certNumber || `FT-GPS-${new Date().getFullYear()}-${data.vehicleNo || '00001'}`;
     const veh = data.vehicleNo || '';
     const imei = data.imei || '';
@@ -516,9 +587,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                 className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
                   qrTargetHost === 'prod' ? 'bg-white text-slate-900 shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
                 }`}
-                title="Official production domain (fueltracks.in)"
+                title="Official production domain (app.fueltracks.in)"
               >
-                fueltracks.in
+                app.fueltracks.in
               </button>
               <button
                 type="button"
@@ -661,12 +732,16 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
 
               {/* Modal Body: Two Clean Photo Dropzones */}
               <div className="p-6 space-y-4">
+                <div className="px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11.5px] font-medium flex items-center gap-2 mb-3.5">
+                  <Sparkles size={15} className="shrink-0 text-amber-600" />
+                  <span><strong>Both sides in one photo?</strong> Just upload it in the first box below. The scanner automatically reads both front &amp; back together.</span>
+                </div>
                 <div className="grid grid-cols-2 gap-3.5">
                   
                   {/* RC Front Slot */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-slate-700">RC Card Front</span>
+                      <span className="text-xs font-bold text-slate-700">RC Photo (Front or Both in One)</span>
                       {rcFrontFile && (
                         <label
                           htmlFor="popup-rc-front"
@@ -705,8 +780,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                         className="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 hover:text-orange-600 bg-slate-50/50 hover:bg-orange-50/30 transition-all cursor-pointer p-3 text-center"
                       >
                         <ImageIcon size={24} className="mb-1.5 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700">Upload Front</span>
-                        <span className="text-[10.5px] text-slate-400 mt-0.5">JPG, PNG up to 5MB</span>
+                        <span className="text-xs font-bold text-slate-700">Upload RC Photo</span>
+                        <span className="text-[10.5px] text-slate-400 mt-0.5">Both sides in one, or Front</span>
                       </label>
                     )}
                   </div>
@@ -714,7 +789,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                   {/* RC Back Slot */}
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-slate-700">RC Card Back</span>
+                      <span className="text-xs font-bold text-slate-700">RC Back (Optional)</span>
                       {rcBackFile && (
                         <label
                           htmlFor="popup-rc-back"
@@ -753,8 +828,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                         className="border-2 border-dashed border-slate-200 hover:border-orange-400 rounded-xl h-36 flex flex-col items-center justify-center text-slate-400 hover:text-orange-600 bg-slate-50/50 hover:bg-orange-50/30 transition-all cursor-pointer p-3 text-center"
                       >
                         <ImageIcon size={24} className="mb-1.5 text-slate-400" />
-                        <span className="text-xs font-bold text-slate-700">Upload Back</span>
-                        <span className="text-[10.5px] text-slate-400 mt-0.5">JPG, PNG up to 5MB</span>
+                        <span className="text-xs font-bold text-slate-700">Upload Back (Optional)</span>
+                        <span className="text-[10.5px] text-slate-400 mt-0.5">Leave blank if single photo</span>
                       </label>
                     )}
                   </div>
