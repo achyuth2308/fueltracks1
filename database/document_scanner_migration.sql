@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS document_scans (
   aadhaar_last4 VARCHAR(4) DEFAULT NULL,
   aadhaar_hmac VARCHAR(64) DEFAULT NULL,         -- Salted HMAC for duplicate detection without raw storage
   aadhaar_consent BOOLEAN DEFAULT FALSE,
+  vehicle_id UUID REFERENCES vehicles(id) ON DELETE SET NULL,
   confirmed_at TIMESTAMP DEFAULT NULL,
   confirmed_by UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP DEFAULT NOW(),
@@ -85,3 +86,4 @@ CREATE INDEX IF NOT EXISTS idx_document_scan_fields_scan_id
   ON document_scan_fields(scan_id);
 
 COMMIT;
+

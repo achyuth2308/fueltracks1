@@ -15,3 +15,4 @@ DROP TABLE IF EXISTS document_scan_fields CASCADE;
 DROP TABLE IF EXISTS document_scans CASCADE;
 
 COMMIT;
+
