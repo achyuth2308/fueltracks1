@@ -1034,7 +1034,7 @@ const AdminController = {
         const groupsArr = row.group_names || [];
         const isTgCivil = groupsArr.some(g => /telangana.*civil|tgscscl|tg.*civil/i.test(g));
         const isApCivil = groupsArr.some(g => /paddy|ap.*civil/i.test(g));
-        const isMining = groupsArr.some(g => /mining|mines|tnreal/i.test(g));
+        const isMining = groupsArr.some(g => /^minestamilnadu$/i.test(String(g || '').replace(/\s+/g, '')));
         const isSathyadeva = (row.org_name && /sathyadeva/i.test(row.org_name)) || groupsArr.some(g => /sathyadeva/i.test(g));
 
         const targets = [];
@@ -1047,7 +1047,7 @@ const AdminController = {
 
         let apiPropagation = null;
         const rawRedis = redisStatuses[idx];
-        if (rawRedis) {
+        if (rawRedis && configuredTarget) {
           try {
             apiPropagation = JSON.parse(rawRedis);
             if (configuredTarget) {
