@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2, ClipboardPaste } from 'lucide-react';
+import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2, ClipboardPaste, Cpu } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
