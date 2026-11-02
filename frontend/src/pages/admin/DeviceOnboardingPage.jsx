@@ -482,6 +482,7 @@ const DeviceOnboardingPage = () => {
                             <option value="BSTPL">BSTPL - BSTPL-17 (5000)</option>
                             <option value="BSTPL-17IS">BSTPL - BSTPL-17IS (5010)</option>
                             <option value="VOLTYFUEL">TranSync - NAV 140 (5011)</option>
+                            <option value="APMK">APM - APM (5012)</option>
                             <option value="AIS140">TrackNow - AIS140 (5001)</option>
                             <option value="Other">Other</option>
                           </select>

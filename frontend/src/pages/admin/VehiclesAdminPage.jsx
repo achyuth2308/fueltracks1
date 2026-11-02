@@ -51,7 +51,9 @@ const DEVICE_TYPE_PORTS = {
   'V54G': '5009',
   'BSTPL-17IS': '5010',
   'BSTPL17IS': '5010',
-  'VOLTYFUEL': '5011'
+  'VOLTYFUEL': '5011',
+  'APMK': '5012',
+  'APM': '5012'
 };
 
 const getServerAddress = (vehicle) => {

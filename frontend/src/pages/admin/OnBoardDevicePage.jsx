@@ -12,7 +12,7 @@ import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
-// Device types in ascending order based on port numbers (5000 -> 5011)
+// Device types in ascending order based on port numbers (5000 -> 5012)
 const DEVICE_TYPE_OPTIONS = [
   { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
   { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
@@ -26,6 +26,7 @@ const DEVICE_TYPE_OPTIONS = [
   { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' },
   { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
   { value: 'VOLTYFUEL', label: 'TranSync - NAV 140 (5011)' },
+  { value: 'APMK', label: 'APM - APM (5012)' },
 ];
 
 const LICENCE_TYPE_OPTIONS = [
