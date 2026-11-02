@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { Cpu, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
@@ -92,6 +92,15 @@ const OnBoardDevicePage = () => {
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [orgs, setOrgs] = useState([]);
+
+  // Whitelist: strictly API integration groups only for secondary group assignment
+  const apiIntegrationGroups = useMemo(() => {
+    const allowed = ['minestamilnadu', 'paddyap', 'telangana_civil_supplies'];
+    return groups.filter(g => {
+      const cleanName = String(g.name || '').trim().toLowerCase().replace(/\s+/g, '_');
+      return allowed.some(a => cleanName === a || cleanName === a.replace(/_/g, ''));
+    });
+  }, [groups]);
 
   const handleExistingUserChange = (selectedUserId) => {
     if (!selectedUserId) {
@@ -665,7 +674,7 @@ const OnBoardDevicePage = () => {
                     Add to Existing Group <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>(Optional)</span>
                   </label>
                   <SearchableSelect
-                    options={groups.map(g => ({
+                    options={apiIntegrationGroups.map(g => ({
                       value: g.id,
                       label: g.name
                     }))}
@@ -722,7 +731,7 @@ const OnBoardDevicePage = () => {
                     Add to Existing Group <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>(Optional)</span>
                   </label>
                   <SearchableSelect
-                    options={groups
+                    options={apiIntegrationGroups
                       .filter(g => String(g.id) !== String(existingUserSelection.groupId))
                       .map(g => ({
                         value: g.id,
