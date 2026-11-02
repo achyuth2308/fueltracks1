@@ -1,0 +1,60 @@
+{
+  "id": "mining_vltd",
+  "name": "Tamil Nadu Mining Vehicle VLTD Fitment Certificate",
+  "document_type": "fitment_certificate",
+  "classification": {
+    "required_keywords": [
+      "VEHICLE LOCATION TRACKING DEVICE",
+      "MINING VEHICLE"
+    ],
+    "optional_keywords": [
+      "TAMILNADU MINING VEHICLE",
+      "1. VEHICLE DETAILS",
+      "2. VLTD DEVICE DETAILS",
+      "3. CONNECTIVITY & ACTIVATION DETAILS",
+      "4. VLTD INSTALLATION & INTEGRATION STATEMENT",
+      "AIS-140"
+    ]
+  },
+  "certificate_number": {
+    "regex": "(?:FT-GPS-\\d{4}-\\w+|APM\\w+|[A-Z0-9]{8,24})"
+  },
+  "verification_code": {
+    "regex": "FT-VERIFY-[A-Za-z0-9]+-[A-Za-z0-9]+-[A-Za-z0-9]+"
+  },
+  "date_formats": ["DD-MM-YYYY", "DD/MM/YYYY", "DD.MM.YYYY"],
+  "sections": [
+    {
+      "name": "vehicle",
+      "anchor": "1. VEHICLE DETAILS",
+      "labels": {
+        "vehicle_registration_no": ["VEHICLE REGISTRATION NUMBER", "VEHICLE REGISTRATION NO"],
+        "vehicle_category": ["VEHICLE CATEGORY"],
+        "vehicle_type": ["VEHICLE TYPE"],
+        "owner_name": ["OWNER NAME"],
+        "district_state": ["DISTRICT / STATE", "DISTRICT/STATE"]
+      }
+    },
+    {
+      "name": "device",
+      "anchor": "2. VLTD DEVICE DETAILS",
+      "labels": {
+        "manufacturer_name": ["VLTD MANUFACTURER NAME"],
+        "device_name": ["MODEL NAME / NUMBER", "MODEL NAME/NUMBER"],
+        "serial_number": ["DEVICE SERIAL NUMBER"],
+        "imei_number": ["IMEI NUMBER"]
+      }
+    },
+    {
+      "name": "connectivity",
+      "anchor": "3. CONNECTIVITY & ACTIVATION DETAILS",
+      "labels": {
+        "sim_number": ["ICCID NUMBER"],
+        "sim_operator": ["SIM SERVICE PROVIDER"],
+        "validity_years": ["SIM VALIDITY UPTO (YEARS)"],
+        "installation_date": ["DATE OF INSTALLATION"],
+        "activation_date": ["DATE OF ACTIVATION"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Vehicle Location Tracking Device (VLTD) Fitment Certificate - Tamil Nadu Mining Vehicle</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 15mm 20mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #000000;
+      background: #ffffff;
+      line-height: 1.35;
+      font-size: 11pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .cert-page {
+      width: 100%;
+      max-width: 180mm;
+      margin: 0 auto;
+      padding: 5mm 0;
+      background: #ffffff;
+    }
+
+    .header-title-1 {
+      font-size: 14pt;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      margin-bottom: 2mm;
+      color: #000000;
+    }
+
+    .header-title-2 {
+      font-size: 12pt;
+      font-weight: bold;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      margin-bottom: 6mm;
+      color: #000000;
+    }
+
+    .intro-paragraph {
+      font-size: 10.5pt;
+      line-height: 1.45;
+      margin-bottom: 6mm;
+      color: #000000;
+    }
+
+    .sec-title {
+      font-size: 10.5pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-bottom: 2mm;
+      color: #000000;
+    }
+
+    .sec-table {
+      width: 100%;
+      border-collapse: collapse;
+      border: 1px solid #94a3b8;
+      margin-bottom: 6mm;
+      font-size: 10.5pt;
+    }
+
+    .sec-table td {
+      border: 1px solid #94a3b8;
+      padding: 2mm 3.5mm;
+      vertical-align: middle;
+    }
+
+    .sec-table td.col-lbl {
+      width: 45%;
+      font-weight: bold;
+    }
+
+    .sec-table td.col-val {
+      width: 55%;
+    }
+
+    .statement-p1 {
+      font-size: 10pt;
+      line-height: 1.45;
+      margin-bottom: 3.5mm;
+      text-align: justify;
+      color: #000000;
+    }
+
+    .statement-p2 {
+      font-size: 10pt;
+      line-height: 1.45;
+      margin-bottom: 12mm;
+      text-align: justify;
+      color: #000000;
+    }
+
+    .signatory-box {
+      text-align: right;
+      margin-top: 15mm;
+      padding-right: 5mm;
+    }
+
+    .signatory-title {
+      font-size: 11pt;
+      font-weight: bold;
+      color: #000000;
+    }
+  </style>
+</head>
+<body>
+  <div class="cert-page">
+    <!-- Header Titles -->
+    <div class="header-title-1">VEHICLE LOCATION TRACKING DEVICE (VLTD)</div>
+    <div class="header-title-2">FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE</div>
+
+    <!-- Opening Paragraph -->
+    <div class="intro-paragraph">
+      This is to certify that the Vehicle Location Tracking Device (VLTD) compliant with Automotive 
+      Industry Standard (AIS-140), as prescribed under the Central Motor Vehicle Rules, has been 
+      installed and activated in the below mentioned Mining Vehicle
+    </div>
+
+    <!-- 1. VEHICLE DETAILS -->
+    <div class="sec-title">1. VEHICLE DETAILS</div>
+    <table class="sec-table">
+      <tbody>
+        <tr>
+          <td class="col-lbl">Vehicle Registration Number</td>
+          <td class="col-val">{{vehicle_reg}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Vehicle Category</td>
+          <td class="col-val">{{vehicle_category}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Vehicle Type</td>
+          <td class="col-val">{{vehicle_type}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Owner Name</td>
+          <td class="col-val">{{owner_name}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">District / State</td>
+          <td class="col-val">{{district_state}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 2. VLTD DEVICE DETAILS -->
+    <div class="sec-title">2. VLTD DEVICE DETAILS</div>
+    <table class="sec-table">
+      <tbody>
+        <tr>
+          <td class="col-lbl">VLTD Manufacturer Name</td>
+          <td class="col-val">FUELTRACKS TECHNOLOGIES PRIVATE LIMITED</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Model Name / Number</td>
+          <td class="col-val">{{model_number}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Device Serial Number</td>
+          <td class="col-val">{{device_serial_no}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">IMEI Number</td>
+          <td class="col-val">{{imei_number}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 3. CONNECTIVITY & ACTIVATION DETAILS -->
+    <div class="sec-title">3. CONNECTIVITY & ACTIVATION DETAILS</div>
+    <table class="sec-table">
+      <tbody>
+        <tr>
+          <td class="col-lbl">ICCID Number</td>
+          <td class="col-val">{{iccid_number}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">SIM Service Provider</td>
+          <td class="col-val">{{sim_provider}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">SIM Validity Upto (years)</td>
+          <td class="col-val">{{sim_validity_years}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Date of Installation</td>
+          <td class="col-val">{{installation_date}}</td>
+        </tr>
+        <tr>
+          <td class="col-lbl">Date of Activation</td>
+          <td class="col-val">{{activation_date}}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 4. VLTD INSTALLATION & INTEGRATION STATEMENT -->
+    <div class="sec-title">4. VLTD INSTALLATION & INTEGRATION STATEMENT</div>
+    <div class="statement-p1">
+      The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the MiMaS (Mining Monitoring and Management System) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
+    </div>
+    <div class="statement-p2">
+      This certificate is issued for Mining Vehicle VLTD compliance and monitoring purposes, in accordance with directions issued by the competent authorities.
+    </div>
+
+    <!-- Signatory -->
+    <div class="signatory-box">
+      <div class="signatory-title">Authorized Signatory</div>
+    </div>
+  </div>
+</body>
+</html>
