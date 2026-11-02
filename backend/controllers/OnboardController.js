@@ -65,16 +65,14 @@ const OnboardController = {
           targetGroupIds.push(extraGroup);
         }
 
-        // Link the new user to all target groups in user_groups
-        if (targetUserId && targetGroupIds.length > 0) {
-          for (const gId of targetGroupIds) {
-            await client.query(
-              `INSERT INTO user_groups (user_id, group_id)
-               VALUES ($1, $2)
-               ON CONFLICT (user_id, group_id) DO NOTHING`,
-              [targetUserId, gId]
-            );
-          }
+        // Link the new user ONLY to their primary group in user_groups
+        if (targetUserId && targetGroupId) {
+          await client.query(
+            `INSERT INTO user_groups (user_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, group_id) DO NOTHING`,
+            [targetUserId, targetGroupId]
+          );
         }
       } else {
         if (!existingUser || !existingUser.userId) {
@@ -102,16 +100,14 @@ const OnboardController = {
           targetGroupIds.push(extraGroup);
         }
 
-        // Also ensure user is linked to target groups if selected
-        if (targetUserId && targetGroupIds.length > 0) {
-          for (const gId of targetGroupIds) {
-            await client.query(
-              `INSERT INTO user_groups (user_id, group_id)
-               VALUES ($1, $2)
-               ON CONFLICT (user_id, group_id) DO NOTHING`,
-              [targetUserId, gId]
-            );
-          }
+        // Link existing user ONLY to their primary group in user_groups
+        if (targetUserId && targetGroupId) {
+          await client.query(
+            `INSERT INTO user_groups (user_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, group_id) DO NOTHING`,
+            [targetUserId, targetGroupId]
+          );
         }
       }
 
