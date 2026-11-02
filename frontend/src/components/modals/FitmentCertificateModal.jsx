@@ -1523,8 +1523,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                       borderRadius: '4px',
                       textAlign: 'center'
                     }}>
-                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                        ISSUED BY AUTHORIZED FITMENT AGENCY:{' '}
+                      <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        ISSUED BY :{' '}
                       </span>
                       <span style={{ fontSize: '15px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
                         FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
