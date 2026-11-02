@@ -26,6 +26,7 @@ const pool = new Pool({
   max: 15,                          // Hard cap — never more than 15 for API
   idleTimeoutMillis: 30000,         // Release idle connections after 30s
   connectionTimeoutMillis: 3000,    // Fail fast (3s) — don't hold login hostage
+  options: '-c timezone=UTC',
 });
 
 pool.on('connect', () => {
@@ -47,6 +48,7 @@ const gpsPool = new Pool({
   max: 10,                          // 10 connections for GPS writes
   idleTimeoutMillis: 60000,         // GPS connections can stay longer
   connectionTimeoutMillis: 5000,    // GPS writes can wait up to 5s
+  options: '-c timezone=UTC',
 });
 
 gpsPool.on('connect', () => {
@@ -103,4 +105,32 @@ async function getClient() {
   return pool.connect();
 }
 
-module.exports = { query, gpsQuery, getClient, pool, gpsPool };
+
+// ── Scanner Worker Pool (max 3 connections, lazy) ────────────────────────
+let scannerPool = null;
+function getScannerPool() {
+  if (!scannerPool) {
+    scannerPool = new Pool({
+      host: env.DB_HOST,
+      port: env.DB_PORT,
+      database: env.DB_NAME,
+      user: env.DB_USER,
+      password: env.DB_PASS,
+      max: env.DOCUMENT_SCANNER_WORKERS ? Math.min(3, env.DOCUMENT_SCANNER_WORKERS + 1) : 3,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 3000,
+      options: '-c timezone=UTC',
+    });
+    scannerPool.on('error', (err) => {
+      console.error('[DB-SCANNER] Unexpected scanner pool error:', err.message);
+    });
+  }
+  return scannerPool;
+}
+
+async function scannerQuery(text, params) {
+  const p = getScannerPool();
+  return p.query(text, params);
+}
+
+module.exports = { query, gpsQuery, getClient, pool, gpsPool, getScannerPool, scannerQuery };

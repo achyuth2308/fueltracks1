@@ -57,6 +57,7 @@ async function runMigrations() {
       { name: 'Mining Registrations Migration', file: 'mining_registrations_migration.sql' },
       { name: 'Performance Indexes Migration', file: 'performance_indexes_migration.sql' },
       { name: 'WhatsApp Integration Migration', file: 'whatsapp_integration.sql' },
+      { name: 'Document Scanner Migration', file: 'document_scanner_migration.sql' },
     ];
 
     for (const migration of migrations) {

@@ -100,6 +100,19 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       label: '',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['superadmin', 'dealer', 'customer'] },
+        { name: 'Add Device', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
+        { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
+        { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
+        { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
+        { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
+        { name: 'Organization', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
+        { name: 'Terminal', path: '/admin/terminal', icon: Terminal, roles: ['superadmin', 'dealer'] },
+        { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
+        { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer'] },
+        { name: 'Registrations', path: '/admin/mining-registrations', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
+        { name: 'Fuel Watcher', path: '/admin/fuel-watcher', icon: Droplets, roles: ['superadmin', 'dealer'] },
+        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
+        { name: 'Dealer White-Label', path: '/admin/dealer-profile', icon: Sparkles, roles: ['superadmin', 'dealer'] },
         { name: 'Live Tracking', path: '/tracking', icon: Navigation, roles: ['customer'] },
         {
           name: 'Trips',
@@ -122,16 +135,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             { name: 'Fuel Raw Data', path: '/fuel-raw-data' }
           ]
         },
-        { name: 'Devices', path: '/admin/devices', icon: Cpu, roles: ['superadmin', 'dealer'] },
-        { name: 'Terminal', path: '/admin/terminal', icon: Terminal, roles: ['superadmin', 'dealer'] },
-        { name: 'Fuel Watcher', path: '/admin/fuel-watcher', icon: Droplets, roles: ['superadmin', 'dealer'] },
-        { name: 'Registrations', path: '/admin/mining-registrations', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
-        { name: 'Billing', path: '/admin/billing', icon: FileText, roles: ['superadmin', 'dealer'] },
-        { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, roles: ['superadmin', 'dealer'] },
-        { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, roles: ['superadmin', 'dealer'] },
-        { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, roles: ['superadmin', 'dealer'] },
-        { name: 'Groups', path: '/admin/groups', icon: Users, roles: ['superadmin', 'dealer'] },
-        { name: 'Users', path: '/admin/users', icon: Users, roles: ['superadmin', 'dealer'] },
         {
           name: 'Reports',
           path: '/admin/reports/consolidated',
@@ -148,9 +151,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
         },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, roles: ['customer'] },
-        { name: 'Organisation', path: '/admin/organizations', icon: Briefcase, roles: ['superadmin', 'dealer'] },
-        { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, roles: ['superadmin', 'dealer'] },
-        { name: 'Dealer White-Label', path: '/admin/dealer-profile', icon: Sparkles, roles: ['superadmin', 'dealer'] },
       ],
     },
   ];

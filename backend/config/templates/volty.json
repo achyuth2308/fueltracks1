@@ -1,0 +1,65 @@
+{
+  "id": "volty",
+  "name": "Volty Fitment Certificate",
+  "document_type": "fitment_certificate",
+  "classification": {
+    "required_keywords": [
+      "VOLTY FITMENT CERTIFICATE"
+    ],
+    "optional_keywords": [
+      "GPS Tracking Device Installation",
+      "VEHICLE DETAILS",
+      "DEVICE DETAILS",
+      "INSTALLER / DEALER DETAILS"
+    ]
+  },
+  "certificate_number": {
+    "regex": "VFC-\\d+"
+  },
+  "date_formats": ["DD-MM-YYYY", "DD/MM/YYYY", "DD.MM.YYYY"],
+  "sections": [
+    {
+      "name": "header",
+      "labels": {
+        "certificate_number": ["Certificate No :", "Certificate No:"],
+        "issued_date": ["Issued Date :", "Issued Date:"],
+        "installation_date": ["Date of Installation :", "Date of Installation:"],
+        "expiry_date": ["Expiry Date :", "Expiry Date:"]
+      }
+    },
+    {
+      "name": "vehicle",
+      "anchor": "VEHICLE DETAILS",
+      "layout": "two_pairs_per_row",
+      "labels": {
+        "vehicle_registration_no": ["Vehicle Number"],
+        "vehicle_type": ["Vehicle Type"],
+        "make_model": ["Make / Model"],
+        "chassis_number": ["Chassis Number"],
+        "engine_number": ["Engine Number"],
+        "owner_name": ["Owner Name"]
+      }
+    },
+    {
+      "name": "device",
+      "anchor": "DEVICE DETAILS",
+      "layout": "two_pairs_per_row",
+      "labels": {
+        "device_name": ["Device Make / Model", "Device Model"],
+        "imei_number": ["IMEI Number", "IMEI"],
+        "sim_number": ["SIM Number", "SIM No"],
+        "serial_number": ["Serial Number", "Serial No", "S/N"]
+      }
+    },
+    {
+      "name": "installer",
+      "anchor": "INSTALLER / DEALER DETAILS",
+      "layout": "two_pairs_per_row",
+      "labels": {
+        "installer_name": ["Name"],
+        "installer_contact_number": ["Contact Number"]
+      }
+    }
+  ]
+}
+

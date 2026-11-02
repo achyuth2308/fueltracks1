@@ -1703,10 +1703,10 @@ const VehicleController = {
   async scanRcDocument(req, res, next) {
     try {
       const files = req.files || {};
-      if (!files.rcFront && !files.rcBack) {
+      if (!files.rcFront && !files.rcBack && !files.rcImage && !files.image && !files.file) {
         return res.status(400).json({
           success: false,
-          error: "Please upload at least one RC image (Front or Back).",
+          error: "Please upload at least one RC image.",
           code: "NO_FILES_UPLOADED"
         });
       }
@@ -1730,7 +1730,7 @@ const VehicleController = {
       if (err.message && err.message.startsWith("OCR_TIMEOUT")) {
         return res.status(504).json({
           success: false,
-          error: "OCR scanning timed out. Please ensure image is clear and under 5MB.",
+          error: "OCR scanning timed out. Please ensure image is clear and under 15MB.",
           code: "OCR_TIMEOUT"
         });
       }

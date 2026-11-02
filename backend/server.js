@@ -34,6 +34,7 @@ const publicApiRoutes = require('./routes/publicApiRoutes');
 const geocodeRoutes = require('./routes/geocodeRoutes');
 const { webhookRouter: whatsappWebhookRoutes, apiRouter: whatsappApiRoutes } = require('./routes/whatsappRoutes');
 const whatsappWorker = require('./jobs/whatsappWorker');
+const documentScanRoutes = require('./routes/documentScanRoutes');
 
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/error');
@@ -196,6 +197,9 @@ app.use('/api/whatsapp', whatsappApiRoutes);
 // ─── Third-Party Public API ───────────────────────────────────
 // Auth: X-API-Key header (no JWT required)
 app.use('/api/v1', publicApiRoutes);
+if (env.isScannerEnabled()) {
+  app.use('/api/v1/document-scans', documentScanRoutes);
+}
 app.use('/api/geocode', geocodeRoutes);
 
 const sclenRoutes = require('./routes/sclenRoutes');
@@ -365,7 +369,9 @@ app.get('/api/public/certificate/:identifier', async (req, res) => {
         vehicleNo: veh.plate || veh.name,
         imei: imei,
         sim1: veh.gps_sim_no || metadata.sim1 || metadata.gpsSimNo || metadata.sim || `+91 ${imei.slice(-10)}`,
-        installedDate: metadata.installationDate ? formatDate(metadata.installationDate) : formatDate(veh.licence_issued_date || now),
+        installedDate: formatDate(metadata.onboardingDate || metadata.onboardedDate || veh.created_at || veh.licence_issued_date || metadata.installationDate || now),
+        installationDate: formatDate(metadata.onboardingDate || metadata.onboardedDate || veh.created_at || veh.licence_issued_date || metadata.installationDate || now),
+        activationDate: metadata.activationDate ? formatDate(metadata.activationDate) : formatDate(metadata.onboardingDate || metadata.onboardedDate || veh.created_at || veh.licence_issued_date || now),
         certIssuedDate: formatDate(veh.licence_issued_date || now),
         expiryDate: formatDate(veh.licence_expire_date || oneYearLater),
         customerName: metadata.ownerName || metadata.customerName || veh.driver_name || veh.org_name || 'Fleet Customer',

@@ -1,0 +1,69 @@
+{
+  "vehicle_registration_no": [
+    "Vehicle Number", "Vehicle Registration No", "Vehicle Reg No", "Reg No", "Regn No", "Registration No", "Plate"
+  ],
+  "vehicle_type": [
+    "Vehicle Type", "Vehicle Class", "Class of Vehicle", "Type of Vehicle"
+  ],
+  "make_model": [
+    "Make / Model", "Make & Model", "Maker / Model", "Maker", "Model", "Make", "Vehicle Make / Model"
+  ],
+  "chassis_number": [
+    "Chassis Number", "Chassis No", "VIN", "Chassis"
+  ],
+  "engine_number": [
+    "Engine Number", "Engine No", "Motor Number"
+  ],
+  "owner_name": [
+    "Owner Name", "Customer Name", "Owner", "Customer"
+  ],
+  "customer_phone": [
+    "Customer Phone Number", "Customer Phone", "Customer Mobile", "Owner Phone", "Owner Mobile", "Mobile"
+  ],
+  "customer_address": [
+    "Customer Full Address", "Customer Address", "Owner Address", "Address"
+  ],
+  "device_name": [
+    "Device Make / Model", "Device Model", "Device Name", "Make & Model", "Model Name", "GPS Device Model"
+  ],
+  "imei_number": [
+    "IMEI Number", "IMEI No.", "IMEI No", "IMEI", "Device IMEI"
+  ],
+  "sim_number": [
+    "GPS SIM 1 Number", "SIM Number", "SIM No.", "SIM No", "ICCID", "Mobile/Data SIM", "Data SIM"
+  ],
+  "serial_number": [
+    "Serial Number", "Serial No.", "Serial No", "S/N", "Device Serial"
+  ],
+  "sim_operator": [
+    "SIM Operator", "Operator", "Network Provider"
+  ],
+  "seal_number": [
+    "Seal Number (If Used)", "Seal Number", "Seal No."
+  ],
+  "fitment_location": [
+    "Fitment Location In Vehicle", "Fitment Location", "Installation Location"
+  ],
+  "installer_name": [
+    "Installer Name", "Technician Name", "Fitted By", "Installer"
+  ],
+  "installer_contact_number": [
+    "Installer Contact Number", "Installer Phone", "Dealer Contact Number", "Technician Phone"
+  ],
+  "certificate_number": [
+    "Certificate No", "Certificate Number", "Cert No", "Cert Number"
+  ],
+  "issued_date": [
+    "Certificate Issue Date", "Issued Date", "Issue Date"
+  ],
+  "installation_date": [
+    "Date of Installation", "Installation Date", "Fitted Date"
+  ],
+  "expiry_date": [
+    "Service / Validity Expiry Date", "Validity Expiry Date", "Expiry Date", "Valid Till", "Fitness Upto"
+  ],
+  "verification_code": [
+    "Verification Code", "Verify Code"
+  ]
+}
+
