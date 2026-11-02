@@ -170,7 +170,10 @@ async function pushToMines(vehicle, point) {
     axios.post(TARGET_ENDPOINT, payload, {
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'FuelTracks-MinesPush/1.0'
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'User-Agent': 'PostmanRuntime/7.43.0',
+        'Connection': 'keep-alive'
       },
       timeout: 4000,
       httpsAgent
@@ -200,7 +203,8 @@ async function pushToMines(vehicle, point) {
     }).catch(error => {
       // 403, 500, or network timeout
       const status = error.response?.status || 504;
-      const errMsg = error.response ? `${error.response.status} - ${JSON.stringify(error.response.data)}` : error.message;
+      const responseData = error.response?.data ? (typeof error.response.data === 'string' ? error.response.data.slice(0, 300) : JSON.stringify(error.response.data).slice(0, 300)) : error.message;
+      const errMsg = error.response ? `${error.response.status} - ${responseData}` : error.message;
       console.error(`[MINES PUSH] ❌ Error pushing for ${vehicle.plate || imei}:`, errMsg);
       redis.set(`api_push_status:${imei}`, JSON.stringify({
         target: 'Mines Server',
