@@ -40,3 +40,4 @@ function checkDiskSpace(dirPath) {
 module.exports = {
   checkDiskSpace
 };
+

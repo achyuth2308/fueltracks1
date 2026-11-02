@@ -119,3 +119,4 @@ class TemplateRegistry {
 }
 
 module.exports = new TemplateRegistry();
+

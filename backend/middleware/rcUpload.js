@@ -3,6 +3,8 @@
 // ============================================================
 // Secure, bounded disk upload middleware for RC front & back
 // images with MIME type and file size validation.
+// Supports up to 15MB to handle modern high-res camera photos.
+// Accepts field aliases: rcFront, rcBack, rcImage, image, file.
 // ============================================================
 
 const fs = require('fs');
@@ -43,13 +45,16 @@ const fileFilter = (req, file, cb) => {
 const upload = multer({
   storage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB max per image
-    files: 2
+    fileSize: 15 * 1024 * 1024, // 15MB max per image (camera photo friendly)
+    files: 4
   },
   fileFilter
 }).fields([
   { name: 'rcFront', maxCount: 1 },
-  { name: 'rcBack', maxCount: 1 }
+  { name: 'rcBack', maxCount: 1 },
+  { name: 'rcImage', maxCount: 1 },
+  { name: 'image', maxCount: 1 },
+  { name: 'file', maxCount: 1 }
 ]);
 
 const uploadRcMiddleware = (req, res, next) => {
@@ -58,7 +63,7 @@ const uploadRcMiddleware = (req, res, next) => {
       if (err.code === 'LIMIT_FILE_SIZE') {
         return res.status(400).json({
           success: false,
-          error: 'Image file size exceeds limit. Maximum allowed size is 5MB per image.',
+          error: 'Image file size exceeds limit. Maximum allowed size is 15MB per image.',
           code: 'FILE_TOO_LARGE'
         });
       }
@@ -74,9 +79,18 @@ const uploadRcMiddleware = (req, res, next) => {
         code: 'INVALID_FILE'
       });
     }
+
+    // Normalize field aliases so req.files.rcFront is always set
+    if (req.files) {
+      if (!req.files.rcFront) {
+        if (req.files.rcImage) req.files.rcFront = req.files.rcImage;
+        else if (req.files.image) req.files.rcFront = req.files.image;
+        else if (req.files.file) req.files.rcFront = req.files.file;
+      }
+    }
+
     next();
   });
 };
 
 module.exports = uploadRcMiddleware;
-

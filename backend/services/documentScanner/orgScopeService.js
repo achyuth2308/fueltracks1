@@ -69,3 +69,4 @@ async function canAccessOrg(dbClient, user, targetOrgId) {
 module.exports = {
   canAccessOrg
 };
+

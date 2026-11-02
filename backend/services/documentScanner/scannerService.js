@@ -14,7 +14,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { getScannerPool } = require('../../config/db');
+const { getScannerPool } = require('../../config/scannerDb');
 const env = require('../../config/env');
 const templateRegistry = require('./templateRegistry');
 const { extractPdfTextLayer } = require('./pdfTextExtractor');

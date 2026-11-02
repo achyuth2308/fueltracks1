@@ -115,3 +115,4 @@ module.exports = {
   validateImageHeader,
   preprocessForOcr
 };
+
