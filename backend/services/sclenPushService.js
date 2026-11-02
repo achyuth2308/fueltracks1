@@ -9,6 +9,7 @@ const http = require('http');
 const db = require('../config/db');
 const { getAddress } = require('../utils/geocodeUtils');
 const { LRUCache } = require('lru-cache');
+const { redis } = require('../config/redis');
 
 // Agent to cap concurrent requests
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 20, maxFreeSockets: 5 });
@@ -109,9 +110,30 @@ async function pushToCoromandel(vehicle, point) {
     axios.post(COROMANDEL_ENDPOINT, payload, { timeout: 5000, httpAgent })
       .then(response => {
         console.log(`[SCLEN PUSH] ✅ Successfully pushed location for ${regNo}`);
+        const imei = String(vehicle.imei || point.imei || '').trim();
+        if (imei) {
+          redis.set(`api_push_status:${imei}`, JSON.stringify({
+            target: 'SCLEN (Coromandel)',
+            status: 'SUCCESS',
+            code: 200,
+            message: '200 OK',
+            timestamp: Date.now()
+          }), 'EX', 86400).catch(() => {});
+        }
       })
       .catch(error => {
         console.error(`[SCLEN PUSH] ❌ Failed to push for ${regNo}:`, error.message);
+        const imei = String(vehicle.imei || point.imei || '').trim();
+        if (imei) {
+          const status = error.response?.status || 504;
+          redis.set(`api_push_status:${imei}`, JSON.stringify({
+            target: 'SCLEN (Coromandel)',
+            status: 'FAILED',
+            code: status,
+            message: status === 504 ? 'Failed (504 Timeout)' : `Failed (${status})`,
+            timestamp: Date.now()
+          }), 'EX', 86400).catch(() => {});
+        }
       });
 
   } catch (err) {

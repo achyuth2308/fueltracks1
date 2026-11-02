@@ -115,7 +115,8 @@ export const generateVehicleOnboardingTemplate = async (availableGroups = [], or
     'PN02 - Binary (5008)',
     'CONCOX - V5 4G (5009)',
     'BSTPL - BSTPL-17IS (5010)',
-    'TranSync - NAV 140 (5011)'
+    'TranSync - NAV 140 (5011)',
+    'APM - APM (5012)'
   ];
   const categoryOptions = ['TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
   const vehicleTypeOptions = [

@@ -12,7 +12,7 @@ import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import SearchableSelect from '../../components/ui/SearchableSelect';
 
-// Device types in ascending order based on port numbers (5000 -> 5011)
+// Device types in ascending order based on port numbers (5000 -> 5012)
 const DEVICE_TYPE_OPTIONS = [
   { value: 'BSTPL', label: 'BSTPL - BSTPL-17 (5000)' },
   { value: 'AIS140', label: 'TrackNow - AIS140 (5001)' },
@@ -26,6 +26,7 @@ const DEVICE_TYPE_OPTIONS = [
   { value: 'V5 4G', label: 'CONCOX - V5 4G (5009)' },
   { value: 'BSTPL-17IS', label: 'BSTPL - BSTPL-17IS (5010)' },
   { value: 'VOLTYFUEL', label: 'TranSync - NAV 140 (5011)' },
+  { value: 'APMK', label: 'APM - APM (5012)' },
 ];
 
 const LICENCE_TYPE_OPTIONS = [
@@ -82,8 +83,8 @@ const OnBoardDevicePage = () => {
   const [userType, setUserType] = useState('new'); // 'new' | 'existing'
   const [deviceEntryMode, setDeviceEntryMode] = useState('details'); // 'upload' | 'details'
 
-  const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '', aadhar: '' });
-  const [existingUserSelection, setExistingUserSelection] = useState({ userId: '', groupId: '', orgId: '' });
+  const [newUser, setNewUser] = useState({ name: '', phone: '', location: '', email: '', username: '', password: '', aadhar: '', existingGroupId: '' });
+  const [existingUserSelection, setExistingUserSelection] = useState({ userId: '', groupId: '', additionalGroupId: '', orgId: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [passwordTouched, setPasswordTouched] = useState(false);
   const isPasswordError = passwordTouched && newUser.password.length > 0 && newUser.password.length < 6;
@@ -131,7 +132,8 @@ const OnBoardDevicePage = () => {
     setExistingUserSelection(prev => ({
       ...prev,
       userId: selectedUserId,
-      groupId: autoGroupId || ''
+      groupId: autoGroupId || '',
+      additionalGroupId: prev.additionalGroupId || ''
     }));
   };
 
@@ -578,7 +580,7 @@ const OnBoardDevicePage = () => {
 
             {/* User Details Form */}
             {userType === 'new' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 mb-5">
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
                     User Name <span style={{ color: '#EF4444' }}>*</span>
@@ -658,9 +660,26 @@ const OnBoardDevicePage = () => {
                     </div>
                   )}
                 </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Add to Existing Group <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>(Optional)</span>
+                  </label>
+                  <SearchableSelect
+                    options={groups.map(g => ({
+                      value: g.id,
+                      label: g.name
+                    }))}
+                    value={newUser.existingGroupId || ''}
+                    onChange={val => setNewUser(prev => ({ ...prev, existingGroupId: val }))}
+                    placeholder="-- Select Group (Optional) --"
+                    searchPlaceholder="Search group..."
+                    emptyMessage="No groups found"
+                    triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}
+                  />
+                </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mb-5">
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
                     Select User <span style={{ color: '#EF4444' }}>*</span>
@@ -693,6 +712,25 @@ const OnBoardDevicePage = () => {
                     value={existingUserSelection.groupId}
                     onChange={val => setExistingUserSelection(prev => ({ ...prev, groupId: val }))}
                     placeholder="-- Choose Group --"
+                    searchPlaceholder="Search group..."
+                    emptyMessage="No groups found"
+                    triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Add to Existing Group <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>(Optional)</span>
+                  </label>
+                  <SearchableSelect
+                    options={groups
+                      .filter(g => String(g.id) !== String(existingUserSelection.groupId))
+                      .map(g => ({
+                        value: g.id,
+                        label: g.name
+                      }))}
+                    value={existingUserSelection.additionalGroupId || ''}
+                    onChange={val => setExistingUserSelection(prev => ({ ...prev, additionalGroupId: val }))}
+                    placeholder="-- Select Group (Optional) --"
                     searchPlaceholder="Search group..."
                     emptyMessage="No groups found"
                     triggerStyle={{ height: '38px', borderRadius: '7px', borderColor: '#CBD5E1', fontSize: '13px' }}

@@ -84,7 +84,9 @@ async function start(io) {
         // Drop noisy/routine internal battery chatter
         'internal_battery_low', 'low_battery', 'low_battery_removed', 'battery_low', 'battery_charged',
         // Drop non-alert emergency state clear / stop messages
-        'emergency_off', 'sos_cleared'
+        'emergency_off', 'sos_cleared',
+        // Drop legacy/bogus stoppage alerts (parking/idle alerts replace this)
+        'stoppage', 'long_stoppage'
       ];
       if (droppedNoise.includes(rawType)) {
         return; // Drop routine location pings and battery noise silently
@@ -222,6 +224,20 @@ async function start(io) {
       const dateObj = new Date(deviceTime || Date.now());
       const dateStr = dateObj.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
       const timeStr = dateObj.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' });
+
+      // 3b. Alert Deduplication / Rate Limiting (Prevents multi-packet storms & duplicate spam)
+      const isFuelEvent = finalAlertType === 'fuel_theft' || finalAlertType === 'fuel_refill' || finalAlertType === 'fuel_refill_final';
+      const cooldownSec = isFuelEvent ? 300 : 60;
+      const alertDedupKey = `alert_cooldown:${vehicleId}:${finalAlertType}`;
+      try {
+        const isDuplicate = await redis.get(alertDedupKey);
+        if (isDuplicate) {
+          return; // Drop duplicate alert within cooldown period
+        }
+        await redis.set(alertDedupKey, '1', 'EX', cooldownSec);
+      } catch (rErr) {
+        console.warn('[SUBSCRIBER] Alert dedup warning:', rErr.message);
+      }
 
       // 4. Save alert to database
       const alert = await GpsModel.saveAlert({

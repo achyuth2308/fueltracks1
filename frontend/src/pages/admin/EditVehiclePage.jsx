@@ -334,7 +334,7 @@ const VEHICLE_MODELS = [
 
 const DEVICE_MODELS = [
   'GT06N (9964)', 'AIS140', 'AIS140 V2', 'VOLTY', 'BSTPL',
-  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL'
+  'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM'
 ];
 
 // Mapping of Device Model to Telemetry TCP Port
@@ -351,7 +351,9 @@ const DEVICE_MODEL_PORTS = {
   'PN02': '5008',
   'V5 4G': '5009',
   'BSTPL-17IS': '5010',
-  'VOLTYFUEL': '5011'
+  'VOLTYFUEL': '5011',
+  'APMK': '5012',
+  'APM': '5012'
 };
 
 const getDevicePort = (model) => {

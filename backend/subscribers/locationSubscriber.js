@@ -591,7 +591,13 @@ async function start(io) {
             const raw = tankIndex === 1 ? fuel : (data[`fuel${tankIndex}`] ?? data[`fuel_${tankIndex}`] ?? data.fuel2 ?? data.fuel_2 ?? data.lls2 ?? fuel);
             // If the vehicle has no configured capacity and no incoming raw fuel, don't invent 0 litres
             if ((raw == null || isNaN(parseFloat(raw))) && (!capacity || capacity <= 0)) {
-              return null;
+              return {
+                litres: null,
+                s1Litres: null,
+                s2Litres: null,
+                s1Raw: null,
+                s2Raw: null
+              };
             }
             const activeSensorCfg = configuredSensors[1] || tankCfg;
             const sLitres = evaluateSensorLiters(activeSensorCfg, raw, capacity, shape, position);
@@ -615,7 +621,7 @@ async function start(io) {
               const capacity = parseFloat(tCfg.tankSize || (t === 1 ? vehicle.metadata?.tankSize : 0)) || 0;
               const configuredSensors = tCfg.sensors || {};
               const sCount = Object.keys(configuredSensors).filter(k => configuredSensors[k]).length || 1;
-              const metrics = evaluateTankMetrics(tCfg, t);
+              const metrics = evaluateTankMetrics(tCfg, t) || { litres: null, s1Litres: null, s2Litres: null, s1Raw: null, s2Raw: null };
               if (metrics.litres != null && !isNaN(metrics.litres)) {
                 combinedLiters += metrics.litres;
                 calculatedAny = true;
@@ -647,7 +653,7 @@ async function start(io) {
           const capacity = parseFloat(t1.tankSize || vehicle.metadata?.tankSize || 0) || 0;
           const configuredSensors = t1.sensors || {};
           const sCount = Object.keys(configuredSensors).filter(k => configuredSensors[k]).length || 1;
-          const metrics = evaluateTankMetrics(t1, 1);
+          const metrics = evaluateTankMetrics(t1, 1) || { litres: null, s1Litres: null, s2Litres: null, s1Raw: null, s2Raw: null };
           if (metrics.litres != null && !isNaN(metrics.litres)) {
             finalFuelLiters = metrics.litres;
           } else if (fuel == null) {

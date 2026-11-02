@@ -17,9 +17,10 @@ const OnboardController = {
       let targetUserId = null;
       let targetOrgId = req.user.orgId; // Default to caller's org
       let targetGroupId = null;
+      const targetGroupIds = [];
 
       if (userType === 'new') {
-        const { name, phone, email, password, username, location, aadhar } = newUser;
+        const { name, phone, email, password, username, location, aadhar, existingGroupId, additionalGroupId } = newUser;
         const finalUsername = (username || name || email).trim();
         if (!email || !password || !finalUsername) {
           throw new Error('User Name, Email, and Password are required.');
@@ -55,14 +56,25 @@ const OnboardController = {
           targetGroupId = newGroupRes.rows[0].id;
         }
 
-        // Link the new user to this group in user_groups
-        if (targetGroupId && targetUserId) {
-          await client.query(
-            `INSERT INTO user_groups (user_id, group_id)
-             VALUES ($1, $2)
-             ON CONFLICT (user_id, group_id) DO NOTHING`,
-            [targetUserId, targetGroupId]
-          );
+        if (targetGroupId) {
+          targetGroupIds.push(targetGroupId);
+        }
+
+        const extraGroup = existingGroupId || additionalGroupId;
+        if (extraGroup && String(extraGroup) !== String(targetGroupId)) {
+          targetGroupIds.push(extraGroup);
+        }
+
+        // Link the new user to all target groups in user_groups
+        if (targetUserId && targetGroupIds.length > 0) {
+          for (const gId of targetGroupIds) {
+            await client.query(
+              `INSERT INTO user_groups (user_id, group_id)
+               VALUES ($1, $2)
+               ON CONFLICT (user_id, group_id) DO NOTHING`,
+              [targetUserId, gId]
+            );
+          }
         }
       } else {
         if (!existingUser || !existingUser.userId) {
@@ -81,15 +93,25 @@ const OnboardController = {
         }
 
         targetGroupId = existingUser.groupId || null;
+        if (targetGroupId) {
+          targetGroupIds.push(targetGroupId);
+        }
 
-        // Also ensure user is linked to targetGroupId if group selected
-        if (targetGroupId && targetUserId) {
-          await client.query(
-            `INSERT INTO user_groups (user_id, group_id)
-             VALUES ($1, $2)
-             ON CONFLICT (user_id, group_id) DO NOTHING`,
-            [targetUserId, targetGroupId]
-          );
+        const extraGroup = existingUser.additionalGroupId || existingUser.existingGroupId;
+        if (extraGroup && String(extraGroup) !== String(targetGroupId)) {
+          targetGroupIds.push(extraGroup);
+        }
+
+        // Also ensure user is linked to target groups if selected
+        if (targetUserId && targetGroupIds.length > 0) {
+          for (const gId of targetGroupIds) {
+            await client.query(
+              `INSERT INTO user_groups (user_id, group_id)
+               VALUES ($1, $2)
+               ON CONFLICT (user_id, group_id) DO NOTHING`,
+              [targetUserId, gId]
+            );
+          }
         }
       }
 
@@ -295,13 +317,15 @@ const OnboardController = {
             [newVehicleId]
           );
 
-          if (targetGroupId) {
-            await client.query(
-              `INSERT INTO vehicle_groups (vehicle_id, group_id)
-               VALUES ($1, $2)
-               ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
-              [newVehicleId, targetGroupId]
-            );
+          if (targetGroupIds.length > 0) {
+            for (const gId of targetGroupIds) {
+              await client.query(
+                `INSERT INTO vehicle_groups (vehicle_id, group_id)
+                 VALUES ($1, $2)
+                 ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+                [newVehicleId, gId]
+              );
+            }
           }
         }
       }

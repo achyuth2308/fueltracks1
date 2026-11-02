@@ -31,6 +31,18 @@ const formatLastComm = (isoString) => {
   return `${day}-${month}-${year} ${formattedHours}:${minutes}:${seconds} ${ampm}`;
 };
 
+const formatRelativeTime = (ts) => {
+  if (!ts) return '';
+  const diffSec = Math.max(0, Math.floor((Date.now() - Number(ts)) / 1000));
+  if (diffSec < 60) return `${diffSec}s ago`;
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const diffDays = Math.floor(diffHours / 24);
+  return `${diffDays}d ago`;
+};
+
 const DevicesAdminPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -73,6 +85,7 @@ const DevicesAdminPage = () => {
           is_online: d.is_online || false,
           last_update: d.last_seen || null,
           vehicle_id: d.vehicle_uuid,
+          api_propagation: d.api_propagation,
         }));
         setDevices(mappedDevices);
       }
@@ -106,7 +119,8 @@ const DevicesAdminPage = () => {
     const matchesSearch =
       (d.imei || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (d.vehicle_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (d.type || '').toLowerCase().includes(searchQuery.toLowerCase());
+      (d.type || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (d.api_propagation?.target || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     if (!matchesSearch) return false;
 
@@ -302,6 +316,7 @@ const DevicesAdminPage = () => {
                 <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DEVICE IMEI</th>
                 <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>TYPE</th>
                 <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLE</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>API PROPAGATION</th>
                 <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>STATUS</th>
                 <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em' }}>LAST COMMUNICATION</th>
               </tr>
@@ -309,7 +324,7 @@ const DevicesAdminPage = () => {
             <tbody>
               {paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan="6" style={{ padding: '40px', textAlign: 'center' }}>
+                  <td colSpan="7" style={{ padding: '40px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
                       <Server size={32} color="#94a3b8" />
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '8px' }}>No devices found</div>
@@ -367,6 +382,50 @@ const DevicesAdminPage = () => {
                     {/* Assigned Vehicle */}
                     <td style={{ padding: '8px 14px', fontSize: '13px', color: '#1e293b', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
                       {d.vehicle_name || 'Unassigned'}
+                    </td>
+
+                    {/* API Propagation */}
+                    <td style={{ padding: '8px 14px', borderRight: '1px solid #e2e8f0', minWidth: '190px' }}>
+                      {d.api_propagation?.target && d.api_propagation.target !== 'Internal Only' ? (
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{
+                              width: '7px',
+                              height: '7px',
+                              borderRadius: '50%',
+                              background: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#10b981' : d.api_propagation.status === 'FAILED' ? '#ef4444' : '#f59e0b',
+                              display: 'inline-block',
+                              flexShrink: 0
+                            }} />
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                              {d.api_propagation.target}
+                            </span>
+                          </div>
+                          <div style={{
+                            fontSize: '11px',
+                            fontWeight: 500,
+                            color: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#059669' : d.api_propagation.status === 'FAILED' ? '#dc2626' : '#d97706',
+                            marginTop: '2px',
+                            paddingLeft: '13px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}>
+                            <span>●</span>
+                            <span>{d.api_propagation.message}</span>
+                            {d.api_propagation.timestamp ? (
+                              <span>• {formatRelativeTime(d.api_propagation.timestamp)}</span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                          <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>
+                            — Internal Only
+                          </span>
+                        </div>
+                      )}
                     </td>
 
                     {/* Status */}

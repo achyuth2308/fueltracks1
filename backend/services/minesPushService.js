@@ -7,6 +7,7 @@
 const axios = require('axios');
 const https = require('https');
 const db = require('../config/db');
+const { redis } = require('../config/redis');
 
 // Dedicated HTTPS Agent with keepAlive and strict bounded sockets
 const httpsAgent = new https.Agent({
@@ -177,14 +178,37 @@ async function pushToMines(vehicle, point) {
       if (response.data && response.data.status) {
         // Success response from Mines server
         // Example: { status: true, message: 'Vehicle GPS data saved successfully', gpsdata_id: 32031, ... }
+        redis.set(`api_push_status:${imei}`, JSON.stringify({
+          target: 'Mines Server',
+          status: 'SUCCESS',
+          code: 200,
+          message: '200 OK',
+          timestamp: Date.now()
+        }), 'EX', 86400).catch(() => {});
       } else {
         // If unmapped IMEI or rejected
-        console.warn(`[MINES PUSH] ⚠️ Response for ${vehicle.plate || imei}:`, response.data?.message || response.data);
+        const warnMsg = response.data?.message || 'Rejected by Mines Server';
+        console.warn(`[MINES PUSH] ⚠️ Response for ${vehicle.plate || imei}:`, warnMsg);
+        redis.set(`api_push_status:${imei}`, JSON.stringify({
+          target: 'Mines Server',
+          status: 'FAILED',
+          code: response.status || 400,
+          message: `Rejected (${warnMsg})`,
+          timestamp: Date.now()
+        }), 'EX', 86400).catch(() => {});
       }
     }).catch(error => {
       // 403, 500, or network timeout
+      const status = error.response?.status || 504;
       const errMsg = error.response ? `${error.response.status} - ${JSON.stringify(error.response.data)}` : error.message;
       console.error(`[MINES PUSH] ❌ Error pushing for ${vehicle.plate || imei}:`, errMsg);
+      redis.set(`api_push_status:${imei}`, JSON.stringify({
+        target: 'Mines Server',
+        status: 'FAILED',
+        code: status,
+        message: status === 504 ? 'Failed (504 Timeout)' : `Failed (${status})`,
+        timestamp: Date.now()
+      }), 'EX', 86400).catch(() => {});
     });
 
   } catch (err) {

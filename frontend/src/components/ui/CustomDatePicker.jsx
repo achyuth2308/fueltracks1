@@ -61,6 +61,18 @@ const CustomDatePicker = ({
   const [isTimeDropdownOpen, setIsTimeDropdownOpen] = useState(false);
   const timeContainerRef = useRef(null);
 
+  // Helper to emit a hybrid String object that acts as a string (.replace, .slice, etc.)
+  // while simultaneously exposing .target.value for event-style listeners
+  const triggerChange = (valStr) => {
+    if (typeof onChange !== 'function') return;
+    const s = String(valStr ?? '');
+    const wrapper = new String(s);
+    wrapper.target = { value: s };
+    wrapper.currentTarget = { value: s };
+    wrapper.value = s;
+    onChange(wrapper);
+  };
+
   // Safely extract string value if an event object or Date was passed
   let rawValue = value;
   if (rawValue && typeof rawValue === 'object') {
@@ -150,7 +162,7 @@ const CustomDatePicker = ({
           const year = selectedDate.getFullYear();
           const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
           const day = String(selectedDate.getDate()).padStart(2, '0');
-          onChange({ target: { value: `${year}-${month}-${day}T${currentNow.str}` } });
+          triggerChange(`${year}-${month}-${day}T${currentNow.str}`);
         }
       }
     }
@@ -222,7 +234,7 @@ const CustomDatePicker = ({
 
   const handleDateChange = (date) => {
     if (!date) {
-      onChange({ target: { value: '' } });
+      triggerChange('');
       return;
     }
     const year = date.getFullYear();
@@ -245,9 +257,9 @@ const CustomDatePicker = ({
           safeTime = `${String(todayDate.getHours()).padStart(2, '0')}:${String(todayDate.getMinutes()).padStart(2, '0')}`;
         }
       }
-      onChange({ target: { value: `${year}-${month}-${day}T${safeTime}` } });
+      triggerChange(`${year}-${month}-${day}T${safeTime}`);
     } else {
-      onChange({ target: { value: `${year}-${month}-${day}` } });
+      triggerChange(`${year}-${month}-${day}`);
     }
   };
 
@@ -256,13 +268,13 @@ const CustomDatePicker = ({
       const year = selectedDate.getFullYear();
       const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const day = String(selectedDate.getDate()).padStart(2, '0');
-      onChange({ target: { value: `${year}-${month}-${day}T${newTime}` } });
+      triggerChange(`${year}-${month}-${day}T${newTime}`);
     } else {
       const today = new Date();
       const year = today.getFullYear();
       const month = String(today.getMonth() + 1).padStart(2, '0');
       const day = String(today.getDate()).padStart(2, '0');
-      onChange({ target: { value: `${year}-${month}-${day}T${newTime}` } });
+      triggerChange(`${year}-${month}-${day}T${newTime}`);
     }
     setIsTimeDropdownOpen(false);
   };
