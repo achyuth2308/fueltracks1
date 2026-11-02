@@ -49,11 +49,7 @@ async function refreshMiningVehicles() {
       FROM vehicles v
       JOIN vehicle_groups vg ON v.id = vg.vehicle_id
       JOIN groups g ON g.id = vg.group_id
-      WHERE (
-        g.name ILIKE '%tnreal mining%' OR 
-        g.name ILIKE '%mining%' OR 
-        g.name ILIKE '%mines%'
-      )
+      WHERE LOWER(REPLACE(g.name, ' ', '')) = 'minestamilnadu'
       AND v.is_active = TRUE
     `);
 
