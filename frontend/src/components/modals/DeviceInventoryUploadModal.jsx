@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2,
-  Trash2, RefreshCw, Cpu, Layers
+  Trash2, RefreshCw, Cpu, Layers, Download
 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 
@@ -16,6 +16,21 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
   const [statusMessage, setStatusMessage] = useState(null);
 
   if (!isOpen) return null;
+
+  function extractField(row, targetNames) {
+    const rowKeys = Object.keys(row || {});
+    for (const t of targetNames) {
+      const cleanT = t.toLowerCase().replace(/[^a-z0-9]/g, '');
+      for (const rk of rowKeys) {
+        const cleanRk = rk.toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (cleanRk === cleanT && row[rk] !== undefined && row[rk] !== null) {
+          const val = String(row[rk]).trim();
+          if (val) return val;
+        }
+      }
+    }
+    return '';
+  }
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -55,25 +70,25 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
         }
 
         if (hasNamedHeaders) {
-          // Parse using named column keys
+          // Parse using named column keys (with case & whitespace insensitivity)
           for (let i = 0; i < objRows.length; i++) {
             const r = objRows[i];
-            let imei = String(r['Device ID(IMEI)'] || r['Device ID (IMEI)'] || r['IMEI Number'] || r['IMEI NO'] || r['IMEI NO.'] || r['IMEI'] || r.imei || r.deviceId || r['Device ID'] || '').trim();
-            if (imei.includes('e+') || imei.includes('E+')) {
-              try { imei = BigInt(Number(imei)).toString(); } catch (_) {}
+            let imeiRaw = extractField(r, ['imei', 'deviceidimei', 'imeinumber', 'imeino', 'deviceid', 'vltddslno']);
+            if (imeiRaw.includes('e+') || imeiRaw.includes('E+')) {
+              try { imeiRaw = BigInt(Number(imeiRaw)).toString(); } catch (_) {}
             }
-            imei = imei.replace(/\D/g, '');
+            const imei = imeiRaw.replace(/\D/g, '');
 
             if (!imei || imei.length < 10) continue;
             if (seenImeis.has(imei)) continue;
             seenImeis.add(imei);
 
-            const serialNo = String(r['VLTD SLNO'] || r['VLTTD SLNO'] || r['Serial Number'] || r['Device Serial Number'] || r['Device Serial No'] || r['Serial No'] || r.serialNo || r.serial_no || '').trim();
-            const iccid = String(r['ICCID'] || r['ICCID Number'] || r['SIM Number'] || r.iccid || '').trim();
-            const model = String(r['Device Model'] || r['Model Name / Number'] || r['Model Name/Number'] || r['Device Type'] || r.model || r.deviceModel || '').trim();
-            const explicitMfr = String(r['VLTD Manufacturer Name'] || r['Manufacturer'] || r.manufacturer || '').trim();
-            const simProvider = String(r['SIM Service Provider'] || r['Provider'] || r['Operator'] || r.simProvider || 'Technojacks').trim();
-            const simNo = String(r['GPS SIM Number 1'] || r['SIM 1'] || r['Mobile Number'] || r.simNo || '').trim();
+            const serialNo = extractField(r, ['serialnumber', 'serialno', 'deviceserialnumber', 'deviceserialno', 'vltdslno', 'vlttdslno', 'slno']);
+            const iccid = extractField(r, ['iccid', 'iccidnumber', 'simnumber']);
+            const model = extractField(r, ['devicemodel', 'model', 'modelname', 'modelnumber', 'devicetype']);
+            const explicitMfr = extractField(r, ['manufacturer', 'vltdmanufacturer', 'vltdmanufacturername', 'mfr']);
+            const simProvider = extractField(r, ['simprovider', 'simserviceprovider', 'provider', 'operator']) || 'Technojacks';
+            const simNo = extractField(r, ['simno', 'simnumber1', 'gpssimnumber1', 'mobilenumber', 'phone']);
 
             let mfr = explicitMfr;
             if (!mfr || mfr === 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
@@ -166,6 +181,51 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
       }
     };
     reader.readAsBinaryString(file);
+  };
+
+  const downloadTemplate = () => {
+    const headers = [
+      'IMEI',
+      'Device Serial Number',
+      'ICCID',
+      'Manufacturer',
+      'Device Model',
+      'SIM Provider',
+      'SIM Phone Number'
+    ];
+    const sampleData = [
+      [
+        '861329082344004',
+        'APM1K2I102690315363',
+        '8991430008117575493F',
+        'APM',
+        '1819001A',
+        'Technojacks',
+        '915755184128165'
+      ],
+      [
+        '865006049210219',
+        'VOL1K2I102690315456',
+        '8991430008117572979F',
+        'Volty',
+        '', // Leave blank for Volty
+        'Technojacks',
+        '9876543210'
+      ]
+    ];
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleData]);
+    ws['!cols'] = [
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 18 }
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Device Master');
+    XLSX.writeFile(wb, 'FuelTracks_Device_Master_Template.xlsx');
   };
 
   const handleUploadSubmit = async () => {
@@ -328,12 +388,23 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
 
         {/* Footer */}
         <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition cursor-pointer"
-          >
-            Cancel
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={downloadTemplate}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition cursor-pointer"
+              title="Download standardized Excel template with sample APM & Volty rows"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Download Excel Template</span>
+            </button>
+          </div>
           <button
             onClick={handleUploadSubmit}
             disabled={parsedDevices.length === 0 || isSubmitting || isParsing}
