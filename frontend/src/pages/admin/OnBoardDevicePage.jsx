@@ -89,6 +89,10 @@ const OnBoardDevicePage = () => {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const isPasswordError = passwordTouched && newUser.password.length > 0 && newUser.password.length < 6;
 
+  const [users, setUsers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [orgs, setOrgs] = useState([]);
+
   const [usernameTouched, setUsernameTouched] = useState(false);
   const [emailTouched, setEmailTouched] = useState(false);
 
@@ -103,10 +107,6 @@ const OnBoardDevicePage = () => {
     const clean = newUser.email.trim().toLowerCase();
     return users.some(u => (u.email || '').trim().toLowerCase() === clean);
   }, [emailTouched, newUser.email, users]);
-
-  const [users, setUsers] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [orgs, setOrgs] = useState([]);
 
   // Whitelist: strictly API integration groups only for secondary group assignment
   const apiIntegrationGroups = useMemo(() => {
