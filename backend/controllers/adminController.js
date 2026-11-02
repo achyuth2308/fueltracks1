@@ -1032,30 +1032,40 @@ const AdminController = {
 
       const rows = result.rows.map((row, idx) => {
         const groupsArr = row.group_names || [];
+        const isTgCivil = groupsArr.some(g => /telangana.*civil|tgscscl|tg.*civil/i.test(g));
+        const isApCivil = groupsArr.some(g => /paddy|ap.*civil/i.test(g));
         const isMining = groupsArr.some(g => /mining|mines|tnreal/i.test(g));
         const isSathyadeva = (row.org_name && /sathyadeva/i.test(row.org_name)) || groupsArr.some(g => /sathyadeva/i.test(g));
-        const isCivilSupplies = groupsArr.some(g => /civil|tgscscl/i.test(g));
 
-        let configuredTarget = null;
-        if (isMining) configuredTarget = 'Mines Server';
-        else if (isSathyadeva) configuredTarget = 'SCLEN (Coromandel)';
-        else if (isCivilSupplies) configuredTarget = 'TGSCSCL';
+        const targets = [];
+        if (isTgCivil) targets.push('TG Civil Supplies');
+        if (isApCivil) targets.push('AP Civil Supplies');
+        if (isMining) targets.push('TN Mining');
+        if (isSathyadeva) targets.push('SCLEN (Coromandel)');
+
+        const configuredTarget = targets.length > 0 ? targets.join(', ') : null;
 
         let apiPropagation = null;
         const rawRedis = redisStatuses[idx];
         if (rawRedis) {
           try {
             apiPropagation = JSON.parse(rawRedis);
+            if (configuredTarget) {
+              apiPropagation.target = configuredTarget;
+            }
           } catch (_) {}
         }
 
         // If no push packet was recorded in Redis yet but vehicle is bound to a target
         if (!apiPropagation && configuredTarget) {
+          const isPullApi = isTgCivil || isApCivil;
           apiPropagation = {
             target: configuredTarget,
-            status: row.is_online ? 'STANDBY' : 'IDLE',
+            status: row.is_online ? (isPullApi ? 'ACTIVE' : 'STANDBY') : 'IDLE',
             code: 0,
-            message: row.is_online ? 'Standby (Waiting for GPS)' : 'Standby (Vehicle Offline)',
+            message: row.is_online 
+              ? (isPullApi ? 'Active (Ready for Polling)' : 'Standby (Waiting for GPS)') 
+              : 'Standby (Vehicle Offline)',
             timestamp: null
           };
         } else if (!apiPropagation && !configuredTarget) {

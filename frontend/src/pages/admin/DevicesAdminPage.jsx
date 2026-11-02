@@ -83,6 +83,7 @@ const DevicesAdminPage = () => {
           is_online: d.is_online || false,
           last_update: d.last_seen || null,
           vehicle_id: d.vehicle_uuid,
+          api_propagation: d.api_propagation,
         }));
         setDevices(mappedDevices);
       }
@@ -381,7 +382,7 @@ const DevicesAdminPage = () => {
                               width: '7px',
                               height: '7px',
                               borderRadius: '50%',
-                              background: d.api_propagation.status === 'SUCCESS' ? '#10b981' : d.api_propagation.status === 'FAILED' ? '#ef4444' : '#f59e0b',
+                              background: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#10b981' : d.api_propagation.status === 'FAILED' ? '#ef4444' : '#f59e0b',
                               display: 'inline-block',
                               flexShrink: 0
                             }} />
@@ -392,7 +393,7 @@ const DevicesAdminPage = () => {
                           <div style={{
                             fontSize: '11px',
                             fontWeight: 500,
-                            color: d.api_propagation.status === 'SUCCESS' ? '#059669' : d.api_propagation.status === 'FAILED' ? '#dc2626' : '#d97706',
+                            color: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#059669' : d.api_propagation.status === 'FAILED' ? '#dc2626' : '#d97706',
                             marginTop: '2px',
                             paddingLeft: '13px',
                             display: 'flex',
