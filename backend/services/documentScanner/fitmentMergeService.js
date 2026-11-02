@@ -160,6 +160,7 @@ function previewFitmentMerge(existingVehicle, extractedData = {}, userConfirmedD
     technician_name: mergedInput.technician_name || existingFitment.technician_name || null,
     device_model: mergedInput.device_model || mergedInput.model || existingFitment.device_model || null,
     device_serial: mergedInput.device_serial || existingFitment.device_serial || null,
+    vltd_manufacturer: mergedInput.manufacturer_name || mergedInput.vltd_manufacturer || existingFitment.vltd_manufacturer || null,
     sim_number: simClean || existingFitment.sim_number || null,
     is_iccid: isIccid || existingFitment.is_iccid || false,
     customer_name: mergedInput.customer_name || existingFitment.customer_name || null,

@@ -36,6 +36,26 @@ const computeVerificationCode = (cert, imei, veh) => {
   return `FT-VERIFY-${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(-4)}`;
 };
 
+export function resolveVltdManufacturer(deviceModel, serialNo, explicitMfr) {
+  if (explicitMfr && typeof explicitMfr === 'string' && explicitMfr.trim() && explicitMfr.trim() !== 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
+    return explicitMfr.trim();
+  }
+  const text = `${deviceModel || ''} ${serialNo || ''}`.toUpperCase().trim();
+  if (text.includes('VOLTY') || text.includes('VOL1') || text.startsWith('VOL')) {
+    return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+  }
+  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM')) {
+    return 'APM KINGSTRACK PRIVATE LIMITED';
+  }
+  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB')) {
+    return 'TELTONIKA TELEMATICS';
+  }
+  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK')) {
+    return 'CONCOX / JIMI IOT';
+  }
+  return 'APM KINGSTRACK PRIVATE LIMITED';
+}
+
 const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
   const [isDirty, setIsDirty] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -184,13 +204,26 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
 
     const certNumber = metadata.certSerialNo || `FT-GPS-${now.getFullYear()}-${(imeiClean ? imeiClean.slice(-6) : String(veh.id || '').slice(-6) || '000001').toUpperCase()}`;
 
+    const rawDevModel = metadata.deviceModel || veh.device_model || veh.device_version || veh.server_name || veh.model || '';
+    const rawSerial = metadata.deviceSerialNo || metadata.serialNo || '';
+    const resolvedMfr = resolveVltdManufacturer(rawDevModel, rawSerial, metadata.vltdManufacturer);
+    const isVolty = resolvedMfr.includes('VOLTY');
+
+    const defaultModel = isVolty ? 'VOLTY-AIS140' : '1819001A';
+    const defaultSerial = isVolty
+      ? (imeiLast10 ? `VOL1K2I${imeiLast10}` : 'VOL1K2I102690315456')
+      : (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456');
+
+    const modelName = metadata.modelName || metadata.deviceModel || veh.device_model || defaultModel;
+    const deviceSerialNo = metadata.deviceSerialNo || metadata.serialNo || defaultSerial;
+
     return {
       // Certificate Format Selection: 'tamilnadu_mining' (default) | 'standard_gps'
       certFormat: metadata.certFormat || 'tamilnadu_mining',
 
       // Company Details
       companyName: 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
-      vltdManufacturer: metadata.vltdManufacturer || 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
+      vltdManufacturer: resolvedMfr,
       companyAddress: 'H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079',
       companyPhone: '9000666914',
       companyEmail: 'info@fueltracks.in',
@@ -204,8 +237,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
       districtState: metadata.districtState || metadata.state || 'Tamil Nadu',
 
       // Section 2: VLTD Device Details
-      modelName: metadata.modelName || metadata.deviceModel || veh.device_model || '1819001A',
-      deviceSerialNo: metadata.deviceSerialNo || metadata.serialNo || (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456'),
+      modelName: modelName,
+      deviceSerialNo: deviceSerialNo,
       imei: imei,
 
       // Section 3: Connectivity & Activation Details
@@ -263,6 +296,10 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     const query = new URLSearchParams();
     if (veh) query.set('v', veh);
     if (imei) query.set('i', imei);
+    if (data.vltdManufacturer) query.set('mfr', data.vltdManufacturer);
+    if (data.modelName) query.set('model', data.modelName);
+    if (data.deviceSerialNo) query.set('serialno', data.deviceSerialNo);
+    if (data.certFormat) query.set('format', data.certFormat);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return `${base}/verify/${encodeURIComponent(certNum)}${qs}`;
   };
@@ -979,6 +1016,30 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                 onChange={(e) => handleInputChange('vltdManufacturer', e.target.value)}
                 className="w-full px-2 py-1 bg-white border border-slate-300 rounded font-semibold text-slate-800"
               />
+              <div className="flex gap-1.5 mt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleInputChange('vltdManufacturer', 'APM KINGSTRACK PRIVATE LIMITED');
+                    if (!formData.modelName || formData.modelName === 'VOLTY-AIS140') handleInputChange('modelName', '1819001A');
+                    if (!formData.deviceSerialNo || formData.deviceSerialNo.startsWith('VOL')) handleInputChange('deviceSerialNo', `APM1K2I${imeiLast10 || '102690315456'}`);
+                  }}
+                  className="text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded text-slate-700 border"
+                >
+                  APM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleInputChange('vltdManufacturer', 'VOLTY IOT SOLUTIONS PRIVATE LIMITED');
+                    if (!formData.modelName || formData.modelName === '1819001A') handleInputChange('modelName', 'VOLTY-AIS140');
+                    if (!formData.deviceSerialNo || formData.deviceSerialNo.startsWith('APM')) handleInputChange('deviceSerialNo', `VOL1K2I${imeiLast10 || '102690315456'}`);
+                  }}
+                  className="text-[9px] bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded text-slate-700 border"
+                >
+                  Volty
+                </button>
+              </div>
             </div>
             <div>
               <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Model Name / Number</label>
@@ -1375,6 +1436,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                   <h2 style={{ fontSize: '15px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', marginTop: '4px', margin: 0, color: '#000000' }}>
                     FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE
                   </h2>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e3a8a', textTransform: 'uppercase', marginTop: '6px', letterSpacing: '0.5px' }}>
+                    Issued by Authorized Fitment Agency: FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
+                  </div>
                 </div>
 
                 {/* Opening Paragraph */}
@@ -1485,7 +1549,10 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                 </div>
 
                 {/* Authorized Signatory */}
-                <div style={{ textAlign: 'right', marginTop: '40px', paddingRight: '8px' }}>
+                <div style={{ textAlign: 'right', marginTop: '35px', paddingRight: '8px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000000', marginBottom: '35px' }}>
+                    For FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
+                  </div>
                   <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#000000' }}>
                     Authorized Signatory
                   </div>

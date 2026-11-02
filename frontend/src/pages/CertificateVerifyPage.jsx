@@ -6,6 +6,26 @@ import html2canvas from 'html2canvas-pro';
 import QRCode from 'qrcode';
 import fuelTracksLogo from '../assets/fueltracks_cert_logo.png';
 
+export function resolveVltdManufacturer(deviceModel, serialNo, explicitMfr) {
+  if (explicitMfr && typeof explicitMfr === 'string' && explicitMfr.trim() && explicitMfr.trim() !== 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
+    return explicitMfr.trim();
+  }
+  const text = `${deviceModel || ''} ${serialNo || ''}`.toUpperCase().trim();
+  if (text.includes('VOLTY') || text.includes('VOL1') || text.startsWith('VOL')) {
+    return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+  }
+  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM')) {
+    return 'APM KINGSTRACK PRIVATE LIMITED';
+  }
+  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB')) {
+    return 'TELTONIKA TELEMATICS';
+  }
+  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK')) {
+    return 'CONCOX / JIMI IOT';
+  }
+  return 'APM KINGSTRACK PRIVATE LIMITED';
+}
+
 const CertificateVerifyPage = () => {
   const [searchParams] = useSearchParams();
   const { id } = useParams();
@@ -76,10 +96,23 @@ const CertificateVerifyPage = () => {
     const imeiClean = String(imei).replace(/\D/g, '');
     const imeiLast10 = imeiClean.slice(-10);
 
+    const rawDevModel = searchParams.get('devicemodel') || searchParams.get('model') || '';
+    const rawSerial = searchParams.get('serialno') || '';
+    const resolvedMfr = resolveVltdManufacturer(rawDevModel, rawSerial, searchParams.get('mfr'));
+    const isVolty = resolvedMfr.includes('VOLTY');
+
+    const defaultModel = isVolty ? 'VOLTY-AIS140' : '1819001A';
+    const defaultSerial = isVolty
+      ? (imeiLast10 ? `VOL1K2I${imeiLast10}` : 'VOL1K2I102690315456')
+      : (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456');
+
+    const modelName = rawDevModel || defaultModel;
+    const deviceSerialNo = rawSerial || defaultSerial;
+
     return {
       certFormat: searchParams.get('format') || 'tamilnadu_mining',
       companyName: 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
-      vltdManufacturer: searchParams.get('mfr') || 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
+      vltdManufacturer: resolvedMfr,
       companyAddress: 'H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079',
       companyPhone: '9000666914',
       companyEmail: 'info@fueltracks.in',
@@ -93,8 +126,8 @@ const CertificateVerifyPage = () => {
       districtState: searchParams.get('state') || searchParams.get('district') || 'Tamil Nadu',
 
       // 2. VLTD Device Details
-      modelName: searchParams.get('devicemodel') || searchParams.get('model') || '1819001A',
-      deviceSerialNo: searchParams.get('serialno') || (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456'),
+      modelName: modelName,
+      deviceSerialNo: deviceSerialNo,
       imei: imei,
 
       // 3. Connectivity & Activation Details
@@ -753,6 +786,9 @@ const CertificateVerifyPage = () => {
                   <h2 style={{ fontSize: '15px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', marginTop: '4px', margin: 0, color: '#000000' }}>
                     FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE
                   </h2>
+                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e3a8a', textTransform: 'uppercase', marginTop: '6px', letterSpacing: '0.5px' }}>
+                    Issued by Authorized Fitment Agency: FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
+                  </div>
                 </div>
 
                 <p style={{ fontSize: '12.5px', lineHeight: '1.45', margin: '0 0 18px 0', color: '#000000' }}>
