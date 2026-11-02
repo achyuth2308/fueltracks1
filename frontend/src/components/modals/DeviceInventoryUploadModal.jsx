@@ -4,7 +4,7 @@ import {
   Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Loader2,
   Trash2, RefreshCw, Cpu, Layers
 } from 'lucide-react';
-import { adminApi } from '../../api/axios';
+import axiosInstance from '../../api/axios';
 
 export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess }) {
   const fileInputRef = useRef(null);
@@ -32,54 +32,124 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
         const wb = XLSX.read(bstr, { type: 'binary', cellDates: true });
         const wsName = wb.SheetNames[0];
         const ws = wb.Sheets[wsName];
-        const rows = XLSX.utils.sheet_to_json(ws, { raw: true });
 
-        if (!rows || rows.length === 0) {
+        // 1. Try standard object rows
+        const objRows = XLSX.utils.sheet_to_json(ws, { raw: true });
+        // 2. Also get 2D array rows (header: 1) for headerless files
+        const arrRows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true });
+
+        if (!arrRows || arrRows.length === 0) {
           setStatusMessage({ type: 'error', text: 'Uploaded Excel file is empty.' });
           setIsParsing(false);
           return;
         }
 
         const normalized = [];
-        for (let i = 0; i < rows.length; i++) {
-          const r = rows[i];
-          let imei = String(r['Device ID(IMEI)'] || r['IMEI Number'] || r['IMEI'] || r.imei || r.deviceId || '').trim();
-          if (imei.includes('e+') || imei.includes('E+')) {
-            try { imei = BigInt(Number(imei)).toString(); } catch (_) {}
+        const seenImeis = new Set();
+
+        // Check if first row looks like data rather than headers
+        let hasNamedHeaders = false;
+        if (objRows.length > 0) {
+          const sampleKeys = Object.keys(objRows[0] || {}).map(k => k.toLowerCase());
+          hasNamedHeaders = sampleKeys.some(k => k.includes('imei') || k.includes('device') || k.includes('serial') || k.includes('iccid'));
+        }
+
+        if (hasNamedHeaders) {
+          // Parse using named column keys
+          for (let i = 0; i < objRows.length; i++) {
+            const r = objRows[i];
+            let imei = String(r['Device ID(IMEI)'] || r['Device ID (IMEI)'] || r['IMEI Number'] || r['IMEI NO'] || r['IMEI NO.'] || r['IMEI'] || r.imei || r.deviceId || r['Device ID'] || '').trim();
+            if (imei.includes('e+') || imei.includes('E+')) {
+              try { imei = BigInt(Number(imei)).toString(); } catch (_) {}
+            }
+            imei = imei.replace(/\D/g, '');
+
+            if (!imei || imei.length < 10) continue;
+            if (seenImeis.has(imei)) continue;
+            seenImeis.add(imei);
+
+            const serialNo = String(r['VLTD SLNO'] || r['VLTTD SLNO'] || r['Serial Number'] || r['Device Serial Number'] || r['Device Serial No'] || r['Serial No'] || r.serialNo || r.serial_no || '').trim();
+            const iccid = String(r['ICCID'] || r['ICCID Number'] || r['SIM Number'] || r.iccid || '').trim();
+            const model = String(r['Device Model'] || r['Model Name / Number'] || r['Model Name/Number'] || r['Device Type'] || r.model || r.deviceModel || '').trim();
+            const explicitMfr = String(r['VLTD Manufacturer Name'] || r['Manufacturer'] || r.manufacturer || '').trim();
+            const simProvider = String(r['SIM Service Provider'] || r['Provider'] || r['Operator'] || r.simProvider || 'Technojacks').trim();
+            const simNo = String(r['GPS SIM Number 1'] || r['SIM 1'] || r['Mobile Number'] || r.simNo || '').trim();
+
+            let mfr = explicitMfr;
+            if (!mfr || mfr === 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
+              const combined = `${model} ${serialNo}`.toUpperCase();
+              if (combined.includes('VOLTY') || combined.includes('VOL1')) {
+                mfr = 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+              } else if (combined.includes('APM') || combined.includes('KINGSTRACK')) {
+                mfr = 'APM KINGSTRACK PRIVATE LIMITED';
+              } else {
+                mfr = 'APM KINGSTRACK PRIVATE LIMITED';
+              }
+            }
+
+            normalized.push({
+              imei,
+              serialNo: serialNo || (mfr.includes('VOLTY') ? `VOL1K2I${imei.slice(-10)}` : `APM1K2I${imei.slice(-10)}`),
+              iccid: iccid || '8991430008117572979F',
+              model: model || (mfr.includes('VOLTY') ? 'VOLTY-AIS140' : '1819001A'),
+              manufacturer: mfr,
+              simProvider,
+              simNo
+            });
           }
-          imei = imei.replace(/\D/g, '');
+        } else {
+          // Parse headerless raw row arrays (e.g. manufacturer dispatch sheets)
+          for (let i = 0; i < arrRows.length; i++) {
+            const row = arrRows[i];
+            if (!Array.isArray(row) || row.length === 0) continue;
 
-          if (!imei) continue;
+            let detectedImei = '';
+            let detectedSerial = '';
+            let detectedIccid = '';
+            let detectedSimNo = '';
 
-          const serialNo = String(r['VLTD SLNO'] || r['VLTTD SLNO'] || r['Serial Number'] || r['Device Serial Number'] || r.serialNo || r.serial_no || '').trim();
-          const iccid = String(r['ICCID'] || r['ICCID Number'] || r.iccid || '').trim();
-          const model = String(r['Device Model'] || r['Model Name / Number'] || r['Device Type'] || r.model || r.deviceModel || '').trim();
-          const explicitMfr = String(r['VLTD Manufacturer Name'] || r['Manufacturer'] || r.manufacturer || '').trim();
-          const simProvider = String(r['SIM Service Provider'] || r['Provider'] || r['Operator'] || r.simProvider || 'Technojacks').trim();
-          const simNo = String(r['GPS SIM Number 1'] || r['SIM 1'] || r.simNo || '').trim();
+            for (const cell of row) {
+              const str = String(cell || '').trim();
+              if (!str) continue;
 
-          // Auto-detect manufacturer
-          let mfr = explicitMfr;
-          if (!mfr || mfr === 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
-            const combined = `${model} ${serialNo}`.toUpperCase();
-            if (combined.includes('VOLTY') || combined.includes('VOL1')) {
-              mfr = 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
-            } else if (combined.includes('APM') || combined.includes('KINGSTRACK')) {
-              mfr = 'APM KINGSTRACK PRIVATE LIMITED';
-            } else {
-              mfr = 'APM KINGSTRACK PRIVATE LIMITED';
+              // 1. Detect 14-16 numeric digit IMEI
+              if (/^\d{14,16}$/.test(str) && !detectedImei) {
+                detectedImei = str;
+              }
+              // 2. Detect Serial No starting with APM or VOL
+              else if (/^(?:APM|VOL)[A-Z0-9]+$/i.test(str) && !detectedSerial) {
+                detectedSerial = str.toUpperCase();
+              }
+              // 3. Detect ICCID starting with 8991 (18-22 chars)
+              else if (/^8991[0-9A-Z]{14,18}$/i.test(str)) {
+                // If ending with F, prioritize as primary VLTD eSIM
+                if (str.toUpperCase().endsWith('F') || !detectedIccid) {
+                  detectedIccid = str.toUpperCase();
+                }
+              }
+              // 4. Detect 10-15 digit SIM phone number
+              else if (/^(?:91)?[6-9]\d{9}$/.test(str) && !detectedSimNo) {
+                detectedSimNo = str;
+              }
+            }
+
+            if (detectedImei && !seenImeis.has(detectedImei)) {
+              seenImeis.add(detectedImei);
+              const isVolty = detectedSerial.includes('VOL');
+              const mfr = isVolty ? 'VOLTY IOT SOLUTIONS PRIVATE LIMITED' : 'APM KINGSTRACK PRIVATE LIMITED';
+              const model = isVolty ? 'VOLTY-AIS140' : '1819001A';
+
+              normalized.push({
+                imei: detectedImei,
+                serialNo: detectedSerial || (isVolty ? `VOL1K2I${detectedImei.slice(-10)}` : `APM1K2I${detectedImei.slice(-10)}`),
+                iccid: detectedIccid || '8991430008117572979F',
+                model,
+                manufacturer: mfr,
+                simProvider: 'Technojacks',
+                simNo: detectedSimNo
+              });
             }
           }
-
-          normalized.push({
-            imei,
-            serialNo: serialNo || (mfr.includes('VOLTY') ? `VOL1K2I${imei.slice(-10)}` : `APM1K2I${imei.slice(-10)}`),
-            iccid: iccid || '8991430008117572979F',
-            model: model || (mfr.includes('VOLTY') ? 'VOLTY-AIS140' : '1819001A'),
-            manufacturer: mfr,
-            simProvider,
-            simNo
-          });
         }
 
         if (normalized.length === 0) {
@@ -117,7 +187,7 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
         }))
       };
 
-      const res = await adminApi.post('/device-inventory/bulk-import', payload);
+      const res = await axiosInstance.post('/api/admin/device-inventory/bulk-import', payload);
       if (res.data && res.data.success) {
         setStatusMessage({
           type: 'success',
@@ -126,7 +196,7 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
         if (onSuccess) onSuccess(res.data);
         setTimeout(() => {
           onClose();
-        }, 1800);
+        }, 1500);
       } else {
         setStatusMessage({ type: 'error', text: res.data?.error || 'Failed to save devices.' });
       }
@@ -161,7 +231,7 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition"
+            className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -188,7 +258,7 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
               {selectedFile ? selectedFile.name : 'Click to select manufacturer Excel sheet'}
             </div>
             <p className="text-xs text-slate-500">
-              Supports .xlsx, .xls containing IMEI, Serial Number (VLTD SLNO), ICCID, and Device Model
+              Supports any APM or Volty dispatch sheet (with or without headers) containing IMEI, Serial No, and ICCID
             </p>
           </div>
 
@@ -260,14 +330,14 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
         <div className="px-6 py-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition"
+            className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200 rounded-lg transition cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleUploadSubmit}
             disabled={parsedDevices.length === 0 || isSubmitting || isParsing}
-            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-sm transition"
+            className="flex items-center gap-2 px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-bold rounded-lg shadow-sm transition cursor-pointer"
           >
             {isSubmitting ? (
               <>
@@ -286,4 +356,3 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
     </div>
   );
 }
-
