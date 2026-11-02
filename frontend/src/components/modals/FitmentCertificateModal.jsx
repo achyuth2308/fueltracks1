@@ -1514,8 +1514,22 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                   <h2 style={{ fontSize: '15px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', marginTop: '4px', margin: 0, color: '#000000' }}>
                     FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE
                   </h2>
-                  <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#1e3a8a', textTransform: 'uppercase', marginTop: '6px', letterSpacing: '0.5px' }}>
-                    Issued by Authorized Fitment Agency: FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
+                  <div style={{ marginTop: '8px' }}>
+                    <div style={{
+                      display: 'inline-block',
+                      padding: '5px 14px',
+                      backgroundColor: '#f8fafc',
+                      border: '1.5px solid #0f172a',
+                      borderRadius: '4px',
+                      textAlign: 'center'
+                    }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#334155', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        ISSUED BY AUTHORIZED FITMENT AGENCY:{' '}
+                      </span>
+                      <span style={{ fontSize: '15px', fontWeight: '900', color: '#000000', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                        FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
+                      </span>
+                    </div>
                   </div>
                 </div>
 
@@ -1628,7 +1642,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
 
                 {/* Authorized Signatory */}
                 <div style={{ textAlign: 'right', marginTop: '35px', paddingRight: '8px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#000000', marginBottom: '35px' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '900', color: '#000000', marginBottom: '35px', letterSpacing: '0.3px' }}>
                     For FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
                   </div>
                   <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#000000' }}>
