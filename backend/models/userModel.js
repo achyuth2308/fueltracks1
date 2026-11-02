@@ -76,12 +76,12 @@ const UserModel = {
   /**
    * Create a new user
    */
-  async create({ orgId, email, username, password, role, name, phone }) {
+  async create({ orgId, email, username, password, role, name, phone, tempPassword }) {
     const result = await db.query(
-      `INSERT INTO users (org_id, email, username, password, role, name, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, org_id, email, username, role, name, phone, is_active, created_at`,
-      [orgId, email, username || null, password, role, name, phone]
+      `INSERT INTO users (org_id, email, username, password, role, name, phone, temp_password)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, org_id, email, username, role, name, phone, temp_password, is_active, created_at`,
+      [orgId, email, username || null, password, role, name, phone, tempPassword || null]
     );
     return result.rows[0];
   },
@@ -126,11 +126,18 @@ const UserModel = {
   /**
    * Update password
    */
-  async updatePassword(userId, hashedPassword) {
-    await db.query(
-      `UPDATE users SET password = $1 WHERE id = $2`,
-      [hashedPassword, userId]
-    );
+  async updatePassword(userId, hashedPassword, tempPassword = null) {
+    if (tempPassword) {
+      await db.query(
+        `UPDATE users SET password = $1, temp_password = $2, updated_at = NOW() WHERE id = $3`,
+        [hashedPassword, tempPassword, userId]
+      );
+    } else {
+      await db.query(
+        `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
+        [hashedPassword, userId]
+      );
+    }
   },
 
   /**

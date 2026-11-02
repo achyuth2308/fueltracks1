@@ -14,6 +14,7 @@ const GpsModel = require('../models/gpsModel');
 const db = require('../config/db');
 const { redis } = require('../config/redis');
 const AuditService = require('../services/auditService');
+const WhatsAppService = require('../services/whatsappService');
 
 const AdminController = {
   // ============================================================
@@ -453,7 +454,8 @@ const AdminController = {
         password: hashedPassword,
         role,
         name,
-        phone
+        phone,
+        tempPassword: password
       });
 
       // Handle user group assignments
@@ -650,6 +652,82 @@ const AdminController = {
           ipAddress: AuditService.getIp(req), userAgent: AuditService.getUserAgent(req),
         });
       } catch (auditErr) { console.error('[AUDIT]', auditErr.message); }
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async sendUserCredentialsWhatsApp(req, res, next) {
+    try {
+      const { id } = req.params;
+      const userRes = await db.query(
+        'SELECT id, org_id, name, username, phone, email, temp_password FROM users WHERE id = $1',
+        [id]
+      );
+      if (userRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+      const targetUser = userRes.rows[0];
+      const destinationPhone = req.body.phone ? String(req.body.phone).trim() : targetUser.phone;
+      if (!destinationPhone) {
+        return res.status(400).json({ success: false, error: 'User does not have a valid phone number' });
+      }
+
+      // If a password was provided in the modal, update it
+      if (req.body.password && String(req.body.password).trim()) {
+        const customPass = String(req.body.password).trim();
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(customPass, salt);
+        await UserModel.updatePassword(id, hashed, customPass);
+        targetUser.temp_password = customPass;
+      }
+
+      // Check if user has an assigned vehicle for {{2}}
+      let vehiclePlate = 'your vehicle';
+      const vehRes = await db.query(
+        `SELECT v.plate, v.name FROM vehicles v
+         JOIN vehicle_groups vg ON v.id = vg.vehicle_id
+         JOIN user_groups ug ON vg.group_id = ug.group_id
+         WHERE ug.user_id = $1 LIMIT 1`,
+        [id]
+      );
+      if (vehRes.rows.length > 0) {
+        vehiclePlate = vehRes.rows[0].plate || vehRes.rows[0].name || 'your vehicle';
+      }
+
+      // Send the approved Meta template
+      let templateResult = await WhatsAppService.sendTemplate({
+        to: destinationPhone,
+        name: 'fueltracks_customer_credentials_template',
+        language: 'en',
+        bodyParams: [targetUser.name || 'Customer', vehiclePlate]
+      });
+
+      // Safeguard: If parameter count mismatch (e.g., template expects 1 param instead of 2), retry with 1 param
+      if (!templateResult.ok && (templateResult.error_code === 132000 || String(templateResult.error_message).toLowerCase().includes('param'))) {
+        templateResult = await WhatsAppService.sendTemplate({
+          to: destinationPhone,
+          name: 'fueltracks_customer_credentials_template',
+          language: 'en',
+          bodyParams: [targetUser.name || 'Customer']
+        });
+      }
+
+      if (!templateResult.ok) {
+        return res.status(500).json({
+          success: false,
+          error: templateResult.error_message || 'Failed to dispatch Meta WhatsApp template',
+          code: templateResult.error_code,
+          mock: templateResult.mock
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'WhatsApp template sent successfully via Meta Cloud API',
+        wamid: templateResult.wamid,
+        mock: templateResult.mock
+      });
     } catch (err) {
       next(err);
     }

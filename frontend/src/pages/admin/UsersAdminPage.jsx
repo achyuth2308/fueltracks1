@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
+import SendCredentialsModal from '../../components/modals/SendCredentialsModal';
 import { useAuth } from '../../hooks/useAuth';
 
 const UsersAdminPage = () => {
@@ -17,6 +18,9 @@ const UsersAdminPage = () => {
 
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
+  const [credentialsModalOpen, setCredentialsModalOpen] = useState(false);
+  const [credentialsTargetUser, setCredentialsTargetUser] = useState(null);
+  const [isNewUserCredentials, setIsNewUserCredentials] = useState(false);
 
   // Details Panel State
   const [viewingUser, setViewingUser] = useState(null);
@@ -102,6 +106,19 @@ const UsersAdminPage = () => {
     setModalOpen(true);
   };
 
+  const handleOpenSendCredentials = (targetUser, password = '', isNew = false, e) => {
+    if (e) e.stopPropagation();
+    setCredentialsTargetUser({
+      id: targetUser?.id || null,
+      name: targetUser?.name || '',
+      username: targetUser?.username || '',
+      phone: targetUser?.phone || '',
+      password: password || ''
+    });
+    setIsNewUserCredentials(isNew);
+    setCredentialsModalOpen(true);
+  };
+
   const handleCreateOrUpdate = async (payload) => {
     if (selectedUserForEdit) {
       await adminApi.updateUser(selectedUserForEdit.id, payload);
@@ -109,7 +126,14 @@ const UsersAdminPage = () => {
         setViewingUser({ ...viewingUser, ...payload });
       }
     } else {
-      await adminApi.createUser(payload);
+      const res = await adminApi.createUser(payload);
+      const createdId = res?.data?.id || res?.id || null;
+      // Auto-prompt WhatsApp credentials share for the newly created user
+      handleOpenSendCredentials(
+        { id: createdId, name: payload.name, username: payload.username, phone: payload.phone },
+        payload.password,
+        true
+      );
     }
     fetchUsers();
   };
@@ -217,7 +241,7 @@ const UsersAdminPage = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
+                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
                     </tr>
                   ) : filteredUsers.map((u) => (
                     <tr
@@ -312,6 +336,20 @@ const UsersAdminPage = () => {
                             Edit
                           </button>
                           <button
+                            onClick={(e) => handleOpenSendCredentials(u, '', false, e)}
+                            title="Send login credentials via WhatsApp"
+                            style={{
+                              background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', padding: '6px 10px',
+                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#BBF7D0'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#DCFCE7'}
+                          >
+                            <MessageSquare size={12} color="#16A34A" />
+                            <span>WhatsApp</span>
+                          </button>
+                          <button
                             onClick={() => handleDelete(u.id)}
                             style={{
                               background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', padding: '6px 12px',
@@ -392,6 +430,22 @@ const UsersAdminPage = () => {
                   </button>
                 )}
               </div>
+
+              <button
+                onClick={(e) => handleOpenSendCredentials(viewingUser, '', false, e)}
+                style={{
+                  width: '100%', marginTop: '10px', padding: '10px 14px', borderRadius: '8px',
+                  background: '#25D366', border: 'none', color: '#FFFFFF',
+                  fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)',
+                  transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = '#20bd5a'}
+                onMouseLeave={e => e.currentTarget.style.background = '#25D366'}
+              >
+                <MessageSquare size={15} />
+                <span>Send Credentials via WhatsApp</span>
+              </button>
             </div>
 
             {/* Details Content */}
@@ -479,6 +533,13 @@ const UsersAdminPage = () => {
         onSave={handleCreateOrUpdate}
         editingUser={selectedUserForEdit}
         orgs={orgs}
+      />
+
+      <SendCredentialsModal
+        isOpen={credentialsModalOpen}
+        onClose={() => setCredentialsModalOpen(false)}
+        initialUser={credentialsTargetUser}
+        isNewlyCreated={isNewUserCredentials}
       />
       <style dangerouslySetInnerHTML={{
         __html: `

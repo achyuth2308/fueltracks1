@@ -207,6 +207,91 @@ const WhatsAppService = {
     }
   },
 
+  /**
+   * Send a direct plain text message via Meta WhatsApp Cloud API
+   * (Available inside 24-hr customer service window)
+   *
+   * @param {Object} options
+   * @param {string} options.to - Raw or normalized destination phone
+   * @param {string} options.text - Body message string
+   * @returns {Promise<{ ok: boolean, wamid?: string, error_code?: string|number, error_message?: string, mock?: boolean }>}
+   */
+  async sendTextMessage({ to, text }) {
+    const normalizedTo = normalizePhone(to);
+    if (!normalizedTo) {
+      return {
+        ok: false,
+        error_code: 'INVALID_PHONE',
+        error_message: `Cannot normalize destination phone: ${maskPhone(to)}`
+      };
+    }
+
+    const masked = maskPhone(normalizedTo);
+
+    // Mock Mode fallback
+    if (!this.isConfigured()) {
+      if (env.NODE_ENV === 'production') {
+        throw new Error('[WHATSAPP] Mock mode is strictly prohibited in production. Valid Meta WhatsApp credentials are required.');
+      }
+      const mockWamid = `mock-wamid-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+      console.log(`[WHATSAPP-MOCK] Dispatched text message to ${masked}: "${text.slice(0, 50)}..."`);
+      return {
+        ok: true,
+        wamid: mockWamid,
+        mock: true
+      };
+    }
+
+    await rateLimiter.acquire();
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: normalizedTo,
+      type: 'text',
+      text: {
+        preview_url: false,
+        body: text
+      }
+    };
+
+    const baseUrl = env.WHATSAPP_API_BASE_URL || process.env.WHATSAPP_API_BASE_URL || 'https://graph.facebook.com';
+    const url = `${baseUrl}/${env.WHATSAPP_API_VERSION}/${env.WHATSAPP_PHONE_NUMBER_ID}/messages`;
+
+    try {
+      const response = await axios.post(url, payload, {
+        httpAgent,
+        httpsAgent,
+        headers: {
+          'Authorization': `Bearer ${env.WHATSAPP_ACCESS_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      const wamid = response.data?.messages?.[0]?.id;
+      console.log(`[WHATSAPP] Sent direct text message to ${masked} (wamid: ${wamid})`);
+      return {
+        ok: true,
+        wamid: wamid || 'UNKNOWN_WAMID'
+      };
+    } catch (err) {
+      const metaError = err.response?.data?.error || {};
+      const errorCode = metaError.code || err.code || 'HTTP_ERROR';
+      const errorMessage = metaError.message || err.message || 'WhatsApp Cloud API call failed';
+
+      console.error(`[WHATSAPP] Failed to send text to ${masked}: [${errorCode}] ${errorMessage}`);
+
+      return {
+        ok: false,
+        error_code: errorCode,
+        error_message: errorMessage,
+        subcode: metaError.error_subcode,
+        status: err.response?.status
+      };
+    }
+  },
+
   sanitizeTemplateParam
 };
 

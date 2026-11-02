@@ -13,5 +13,6 @@ router.post('/logout', authenticate, AuthController.logout);
 router.get('/me', authenticate, AuthController.getMe);
 router.post('/forgot-password', AuthController.forgotPassword);
 router.post('/reset-password', AuthController.resetPassword);
+router.get('/customer-credentials', AuthController.getCustomerCredentialsByPhone);
 
 module.exports = router;

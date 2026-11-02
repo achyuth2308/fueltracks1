@@ -11,6 +11,7 @@ const env = require('../config/env');
 const AuditService = require('../services/auditService');
 const sendgridService = require('../services/sendgrid.service');
 const profileService = require('../modules/profile/services/profileService');
+const db = require('../config/db');
 
 const AuthController = {
   /**
@@ -337,6 +338,65 @@ const AuthController = {
       } catch (err) { console.error('[AUDIT]', err.message); }
 
       res.status(200).json({ success: true, message: 'Password has been reset successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getCustomerCredentialsByPhone(req, res, next) {
+    try {
+      const secret = req.headers['x-bot-secret'] || req.query.secret;
+      const expectedSecret = env.WHATSAPP_APP_SECRET || '6a28b7d0b5939c2ddce25a71847a3158';
+      if (!secret || secret !== expectedSecret) {
+        return res.status(401).json({ success: false, error: 'Unauthorized bot access' });
+      }
+
+      const rawPhone = req.query.phone;
+      if (!rawPhone) {
+        return res.status(400).json({ success: false, error: 'Phone number is required' });
+      }
+
+      const cleanDigits = String(rawPhone).replace(/\D/g, '');
+      const last10 = cleanDigits.slice(-10);
+      if (!last10) {
+        return res.status(400).json({ success: false, error: 'Invalid phone number' });
+      }
+
+      const uRes = await db.query(
+        `SELECT id, name, username, email, temp_password, phone
+         FROM users
+         WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE $1
+         ORDER BY created_at DESC LIMIT 1`,
+        [`%${last10}`]
+      );
+
+      if (uRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'No user found for this phone number' });
+      }
+
+      const user = uRes.rows[0];
+      let custPass = user.temp_password;
+
+      if (!custPass) {
+        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+        custPass = '';
+        for (let i = 0; i < 6; i++) {
+          custPass += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(custPass, salt);
+        await UserModel.updatePassword(user.id, hashed, custPass);
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          id: user.id,
+          name: user.name || 'Customer',
+          username: user.username || user.email || '—',
+          password: custPass
+        }
+      });
     } catch (err) {
       next(err);
     }

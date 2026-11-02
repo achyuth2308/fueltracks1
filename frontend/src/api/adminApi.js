@@ -58,6 +58,11 @@ export const deleteUser = async (id) => {
   return response.data;
 };
 
+export const sendUserCredentialsWhatsApp = async (id, data = {}) => {
+  const response = await axiosInstance.post(`/api/admin/users/${id}/send-whatsapp-template`, data);
+  return response.data;
+};
+
 export const getUserVehicles = async (id) => {
   const response = await axiosInstance.get(`/api/admin/users/${id}/vehicles`);
   return response.data;

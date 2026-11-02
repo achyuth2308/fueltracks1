@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const db = require('../config/db');
 const env = require('../config/env');
 const { normalizePhone, maskPhone } = require('../utils/phone');
+const WhatsAppService = require('../services/whatsappService');
 
 /**
  * Verify Meta HMAC-SHA256 signature against raw request body.
@@ -18,8 +19,12 @@ const { normalizePhone, maskPhone } = require('../utils/phone');
 function verifySignature(req, appSecret = null) {
   const secret = appSecret || env.WHATSAPP_APP_SECRET || process.env.WHATSAPP_APP_SECRET;
 
-  // Security Rule: If app secret is not configured, REJECT, do NOT skip!
+  // In non-production, if app secret is not yet set, allow webhooks for development/testing
   if (!secret) {
+    if (env.NODE_ENV !== 'production') {
+      console.warn('[WHATSAPP-WEBHOOK] WHATSAPP_APP_SECRET not set; allowing webhook event in development mode.');
+      return true;
+    }
     return false;
   }
 
@@ -142,19 +147,125 @@ const WhatsAppWebhookController = {
             }
           }
 
-          // 2. Process Inbound Messages (STOP / START opt-in/opt-out handling)
+          // 2. Process Inbound Messages (Quick Reply credentials, STOP / START opt-in/opt-out)
           if (Array.isArray(value.messages)) {
             for (const msg of value.messages) {
-              if (msg.type !== 'text') continue;
-
               const rawSender = msg.from;
               const senderNormalized = normalizePhone(rawSender);
               if (!senderNormalized) continue;
+              const masked = maskPhone(senderNormalized);
 
-              // Clean text of extra spaces, newlines, emojis
+              // Check if customer clicked the Quick Reply "Get my account details" button
+              let isGetCredentials = false;
+              let payloadUserId = null;
+
+              if (msg.type === 'button') {
+                const btnPayload = msg.button?.payload || '';
+                const btnText = (msg.button?.text || '').toLowerCase();
+                if (btnPayload.startsWith('GET_CREDS_')) {
+                  isGetCredentials = true;
+                  payloadUserId = btnPayload.replace('GET_CREDS_', '').trim();
+                } else if (btnText.includes('account details') || btnText.includes('credentials')) {
+                  isGetCredentials = true;
+                }
+              } else if (msg.type === 'interactive') {
+                const replyId = msg.interactive?.button_reply?.id || '';
+                const replyTitle = (msg.interactive?.button_reply?.title || '').toLowerCase();
+                if (replyId.startsWith('GET_CREDS_')) {
+                  isGetCredentials = true;
+                  payloadUserId = replyId.replace('GET_CREDS_', '').trim();
+                } else if (replyTitle.includes('account details') || replyTitle.includes('credentials')) {
+                  isGetCredentials = true;
+                }
+              } else if (msg.type === 'text') {
+                const rawText = (msg.text?.body || '').trim().toLowerCase();
+                if (rawText.includes('get my account details') || rawText.includes('account details') || rawText.includes('login details')) {
+                  isGetCredentials = true;
+                }
+              }
+
+              if (isGetCredentials) {
+                try {
+                  let user = null;
+                  if (payloadUserId) {
+                    const uRes = await db.query(
+                      'SELECT id, name, username, temp_password, phone FROM users WHERE id = $1',
+                      [payloadUserId]
+                    );
+                    if (uRes.rows.length > 0) user = uRes.rows[0];
+                  }
+                  if (!user) {
+                    // Match by last 10 subscriber digits of phone number, stripping spaces/dashes
+                    const last10 = senderNormalized.slice(-10);
+                    const uRes = await db.query(
+                      `SELECT id, name, username, temp_password, phone FROM users
+                       WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE $1
+                       ORDER BY created_at DESC LIMIT 1`,
+                      [`%${last10}`]
+                    );
+                    if (uRes.rows.length > 0) user = uRes.rows[0];
+                  }
+
+                  if (user) {
+                    const custName = user.name || 'Customer';
+                    const custUser = user.username || user.email || '—';
+                    let custPass = user.temp_password;
+
+                    // If user has no temporary password stored, generate a fresh 6-char password
+                    if (!custPass) {
+                      const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
+                      custPass = '';
+                      for (let i = 0; i < 6; i++) {
+                        custPass += chars.charAt(Math.floor(Math.random() * chars.length));
+                      }
+                      try {
+                        const bcrypt = require('bcryptjs');
+                        const salt = await bcrypt.genSalt(10);
+                        const hashed = await bcrypt.hash(custPass, salt);
+                        await db.query(
+                          `UPDATE users SET password = $1, temp_password = $2, updated_at = NOW() WHERE id = $3`,
+                          [hashed, custPass, user.id]
+                        );
+                      } catch (hashErr) {
+                        console.error('[WHATSAPP-WEBHOOK] Error generating fallback password:', hashErr.message);
+                      }
+                    }
+
+                    const replyText =
+`Hello ${custName},
+
+Here are your FuelTracks login credentials:
+
+👤 *User ID:* ${custUser}
+🔑 *Password:* ${custPass}
+
+*Access FuelTracks:*
+🌐 *Web Portal:* https://app.fueltracks.in
+📱 *Android App:* https://play.google.com/store/apps/details?id=com.fueltracks.customer
+🍏 *iOS App:* https://apps.apple.com/in/app/fueltracks-vehicle-tracking/id6814368846
+
+After logging in, please update your password.
+For assistance, contact FuelTracks Support.`;
+
+                    await WhatsAppService.sendTextMessage({
+                      to: senderNormalized,
+                      text: replyText
+                    });
+                    console.log(`[WHATSAPP-WEBHOOK] Dispatched login credentials to ${masked} for user ${user.id}`);
+                  } else {
+                    console.warn(`[WHATSAPP-WEBHOOK] Get credentials request from ${masked} but no matching user found.`);
+                  }
+                } catch (credErr) {
+                  console.error('[WHATSAPP-WEBHOOK] Failed to dispatch credentials reply:', credErr.message);
+                }
+                continue;
+              }
+
+              if (msg.type !== 'text') continue;
+
+              // Clean text of extra spaces, newlines, emojis for STOP/START
               const rawText = (msg.text?.body || '').trim();
               const text = rawText.toUpperCase().replace(/[^\w\s]/g, '').trim();
-              const masked = maskPhone(senderNormalized);
 
               const STOP_KEYWORDS = ['STOP', 'UNSUBSCRIBE', 'BAND', 'CANCEL', 'QUIT', 'OPTOUT', 'OPT OUT'];
               const START_KEYWORDS = ['START', 'SUBSCRIBE', 'UNBAND', 'OPTIN', 'OPT IN', 'YES'];

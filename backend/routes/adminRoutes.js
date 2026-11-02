@@ -36,6 +36,7 @@ router.delete('/orgs/:id', authorize('superadmin', 'dealer'), AdminController.de
 // ============================================================
 router.get('/users', authorize('superadmin', 'dealer'), AdminController.getAllUsers);
 router.post('/users', authorize('superadmin', 'dealer'), AdminController.createUser);
+router.post('/users/:id/send-whatsapp-template', authorize('superadmin', 'dealer'), AdminController.sendUserCredentialsWhatsApp);
 router.put('/users/:id', authorize('superadmin', 'dealer'), AdminController.updateUser);
 router.delete('/users/:id', authorize('superadmin', 'dealer'), AdminController.deleteUser);
 router.get('/users/:id/vehicles', authorize('superadmin', 'dealer'), AdminController.getUserVehicles);

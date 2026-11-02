@@ -50,12 +50,12 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 
   // WhatsApp Cloud API (Meta Graph API)
-  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true',
-  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN || '',
-  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-  WHATSAPP_WABA_ID: process.env.WHATSAPP_WABA_ID || '',
+  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true' || Boolean(process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN),
+  WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '',
+  WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || '',
+  WHATSAPP_WABA_ID: process.env.WHATSAPP_WABA_ID || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '',
   WHATSAPP_APP_SECRET: process.env.WHATSAPP_APP_SECRET || '',
-  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || '',
+  WHATSAPP_VERIFY_TOKEN: process.env.WHATSAPP_VERIFY_TOKEN || process.env.VERIFY_TOKEN || '',
   WHATSAPP_API_VERSION: process.env.WHATSAPP_API_VERSION || 'v21.0',
   WHATSAPP_API_BASE_URL: process.env.WHATSAPP_API_BASE_URL || 'https://graph.facebook.com',
   WHATSAPP_RATE_PER_SEC: parseInt(process.env.WHATSAPP_RATE_PER_SEC) || 20,
