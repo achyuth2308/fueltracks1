@@ -163,15 +163,27 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
       .then(resData => {
         if (resData && resData.success && resData.data) {
           const inv = resData.data;
-          setFormData(prev => ({
-            ...prev,
-            deviceSerialNo: inv.serial_no || prev.deviceSerialNo,
-            iccid: inv.iccid || prev.iccid,
-            vltdManufacturer: inv.manufacturer || prev.vltdManufacturer,
-            modelName: inv.device_model || prev.modelName,
-            simProvider: inv.sim_provider || prev.simProvider,
-            simNumber: inv.sim_no || prev.simNumber
-          }));
+          setFormData(prev => {
+            const updated = {
+              ...prev,
+              deviceSerialNo: inv.serial_no || prev.deviceSerialNo,
+              iccid: inv.iccid || prev.iccid,
+              vltdManufacturer: inv.manufacturer || prev.vltdManufacturer,
+              modelName: inv.device_model || prev.modelName,
+              simProvider: inv.sim_provider || prev.simProvider,
+              simNumber: inv.sim_no || prev.simNumber
+            };
+            // If the vehicle does not have created_at/onboardingDate, but inventory has created_at
+            if (inv.created_at && (!vehicle?.created_at && !vehicle?.metadata?.onboardingDate)) {
+              const invOnboardedDate = formatDateDDMMYYYY(inv.created_at);
+              updated.installationDate = invOnboardedDate;
+              updated.installedDate = invOnboardedDate;
+              if (!prev.activationDate) {
+                updated.activationDate = invOnboardedDate;
+              }
+            }
+            return updated;
+          });
         }
       })
       .catch(() => {});
@@ -206,20 +218,30 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     const imeiLast10 = imeiClean.slice(-10);
 
     const now = new Date();
-    const yesterday = new Date(now);
-    yesterday.setDate(now.getDate() - 1);
-
     const oneYearLater = new Date();
     oneYearLater.setFullYear(now.getFullYear() + 1);
     oneYearLater.setDate(oneYearLater.getDate() - 1); // Exact 365-day validity
 
-    const installedDate = metadata.installationDate || metadata.installedDate || veh.licence_issued_date
-      ? formatDateDDMMYYYY(metadata.installationDate || metadata.installedDate || veh.licence_issued_date)
-      : formatDateDDMMYYYY(now);
+    // Device onboarded date: prioritized by the actual date the device/vehicle was added on
+    const deviceOnboardedRaw =
+      metadata.onboardingDate ||
+      metadata.onboardedDate ||
+      metadata.onboarded_at ||
+      metadata.device_onboarded_date ||
+      veh.created_at ||
+      veh.createdAt ||
+      veh.device_created_at ||
+      veh.assigned_at ||
+      veh.licence_issued_date ||
+      metadata.installationDate ||
+      metadata.installedDate ||
+      now;
+
+    const installedDate = formatDateDDMMYYYY(deviceOnboardedRaw);
 
     const activationDate = metadata.activationDate
       ? formatDateDDMMYYYY(metadata.activationDate)
-      : formatDateDDMMYYYY(yesterday);
+      : installedDate;
 
     const certIssuedDate = veh.licence_issued_date
       ? formatDateDDMMYYYY(veh.licence_issued_date)
@@ -327,6 +349,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     if (data.modelName) query.set('model', data.modelName);
     if (data.deviceSerialNo) query.set('serialno', data.deviceSerialNo);
     if (data.certFormat) query.set('format', data.certFormat);
+    if (data.installationDate) query.set('installed', data.installationDate);
+    if (data.activationDate) query.set('activated', data.activationDate);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return `${base}/verify/${encodeURIComponent(certNum)}${qs}`;
   };
@@ -406,8 +430,10 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
             engineNo: rc.engineNo || prev.engineNo,
             customerAddress: rc.ownerAddress || prev.customerAddress,
             vehicleMakeModel: rc.vehicleMakeModel || prev.vehicleMakeModel,
-            installationDate: rc.registrationDate ? formatDateDDMMYYYY(rc.registrationDate) : prev.installationDate,
-            installedDate: rc.registrationDate ? formatDateDDMMYYYY(rc.registrationDate) : prev.installedDate,
+            vehicleRegistrationDate: rc.registrationDate ? formatDateDDMMYYYY(rc.registrationDate) : (prev.vehicleRegistrationDate || ''),
+            // Preserve device onboarded date as installationDate
+            installationDate: prev.installationDate,
+            installedDate: prev.installedDate,
             expiryDate: rc.fitnessUpto ? formatDateDDMMYYYY(rc.fitnessUpto) : prev.expiryDate,
             rcFrontUrl: rc.rcFrontUrl || prev.rcFrontUrl,
             rcBackUrl: rc.rcBackUrl || prev.rcBackUrl

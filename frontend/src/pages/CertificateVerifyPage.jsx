@@ -216,7 +216,9 @@ const CertificateVerifyPage = () => {
             simOperator: d.simOperator || searchParams.get('operator') || 'Airtel IoT (M2M Data APN)',
             fitmentLocation: d.fitmentLocation || searchParams.get('fitment') || 'Behind Co-driver Dashboard Firewall',
             sealNumber: d.sealNumber || searchParams.get('seal') || '',
-            installedDate: d.installedDate || searchParams.get('installed') || '',
+            installedDate: d.installedDate || d.installationDate || searchParams.get('installed') || '',
+            installationDate: d.installationDate || d.installedDate || searchParams.get('installed') || '',
+            activationDate: d.activationDate || searchParams.get('activated') || d.installedDate || searchParams.get('installed') || '',
             certIssuedDate: d.certIssuedDate || searchParams.get('issued') || '',
             expiryDate: d.expiryDate || searchParams.get('expire') || '',
             verificationCode: computeVerificationCode(d.certNumber || lookupId, d.imei || imeiParam, d.vehicleNo || vehParam)
