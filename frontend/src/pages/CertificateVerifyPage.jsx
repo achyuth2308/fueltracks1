@@ -78,6 +78,39 @@ const CertificateVerifyPage = () => {
     return `${day}-${month}-${d.getFullYear()}`;
   };
 
+  const computeSimValidityRange = (dateVal, years = 1) => {
+    if (typeof years === 'string' && years.toUpperCase().includes('TO')) {
+      return years.trim();
+    }
+    const numYears = parseInt(String(years || '1').replace(/\D/g, ''), 10) || 1;
+    let d = null;
+    if (typeof dateVal === 'string') {
+      const trimmed = dateVal.trim();
+      if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+        const [day, m, y] = trimmed.split('-');
+        d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+      } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+        const [day, m, y] = trimmed.split('/');
+        d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+      } else if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        const [y, m, day] = trimmed.split('T')[0].split('-');
+        d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+      }
+    } else if (dateVal instanceof Date) {
+      d = new Date(dateVal.getTime());
+    }
+    if (!d || isNaN(d.getTime())) {
+      d = new Date();
+    }
+
+    const startFormatted = formatDate(d);
+    const end = new Date(d.getFullYear() + numYears, d.getMonth(), d.getDate());
+    end.setDate(end.getDate() - 1);
+    const endFormatted = formatDate(end);
+
+    return `${startFormatted} TO ${endFormatted}`;
+  };
+
   const computeVerificationCode = (cert, imei, veh) => {
     const seed = `${cert || 'FT'}:${imei || '0'}:${veh || '0'}`;
     let hash = 0;
@@ -133,7 +166,9 @@ const CertificateVerifyPage = () => {
       // 3. Connectivity & Activation Details
       iccid: searchParams.get('iccid') || searchParams.get('sim') || '8991430008117572979F',
       simProvider: searchParams.get('provider') || searchParams.get('operator') || 'Technojacks',
-      simValidity: searchParams.get('validity') || '1',
+      simValidity: searchParams.get('validity') && searchParams.get('validity').toUpperCase().includes('TO')
+        ? searchParams.get('validity')
+        : computeSimValidityRange(searchParams.get('installed') || formatDate(now), searchParams.get('validity') || '1'),
       installationDate: searchParams.get('installed') || formatDate(now),
       activationDate: searchParams.get('activated') || formatDate(now),
 
@@ -882,8 +917,12 @@ const CertificateVerifyPage = () => {
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{certData.simProvider}</td>
                       </tr>
                       <tr>
-                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>SIM Validity Upto (years)</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{certData.simValidity}</td>
+                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>SIM Validity Upto</td>
+                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>
+                          {certData.simValidity && certData.simValidity.toUpperCase().includes('TO')
+                            ? certData.simValidity
+                            : computeSimValidityRange(certData.installationDate || certData.installedDate, certData.simValidity || '1')}
+                        </td>
                       </tr>
                       <tr>
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>Date of Installation</td>

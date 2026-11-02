@@ -26,6 +26,40 @@ const formatDateDDMMYYYY = (dateVal) => {
   return `${day}-${month}-${year}`;
 };
 
+export const computeSimValidityRange = (dateVal, years = 1) => {
+  if (typeof years === 'string' && years.toUpperCase().includes('TO')) {
+    return years.trim();
+  }
+  const numYears = parseInt(String(years || '1').replace(/\D/g, ''), 10) || 1;
+  let d = null;
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    if (/^\d{2}-\d{2}-\d{4}$/.test(trimmed)) {
+      const [day, m, y] = trimmed.split('-');
+      d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+    } else if (/^\d{2}\/\d{2}\/\d{4}$/.test(trimmed)) {
+      const [day, m, y] = trimmed.split('/');
+      d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+    } else if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+      const [y, m, day] = trimmed.split('T')[0].split('-');
+      d = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(day, 10));
+    }
+  } else if (dateVal instanceof Date) {
+    d = new Date(dateVal.getTime());
+  }
+  if (!d || isNaN(d.getTime())) {
+    d = new Date();
+  }
+
+  const startFormatted = formatDateDDMMYYYY(d);
+
+  const end = new Date(d.getFullYear() + numYears, d.getMonth(), d.getDate());
+  end.setDate(end.getDate() - 1);
+  const endFormatted = formatDateDDMMYYYY(end);
+
+  return `${startFormatted} TO ${endFormatted}`;
+};
+
 const computeVerificationCode = (cert, imei, veh) => {
   const seed = `${cert || 'FT'}:${imei || '0'}:${veh || '0'}`;
   let hash = 0;
@@ -293,7 +327,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
       // Section 3: Connectivity & Activation Details
       iccid: metadata.iccid || metadata.sim_number || (veh.gps_sim_no && veh.gps_sim_no.length >= 18 ? veh.gps_sim_no : '8991430008117572979F'),
       simProvider: metadata.simProvider || metadata.simOperator || 'Technojacks',
-      simValidity: String(metadata.simValidity || '1'),
+      simValidity: (metadata.simValidity && String(metadata.simValidity).toUpperCase().includes('TO'))
+        ? String(metadata.simValidity).trim()
+        : computeSimValidityRange(installedDate, metadata.simValidity || '1'),
       installationDate: installedDate,
       activationDate: activationDate,
 
@@ -351,6 +387,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     if (data.certFormat) query.set('format', data.certFormat);
     if (data.installationDate) query.set('installed', data.installationDate);
     if (data.activationDate) query.set('activated', data.activationDate);
+    if (data.simValidity) query.set('validity', data.simValidity);
     const qs = query.toString() ? `?${query.toString()}` : '';
     return `${base}/verify/${encodeURIComponent(certNum)}${qs}`;
   };
@@ -394,6 +431,15 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     setIsDirty(true);
     setFormData((prev) => {
       const updated = { ...prev, [field]: value };
+      if (field === 'installationDate' && value) {
+        if (!prev.simValidity || prev._autoSimValidity || !prev.simValidity.toUpperCase().includes('TO')) {
+          updated.simValidity = computeSimValidityRange(value, 1);
+          updated._autoSimValidity = true;
+        }
+      }
+      if (field === 'simValidity') {
+        updated._autoSimValidity = false;
+      }
       if (['vehicleNo', 'imei', 'certNumber'].includes(field)) {
         updated.verificationCode = computeVerificationCode(updated.certNumber, updated.imei, updated.vehicleNo);
         generateQR(updated);
@@ -1165,11 +1211,12 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
               />
             </div>
             <div>
-              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">SIM Validity (years)</label>
+              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">SIM Validity</label>
               <input
                 type="text"
                 value={formData.simValidity || ''}
                 onChange={(e) => handleInputChange('simValidity', e.target.value)}
+                placeholder="02-11-2026 TO 01-11-2027"
                 className="w-full px-2 py-1 bg-white border border-slate-300 rounded text-slate-800"
               />
             </div>
@@ -1612,8 +1659,12 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{formData.simProvider}</td>
                       </tr>
                       <tr>
-                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>SIM Validity Upto (years)</td>
-                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{formData.simValidity}</td>
+                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>SIM Validity Upto</td>
+                        <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>
+                          {formData.simValidity && formData.simValidity.toUpperCase().includes('TO')
+                            ? formData.simValidity
+                            : computeSimValidityRange(formData.installationDate || formData.installedDate, formData.simValidity || '1')}
+                        </td>
                       </tr>
                       <tr>
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>Date of Installation</td>
