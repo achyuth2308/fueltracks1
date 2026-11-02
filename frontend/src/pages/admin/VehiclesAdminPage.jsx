@@ -7,7 +7,7 @@ import {
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
   Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown,
   Cpu, Fuel, Settings, FileText,
-  Shuffle, UserPlus, Sliders, RotateCw, Award
+  Shuffle, UserPlus, Sliders, RotateCw, Award, Power
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
@@ -19,6 +19,7 @@ import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
 import ReprocessModal from '../../components/modals/ReprocessModal';
 import LiveFuelModal from '../../components/modals/LiveFuelModal';
 import FitmentCertificateModal from '../../components/modals/FitmentCertificateModal';
+import ImmobilizerModal from '../../components/modals/ImmobilizerModal';
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
@@ -112,6 +113,7 @@ const VehiclesAdminPage = () => {
   const [reprocessingVehicle, setReprocessingVehicle] = useState(null);
   const [liveFuelVehicle, setLiveFuelVehicle] = useState(null);
   const [selectedFitmentVehicle, setSelectedFitmentVehicle] = useState(null);
+  const [selectedImmobilizerVehicle, setSelectedImmobilizerVehicle] = useState(null);
   const [activeActionDropdownId, setActiveActionDropdownId] = useState(null);
   const [dropdownCoords, setDropdownCoords] = useState(null);
 
@@ -1236,7 +1238,56 @@ const VehiclesAdminPage = () => {
                                   <span>Rename</span>
                                 </button>
 
-                                {/* 7. Reprocess */}
+                                {/* 7. Relay / Immobilizer */}
+                                 <button
+                                   type="button"
+                                   onClick={() => {
+                                     setActiveActionDropdownId(null);
+                                     setSelectedImmobilizerVehicle(v);
+                                   }}
+                                   style={{
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     gap: '9px',
+                                     width: '100%',
+                                     padding: '6px 10px',
+                                     background: 'transparent',
+                                     color: '#1E293B',
+                                     border: 'none',
+                                     borderRadius: '7px',
+                                     fontSize: '12.5px',
+                                     fontWeight: 600,
+                                     cursor: 'pointer',
+                                     textAlign: 'left',
+                                     transition: 'all 0.15s ease',
+                                     whiteSpace: 'nowrap'
+                                   }}
+                                   onMouseEnter={e => {
+                                     e.currentTarget.style.background = v.is_immobilized ? '#FEF2F2' : '#FFF7ED';
+                                     e.currentTarget.style.color = v.is_immobilized ? '#DC2626' : '#EA580C';
+                                   }}
+                                   onMouseLeave={e => {
+                                     e.currentTarget.style.background = 'transparent';
+                                     e.currentTarget.style.color = '#1E293B';
+                                   }}
+                                 >
+                                   <div style={{
+                                     width: '23px',
+                                     height: '23px',
+                                     borderRadius: '6px',
+                                     background: v.is_immobilized ? '#FEE2E2' : '#FFEDD5',
+                                     display: 'flex',
+                                     alignItems: 'center',
+                                     justifyContent: 'center',
+                                     color: v.is_immobilized ? '#DC2626' : '#EA580C',
+                                     flexShrink: 0
+                                   }}>
+                                     <Power size={13} />
+                                   </div>
+                                   <span>{v.is_immobilized ? 'Relay: Immobilized' : 'Relay / Immobilize'}</span>
+                                 </button>
+
+                                 {/* 7. Reprocess */}
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1490,6 +1541,17 @@ const VehiclesAdminPage = () => {
         fuelType={liveFuelVehicle?.metadata?.fuelCalibration?.fuelType || liveFuelVehicle?.metadata?.fuelType}
         sensorType={liveFuelVehicle?.metadata?.sensorType}
         onClose={() => setLiveFuelVehicle(null)}
+      />
+
+      {/* Remote Engine Relay / Immobilizer Modal */}
+      <ImmobilizerModal
+        isOpen={Boolean(selectedImmobilizerVehicle)}
+        vehicle={selectedImmobilizerVehicle}
+        onClose={() => setSelectedImmobilizerVehicle(null)}
+        onSuccess={(updated) => {
+          setSelectedImmobilizerVehicle(updated);
+          fetchVehicles();
+        }}
       />
 
       {/* Fitment & Calibration Certificate Modal */}

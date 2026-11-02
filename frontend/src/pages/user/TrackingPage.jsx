@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, CreditCard, ShieldAlert, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation, Truck } from 'lucide-react';
+import { Search, CreditCard, ShieldAlert, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation, Truck, Power } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -12,6 +12,7 @@ import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, STATUS_CONFIG, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
+import ImmobilizerModal from '../../components/modals/ImmobilizerModal';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle) return null;
@@ -70,6 +71,7 @@ const TrackingPage = ({ setAppVehicles }) => {
   const [statusFilter, setStatusFilter] = useState(null);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
   const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
+  const [immobilizerVehicle, setImmobilizerVehicle] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
@@ -1314,6 +1316,33 @@ const TrackingPage = ({ setAppVehicles }) => {
                 {/* Bottom Action Buttons */}
                 {currentSelectedVehicles.length === 1 && (
                   <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '6px', background: '#FFFFFF' }}>
+
+                    {/* Immobilizer Action Button */}
+                    <button
+                      type="button"
+                      onClick={() => setImmobilizerVehicle(currentSelectedVehicle)}
+                      style={{
+                        padding: '8px', borderRadius: '8px',
+                        border: currentSelectedVehicle.is_immobilized ? '1px solid #FECACA' : '1px solid #FED7AA',
+                        background: currentSelectedVehicle.is_immobilized ? '#FEF2F2' : '#FFF7ED',
+                        color: currentSelectedVehicle.is_immobilized ? '#DC2626' : '#EA580C',
+                        fontWeight: 700, fontSize: '11px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                        transition: 'all 0.2s',
+                        boxShadow: currentSelectedVehicle.is_immobilized
+                          ? '0 2px 6px rgba(220, 38, 38, 0.15)'
+                          : '0 2px 6px rgba(234, 88, 12, 0.12)'
+                      }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.background = currentSelectedVehicle.is_immobilized ? '#FEE2E2' : '#FFEDD5';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = currentSelectedVehicle.is_immobilized ? '#FEF2F2' : '#FFF7ED';
+                      }}
+                    >
+                      <Power size={13} color={currentSelectedVehicle.is_immobilized ? '#DC2626' : '#EA580C'} />
+                      <span>{currentSelectedVehicle.is_immobilized ? 'Engine Cut (Immobilized)' : 'Relay / Immobilize'}</span>
+                    </button>
                     <button
                       onClick={() => navigate(`/vehicles/${currentSelectedVehicle.id}`)}
                       style={{
@@ -1472,6 +1501,15 @@ const TrackingPage = ({ setAppVehicles }) => {
         .animate-spin { animation: spin 1s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />
+      <ImmobilizerModal
+        isOpen={Boolean(immobilizerVehicle)}
+        vehicle={immobilizerVehicle}
+        onClose={() => setImmobilizerVehicle(null)}
+        onSuccess={(updated) => {
+          setImmobilizerVehicle(updated);
+          if (fetchVehicles) fetchVehicles();
+        }}
+      />
       <DummyRazorpayModal
         isOpen={showRazorpayModal}
         onClose={() => {
