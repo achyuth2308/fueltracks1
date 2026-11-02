@@ -1603,6 +1603,17 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
           </div>
         </div>
       </div>
+
+      {/* Device Master Inventory Upload Modal */}
+      <DeviceInventoryUploadModal
+        isOpen={showInventoryModal}
+        onClose={() => setShowInventoryModal(false)}
+        onSuccess={() => {
+          if (formData.imei || vehicle?.imei) {
+            fetchDeviceInventory(formData.imei || vehicle?.imei);
+          }
+        }}
+      />
     </div>
   );
 };
