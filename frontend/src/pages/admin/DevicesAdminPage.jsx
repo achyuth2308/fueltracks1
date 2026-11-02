@@ -9,6 +9,7 @@ import { adminApi } from '../../api/axios';
 import * as api from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
+import DeviceInventoryUploadModal from '../../components/modals/DeviceInventoryUploadModal';
 import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import { getNoDataThresholdHours } from '../../utils/markerUtils';
@@ -46,6 +47,7 @@ const DevicesAdminPage = () => {
   const pageSize = 25;
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
+  const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
   const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   useEffect(() => {
@@ -181,6 +183,15 @@ const DevicesAdminPage = () => {
           >
             <Download size={14} className="text-slate-600" />
             <span>Excel Template</span>
+          </button>
+
+          <button
+            onClick={() => setIsInventoryModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all cursor-pointer"
+            title="Import hardware stock spreadsheet (APM, Volty) with Serial Numbers & ICCIDs"
+          >
+            <Cpu size={14} className="text-blue-200" />
+            <span>Device Master / Inventory</span>
           </button>
 
           <button
@@ -537,6 +548,11 @@ const DevicesAdminPage = () => {
       )}
 
       {/* Excel Upload Modal */}
+      <DeviceInventoryUploadModal
+        isOpen={isInventoryModalOpen}
+        onClose={() => setIsInventoryModalOpen(false)}
+      />
+
       <ExcelBulkUploadModal
         isOpen={isExcelModalOpen}
         onClose={() => setIsExcelModalOpen(false)}

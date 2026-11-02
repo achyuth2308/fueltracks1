@@ -5,6 +5,7 @@
 const express = require('express');
 const AdminController = require('../controllers/adminController');
 const OnboardController = require('../controllers/OnboardController');
+const DeviceInventoryController = require('../controllers/DeviceInventoryController');
 const GeofenceRouteController = require('../controllers/geofenceRouteController');
 const { authenticate } = require('../middleware/auth');
 const { authorize } = require('../middleware/rbac');
@@ -65,6 +66,11 @@ router.get('/devices', authorize('superadmin', 'dealer'), AdminController.getDev
 router.delete('/devices/:id', authorize('superadmin', 'dealer'), AdminController.deleteDevice);
 router.post('/onboard/devices', authorize('superadmin', 'dealer'), OnboardController.onboardDevices);
 router.post('/onboard/bulk-excel', authorize('superadmin', 'dealer'), OnboardController.bulkOnboardExcel);
+
+// Device Inventory Master Routes (Hardware Stock Lookup & Import)
+router.get('/device-inventory/lookup', DeviceInventoryController.lookupByImei);
+router.post('/device-inventory/bulk-import', authorize('superadmin', 'dealer'), DeviceInventoryController.bulkImport);
+router.get('/device-inventory', authorize('superadmin', 'dealer'), DeviceInventoryController.listInventory);
 
 // ============================================================
 // BILLING

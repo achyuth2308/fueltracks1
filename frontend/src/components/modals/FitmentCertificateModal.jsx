@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import QRCode from 'qrcode';
 import fuelTracksLogo from '../../assets/fueltracks_cert_logo.png';
+import DeviceInventoryUploadModal from './DeviceInventoryUploadModal';
 
 const formatDateDDMMYYYY = (dateVal) => {
   if (!dateVal) return '';
@@ -149,6 +150,32 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
   const [isSavingCert, setIsSavingCert] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+
+  const fetchDeviceInventory = (imeiVal) => {
+    if (!imeiVal) return;
+    const clean = String(imeiVal).replace(/\D/g, '');
+    if (!clean || clean.length < 10) return;
+    fetch(`/api/admin/device-inventory/lookup?imei=${clean}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    })
+      .then(res => res.json())
+      .then(resData => {
+        if (resData && resData.success && resData.data) {
+          const inv = resData.data;
+          setFormData(prev => ({
+            ...prev,
+            deviceSerialNo: inv.serial_no || prev.deviceSerialNo,
+            iccid: inv.iccid || prev.iccid,
+            vltdManufacturer: inv.manufacturer || prev.vltdManufacturer,
+            modelName: inv.device_model || prev.modelName,
+            simProvider: inv.sim_provider || prev.simProvider,
+            simNumber: inv.sim_no || prev.simNumber
+          }));
+        }
+      })
+      .catch(() => {});
+  };
 
   const certificateRef = useRef(null);
 
@@ -327,6 +354,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
       const initial = getInitialFormData(vehicle);
       setFormData(initial);
       generateQR(initial, qrTargetHost);
+      if (vehicle.imei) {
+        fetchDeviceInventory(vehicle.imei);
+      }
     }
   }, [vehicle, qrTargetHost, lanIp]);
 
@@ -658,6 +688,17 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Import Devices Excel Master Button */}
+            <button
+              onClick={() => setShowInventoryModal(true)}
+              type="button"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all cursor-pointer"
+              title="Upload supplier Excel sheet with IMEIs, Serial Numbers and ICCIDs"
+            >
+              <Cpu size={13} className="text-blue-600" />
+              <span>Import Devices Sheet</span>
+            </button>
+
             {/* Scan RC Button */}
             <button
               onClick={() => setShowRcScanner(!showRcScanner)}
