@@ -89,6 +89,21 @@ const OnBoardDevicePage = () => {
   const [passwordTouched, setPasswordTouched] = useState(false);
   const isPasswordError = passwordTouched && newUser.password.length > 0 && newUser.password.length < 6;
 
+  const [usernameTouched, setUsernameTouched] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+
+  const isUsernameExists = useMemo(() => {
+    if (!usernameTouched || !newUser.username?.trim()) return false;
+    const clean = newUser.username.trim().toLowerCase();
+    return users.some(u => (u.username || '').trim().toLowerCase() === clean);
+  }, [usernameTouched, newUser.username, users]);
+
+  const isEmailExists = useMemo(() => {
+    if (!emailTouched || !newUser.email?.trim()) return false;
+    const clean = newUser.email.trim().toLowerCase();
+    return users.some(u => (u.email || '').trim().toLowerCase() === clean);
+  }, [emailTouched, newUser.email, users]);
+
   const [users, setUsers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [orgs, setOrgs] = useState([]);
@@ -334,7 +349,17 @@ const OnBoardDevicePage = () => {
 
       if (userType === 'new') {
         if (!newUser.username?.trim()) throw new Error('User Name is required.');
+        const cleanUname = newUser.username.trim().toLowerCase();
+        if (users.some(u => (u.username || '').trim().toLowerCase() === cleanUname)) {
+          setUsernameTouched(true);
+          throw new Error('User Name already exists. Please choose a different User Name.');
+        }
         if (!newUser.email?.trim()) throw new Error('Email is required.');
+        const cleanEmail = newUser.email.trim().toLowerCase();
+        if (users.some(u => (u.email || '').trim().toLowerCase() === cleanEmail)) {
+          setEmailTouched(true);
+          throw new Error('Email already exists. Please choose a different Email.');
+        } 
         if (!newUser.password) {
           setPasswordTouched(true);
           throw new Error('Password is required.');
@@ -594,14 +619,34 @@ const OnBoardDevicePage = () => {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
                     User Name <span style={{ color: '#EF4444' }}>*</span>
                   </label>
-                  <input
-                    type="text"
-                    placeholder="Enter User Name"
-                    style={inputStyle}
-                    autoComplete="new-password"
-                    value={newUser.username}
-                    onChange={e => setNewUser({ ...newUser, username: e.target.value, name: e.target.value })}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="Enter User Name"
+                      style={{
+                        ...inputStyle,
+                        paddingRight: isUsernameExists ? '32px' : '10px',
+                        borderColor: isUsernameExists ? '#EF4444' : '#CBD5E1',
+                        boxShadow: isUsernameExists ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.03)'
+                      }}
+                      autoComplete="new-password"
+                      value={newUser.username}
+                      onChange={e => {
+                        setNewUser({ ...newUser, username: e.target.value, name: e.target.value });
+                      }}
+                      onBlur={() => setUsernameTouched(true)}
+                    />
+                    {isUsernameExists && (
+                      <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                        <AlertCircle size={15} color="#EF4444" />
+                      </div>
+                    )}
+                  </div>
+                  {isUsernameExists && (
+                    <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> Username already exists
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
@@ -619,13 +664,33 @@ const OnBoardDevicePage = () => {
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
                     Email <span style={{ color: '#EF4444' }}>*</span>
                   </label>
-                  <input
-                    type="email"
-                    placeholder="Enter Email"
-                    style={inputStyle}
-                    value={newUser.email}
-                    onChange={e => setNewUser({ ...newUser, email: e.target.value })}
-                  />
+                  <div style={{ position: 'relative' }}>
+                    <input
+                      type="email"
+                      placeholder="Enter Email"
+                      style={{
+                        ...inputStyle,
+                        paddingRight: isEmailExists ? '32px' : '10px',
+                        borderColor: isEmailExists ? '#EF4444' : '#CBD5E1',
+                        boxShadow: isEmailExists ? '0 0 0 1px rgba(239, 68, 68, 0.2)' : '0 1px 2px rgba(0, 0, 0, 0.03)'
+                      }}
+                      value={newUser.email}
+                      onChange={e => {
+                        setNewUser({ ...newUser, email: e.target.value });
+                      }}
+                      onBlur={() => setEmailTouched(true)}
+                    />
+                    {isEmailExists && (
+                      <div style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center' }}>
+                        <AlertCircle size={15} color="#EF4444" />
+                      </div>
+                    )}
+                  </div>
+                  {isEmailExists && (
+                    <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={12} /> Email already exists
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
