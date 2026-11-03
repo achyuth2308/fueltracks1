@@ -46,7 +46,13 @@ const SendCredentialsModal = ({
       setUsername(initialUser.username || '');
       setPhone(initialUser.phone || '');
       const initialPass = initialUser.password || initialUser.temp_password;
-      setPassword(initialPass && initialPass !== '—' ? initialPass : '223344');
+      if (initialPass && initialPass !== '—') {
+        setPassword(initialPass);
+      } else if (isNewlyCreated) {
+        setPassword('223344');
+      } else {
+        setPassword('(Set privately by user)');
+      }
     } else {
       setName('');
       setUsername('');
@@ -314,7 +320,7 @@ const SendCredentialsModal = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#1E293B', fontSize: '12.5px' }}>
               <span>User ID: <strong style={{ fontFamily: 'monospace', color: '#0369A1' }}>{username || '—'}</strong></span>
-              <span>Password: <strong style={{ fontFamily: 'monospace', color: '#059669' }}>{password || '223344'}</strong></span>
+              <span>Password: <strong style={{ fontFamily: 'monospace', color: String(password).includes('privately') ? '#64748B' : '#059669' }}>{password || '223344'}</strong></span>
             </div>
           </div>
 

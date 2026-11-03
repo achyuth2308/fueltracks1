@@ -134,7 +134,7 @@ const UserModel = {
       );
     } else {
       await db.query(
-        `UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2`,
+        `UPDATE users SET password = $1, temp_password = NULL, updated_at = NOW() WHERE id = $2`,
         [hashedPassword, userId]
       );
     }
