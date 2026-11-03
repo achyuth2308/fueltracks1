@@ -110,6 +110,8 @@ const UsersAdminPage = () => {
   const handleOpenSendCredentials = (targetUser, password = '', isNew = false, e) => {
     if (e) e.stopPropagation();
     setCredentialsTargetUser({
+      ...targetUser,
+      id: targetUser?.id || targetUser?._id,
       name: targetUser?.name || '',
       username: targetUser?.username || '',
       phone: targetUser?.phone || '',
@@ -126,10 +128,11 @@ const UsersAdminPage = () => {
         setViewingUser({ ...viewingUser, ...payload });
       }
     } else {
-      await adminApi.createUser(payload);
+      const createdRes = await adminApi.createUser(payload);
+      const createdUser = createdRes?.data || createdRes?.user || { ...payload, id: createdRes?.id };
       // Auto-prompt WhatsApp credentials share for the newly created user
       handleOpenSendCredentials(
-        { name: payload.name, username: payload.username, phone: payload.phone },
+        createdUser,
         payload.password,
         true
       );

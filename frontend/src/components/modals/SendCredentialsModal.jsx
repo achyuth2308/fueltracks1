@@ -104,8 +104,9 @@ const SendCredentialsModal = ({
       setPhoneError('Please enter a valid mobile number (e.g., 9876543210).');
       return;
     }
-    if (!initialUser?.id) {
-      handleSendWhatsApp();
+    const targetUserId = initialUser?.id || initialUser?._id;
+    if (!targetUserId) {
+      setApiError('User ID not found for Meta API dispatch. Please use "Open in WhatsApp".');
       return;
     }
     setPhoneError('');
@@ -114,7 +115,7 @@ const SendCredentialsModal = ({
     setApiError(null);
 
     try {
-      const res = await sendUserCredentialsWhatsApp(initialUser.id, {
+      const res = await sendUserCredentialsWhatsApp(targetUserId, {
         phone: normalizedDigits,
         password: password
       });
@@ -543,38 +544,36 @@ const SendCredentialsModal = ({
             </button>
 
             {/* Option B: Direct Meta Cloud API Dispatch */}
-            {initialUser?.id && (
-              <button
-                type="button"
-                onClick={handleSendMetaApi}
-                disabled={apiLoading}
-                title="Send approved Utility template via official Meta Cloud API"
-                style={{
-                  padding: '10px 18px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#25D366',
-                  color: '#FFFFFF',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  cursor: apiLoading ? 'not-allowed' : 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  boxShadow: '0 4px 10px rgba(37, 211, 102, 0.35)',
-                  transition: 'background 0.2s, transform 0.1s'
-                }}
-                onMouseEnter={(e) => { if (!apiLoading) e.currentTarget.style.background = '#20bd5a'; }}
-                onMouseLeave={(e) => { if (!apiLoading) e.currentTarget.style.background = '#25D366'; }}
-              >
-                {apiLoading ? (
-                  <Loader2 size={16} className="animate-spin" color="#FFFFFF" />
-                ) : (
-                  <Send size={15} color="#FFFFFF" />
-                )}
-                <span>Send via Meta API</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleSendMetaApi}
+              disabled={apiLoading}
+              title="Send approved Utility template via official Meta Cloud API"
+              style={{
+                padding: '10px 18px',
+                borderRadius: '8px',
+                border: 'none',
+                background: '#25D366',
+                color: '#FFFFFF',
+                fontSize: '13px',
+                fontWeight: 700,
+                cursor: apiLoading ? 'not-allowed' : 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 4px 10px rgba(37, 211, 102, 0.35)',
+                transition: 'background 0.2s, transform 0.1s'
+              }}
+              onMouseEnter={(e) => { if (!apiLoading) e.currentTarget.style.background = '#20bd5a'; }}
+              onMouseLeave={(e) => { if (!apiLoading) e.currentTarget.style.background = '#25D366'; }}
+            >
+              {apiLoading ? (
+                <Loader2 size={16} className="animate-spin" color="#FFFFFF" />
+              ) : (
+                <Send size={15} color="#FFFFFF" />
+              )}
+              <span>Send via Meta API</span>
+            </button>
           </div>
         </div>
       </div>
