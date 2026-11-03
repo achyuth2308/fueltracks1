@@ -526,7 +526,7 @@ const AdminController = {
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
-      const { email, username, role, name, phone, isActive, orgId, groupIds } = req.body;
+      const { email, username, role, name, phone, isActive, orgId, groupIds, password } = req.body;
 
       // Ownership check for dealers editing other users
       if (req.user.role !== 'superadmin') {
@@ -622,6 +622,15 @@ const AdminController = {
         await GroupModel.assignUserToGroups(id, validGroupIds);
       }
 
+      // Update password if explicitly provided by admin in Edit User
+      if (password && String(password).trim() !== '') {
+        const customPass = String(password).trim();
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(customPass, salt);
+        await UserModel.updatePassword(id, hashed, customPass);
+        updated.temp_password = customPass;
+      }
+
       res.status(200).json({
         success: true,
         data: updated,
@@ -673,14 +682,9 @@ const AdminController = {
         return res.status(400).json({ success: false, error: 'User does not have a valid phone number' });
       }
 
-      // If a new/different password was provided in the modal, update it
-      if (req.body.password && String(req.body.password).trim() && String(req.body.password).trim() !== targetUser.temp_password) {
-        const customPass = String(req.body.password).trim();
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(customPass, salt);
-        await UserModel.updatePassword(id, hashed, customPass);
-        targetUser.temp_password = customPass;
-      }
+      // Safeguard: Sending a WhatsApp notification must NEVER overwrite or mutate the user's account password.
+      // Password updates are strictly handled via Edit User or the Password Reset workflow.
+
 
       // Check if user has an assigned vehicle for {{2}}
       let vehiclePlate = 'Fleet Tracking';

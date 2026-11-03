@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Loader2, Search, Cpu } from 'lucide-react';
+import { X, Loader2, Search, Cpu, Eye, EyeOff } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 
 const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }) => {
@@ -7,6 +7,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState('customer');
   const [orgId, setOrgId] = useState('');
@@ -33,7 +34,8 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setUsername(editingUser.username || '');
       setEmail(editingUser.email || '');
       setPhone(editingUser.phone || '');
-      setPassword(''); // Password cannot be restored
+      setPassword('');
+      setShowPassword(false);
       setRole(editingUser.role || 'customer');
       setOrgId(editingUser.org_id || '');
       setSelectedGroups(editingUser.groups ? editingUser.groups.map(g => g.id) : []);
@@ -43,6 +45,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setEmail('');
       setPhone('');
       setPassword('');
+      setShowPassword(false);
       setRole('customer');
       setOrgId('');
       setIsNewOrg(false);
@@ -497,23 +500,44 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </select>
             </div>
 
-            {/* Password (only shown when creating a new user) */}
-            {!editingUser && (
-              <div>
-                <label style={labelStyle}>
-                  Password<span style={{ color: '#EF4444' }}>*</span>
-                </label>
+            {/* Password Field - Shown for New User (required) & Edit User (optional) */}
+            <div>
+              <label style={labelStyle}>
+                {editingUser ? 'New Password (leave blank to keep current)' : 'Password'}
+                {!editingUser && <span style={{ color: '#EF4444' }}>*</span>}
+              </label>
+              <div style={{ position: 'relative' }}>
                 <input
-                  type="password"
-                  required
+                  type={showPassword ? 'text' : 'password'}
+                  required={!editingUser}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder={editingUser ? 'Leave blank to keep unchanged' : '••••••••'}
                   autoComplete="new-password"
-                  style={inputStyle}
+                  style={{ ...inputStyle, paddingRight: '36px' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#94A3B8',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '2px'
+                  }}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                </button>
               </div>
-            )}
+            </div>
           </div>
 
           {/* Device Limits — only shown when creating a NEW Dealer role */}
