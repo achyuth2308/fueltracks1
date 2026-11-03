@@ -45,12 +45,13 @@ const SendCredentialsModal = ({
       setName(initialUser.name || '');
       setUsername(initialUser.username || '');
       setPhone(initialUser.phone || '');
-      setPassword(initialUser.password || initialUser.temp_password || '');
+      const initialPass = initialUser.password || initialUser.temp_password;
+      setPassword(initialPass && initialPass !== '—' ? initialPass : '223344');
     } else {
       setName('');
       setUsername('');
       setPhone('');
-      setPassword('');
+      setPassword('223344');
     }
     setCopied(false);
     setPhoneError('');
@@ -313,7 +314,7 @@ const SendCredentialsModal = ({
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#1E293B', fontSize: '12.5px' }}>
               <span>User ID: <strong style={{ fontFamily: 'monospace', color: '#0369A1' }}>{username || '—'}</strong></span>
-              <span>Password: <strong style={{ fontFamily: 'monospace', color: '#059669' }}>{password || '—'}</strong></span>
+              <span>Password: <strong style={{ fontFamily: 'monospace', color: '#059669' }}>{password || '223344'}</strong></span>
             </div>
           </div>
 

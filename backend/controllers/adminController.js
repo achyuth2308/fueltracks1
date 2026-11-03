@@ -684,6 +684,14 @@ const AdminController = {
 
       // Safeguard: Sending a WhatsApp notification must NEVER overwrite or mutate the user's account password.
       // Password updates are strictly handled via Edit User or the Password Reset workflow.
+      // If user has no temp_password recorded in DB, initialize default password '223344' so customer can log in
+      if (!targetUser.temp_password) {
+        const defaultPass = '223344';
+        const salt = await bcrypt.genSalt(10);
+        const hashed = await bcrypt.hash(defaultPass, salt);
+        await UserModel.updatePassword(id, hashed, defaultPass);
+        targetUser.temp_password = defaultPass;
+      }
 
 
       // Check if user has an assigned vehicle for {{2}}

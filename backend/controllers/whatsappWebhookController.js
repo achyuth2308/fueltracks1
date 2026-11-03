@@ -211,7 +211,7 @@ const WhatsAppWebhookController = {
                     let credsBody = '';
                     for (const u of users) {
                       const custUser = u.username || u.email || '—';
-                      const custPass = u.temp_password || '(Active / Existing Password)';
+                      const custPass = u.temp_password || '223344';
                       credsBody += `👤 *User ID:* ${custUser}\n🔑 *Password:* ${custPass}\n\n`;
                     }
 

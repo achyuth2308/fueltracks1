@@ -33,7 +33,9 @@ export function normalizeWhatsAppPhone(rawPhone, defaultCountryCode = '91') {
 export function formatWhatsAppCredentialsMessage({ name, username, password }) {
   const customerName = name && name.trim() ? name.trim() : 'Customer';
   const userId = username && username.trim() ? username.trim() : '—';
-  const userPass = password != null ? String(password).trim() : '—';
+  const userPass = password != null && String(password).trim() !== '' && String(password).trim() !== '—'
+    ? String(password).trim()
+    : '223344';
 
   return (
 `*Dear ${customerName},*
