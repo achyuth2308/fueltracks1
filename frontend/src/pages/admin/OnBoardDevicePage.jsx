@@ -50,6 +50,7 @@ const VEHICLE_TYPE_OPTIONS = [
   { value: 'Pickup', label: 'Pickup' },
   { value: 'Borewell', label: 'Borewell' },
   { value: 'Tanker', label: 'Tanker' },
+  { value: 'Tipper', label: 'Tipper' },
 ];
 
 const OnBoardDevicePage = () => {

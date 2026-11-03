@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle } from 'lucide-react';
 import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
@@ -109,7 +110,6 @@ const UsersAdminPage = () => {
   const handleOpenSendCredentials = (targetUser, password = '', isNew = false, e) => {
     if (e) e.stopPropagation();
     setCredentialsTargetUser({
-      id: targetUser?.id || null,
       name: targetUser?.name || '',
       username: targetUser?.username || '',
       phone: targetUser?.phone || '',
@@ -126,11 +126,10 @@ const UsersAdminPage = () => {
         setViewingUser({ ...viewingUser, ...payload });
       }
     } else {
-      const res = await adminApi.createUser(payload);
-      const createdId = res?.data?.id || res?.id || null;
+      await adminApi.createUser(payload);
       // Auto-prompt WhatsApp credentials share for the newly created user
       handleOpenSendCredentials(
-        { id: createdId, name: payload.name, username: payload.username, phone: payload.phone },
+        { name: payload.name, username: payload.username, phone: payload.phone },
         payload.password,
         true
       );
@@ -241,6 +240,7 @@ const UsersAdminPage = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
+                      <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
                       <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
                     </tr>
                   ) : filteredUsers.map((u) => (
@@ -370,7 +370,7 @@ const UsersAdminPage = () => {
 
         {/* Right Side: Details Panel */}
         {viewingUser && (
-          <div 
+          <div
             className="fixed inset-0 z-50 md:static md:z-auto md:w-[380px] w-full"
             style={{
               background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
