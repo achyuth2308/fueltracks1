@@ -106,8 +106,7 @@ const SendCredentialsModal = ({
 
     try {
       const res = await sendUserCredentialsWhatsApp(targetUserId, {
-        phone: normalizedDigits,
-        password: password
+        phone: normalizedDigits
       });
       if (res?.success) {
         if (res.mock) {
@@ -233,7 +232,7 @@ const SendCredentialsModal = ({
             </div>
           )}
 
-          {/* Form Inputs Grid */}
+          {/* Form Inputs Grid - Customer Name & Phone */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             {/* Customer Name */}
             <div>
@@ -293,73 +292,28 @@ const SendCredentialsModal = ({
                 </span>
               )}
             </div>
+          </div>
 
-            {/* User ID */}
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
-                User ID / Username <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="e.g. AKKINI"
-                style={{
-                  width: '100%',
-                  padding: '9px 12px',
-                  borderRadius: '8px',
-                  border: '1px solid #CBD5E1',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  fontFamily: 'monospace',
-                  color: '#1E293B',
-                  outline: 'none',
-                  boxSizing: 'border-box'
-                }}
-              />
+          {/* Verified Database Credentials (Read-only from DB) */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              fontSize: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569' }}>
+              <ShieldCheck size={15} color="#0284C7" />
+              <span style={{ fontWeight: 600 }}>Database Account Credentials:</span>
             </div>
-
-            {/* Password */}
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
-                Account Password <span style={{ color: '#EF4444' }}>*</span>
-              </label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Created account password"
-                  style={{
-                    width: '100%',
-                    padding: '9px 36px 9px 12px',
-                    borderRadius: '8px',
-                    border: '1px solid #CBD5E1',
-                    fontSize: '13px',
-                    fontFamily: showPassword ? 'monospace' : 'inherit',
-                    color: '#1E293B',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={{
-                    position: 'absolute',
-                    right: '10px',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    color: '#64748B',
-                    cursor: 'pointer',
-                    padding: 0
-                  }}
-                >
-                  {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', color: '#1E293B', fontSize: '12.5px' }}>
+              <span>User ID: <strong style={{ fontFamily: 'monospace', color: '#0369A1' }}>{username || '—'}</strong></span>
+              <span>Password: <strong style={{ fontFamily: 'monospace', color: '#059669' }}>{password || '—'}</strong></span>
             </div>
           </div>
 
