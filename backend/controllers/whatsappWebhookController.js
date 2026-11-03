@@ -186,38 +186,41 @@ const WhatsAppWebhookController = {
 
               if (isGetCredentials) {
                 try {
-                  let user = null;
+                  let users = [];
                   if (payloadUserId) {
                     const uRes = await db.query(
                       'SELECT id, name, username, temp_password, phone FROM users WHERE id = $1',
                       [payloadUserId]
                     );
-                    if (uRes.rows.length > 0) user = uRes.rows[0];
+                    if (uRes.rows.length > 0) users = uRes.rows;
                   }
-                  if (!user) {
+                  if (users.length === 0) {
                     // Match by last 10 subscriber digits of phone number, stripping spaces/dashes
                     const last10 = senderNormalized.slice(-10);
                     const uRes = await db.query(
                       `SELECT id, name, username, temp_password, phone FROM users
                        WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE $1
-                       ORDER BY created_at DESC LIMIT 1`,
+                       ORDER BY created_at DESC`,
                       [`%${last10}`]
                     );
-                    if (uRes.rows.length > 0) user = uRes.rows[0];
+                    users = uRes.rows;
                   }
 
-                  if (user) {
-                    const custName = user.name || 'Customer';
-                    const custUser = user.username || user.email || '—';
-                    const custPass = user.temp_password || '—';
+                  if (users.length > 0) {
+                    const custName = users[0].name || 'Customer';
+                    let credsBody = '';
+                    for (const u of users) {
+                      const custUser = u.username || u.email || '—';
+                      const custPass = u.temp_password || '(Active / Existing Password)';
+                      credsBody += `👤 *User ID:* ${custUser}\n🔑 *Password:* ${custPass}\n\n`;
+                    }
 
                     const replyText =
 `Hello ${custName},
 
 Here are your FuelTracks login credentials:
 
-👤 *User ID:* ${custUser}
-🔑 *Password:* ${custPass}
+${credsBody.trim()}
 
 *Access FuelTracks:*
 🌐 *Web Portal:* https://app.fueltracks.in
@@ -231,7 +234,7 @@ For assistance, contact FuelTracks Support.`;
                       to: senderNormalized,
                       text: replyText
                     });
-                    console.log(`[WHATSAPP-WEBHOOK] Dispatched login credentials to ${masked} for user ${user.id}`);
+                    console.log(`[WHATSAPP-WEBHOOK] Dispatched login credentials to ${masked} for ${users.length} account(s)`);
                   } else {
                     console.warn(`[WHATSAPP-WEBHOOK] Get credentials request from ${masked} but no matching user found.`);
                   }

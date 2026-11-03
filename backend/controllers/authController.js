@@ -366,7 +366,7 @@ const AuthController = {
         `SELECT id, name, username, email, temp_password, phone
          FROM users
          WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE $1
-         ORDER BY created_at DESC LIMIT 1`,
+         ORDER BY created_at DESC`,
         [`%${last10}`]
       );
 
@@ -374,17 +374,17 @@ const AuthController = {
         return res.status(404).json({ success: false, error: 'No user found for this phone number' });
       }
 
-      const user = uRes.rows[0];
-      const custPass = user.temp_password || '—';
+      const accounts = uRes.rows.map(u => ({
+        id: u.id,
+        name: u.name || 'Customer',
+        username: u.username || u.email || '—',
+        password: u.temp_password || null
+      }));
 
       return res.json({
         success: true,
-        data: {
-          id: user.id,
-          name: user.name || 'Customer',
-          username: user.username || user.email || '—',
-          password: custPass
-        }
+        data: accounts[0],
+        accounts
       });
     } catch (err) {
       next(err);

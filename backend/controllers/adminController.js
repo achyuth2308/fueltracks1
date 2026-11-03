@@ -683,7 +683,7 @@ const AdminController = {
       }
 
       // Check if user has an assigned vehicle for {{2}}
-      let vehiclePlate = 'your vehicle';
+      let vehiclePlate = 'Fleet Tracking';
       const vehRes = await db.query(
         `SELECT v.plate, v.name FROM vehicles v
          JOIN vehicle_groups vg ON v.id = vg.vehicle_id
@@ -692,7 +692,7 @@ const AdminController = {
         [id]
       );
       if (vehRes.rows.length > 0) {
-        vehiclePlate = vehRes.rows[0].plate || vehRes.rows[0].name || 'your vehicle';
+        vehiclePlate = vehRes.rows[0].plate || vehRes.rows[0].name || 'Fleet Tracking';
       }
 
       // Send the approved Meta template
