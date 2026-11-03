@@ -375,18 +375,7 @@ const AuthController = {
       }
 
       const user = uRes.rows[0];
-      let custPass = user.temp_password;
-
-      if (!custPass) {
-        const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
-        custPass = '';
-        for (let i = 0; i < 6; i++) {
-          custPass += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        const salt = await bcrypt.genSalt(10);
-        const hashed = await bcrypt.hash(custPass, salt);
-        await UserModel.updatePassword(user.id, hashed, custPass);
-      }
+      const custPass = user.temp_password || '—';
 
       return res.json({
         success: true,

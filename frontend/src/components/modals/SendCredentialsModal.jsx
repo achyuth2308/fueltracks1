@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, Eye, EyeOff, RefreshCw, ExternalLink, ShieldCheck, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Copy, Check, Eye, EyeOff, ExternalLink, ShieldCheck, Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import {
   formatWhatsAppCredentialsMessage,
   normalizeWhatsAppPhone,
@@ -45,7 +45,7 @@ const SendCredentialsModal = ({
       setName(initialUser.name || '');
       setUsername(initialUser.username || '');
       setPhone(initialUser.phone || '');
-      setPassword(initialUser.password || '');
+      setPassword(initialUser.password || initialUser.temp_password || '');
     } else {
       setName('');
       setUsername('');
@@ -64,16 +64,6 @@ const SendCredentialsModal = ({
 
   const normalizedDigits = normalizeWhatsAppPhone(phone);
   const previewMessage = formatWhatsAppCredentialsMessage({ name, username, password });
-
-  const handleGeneratePassword = () => {
-    // Generate a secure, user-friendly 6-character alphanumeric password
-    const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
-    let generated = '';
-    for (let i = 0; i < 6; i++) {
-      generated += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setPassword(generated);
-  };
 
   const handleCopyMessage = async () => {
     try {
@@ -331,36 +321,15 @@ const SendCredentialsModal = ({
 
             {/* Password */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase' }}>
-                  Password <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={handleGeneratePassword}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#0284C7',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '3px',
-                    padding: 0
-                  }}
-                  title="Generate a 6-character password"
-                >
-                  <RefreshCw size={11} /> Generate
-                </button>
-              </div>
+              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '4px', textTransform: 'uppercase' }}>
+                Account Password <span style={{ color: '#EF4444' }}>*</span>
+              </label>
               <div style={{ position: 'relative' }}>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter or generated password"
+                  placeholder="Created account password"
                   style={{
                     width: '100%',
                     padding: '9px 36px 9px 12px',

@@ -673,8 +673,8 @@ const AdminController = {
         return res.status(400).json({ success: false, error: 'User does not have a valid phone number' });
       }
 
-      // If a password was provided in the modal, update it
-      if (req.body.password && String(req.body.password).trim()) {
+      // If a new/different password was provided in the modal, update it
+      if (req.body.password && String(req.body.password).trim() && String(req.body.password).trim() !== targetUser.temp_password) {
         const customPass = String(req.body.password).trim();
         const salt = await bcrypt.genSalt(10);
         const hashed = await bcrypt.hash(customPass, salt);

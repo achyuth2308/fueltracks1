@@ -49,7 +49,7 @@ const UserModel = {
 
     // Use LEFT JOIN + string_agg instead of a correlated subquery per user row
     const query = `
-      SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
+      SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone, u.temp_password,
              u.is_active, u.last_login, u.created_at,
              o.name as org_name,
              string_agg(g.name, ', ' ORDER BY g.name) as group_names,
@@ -64,7 +64,7 @@ const UserModel = {
       LEFT JOIN user_groups ug ON u.id = ug.user_id
       LEFT JOIN groups g ON ug.group_id = g.id
       ${whereClause}
-      GROUP BY u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
+      GROUP BY u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone, u.temp_password,
                u.is_active, u.last_login, u.created_at, o.name
       ORDER BY u.created_at DESC
     `;

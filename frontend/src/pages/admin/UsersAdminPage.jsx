@@ -115,7 +115,7 @@ const UsersAdminPage = () => {
       name: targetUser?.name || '',
       username: targetUser?.username || '',
       phone: targetUser?.phone || '',
-      password: password || ''
+      password: password || targetUser?.temp_password || targetUser?.password || ''
     });
     setIsNewUserCredentials(isNew);
     setCredentialsModalOpen(true);

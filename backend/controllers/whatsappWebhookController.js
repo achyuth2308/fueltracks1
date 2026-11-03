@@ -209,27 +209,7 @@ const WhatsAppWebhookController = {
                   if (user) {
                     const custName = user.name || 'Customer';
                     const custUser = user.username || user.email || '—';
-                    let custPass = user.temp_password;
-
-                    // If user has no temporary password stored, generate a fresh 6-char password
-                    if (!custPass) {
-                      const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz';
-                      custPass = '';
-                      for (let i = 0; i < 6; i++) {
-                        custPass += chars.charAt(Math.floor(Math.random() * chars.length));
-                      }
-                      try {
-                        const bcrypt = require('bcryptjs');
-                        const salt = await bcrypt.genSalt(10);
-                        const hashed = await bcrypt.hash(custPass, salt);
-                        await db.query(
-                          `UPDATE users SET password = $1, temp_password = $2, updated_at = NOW() WHERE id = $3`,
-                          [hashed, custPass, user.id]
-                        );
-                      } catch (hashErr) {
-                        console.error('[WHATSAPP-WEBHOOK] Error generating fallback password:', hashErr.message);
-                      }
-                    }
+                    const custPass = user.temp_password || '—';
 
                     const replyText =
 `Hello ${custName},
