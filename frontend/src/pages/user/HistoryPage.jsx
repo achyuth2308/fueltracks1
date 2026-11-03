@@ -412,7 +412,7 @@ const HistoryPage = () => {
         'Address not resolved',
         'N/A',
         p.cDist !== undefined ? p.cDist.toFixed(2) : '0.00',
-        Math.round((points[0]?.odometer || p.odometer || 0) + (p.cDist || 0)),
+        (() => { const base = parseFloat(vehicle?.metadata?.odometerReading) || (points[0]?.odometer ? Number(points[0].odometer) : 0); const val = base + (p.cDist || 0); return val >= 100 ? val.toFixed(1) : val.toFixed(2); })(),
         p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '0.00',
         p.ignition ? 'ON' : 'OFF'
       ];
@@ -734,7 +734,7 @@ const HistoryPage = () => {
                         </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.cDist !== undefined ? p.cDist.toFixed(2) : '0.00'}</td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>
-                          {Math.round((points[0]?.odometer || p.odometer || 0) + (p.cDist || 0))}
+                          {(() => { const base = parseFloat(vehicle?.metadata?.odometerReading) || (points[0]?.odometer ? Number(points[0].odometer) : 0); const val = base + (p.cDist || 0); return val >= 100 ? val.toFixed(1) : val.toFixed(2); })()}
                         </td>
                         <td style={{ padding: '4px', borderRight: '1px solid #E5E7EB', color: '#000000' }}>{p.fuel !== undefined && p.fuel !== null ? Number(p.fuel).toFixed(2) : '-'}</td>
                         <td style={{ padding: '4px' }}>

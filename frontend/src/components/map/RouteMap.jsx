@@ -885,7 +885,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                           </tr>
                           <tr>
                             <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
-                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.cDist !== undefined && p.cDist !== null ? Math.round(p.cDist) : '0'} km</td>
+                            <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.cDist !== undefined && p.cDist !== null ? Number(p.cDist).toFixed(2) : '0.00'} km</td>
                           </tr>
                           <tr>
                             <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
@@ -893,7 +893,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                           </tr>
                           <tr>
                             <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
-                            <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{p.odometer ? Math.round(p.odometer) : '-'} km</td>
+                            <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{(() => { const base = parseFloat(vehicle?.metadata?.odometerReading) || (points[0]?.odometer ? Number(points[0].odometer) : 0); const val = base + (p.cDist || 0); return (val >= 100 ? val.toFixed(1) : val.toFixed(2)) + ' km'; })()}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -1070,7 +1070,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                       </tr>
                       <tr>
                         <td style={{ paddingBottom: '4px', fontWeight: 600 }}>DistCov</td>
-                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Math.round(activePoint.cDist) : '0'} km</td>
+                        <td style={{ paddingBottom: '4px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>{activePoint.cDist !== undefined && activePoint.cDist !== null ? Number(activePoint.cDist).toFixed(2) : '0.00'} km</td>
                       </tr>
                       <tr>
                         <td style={{ paddingBottom: '4px', fontWeight: 600 }}>Fuel</td>
@@ -1083,7 +1083,7 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                       <tr>
                         <td style={{ paddingBottom: '0px', fontWeight: 600 }}>Odometer</td>
                         <td style={{ paddingBottom: '0px', textAlign: 'right', fontWeight: 700, color: '#3B82F6' }}>
-                          {Math.round((validPoints[0]?.odometer || activePoint.odometer || 0) + (activePoint.cDist || 0))} km
+                          {(() => { const base = parseFloat(vehicle?.metadata?.odometerReading) || (validPoints[0]?.odometer ? Number(validPoints[0].odometer) : 0); const val = base + (activePoint.cDist || 0); return (val >= 100 ? val.toFixed(1) : val.toFixed(2)) + ' km'; })()}
                         </td>
                       </tr>
                     </tbody>
