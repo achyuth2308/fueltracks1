@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Truck, ArrowRight, Loader2, AlertCircle, Lock, User, Users, EyeOff, Eye, Car, Package, Clock, Gauge, Activity, Sparkles } from 'lucide-react';
@@ -48,7 +49,7 @@ const LoginPage = () => {
           setDealerBranding(res.data.data);
           applyBrowserBranding(res.data.data);
         }
-      }).catch(() => {});
+      }).catch(() => { });
     } else {
       // No dealer param in URL — clear branding and session context
       sessionStorage.removeItem('activeDealerParam');
@@ -80,7 +81,7 @@ const LoginPage = () => {
         try {
           const payload = JSON.parse(atob(token.split('.')[1]));
           role = payload.role || role;
-        } catch (err) {}
+        } catch (err) { }
       }
       if (role === 'customer') {
         navigate('/tracking', { replace: true });
@@ -139,20 +140,20 @@ const LoginPage = () => {
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="flex flex-col items-start gap-2 pt-1 mb-4 xl:mb-5"
           >
-            <span 
+            <span
               className="text-xs sm:text-sm font-black italic uppercase tracking-[0.25em] drop-shadow-2xs"
-              style={dealerBranding?.primary_color 
-                ? { color: dealerBranding.primary_color } 
+              style={dealerBranding?.primary_color
+                ? { color: dealerBranding.primary_color }
                 : { backgroundImage: 'linear-gradient(to right, #ec4899, #6366f1, #0ea5e9)', WebkitBackgroundClip: 'text', color: 'transparent' }}
             >
               WELCOME TO {dealerBranding ? dealerBranding.brand_name.toUpperCase() : ''}
             </span>
             <img
               src={dealerBranding?.logo_url ? getFullImageUrl(dealerBranding.logo_url) : ''}
-              alt={dealerBranding?.brand_name || ''} style={{ display: dealerBranding?.logo_url ? undefined : 'none' }}
-              style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
+              alt={dealerBranding?.brand_name || ''}
+              style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain', display: dealerBranding?.logo_url ? undefined : 'none' }}
               className="drop-shadow-xs transition-transform duration-300 my-1"
-              onError={(e) => { if(!dealerBranding) e.currentTarget.src = '/logo_vertical.png'; }}
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
             />
           </motion.div>
 
@@ -165,9 +166,9 @@ const LoginPage = () => {
                 transition={{ duration: 0.5, ease: 'easeOut' }}
                 className="my-3 rounded-2xl overflow-hidden border border-slate-200 shadow-md relative group max-w-lg"
               >
-                <img 
-                  src={getFullImageUrl(dealerBranding.login_background_url)} 
-                  alt="Dealership Banner" 
+                <img
+                  src={getFullImageUrl(dealerBranding.login_background_url)}
+                  alt="Dealership Banner"
                   className="w-full h-52 object-cover transition-transform duration-500 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-900/30 to-transparent flex flex-col justify-end p-5 text-white">
@@ -340,11 +341,24 @@ const LoginPage = () => {
 
               {/* Mobile Logo View if on small screen */}
               <div className="flex lg:hidden flex-col items-center gap-1 mb-4">
-                <img
-                  src="/logo_vertical.png"
-                  alt="FuelTracks"
-                  style={{ width: '160px', height: 'auto', objectFit: 'contain' }}
-                />
+                {dealerBranding?.logo_url ? (
+                  <img
+                    src={getFullImageUrl(dealerBranding.logo_url)}
+                    alt={dealerBranding?.brand_name || ''}
+                    style={{ width: '160px', height: 'auto', objectFit: 'contain' }}
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : !dealerBranding ? (
+                  <img
+                    src="/logo_vertical.png"
+                    alt="FuelTracks"
+                    style={{ width: '160px', height: 'auto', objectFit: 'contain' }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '22px', fontWeight: 800, color: dealerBranding?.primary_color || '#1b3644', letterSpacing: '-0.03em' }}>
+                    {dealerBranding?.brand_name?.toUpperCase() || ''}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col items-center mb-6 text-center">
