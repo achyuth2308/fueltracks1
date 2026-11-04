@@ -445,6 +445,9 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                     .fueltracks.com
                   </span>
                 </div>
+                <span className="text-[11px] text-slate-500 font-medium mt-1.5 flex items-center gap-1">
+                  🌐 <strong>Custom Domain:</strong> You can also use your own domain (e.g. <span className="font-mono text-sky-700 font-bold">gps.smtechnologies.org</span>) by pointing a CNAME record to <span className="font-mono text-slate-700 font-bold">app.fueltracks.in</span>.
+                </span>
               </div>
 
               {/* Row 3: Footer Copyright (Full width block) */}
@@ -692,7 +695,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
             <div className="bg-slate-900 px-3.5 py-1.5 border-b border-slate-800 flex items-center gap-2">
               <Lock className="w-3 h-3 text-emerald-400" />
               <div className="bg-slate-800/90 px-3 py-0.5 rounded-lg text-[10.5px] font-mono text-slate-300 flex-1 truncate border border-slate-700/70">
-                https://{formData.subdomain || 'portal'}.fueltracks.com/{previewMode === 'login' ? 'login' : 'dashboard'}
+                https://{formData.subdomain === 'gps' || (formData.brand_name && formData.brand_name.toLowerCase().includes('sm tech')) ? 'gps.smtechnologies.org' : `${formData.subdomain || 'portal'}.fueltracks.com`}/{previewMode === 'login' ? 'login' : 'dashboard'}
               </div>
             </div>
 
