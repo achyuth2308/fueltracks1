@@ -21,7 +21,7 @@ const OnboardController = {
 
       if (userType === 'new') {
         const { name, phone, email, password, username, location, aadhar, existingGroupId, additionalGroupId } = newUser;
-        const finalUsername = (username || name || email).trim();
+        const finalUsername = (username || name || email).trim().toLowerCase();
         if (!email || !password || !finalUsername) {
           throw new Error('User Name, Email, and Password are required.');
         }
@@ -584,7 +584,7 @@ const OnboardController = {
           } else {
             // Create customer user
             const finalEmail = email || `${username || imei}@customer.fueltracks.in`;
-            const finalUsername = username || (customerPhone ? `user_${customerPhone}` : `user_${imei}`);
+            const finalUsername = (username || (customerPhone ? `user_${customerPhone}` : `user_${imei}`)).trim().toLowerCase();
             const finalPassword = password || customerPhone || 'FuelTracks@123';
             const finalName = customerName || `Owner ${vehicleNumber}`;
 

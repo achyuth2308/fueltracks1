@@ -9,12 +9,23 @@ const UserModel = {
    * Find user by email or username (for login)
    */
   async findByIdentifier(identifier) {
+    if (!identifier) return null;
+    const cleanId = String(identifier).trim();
+    const lowerId = cleanId.toLowerCase();
     const result = await db.query(
       `SELECT u.*, o.name as org_name, o.type as org_type
        FROM users u
        JOIN organizations o ON u.org_id = o.id
-       WHERE (u.email = $1 OR u.username = $1) AND u.is_active = TRUE`,
-      [identifier]
+       WHERE (
+         u.email = $1
+         OR u.username = $1
+         OR LOWER(u.username) = $2
+         OR LOWER(u.email) = $2
+         OR u.phone = $1
+         OR REPLACE(u.phone, ' ', '') = REPLACE($1, ' ', '')
+       ) AND u.is_active = TRUE
+       LIMIT 1`,
+      [cleanId, lowerId]
     );
     return result.rows[0] || null;
   },

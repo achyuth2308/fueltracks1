@@ -30,7 +30,7 @@ const AuthController = {
       }
 
       // Find user
-      const user = await UserModel.findByIdentifier(identifier.toLowerCase().trim());
+      const user = await UserModel.findByIdentifier(identifier.trim());
       if (!user) {
         return res.status(401).json({
           success: false,
