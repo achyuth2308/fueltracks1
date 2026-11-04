@@ -154,7 +154,7 @@ const ReportPage = () => {
 
       {/* Print only header */}
       <div className="hidden print:block border-b border-slate-300 pb-4 mb-6">
-        <h1 className="text-2xl font-bold text-slate-900">{(typeof sessionStorage !== "undefined" && JSON.parse(sessionStorage.getItem("activeBrandProfile") || "{}").brand_name) || "FuelTracks"} Fleet Report</h1>
+        <h1 className="text-2xl font-bold text-slate-900">{(typeof sessionStorage !== "undefined" && JSON.parse(sessionStorage.getItem("activeBrandProfile") || "{}").brand_name) || "Fleet"} Report</h1>
         <p className="text-xs text-slate-600">Vehicle: {vehicle?.name} ({vehicle?.plate}) | IMEI: {vehicle?.imei}</p>
         <p className="text-xs text-slate-600">Date Range: {startDate} to {endDate}</p>
       </div>

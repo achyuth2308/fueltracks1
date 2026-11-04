@@ -29,12 +29,20 @@ const LoginPage = () => {
     let dealerParam = searchParams.get('dealer') || searchParams.get('org');
 
     if (!dealerParam && typeof window !== 'undefined' && window.location.hostname) {
-      const parts = window.location.hostname.split('.');
-      if (parts.length > 2) {
-        if (!['www', 'app', 'localhost', 'dev', 'gps', 'track', 'fleet', 'portal'].includes(parts[0])) {
+      const hostname = window.location.hostname.toLowerCase();
+      // If visiting a custom dealership domain (e.g., gps.smtechnologies.org or smtechnologies.org)
+      if (!hostname.includes('fueltracks.in') && !hostname.includes('fueltracks.com') && !hostname.includes('localhost') && hostname !== '127.0.0.1') {
+        const parts = hostname.split('.');
+        if (parts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(parts[0])) {
+          dealerParam = parts[1]; // e.g. "smtechnologies"
+        } else {
+          dealerParam = parts[0]; // e.g. "smtechnologies"
+        }
+      } else {
+        // Platform subdomains, e.g. gps.fueltracks.com or smtechnologies.fueltracks.in
+        const parts = hostname.split('.');
+        if (parts.length > 2 && !['www', 'app', 'localhost', 'dev'].includes(parts[0])) {
           dealerParam = parts[0];
-        } else if (['gps', 'track', 'fleet', 'portal'].includes(parts[0]) && parts.length >= 3) {
-          dealerParam = parts[1];
         }
       }
     }
@@ -140,21 +148,36 @@ const LoginPage = () => {
             transition={{ duration: 0.5, ease: 'easeOut' }}
             className="flex flex-col items-start gap-2 pt-1 mb-4 xl:mb-5"
           >
-            <span
-              className="text-xs sm:text-sm font-black italic uppercase tracking-[0.25em] drop-shadow-2xs"
-              style={dealerBranding?.primary_color
-                ? { color: dealerBranding.primary_color }
-                : { backgroundImage: 'linear-gradient(to right, #ec4899, #6366f1, #0ea5e9)', WebkitBackgroundClip: 'text', color: 'transparent' }}
-            >
-              WELCOME TO {dealerBranding ? dealerBranding.brand_name.toUpperCase() : ''}
-            </span>
-            <img
-              src={dealerBranding?.logo_url ? getFullImageUrl(dealerBranding.logo_url) : ''}
-              alt={dealerBranding?.brand_name || ''}
-              style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain', display: dealerBranding?.logo_url ? undefined : 'none' }}
-              className="drop-shadow-xs transition-transform duration-300 my-1"
-              onError={(e) => { e.currentTarget.style.display = 'none'; }}
-            />
+            {dealerBranding ? (
+              <>
+                <span
+                  className="text-xs sm:text-sm font-black italic uppercase tracking-[0.25em] drop-shadow-2xs"
+                  style={{ color: dealerBranding.primary_color || '#0284c7' }}
+                >
+                  WELCOME TO {dealerBranding.brand_name.toUpperCase()}
+                </span>
+                {dealerBranding.logo_url ? (
+                  <img
+                    src={getFullImageUrl(dealerBranding.logo_url)}
+                    alt={dealerBranding.brand_name}
+                    style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
+                    className="drop-shadow-xs transition-transform duration-300 my-1"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <span style={{ fontSize: '28px', fontWeight: 900, color: dealerBranding.primary_color || '#1e293b', letterSpacing: '-0.03em' }}>
+                    {dealerBranding.brand_name.toUpperCase()}
+                  </span>
+                )}
+              </>
+            ) : (
+              <img
+                src="/logo_vertical.png"
+                alt="FuelTracks"
+                style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
+                className="drop-shadow-xs transition-transform duration-300 my-1"
+              />
+            )}
           </motion.div>
 
           {/* Center Content Section */}

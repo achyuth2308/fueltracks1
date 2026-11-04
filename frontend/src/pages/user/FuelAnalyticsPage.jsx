@@ -68,7 +68,7 @@ function getPortalBrandName() {
     const orgName = sessionStorage.getItem('activeOrgName');
     if (orgName && orgName.toLowerCase() !== 'fueltracks platform') return orgName;
   } catch(e) {}
-  return 'FuelTracks';
+  return 'GPS Telematics';
 }
 
 function formatIST(isoString) {

@@ -46,7 +46,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ fontSize: '13px', fontWeight: 600, color: '#4b5563', letterSpacing: '0.02em' }}>
-            Loading FuelTracks
+            Loading...
           </div>
           <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
             Restoring session...

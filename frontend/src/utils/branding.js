@@ -22,9 +22,9 @@ export function applyBrowserBranding(profile) {
   }
 
   // 2. Dynamic Browser Title
-  if (profile.brand_name) {
-    document.title = `${profile.brand_name} — Fleet Telematics`;
-  }
+  document.title = profile.brand_name
+    ? `${profile.brand_name} — Fleet Telematics`
+    : 'Fleet Management Portal';
 
   // 3. Dynamic Root Theme Colors
   if (profile.primary_color) {

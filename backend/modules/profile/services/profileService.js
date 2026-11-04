@@ -82,6 +82,31 @@ class ProfileService {
       mainProfile.api_key = this.decrypt(mainProfile.encrypted_api_key);
       delete mainProfile.encrypted_api_key;
     }
+
+    // Inherit white-label dealer branding if organization is a sub-account/customer
+    if (!mainProfile.logo_url || !mainProfile.is_whitelabel_enabled) {
+      try {
+        const parentRes = await db.query('SELECT parent_id FROM organizations WHERE id = $1', [organizationId]);
+        if (parentRes.rows.length > 0 && parentRes.rows[0].parent_id) {
+          const parentProfile = await profileRepository.getProfile(parentRes.rows[0].parent_id);
+          if (parentProfile && (parentProfile.is_whitelabel_enabled || parentProfile.logo_url || parentProfile.brand_name)) {
+            mainProfile.brand_name = mainProfile.brand_name || parentProfile.brand_name;
+            mainProfile.brand_tagline = mainProfile.brand_tagline || parentProfile.brand_tagline;
+            mainProfile.logo_url = mainProfile.logo_url || parentProfile.logo_url;
+            mainProfile.favicon_url = mainProfile.favicon_url || parentProfile.favicon_url;
+            mainProfile.login_background_url = mainProfile.login_background_url || parentProfile.login_background_url;
+            mainProfile.primary_color = mainProfile.primary_color || parentProfile.primary_color;
+            mainProfile.secondary_color = mainProfile.secondary_color || parentProfile.secondary_color;
+            mainProfile.footer_text = mainProfile.footer_text || parentProfile.footer_text;
+            mainProfile.support_email = mainProfile.support_email || parentProfile.support_email;
+            mainProfile.support_phone = mainProfile.support_phone || parentProfile.support_phone;
+            mainProfile.is_whitelabel_enabled = parentProfile.is_whitelabel_enabled;
+          }
+        }
+      } catch (err) {
+        console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);
+      }
+    }
     
     // Fetch actual license limits from organization device limits
     const orgRes = await db.query('SELECT device_limits FROM organizations WHERE id = $1', [organizationId]);

@@ -173,6 +173,22 @@ class ProfileRepository {
    * Fetch public branding for an organization or subdomain
    */
   async getPublicBranding(identifier) {
+    if (!identifier) return null;
+    const raw = String(identifier).trim();
+    // Clean out protocol/port if present
+    const clean = raw.replace(/^https?:\/\//i, '').split(':')[0];
+
+    // If a full domain/hostname was passed (e.g. gps.smtechnologies.org or smtechnologies.org)
+    const domainParts = clean.split('.');
+    let extractedSlug = clean;
+    if (domainParts.length >= 2) {
+      if (['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(domainParts[0].toLowerCase()) && domainParts.length >= 3) {
+        extractedSlug = domainParts[1];
+      } else if (!['www', 'app', 'localhost'].includes(domainParts[0].toLowerCase())) {
+        extractedSlug = domainParts[0];
+      }
+    }
+
     const query = `
       SELECT op.brand_name, op.brand_tagline, op.primary_color, op.secondary_color,
              op.logo_url, op.favicon_url, op.login_background_url, op.footer_text,
@@ -184,9 +200,19 @@ class ProfileRepository {
          OR LOWER(op.subdomain) = LOWER($1)
          OR LOWER(o.name) = LOWER($1)
          OR LOWER(COALESCE(op.brand_name, '')) = LOWER($1)
+         -- Match without spaces or hyphens (e.g. "smtechnologies" matches "SM TECHNOLOGIES" or "SM-Technologies")
+         OR REPLACE(REPLACE(LOWER(o.name), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($1, ' ', ''), '-', ''))
+         OR REPLACE(REPLACE(LOWER(COALESCE(op.brand_name, '')), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($1, ' ', ''), '-', ''))
+         OR REPLACE(REPLACE(LOWER(COALESCE(op.subdomain, '')), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($1, ' ', ''), '-', ''))
+         -- Match with extracted slug if full hostname or domain was passed
+         OR LOWER(op.subdomain) = LOWER($2)
+         OR LOWER(o.name) = LOWER($2)
+         OR LOWER(COALESCE(op.brand_name, '')) = LOWER($2)
+         OR REPLACE(REPLACE(LOWER(o.name), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($2, ' ', ''), '-', ''))
+         OR REPLACE(REPLACE(LOWER(COALESCE(op.brand_name, '')), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($2, ' ', ''), '-', ''))
       LIMIT 1
     `;
-    const res = await db.query(query, [identifier]);
+    const res = await db.query(query, [clean, extractedSlug]);
     if (res.rows[0]) {
       const row = res.rows[0];
       if (!row.brand_name && row.org_name) {
