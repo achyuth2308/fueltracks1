@@ -20,10 +20,41 @@ const OnboardController = {
       const targetGroupIds = [];
 
       if (userType === 'new') {
-        const { name, phone, email, password, username, location, aadhar, existingGroupId, additionalGroupId } = newUser;
+        const { name, phone, email, password, username, location, aadhar, existingGroupId, additionalGroupId, orgId } = newUser;
         const finalUsername = (username || name || email).trim().toLowerCase();
         if (!email || !password || !finalUsername) {
           throw new Error('User Name, Email, and Password are required.');
+        }
+
+        // 1. If an existing group was chosen, resolve the organization from that group
+        const selectedGroup = existingGroupId || additionalGroupId;
+        if (selectedGroup) {
+          const groupOrgRes = await client.query('SELECT org_id FROM groups WHERE id = $1', [selectedGroup]);
+          if (groupOrgRes.rows.length > 0 && groupOrgRes.rows[0].org_id) {
+            targetOrgId = groupOrgRes.rows[0].org_id;
+          }
+        } else if (orgId) {
+          targetOrgId = orgId;
+        }
+
+        // 2. Validate that targetOrgId actually exists in the organizations table
+        let validOrg = false;
+        if (targetOrgId) {
+          const orgCheck = await client.query('SELECT id FROM organizations WHERE id::text = $1', [String(targetOrgId)]);
+          if (orgCheck.rows.length > 0) {
+            targetOrgId = orgCheck.rows[0].id;
+            validOrg = true;
+          }
+        }
+
+        // 3. Fallback if caller is superadmin (dummy org ID) or org is invalid
+        if (!validOrg) {
+          const fallbackOrgRes = await client.query('SELECT id FROM organizations ORDER BY id ASC LIMIT 1');
+          if (fallbackOrgRes.rows.length > 0) {
+            targetOrgId = fallbackOrgRes.rows[0].id;
+          } else {
+            throw new Error('No valid organization found to assign this user to.');
+          }
         }
 
         const salt = await bcrypt.genSalt(10);
