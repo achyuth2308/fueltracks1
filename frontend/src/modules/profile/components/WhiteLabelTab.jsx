@@ -285,7 +285,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                     }`}
                 >
                   {formData.logo_url ? (
-                    <img src={formData.logo_url} alt="Logo" className="max-h-full max-w-full object-contain" />
+                    <img src={getFullImageUrl(formData.logo_url)} alt="Logo" className="max-h-full max-w-full object-contain" />
                   ) : (
                     <div className="text-center text-slate-400 text-xs flex flex-col items-center">
                       <ImageIcon className="w-7 h-7 mb-1 text-slate-400 opacity-60" />
@@ -707,7 +707,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                   >
                     <div className="flex items-center gap-2.5">
                       {formData.logo_url ? (
-                        <img src={formData.logo_url} alt="Logo" className="h-6 max-w-[110px] object-contain" />
+                        <img src={getFullImageUrl(formData.logo_url)} alt="Logo" className="h-6 max-w-[110px] object-contain" />
                       ) : (
                         <div
                           className="w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs text-white shadow-xs"
@@ -791,7 +791,7 @@ const WhiteLabelTab = ({ profile, onSave, onUploadImage, onNextTab }) => {
                 {/* Mini Login Card */}
                 <div className="relative z-10 w-full max-w-[240px] bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border border-white/30 text-center">
                   {formData.logo_url ? (
-                    <img src={formData.logo_url} alt="Logo" className="h-7 max-w-[120px] object-contain mx-auto mb-2" />
+                    <img src={getFullImageUrl(formData.logo_url)} alt="Logo" className="h-7 max-w-[120px] object-contain mx-auto mb-2" />
                   ) : (
                     <div
                       className="w-8 h-8 rounded-xl mx-auto mb-2 flex items-center justify-center font-black text-xs text-white shadow-xs"
