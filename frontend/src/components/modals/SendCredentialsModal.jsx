@@ -48,10 +48,8 @@ const SendCredentialsModal = ({
       const initialPass = initialUser.password || initialUser.temp_password;
       if (initialPass && initialPass !== '—') {
         setPassword(initialPass);
-      } else if (isNewlyCreated) {
-        setPassword('223344');
       } else {
-        setPassword('(Set privately by user)');
+        setPassword('223344');
       }
     } else {
       setName('');

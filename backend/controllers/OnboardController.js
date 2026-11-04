@@ -30,10 +30,10 @@ const OnboardController = {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const userResult = await client.query(
-          `INSERT INTO users (org_id, email, password, role, name, phone, username, location, aadhar)
-           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7, $8)
+          `INSERT INTO users (org_id, email, password, role, name, phone, username, location, aadhar, temp_password)
+           VALUES ($1, $2, $3, 'customer', $4, $5, $6, $7, $8, $9)
            RETURNING id`,
-          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name || finalUsername, phone || '', finalUsername, location || '', aadhar || '']
+          [targetOrgId, email.toLowerCase().trim(), hashedPassword, name || finalUsername, phone || '', finalUsername, location || '', aadhar || '', password]
         );
         targetUserId = userResult.rows[0].id;
 
@@ -592,14 +592,14 @@ const OnboardController = {
             const hashedPassword = await bcrypt.hash(finalPassword, salt);
 
             const newUserRes = await client.query(
-              `INSERT INTO users (org_id, email, username, password, role, name, phone, aadhar_no, pan_no)
-               VALUES ($1, $2, $3, $4, 'customer', $5, $6, $7, $8)
+              `INSERT INTO users (org_id, email, username, password, role, name, phone, aadhar_no, pan_no, temp_password)
+               VALUES ($1, $2, $3, $4, 'customer', $5, $6, $7, $8, $9)
                ON CONFLICT (email) DO UPDATE SET
                  phone = COALESCE(EXCLUDED.phone, users.phone),
                  aadhar_no = COALESCE(EXCLUDED.aadhar_no, users.aadhar_no),
                  pan_no = COALESCE(EXCLUDED.pan_no, users.pan_no)
                RETURNING id`,
-              [targetOrgId, finalEmail, finalUsername, hashedPassword, finalName, customerPhone || null, aadharNo || null, panNo || null]
+              [targetOrgId, finalEmail, finalUsername, hashedPassword, finalName, customerPhone || null, aadharNo || null, panNo || null, finalPassword]
             );
             targetUserId = newUserRes.rows[0]?.id;
           }
