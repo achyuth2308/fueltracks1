@@ -57,6 +57,20 @@ import axiosInstance from '../../api/axios';
 import { formatLocalTime, formatLocalDate } from '../../utils/dateUtils';
 
 // Helper to format IST strings cleanly
+// Get portal/dealer brand name for PDF headers (white-label support)
+function getPortalBrandName() {
+  try {
+    const stored = sessionStorage.getItem('activeBrandProfile');
+    if (stored) {
+      const p = JSON.parse(stored);
+      if (p && p.brand_name) return p.brand_name;
+    }
+    const orgName = sessionStorage.getItem('activeOrgName');
+    if (orgName && orgName.toLowerCase() !== 'fueltracks platform') return orgName;
+  } catch(e) {}
+  return 'FuelTracks';
+}
+
 function formatIST(isoString) {
   if (!isoString) return '—';
   try {
@@ -1484,7 +1498,7 @@ export default function FuelAnalyticsPage() {
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('FuelTracks Telematics — Raw Fuel Packet Audit Report', 14, 12);
+    doc.text(`${getPortalBrandName()} Telematics — Raw Fuel Packet Audit Report`, 14, 12);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -1553,7 +1567,7 @@ export default function FuelAnalyticsPage() {
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('FuelTracks Telematics — Fuel Fill Audit Report', 14, 12);
+    doc.text(`${getPortalBrandName()} Telematics — Fuel Fill Audit Report`, 14, 12);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -1618,7 +1632,7 @@ export default function FuelAnalyticsPage() {
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('FuelTracks Telematics — Fuel Theft & Drain Report', 14, 12);
+    doc.text(`${getPortalBrandName()} Telematics — Fuel Theft & Drain Report`, 14, 12);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
@@ -1726,7 +1740,7 @@ export default function FuelAnalyticsPage() {
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('FuelTracks Telematics — Consumption Rate Audit Report', 14, 12);
+    doc.text(`${getPortalBrandName()} Telematics — Consumption Rate Audit Report`, 14, 12);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');

@@ -103,6 +103,8 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           setBrandProfile(res.data.profile);
           if (user?.role !== 'superadmin') {
             applyBrowserBranding(res.data.profile);
+            // Store for white-label PDF headers across all pages
+            try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(res.data.profile)); } catch(e) {}
           } else {
             document.title = 'FuelTracks — Enterprise Fleet Intelligence';
           }
@@ -393,12 +395,19 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             boxShadow: '0 4px 10px rgba(99,102,241,0.3)',
             padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
-            <img 
-              src={user?.role === 'superadmin' ? '/fuelimage.png' : (brandProfile?.logo_url ? getFullImageUrl(brandProfile.logo_url) : '/fuelimage.png')} 
-              alt={user?.role === 'superadmin' ? 'FuelTracks' : (brandProfile?.brand_name || user?.orgName || 'FuelTracks')} 
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-              onError={(e) => { e.currentTarget.src = '/fuelimage.png'; }}
-            />
+            {/* Show FuelTracks logo only for superadmin; for dealers/customers, only show logo if they have one uploaded */}
+            {(user?.role === 'superadmin' || brandProfile?.logo_url) ? (
+              <img 
+                src={user?.role === 'superadmin' ? '/fuelimage.png' : getFullImageUrl(brandProfile.logo_url)} 
+                alt={user?.role === 'superadmin' ? 'FuelTracks' : (brandProfile?.brand_name || user?.orgName || '')} 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                onError={(e) => { if(user?.role === 'superadmin') e.currentTarget.src = '/fuelimage.png'; else e.currentTarget.style.display = 'none'; }}
+              />
+            ) : (
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.03em' }}>
+                {(brandProfile?.brand_name || user?.orgName || '').slice(0, 2).toUpperCase()}
+              </span>
+            )}
           </div>
           <div>
             <div style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.1 }}>

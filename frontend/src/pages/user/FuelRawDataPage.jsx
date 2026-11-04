@@ -13,6 +13,17 @@ import axiosInstance from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 
 // Safe date formatter for Indian Standard Time (IST)
+// Get portal brand name for white-label PDF headers
+function getPortalBrandName() {
+  try {
+    const stored = sessionStorage.getItem('activeBrandProfile');
+    if (stored) { const p = JSON.parse(stored); if (p && p.brand_name) return p.brand_name; }
+    const orgName = sessionStorage.getItem('activeOrgName');
+    if (orgName && orgName.toLowerCase() !== 'fueltracks platform') return orgName;
+  } catch(e) {}
+  return 'FuelTracks';
+}
+
 function formatIST(dateStr) {
   if (!dateStr) return '—';
   try {
@@ -663,7 +674,7 @@ export default function FuelRawDataPage() {
     // Corporate Header
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('FuelTracks Telematics — Raw Fuel Packet Audit Report', 14, 12);
+    doc.text(`${getPortalBrandName()} Telematics — Raw Fuel Packet Audit Report`, 14, 12);
 
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');

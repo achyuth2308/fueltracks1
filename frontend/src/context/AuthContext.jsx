@@ -92,7 +92,8 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authApi.login(identifier, password);
       if (response.success && response.data.accessToken) {
-        localStorage.setItem('token', response.data.accessToken);
+        sessionStorage.setItem('activeOrgName', response.data.user.orgName || '');
+      localStorage.setItem('token', response.data.accessToken);
         const fromToken = userFromToken(response.data.accessToken);
         setUser({ ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id });
         return { success: true };

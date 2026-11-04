@@ -29,8 +29,12 @@ const LoginPage = () => {
 
     if (!dealerParam && typeof window !== 'undefined' && window.location.hostname) {
       const parts = window.location.hostname.split('.');
-      if (parts.length > 2 && !['www', 'app', 'localhost', 'dev'].includes(parts[0])) {
-        dealerParam = parts[0];
+      if (parts.length > 2) {
+        if (!['www', 'app', 'localhost', 'dev', 'gps', 'track', 'fleet', 'portal'].includes(parts[0])) {
+          dealerParam = parts[0];
+        } else if (['gps', 'track', 'fleet', 'portal'].includes(parts[0]) && parts.length >= 3) {
+          dealerParam = parts[1];
+        }
       }
     }
 
@@ -144,8 +148,8 @@ const LoginPage = () => {
               WELCOME TO {dealerBranding ? dealerBranding.brand_name.toUpperCase() : ''}
             </span>
             <img
-              src={dealerBranding?.logo_url ? getFullImageUrl(dealerBranding.logo_url) : '/logo_vertical.png'}
-              alt={dealerBranding?.brand_name || 'FuelTracks'}
+              src={dealerBranding?.logo_url ? getFullImageUrl(dealerBranding.logo_url) : ''}
+              alt={dealerBranding?.brand_name || ''} style={{ display: dealerBranding?.logo_url ? undefined : 'none' }}
               style={{ maxHeight: '64px', maxWidth: '220px', objectFit: 'contain' }}
               className="drop-shadow-xs transition-transform duration-300 my-1"
               onError={(e) => { if(!dealerBranding) e.currentTarget.src = '/logo_vertical.png'; }}
