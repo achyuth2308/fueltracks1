@@ -41,6 +41,16 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setOrgId(editingUser.org_id || '');
       setSelectedGroups(editingUser.groups ? editingUser.groups.map(g => g.id) : []);
       setNoDataMinutes(editingUser.no_data_minutes !== undefined && editingUser.no_data_minutes !== null ? Number(editingUser.no_data_minutes) : 30);
+      if (editingUser.device_limits && typeof editingUser.device_limits === 'object') {
+        setDeviceLimits({
+          Starter: Number(editingUser.device_limits.Starter) || 0,
+          Basic: Number(editingUser.device_limits.Basic) || 0,
+          Advanced: Number(editingUser.device_limits.Advanced) || 0,
+          Premium: Number(editingUser.device_limits.Premium) || 0,
+        });
+      } else {
+        setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+      }
     } else {
       setName('');
       setUsername('');
@@ -106,7 +116,8 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       newOrgName: isNewOrg ? newOrgName.trim() : undefined,
       groupIds: selectedGroups,
       autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true,
-      noDataMinutes: Number(noDataMinutes) || 30
+      noDataMinutes: Number(noDataMinutes) || 30,
+      deviceLimits: role === 'dealer' ? deviceLimits : undefined
     };
 
     if (password) {
@@ -566,7 +577,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
           </div>
 
           {/* Device Limits — only shown when creating a NEW Dealer role */}
-          {role === 'dealer' && !editingUser && (
+          {role === 'dealer' && (
             <div style={{ marginTop: '2px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                 <Cpu size={13} color="#f97316" />

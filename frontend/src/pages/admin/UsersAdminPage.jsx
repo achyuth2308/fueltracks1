@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare, Clock } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare, Clock, Cpu } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
@@ -494,6 +494,17 @@ const UsersAdminPage = () => {
                       <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{formatNoDataTime(viewingUser.no_data_minutes)}</div>
                     </div>
                   </div>
+                  {viewingUser.role === 'dealer' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Cpu size={16} color="#ea580c" /></div>
+                      <div>
+                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Device Allowance (Licenses)</div>
+                        <div style={{ fontSize: '12px', color: '#ea580c', fontWeight: 700, marginTop: '2px' }}>
+                          Starter: {viewingUser.device_limits?.Starter || 0} &bull; Basic: {viewingUser.device_limits?.Basic || 0} &bull; Advanced: {viewingUser.device_limits?.Advanced || 0} &bull; Premium: {viewingUser.device_limits?.Premium || 0}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
                     <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0, marginTop: '2px' }}><Truck size={16} color="#64748B" /></div>
                     <div style={{ flex: 1 }}>

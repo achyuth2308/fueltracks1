@@ -65,6 +65,7 @@ const UserModel = {
              u.no_data_minutes,
              u.is_active, u.last_login, u.created_at,
              o.name as org_name,
+             o.device_limits as device_limits,
              string_agg(g.name, ', ' ORDER BY g.name) as group_names,
              COALESCE(
                json_agg(
@@ -79,7 +80,7 @@ const UserModel = {
       ${whereClause}
       GROUP BY u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone, u.temp_password,
                u.no_data_minutes,
-               u.is_active, u.last_login, u.created_at, o.name
+               u.is_active, u.last_login, u.created_at, o.name, o.device_limits
       ORDER BY u.created_at DESC
     `;
 

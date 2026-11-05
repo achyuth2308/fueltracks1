@@ -343,7 +343,7 @@ const AdminController = {
 
   async createUser(req, res, next) {
     try {
-      const { email, username, password, role, name, phone, orgId, groupIds, newOrgName, autoCreateGroup, noDataMinutes } = req.body;
+      const { email, username, password, role, name, phone, orgId, groupIds, newOrgName, autoCreateGroup, noDataMinutes, deviceLimits } = req.body;
 
       if (!email || !password || !role) {
         return res.status(400).json({
@@ -459,6 +459,20 @@ const AdminController = {
         noDataMinutes: noDataMinutes !== undefined ? (parseInt(noDataMinutes, 10) || 30) : 30
       });
 
+      // Persist dealer device limits / quota if provided
+      if (role === 'dealer' && deviceLimits && typeof deviceLimits === 'object' && targetOrgId) {
+        const sanitizedLimits = {
+          Starter: Math.max(0, parseInt(deviceLimits.Starter || 0, 10)),
+          Basic: Math.max(0, parseInt(deviceLimits.Basic || 0, 10)),
+          Advanced: Math.max(0, parseInt(deviceLimits.Advanced || 0, 10)),
+          Premium: Math.max(0, parseInt(deviceLimits.Premium || 0, 10)),
+        };
+        await db.query(
+          'UPDATE organizations SET device_limits = $1::jsonb, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(sanitizedLimits), targetOrgId]
+        );
+      }
+
       // Handle user group assignments
       const allGroupIds = new Set();
 
@@ -527,7 +541,7 @@ const AdminController = {
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
-      const { email, username, role, name, phone, isActive, orgId, groupIds, password, noDataMinutes } = req.body;
+      const { email, username, role, name, phone, isActive, orgId, groupIds, password, noDataMinutes, deviceLimits } = req.body;
 
       // Ownership check for dealers editing other users
       if (req.user.role !== 'superadmin') {
@@ -609,6 +623,21 @@ const AdminController = {
         orgId: (req.user.role === 'superadmin') ? orgId : undefined,
         noDataMinutes: noDataMinutes !== undefined ? (parseInt(noDataMinutes, 10) || 30) : undefined
       });
+
+      // Persist dealer device limits / quota if provided
+      const targetOrgForLimits = (req.user.role === 'superadmin' && orgId) ? orgId : (updated?.org_id || oldUser?.org_id);
+      if (deviceLimits && typeof deviceLimits === 'object' && targetOrgForLimits) {
+        const sanitizedLimits = {
+          Starter: Math.max(0, parseInt(deviceLimits.Starter || 0, 10)),
+          Basic: Math.max(0, parseInt(deviceLimits.Basic || 0, 10)),
+          Advanced: Math.max(0, parseInt(deviceLimits.Advanced || 0, 10)),
+          Premium: Math.max(0, parseInt(deviceLimits.Premium || 0, 10)),
+        };
+        await db.query(
+          'UPDATE organizations SET device_limits = $1::jsonb, updated_at = NOW() WHERE id = $2',
+          [JSON.stringify(sanitizedLimits), targetOrgForLimits]
+        );
+      }
 
       // Update user group assignments
       if (groupIds && Array.isArray(groupIds)) {
