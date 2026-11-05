@@ -19,6 +19,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [isNewOrg, setIsNewOrg] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [autoCreateGroup, setAutoCreateGroup] = useState(false);
+  const [noDataMinutes, setNoDataMinutes] = useState(30);
 
   // Extra UI Fields
   const [altEmail, setAltEmail] = useState('');
@@ -39,6 +40,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setRole(editingUser.role || 'customer');
       setOrgId(editingUser.org_id || '');
       setSelectedGroups(editingUser.groups ? editingUser.groups.map(g => g.id) : []);
+      setNoDataMinutes(editingUser.no_data_minutes !== undefined && editingUser.no_data_minutes !== null ? Number(editingUser.no_data_minutes) : 30);
     } else {
       setName('');
       setUsername('');
@@ -53,6 +55,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setAutoCreateGroup(false);
       setSelectedGroups([]);
       setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+      setNoDataMinutes(30);
     }
   }, [editingUser, isOpen, orgs]);
 
@@ -102,7 +105,8 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       orgId: isNewOrg ? undefined : orgId,
       newOrgName: isNewOrg ? newOrgName.trim() : undefined,
       groupIds: selectedGroups,
-      autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true
+      autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true,
+      noDataMinutes: Number(noDataMinutes) || 30
     };
 
     if (password) {
@@ -471,6 +475,27 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               >
                 <option value="customer">Customer</option>
                 <option value="dealer">Dealer</option>
+              </select>
+            </div>
+
+            {/* No Data Threshold */}
+            <div>
+              <label style={labelStyle}>
+                No Data Threshold
+              </label>
+              <select
+                value={noDataMinutes}
+                onChange={(e) => setNoDataMinutes(Number(e.target.value))}
+                style={inputStyle}
+              >
+                <option value={15}>15 min</option>
+                <option value={30}>30 min (Default)</option>
+                <option value={60}>1 hr</option>
+                <option value={120}>2 hrs</option>
+                <option value={180}>3 hrs</option>
+                <option value={360}>6 hrs</option>
+                <option value={720}>12 hrs</option>
+                <option value={1440}>24 hrs</option>
               </select>
             </div>
 

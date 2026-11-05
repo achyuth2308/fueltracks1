@@ -36,6 +36,7 @@ const UserModel = {
   async findById(userId) {
     const result = await db.query(
       `SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
+              u.no_data_minutes,
               u.is_active, u.last_login, u.created_at,
               o.name as org_name, o.type as org_type
        FROM users u
@@ -61,6 +62,7 @@ const UserModel = {
     // Use LEFT JOIN + string_agg instead of a correlated subquery per user row
     const query = `
       SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone, u.temp_password,
+             u.no_data_minutes,
              u.is_active, u.last_login, u.created_at,
              o.name as org_name,
              string_agg(g.name, ', ' ORDER BY g.name) as group_names,
@@ -76,6 +78,7 @@ const UserModel = {
       LEFT JOIN groups g ON ug.group_id = g.id
       ${whereClause}
       GROUP BY u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone, u.temp_password,
+               u.no_data_minutes,
                u.is_active, u.last_login, u.created_at, o.name
       ORDER BY u.created_at DESC
     `;
@@ -87,12 +90,12 @@ const UserModel = {
   /**
    * Create a new user
    */
-  async create({ orgId, email, username, password, role, name, phone, tempPassword }) {
+  async create({ orgId, email, username, password, role, name, phone, tempPassword, noDataMinutes }) {
     const result = await db.query(
-      `INSERT INTO users (org_id, email, username, password, role, name, phone, temp_password)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, org_id, email, username, role, name, phone, temp_password, is_active, created_at`,
-      [orgId, email, username || null, password, role, name, phone, tempPassword || null]
+      `INSERT INTO users (org_id, email, username, password, role, name, phone, temp_password, no_data_minutes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id, org_id, email, username, role, name, phone, temp_password, no_data_minutes, is_active, created_at`,
+      [orgId, email, username || null, password, role, name, phone, tempPassword || null, parseInt(noDataMinutes, 10) || 30]
     );
     return result.rows[0];
   },
@@ -100,7 +103,7 @@ const UserModel = {
   /**
    * Update user
    */
-  async update(userId, { email, username, role, name, phone, isActive, orgId }) {
+  async update(userId, { email, username, role, name, phone, isActive, orgId, noDataMinutes }) {
     const fields = [];
     const values = [];
     let paramIndex = 1;
@@ -118,7 +121,7 @@ const UserModel = {
     values.push(userId);
     const result = await db.query(
       `UPDATE users SET ${fields.join(', ')} WHERE id = $${paramIndex}
-       RETURNING id, org_id, email, role, name, phone, is_active`,
+       RETURNING id, org_id, email, role, name, phone, no_data_minutes, is_active`,
       values
     );
     return result.rows[0] || null;

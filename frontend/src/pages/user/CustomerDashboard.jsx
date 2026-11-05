@@ -686,31 +686,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 color={statusColors[s]} active={statusFilter === s || (s === 'unreachable' && statusFilter === 'unavailable')}
                 onClick={() => setStatusFilter(prev => prev === s ? null : s)}
               />
-              {s === 'offline' && (
-                <select
-                  value={noDataThreshold}
-                  onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
-                  style={{
-                    background: '#F1F5F9',
-                    border: '1px solid #CBD5E1',
-                    color: '#0F172A',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 6px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                  }}
-                  title="No Data Rule: Keep vehicle in same state for this duration before marking as No Data"
-                >
-                  {NO_DATA_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
+              
             </div>
           ))}
 

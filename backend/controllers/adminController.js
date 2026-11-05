@@ -343,7 +343,7 @@ const AdminController = {
 
   async createUser(req, res, next) {
     try {
-      const { email, username, password, role, name, phone, orgId, groupIds, newOrgName, autoCreateGroup } = req.body;
+      const { email, username, password, role, name, phone, orgId, groupIds, newOrgName, autoCreateGroup, noDataMinutes } = req.body;
 
       if (!email || !password || !role) {
         return res.status(400).json({
@@ -455,7 +455,8 @@ const AdminController = {
         role,
         name,
         phone,
-        tempPassword: password
+        tempPassword: password,
+        noDataMinutes: noDataMinutes !== undefined ? (parseInt(noDataMinutes, 10) || 30) : 30
       });
 
       // Handle user group assignments
@@ -526,7 +527,7 @@ const AdminController = {
   async updateUser(req, res, next) {
     try {
       const { id } = req.params;
-      const { email, username, role, name, phone, isActive, orgId, groupIds, password } = req.body;
+      const { email, username, role, name, phone, isActive, orgId, groupIds, password, noDataMinutes } = req.body;
 
       // Ownership check for dealers editing other users
       if (req.user.role !== 'superadmin') {
@@ -605,7 +606,8 @@ const AdminController = {
         name,
         phone,
         isActive,
-        orgId: (req.user.role === 'superadmin') ? orgId : undefined
+        orgId: (req.user.role === 'superadmin') ? orgId : undefined,
+        noDataMinutes: noDataMinutes !== undefined ? (parseInt(noDataMinutes, 10) || 30) : undefined
       });
 
       // Update user group assignments
@@ -1488,7 +1490,8 @@ const AdminController = {
           userId: user.id,
           role: user.role,
           orgId: user.org_id,
-          orgType: user.org_type
+          orgType: user.org_type,
+          noDataMinutes: user.no_data_minutes !== undefined && user.no_data_minutes !== null ? Number(user.no_data_minutes) : 30
         },
         env.JWT_SECRET,
         { expiresIn: env.JWT_EXPIRES_IN }
@@ -1530,7 +1533,8 @@ const AdminController = {
             orgName: user.org_name,
             orgType: user.org_type,
             name: user.name,
-            phone: user.phone
+            phone: user.phone,
+            noDataMinutes: user.no_data_minutes !== undefined && user.no_data_minutes !== null ? Number(user.no_data_minutes) : 30
           }
         },
         message: 'Impersonation successful'

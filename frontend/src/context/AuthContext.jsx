@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import * as authApi from '../api/authApi';
 import { impersonateUser } from '../api/adminApi';
+import { setNoDataThresholdHours } from '../utils/markerUtils';
 
 export const AuthContext = createContext(null);
 
@@ -37,6 +38,7 @@ function userFromToken(token) {
     email: payload.email || null,
     orgName: isSuper ? 'FuelTracks Platform' : (payload.orgName || null),
     phone: payload.phone || null,
+    noDataMinutes: payload.noDataMinutes !== undefined && payload.noDataMinutes !== null ? Number(payload.noDataMinutes) : 30,
     mapProvider: null,
     apiKey: null,
   };
@@ -56,7 +58,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authApi.getMe();
       if (response?.success && response?.data?.user) {
+        const u = response.data.user;
+        if (u.noDataMinutes !== undefined && u.noDataMinutes !== null) {
+          setNoDataThresholdHours(Number(u.noDataMinutes) / 60);
+        }
         setUser(prev => prev ? {
+          noDataMinutes: u.noDataMinutes !== undefined ? Number(u.noDataMinutes) : prev.noDataMinutes,
           ...prev,
           mapProvider: response.data.user.mapProvider,
           apiKey: response.data.user.apiKey,
@@ -81,6 +88,9 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
       return;
     }
+    if (restoredUser.noDataMinutes !== undefined && restoredUser.noDataMinutes !== null) {
+      setNoDataThresholdHours(Number(restoredUser.noDataMinutes) / 60);
+    }
     setUser(restoredUser);
     setLoading(false);
     refreshMapConfig();
@@ -95,7 +105,11 @@ export const AuthProvider = ({ children }) => {
         sessionStorage.setItem('activeOrgName', response.data.user.orgName || '');
       localStorage.setItem('token', response.data.accessToken);
         const fromToken = userFromToken(response.data.accessToken);
-        setUser({ ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id });
+        const userData = { ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id };
+        if (userData.noDataMinutes !== undefined && userData.noDataMinutes !== null) {
+          setNoDataThresholdHours(Number(userData.noDataMinutes) / 60);
+        }
+        setUser(userData);
         return { success: true };
       } else {
         let errMsg = response.error || 'Login failed';
@@ -145,7 +159,11 @@ export const AuthProvider = ({ children }) => {
         }
         localStorage.setItem('token', response.data.accessToken);
         const fromToken = userFromToken(response.data.accessToken);
-        setUser({ ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id });
+        const userData = { ...fromToken, ...response.data.user, id: fromToken?.id || response.data.user?.id };
+        if (userData.noDataMinutes !== undefined && userData.noDataMinutes !== null) {
+          setNoDataThresholdHours(Number(userData.noDataMinutes) / 60);
+        }
+        setUser(userData);
         return { success: true };
       } else {
         let errMsg = response.error || 'Impersonation failed';

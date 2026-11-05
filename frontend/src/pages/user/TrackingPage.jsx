@@ -767,7 +767,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                     {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
                     {pill.label}
                   </button>
-                  {pill.key === 'offline' && (
+                  {pill.key === 'offline' && (user?.role === 'superadmin') && (
                     <select
                       value={noDataThreshold}
                       onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}

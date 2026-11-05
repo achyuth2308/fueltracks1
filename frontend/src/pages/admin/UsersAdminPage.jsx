@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare, Clock } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
 import SendCredentialsModal from '../../components/modals/SendCredentialsModal';
 import { useAuth } from '../../hooks/useAuth';
+
+
+const formatNoDataTime = (minutes) => {
+  const m = Number(minutes) || 30;
+  if (m < 60) return `${m} min`;
+  const hrs = m / 60;
+  return `${hrs} ${hrs === 1 ? 'hr' : 'hrs'}`;
+};
 
 const UsersAdminPage = () => {
   const { user, impersonate } = useAuth();
@@ -233,7 +241,7 @@ const UsersAdminPage = () => {
               <table className="pastel-table" style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: '#1e1b4b' }}>
-                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map(h => (
+                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'No Data Time', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
                       </th>
@@ -243,8 +251,8 @@ const UsersAdminPage = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
-                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
+                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
+                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
                     </tr>
                   ) : filteredUsers.map((u) => (
                     <tr
@@ -290,6 +298,14 @@ const UsersAdminPage = () => {
                           background: '#F8FAFC', color: '#475569'
                         }}>
                           {u.role}
+                        </span>
+                      </td>
+                      <td style={{ padding: '16px 20px' }}>
+                        <span style={{
+                          padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                          background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #DBEAFE'
+                        }}>
+                          {formatNoDataTime(u.no_data_minutes)}
                         </span>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
@@ -469,6 +485,13 @@ const UsersAdminPage = () => {
                     <div>
                       <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Groups</div>
                       <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.group_names || '—'}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Clock size={16} color="#64748B" /></div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>No Data Threshold</div>
+                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{formatNoDataTime(viewingUser.no_data_minutes)}</div>
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>

@@ -469,7 +469,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               }}>
                 {value}
               </span>
-              {isNoData && (
+              {isNoData && (user?.role === 'superadmin') && (
                 <select
                   value={noDataThreshold}
                   onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}

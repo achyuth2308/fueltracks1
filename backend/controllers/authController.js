@@ -78,7 +78,8 @@ const AuthController = {
           orgName: user.org_name,
           name: user.name,
           email: user.email,
-          phone: user.phone
+          phone: user.phone,
+          noDataMinutes: user.no_data_minutes !== undefined && user.no_data_minutes !== null ? Number(user.no_data_minutes) : 30
         },
         env.JWT_SECRET,
         { expiresIn: env.JWT_EXPIRES_IN }
@@ -133,6 +134,7 @@ const AuthController = {
             orgType: user.org_type,
             name: user.name,
             phone: user.phone,
+            noDataMinutes: user.no_data_minutes !== undefined && user.no_data_minutes !== null ? Number(user.no_data_minutes) : 30,
             mapProvider: mapProvider,
             apiKey: apiKey
           }
@@ -190,6 +192,7 @@ const AuthController = {
       let orgId = jwtUser.orgId;
       let role = jwtUser.role;
       let orgType = jwtUser.orgType;
+      let noDataMinutes = jwtUser.noDataMinutes !== undefined && jwtUser.noDataMinutes !== null ? Number(jwtUser.noDataMinutes) : 30;
 
       // Always fetch fresh profile & org details from DB so edits to name/phone/org are immediately live
       try {
@@ -202,6 +205,9 @@ const AuthController = {
           orgId = user.org_id || orgId;
           role = user.role || role;
           orgType = user.org_type || orgType;
+          if (user.no_data_minutes !== undefined && user.no_data_minutes !== null) {
+            noDataMinutes = Number(user.no_data_minutes);
+          }
         }
       } catch (dbErr) {
         console.warn('[AUTH] getMe DB lookup fallback to JWT:', dbErr.message);
@@ -235,6 +241,7 @@ const AuthController = {
             orgType,
             name,
             phone,
+            noDataMinutes,
             mapProvider,
             apiKey
           }

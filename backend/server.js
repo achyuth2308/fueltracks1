@@ -443,6 +443,7 @@ async function bootstrap() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS location VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhar VARCHAR(255);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS no_data_minutes INT DEFAULT 30;
 
       CREATE TABLE IF NOT EXISTS renewal_plans (
         id SERIAL PRIMARY KEY,
