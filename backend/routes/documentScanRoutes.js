@@ -49,6 +49,7 @@ try {
     max: uploadLimit,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false, default: false },
     keyGenerator: (req) => `scan_upload_${req.user?.userId || req.ip}`,
     store: (RedisStore && redisConfig.redis) ? new RedisStore({
       sendCommand: (...args) => redisConfig.redis.call(...args),
@@ -81,6 +82,7 @@ try {
     max: confirmLimit,
     standardHeaders: true,
     legacyHeaders: false,
+    validate: { keyGeneratorIpFallback: false, default: false },
     keyGenerator: (req) => `scan_confirm_${req.user?.userId || req.ip}`,
     store: (RedisStore && redisConfig.redis) ? new RedisStore({
       sendCommand: (...args) => redisConfig.redis.call(...args),
