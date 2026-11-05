@@ -16,6 +16,9 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [deviceLimits, setDeviceLimits] = useState({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+  const [existingLimits, setExistingLimits] = useState({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+  const [addedLimits, setAddedLimits] = useState({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+  const [quotaMode, setQuotaMode] = useState('add');
   const [isNewOrg, setIsNewOrg] = useState(false);
   const [newOrgName, setNewOrgName] = useState('');
   const [autoCreateGroup, setAutoCreateGroup] = useState(false);
@@ -42,14 +45,21 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setSelectedGroups(editingUser.groups ? editingUser.groups.map(g => g.id) : []);
       setNoDataMinutes(editingUser.no_data_minutes !== undefined && editingUser.no_data_minutes !== null ? Number(editingUser.no_data_minutes) : 30);
       if (editingUser.device_limits && typeof editingUser.device_limits === 'object') {
-        setDeviceLimits({
+        const cur = {
           Starter: Number(editingUser.device_limits.Starter) || 0,
           Basic: Number(editingUser.device_limits.Basic) || 0,
           Advanced: Number(editingUser.device_limits.Advanced) || 0,
           Premium: Number(editingUser.device_limits.Premium) || 0,
-        });
+        };
+        setExistingLimits(cur);
+        setAddedLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+        setDeviceLimits(cur);
+        setQuotaMode('add');
       } else {
+        setExistingLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+        setAddedLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
         setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
+        setQuotaMode('add');
       }
     } else {
       setName('');
@@ -106,6 +116,25 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
     setLoading(true);
     setError(null);
 
+    let finalDeviceLimits = undefined;
+    if (role === 'dealer') {
+      if (editingUser && quotaMode === 'add') {
+        finalDeviceLimits = {
+          Starter: Math.max(0, (Number(existingLimits.Starter) || 0) + (parseInt(addedLimits.Starter, 10) || 0)),
+          Basic: Math.max(0, (Number(existingLimits.Basic) || 0) + (parseInt(addedLimits.Basic, 10) || 0)),
+          Advanced: Math.max(0, (Number(existingLimits.Advanced) || 0) + (parseInt(addedLimits.Advanced, 10) || 0)),
+          Premium: Math.max(0, (Number(existingLimits.Premium) || 0) + (parseInt(addedLimits.Premium, 10) || 0)),
+        };
+      } else {
+        finalDeviceLimits = {
+          Starter: Math.max(0, parseInt(deviceLimits.Starter, 10) || 0),
+          Basic: Math.max(0, parseInt(deviceLimits.Basic, 10) || 0),
+          Advanced: Math.max(0, parseInt(deviceLimits.Advanced, 10) || 0),
+          Premium: Math.max(0, parseInt(deviceLimits.Premium, 10) || 0),
+        };
+      }
+    }
+
     const payload = {
       name,
       username,
@@ -117,7 +146,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       groupIds: selectedGroups,
       autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true,
       noDataMinutes: Number(noDataMinutes) || 30,
-      deviceLimits: role === 'dealer' ? deviceLimits : undefined
+      deviceLimits: finalDeviceLimits
     };
 
     if (password) {
@@ -128,7 +157,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       await onSave(payload);
       if (role === 'dealer' && orgId) {
         try {
-          await adminApi.setDeviceLimits(orgId, deviceLimits);
+          await adminApi.setDeviceLimits(orgId, finalDeviceLimits);
         } catch (limitErr) {
           console.warn('Device limits update failed (non-critical):', limitErr.message);
         }
@@ -578,39 +607,136 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
 
           {/* Device Limits — only shown when creating a NEW Dealer role */}
           {role === 'dealer' && (
-            <div style={{ marginTop: '2px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <Cpu size={13} color="#f97316" />
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#ea580c' }}>
-                  Organization Device Allowances (Quota) :
-                </label>
+            <div style={{ marginTop: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Cpu size={13} color="#f97316" />
+                  <label style={{ fontSize: '12px', fontWeight: 700, color: '#ea580c' }}>
+                    Organization Device Allowances (Quota) :
+                  </label>
+                </div>
+                {editingUser && (
+                  <button
+                    type="button"
+                    onClick={() => setQuotaMode(m => m === 'add' ? 'direct' : 'add')}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#2563eb',
+                      fontSize: '11px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      textDecoration: 'underline'
+                    }}
+                  >
+                    {quotaMode === 'add' ? 'Switch to Direct Override' : 'Switch to Add Quota (+0)'}
+                  </button>
+                )}
               </div>
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '8px 14px',
-                  padding: '10px 12px',
-                  background: '#fff7ed',
-                  borderRadius: '6px',
-                  border: '1px solid #fed7aa'
-                }}
-              >
-                {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
-                  <div key={tier}>
-                    <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
-                      {tier} <span style={{ color: '#94A3B8', fontWeight: 'normal' }}>(No. of Devices)</span>
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      value={deviceLimits[tier]}
-                      onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
-                      style={{ ...inputStyle, height: '30px', fontSize: '12px' }}
-                    />
+
+              {editingUser && quotaMode === 'add' ? (
+                /* INCREMENTAL ADD MODE - STARTS FROM 0 AND INSTANTLY CALCULATES NEW TOTAL */
+                <div
+                  style={{
+                    background: '#fff7ed',
+                    borderRadius: '8px',
+                    border: '1px solid #fed7aa',
+                    padding: '12px'
+                  }}
+                >
+                  <div style={{ fontSize: '11px', color: '#9a3412', fontWeight: 600, marginBottom: '8px' }}>
+                    Enter additional licenses to add (starts from 0). New total updates live:
                   </div>
-                ))}
-              </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '10px 14px',
+                    }}
+                  >
+                    {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => {
+                      const current = existingLimits[tier] || 0;
+                      const added = parseInt(addedLimits[tier]) || 0;
+                      const newTotal = current + added;
+
+                      return (
+                        <div key={tier} style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '6px', border: '1px solid #ffedd5' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>
+                              {tier}
+                            </span>
+                            <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px' }}>
+                              Current: {current}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#ea580c' }}>+</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={addedLimits[tier]}
+                              onChange={e => {
+                                const val = e.target.value === '' ? '' : parseInt(e.target.value) || 0;
+                                setAddedLimits(prev => ({ ...prev, [tier]: val }));
+                              }}
+                              style={{ ...inputStyle, height: '28px', fontSize: '12px', flex: 1 }}
+                              placeholder="0"
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #fed7aa' }}>
+                            <span style={{ fontSize: '10px', color: '#64748b' }}>New Total:</span>
+                            <span style={{ fontSize: '11.5px', fontWeight: 800, color: added > 0 ? '#16a34a' : '#0f172a' }}>
+                              {newTotal} Devices
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Summary Bar */}
+                  <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #fed7aa', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11.5px' }}>
+                    <span style={{ color: '#7c2d12', fontWeight: 600 }}>
+                      Current: {Object.values(existingLimits).reduce((a, b) => a + (Number(b) || 0), 0)}
+                      {' '}+ Adding: {Object.values(addedLimits).reduce((a, b) => a + (parseInt(b) || 0), 0)}
+                    </span>
+                    <span style={{ fontWeight: 800, color: '#c2410c' }}>
+                      Total Quota: {Object.keys(existingLimits).reduce((acc, t) => acc + (existingLimits[t] || 0) + (parseInt(addedLimits[t]) || 0), 0)} Devices
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                /* DIRECT OVERRIDE / NEW USER MODE */
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '8px 14px',
+                    padding: '10px 12px',
+                    background: '#fff7ed',
+                    borderRadius: '6px',
+                    border: '1px solid #fed7aa'
+                  }}
+                >
+                  {['Starter', 'Basic', 'Advanced', 'Premium'].map(tier => (
+                    <div key={tier}>
+                      <label style={{ display: 'block', fontSize: '10.5px', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                        {tier} <span style={{ color: '#94A3B8', fontWeight: 'normal' }}>(No. of Devices)</span>
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={deviceLimits[tier]}
+                        onChange={e => setDeviceLimits(prev => ({ ...prev, [tier]: parseInt(e.target.value) || 0 }))}
+                        style={{ ...inputStyle, height: '30px', fontSize: '12px' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
