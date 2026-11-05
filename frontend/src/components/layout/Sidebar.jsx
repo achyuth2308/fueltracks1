@@ -40,17 +40,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const [brandProfile, setBrandProfile] = useState(null);
-  const [openSubMenus, setOpenSubMenus] = useState(() => ({
-    'Fuel Analytics': location.pathname.startsWith('/fuel-'),
-    'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
-  }));
-
   const isTripReportPath = (p) => {
     return p === '/admin/reports/trip' || 
            p === '/admin/reports/manual-trips' || 
            p === '/admin/reports/daily-trip' ||
            p.startsWith('/admin/reports/geofence');
   };
+
+  const [openSubMenus, setOpenSubMenus] = useState(() => ({
+    'Fuel Analytics': location.pathname.startsWith('/fuel-'),
+    'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
+  }));
 
   const [tripsExpanded, setTripsExpanded] = useState(() => {
     return location.pathname === '/trips' || isTripReportPath(location.pathname);
