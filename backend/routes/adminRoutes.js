@@ -16,6 +16,12 @@ const router = express.Router();
 router.use(authenticate);
 
 // ============================================================
+// DEALERS MANAGEMENT (Superadmin Only)
+// ============================================================
+router.get('/dealers', authorize('superadmin'), AdminController.getDealersList);
+router.get('/dealers/:id/details', authorize('superadmin'), AdminController.getDealerDetails);
+
+// ============================================================
 // ORGANIZATIONS (Superadmin only or Dealer for their child orgs)
 // ============================================================
 router.get('/orgs', authorize('superadmin', 'dealer'), AdminController.getAllOrgs);

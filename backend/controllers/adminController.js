@@ -2098,6 +2098,288 @@ const AdminController = {
     }
   },
 
+  async getDealersList(req, res, next) {
+    try {
+      const query = `
+        SELECT 
+          o.id,
+          o.name,
+          o.type,
+          o.contact_person,
+          o.email,
+          o.phone,
+          o.is_active,
+          COALESCE(o.device_limits, '{"Starter":0,"Basic":0,"Advanced":0,"Premium":0}'::jsonb) as device_limits,
+          o.created_at,
+          op.logo_url,
+          op.brand_name,
+          op.subdomain,
+          op.company_name,
+          op.primary_color,
+          op.secondary_color,
+          COALESCE(dev.total_devices, 0)::int as total_devices,
+          COALESCE(dev.starter_used, 0)::int as starter_used,
+          COALESCE(dev.basic_used, 0)::int as basic_used,
+          COALESCE(dev.advanced_used, 0)::int as advanced_used,
+          COALESCE(dev.premium_used, 0)::int as premium_used,
+          COALESCE(usr.total_users, 0)::int as total_users,
+          COALESCE(veh.total_vehicles, 0)::int as total_vehicles,
+          COALESCE(child_org.total_customer_orgs, 0)::int as total_customer_orgs
+        FROM organizations o
+        LEFT JOIN organization_profiles op ON o.id = op.organization_id
+        LEFT JOIN LATERAL (
+          SELECT 
+            COUNT(*) as total_devices,
+            COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') as starter_used,
+            COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') as basic_used,
+            COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') as advanced_used,
+            COUNT(*) FILTER (WHERE licence_id LIKE 'EN%' OR licence_id LIKE 'PR%') as premium_used
+          FROM devices d
+          WHERE d.org_id = o.id OR d.org_id IN (SELECT id FROM organizations WHERE parent_id = o.id)
+        ) dev ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) as total_users
+          FROM users u
+          WHERE u.org_id = o.id OR u.org_id IN (SELECT id FROM organizations WHERE parent_id = o.id)
+        ) usr ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) as total_vehicles
+          FROM vehicles v
+          WHERE v.is_active = TRUE AND (v.org_id = o.id OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = o.id))
+        ) veh ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COUNT(*) as total_customer_orgs
+          FROM organizations co
+          WHERE co.parent_id = o.id
+        ) child_org ON TRUE
+        WHERE o.type = 'dealer'
+        ORDER BY o.name ASC;
+      `;
+      const result = await db.query(query);
+
+      const dealers = result.rows.map(row => {
+        const limits = row.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+        const used = {
+          Starter: row.starter_used || 0,
+          Basic: row.basic_used || 0,
+          Advanced: row.advanced_used || 0,
+          Premium: row.premium_used || 0
+        };
+        const leftover = {
+          Starter: Math.max(0, (limits.Starter || 0) - used.Starter),
+          Basic: Math.max(0, (limits.Basic || 0) - used.Basic),
+          Advanced: Math.max(0, (limits.Advanced || 0) - used.Advanced),
+          Premium: Math.max(0, (limits.Premium || 0) - used.Premium)
+        };
+        const totalAllocated = (limits.Starter || 0) + (limits.Basic || 0) + (limits.Advanced || 0) + (limits.Premium || 0);
+        const totalUsed = used.Starter + used.Basic + used.Advanced + used.Premium;
+        const totalLeftover = Math.max(0, totalAllocated - totalUsed);
+
+        return {
+          ...row,
+          licenses: {
+            limits,
+            used,
+            leftover,
+            totalAllocated,
+            totalUsed,
+            totalLeftover
+          }
+        };
+      });
+
+      res.json({ success: true, count: dealers.length, data: dealers });
+    } catch (err) {
+      next(err);
+    }
+  },
+
+  async getDealerDetails(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const dealerRes = await db.query(
+        `SELECT 
+          o.id,
+          o.name,
+          o.type,
+          o.contact_person,
+          o.email,
+          o.phone,
+          o.address,
+          o.is_active,
+          COALESCE(o.device_limits, '{"Starter":0,"Basic":0,"Advanced":0,"Premium":0}'::jsonb) as device_limits,
+          o.created_at,
+          op.logo_url,
+          op.brand_name,
+          op.subdomain,
+          op.company_name,
+          op.primary_color,
+          op.secondary_color,
+          op.mobile,
+          op.support_email,
+          op.support_phone,
+          op.website,
+          op.city,
+          op.state
+        FROM organizations o
+        LEFT JOIN organization_profiles op ON o.id = op.organization_id
+        WHERE o.id = $1 AND o.type = 'dealer'`,
+        [id]
+      );
+
+      if (dealerRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'Dealer not found.' });
+      }
+
+      const dealer = dealerRes.rows[0];
+
+      const telemetryRes = await db.query(
+        `SELECT
+          COUNT(*) as total_vehicles,
+          COUNT(*) FILTER (WHERE vls.last_seen >= NOW() - INTERVAL '30 minutes') as live_vehicles,
+          COUNT(*) FILTER (WHERE vls.last_seen IS NOT NULL AND vls.last_seen < NOW() - INTERVAL '30 minutes') as nodata_vehicles,
+          COUNT(*) FILTER (WHERE vls.last_seen IS NULL) as unreachable_vehicles
+        FROM vehicles v
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        WHERE v.is_active = TRUE 
+          AND (v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))`,
+        [id]
+      );
+      const telemetryStats = {
+        total: parseInt(telemetryRes.rows[0]?.total_vehicles || 0, 10),
+        live: parseInt(telemetryRes.rows[0]?.live_vehicles || 0, 10),
+        noData: parseInt(telemetryRes.rows[0]?.nodata_vehicles || 0, 10),
+        unreachable: parseInt(telemetryRes.rows[0]?.unreachable_vehicles || 0, 10)
+      };
+
+      const usedRes = await db.query(
+        `SELECT
+          COUNT(*) as total_devices,
+          COUNT(*) FILTER (WHERE licence_id LIKE 'ST%') as starter_used,
+          COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') as basic_used,
+          COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') as advanced_used,
+          COUNT(*) FILTER (WHERE licence_id LIKE 'EN%' OR licence_id LIKE 'PR%') as premium_used
+        FROM devices
+        WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`,
+        [id]
+      );
+      const limits = dealer.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
+      const used = {
+        Starter: parseInt(usedRes.rows[0]?.starter_used || 0, 10),
+        Basic: parseInt(usedRes.rows[0]?.basic_used || 0, 10),
+        Advanced: parseInt(usedRes.rows[0]?.advanced_used || 0, 10),
+        Premium: parseInt(usedRes.rows[0]?.premium_used || 0, 10)
+      };
+      const leftover = {
+        Starter: Math.max(0, (limits.Starter || 0) - used.Starter),
+        Basic: Math.max(0, (limits.Basic || 0) - used.Basic),
+        Advanced: Math.max(0, (limits.Advanced || 0) - used.Advanced),
+        Premium: Math.max(0, (limits.Premium || 0) - used.Premium)
+      };
+      const totalAllocated = (limits.Starter || 0) + (limits.Basic || 0) + (limits.Advanced || 0) + (limits.Premium || 0);
+      const totalUsed = used.Starter + used.Basic + used.Advanced + used.Premium;
+      const totalLeftover = Math.max(0, totalAllocated - totalUsed);
+
+      const usersRes = await db.query(
+        `SELECT 
+          u.id, u.name, u.email, u.phone, u.username, u.role, u.is_active, u.created_at, u.last_login,
+          o.name as org_name
+        FROM users u
+        LEFT JOIN organizations o ON u.org_id = o.id
+        WHERE u.org_id = $1 OR u.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
+        ORDER BY u.created_at DESC`,
+        [id]
+      );
+
+      const vehiclesRes = await db.query(
+        `SELECT 
+          v.id, v.name, v.plate, v.imei, v.model, v.category, v.created_at,
+          vls.last_seen,
+          CASE 
+            WHEN vls.last_seen >= NOW() - INTERVAL '30 minutes' THEN 'Online'
+            WHEN vls.last_seen IS NOT NULL THEN 'No Data'
+            ELSE 'Unreachable'
+          END as status,
+          o.name as org_name
+        FROM vehicles v
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        LEFT JOIN organizations o ON v.org_id = o.id
+        WHERE v.is_active = TRUE AND (v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))
+        ORDER BY v.created_at DESC`,
+        [id]
+      );
+
+      const devicesRes = await db.query(
+        `SELECT 
+          d.id, d.device_id as imei, d.device_type, d.licence_id, d.vehicle_id as vehicle_plate, d.created_at,
+          v.name as vehicle_name,
+          vls.last_seen,
+          CASE 
+            WHEN vls.last_seen >= NOW() - INTERVAL '30 minutes' THEN 'Online'
+            WHEN vls.last_seen IS NOT NULL THEN 'No Data'
+            ELSE 'Unreachable'
+          END as status,
+          o.name as org_name
+        FROM devices d
+        LEFT JOIN vehicles v ON d.device_id = v.imei
+        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+        LEFT JOIN organizations o ON d.org_id = o.id
+        WHERE d.org_id = $1 OR d.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
+        ORDER BY d.created_at DESC`,
+        [id]
+      );
+
+      const groupsRes = await db.query(
+        `SELECT 
+          g.id, g.name, g.description, g.is_active, g.created_at,
+          COUNT(vg.vehicle_id)::int as vehicle_count,
+          o.name as org_name
+        FROM groups g
+        LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
+        LEFT JOIN organizations o ON g.org_id = o.id
+        WHERE g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1)
+        GROUP BY g.id, g.name, g.description, g.is_active, g.created_at, o.name
+        ORDER BY g.created_at DESC`,
+        [id]
+      );
+
+      const orgsRes = await db.query(
+        `SELECT 
+          co.id, co.name, co.type, co.contact_person, co.email, co.phone, co.is_active, co.created_at,
+          (SELECT COUNT(*) FROM devices d WHERE d.org_id = co.id)::int as device_count,
+          (SELECT COUNT(*) FROM users u WHERE u.org_id = co.id)::int as user_count
+        FROM organizations co
+        WHERE co.parent_id = $1
+        ORDER BY co.created_at DESC`,
+        [id]
+      );
+
+      res.json({
+        success: true,
+        data: {
+          dealer,
+          licenses: {
+            limits,
+            used,
+            leftover,
+            totalAllocated,
+            totalUsed,
+            totalLeftover
+          },
+          telemetryStats,
+          users: usersRes.rows,
+          vehicles: vehiclesRes.rows,
+          devices: devicesRes.rows,
+          groups: groupsRes.rows,
+          organizations: orgsRes.rows
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  },
+
   async deleteOrgTrack(req, res, next) {
     try {
       const { id, trackId } = req.params;

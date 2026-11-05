@@ -39,7 +39,9 @@ export const adminApi = {
     return axiosInstance.get('/api/admin/devices', { params: { ...params } }).then(res => res.data)
   },
   deleteDevice: (id) => axiosInstance.delete(`/api/admin/devices/${id}`).then(res => res.data),
-  onboardDevices: (payload) => axiosInstance.post('/api/admin/onboard/devices', payload).then(res => res.data)
+  onboardDevices: (payload) => axiosInstance.post('/api/admin/onboard/devices', payload).then(res => res.data),
+  getDealers: () => axiosInstance.get('/api/admin/dealers').then(res => res.data),
+  getDealerDetails: (id) => axiosInstance.get(`/api/admin/dealers/${id}/details`).then(res => res.data)
 };
 
 // Response interceptor: ONLY redirect to login on a genuine 401 from a live server.

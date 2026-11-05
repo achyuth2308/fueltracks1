@@ -57,6 +57,8 @@ import GeofenceTwoWayReportPage from './pages/reports/GeofenceTwoWayReportPage';
 import GeofenceRoundTripReportPage from './pages/reports/GeofenceRoundTripReportPage';
 import OrganizationProfilePage from './modules/profile/OrganizationProfilePage';
 import DealerProfilePage from './modules/profile/DealerProfilePage';
+import DealersDashboardPage from './pages/admin/DealersDashboardPage';
+import DealerProfileDetailsPage from './pages/admin/DealerProfileDetailsPage';
 import AuditLogsAdminPage from './pages/admin/AuditLogsAdminPage';
 import SettingsAdminPage from './pages/admin/SettingsAdminPage';
 import BillingAdminPage from './pages/admin/BillingAdminPage';
@@ -136,6 +138,8 @@ function App() {
                   <Route path="billing" element={<BillingAdminPage />} />
 
                   <Route path="profile" element={<OrganizationProfilePage />} />
+                  <Route path="dealers" element={<DealersDashboardPage />} />
+                  <Route path="dealers/:id" element={<DealerProfileDetailsPage />} />
                   <Route path="dealer-profile" element={<DealerProfilePage />} />
                   <Route path="audit-logs" element={<AuditLogsAdminPage />} />
                   <Route path="settings" element={<SettingsAdminPage />} />
