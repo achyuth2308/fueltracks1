@@ -17,6 +17,8 @@ const LoginPage = () => {
   const { login, isAuthenticated, user, error: authError } = useAuth();
   const [searchParams] = useSearchParams();
   const [dealerBranding, setDealerBranding] = useState(null);
+  const [isCustomDomain, setIsCustomDomain] = useState(false);
+  const [detectedDealerSlug, setDetectedDealerSlug] = useState('');
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -27,11 +29,13 @@ const LoginPage = () => {
   useEffect(() => {
     // Check if dealer query parameter or custom host subdomain is present
     let dealerParam = searchParams.get('dealer') || searchParams.get('org');
+    let customDomain = false;
 
     if (!dealerParam && typeof window !== 'undefined' && window.location.hostname) {
       const hostname = window.location.hostname.toLowerCase();
       // If visiting a custom dealership domain (e.g., gps.smtechnologies.org or smtechnologies.org)
       if (!hostname.includes('fueltracks.in') && !hostname.includes('fueltracks.com') && !hostname.includes('localhost') && hostname !== '127.0.0.1') {
+        customDomain = true;
         const parts = hostname.split('.');
         if (parts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(parts[0])) {
           dealerParam = parts[1]; // e.g. "smtechnologies"
@@ -46,6 +50,10 @@ const LoginPage = () => {
         }
       }
     }
+
+    if (dealerParam) customDomain = true;
+    setIsCustomDomain(customDomain);
+    setDetectedDealerSlug(dealerParam || '');
 
     if (dealerParam) {
       // Save to sessionStorage (tab-scoped, clears on tab close — safe for N dealers)
@@ -170,6 +178,12 @@ const LoginPage = () => {
                   </span>
                 )}
               </>
+            ) : isCustomDomain ? (
+              <div style={{ height: '56px', display: 'flex', alignItems: 'center' }}>
+                <span style={{ fontSize: '24px', fontWeight: 900, color: '#1e293b', letterSpacing: '-0.02em' }}>
+                  {detectedDealerSlug ? detectedDealerSlug.toUpperCase() : 'FLEET PORTAL'}
+                </span>
+              </div>
             ) : (
               <img
                 src="/logo_vertical.png"
@@ -371,16 +385,16 @@ const LoginPage = () => {
                     style={{ width: '160px', height: 'auto', objectFit: 'contain' }}
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
-                ) : !dealerBranding ? (
+                ) : isCustomDomain ? (
+                  <span style={{ fontSize: '22px', fontWeight: 800, color: dealerBranding?.primary_color || '#1b3644', letterSpacing: '-0.03em' }}>
+                    {dealerBranding?.brand_name?.toUpperCase() || (detectedDealerSlug ? detectedDealerSlug.toUpperCase() : '')}
+                  </span>
+                ) : (
                   <img
                     src="/logo_vertical.png"
                     alt="FuelTracks"
                     style={{ width: '160px', height: 'auto', objectFit: 'contain' }}
                   />
-                ) : (
-                  <span style={{ fontSize: '22px', fontWeight: 800, color: dealerBranding?.primary_color || '#1b3644', letterSpacing: '-0.03em' }}>
-                    {dealerBranding?.brand_name?.toUpperCase() || ''}
-                  </span>
                 )}
               </div>
 

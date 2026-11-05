@@ -109,13 +109,23 @@ const corsOriginHandler = (() => {
     return true; // express/cors accepts `true` as "mirror request origin"
   }
   // Support comma-separated list of allowed origins
-  const allowed = origin.split(',').map(o => o.trim()).filter(Boolean);
+  const allowed = (origin || '').split(',').map(o => o.trim()).filter(Boolean);
   return (requestOrigin, callback) => {
     // allow requests with no origin (like mobile apps or curl requests)
     // and allow 'null' origin (local file:// executions for testing)
-    // and allow any localhost port (for Flutter web / local dev testing)
-    const isLocalhost = requestOrigin && /^https?:\/\/localhost(:\d+)?$/.test(requestOrigin);
-    if (!requestOrigin || requestOrigin === 'null' || isLocalhost || allowed.includes(requestOrigin)) {
+    if (!requestOrigin || requestOrigin === 'null') {
+      return callback(null, true);
+    }
+    // allow any localhost port (for Flutter web / local dev testing)
+    const isLocalhost = /^https?:\/\/localhost(:\d+)?$/.test(requestOrigin);
+    // allow any fueltracks domain/subdomain
+    const isFueltracks = /^https?:\/\/(?:[a-zA-Z0-9-]+\.)*(?:fueltracks\.in|fueltracks\.com)(?::\d+)?$/i.test(requestOrigin);
+    // allow explicitly configured origins in CORS_ORIGIN
+    const isExplicitlyAllowed = allowed.some(a => a.toLowerCase() === requestOrigin.toLowerCase());
+    // allow any valid white-label dealer domain (e.g. https://gps.smtechnologies.org)
+    const isCustomDomain = /^https?:\/\/[a-zA-Z0-9.-]+(?::\d+)?$/i.test(requestOrigin);
+
+    if (isLocalhost || isFueltracks || isExplicitlyAllowed || isCustomDomain) {
       callback(null, true);
     } else {
       callback(new Error(`CORS: origin ${requestOrigin} not allowed`));
