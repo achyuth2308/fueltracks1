@@ -455,6 +455,7 @@ async function bootstrap() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS aadhar VARCHAR(255);
       ALTER TABLE users ADD COLUMN IF NOT EXISTS no_data_minutes INT DEFAULT 30;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_password VARCHAR(255);
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
 
       CREATE TABLE IF NOT EXISTS renewal_plans (
         id SERIAL PRIMARY KEY,
