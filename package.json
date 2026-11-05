@@ -51,7 +51,7 @@
     "nodemailer": "^9.0.1",
     "pdfjs-dist": "3.11.174",
     "pg": "^8.11.5",
-    "rate-limit-redis": "4.2.0",
+    "rate-limit-redis": "^4.2.0",
     "socket.io": "^4.5.4",
     "tesseract.js": "^7.0.0"
   },

@@ -10,7 +10,12 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { RedisStore } = require('rate-limit-redis');
+let RedisStore;
+try {
+  RedisStore = require('rate-limit-redis').RedisStore;
+} catch (e) {
+  // rate-limit-redis is optional; fallback to default in-memory store if missing
+}
 const redisConfig = require('../config/redis');
 const env = require('../config/env');
 const { authenticate } = require('../middleware/auth');
@@ -45,10 +50,10 @@ try {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => `scan_upload_${req.user?.userId || req.ip}`,
-    store: new RedisStore({
+    store: (RedisStore && redisConfig.redis) ? new RedisStore({
       sendCommand: (...args) => redisConfig.redis.call(...args),
       prefix: 'rl_doc_upload:'
-    }),
+    }) : undefined,
     handler: (req, res) => {
       res.status(429).json({
         success: false,
@@ -77,10 +82,10 @@ try {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req) => `scan_confirm_${req.user?.userId || req.ip}`,
-    store: new RedisStore({
+    store: (RedisStore && redisConfig.redis) ? new RedisStore({
       sendCommand: (...args) => redisConfig.redis.call(...args),
       prefix: 'rl_doc_confirm:'
-    }),
+    }) : undefined,
     handler: (req, res) => {
       res.status(429).json({
         success: false,
