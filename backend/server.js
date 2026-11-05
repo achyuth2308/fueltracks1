@@ -456,6 +456,20 @@ async function bootstrap() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS no_data_minutes INT DEFAULT 30;
       ALTER TABLE users ADD COLUMN IF NOT EXISTS temp_password VARCHAR(255);
       ALTER TABLE organizations ADD COLUMN IF NOT EXISTS settings JSONB DEFAULT '{}'::jsonb;
+      ALTER TABLE organizations ADD COLUMN IF NOT EXISTS device_limits JSONB DEFAULT '{"Starter":0,"Basic":0,"Advanced":0,"Premium":0}'::jsonb;
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS brand_name VARCHAR(255);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS brand_tagline VARCHAR(255);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS primary_color VARCHAR(50) DEFAULT '#FF6A00';
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS secondary_color VARCHAR(50) DEFAULT '#2E4867';
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS footer_text TEXT;
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS support_email VARCHAR(255);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS support_phone VARCHAR(100);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS pan_number VARCHAR(50);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS is_whitelabel_enabled BOOLEAN DEFAULT TRUE;
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS subdomain VARCHAR(100);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS company_name VARCHAR(255);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS designation VARCHAR(100);
+      ALTER TABLE organization_profiles ADD COLUMN IF NOT EXISTS whatsapp_number VARCHAR(100);
 
       CREATE TABLE IF NOT EXISTS renewal_plans (
         id SERIAL PRIMARY KEY,

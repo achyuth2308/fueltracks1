@@ -489,9 +489,10 @@ const AdminController = {
       }
 
       // 2. Only auto-create a group if:
-      //    a) explicitly requested via autoCreateGroup === true, OR
-      //    b) no existing groups were selected at all (fallback to ensure user has a group)
-      const shouldAutoCreate = autoCreateGroup === true || allGroupIds.size === 0;
+      //    a) NOT a dealer (dealers manage their own organizations & groups; they must never have an auto-created group)
+      //    b) explicitly requested via autoCreateGroup === true, OR
+      //    c) no existing groups were selected at all (fallback to ensure normal customer has a group)
+      const shouldAutoCreate = role !== 'dealer' && (autoCreateGroup === true || (allGroupIds.size === 0 && autoCreateGroup !== false));
 
       if (shouldAutoCreate) {
         const autoGroupName = (username || name || email).trim();

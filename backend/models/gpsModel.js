@@ -1358,6 +1358,12 @@ const GpsModel = {
           (SELECT COUNT(*) FROM vehicle_latest_state vls
            JOIN vehicles v ON v.id = vls.vehicle_id
            WHERE v.is_active = TRUE AND vls.last_seen >= NOW() - ($1 || ' minutes')::INTERVAL) AS online_vehicles,
+          (SELECT COUNT(*) FROM vehicle_latest_state vls
+           JOIN vehicles v ON v.id = vls.vehicle_id
+           WHERE v.is_active = TRUE AND vls.last_seen IS NOT NULL AND vls.last_seen < NOW() - ($1 || ' minutes')::INTERVAL) AS offline_vehicles,
+          (SELECT COUNT(*) FROM vehicles v
+           LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+           WHERE v.is_active = TRUE AND (vls.last_seen IS NULL OR vls.vehicle_id IS NULL)) AS unreachable_vehicles,
           (SELECT COUNT(*) FROM organizations) AS organizations_count,
           (SELECT COUNT(*) FROM users) AS users_count
       `, [mins]);
@@ -1372,6 +1378,16 @@ const GpsModel = {
            JOIN organizations o ON v.org_id = o.id
            WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1)
              AND vls.last_seen >= NOW() - ($2 || ' minutes')::INTERVAL) AS online_vehicles,
+          (SELECT COUNT(*) FROM vehicle_latest_state vls
+           JOIN vehicles v ON v.id = vls.vehicle_id
+           JOIN organizations o ON v.org_id = o.id
+           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1)
+             AND vls.last_seen IS NOT NULL AND vls.last_seen < NOW() - ($2 || ' minutes')::INTERVAL) AS offline_vehicles,
+          (SELECT COUNT(*) FROM vehicles v
+           JOIN organizations o ON v.org_id = o.id
+           LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+           WHERE v.is_active = TRUE AND (o.id = $1 OR o.parent_id = $1)
+             AND (vls.last_seen IS NULL OR vls.vehicle_id IS NULL)) AS unreachable_vehicles,
           (SELECT COUNT(*) FROM organizations WHERE id = $1 OR parent_id = $1) AS organizations_count,
           (SELECT COUNT(*) FROM users u
            JOIN organizations o ON u.org_id = o.id
@@ -1381,7 +1397,8 @@ const GpsModel = {
 
     const totalVehicles = parseInt(result.rows[0].total_vehicles || 0);
     const onlineVehicles = parseInt(result.rows[0].online_vehicles || 0);
-    const offlineVehicles = Math.max(0, totalVehicles - onlineVehicles);
+    const offlineVehicles = parseInt(result.rows[0].offline_vehicles || 0);
+    const unreachableVehicles = parseInt(result.rows[0].unreachable_vehicles || 0);
     const availableInventory = 0; // Inventory not tracked in DB — honest zero rather than fabricated constant
 
     return {
@@ -1392,6 +1409,7 @@ const GpsModel = {
       online_vehicles: onlineVehicles,
       offline_vehicles: offlineVehicles,
       nodata_vehicles: offlineVehicles,
+      unreachable_vehicles: unreachableVehicles,
       organizations: parseInt(result.rows[0].organizations_count || 0),
       users: parseInt(result.rows[0].users_count || 0),
     };

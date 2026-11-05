@@ -13,7 +13,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user, restoreAdmin, hasAdminSession } = useAuth();
   const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!localStorage.getItem('adminToken'));
   const { connected, socket, joinOrgRoom } = useSocket();
-  const [stats, setStats] = useState({ total: 0, online: 0, offline: 0 });
+  const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, unreachable: 0 });
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [time, setTime] = useState(new Date());
   const [brandProfile, setBrandProfile] = useState(null);
@@ -323,9 +323,27 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   // Fleet stats from vehicles prop or API fallback
   useEffect(() => {
     if (vehicles.length > 0) {
-      const offlineCount = vehicles.filter(v => getVehicleStatus(v, noDataThreshold) === 'offline').length;
-      const onlineCount = Math.max(0, vehicles.length - offlineCount);
-      setStats({ total: vehicles.length, online: onlineCount, offline: offlineCount });
+      let onlineCount = 0;
+      let noDataCount = 0;
+      let unreachableCount = 0;
+
+      vehicles.forEach(v => {
+        const s = getVehicleStatus(v, noDataThreshold);
+        if (s === 'unreachable') {
+          unreachableCount++;
+        } else if (s === 'offline') {
+          noDataCount++;
+        } else {
+          onlineCount++;
+        }
+      });
+
+      setStats({
+        total: vehicles.length,
+        online: onlineCount,
+        offline: noDataCount,
+        unreachable: unreachableCount,
+      });
     } else {
       const now = Date.now();
       if (now - lastStatsFetchRef.current < 30000) return;
@@ -337,11 +355,13 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           const online = parseInt(res.data.online_vehicles) || 0;
           const offline = res.data.offline_vehicles !== undefined
             ? parseInt(res.data.offline_vehicles)
-            : Math.max(0, total - online);
+            : 0;
+          const unreachable = parseInt(res.data.unreachable_vehicles || 0);
           setStats({
             total,
             online,
             offline,
+            unreachable,
           });
         }
       }).catch(() => { });
@@ -454,6 +474,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             { label: 'Total', value: stats.total, color: '#f1f5f9' },
             { label: 'Online', value: stats.online, color: '#f97316', dot: true },
             { label: 'No Data', value: stats.offline, color: '#0ea5e9', dot: true, isNoData: true },
+            { label: 'Unreachable', value: stats.unreachable || 0, color: '#94a3b8', dot: true },
           ].map(({ label, value, color, dot, isNoData }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (
@@ -469,31 +490,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               }}>
                 {value}
               </span>
-              {isNoData && (user?.role === 'superadmin') && (
-                <select
-                  value={noDataThreshold}
-                  onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
-                  style={{
-                    marginLeft: '3px',
-                    background: 'rgba(255, 255, 255, 0.12)',
-                    border: '1px solid rgba(255, 255, 255, 0.25)',
-                    color: '#bae6fd',
-                    borderRadius: '4px',
-                    fontSize: '10px',
-                    fontWeight: 700,
-                    padding: '1px 4px',
-                    cursor: 'pointer',
-                    outline: 'none',
-                  }}
-                  title="No Data Rule: Keep vehicle in same state for this duration before marking as No Data"
-                >
-                  {NO_DATA_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value} style={{ background: '#1e1b4b', color: '#ffffff' }}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              )}
+              
             </div>
           ))}
         </div>

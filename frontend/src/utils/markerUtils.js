@@ -58,10 +58,11 @@ export const getVehicleStatus = (vehicle = {}, overrideThresholdHours) => {
   const speed = parseFloat(vehicle.current_speed !== undefined ? vehicle.current_speed : (vehicle.speed || 0));
   const ignition = !!(vehicle.current_ignition !== undefined ? vehicle.current_ignition : vehicle.ignition);
 
-  if (!vehicle.last_seen) return 'offline';
+  // If the vehicle has NEVER communicated with our server:
+  if (!vehicle.last_seen) return 'unreachable';
 
   const lastSeenMs = new Date(vehicle.last_seen).getTime();
-  if (isNaN(lastSeenMs)) return 'offline';
+  if (isNaN(lastSeenMs) || lastSeenMs <= 0) return 'unreachable';
 
   const diffMs = Date.now() - lastSeenMs;
   const thresholdHours = (overrideThresholdHours !== undefined && overrideThresholdHours > 0)

@@ -143,8 +143,8 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       role,
       orgId: isNewOrg ? undefined : orgId,
       newOrgName: isNewOrg ? newOrgName.trim() : undefined,
-      groupIds: selectedGroups,
-      autoCreateGroup: selectedGroups.length > 0 ? autoCreateGroup : true,
+      groupIds: role === 'dealer' ? [] : selectedGroups,
+      autoCreateGroup: role === 'dealer' ? false : (selectedGroups.length > 0 ? autoCreateGroup : true),
       noDataMinutes: Number(noDataMinutes) || 30,
       deviceLimits: finalDeviceLimits
     };
@@ -510,7 +510,14 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               <select
                 required
                 value={role}
-                onChange={(e) => setRole(e.target.value)}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  setRole(newRole);
+                  if (newRole === 'dealer') {
+                    setSelectedGroups([]);
+                    setAutoCreateGroup(false);
+                  }
+                }}
                 style={inputStyle}
               >
                 <option value="customer">Customer</option>
@@ -794,6 +801,27 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
           </div>
 
           {/* Groups Section */}
+          {role === 'dealer' ? (
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '40px 20px',
+              background: '#F8FAFC',
+              borderRadius: '8px',
+              border: '1.5px dashed #CBD5E1',
+              textAlign: 'center',
+              gap: '8px',
+            }}>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: '#334155' }}>
+                Dealer Organization
+              </div>
+              <div style={{ fontSize: '12px', color: '#64748B', maxWidth: '300px', lineHeight: 1.5 }}>
+                Dealers manage their own organizations, fleets, and groups. No operational groups are automatically created or assigned.
+              </div>
+            </div>
+          ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div className="user-modal-groups-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '6px', borderBottom: '1px solid #F1F5F9' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, color: '#111827' }}>
@@ -970,6 +998,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
               </>
             )}
           </div>
+          )}
         </form>
       </div>
     </div>

@@ -767,30 +767,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                     {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
                     {pill.label}
                   </button>
-                  {pill.key === 'offline' && (user?.role === 'superadmin') && (
-                    <select
-                      value={noDataThreshold}
-                      onChange={(e) => setNoDataThresholdHours(Number(e.target.value))}
-                      style={{
-                        background: '#FFFFFF',
-                        border: '1px solid #CBD5E1',
-                        color: '#0F172A',
-                        borderRadius: '10px',
-                        fontSize: '9px',
-                        fontWeight: 700,
-                        padding: '2px 4px',
-                        cursor: 'pointer',
-                        outline: 'none',
-                      }}
-                      title="No Data Rule: Keep in last state for selected time before marking as No Data"
-                    >
-                      {NO_DATA_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                  
                 </div>
               );
             })}
