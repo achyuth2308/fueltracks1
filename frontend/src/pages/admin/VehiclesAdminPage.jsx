@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Truck, ArrowLeft, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search,
+  Truck, ArrowLeft, Edit2, Trash2, Loader2, AlertTriangle, Search,
   Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, Building2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
-  Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown,
+  Filter, Tag, ArrowUpDown, ArrowUp, ArrowDown,
   Cpu, Fuel, Settings, FileText,
   Shuffle, UserPlus, Sliders, RotateCw, Award, Power
 } from 'lucide-react';
@@ -13,7 +13,6 @@ import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
-import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import FuelTracksSelect from '../../components/ui/FuelTracksSelect';
 import ReprocessModal from '../../components/modals/ReprocessModal';
@@ -81,8 +80,6 @@ const getServerAddress = (vehicle) => {
   return `${ip}:${port}`;
 };
 
-const CATEGORIES = ['All', 'TG Mining', 'VLTD', 'VLTD + Mining', 'General'];
-
 const VehiclesAdminPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -97,7 +94,6 @@ const VehiclesAdminPage = () => {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedOrgId, setSelectedOrgId] = useState('all');
   const [selectedGroupId, setSelectedGroupId] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
@@ -109,7 +105,6 @@ const VehiclesAdminPage = () => {
 
 
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
-  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
   const [reprocessingVehicle, setReprocessingVehicle] = useState(null);
   const [liveFuelVehicle, setLiveFuelVehicle] = useState(null);
   const [selectedFitmentVehicle, setSelectedFitmentVehicle] = useState(null);
@@ -149,7 +144,6 @@ const VehiclesAdminPage = () => {
       const params = {
         t: Date.now()
       };
-      if (selectedCategory !== 'All') params.category = selectedCategory;
       if (selectedOrgId !== 'all') params.orgId = selectedOrgId;
       if (selectedGroupId !== 'all') params.groupId = selectedGroupId;
 
@@ -164,7 +158,7 @@ const VehiclesAdminPage = () => {
 
   useEffect(() => {
     fetchVehicles();
-  }, [selectedCategory, selectedOrgId, selectedGroupId]);
+  }, [selectedOrgId, selectedGroupId]);
 
   // Re-fetch whenever we navigate back to this page (location.key changes on each navigation)
   useEffect(() => {
@@ -218,7 +212,7 @@ const VehiclesAdminPage = () => {
   // Reset to first page when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedCategory, selectedOrgId, selectedGroupId]);
+  }, [searchQuery, selectedOrgId, selectedGroupId]);
 
   const sortedVehicles = useMemo(() => {
     if (!sortKey) return filtered;
@@ -303,13 +297,6 @@ const VehiclesAdminPage = () => {
     return [1, '...', activePage - 1, activePage, activePage + 1, '...', totalPages];
   };
 
-  // Category counts
-  const categoryCounts = vehicles.reduce((acc, v) => {
-    const cat = v.category || 'General';
-    acc[cat] = (acc[cat] || 0) + 1;
-    return acc;
-  }, {});
-
   return (
     <div className="pastel-page-bg" style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px', gap: '10px', boxSizing: 'border-box' }}>
 
@@ -353,18 +340,6 @@ const VehiclesAdminPage = () => {
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => setIsGoogleFormModalOpen(true)}
-            style={{
-              padding: '10px 18px', borderRadius: '12px', background: '#FFFFFF',
-              border: '1px solid #CBD5E1', color: '#1E293B', fontSize: '13px', fontWeight: 700,
-              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
-            }}
-          >
-            <Globe size={16} color="#f97316" /> Google Form Link
-          </button>
-
-          <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.org_name || 'FuelTracks')}
             style={{
               padding: '10px 18px', borderRadius: '12px', background: '#FFFFFF',
@@ -388,43 +363,7 @@ const VehiclesAdminPage = () => {
             <FileSpreadsheet size={16} color="#f97316" /> Bulk Excel Onboard
           </button>
 
-          <button
-            onClick={() => navigate('/admin/vehicles/new')}
-            style={{
-              padding: '10px 20px', borderRadius: '12px', background: '#f97316',
-              border: 'none', color: '#FFFFFF', fontSize: '13px', fontWeight: 700,
-              display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-              boxShadow: '0 4px 12px rgba(249,115,22,0.25)'
-            }}
-          >
-            <Plus size={18} /> Register Vehicle
-          </button>
         </div>
-      </div>
-
-      {/* Category Tabs */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-3 p-1 bg-white rounded-xl border border-slate-200">
-        {CATEGORIES.map(cat => {
-          const count = cat === 'All' ? vehicles.length : (categoryCounts[cat] || 0);
-          const isSelected = selectedCategory === cat;
-
-          return (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${isSelected
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                }`}
-            >
-              <span>{cat}</span>
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${isSelected ? 'bg-orange-500 text-white' : 'bg-slate-100 text-slate-600'
-                }`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
       </div>
 
       {/* Filter Toolbar */}
@@ -1538,12 +1477,6 @@ const VehiclesAdminPage = () => {
           currentOrgId={user?.org_id}
         />
       )}
-
-      {/* Google Form Link & Integration Modal */}
-      <GoogleFormModal
-        isOpen={isGoogleFormModalOpen}
-        onClose={() => setIsGoogleFormModalOpen(false)}
-      />
 
       {/* Reprocess for Vehicle Modal */}
       <ReprocessModal

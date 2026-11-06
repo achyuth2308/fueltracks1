@@ -26,11 +26,9 @@ import {
   X,
   File as FileIcon,
   Trash2,
-  Check,
-  Globe
+  Check
 } from 'lucide-react';
 import miningRegistrationApi from '../../api/miningRegistrationApi';
-import GoogleFormModal from '../../components/GoogleFormModal';
 import { useAuth } from '../../hooks/useAuth';
 
 const MiningRegistrationsAdminPage = () => {
@@ -56,7 +54,6 @@ const MiningRegistrationsAdminPage = () => {
 
   // Image zoom modal
   const [zoomedMedia, setZoomedMedia] = useState(null);
-  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   const fetchRegistrations = async () => {
     setLoading(true);
@@ -236,13 +233,6 @@ const MiningRegistrationsAdminPage = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => setIsGoogleFormModalOpen(true)}
-            style={{ padding: '6px 12px', background: '#ea580c', color: '#ffffff', borderRadius: '8px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}
-            title="Get shareable Google Form link for technicians & dealers"
-          >
-            <Globe size={14} /> Google Form Link
-          </button>
           <button
             onClick={handleExportCsv}
             style={{ padding: '6px 12px', background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', borderRadius: '8px', fontWeight: 700, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
@@ -706,11 +696,6 @@ const MiningRegistrationsAdminPage = () => {
         </div>
       )}
 
-      {/* Google Form Link & Integration Modal */}
-      <GoogleFormModal
-        isOpen={isGoogleFormModalOpen}
-        onClose={() => setIsGoogleFormModalOpen(false)}
-      />
     </div>
   );
 };

@@ -397,10 +397,11 @@ const AdminController = {
         }
       }
 
-      // Check if an existing org was explicitly provided:
-      let targetOrgId = (orgId && typeof orgId === 'string' && orgId.trim() && orgId !== 'auto') ? orgId.trim() : null;
+      // Check if an existing org was explicitly provided (ignoring root platform org):
+      const ROOT_PLATFORM_ORG_ID = 'a0000000-0000-0000-0000-000000000001';
+      let targetOrgId = (orgId && typeof orgId === 'string' && orgId.trim() && orgId !== 'auto' && orgId.trim() !== ROOT_PLATFORM_ORG_ID) ? orgId.trim() : null;
 
-      // If NO organization was chosen (empty, null, or 'auto') OR a newOrgName was explicitly provided:
+      // If NO organization was chosen (empty, null, 'auto', or root org) OR a newOrgName was explicitly provided:
       // AUTOMATICALLY create / use organization with EXACT username (preserving exact CAPITALS and casing)!
       if (!targetOrgId || (newOrgName && newOrgName.trim())) {
         const finalOrgName = (newOrgName && newOrgName.trim())
@@ -413,26 +414,14 @@ const AdminController = {
         let existingOrg;
         if (parentOrgId) {
           existingOrg = await db.query(
-            `SELECT id FROM organizations WHERE name = $1 AND parent_id = $2 LIMIT 1`,
+            `SELECT id FROM organizations WHERE (name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1))) AND parent_id = $2 LIMIT 1`,
             [finalOrgName, parentOrgId]
           );
-          if (!existingOrg || existingOrg.rows.length === 0) {
-            existingOrg = await db.query(
-              `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND parent_id = $2 LIMIT 1`,
-              [finalOrgName, parentOrgId]
-            );
-          }
         } else {
           existingOrg = await db.query(
-            `SELECT id FROM organizations WHERE name = $1 LIMIT 1`,
+            `SELECT id FROM organizations WHERE name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
             [finalOrgName]
           );
-          if (!existingOrg || existingOrg.rows.length === 0) {
-            existingOrg = await db.query(
-              `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
-              [finalOrgName]
-            );
-          }
         }
 
         if (existingOrg && existingOrg.rows.length > 0) {
@@ -503,11 +492,8 @@ const AdminController = {
         }
       }
 
-      // 2. Only auto-create a group if:
-      //    a) NOT a dealer (dealers manage their own organizations & groups; they must never have an auto-created group)
-      //    b) explicitly requested via autoCreateGroup === true, OR
-      //    c) no existing groups were selected at all (fallback to ensure normal customer has a group)
-      const shouldAutoCreate = role !== 'dealer' && (autoCreateGroup === true || (allGroupIds.size === 0 && autoCreateGroup !== false));
+      // 2. Automatically create a personal group for the new user (unless explicitly opted out)
+      const shouldAutoCreate = autoCreateGroup !== false;
 
       if (shouldAutoCreate) {
         const autoGroupName = exactUsername; // EXACT username with original CAPITALS preserved!

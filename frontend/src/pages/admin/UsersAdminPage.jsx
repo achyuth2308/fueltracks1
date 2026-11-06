@@ -146,6 +146,7 @@ const UsersAdminPage = () => {
       );
     }
     fetchUsers();
+    fetchOrgs();
   };
 
   const handleDelete = async (userId, e) => {

@@ -11,6 +11,7 @@ const archiveService = require('../services/archiveService');
 const GeofenceModel = require('../models/geofenceModel');
 const AuditService = require('../services/auditService');
 const UserModel = require('../models/userModel');
+const OrgModel = require('../models/orgModel');
 const bcrypt = require('bcryptjs');
 const { redis } = require('../config/redis');
 const db = require('../config/db');
@@ -817,6 +818,7 @@ const VehicleController = {
 
       const targetOrgId = orgId || vehicle.org_id || req.user.orgId;
       let finalUserId = userId;
+      let userOrgId = targetOrgId;
 
       // Handle New User creation if selected
       if (isNewUser) {
@@ -827,8 +829,9 @@ const VehicleController = {
           return res.status(400).json({ success: false, error: 'Password is required for new user.' });
         }
 
-        const cleanEmail = email ? email.toLowerCase().trim() : `${(username || name).toLowerCase().replace(/[^a-z0-9]/g, '')}@fueltracks.com`;
-        const cleanUsername = username ? username.toLowerCase().trim() : (cleanEmail.split('@')[0] || 'user');
+        const exactUsername = (username && username.trim()) ? username.trim() : (name || email || '').trim();
+        const cleanEmail = email ? email.toLowerCase().trim() : `${exactUsername.toLowerCase().replace(/[^a-z0-9]/g, '')}@fueltracks.com`;
+        const cleanUsername = exactUsername || (cleanEmail.split('@')[0] || 'user');
 
         // Check if user already exists
         const existingUser = await UserModel.findByIdentifier(cleanEmail) || await UserModel.findByIdentifier(cleanUsername);
@@ -836,11 +839,43 @@ const VehicleController = {
           return res.status(409).json({ success: false, error: 'A user with this email or username already exists.' });
         }
 
+        // 1. Automatically create / resolve Organization with exact username
+        const finalOrgName = exactUsername;
+        const parentOrgId = req.user.role === 'superadmin' ? (vehicle.org_id || req.user.orgId) : req.user.orgId;
+
+        let existingOrg;
+        if (parentOrgId) {
+          existingOrg = await db.query(
+            `SELECT id FROM organizations WHERE (name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1))) AND parent_id = $2 LIMIT 1`,
+            [finalOrgName, parentOrgId]
+          );
+        }
+        if (!existingOrg || existingOrg.rows.length === 0) {
+          existingOrg = await db.query(
+            `SELECT id FROM organizations WHERE name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+            [finalOrgName]
+          );
+        }
+
+        if (existingOrg && existingOrg.rows.length > 0) {
+          userOrgId = existingOrg.rows[0].id;
+        } else {
+          const createdOrg = await OrgModel.create({
+            name: finalOrgName,
+            type: role === 'dealer' ? 'dealer' : 'customer',
+            parentId: parentOrgId,
+            email: cleanEmail,
+            phone: phone || null,
+            contactPerson: name || exactUsername
+          });
+          userOrgId = createdOrg.id;
+        }
+
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         const newUser = await UserModel.create({
-          orgId: targetOrgId,
+          orgId: userOrgId,
           email: cleanEmail,
           username: cleanUsername,
           password: hashedPassword,
@@ -849,16 +884,63 @@ const VehicleController = {
           phone: phone || null
         });
         finalUserId = newUser.id;
+
+        // 2. Automatically create Group with exact username under userOrgId
+        const autoGroupName = exactUsername;
+        let existingGroup = await db.query(
+          `SELECT id FROM groups WHERE org_id = $1 AND (name = $2 OR LOWER(TRIM(name)) = LOWER(TRIM($2))) LIMIT 1`,
+          [userOrgId, autoGroupName]
+        );
+        let userGroupId;
+        if (existingGroup && existingGroup.rows.length > 0) {
+          userGroupId = existingGroup.rows[0].id;
+        } else {
+          const createdGroup = await GroupModel.create({
+            orgId: userOrgId,
+            name: autoGroupName,
+            description: `Auto-created group for user ${autoGroupName}`
+          });
+          userGroupId = createdGroup.id;
+        }
+
+        // Link new user to their auto-created group
+        await db.query(
+          `INSERT INTO user_groups (user_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, group_id) DO NOTHING`,
+          [finalUserId, userGroupId]
+        );
+
+        // Also link vehicle to this auto-created group
+        await db.query(
+          `INSERT INTO vehicle_groups (vehicle_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+          [id, userGroupId]
+        );
       }
 
       if (!finalUserId) {
         return res.status(400).json({ success: false, error: 'Please select or create a user.' });
       }
 
-      // If a group is selected, link vehicle and user to that group
+      // If an additional group was selected, also link vehicle and user to that group
       let finalGroupId = groupId;
-      if (!finalGroupId) {
-        // Look up if vehicle already has a group
+      if (finalGroupId) {
+        await db.query(
+          `INSERT INTO vehicle_groups (vehicle_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+          [id, finalGroupId]
+        );
+        await db.query(
+          `INSERT INTO user_groups (user_id, group_id)
+           VALUES ($1, $2)
+           ON CONFLICT (user_id, group_id) DO NOTHING`,
+          [finalUserId, finalGroupId]
+        );
+      } else if (!isNewUser) {
+        // Only look up / create default vehicle group if NOT a newly created user (new user already has auto-group)
         const existingGroupRes = await db.query(
           `SELECT vg.group_id FROM vehicle_groups vg
            JOIN groups g ON vg.group_id = g.id
@@ -868,7 +950,6 @@ const VehicleController = {
         if (existingGroupRes.rows.length > 0) {
           finalGroupId = existingGroupRes.rows[0].group_id;
         } else {
-          // Auto-create default group for vehicle
           const targetGroupName = `${vehicle.plate || vehicle.name || 'Vehicle'} Group`;
           const createdG = await GroupModel.create({
             orgId: targetOrgId,
@@ -877,28 +958,26 @@ const VehicleController = {
           });
           finalGroupId = createdG.id;
         }
+        if (finalGroupId) {
+          await db.query(
+            `INSERT INTO vehicle_groups (vehicle_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
+            [id, finalGroupId]
+          );
+          await db.query(
+            `INSERT INTO user_groups (user_id, group_id)
+             VALUES ($1, $2)
+             ON CONFLICT (user_id, group_id) DO NOTHING`,
+            [finalUserId, finalGroupId]
+          );
+        }
       }
 
-      // Assign vehicle to group
-      if (finalGroupId) {
-        await db.query(
-          `INSERT INTO vehicle_groups (vehicle_id, group_id)
-           VALUES ($1, $2)
-           ON CONFLICT (vehicle_id, group_id) DO NOTHING`,
-          [id, finalGroupId]
-        );
-        // Assign user to group
-        await db.query(
-          `INSERT INTO user_groups (user_id, group_id)
-           VALUES ($1, $2)
-           ON CONFLICT (user_id, group_id) DO NOTHING`,
-          [finalUserId, finalGroupId]
-        );
-      }
-
-      // If org changed, update vehicle's organization
-      if (targetOrgId && targetOrgId !== vehicle.org_id) {
-        await VehicleModel.update(id, { org_id: targetOrgId });
+      // Update vehicle's organization if user was created with a new org
+      const effectiveOrgId = isNewUser ? userOrgId : targetOrgId;
+      if (effectiveOrgId && effectiveOrgId !== vehicle.org_id) {
+        await VehicleModel.update(id, { org_id: effectiveOrgId });
       }
 
       res.status(200).json({

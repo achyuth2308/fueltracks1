@@ -26,62 +26,33 @@ const OnboardController = {
           throw new Error('User Name, Email, and Password are required.');
         }
 
-        // 1. If an existing group was chosen, resolve the organization from that group
-        const selectedGroup = existingGroupId || additionalGroupId;
-        if (selectedGroup) {
-          const groupOrgRes = await client.query('SELECT org_id FROM groups WHERE id = $1', [selectedGroup]);
-          if (groupOrgRes.rows.length > 0 && groupOrgRes.rows[0].org_id) {
-            targetOrgId = groupOrgRes.rows[0].org_id;
-          }
-        } else if (orgId) {
-          const orgCheck = await client.query('SELECT id FROM organizations WHERE id::text = $1', [String(orgId)]);
-          if (orgCheck.rows.length > 0) {
-            targetOrgId = orgCheck.rows[0].id;
-          }
+        // Always auto-create Organization with exact username (preserving exact CAPITALS) for the new user
+        const orgName = finalUsername;
+        const parentOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
+
+        let orgCheck;
+        if (parentOrgId) {
+          orgCheck = await client.query(
+            'SELECT id FROM organizations WHERE (name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1))) AND parent_id = $2 LIMIT 1',
+            [orgName, parentOrgId]
+          );
+        } else {
+          orgCheck = await client.query(
+            'SELECT id FROM organizations WHERE name = $1 OR LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1',
+            [orgName]
+          );
         }
 
-        // 2. Auto-create Organization with exact username (preserving exact CAPITALS) for the new user if no org resolved
-        if (!targetOrgId) {
-          const orgName = finalUsername;
-          const parentOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
-
-          let orgCheck;
-          if (parentOrgId) {
-            orgCheck = await client.query(
-              'SELECT id FROM organizations WHERE name = $1 AND parent_id = $2 LIMIT 1',
-              [orgName, parentOrgId]
-            );
-            if (orgCheck.rows.length === 0) {
-              orgCheck = await client.query(
-                'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND parent_id = $2 LIMIT 1',
-                [orgName, parentOrgId]
-              );
-            }
-          } else {
-            orgCheck = await client.query(
-              'SELECT id FROM organizations WHERE name = $1 LIMIT 1',
-              [orgName]
-            );
-            if (orgCheck.rows.length === 0) {
-              orgCheck = await client.query(
-                'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1',
-                [orgName]
-              );
-            }
-          }
-
-          if (orgCheck.rows.length > 0) {
-            targetOrgId = orgCheck.rows[0].id;
-          } else {
-            const newOrgRes = await client.query(
-              `INSERT INTO organizations (name, type, parent_id, email, phone, contact_person)
-               VALUES ($1, 'customer', $2, $3, $4, $5)
-               RETURNING id`,
-              [orgName, parentOrgId, email.toLowerCase().trim(), phone || null, name || finalUsername]
-            );
-            targetOrgId = newOrgRes.rows[0].id;
-          }
-        }
+        if (orgCheck.rows.length > 0) {
+          targetOrgId = orgCheck.rows[0].id;
+        } else {
+          const newOrgRes = await client.query(
+            `INSERT INTO organizations (name, type, parent_id, email, phone, contact_person)
+             VALUES ($1, 'customer', $2, $3, $4, $5)
+             RETURNING id`,
+            [orgName, parentOrgId, email.toLowerCase().trim(), phone || null, name || finalUsername]
+          );
+          targetOrgId = newOrgRes.rows[0].id;
         }
 
         const salt = await bcrypt.genSalt(10);

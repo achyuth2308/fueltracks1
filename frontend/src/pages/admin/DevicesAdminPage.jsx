@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Server, Loader2, AlertTriangle, Search, ChevronLeft, ChevronRight, X, Truck,
-  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download, Globe,
+  Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download,
   Clock, Trash2, Cpu
 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
@@ -10,7 +10,6 @@ import * as api from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import DeviceInventoryUploadModal from '../../components/modals/DeviceInventoryUploadModal';
-import GoogleFormModal from '../../components/GoogleFormModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import { getNoDataThresholdHours } from '../../utils/markerUtils';
 
@@ -60,7 +59,6 @@ const DevicesAdminPage = () => {
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
-  const [isGoogleFormModalOpen, setIsGoogleFormModalOpen] = useState(false);
 
   useEffect(() => {
     const handleThresholdChange = (e) => {
@@ -181,15 +179,6 @@ const DevicesAdminPage = () => {
 
         {/* Action Buttons */}
         <div className="flex items-center flex-wrap gap-2">
-          <button
-            onClick={() => setIsGoogleFormModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
-            title="Share Google Form link with technicians/dealers for automatic admin sync"
-          >
-            <Globe size={14} className="text-blue-600" />
-            <span>Google Form Link</span>
-          </button>
-
           <button
             onClick={() => generateVehicleOnboardingTemplate(groups, user?.orgName)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
@@ -623,12 +612,6 @@ const DevicesAdminPage = () => {
         availableOrgs={orgs}
         currentOrgId={user?.orgId}
         isSuperAdmin={isSuperAdmin}
-      />
-
-      {/* Google Form Link & Integration Modal */}
-      <GoogleFormModal
-        isOpen={isGoogleFormModalOpen}
-        onClose={() => setIsGoogleFormModalOpen(false)}
       />
 
     </div>

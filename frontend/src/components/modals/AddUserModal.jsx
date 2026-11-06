@@ -72,7 +72,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       setOrgId('');
       setIsNewOrg(false);
       setNewOrgName('');
-      setAutoCreateGroup(false);
+      setAutoCreateGroup(true);
       setSelectedGroups([]);
       setDeviceLimits({ Starter: 0, Basic: 0, Advanced: 0, Premium: 0 });
       setNoDataMinutes(30);
@@ -141,10 +141,10 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
       email,
       phone,
       role,
-      orgId: isNewOrg ? undefined : orgId,
+      orgId: isNewOrg ? undefined : (orgId && orgId.trim() ? orgId.trim() : undefined),
       newOrgName: isNewOrg ? newOrgName.trim() : undefined,
       groupIds: role === 'dealer' ? [] : selectedGroups,
-      autoCreateGroup: role === 'dealer' ? false : (selectedGroups.length > 0 ? autoCreateGroup : true),
+      autoCreateGroup: true,
       noDataMinutes: Number(noDataMinutes) || 30,
       deviceLimits: finalDeviceLimits
     };
@@ -495,9 +495,11 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                   style={inputStyle}
                 >
                   <option value="">Auto-create with Username (Default)</option>
-                  {orgs && orgs.map(org => (
-                    <option key={org.id} value={org.id}>{org.name}</option>
-                  ))}
+                  {orgs && orgs
+                    .filter(org => org.id !== 'a0000000-0000-0000-0000-000000000001' && org.type !== 'super')
+                    .map(org => (
+                      <option key={org.id} value={org.id}>{org.name}</option>
+                    ))}
                 </select>
               )}
             </div>
@@ -515,7 +517,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                   setRole(newRole);
                   if (newRole === 'dealer') {
                     setSelectedGroups([]);
-                    setAutoCreateGroup(false);
+                    setAutoCreateGroup(true);
                   }
                 }}
                 style={inputStyle}

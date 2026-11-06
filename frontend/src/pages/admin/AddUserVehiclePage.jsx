@@ -117,8 +117,8 @@ const AddUserVehiclePage = () => {
     try {
       const payload = {
         isNewUser: userType === 'new',
-        orgId: selectedOrgId || vehicle?.org_id || null,
-        groupId: selectedGroupId || null,
+        orgId: userType === 'new' ? null : (selectedOrgId || vehicle?.org_id || null),
+        groupId: userType === 'new' ? null : (selectedGroupId || null),
         userId: selectedUserId || null,
         name: userName.trim(),
         username: userName.trim(),
@@ -138,8 +138,7 @@ const AddUserVehiclePage = () => {
           phone: mobileNumber.trim(),
           password: password,
           role: 'customer',
-          orgId: selectedOrgId,
-          groupIds: selectedGroupId ? [selectedGroupId] : []
+          autoCreateGroup: true
         });
       }
 
