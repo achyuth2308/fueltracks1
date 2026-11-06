@@ -21,7 +21,7 @@ const OnboardController = {
 
       if (userType === 'new') {
         const { name, phone, email, password, username, location, aadhar, existingGroupId, additionalGroupId, orgId } = newUser;
-        const finalUsername = (username || name || email).trim().toLowerCase();
+        const finalUsername = (username || name || email || '').trim();
         if (!email || !password || !finalUsername) {
           throw new Error('User Name, Email, and Password are required.');
         }
@@ -34,27 +34,54 @@ const OnboardController = {
             targetOrgId = groupOrgRes.rows[0].org_id;
           }
         } else if (orgId) {
-          targetOrgId = orgId;
-        }
-
-        // 2. Validate that targetOrgId actually exists in the organizations table
-        let validOrg = false;
-        if (targetOrgId) {
-          const orgCheck = await client.query('SELECT id FROM organizations WHERE id::text = $1', [String(targetOrgId)]);
+          const orgCheck = await client.query('SELECT id FROM organizations WHERE id::text = $1', [String(orgId)]);
           if (orgCheck.rows.length > 0) {
             targetOrgId = orgCheck.rows[0].id;
-            validOrg = true;
           }
         }
 
-        // 3. Fallback if caller is superadmin (dummy org ID) or org is invalid
-        if (!validOrg) {
-          const fallbackOrgRes = await client.query('SELECT id FROM organizations ORDER BY id ASC LIMIT 1');
-          if (fallbackOrgRes.rows.length > 0) {
-            targetOrgId = fallbackOrgRes.rows[0].id;
+        // 2. Auto-create Organization with exact username (preserving exact CAPITALS) for the new user if no org resolved
+        if (!targetOrgId) {
+          const orgName = finalUsername;
+          const parentOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
+
+          let orgCheck;
+          if (parentOrgId) {
+            orgCheck = await client.query(
+              'SELECT id FROM organizations WHERE name = $1 AND parent_id = $2 LIMIT 1',
+              [orgName, parentOrgId]
+            );
+            if (orgCheck.rows.length === 0) {
+              orgCheck = await client.query(
+                'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND parent_id = $2 LIMIT 1',
+                [orgName, parentOrgId]
+              );
+            }
           } else {
-            throw new Error('No valid organization found to assign this user to.');
+            orgCheck = await client.query(
+              'SELECT id FROM organizations WHERE name = $1 LIMIT 1',
+              [orgName]
+            );
+            if (orgCheck.rows.length === 0) {
+              orgCheck = await client.query(
+                'SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1',
+                [orgName]
+              );
+            }
           }
+
+          if (orgCheck.rows.length > 0) {
+            targetOrgId = orgCheck.rows[0].id;
+          } else {
+            const newOrgRes = await client.query(
+              `INSERT INTO organizations (name, type, parent_id, email, phone, contact_person)
+               VALUES ($1, 'customer', $2, $3, $4, $5)
+               RETURNING id`,
+              [orgName, parentOrgId, email.toLowerCase().trim(), phone || null, name || finalUsername]
+            );
+            targetOrgId = newOrgRes.rows[0].id;
+          }
+        }
         }
 
         const salt = await bcrypt.genSalt(10);
@@ -68,12 +95,18 @@ const OnboardController = {
         );
         targetUserId = userResult.rows[0].id;
 
-        // Auto-create Group with username for the new user
+        // Auto-create Group with exact username (preserving exact CAPITALS) for the new user
         const groupName = finalUsername;
-        const groupCheck = await client.query(
-          `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+        let groupCheck = await client.query(
+          `SELECT id FROM groups WHERE org_id = $1 AND name = $2 LIMIT 1`,
           [targetOrgId, groupName]
         );
+        if (groupCheck.rows.length === 0) {
+          groupCheck = await client.query(
+            `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1`,
+            [targetOrgId, groupName]
+          );
+        }
 
         if (groupCheck.rows.length > 0) {
           targetGroupId = groupCheck.rows[0].id;
@@ -224,8 +257,9 @@ const OnboardController = {
           }
         }
 
+        const quotaOrgId = req.user.orgId || targetOrgId;
         const orgResult = await client.query(
-          `SELECT device_limits FROM organizations WHERE id = $1`, [targetOrgId]
+          `SELECT device_limits FROM organizations WHERE id = $1`, [quotaOrgId]
         );
         const limits = orgResult.rows[0]?.device_limits || { Starter: 0, Basic: 0, Advanced: 0, Premium: 0 };
 
@@ -235,7 +269,7 @@ const OnboardController = {
              COUNT(*) FILTER (WHERE licence_id LIKE 'BC%') AS "Basic",
              COUNT(*) FILTER (WHERE licence_id LIKE 'AD%') AS "Advanced",
              COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium"
-           FROM devices WHERE org_id = $1`, [targetOrgId]
+           FROM devices WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`, [quotaOrgId]
         );
         const used = {
           Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
@@ -268,7 +302,7 @@ const OnboardController = {
         registrationNo = String(registrationNo || '').trim();
         vehicleId = String(vehicleId || '').trim();
         iccid = String(iccid || '').trim();
-        vehicleName = vehicleName ? String(vehicleName).trim() : `Vehicle ${deviceId}`;
+        vehicleName = vehicleName ? String(vehicleName).trim() : (vehicleId || `Vehicle ${deviceId}`);
         gpsSimNo = String(gpsSimNo || '').trim();
         gpsSimNo2 = String(gpsSimNo2 || '').trim();
 
@@ -566,7 +600,57 @@ const OnboardController = {
         const vehicleModel = String(row['Vehicle Model'] || row.vehicleModel || row.model || 'Truck').trim();
         const vehicleName = String(row['Vehicle Name'] || row.vehicleName || (registrationNo || vehicleIdInput ? vehicleNumber : `Vehicle ${imei}`)).trim();
 
-        const vlttdSlno = String(row.vlttdSlno || row['VLTD SLNO'] || row['VLTTD SLNO'] || '').trim();
+        const vlttdSlno = String(
+          row.vlttdSlno || row.serialNo || row.deviceSerialNo ||
+          row['VLTD SLNO'] || row['VLTTD SLNO'] || row['Device Serial Number'] ||
+          row['Device Serial No'] || row['Serial Number'] || row['Serial No'] ||
+          row['VLTD Serial Number'] || row['VLTD Serial No'] ||
+          row['SLNO'] || row['SL NO'] || ''
+        ).trim();
+
+        const resolveBulkManufacturer = (m, s, explicit) => {
+          if (explicit && typeof explicit === 'string' && explicit.trim() && explicit.trim() !== 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
+            const up = explicit.trim().toUpperCase();
+            if (up.includes('VOLTY') || up.includes('VOLTSYS') || up === 'VOLTY') return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+            if (up.includes('APM') || up.includes('KINGSTRACK')) return 'APM KINGSTRACK PRIVATE LIMITED';
+            if (up.includes('TELTONIKA')) return 'TELTONIKA TELEMATICS';
+            if (up.includes('CONCOX') || up.includes('JIMI')) return 'CONCOX / JIMI IOT';
+            if (up.includes('BSTPL') || up.includes('BHARAT SATELLITE')) return 'BHARAT SATELLITE TRACKING PVT LTD';
+            if (up.includes('TRACKNOW')) return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+            if (up.includes('VAMO')) return 'VAMO SYSTEMS PRIVATE LIMITED';
+            if (up.includes('TRANSYNC')) return 'TRANSYNC TELEMATICS';
+            return explicit.trim();
+          }
+          const text = `${m || ''} ${s || ''}`.toUpperCase().trim();
+          if (text.includes('VOLTY') || text.includes('VOL1') || text.includes('VLY') || text.includes('VLT') || text.includes('VOLTSYS') || text.startsWith('VOL') || text.startsWith('VLY')) {
+            return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+          }
+          if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM') || text.includes('1819001A')) {
+            return 'APM KINGSTRACK PRIVATE LIMITED';
+          }
+          if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB') || text.includes('FMM') || text.includes('TST')) {
+            return 'TELTONIKA TELEMATICS';
+          }
+          if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK') || text.includes('GT06') || text.includes('GT800') || text.includes('V5')) {
+            return 'CONCOX / JIMI IOT';
+          }
+          if (text.includes('BSTPL') || text.includes('BST')) {
+            return 'BHARAT SATELLITE TRACKING PVT LTD';
+          }
+          if (text.includes('TRACKNOW') || text.includes('TRK')) {
+            return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+          }
+          if (text.includes('VAMO')) {
+            return 'VAMO SYSTEMS PRIVATE LIMITED';
+          }
+          if (text.includes('TRANSYNC') || text.includes('NAV140') || text.includes('NAV 140')) {
+            return 'TRANSYNC TELEMATICS';
+          }
+          return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+        };
+
+        const explicitMfr = String(row.manufacturer || row.vltdManufacturer || row['VLTD Manufacturer Name'] || row['Manufacturer'] || '').trim();
+        const vltdManufacturer = resolveBulkManufacturer(deviceType, vlttdSlno, explicitMfr);
         const sim1 = String(row.sim1 || row['GPS SIM Number 1'] || row['GPS SIMNO 1'] || row['GPS SIMNO1'] || row['SIM 1'] || row.gpsSimNo || '').trim();
         const sim2 = String(row.sim2 || row['GPS SIM Number 2'] || row['GPS SIMNO 2'] || row['GPS SIMNO2'] || row['SIM 2'] || '').trim();
         const chassisNo = String(row.chassisNo || row.chassisNumber || row['Chassis Number'] || '').trim();
@@ -716,6 +800,11 @@ const OnboardController = {
         const metadata = {
           vehicleId: vehicleIdInput || vehicleNumber,
           vlttdSlno,
+          deviceSerialNo: vlttdSlno,
+          serialNo: vlttdSlno,
+          vltdManufacturer,
+          modelName: deviceType,
+          deviceModel: deviceType,
           iccid,
           sim1,
           sim2,
@@ -742,7 +831,6 @@ const OnboardController = {
           email,
           username,
           password,
-          deviceModel: deviceType,
           onboardedVia: 'EXCEL_BULK_IMPORT',
           registrationNo,
           vehicleTypeSelect,
@@ -804,6 +892,33 @@ const OnboardController = {
             [vehicleId]
           );
         }
+
+        // 8. Auto-populate device_inventory table with real hardware profile
+        try {
+          await client.query(
+            `INSERT INTO device_inventory (
+              org_id, imei, serial_no, iccid, device_model, manufacturer, sim_provider, sim_no, batch_name
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            ON CONFLICT (imei) DO UPDATE SET
+              serial_no = COALESCE(EXCLUDED.serial_no, device_inventory.serial_no),
+              iccid = COALESCE(EXCLUDED.iccid, device_inventory.iccid),
+              device_model = COALESCE(EXCLUDED.device_model, device_inventory.device_model),
+              manufacturer = COALESCE(EXCLUDED.manufacturer, device_inventory.manufacturer),
+              sim_no = COALESCE(EXCLUDED.sim_no, device_inventory.sim_no),
+              updated_at = NOW()`,
+            [
+              targetOrgId,
+              imei,
+              vlttdSlno || null,
+              iccid || null,
+              deviceType || null,
+              vltdManufacturer,
+              'Technojacks',
+              sim1 || null,
+              'Bulk_Onboarding'
+            ]
+          );
+        } catch (_) {}
 
         onboardedResults.push({
           imei,

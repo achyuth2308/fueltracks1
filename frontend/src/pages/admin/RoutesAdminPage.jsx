@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Navigation, Plus, Trash2, Edit3, Search, Truck, AlertCircle,
+  Navigation, ArrowLeft, Plus, Trash2, Edit3, Search, Truck, AlertCircle,
   Loader2, CheckSquare, Square, Undo2, MapPin, Check, ArrowRight
 } from 'lucide-react';
 import { MapContainer, TileLayer, Polyline, Marker, useMapEvents, useMap, Tooltip, Circle } from 'react-leaflet';
@@ -95,6 +96,7 @@ const ResizeMap = () => {
 };
 
 const RoutesAdminPage = () => {
+  const navigate = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -344,22 +346,48 @@ const RoutesAdminPage = () => {
       {/* Header */}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', marginBottom: '24px' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
-              Routes & Transit Corridors
-            </h1>
-            <span
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
               style={{
-                fontSize: '11px',
-                fontWeight: 800,
-                background: '#E0F2FE',
-                color: '#0284C7',
-                padding: '3px 10px',
-                borderRadius: '99px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                cursor: 'pointer',
+                color: '#334155',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease',
+                flexShrink: 0
               }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+              title="Go Back"
             >
-              {routes.length} Active Route{routes.length === 1 ? '' : 's'}
-            </span>
+              <ArrowLeft size={18} />
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
+                Routes & Transit Corridors
+              </h1>
+              <span
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  background: '#E0F2FE',
+                  color: '#0284C7',
+                  padding: '3px 10px',
+                  borderRadius: '99px',
+                }}
+              >
+                {routes.length} Active Route{routes.length === 1 ? '' : 's'}
+              </span>
+            </div>
           </div>
           <p style={{ fontSize: '13px', color: '#64748B', marginTop: '4px', margin: 0 }}>
             Define designated vehicle transit corridors, allowable GPS deviation tolerance buffers, and sequence checkpoints.

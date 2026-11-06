@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { Building2, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio, Users, Truck, ChevronRight, Bell } from 'lucide-react';
+import { Building2, ArrowLeft, Plus, Edit, Trash2, Loader2, AlertTriangle, X, Settings, Shield, MapPin, Fuel, Radio, Users, Truck, ChevronRight, Bell, Search } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -19,6 +19,7 @@ const OrgsAdminPage = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState(null);
   const [activeActionOrgId, setActiveActionOrgId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Close Action dropdown when clicking anywhere outside
   useEffect(() => {
@@ -190,16 +191,50 @@ const OrgsAdminPage = () => {
     }
   };
 
-  const visibleOrgs = orgs;
+  const visibleOrgs = (Array.isArray(orgs) ? orgs : []).filter(org => {
+    if (!org) return false;
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase().trim();
+    const nameMatch = (org.name || '').toLowerCase().includes(q);
+    const emailMatch = (org.email || '').toLowerCase().includes(q);
+    const phoneMatch = (org.phone || '').toLowerCase().includes(q);
+    const contactMatch = (org.contact_person || '').toLowerCase().includes(q);
+    return nameMatch || emailMatch || phoneMatch || contactMatch;
+  });
 
   return (
     <div className="pastel-page-bg" style={{ padding: '32px', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em' }}>Organizations</h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Manage workspace hierarchies and configuration policies.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', margin: 0 }}>Organizations</h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0' }}>Manage workspace hierarchies and configuration policies.</p>
+          </div>
         </div>
         <button
           onClick={() => handleOpenModal()}
@@ -224,6 +259,39 @@ const OrgsAdminPage = () => {
         background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
         boxShadow: '0 4px 6px rgba(0,0,0,0.02)', overflow: 'visible', flex: 1
       }}>
+        {/* Search Bar */}
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <div style={{ position: 'relative', width: '100%', maxWidth: '340px' }}>
+            <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={16} />
+            <input
+              type="text"
+              placeholder="Search organizations..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 14px 10px 38px',
+                borderRadius: '10px', border: '1px solid #CBD5E1',
+                fontSize: '14px', outline: 'none', color: '#111827', boxSizing: 'border-box'
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                style={{
+                  position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: '2px'
+                }}
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>
+            {visibleOrgs.length} {visibleOrgs.length === 1 ? 'Organization' : 'Organizations'}
+          </div>
+        </div>
+
         {loading ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
             <Loader2 size={32} color="#f97316" className="animate-spin" />
@@ -255,7 +323,7 @@ const OrgsAdminPage = () => {
                 {visibleOrgs.length === 0 ? (
                   <tr>
                     <td colSpan="3" style={{ padding: '40px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>No organizations available</div>
+                      <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>{searchQuery.trim() ? `No organizations matching "${searchQuery}"` : 'No organizations available'}</div>
                     </td>
                   </tr>
                 ) : visibleOrgs.map((org, index) => (

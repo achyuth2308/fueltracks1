@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
+import { Cpu, ArrowLeft, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Globe } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
@@ -154,10 +154,26 @@ const OnBoardDevicePage = () => {
       }
     }
 
+    // Auto-select Organization matching user's org_id, org_name, or username
+    let autoOrgId = userOrgId || '';
+    if (!autoOrgId && selectedUser && orgs.length > 0) {
+      const uUsername = (selectedUser.username || '').toLowerCase().trim();
+      const uName = (selectedUser.name || '').toLowerCase().trim();
+      const uOrgName = (selectedUser.org_name || '').toLowerCase().trim();
+      const matchOrg = orgs.find(o => {
+        const oName = (o.name || '').toLowerCase().trim();
+        return (uOrgName && oName === uOrgName) || (uUsername && oName === uUsername) || (uName && oName === uName);
+      });
+      if (matchOrg) {
+        autoOrgId = matchOrg.id;
+      }
+    }
+
     setExistingUserSelection(prev => ({
       ...prev,
       userId: selectedUserId,
       groupId: autoGroupId || '',
+      orgId: autoOrgId || '',
       additionalGroupId: prev.additionalGroupId || ''
     }));
   };
@@ -327,7 +343,13 @@ const OnBoardDevicePage = () => {
 
   const updateDevice = (index, field, value) => {
     const updated = [...devices];
+    const prevVehicleId = updated[index].vehicleId;
     updated[index][field] = value;
+    if (field === 'vehicleId') {
+      if (!updated[index].vehicleName || updated[index].vehicleName === prevVehicleId) {
+        updated[index].vehicleName = value;
+      }
+    }
     setDevices(updated);
   };
 
@@ -416,6 +438,29 @@ const OnBoardDevicePage = () => {
 
       {/* Header and Breadcrumbs */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid #CBD5E1',
+            background: '#FFFFFF',
+            cursor: 'pointer',
+            color: '#334155',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            transition: 'all 0.15s ease'
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+          title="Go Back"
+        >
+          <ArrowLeft size={16} />
+        </button>
         <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
           <Cpu size={20} color="#f97316" />
           Add Device
@@ -846,123 +891,125 @@ const OnBoardDevicePage = () => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
                     <tr style={{ background: '#F8FAFC', color: '#334155', borderBottom: '1px solid #CBD5E1' }}>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, width: '44px', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>No</th>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, width: '190px', borderRight: '1px solid #E2E8F0' }}>LicenceId ({licenceType})</th>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '34px', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>No</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '130px', borderRight: '1px solid #E2E8F0' }}>LicenceId</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '135px', borderRight: '1px solid #E2E8F0' }}>
                         Device ID(IMEI) <span style={{ color: '#EF4444' }}>*</span>
                       </th>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0', minWidth: '240px' }}>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '165px', borderRight: '1px solid #E2E8F0' }}>
                         Device Type <span style={{ color: '#EF4444' }}>*</span>
                       </th>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
-                      <th style={{ padding: '9px 12px', fontSize: '12px', fontWeight: 700, textAlign: 'center', width: '140px' }}>Action</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '135px', borderRight: '1px solid #E2E8F0' }}>Vehicle Type</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM No</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, textAlign: 'center', width: '95px' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
                     {devices.map((device, idx) => (
                       <React.Fragment key={device.id}>
                         <tr style={{ borderBottom: '1px solid #E2E8F0', background: '#FFFFFF' }}>
-                          <td style={{ padding: '8px 10px', fontSize: '12px', fontWeight: 600, color: '#64748B', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>{idx + 1}</td>
-                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
-                            <div style={{ padding: '5px 10px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '12px', color: '#334155', fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.02em' }}>
+                          <td style={{ padding: '6px 6px', fontSize: '11.5px', fontWeight: 600, color: '#64748B', textAlign: 'center', borderRight: '1px solid #E2E8F0', width: '34px' }}>{idx + 1}</td>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '130px' }}>
+                            <div style={{ padding: '4px 6px', background: '#F1F5F9', border: '1px solid #CBD5E1', borderRadius: '5px', fontSize: '11px', color: '#334155', fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.01em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {device.licenceId}
                             </div>
                           </td>
-                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '135px' }}>
                             <input
-                              type="text" placeholder="Enter Device ID" value={device.deviceId}
+                              type="text" placeholder="Device IMEI" value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
-                              style={{ ...inputStyle, height: '34px', padding: '4px 10px', fontSize: '12px' }}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
                             />
                           </td>
-                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0', minWidth: '240px' }}>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '165px' }}>
                             <SearchableSelect
                               options={DEVICE_TYPE_OPTIONS}
                               value={device.deviceType}
                               onChange={(val) => updateDevice(idx, 'deviceType', val || 'VOLTY')}
-                              placeholder="-- Select Device Type --"
-                              searchPlaceholder="Search type or port..."
-                              emptyMessage="No device type found"
+                              placeholder="-- Device Type --"
+                              searchPlaceholder="Search type..."
+                              emptyMessage="No type found"
                               usePortal={true}
                               triggerStyle={{
-                                height: '34px',
-                                padding: '4px 10px',
-                                fontSize: '12px',
+                                height: '32px',
+                                padding: '3px 8px',
+                                fontSize: '11.5px',
                                 borderColor: '#CBD5E1',
-                                borderRadius: '6px',
+                                borderRadius: '5px',
                                 background: '#FFFFFF'
                               }}
                             />
                           </td>
-                          <td style={{ padding: '8px 10px', borderRight: '1px solid #E2E8F0' }}>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
                             <input
-                              type="text" placeholder="Enter Vehicle Id" value={device.vehicleId}
+                              type="text" placeholder="Vehicle Id" value={device.vehicleId}
                               onChange={(e) => updateDevice(idx, 'vehicleId', e.target.value)}
-                              style={{ ...inputStyle, height: '34px', padding: '4px 10px', fontSize: '12px' }}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
                             />
                           </td>
-                          <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '135px' }}>
+                            <SearchableSelect
+                              options={VEHICLE_TYPE_OPTIONS}
+                              value={device.vehicleTypeSelect}
+                              onChange={(val) => updateDevice(idx, 'vehicleTypeSelect', val)}
+                              placeholder="-- Vehicle Type --"
+                              searchPlaceholder="Search type..."
+                              emptyMessage="No type found"
+                              usePortal={true}
+                              triggerStyle={{
+                                height: '32px',
+                                padding: '3px 8px',
+                                fontSize: '11.5px',
+                                borderColor: '#CBD5E1',
+                                borderRadius: '5px',
+                                background: '#FFFFFF'
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '120px' }}>
+                            <input
+                              type="text" placeholder="GPS SIM No" value={device.gpsSimNo}
+                              onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 6px', textAlign: 'center', width: '95px' }}>
                             <button
                               type="button"
                               onClick={() => toggleRowExpansion(idx)}
                               style={{
-                                padding: '6px 14px',
+                                padding: '5px 10px',
                                 background: expandedRows[idx] ? '#F1F5F9' : '#f97316',
                                 color: expandedRows[idx] ? '#334155' : '#FFFFFF',
-                                fontSize: '12px',
+                                fontSize: '11px',
                                 fontWeight: 600,
                                 border: expandedRows[idx] ? '1px solid #CBD5E1' : 'none',
-                                borderRadius: '6px',
+                                borderRadius: '5px',
                                 cursor: 'pointer',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '5px',
-                                boxShadow: expandedRows[idx] ? 'none' : '0 2px 4px rgba(249,115,22,0.2)'
+                                gap: '4px',
+                                boxShadow: expandedRows[idx] ? 'none' : '0 2px 4px rgba(249,115,22,0.15)'
                               }}
                             >
-                              {expandedRows[idx] ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-                              {expandedRows[idx] ? 'Hide Details' : 'Show Details'}
+                              {expandedRows[idx] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                              {expandedRows[idx] ? 'Hide' : 'Show Details'}
                             </button>
                           </td>
                         </tr>
                         {expandedRows[idx] && (
                           <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #E2E8F0' }}>
                             <td style={{ borderRight: '1px solid #F1F5F9' }}></td>
-                            <td colSpan="5" style={{ padding: '12px 14px' }}>
+                            <td colSpan="7" style={{ padding: '12px 14px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                {/* Row 1: 4 fields */}
+                                {/* Row 1: 4 fields (Full 4-column row) */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                                   <div>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Vehicle Name</label>
                                     <input
                                       type="text" placeholder="Vehicle Name" value={device.vehicleName}
                                       onChange={(e) => updateDevice(idx, 'vehicleName', e.target.value)}
-                                      style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Vehicle Type</label>
-                                    <SearchableSelect
-                                      options={VEHICLE_TYPE_OPTIONS}
-                                      value={device.vehicleTypeSelect}
-                                      onChange={(val) => updateDevice(idx, 'vehicleTypeSelect', val)}
-                                      placeholder="-- Select Vehicle Type --"
-                                      searchPlaceholder="Search vehicle type..."
-                                      emptyMessage="No vehicle type found"
-                                      usePortal={true}
-                                      triggerStyle={{
-                                        padding: '5px 8px',
-                                        fontSize: '12px',
-                                        borderColor: '#CBD5E1',
-                                        background: '#FFFFFF'
-                                      }}
-                                    />
-                                  </div>
-                                  <div>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>GPS SIM No</label>
-                                    <input
-                                      type="text" placeholder="GPS SIM No" value={device.gpsSimNo}
-                                      onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
                                       style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
@@ -974,10 +1021,6 @@ const OnBoardDevicePage = () => {
                                       style={{ ...inputStyle, padding: '5px 8px', fontSize: '12px' }}
                                     />
                                   </div>
-                                </div>
-
-                                {/* Row 2: 5 fields */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                                   <div>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Service Engineer</label>
                                     <SearchableSelect
@@ -1022,6 +1065,10 @@ const OnBoardDevicePage = () => {
                                       }}
                                     />
                                   </div>
+                                </div>
+
+                                {/* Row 2: 3 fields (Full 3-column row) */}
+                                <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-3">
                                   <div>
                                     <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Support Person</label>
                                     <input

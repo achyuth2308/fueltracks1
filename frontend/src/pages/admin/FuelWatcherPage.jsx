@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Droplets, RefreshCw, AlertTriangle, Zap, Activity,
+  Droplets,
+  ArrowLeft, RefreshCw, AlertTriangle, Zap, Activity,
   Search, Download, Clock, WifiOff, TrendingUp, TrendingDown,
   Minus, CheckCircle2, ChevronDown, Play, Pause, ShieldCheck,
   Calendar, FileText
@@ -154,6 +156,7 @@ const STORAGE_KEY_INTERVAL = 'fuel_watcher_auto_refresh_interval';
 // Main Component
 // ─────────────────────────────────────────────────────────
 const FuelWatcherPage = () => {
+  const navigate = useNavigate();
   const [allVehicles, setAllVehicles] = useState([]);
   const [loadingVehicles, setLoadingVehicles] = useState(true);
   const [search, setSearch] = useState('');
@@ -648,6 +651,30 @@ const FuelWatcherPage = () => {
       <div style={{ marginBottom: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
+                border: '1px solid #CBD5E1',
+                background: '#FFFFFF',
+                cursor: 'pointer',
+                color: '#334155',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease',
+                flexShrink: 0
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+              title="Go Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
             <div style={{
               width: 36, height: 36, borderRadius: 10,
               background: 'linear-gradient(135deg, #6366f1, #0ea5e9)',

@@ -353,16 +353,19 @@ const AdminController = {
         });
       }
 
+      // Exact username (preserving exact CAPITALS and casing):
+      const exactUsername = (username && username.trim()) ? username.trim() : (name || email || '').trim();
+
       // Preemptive Duplicate Checks for User
-      if (username && username.trim()) {
+      if (exactUsername) {
         const dupUser = await db.query(
           'SELECT id FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1)) LIMIT 1',
-          [username]
+          [exactUsername]
         );
         if (dupUser.rows.length > 0) {
           return res.status(400).json({
             success: false,
-            error: `The username "${username.trim()}" is already taken. Please choose a different username.`,
+            error: `The username "${exactUsername}" is already taken. Please choose a different username.`,
             code: 'DUPLICATE_USERNAME'
           });
         }
@@ -398,33 +401,45 @@ const AdminController = {
       let targetOrgId = (orgId && typeof orgId === 'string' && orgId.trim() && orgId !== 'auto') ? orgId.trim() : null;
 
       // If NO organization was chosen (empty, null, or 'auto') OR a newOrgName was explicitly provided:
-      // AUTOMATICALLY create / use organization with username (or newOrgName)!
+      // AUTOMATICALLY create / use organization with EXACT username (preserving exact CAPITALS and casing)!
       if (!targetOrgId || (newOrgName && newOrgName.trim())) {
         const finalOrgName = (newOrgName && newOrgName.trim())
           ? newOrgName.trim()
-          : (username || name || email).trim();
+          : exactUsername;
 
         const parentOrgId = req.user.role === 'superadmin' ? null : req.user.orgId;
 
-        // Check if an organization with this name already exists in this scope
+        // Check if an organization with this exact name already exists in this scope
         let existingOrg;
         if (parentOrgId) {
           existingOrg = await db.query(
-            `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND (parent_id = $2 OR id = $2) LIMIT 1`,
+            `SELECT id FROM organizations WHERE name = $1 AND parent_id = $2 LIMIT 1`,
             [finalOrgName, parentOrgId]
           );
+          if (!existingOrg || existingOrg.rows.length === 0) {
+            existingOrg = await db.query(
+              `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) AND parent_id = $2 LIMIT 1`,
+              [finalOrgName, parentOrgId]
+            );
+          }
         } else {
           existingOrg = await db.query(
-            `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+            `SELECT id FROM organizations WHERE name = $1 LIMIT 1`,
             [finalOrgName]
           );
+          if (!existingOrg || existingOrg.rows.length === 0) {
+            existingOrg = await db.query(
+              `SELECT id FROM organizations WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) LIMIT 1`,
+              [finalOrgName]
+            );
+          }
         }
 
         if (existingOrg && existingOrg.rows.length > 0) {
           targetOrgId = existingOrg.rows[0].id;
         } else {
           const createdOrg = await OrgModel.create({
-            name: finalOrgName,
+            name: finalOrgName, // EXACT username with original CAPITALS preserved!
             type: role === 'dealer' ? 'dealer' : 'customer',
             parentId: parentOrgId,
             email: email.toLowerCase().trim(),
@@ -450,7 +465,7 @@ const AdminController = {
       const newUser = await UserModel.create({
         orgId: targetOrgId,
         email: email.toLowerCase().trim(),
-        username: username ? username.toLowerCase().trim() : null,
+        username: exactUsername, // EXACT CASING PRESERVED, NO LOWERCASE!
         password: hashedPassword,
         role,
         name,
@@ -495,18 +510,24 @@ const AdminController = {
       const shouldAutoCreate = role !== 'dealer' && (autoCreateGroup === true || (allGroupIds.size === 0 && autoCreateGroup !== false));
 
       if (shouldAutoCreate) {
-        const autoGroupName = (username || name || email).trim();
+        const autoGroupName = exactUsername; // EXACT username with original CAPITALS preserved!
         if (autoGroupName) {
-          const existingGroup = await db.query(
-            `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2))`,
+          let existingGroup = await db.query(
+            `SELECT id FROM groups WHERE org_id = $1 AND name = $2 LIMIT 1`,
             [targetOrgId, autoGroupName]
           );
-          if (existingGroup.rows.length > 0) {
+          if (!existingGroup || existingGroup.rows.length === 0) {
+            existingGroup = await db.query(
+              `SELECT id FROM groups WHERE org_id = $1 AND LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1`,
+              [targetOrgId, autoGroupName]
+            );
+          }
+          if (existingGroup && existingGroup.rows.length > 0) {
             allGroupIds.add(existingGroup.rows[0].id);
           } else {
             const createdGroup = await GroupModel.create({
               orgId: targetOrgId,
-              name: autoGroupName,
+              name: autoGroupName, // EXACT CASING PRESERVED!
               description: `Auto-created group for user ${autoGroupName}`
             });
             allGroupIds.add(createdGroup.id);
@@ -616,7 +637,7 @@ const AdminController = {
 
       const updated = await UserModel.update(id, {
         email: email ? email.toLowerCase().trim() : undefined,
-        username: username !== undefined ? (username ? username.toLowerCase().trim() : null) : undefined,
+        username: username !== undefined ? (username ? username.trim() : null) : undefined,
         role,
         name,
         phone,

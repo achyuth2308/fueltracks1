@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  Terminal as TerminalIcon, Search, RefreshCw, Download,
+  Terminal as TerminalIcon,
+  ArrowLeft, Search, RefreshCw, Download,
   MapPin, AlertCircle, Loader2, X, Navigation, Clock, Cpu, ExternalLink, ChevronDown,
   FileCode, Copy, Check, Maximize2, Eye, Zap, KeyRound, Activity
 } from 'lucide-react';
@@ -122,6 +124,7 @@ function extractFields(m) {
 }
 
 const AdminTerminalPage = () => {
+  const navigate = useNavigate();
   const { socket } = useSocket();
 
   const [vehicles, setVehicles] = useState([]);
@@ -281,6 +284,28 @@ const AdminTerminalPage = () => {
         gap: '12px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderRadius: '10px',
+              width: '38px',
+              height: '38px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
           <div style={{
             background: 'rgba(255, 255, 255, 0.15)',
             borderRadius: '10px',

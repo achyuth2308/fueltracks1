@@ -456,7 +456,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                 <label style={{ ...labelStyle, marginBottom: 0 }}>
-                  Organization<span style={{ color: '#EF4444' }}>*</span>
+                  Organization {!editingUser && <span style={{ color: '#64748B', fontWeight: 'normal', textTransform: 'none' }}>(Auto-creates with Username)</span>}
                 </label>
                 {!editingUser && (
                   <button
@@ -475,7 +475,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                       padding: 0
                     }}
                   >
-                    {isNewOrg ? '← Existing Org' : '+ Create New Org'}
+                    {isNewOrg ? '← Existing Org' : '+ Custom Org Name'}
                   </button>
                 )}
               </div>
@@ -494,7 +494,7 @@ const AddUserModal = ({ isOpen, onClose, onSave, editingUser = null, orgs = [] }
                   onChange={(e) => setOrgId(e.target.value)}
                   style={inputStyle}
                 >
-                  <option value="">SELECT</option>
+                  <option value="">Auto-create with Username (Default)</option>
                   {orgs && orgs.map(org => (
                     <option key={org.id} value={org.id}>{org.name}</option>
                   ))}

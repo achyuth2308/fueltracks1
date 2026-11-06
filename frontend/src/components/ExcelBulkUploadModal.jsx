@@ -187,7 +187,7 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
           vehicleTypeSelect: r['Vehicle Type'] || '',
           deviceType: cleanDeviceType,
           category: r._category || r['Category'] || 'General',
-          vlttdSlno: r['VLTD SLNO'] || r['VLTTD SLNO'] || '',
+          vlttdSlno: r['VLTD SLNO'] || r['VLTTD SLNO'] || r['Device Serial Number'] || r['Device Serial No'] || r['Serial Number'] || r['Serial No'] || r['SerialNo'] || r['VLTD Serial Number'] || r['VLTD Serial No'] || r['Device SLNO'] || r['Device SL NO'] || r['Device S.No'] || r['Device SNo'] || r['SLNO'] || r['SL NO'] || r.vlttdSlno || r.serialNo || r.deviceSerialNo || '',
           iccid: r['ICCID'] || '',
           sim1: r['GPS SIM Number 1'] || r['GPS SIMNO 1'] || r['GPS SIMNO1'] || r['SIM 1'] || '',
           sim2: r['GPS SIM Number 2'] || r['GPS SIMNO 2'] || r['GPS SIMNO2'] || r['SIM 2'] || '',

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
 import * as adminApi from '../../api/adminApi';
@@ -9,12 +10,13 @@ import LicenseTab from './components/LicenseTab';
 import SecurityTab from './components/SecurityTab';
 import AuditTab from './components/AuditTab';
 import {
-  Building2, Map as MapIcon, Shield, Lock, History,
+  Building2, ArrowLeft, Map as MapIcon, Shield, Lock, History,
   Loader2, Check, Award, Globe, ExternalLink, Camera,
   Users, ChevronDown, ArrowRight
 } from 'lucide-react';
 
 const OrganizationProfilePage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'superadmin' || user?.role === 'dealer';
 
@@ -201,9 +203,19 @@ const OrganizationProfilePage = () => {
             )}
 
             <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white m-0" style={{ color: '#ffffff', whiteSpace: 'nowrap' }}>
-                {activeTab === 'directory' ? 'Organization Workspace Suite' : orgName}
-              </h1>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 text-white flex items-center justify-center transition-colors shadow-md cursor-pointer flex-shrink-0"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white m-0" style={{ color: '#ffffff', whiteSpace: 'nowrap' }}>
+                  {activeTab === 'directory' ? 'Organization Workspace Suite' : orgName}
+                </h1>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2.5 mt-2">
                 <span

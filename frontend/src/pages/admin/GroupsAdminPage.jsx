@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Users2, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User, Truck, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users2, ArrowLeft, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User, Truck, X } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import AddGroupModal from '../../components/modals/AddGroupModal';
 
 const GroupsAdminPage = () => {
+  const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -71,9 +73,34 @@ const GroupsAdminPage = () => {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Groups Management</h1>
-          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>Organize fleets into operational zones and assign user access.</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>Groups Management</h1>
+            <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>Organize fleets into operational zones and assign user access.</p>
+          </div>
         </div>
         <button
           onClick={() => { setEditingGroup(null); setIsAddModalOpen(true); }}

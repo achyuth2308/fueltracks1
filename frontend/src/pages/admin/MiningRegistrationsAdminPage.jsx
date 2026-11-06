@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Truck,
+  ArrowLeft,
   Search,
   Download,
   Filter,
@@ -33,6 +35,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 const MiningRegistrationsAdminPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [registrations, setRegistrations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -194,17 +197,42 @@ const MiningRegistrationsAdminPage = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '16px 20px', gap: '12px', background: '#f8fafc', boxSizing: 'border-box' }}>
       {/* Top Header Bar */}
       <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
-            <Truck size={14} />
-            <span>Compliance & Hardware Onboarding</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', fontWeight: 800, color: '#ea580c', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px' }}>
+              <Truck size={14} />
+              <span>Compliance & Hardware Onboarding</span>
+            </div>
+            <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
+              Vehicle & Mining Registrations
+            </h1>
+            <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
+              Review submissions, inspect compliance documents (RC, Aadhar, Plate), and approve vehicle telemetry.
+            </p>
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', margin: 0 }}>
-            Vehicle & Mining Registrations
-          </h1>
-          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
-            Review submissions, inspect compliance documents (RC, Aadhar, Plate), and approve vehicle telemetry.
-          </p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  Truck, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search,
+  Truck, ArrowLeft, Plus, Edit2, Trash2, Loader2, AlertTriangle, Search,
   Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, Building2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
   Filter, Tag, Globe, ArrowUpDown, ArrowUp, ArrowDown,
@@ -315,15 +315,40 @@ const VehiclesAdminPage = () => {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11px', fontWeight: 700, marginBottom: '2px' }}>
-            <span>Fleet Management</span>
-            <ChevronRight size={12} />
-            <span style={{ color: '#ea580c' }}>Vehicle Assets</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '11px', fontWeight: 700, marginBottom: '2px' }}>
+              <span>Fleet Management</span>
+              <ChevronRight size={12} />
+              <span style={{ color: '#ea580c' }}>Vehicle Assets</span>
+            </div>
+            <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+              Vehicle Assets Registry
+            </h1>
           </div>
-          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
-            Vehicle Assets Registry
-          </h1>
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>

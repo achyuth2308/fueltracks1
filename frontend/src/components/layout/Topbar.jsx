@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { formatLocalDate } from '../../utils/dateUtils';
-import { Menu, Wifi, WifiOff, Bell, Clock as ClockIcon, ShieldAlert, VolumeX, AlertTriangle, X } from 'lucide-react';
+import { Menu, ArrowLeft, Wifi, WifiOff, Bell, Clock as ClockIcon, ShieldAlert, VolumeX, AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import * as adminApi from '../../api/adminApi';
@@ -11,6 +12,9 @@ import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const { user, restoreAdmin, hasAdminSession } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
   const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!localStorage.getItem('adminToken'));
   const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, unreachable: 0 });
@@ -403,6 +407,34 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         >
           <Menu size={24} />
         </button>
+
+        {!isDashboard && (
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            title="Go Back"
+            style={{
+              background: 'rgba(255, 255, 255, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.22)',
+              borderRadius: '8px',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '6px 10px',
+              gap: '6px',
+              fontSize: '12px',
+              fontWeight: 700,
+              transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
+          >
+            <ArrowLeft size={16} />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+        )}
 
         {/* Logo & Brand Identity */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

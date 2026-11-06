@@ -26,6 +26,7 @@ const UserModel = {
        ) AND u.is_active = TRUE
        LIMIT 1`,
       [cleanId, lowerId]
+
     );
     return result.rows[0] || null;
   },

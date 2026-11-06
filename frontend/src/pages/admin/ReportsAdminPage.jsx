@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import {
-  FileText, Map, Activity, Route, Zap, TrendingUp, Printer,
+  FileText,
+  ArrowLeft, Map, Activity, Route, Zap, TrendingUp, Printer,
   Search, RefreshCw, AlertCircle, Loader2, MapPin,
   CheckCircle2, PlayCircle, PauseCircle, StopCircle,
   AlertOctagon, Navigation, RefreshCcw, Gauge, Users, UserCircle,
@@ -191,7 +192,31 @@ const ReportsAdminPage = () => {
   return (
     <div style={{ padding: '0', background: '#EEF5F8', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'Inter', system-ui, sans-serif" }}>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+      <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #bae6fd', background: '#ffffff', padding: '0 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            borderRadius: '8px',
+            border: '1px solid #CBD5E1',
+            background: '#FFFFFF',
+            cursor: 'pointer',
+            color: '#334155',
+            boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            transition: 'all 0.15s ease',
+            flexShrink: 0
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+          title="Go Back"
+        >
+          <ArrowLeft size={16} />
+        </button>
         <button style={tabStyle('dashboard')} onClick={() => navigate('/admin/reports/dashboard')}>Fleet Dashboard</button>
         <button style={tabStyle('other-reports')} onClick={() => navigate('/admin/reports/consolidated')}>Analytics & Reports</button>
       </div>

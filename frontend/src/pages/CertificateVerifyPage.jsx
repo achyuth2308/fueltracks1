@@ -8,22 +8,60 @@ import fuelTracksLogo from '../assets/fueltracks_cert_logo.png';
 
 export function resolveVltdManufacturer(deviceModel, serialNo, explicitMfr) {
   if (explicitMfr && typeof explicitMfr === 'string' && explicitMfr.trim() && explicitMfr.trim() !== 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
-    return explicitMfr.trim();
+    const raw = explicitMfr.trim();
+    const up = raw.toUpperCase();
+    if (up.includes('VOLTY') || up.includes('VOLTSYS') || up.includes('VOL1') || up.includes('VLY') || up === 'VOLTY') {
+      return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+    }
+    if (up.includes('APM') || up.includes('KINGSTRACK') || up.includes('KINGSTRACKS')) {
+      return 'APM KINGSTRACK PRIVATE LIMITED';
+    }
+    if (up.includes('TELTONIKA')) {
+      return 'TELTONIKA TELEMATICS';
+    }
+    if (up.includes('CONCOX') || up.includes('JIMI')) {
+      return 'CONCOX / JIMI IOT';
+    }
+    if (up.includes('BSTPL') || up.includes('BHARAT SATELLITE')) {
+      return 'BHARAT SATELLITE TRACKING PVT LTD';
+    }
+    if (up.includes('TRACKNOW')) {
+      return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+    }
+    if (up.includes('VAMO')) {
+      return 'VAMO SYSTEMS PRIVATE LIMITED';
+    }
+    if (up.includes('TRANSYNC')) {
+      return 'TRANSYNC TELEMATICS';
+    }
+    return raw;
   }
   const text = `${deviceModel || ''} ${serialNo || ''}`.toUpperCase().trim();
-  if (text.includes('VOLTY') || text.includes('VOL1') || text.startsWith('VOL')) {
+  if (text.includes('VOLTY') || text.includes('VOL1') || text.includes('VLY') || text.includes('VLT') || text.includes('VOLTSYS') || text.startsWith('VOL') || text.startsWith('VLY')) {
     return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
   }
-  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM')) {
+  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM') || text.includes('1819001A')) {
     return 'APM KINGSTRACK PRIVATE LIMITED';
   }
-  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB')) {
+  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB') || text.includes('FMM') || text.includes('TST')) {
     return 'TELTONIKA TELEMATICS';
   }
-  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK')) {
+  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK') || text.includes('GT06') || text.includes('GT800') || text.includes('V5')) {
     return 'CONCOX / JIMI IOT';
   }
-  return 'APM KINGSTRACK PRIVATE LIMITED';
+  if (text.includes('BSTPL') || text.includes('BST')) {
+    return 'BHARAT SATELLITE TRACKING PVT LTD';
+  }
+  if (text.includes('TRACKNOW') || text.includes('TRK')) {
+    return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+  }
+  if (text.includes('VAMO')) {
+    return 'VAMO SYSTEMS PRIVATE LIMITED';
+  }
+  if (text.includes('TRANSYNC') || text.includes('NAV140') || text.includes('NAV 140')) {
+    return 'TRANSYNC TELEMATICS';
+  }
+  return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
 }
 
 const CertificateVerifyPage = () => {
@@ -126,6 +164,7 @@ const CertificateVerifyPage = () => {
     const certNum = searchParams.get('cert') || id || `FT-GPS-${now.getFullYear()}-87570`;
     const imei = searchParams.get('i') || searchParams.get('imei') || searchParams.get('serialno') || '861329082393712';
     const veh = searchParams.get('v') || searchParams.get('veh') || searchParams.get('plate') || 'TN19AK1499';
+    const vehUp = String(veh || '').toUpperCase().trim();
     const imeiClean = String(imei).replace(/\D/g, '');
     const imeiLast10 = imeiClean.slice(-10);
 
@@ -134,16 +173,31 @@ const CertificateVerifyPage = () => {
     const resolvedMfr = resolveVltdManufacturer(rawDevModel, rawSerial, searchParams.get('mfr'));
     const isVolty = resolvedMfr.includes('VOLTY');
 
-    const defaultModel = isVolty ? 'VOLTY-AIS140' : '1819001A';
+    const defaultModel = isVolty ? 'VOLTY-AIS140' : (resolvedMfr.includes('APM') ? '1819001A' : 'AIS140');
     const defaultSerial = isVolty
-      ? (imeiLast10 ? `VOL1K2I${imeiLast10}` : 'VOL1K2I102690315456')
-      : (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456');
+      ? (imeiLast10 ? `VLY2N2I${imeiLast10}` : 'VLY2N2I052685344688')
+      : (resolvedMfr.includes('APM') ? (imeiLast10 ? `APM1K2I${imeiLast10}` : 'APM1K2I102690315456') : (imeiLast10 ? `SN-${imeiLast10}` : 'SN-102690315456'));
 
     const modelName = rawDevModel || defaultModel;
     const deviceSerialNo = rawSerial || defaultSerial;
 
+    const queryFormat = searchParams.get('format');
+    const certFormat = queryFormat || (
+      (vehUp.startsWith('TS') || vehUp.startsWith('TG'))
+        ? 'telangana_mining'
+        : (vehUp.startsWith('TN') ? 'tamilnadu_mining' : 'normal_tracking')
+    );
+
+    const defaultState = searchParams.get('state') || searchParams.get('district') || (
+      (certFormat === 'telangana_mining' || vehUp.startsWith('TS') || vehUp.startsWith('TG'))
+        ? 'Telangana'
+        : (certFormat === 'tamilnadu_mining' || vehUp.startsWith('TN'))
+          ? 'Tamil Nadu'
+          : 'Telangana'
+    );
+
     return {
-      certFormat: searchParams.get('format') || 'tamilnadu_mining',
+      certFormat: certFormat,
       companyName: 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
       vltdManufacturer: resolvedMfr,
       companyAddress: 'H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079',
@@ -153,10 +207,10 @@ const CertificateVerifyPage = () => {
 
       // 1. Vehicle Details
       vehicleNo: veh,
-      vehicleCategory: searchParams.get('category') || 'Mining Vehicle',
+      vehicleCategory: searchParams.get('category') || (certFormat === 'normal_tracking' ? 'Commercial / Private Vehicle' : 'Mining Vehicle'),
       vehicleType: searchParams.get('type') || searchParams.get('model') || 'TIPPER',
       ownerName: searchParams.get('owner') || 'SRIKRISHNA',
-      districtState: searchParams.get('state') || searchParams.get('district') || 'Tamil Nadu',
+      districtState: defaultState,
 
       // 2. VLTD Device Details
       modelName: modelName,
@@ -231,33 +285,45 @@ const CertificateVerifyPage = () => {
       .then((json) => {
         if (json && json.success && json.data) {
           const d = json.data;
-          setCertData({
-            companyName: 'FuelTracks Technologies Pvt. Ltd.',
+          setCertData((prev) => ({
+            ...prev,
+            companyName: 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED',
             companyAddress: 'H.NO 17-1-382/2/2, 2nd Floor, Govt. Press Colony, Kharmanghat, R.R. Dist. - 500079',
             companyPhone: '9000666914',
             companyEmail: 'info@fueltracks.in',
             companyWeb: 'www.fueltracks.in',
+            certFormat: d.certFormat || searchParams.get('format') || prev.certFormat,
             certNumber: d.certNumber || lookupId,
-            vehicleNo: d.vehicleNo || vehParam,
-            vehicleMakeModel: d.vehicleMakeModel || searchParams.get('model') || 'Commercial Vehicle',
-            chassisNo: d.chassisNo || searchParams.get('chassis') || '',
-            engineNo: d.engineNo || searchParams.get('engine') || '',
-            customerName: d.customerName || searchParams.get('owner') || '',
-            phone: d.phone || searchParams.get('phone') || '',
-            customerAddress: d.ownerAddress || searchParams.get('addr') || searchParams.get('address') || '',
-            deviceModel: d.deviceModel || searchParams.get('dev') || searchParams.get('devicemodel') || 'Volty GPS Tracker',
-            imei: d.imei || imeiParam,
-            simNumber: d.sim1 || searchParams.get('sim') || '',
-            simOperator: d.simOperator || searchParams.get('operator') || 'Airtel IoT (M2M Data APN)',
-            fitmentLocation: d.fitmentLocation || searchParams.get('fitment') || 'Behind Co-driver Dashboard Firewall',
-            sealNumber: d.sealNumber || searchParams.get('seal') || '',
-            installedDate: d.installedDate || d.installationDate || searchParams.get('installed') || '',
-            installationDate: d.installationDate || d.installedDate || searchParams.get('installed') || '',
-            activationDate: d.activationDate || searchParams.get('activated') || d.installedDate || searchParams.get('installed') || '',
-            certIssuedDate: d.certIssuedDate || searchParams.get('issued') || '',
-            expiryDate: d.expiryDate || searchParams.get('expire') || '',
+            vehicleNo: d.vehicleNo || vehParam || prev.vehicleNo,
+            vehicleCategory: d.vehicleCategory || prev.vehicleCategory,
+            vehicleType: d.vehicleType || prev.vehicleType,
+            ownerName: d.customerName || prev.ownerName,
+            customerName: d.customerName || prev.customerName,
+            districtState: d.districtState || prev.districtState,
+            vltdManufacturer: d.vltdManufacturer || prev.vltdManufacturer,
+            modelName: d.modelName || prev.modelName,
+            deviceSerialNo: d.deviceSerialNo || prev.deviceSerialNo,
+            imei: d.imei || imeiParam || prev.imei,
+            iccid: d.iccid || prev.iccid,
+            simProvider: d.simProvider || prev.simProvider,
+            simValidity: d.simValidity || prev.simValidity,
+            vehicleMakeModel: d.vehicleMakeModel || searchParams.get('model') || prev.vehicleMakeModel,
+            chassisNo: d.chassisNo || searchParams.get('chassis') || prev.chassisNo,
+            engineNo: d.engineNo || searchParams.get('engine') || prev.engineNo,
+            phone: d.phone || searchParams.get('phone') || prev.phone,
+            customerAddress: d.ownerAddress || searchParams.get('addr') || searchParams.get('address') || prev.customerAddress,
+            deviceModel: d.deviceModel || searchParams.get('dev') || searchParams.get('devicemodel') || prev.deviceModel,
+            simNumber: d.sim1 || searchParams.get('sim') || prev.simNumber,
+            simOperator: d.simOperator || searchParams.get('operator') || prev.simOperator,
+            fitmentLocation: d.fitmentLocation || searchParams.get('fitment') || prev.fitmentLocation,
+            sealNumber: d.sealNumber || searchParams.get('seal') || prev.sealNumber,
+            installedDate: d.installedDate || d.installationDate || searchParams.get('installed') || prev.installedDate,
+            installationDate: d.installationDate || d.installedDate || searchParams.get('installed') || prev.installationDate,
+            activationDate: d.activationDate || searchParams.get('activated') || d.installedDate || searchParams.get('installed') || prev.activationDate,
+            certIssuedDate: d.certIssuedDate || searchParams.get('issued') || prev.certIssuedDate,
+            expiryDate: d.expiryDate || searchParams.get('expire') || prev.expiryDate,
             verificationCode: computeVerificationCode(d.certNumber || lookupId, d.imei || imeiParam, d.vehicleNo || vehParam)
-          });
+          }));
           setIsVerified(true);
         } else {
           setIsVerified(true);
@@ -554,7 +620,7 @@ const CertificateVerifyPage = () => {
               background: '#ffffff'
             }}
           >
-            {certData.certFormat === 'standard_gps' ? (
+            {(certData.certFormat === 'standard_gps' || certData.certFormat === 'normal_tracking') ? (
               /* Standard GPS Fitment Layout */
               <div>
                 <div
@@ -814,14 +880,16 @@ const CertificateVerifyPage = () => {
                 </div>
               </div>
             ) : (
-              /* TAMILNADU MINING VEHICLE VLTD FITMENT CERTIFICATE (EXACT REQUESTED FORMAT) */
+              /* MINING VEHICLE VLTD FITMENT CERTIFICATE (TAMIL NADU & TELANGANA MINING) */
               <div style={{ color: '#000000' }}>
                 <div style={{ textAlign: 'center', marginBottom: '22px' }}>
                   <h1 style={{ fontSize: '18px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', margin: 0, color: '#000000' }}>
                     VEHICLE LOCATION TRACKING DEVICE (VLTD)
                   </h1>
                   <h2 style={{ fontSize: '15px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', marginTop: '4px', margin: 0, color: '#000000' }}>
-                    FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE
+                    {certData.certFormat === 'telangana_mining'
+                      ? 'FITMENT CERTIFICATE – TELANGANA MINING VEHICLE'
+                      : 'FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE'}
                   </h2>
                   <div style={{ marginTop: '8px' }}>
                     <div style={{
@@ -940,9 +1008,15 @@ const CertificateVerifyPage = () => {
                   <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '6px', color: '#000000' }}>
                     4. VLTD INSTALLATION & INTEGRATION STATEMENT
                   </div>
-                  <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
-                    The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the MiMaS (Mining Monitoring and Management System) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
-                  </p>
+                  {certData.certFormat === 'telangana_mining' ? (
+                    <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
+                      The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the TSMDC (Telangana State Mineral Development Corporation) / Department of Mines and Geology (Government of Telangana) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
+                    </p>
+                  ) : (
+                    <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
+                      The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the MiMaS (Mining Monitoring and Management System) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
+                    </p>
+                  )}
                   <p style={{ fontSize: '12px', lineHeight: '1.45', margin: 0, color: '#000000', textAlign: 'justify' }}>
                     This certificate is issued for Mining Vehicle VLTD compliance and monitoring purposes, in accordance with directions issued by the competent authorities.
                   </p>

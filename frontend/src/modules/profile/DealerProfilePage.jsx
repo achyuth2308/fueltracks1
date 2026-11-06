@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useProfile } from './hooks/useProfile';
 import * as profileApi from './api/profileApi';
@@ -9,13 +10,14 @@ import DealerQuotaTab from './components/DealerQuotaTab';
 import SecurityTab from './components/SecurityTab';
 import AuditTab from './components/AuditTab';
 import {
-  Building2, Palette, Shield, Lock, History, Loader2,
+  Building2, ArrowLeft, Palette, Shield, Lock, History, Loader2,
   BarChart3, Sparkles, ChevronDown, Check, UserCheck, Globe, Users,
   CheckCircle2, ExternalLink, ArrowRight, Layers, Smartphone, ShieldCheck,
   Copy, Camera, Upload, Award, Activity
 } from 'lucide-react';
 
 const DealerProfilePage = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'superadmin';
 
@@ -244,9 +246,19 @@ const DealerProfilePage = () => {
             )}
 
             <div>
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white m-0 flex items-center gap-3" style={{ color: '#ffffff', whiteSpace: 'nowrap' }}>
-                {activeTab === 'directory' ? 'Dealership White-Label Suite' : activeName}
-              </h1>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="w-9 h-9 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700/80 text-white flex items-center justify-center transition-colors shadow-md cursor-pointer flex-shrink-0"
+                  title="Go Back"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white m-0 flex items-center gap-3" style={{ color: '#ffffff', whiteSpace: 'nowrap' }}>
+                  {activeTab === 'directory' ? 'Dealership White-Label Suite' : activeName}
+                </h1>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2.5 mt-2">
                 <span

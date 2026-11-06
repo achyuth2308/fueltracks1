@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-  MessageSquare, Save, Plus, Trash2, CheckCircle2, AlertCircle,
+  MessageSquare,
+  ArrowLeft, Save, Plus, Trash2, CheckCircle2, AlertCircle,
   Clock, ShieldCheck, RefreshCw, Smartphone, Check, X, Send
 } from 'lucide-react';
 import {
@@ -10,6 +12,7 @@ import {
 } from '../../api/whatsappApi';
 
 const WhatsAppSettingsPage = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('recipients'); // 'recipients' | 'settings' | 'logs'
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
@@ -218,14 +221,40 @@ const WhatsAppSettingsPage = () => {
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 font-sans">
       {/* Top Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <div className="flex items-center gap-2">
-            <MessageSquare className="w-7 h-7 text-green-600" />
-            <h1 className="text-2xl font-bold text-slate-900">WhatsApp Notifications</h1>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease',
+              flexShrink: 0
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <div className="flex items-center gap-2">
+              <MessageSquare className="w-7 h-7 text-green-600" />
+              <h1 className="text-2xl font-bold text-slate-900">WhatsApp Notifications</h1>
+            </div>
+            <p className="text-sm text-slate-500 mt-1">
+              Meta WhatsApp Cloud API integration for finalized refills, theft alerts, and daily fleet reports.
+            </p>
           </div>
-          <p className="text-sm text-slate-500 mt-1">
-            Meta WhatsApp Cloud API integration for finalized refills, theft alerts, and daily fleet reports.
-          </p>
         </div>
 
         {message && (

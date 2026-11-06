@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Plus, Trash2, ShieldAlert, Loader2, CheckSquare, Square, Truck, Shield, BarChart2 } from 'lucide-react';
+import { MapPin,
+  ArrowLeft, Plus, Trash2, ShieldAlert, Loader2, CheckSquare, Square, Truck, Shield, BarChart2 } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import { getVehicles } from '../../api/vehicleApi';
 import VehicleGeofenceManager from '../../components/geofence/VehicleGeofenceManager';
@@ -240,13 +241,38 @@ const GeofencesAdminPage = () => {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 shrink-0">
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
-            Geofence Management
-          </h1>
-          <p style={{ fontSize: '13px', color: '#64748B', marginTop: '4px', margin: 0 }}>
-            Configure real-time virtual perimeters, safe zones, and vehicle entry/exit alerts.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', margin: 0 }}>
+              Geofence Management
+            </h1>
+            <p style={{ fontSize: '13px', color: '#64748B', marginTop: '4px', margin: 0 }}>
+              Configure real-time virtual perimeters, safe zones, and vehicle entry/exit alerts.
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button

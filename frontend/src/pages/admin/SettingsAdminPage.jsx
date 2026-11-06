@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
-  Settings, Save, AlertCircle, CheckCircle2, 
+  Settings,
+  ArrowLeft, Save, AlertCircle, CheckCircle2, 
   Gauge, TrendingUp, TrendingDown, Timer, 
   ParkingCircle, WifiOff, MapPin, Shield, ShieldAlert, PowerOff, Navigation, BellOff
 } from 'lucide-react';
 import api from '../../api/axios';
 
 const SettingsAdminPage = () => {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     overspeedThreshold: '60',
     upperSpeed: '30',
@@ -90,7 +93,32 @@ const SettingsAdminPage = () => {
     <div style={{ padding: '24px', background: '#F1F5F9', minHeight: '100vh', boxSizing: 'border-box', color: '#1E293B', fontFamily: 'Inter, sans-serif' }}>
       
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, color: '#0F172A' }}>Alert Settings</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <h1 style={{ fontSize: '24px', fontWeight: 700, margin: 0, color: '#0F172A' }}>Alert Settings</h1>
+        </div>
         {message && (
           <span style={{ 
             fontSize: '14px', fontWeight: 500, 

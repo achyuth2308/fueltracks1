@@ -22,20 +22,58 @@ const inventoryCache = new LRUCache({
  */
 function resolveManufacturerFromHardware(model, serial, explicitMfr) {
   if (explicitMfr && typeof explicitMfr === 'string' && explicitMfr.trim() && explicitMfr.trim() !== 'FUELTRACKS TECHNOLOGIES PRIVATE LIMITED') {
-    return explicitMfr.trim();
+    const raw = explicitMfr.trim();
+    const up = raw.toUpperCase();
+    if (up.includes('VOLTY') || up.includes('VOLTSYS') || up === 'VOLTY') {
+      return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
+    }
+    if (up.includes('APM') || up.includes('KINGSTRACK')) {
+      return 'APM KINGSTRACK PRIVATE LIMITED';
+    }
+    if (up.includes('TELTONIKA')) {
+      return 'TELTONIKA TELEMATICS';
+    }
+    if (up.includes('CONCOX') || up.includes('JIMI')) {
+      return 'CONCOX / JIMI IOT';
+    }
+    if (up.includes('BSTPL') || up.includes('BHARAT SATELLITE')) {
+      return 'BHARAT SATELLITE TRACKING PVT LTD';
+    }
+    if (up.includes('TRACKNOW')) {
+      return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+    }
+    if (up.includes('VAMO')) {
+      return 'VAMO SYSTEMS PRIVATE LIMITED';
+    }
+    if (up.includes('TRANSYNC')) {
+      return 'TRANSYNC TELEMATICS';
+    }
+    return raw;
   }
-  const text = `${model || ''} ${serial || ''}`.toUpperCase();
-  if (text.includes('VOLTY') || text.includes('VOL1') || text.startsWith('VOL')) {
+  const text = `${model || ''} ${serial || ''}`.toUpperCase().trim();
+  if (text.includes('VOLTY') || text.includes('VOL1') || text.includes('VLY') || text.includes('VLT') || text.includes('VOLTSYS') || text.startsWith('VOL') || text.startsWith('VLY')) {
     return 'VOLTY IOT SOLUTIONS PRIVATE LIMITED';
   }
-  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM')) {
+  if (text.includes('APM') || text.includes('KINGSTRACK') || text.startsWith('APM') || text.includes('1819001A')) {
     return 'APM KINGSTRACK PRIVATE LIMITED';
   }
-  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB')) {
+  if (text.includes('TELTONIKA') || text.includes('FMC') || text.includes('FMB') || text.includes('FMM') || text.includes('TST')) {
     return 'TELTONIKA TELEMATICS';
   }
-  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK')) {
+  if (text.includes('CONCOX') || text.includes('JIMI') || text.includes('WETRACK') || text.includes('GT06') || text.includes('GT800') || text.includes('V5')) {
     return 'CONCOX / JIMI IOT';
+  }
+  if (text.includes('BSTPL') || text.includes('BST')) {
+    return 'BHARAT SATELLITE TRACKING PVT LTD';
+  }
+  if (text.includes('TRACKNOW') || text.includes('TRK')) {
+    return 'TRACKNOW SOLUTIONS PRIVATE LIMITED';
+  }
+  if (text.includes('VAMO')) {
+    return 'VAMO SYSTEMS PRIVATE LIMITED';
+  }
+  if (text.includes('TRANSYNC') || text.includes('NAV140') || text.includes('NAV 140')) {
+    return 'TRANSYNC TELEMATICS';
   }
   return 'APM KINGSTRACK PRIVATE LIMITED';
 }
@@ -85,6 +123,35 @@ const DeviceInventoryController = {
         const result = await client.query(query, [cleanImei]);
 
         if (result.rows.length === 0) {
+          // Fallback to vehicles table if device was onboarded with vehicle
+          try {
+            const vehRes = await client.query(
+              `SELECT plate, name, model, gps_sim_no, metadata, created_at FROM vehicles WHERE imei = $1 LIMIT 1`,
+              [cleanImei]
+            );
+            if (vehRes.rows.length > 0) {
+              const v = vehRes.rows[0];
+              const meta = v.metadata || {};
+              const serialNo = meta.deviceSerialNo || meta.serialNo || meta.vlttdSlno || meta.vltdSlno || meta.vltd_slno || meta.device_serial_no || null;
+              const model = meta.modelName || meta.deviceModel || v.model || null;
+              const mfr = meta.vltdManufacturer || meta.manufacturer || resolveManufacturerFromHardware(model, serialNo, null);
+              const synthesized = {
+                imei: cleanImei,
+                serial_no: serialNo,
+                iccid: meta.iccid || meta.sim_number || (v.gps_sim_no && v.gps_sim_no.length >= 18 ? v.gps_sim_no : null),
+                device_model: model,
+                manufacturer: mfr,
+                sim_provider: meta.simProvider || meta.simOperator || 'Technojacks',
+                sim_no: v.gps_sim_no || meta.sim1 || meta.gpsSimNo || null,
+                batch_name: 'Vehicle_Metadata',
+                created_at: meta.installedDate || meta.onboardingDate || v.created_at,
+                updated_at: new Date()
+              };
+              inventoryCache.set(cleanImei, synthesized);
+              return res.json({ success: true, data: synthesized, fromCache: false, source: 'vehicles' });
+            }
+          } catch (_) {}
+
           // Cache null for 2 minutes to prevent repeated DB misses (cache penetration protection)
           inventoryCache.set(cleanImei, null, { ttl: 2 * 60 * 1000 });
           return res.json({ success: true, data: null, fromCache: false });
@@ -156,20 +223,55 @@ const DeviceInventoryController = {
         }
         seenImeisInPayload.add(imei);
 
-        const serialNo = String(row.serial_no || row.serialNo || row['VLTD SLNO'] || row['VLTTD SLNO'] || row['Serial Number'] || row['Device Serial Number'] || '').trim();
-        const iccid = String(row.iccid || row['ICCID'] || row['ICCID Number'] || row['SIM Number'] || '').trim();
-        const model = String(row.device_model || row.deviceModel || row.model || row['Device Model'] || row['Model Name / Number'] || row['Device Type'] || '').trim();
-        const simProvider = String(row.sim_provider || row.simProvider || row['SIM Service Provider'] || row['Provider'] || row['Operator'] || 'Technojacks').trim();
-        const simNo = String(row.sim_no || row.simNo || row['GPS SIM Number 1'] || row['SIM 1'] || '').trim();
-        const explicitMfr = String(row.manufacturer || row['VLTD Manufacturer Name'] || row['Manufacturer'] || '').trim();
+        const serialNo = String(
+          row.serial_no || row.serialNo || row.serial || row.deviceSerialNo || row.device_serial_no ||
+          row['Device Serial Number'] || row['Device Serial No'] || row['Device Serial'] ||
+          row['Serial Number'] || row['Serial No'] || row['SerialNo'] ||
+          row['VLTD SLNO'] || row['VLTTD SLNO'] || row['VLTD Serial Number'] || row['VLTD Serial No'] ||
+          row['Device SLNO'] || row['Device SL NO'] || row['Device S.No'] || row['Device SNo'] ||
+          row['SLNO'] || row['SL NO'] || row['S.No'] || row['Sr. No'] || row['SrNo'] ||
+          row['SN'] || row['DSN'] || row['UID'] || ''
+        ).trim();
+        const iccid = String(
+          row.iccid || row.iccidNumber || row['ICCID'] || row['ICCID Number'] || row['ICCID NO'] ||
+          row['SIM Number'] || row['SIM ICCID'] || row['eSIM ICCID'] || ''
+        ).trim();
+        const model = String(
+          row.device_model || row.deviceModel || row.model || row['Device Model'] ||
+          row['Model Name / Number'] || row['Model Name'] || row['Model'] || row['Device Type'] || ''
+        ).trim();
+        const simProvider = String(
+          row.sim_provider || row.simProvider || row.provider || row['SIM Service Provider'] ||
+          row['SIM Provider'] || row['Provider'] || row['Operator'] || 'Technojacks'
+        ).trim();
+        const simNo = String(
+          row.sim_no || row.simNo || row.phone || row['GPS SIM Number 1'] ||
+          row['SIM 1'] || row['SIM Phone Number'] || row['Mobile Number'] || ''
+        ).trim();
+        const explicitMfr = String(
+          row.manufacturer || row.vltdManufacturer || row['VLTD Manufacturer Name'] ||
+          row['Manufacturer'] || row['Brand'] || row['Make'] || ''
+        ).trim();
 
         const resolvedMfr = resolveManufacturerFromHardware(model, serialNo, explicitMfr);
+
+        const getDefaultModel = (mfr) => {
+          if (mfr.includes('VOLTY')) return 'VOLTY-AIS140';
+          if (mfr.includes('APM')) return '1819001A';
+          if (mfr.includes('TELTONIKA')) return 'FMB 920';
+          if (mfr.includes('CONCOX')) return 'V5 / GT800';
+          if (mfr.includes('BSTPL')) return 'BSTPL-17';
+          if (mfr.includes('TRACKNOW')) return 'AIS140';
+          if (mfr.includes('VAMO')) return 'AIS140 V2';
+          if (mfr.includes('TRANSYNC')) return 'NAV 140';
+          return 'AIS140';
+        };
 
         validRows.push({
           imei,
           serial_no: serialNo || null,
           iccid: iccid || null,
-          device_model: model || (resolvedMfr.includes('VOLTY') ? 'VOLTY-AIS140' : '1819001A'),
+          device_model: model || getDefaultModel(resolvedMfr),
           manufacturer: resolvedMfr,
           sim_provider: simProvider || 'Technojacks',
           sim_no: simNo || null,

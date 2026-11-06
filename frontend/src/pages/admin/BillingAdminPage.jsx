@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
-import { Loader2, AlertTriangle, Search, FileText, CalendarX2, CreditCard, DollarSign, Edit3, Clock, CheckCircle, Settings, Download, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Loader2, ArrowLeft, AlertTriangle, Search, FileText, CalendarX2, CreditCard, DollarSign, Edit3, Clock, CheckCircle, Settings, Download, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import SetRenewalAmountModal from '../../components/modals/SetRenewalAmountModal';
 
@@ -239,14 +239,39 @@ const BillingAdminPage = () => {
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 shrink-0">
-        <div>
-          <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <FileText size={28} color="#f97316" />
-            Billing & Subscriptions
-          </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
-            Manage vehicle license prices, expiry warnings, and view payment transaction history.
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={18} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '24px', fontWeight: 800, color: '#111827', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+              <FileText size={28} color="#f97316" />
+              Billing & Subscriptions
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', margin: '4px 0 0 0' }}>
+              Manage vehicle license prices, expiry warnings, and view payment transaction history.
+            </p>
+          </div>
         </div>
 
         {/* Tab Navigation Buttons */}

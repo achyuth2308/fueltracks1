@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
-  ClipboardList, Search, Filter, RefreshCw, Eye, X,
+  ClipboardList,
+  ArrowLeft, Search, Filter, RefreshCw, Eye, X,
   Building2, Users, Cpu, Truck, Shield, Key, LogIn, Settings,
   ChevronLeft, ChevronRight, Calendar, Download, Archive
 } from 'lucide-react';
@@ -286,6 +287,7 @@ const DetailDrawer = ({ log, onClose }) => {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 const AuditLogsAdminPage = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const isArchived = searchParams.get('archived') === 'true';
 
   const [logs, setLogs] = useState([]);
@@ -419,16 +421,41 @@ const AuditLogsAdminPage = () => {
 
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isArchived ? <Archive size={22} color="#f97316" /> : <ClipboardList size={22} color="#f97316" />} 
-            {isArchived ? "Archived Audit Logs" : "Today's Audit Logs"}
-          </h1>
-          <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
-            {isArchived 
-              ? "Historical trail of configuration and business changes." 
-              : "Today's trail of configuration and business changes."}
-          </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '34px',
+              height: '34px',
+              borderRadius: '8px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              cursor: 'pointer',
+              color: '#334155',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+            title="Go Back"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {isArchived ? <Archive size={22} color="#f97316" /> : <ClipboardList size={22} color="#f97316" />} 
+              {isArchived ? "Archived Audit Logs" : "Today's Audit Logs"}
+            </h1>
+            <p style={{ fontSize: '12px', color: '#475569', margin: '2px 0 0 0' }}>
+              {isArchived 
+                ? "Historical trail of configuration and business changes." 
+                : "Today's trail of configuration and business changes."}
+            </p>
+          </div>
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button onClick={fetchLogs} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #CBD5E1', background: '#FFFFFF', fontSize: '12px', color: '#334155', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
