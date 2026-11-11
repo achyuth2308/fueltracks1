@@ -493,9 +493,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                             gap: '10px',
                             borderRadius: '8px',
                             cursor: 'pointer',
-                            fontSize: '12.5px',
-                            fontWeight: isParentActive ? 800 : 500,
-                            color: isParentActive ? '#FFFFFF' : '#334155',
+                            fontSize: '13px',
+                            fontWeight: isParentActive ? 800 : 700,
+                            color: isParentActive ? '#FFFFFF' : '#0F172A',
                             background: isParentActive
                               ? (currentTheme.primary || 'var(--brand-primary, #EA580C)')
                               : 'transparent',
@@ -516,7 +516,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                           onMouseLeave={(e) => {
                             if (!isParentActive) {
                               e.currentTarget.style.backgroundColor = 'transparent';
-                              e.currentTarget.style.color = '#334155';
+                              e.currentTarget.style.color = '#0F172A';
                             }
                           }}
                         >
@@ -542,7 +542,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                           </div>
                           {!collapsed && (
                             <>
-                              <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: isParentActive ? 800 : 500 }}>{item.name}</span>
+                              <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: isParentActive ? 800 : 700 }}>{item.name}</span>
                               <ChevronDown
                                 size={14}
                                 color={isParentActive ? '#FFFFFF' : '#94A3B8'}
@@ -580,13 +580,13 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                 gap: '8px',
                                 padding: '5px 8px',
                                 borderRadius: '6px',
-                                fontSize: '11px',
+                                fontSize: '11.5px',
                                 textDecoration: 'none',
-                                color: location.pathname === '/trips' ? (currentTheme.activeText || '#EA580C') : '#64748B',
+                                color: location.pathname === '/trips' ? (currentTheme.activeText || '#EA580C') : '#1E293B',
                                 background: location.pathname === '/trips'
                                   ? (currentTheme.activeBg || '#FFF7ED')
                                   : 'transparent',
-                                fontWeight: location.pathname === '/trips' ? 700 : 500,
+                                fontWeight: location.pathname === '/trips' ? 800 : 700,
                                 transition: 'all 0.15s ease',
                               }}
                               onMouseEnter={(e) => {
@@ -598,7 +598,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                               onMouseLeave={(e) => {
                                 if (location.pathname !== '/trips') {
                                   e.currentTarget.style.backgroundColor = 'transparent';
-                                  e.currentTarget.style.color = '#64748B';
+                                  e.currentTarget.style.color = '#1E293B';
                                 }
                               }}
                             >
@@ -606,11 +606,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                 width: '5px',
                                 height: '5px',
                                 borderRadius: '50%',
-                                background: location.pathname === '/trips' ? currentTheme.primary : '#94A3B8',
+                                background: location.pathname === '/trips' ? currentTheme.primary : '#64748B',
                                 boxShadow: location.pathname === '/trips' ? `0 0 6px ${currentTheme.primary}` : 'none',
                                 flexShrink: 0,
                               }} />
-                              <span>Add Geofence</span>
+                              <span style={{ fontWeight: location.pathname === '/trips' ? 800 : 700 }}>Add Geofence</span>
                             </NavLink>
 
                             {/* 2. Trip Report Submenu */}
@@ -623,13 +623,13 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                   justifyContent: 'space-between',
                                   padding: '5px 8px',
                                   borderRadius: '6px',
-                                  fontSize: '11px',
+                                  fontSize: '11.5px',
                                   cursor: 'pointer',
-                                  color: isTripReportPath(location.pathname) ? (currentTheme.activeText || '#EA580C') : '#64748B',
+                                  color: isTripReportPath(location.pathname) ? (currentTheme.activeText || '#EA580C') : '#1E293B',
                                   background: isTripReportPath(location.pathname)
                                     ? (currentTheme.activeBg || '#FFF7ED')
                                     : 'transparent',
-                                  fontWeight: 700,
+                                  fontWeight: 800,
                                   transition: 'all 0.15s ease',
                                 }}
                                 onMouseEnter={(e) => {
@@ -641,7 +641,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                 onMouseLeave={(e) => {
                                   if (!isTripReportPath(location.pathname)) {
                                     e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#64748B';
+                                    e.currentTarget.style.color = '#1E293B';
                                   }
                                 }}
                               >
@@ -650,15 +650,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                     width: '5px',
                                     height: '5px',
                                     borderRadius: '50%',
-                                    background: isTripReportPath(location.pathname) ? currentTheme.primary : '#94A3B8',
+                                    background: isTripReportPath(location.pathname) ? currentTheme.primary : '#64748B',
                                     boxShadow: isTripReportPath(location.pathname) ? `0 0 6px ${currentTheme.primary}` : 'none',
                                     flexShrink: 0,
                                   }} />
-                                  <span>Trip Report</span>
+                                  <span style={{ fontWeight: 800 }}>Trip Report</span>
                                 </div>
                                 <ChevronDown
                                   size={12}
-                                  color={isTripReportPath(location.pathname) ? currentTheme.primary : '#94A3B8'}
+                                  color={isTripReportPath(location.pathname) ? currentTheme.primary : '#64748B'}
                                   style={{
                                     transform: tripReportExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                                     transition: 'transform 0.2s ease',
@@ -697,12 +697,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                           gap: '6px',
                                           padding: '4px 6px',
                                           borderRadius: '5px',
-                                          fontSize: '10.5px',
+                                          fontSize: '11px',
                                           whiteSpace: 'nowrap',
                                           textDecoration: 'none',
-                                          color: isRActive ? (currentTheme.activeText || '#EA580C') : '#64748B',
+                                          color: isRActive ? (currentTheme.activeText || '#EA580C') : '#1E293B',
                                           background: isRActive ? (currentTheme.activeBg || '#FFF7ED') : 'transparent',
-                                          fontWeight: isRActive ? 700 : 500,
+                                          fontWeight: isRActive ? 800 : 700,
                                           transition: 'all 0.15s ease',
                                         }}
                                         onMouseEnter={(e) => {
@@ -714,7 +714,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                         onMouseLeave={(e) => {
                                           if (!isRActive) {
                                             e.currentTarget.style.backgroundColor = 'transparent';
-                                            e.currentTarget.style.color = '#64748B';
+                                            e.currentTarget.style.color = '#1E293B';
                                           }
                                         }}
                                       >
@@ -722,11 +722,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                           width: '4px',
                                           height: '4px',
                                           borderRadius: '50%',
-                                          background: isRActive ? currentTheme.primary : '#94A3B8',
+                                          background: isRActive ? currentTheme.primary : '#64748B',
                                           boxShadow: isRActive ? `0 0 6px ${currentTheme.primary}` : 'none',
                                           flexShrink: 0
                                         }} />
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{rItem.name}</span>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isRActive ? 800 : 700 }}>{rItem.name}</span>
                                       </NavLink>
                                     );
                                   })}
@@ -807,9 +807,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                           gap: '10px',
                           marginBottom: '3px',
                           borderRadius: '8px',
-                          fontSize: '12.5px',
-                          fontWeight: customIsActive ? 800 : 500,
-                          color: customIsActive ? '#FFFFFF' : '#334155',
+                          fontSize: '13px',
+                          fontWeight: customIsActive ? 800 : 700,
+                          color: customIsActive ? '#FFFFFF' : '#0F172A',
                           background: customIsActive
                             ? (currentTheme.primary || 'var(--brand-primary, #EA580C)')
                             : 'transparent',
@@ -831,7 +831,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         onMouseLeave={(e) => {
                           if (!customIsActive) {
                             e.currentTarget.style.backgroundColor = 'transparent';
-                            e.currentTarget.style.color = '#334155';
+                            e.currentTarget.style.color = '#0F172A';
                           }
                         }}
                       >
@@ -857,11 +857,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                         </div>
                         {!collapsed && (
                           <>
-                            <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: customIsActive ? 800 : 500 }}>{item.name}</span>
+                            <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: customIsActive ? 800 : 700 }}>{item.name}</span>
                             {hasSubItems && (
                               <ChevronDown
                                 size={14}
-                                color={customIsActive ? '#FFFFFF' : '#94A3B8'}
+                                color={customIsActive ? '#FFFFFF' : '#64748B'}
                                 style={{
                                   transform: isSubMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                                   transition: 'transform 0.2s ease',
@@ -917,16 +917,16 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                   gap: '8px',
                                   padding: '5px 8px',
                                   borderRadius: '6px',
-                                  fontSize: '11px',
+                                  fontSize: '11.5px',
                                   textDecoration: 'none',
-                                  color: isSubActive ? (currentTheme.activeText || '#EA580C') : '#64748B',
+                                  color: isSubActive ? (currentTheme.activeText || '#EA580C') : '#1E293B',
                                   background: isSubActive
                                     ? (currentTheme.activeBg || '#FFF7ED')
                                     : 'transparent',
                                   borderLeft: isSubActive
                                     ? `3px solid ${currentTheme.primary || '#EA580C'}`
                                     : '3px solid transparent',
-                                  fontWeight: isSubActive ? 800 : 500,
+                                  fontWeight: isSubActive ? 800 : 700,
                                   transition: 'all 0.15s ease'
                                 }}
                                 onMouseEnter={(e) => {
@@ -938,7 +938,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                 onMouseLeave={(e) => {
                                   if (!isSubActive) {
                                     e.currentTarget.style.backgroundColor = 'transparent';
-                                    e.currentTarget.style.color = '#64748B';
+                                    e.currentTarget.style.color = '#1E293B';
                                   }
                                 }}
                               >
@@ -946,11 +946,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                   width: isSubActive ? '6px' : '4px',
                                   height: isSubActive ? '6px' : '4px',
                                   borderRadius: '50%',
-                                  background: isSubActive ? (currentTheme.primary || '#EA580C') : '#94A3B8',
+                                  background: isSubActive ? (currentTheme.primary || '#EA580C') : '#64748B',
                                   boxShadow: isSubActive ? `0 0 6px ${currentTheme.primary}` : 'none',
                                   flexShrink: 0
                                 }} />
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub.name}</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isSubActive ? 800 : 700 }}>{sub.name}</span>
                               </NavLink>
                             );
                           })}
@@ -1066,9 +1066,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
               borderRadius: '8px',
               background: '#F8FAFC',
               border: '1px solid #E2E8F0',
-              color: '#64748B',
-              fontSize: '12px',
-              fontWeight: 600,
+              color: '#1E293B',
+              fontSize: '12.5px',
+              fontWeight: 700,
               cursor: 'pointer',
               justifyContent: collapsed ? 'center' : 'flex-start',
               transition: 'all 0.18s ease',
@@ -1081,7 +1081,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = '#F8FAFC';
               e.currentTarget.style.borderColor = '#E2E8F0';
-              e.currentTarget.style.color = '#64748B';
+              e.currentTarget.style.color = '#1E293B';
             }}
           >
             <LogOut size={16} className="shrink-0" />
