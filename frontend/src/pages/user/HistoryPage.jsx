@@ -114,6 +114,7 @@ const HistoryPage = () => {
   const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
   const [geofenceTargetStop, setGeofenceTargetStop] = useState(null);
   const [geofenceSuccessMsg, setGeofenceSuccessMsg] = useState('');
+  const [selectedStoppage, setSelectedStoppage] = useState(null);
   const tabs = ['All', 'Movement', 'OverSpeed', 'Parked', 'Idle', 'Ignition', 'Stoppage'];
 
   // Calculate filtered points for the table based on active tab
@@ -137,7 +138,7 @@ const HistoryPage = () => {
     return points;
   };
 
-    const filteredPoints = getFilteredPoints();
+  const filteredPoints = getFilteredPoints();
 
   // Compute Stoppage places from all route points for this date
   const stoppagesList = useMemo(() => {
@@ -719,6 +720,7 @@ const HistoryPage = () => {
             playbackSpeed={playbackSpeed}
             isPlaying={isPlaying}
             onSetGeofence={handleOpenGeofenceModal}
+            selectedStoppage={selectedStoppage}
             vehicleLastKnownPosition={
               vehicle && vehicle.lat != null && vehicle.lng != null
                 ? { lat: vehicle.lat, lng: vehicle.lng }
@@ -850,7 +852,7 @@ const HistoryPage = () => {
             ))}
           </div>
 
-{/* Data Table / Stoppage Places Table */}
+          {/* Data Table / Stoppage Places Table */}
           {activeTab === 'Stoppage' ? (
             <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
               <div style={{ padding: '6px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -891,14 +893,13 @@ const HistoryPage = () => {
                       <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '65px' }}>Started At</th>
                       <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '55px' }}>Duration</th>
                       <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '130px' }}>Location / Address</th>
-                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '42px' }}>Map</th>
-                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', width: '88px' }}>Geofence</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', width: '50px' }}>Map</th>
                     </tr>
                   </thead>
                   <tbody>
                     {stoppagesList.length === 0 ? (
                       <tr>
-                        <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>
+                        <td colSpan="6" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>
                           No stoppage places found for this date.
                         </td>
                       </tr>
@@ -912,6 +913,7 @@ const HistoryPage = () => {
                               if (stop.pointIndex !== undefined) {
                                 setCurrentPointIndex(stop.pointIndex);
                               }
+                              setSelectedStoppage({ ...stop, _t: Date.now() });
                             }}
                             style={{
                               background: isSelected ? 'rgba(224, 242, 254, 0.8)' : 'transparent',
@@ -938,7 +940,7 @@ const HistoryPage = () => {
                               </span>
                             </td>
                             <AddressCell lat={stop.lat} lng={stop.lng} />
-                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB' }}>
+                            <td style={{ padding: '6px 4px' }}>
                               <a
                                 href={`https://www.google.com/maps?q=${stop.lat},${stop.lng}`}
                                 target="_blank"
@@ -948,32 +950,6 @@ const HistoryPage = () => {
                               >
                                 <LinkIcon size={10} /> View
                               </a>
-                            </td>
-                            <td style={{ padding: '6px 4px' }}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleOpenGeofenceModal(stop);
-                                }}
-                                style={{
-                                  background: 'linear-gradient(135deg, #0284C7, #0369A1)',
-                                  color: '#FFFFFF',
-                                  border: 'none',
-                                  padding: '4px 7px',
-                                  borderRadius: '4px',
-                                  fontSize: '9px',
-                                  fontWeight: 700,
-                                  cursor: 'pointer',
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
-                                }}
-                                title="Set geofence around this stoppage place"
-                              >
-                                <Shield size={10} /> Set Geofence
-                              </button>
                             </td>
                           </tr>
                         );

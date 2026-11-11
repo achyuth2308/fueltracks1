@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap, LayersControl } from 'react-leaflet';
 import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
@@ -132,11 +132,52 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1, isPlaying = false, onSetGeofence = null }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1, isPlaying = false, onSetGeofence = null, selectedStoppage = null }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
   const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [showEvents, setShowEvents] = useState(true);
+
+  // 3-second Stoppage Card overlay state & timer
+  const [displayedStoppage, setDisplayedStoppage] = useState(null);
+  const stoppageTimerRef = useRef(null);
+
+  const triggerStoppageCard = useCallback((stop) => {
+    if (!stop) return;
+    setDisplayedStoppage(stop);
+    if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    stoppageTimerRef.current = setTimeout(() => {
+      setDisplayedStoppage(null);
+    }, 3000);
+  }, []);
+
+  const handleStoppageMouseEnter = () => {
+    if (stoppageTimerRef.current) {
+      clearTimeout(stoppageTimerRef.current);
+      stoppageTimerRef.current = null;
+    }
+  };
+
+  const handleStoppageMouseLeave = () => {
+    if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    stoppageTimerRef.current = setTimeout(() => {
+      setDisplayedStoppage(null);
+    }, 3000);
+  };
+
+  // Trigger when a stoppage row is clicked from HistoryPage
+  useEffect(() => {
+    if (selectedStoppage) {
+      triggerStoppageCard(selectedStoppage);
+    }
+  }, [selectedStoppage, triggerStoppageCard]);
+
+  // Cleanup stoppage timer on unmount
+  useEffect(() => {
+    return () => {
+      if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    };
+  }, []);
 
   const { profile } = useProfile();
   const apiKey = profile?.api_key || '';
@@ -503,6 +544,20 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     });
   }, [activePoint, stoppages]);
 
+  // When activePoint enters a stoppage during playback, display stoppage card for 3 seconds
+  const prevActiveStopKeyRef = useRef(null);
+  useEffect(() => {
+    if (activeStoppage) {
+      const stopKey = `${activeStoppage.startTime}_${activeStoppage.lat}_${activeStoppage.lng}`;
+      if (prevActiveStopKeyRef.current !== stopKey) {
+        prevActiveStopKeyRef.current = stopKey;
+        triggerStoppageCard(activeStoppage);
+      }
+    } else {
+      prevActiveStopKeyRef.current = null;
+    }
+  }, [activeStoppage, triggerStoppageCard]);
+
   // Sliced positions up to current playback index
   const validCurrentIndex = React.useMemo(() => {
     if (!activePoint || validPoints.length === 0) return -1;
@@ -665,57 +720,84 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
 
 
-      {/* Active Stoppage Floating Card (Left side overlay) */}
-      {activeStoppage && (
-        <div style={{
-          position: 'absolute',
-          top: '70px',
-          left: '180px',
-          zIndex: 1000,
-          background: '#ffffff',
-          borderRadius: '8px',
-          padding: '16px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          border: '1px solid #e2e8f0',
-          width: '260px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          animation: 'fadeIn 0.3s ease-out'
-        }}>
-          <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            Vehicle Stopped
+      {/* 3-Second Stoppage Floating Card (Left side overlay) */}
+      {displayedStoppage && (
+        <div
+          onMouseEnter={handleStoppageMouseEnter}
+          onMouseLeave={handleStoppageMouseLeave}
+          style={{
+            position: 'absolute',
+            top: '70px',
+            left: '72px',
+            zIndex: 1000,
+            background: '#ffffff',
+            borderRadius: '10px',
+            padding: '16px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+            border: '1px solid #e2e8f0',
+            width: '275px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            animation: 'fadeIn 0.25s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '12px' }}>
+            <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Vehicle Stopped
+            </div>
+            <button
+              type="button"
+              onClick={() => setDisplayedStoppage(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontWeight: 700,
+                lineHeight: 1
+              }}
+              title="Close stoppage card"
+            >
+              ✕
+            </button>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '12px', fontSize: '12px' }}>
             <tbody>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Stopped At</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.startTime)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(displayedStoppage.startTime)}</td>
               </tr>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Started At</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.endTime)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(displayedStoppage.endTime)}</td>
               </tr>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Duration</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(activeStoppage.durationMs)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(displayedStoppage.durationMs)}</td>
               </tr>
             </tbody>
           </table>
           <div style={{ textAlign: 'center', color: '#64748B', fontSize: '11px', background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '12px', lineHeight: '1.4' }}>
-            <LocationDisplay lat={activeStoppage.lat} lng={activeStoppage.lng} />
+            <LocationDisplay lat={displayedStoppage.lat} lng={displayedStoppage.lng} />
           </div>
           <a
-            href={`https://maps.google.com/?q=${activeStoppage.lat},${activeStoppage.lng}`}
+            href={`https://maps.google.com/?q=${displayedStoppage.lat},${displayedStoppage.lng}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '8px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s' }}
+            style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '7px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s', marginBottom: '8px' }}
           >
             View in Google Maps
           </a>
           {onSetGeofence && (
             <button
               type="button"
-              onClick={() => onSetGeofence(activeStoppage)}
+              onClick={() => {
+                onSetGeofence(displayedStoppage);
+                setDisplayedStoppage(null);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -724,14 +806,13 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                 width: '100%',
                 background: '#10B981',
                 color: '#FFFFFF',
-                padding: '7px 0',
+                padding: '8px 0',
                 borderRadius: '6px',
                 border: 'none',
                 fontWeight: 700,
-                fontSize: '11.5px',
+                fontSize: '12px',
                 cursor: 'pointer',
-                marginTop: '6px',
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                boxShadow: '0 2px 4px rgba(16,185,129,0.25)'
               }}
             >
               🛡️ Set Geofence Here
@@ -1110,6 +1191,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           <Marker
             key={`stop-${idx}`}
             position={[stop.lat, stop.lng]}
+            eventHandlers={{
+              click: () => {
+                triggerStoppageCard(stop);
+              }
+            }}
             icon={L.divIcon({
               html: `<div style="background: #ef4444; border: 2px solid #FFFFFF; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
                 <span style="color: white; font-size: 12px; font-weight: bold; line-height: 1;">P</span>
