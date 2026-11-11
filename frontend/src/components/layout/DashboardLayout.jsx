@@ -35,6 +35,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
   const supportBrand = (brandProfile?.brand_name || brandProfile?.company_name || user?.orgName || 'FUELTRACKS').toUpperCase();
   const supportPhone = brandProfile?.support_phone || brandProfile?.whatsapp_number || '7337433351';
   const supportEmail = (brandProfile?.support_email || 'info@fueltracks.in').toLowerCase();
+  const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
   React.useEffect(() => {
     const handleResize = () => {
@@ -111,52 +112,54 @@ const DashboardLayout = ({ vehicles = [] }) => {
         </main>
       </div>
 
-      {/* Floating Bottom Support Badge (Matches 2nd Image) */}
-      <div
-        style={{
-          position: 'fixed',
-          bottom: '8px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 9995,
-          background: '#006778',
-          color: '#FFFFFF',
-          padding: '4px 14px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          fontWeight: 700,
-          letterSpacing: '0.02em',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '5px',
-          pointerEvents: 'auto',
-          userSelect: 'none',
-          whiteSpace: 'nowrap',
-          fontFamily: "'Inter', system-ui, sans-serif"
-        }}
-      >
-        <span>Support Details:</span>
-        <span style={{ color: '#E0F2FE' }}>{supportBrand}</span>
-        <span>,</span>
-        <a
-          href={`tel:${supportPhone}`}
-          style={{ color: '#FFFFFF', textDecoration: 'none' }}
-          onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-          onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+      {/* Floating Bottom Support Badge (Only for non-admin users / customers) */}
+      {!isAdmin && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 9995,
+            background: '#006778',
+            color: '#FFFFFF',
+            padding: '4px 14px',
+            borderRadius: '4px',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            pointerEvents: 'auto',
+            userSelect: 'none',
+            whiteSpace: 'nowrap',
+            fontFamily: "'Inter', system-ui, sans-serif"
+          }}
         >
-          {supportPhone}
-        </a>
-        <span>,</span>
-        <a
-          href={`mailto:${supportEmail}`}
-          style={{ color: '#FFFFFF', textDecoration: 'none' }}
-          onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-          onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-        >
-          {supportEmail}
-        </a>
-      </div>
+          <span>Support Details:</span>
+          <span style={{ color: '#E0F2FE' }}>{supportBrand}</span>
+          <span>,</span>
+          <a
+            href={`tel:${supportPhone}`}
+            style={{ color: '#FFFFFF', textDecoration: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+          >
+            {supportPhone}
+          </a>
+          <span>,</span>
+          <a
+            href={`mailto:${supportEmail}`}
+            style={{ color: '#FFFFFF', textDecoration: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+          >
+            {supportEmail}
+          </a>
+        </div>
+      )}
     </div>
   );
 };

@@ -263,6 +263,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     : 'U';
 
   const roleLabel = user?.role || 'Customer';
+  const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
   const supportBrand = (brandProfile?.brand_name || brandProfile?.company_name || user?.orgName || 'FUELTRACKS').toUpperCase();
   const supportPhone = brandProfile?.support_phone || brandProfile?.whatsapp_number || '7337433351';
@@ -853,8 +854,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           position: 'relative',
           zIndex: 3
         }}>
-          {/* Support Helpline Box */}
-          {!collapsed ? (
+          {/* Support Helpline Box - Only for non-admin users (customers) */}
+          {!isAdmin && (!collapsed ? (
             <div
               style={{
                 width: '100%',
@@ -930,7 +931,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             >
               <Headphones size={16} />
             </div>
-          )}
+          ))}
 
           <button
             onClick={handleLogout}
