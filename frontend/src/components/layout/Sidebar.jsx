@@ -299,108 +299,30 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
-        {/* User Profile Header - Linear Studio Clean Card */}
+        {/* Clean Sidebar Header - Just Customer Name / Super Admin Label */}
         <div style={{
-          margin: '10px 10px 4px 10px',
-          padding: '10px 12px',
-          borderRadius: '12px',
-          background: '#FFFFFF',
-          border: '1px solid #E2E8F0',
-          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
+          padding: '16px 14px 12px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '10px',
+          borderBottom: '1px solid #E2E8F0',
+          marginBottom: '6px',
           position: 'relative',
           zIndex: 2
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-            <div style={{
-              position: 'relative',
-              width: '36px',
-              height: '36px',
-              borderRadius: '50%',
-              background: currentTheme.avatarBg || 'var(--brand-primary, #EA580C)',
-              boxShadow: `0 2px 6px ${currentTheme.avatarGlow || 'rgba(0,0,0,0.12)'}`,
-              border: '2px solid #FFFFFF',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '14px',
-              fontWeight: 800,
-              color: '#FFFFFF',
-              flexShrink: 0,
-              transition: 'background 0.2s ease'
-            }}>
-              {initials}
-              <span style={{
-                position: 'absolute',
-                bottom: '-1px',
-                right: '-1px',
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                background: currentTheme.primary,
-                border: '2px solid #FFFFFF',
-              }} />
-            </div>
-            {!collapsed && (
-              <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                  {user?.name || 'ACHYU'}
-                </div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                  <span style={{
-                    fontSize: '9.5px',
-                    fontWeight: 700,
-                    color: currentTheme.activeText || '#EA580C',
-                    background: currentTheme.activeBg || '#FFF7ED',
-                    border: '1px solid #FED7AA',
-                    borderRadius: '5px',
-                    padding: '1px 6px',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    transition: 'all 0.2s ease'
-                  }}>
-                    {roleLabel}
-                  </span>
-                </div>
-              </div>
-            )}
+          <div style={{
+            fontSize: '14px',
+            fontWeight: 800,
+            color: '#0F172A',
+            letterSpacing: '-0.02em',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
+            {user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')}
           </div>
 
-          {/* Quick Palette Button */}
-          <button
-            type="button"
-            onClick={() => setShowColorPicker(v => !v)}
-            title="Change Theme Accent"
-            style={{
-              background: showColorPicker ? '#F1F5F9' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '4px',
-              cursor: 'pointer',
-              color: showColorPicker ? currentTheme.primary : '#64748B',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = currentTheme.primary;
-              e.currentTarget.style.backgroundColor = '#F1F5F9';
-            }}
-            onMouseLeave={(e) => {
-              if (!showColorPicker) {
-                e.currentTarget.style.color = '#64748B';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            <Palette size={15} />
-          </button>
-
-          {/* Close button for mobile / collapse indicator */}
+          {/* Close button for mobile */}
           <button
             onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
             className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border-none bg-transparent"
@@ -409,51 +331,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             <X size={18} />
           </button>
         </div>
-
-        {/* Quick Horizontal Color Dots (Linear Studio Style) */}
-        {!collapsed && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            padding: '4px 14px 8px 14px',
-            borderBottom: '1px solid #E2E8F0',
-            marginBottom: '4px',
-            zIndex: 2,
-            position: 'relative'
-          }}>
-            <span style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.06em' }}>THEME</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {SIDEBAR_THEMES.map(t => {
-                const isSelected = (themeId === t.id);
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    onClick={() => {
-                      setThemeId(t.id);
-                      applyGlobalTheme(t);
-                    }}
-                    title={t.name}
-                    style={{
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      background: t.dotColor || t.primary,
-                      border: isSelected ? '2px solid #0F172A' : '1.5px solid #FFFFFF',
-                      boxShadow: isSelected ? `0 0 0 2px ${t.primary}` : '0 1px 2px rgba(0,0,0,0.15)',
-                      cursor: 'pointer',
-                      padding: 0,
-                      outline: 'none',
-                      transform: isSelected ? 'scale(1.2)' : 'scale(1)',
-                      transition: 'all 0.15s ease'
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Navigation */}
         <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 10px', scrollbarWidth: 'thin', scrollbarColor: '#E2E8F0 transparent', position: 'relative', zIndex: 2 }}>
