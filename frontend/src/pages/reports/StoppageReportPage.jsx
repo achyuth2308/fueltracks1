@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Search, Loader2, PauseCircle, Filter, FileText, Truck, Calendar, Flame, ExternalLink, Zap } from 'lucide-react';
+import { Search, Loader2, Calendar, FileSpreadsheet, FileText, Download, Play, PauseCircle, ExternalLink } from 'lucide-react';
 import axiosInstance from '../../api/axios';
-import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
+import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
+const getTodayDateStr = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const formatDuration = (seconds) => {
+  if (!seconds || isNaN(seconds)) return '00:00:00';
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = Math.floor(seconds % 60);
@@ -16,272 +24,686 @@ const formatDuration = (seconds) => {
 };
 
 const StoppageReportPage = () => {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [data, setData] = useState([]);
-  const [stoppageTypeFilter, setStoppageTypeFilter] = useState('all'); // 'all', 'idle', 'parked'
-
-  // Filters
+  const todayStr = getTodayDateStr();
   const [vehicles, setVehicles] = useState([]);
-  const [filters, setFilters] = useState({
-    vehicleId: '',
-    startDate: new Date().toISOString().split('T')[0],
-    endDate: new Date().toISOString().split('T')[0]
-  });
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
+  const [searchVehicle, setSearchVehicle] = useState('');
+  const [selectedGroup, setSelectedGroup] = useState('All');
 
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(todayStr);
+  const [stoppageTypeFilter, setStoppageTypeFilter] = useState('all'); // 'all', 'idle', 'parked'
+  const [activePreset, setActivePreset] = useState('today');
+
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // Load vehicles
   useEffect(() => {
-    vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => { if (res.success) setVehicles(res.data); })
+    vehicleApi.getVehicles({ t: Date.now(), limit: 1000 })
+      .then(res => {
+        if (res.success && res.data?.length > 0) {
+          setVehicles(res.data);
+          setSelectedVehicleId(res.data[0].id);
+        }
+      })
       .catch(console.error);
   }, []);
 
-  const handleGenerate = async () => {
-    if (!filters.startDate || !filters.endDate) return;
+  // Fetch report data
+  const handleGenerate = useCallback(async (sDate, eDate, vId) => {
+    const curStart = sDate || startDate;
+    const curEnd = eDate || endDate;
+    const curVId = vId || selectedVehicleId;
+
+    if (!curStart || !curEnd) return;
     setLoading(true);
+
     try {
-      const start = new Date(filters.startDate);
+      const start = new Date(curStart);
       start.setHours(0, 0, 0, 0);
-      const end = new Date(filters.endDate);
+      const end = new Date(curEnd);
       end.setHours(23, 59, 59, 999);
 
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
-      if (filters.vehicleId) params.append('vehicleId', filters.vehicleId);
+      if (curVId) params.append('vehicleId', curVId);
 
       const res = await axiosInstance.get(`/api/reports/stoppages?${params.toString()}`);
-      if (res.data.success) {
-        const reportData = res.data.data;
-        // Fetch addresses for both Parked and Idle stoppage events
-        const dataWithAddresses = await Promise.all(reportData.map(async (row) => {
+      if (res.data?.success) {
+        const rawList = res.data.data || [];
+        const dataWithAddresses = await Promise.all(rawList.map(async (row) => {
           if (row.status === 'Moving') return { ...row, address: '-' };
-          const address = await getAddressFromCoordinates(row.lat, row.lng);
-          return { ...row, address };
+          let address = row.address;
+          if (!address && row.lat && row.lng) {
+            address = await getAddressFromCoordinates(row.lat, row.lng);
+          }
+          return { ...row, address: address || '-' };
         }));
-
         setData(dataWithAddresses);
+      } else {
+        setData([]);
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to generate report');
+      console.error('Failed to load stoppages report:', err);
+      setData([]);
     } finally {
       setLoading(false);
     }
+  }, [startDate, endDate, selectedVehicleId]);
+
+  // Initial fetch on vehicle load
+  useEffect(() => {
+    if (selectedVehicleId) {
+      handleGenerate(startDate, endDate, selectedVehicleId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVehicleId]);
+
+  // Selected vehicle object
+  const selectedVehicle = useMemo(() => {
+    return vehicles.find(v => String(v.id) === String(selectedVehicleId)) || vehicles[0] || null;
+  }, [vehicles, selectedVehicleId]);
+
+  // Group options
+  const groupOptions = useMemo(() => {
+    const set = new Set();
+    vehicles.forEach(v => {
+      const g = v.group_name || v.group?.name;
+      if (g) set.add(g);
+    });
+    return ['All', ...Array.from(set)];
+  }, [vehicles]);
+
+  // Filtered vehicles
+  const filteredVehicles = useMemo(() => {
+    return vehicles.filter(v => {
+      const g = v.group_name || v.group?.name || '';
+      if (selectedGroup !== 'All' && g !== selectedGroup) return false;
+      if (searchVehicle.trim()) {
+        const query = searchVehicle.toLowerCase();
+        const nameMatch = (v.name || '').toLowerCase().includes(query);
+        const plateMatch = (v.plate || '').toLowerCase().includes(query);
+        return nameMatch || plateMatch;
+      }
+      return true;
+    });
+  }, [vehicles, selectedGroup, searchVehicle]);
+
+  // Filtered records by stoppage type
+  const filteredData = useMemo(() => {
+    return data.filter(row => {
+      if (row.status === 'Moving') return false;
+      if (stoppageTypeFilter === 'idle') return row.status === 'Idle';
+      if (stoppageTypeFilter === 'parked') return row.status === 'Parked';
+      return true;
+    });
+  }, [data, stoppageTypeFilter]);
+
+  // Summary Metrics
+  const summaryMetrics = useMemo(() => {
+    let totalIdleSec = 0;
+    let totalParkedSec = 0;
+    filteredData.forEach(row => {
+      const sec = Number(row.duration_seconds) || 0;
+      if (row.status === 'Idle') totalIdleSec += sec;
+      if (row.status === 'Parked') totalParkedSec += sec;
+    });
+    return {
+      idleFormatted: formatDuration(totalIdleSec),
+      parkedFormatted: formatDuration(totalParkedSec),
+      totalStoppageFormatted: formatDuration(totalIdleSec + totalParkedSec),
+      idleFuelWasted: ((totalIdleSec / 3600) * 2.0).toFixed(1)
+    };
+  }, [filteredData]);
+
+  // Quick Presets
+  const setQuickRange = (preset) => {
+    setActivePreset(preset);
+    const now = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    const toISO = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    let sDate = todayStr;
+    let eDate = todayStr;
+
+    if (preset === 'today') {
+      sDate = todayStr;
+      eDate = todayStr;
+    } else if (preset === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      sDate = toISO(y);
+      eDate = sDate;
+    } else if (preset === 'this_week') {
+      const cur = new Date(now);
+      const day = cur.getDay();
+      const diff = cur.getDate() - day + (day === 0 ? -6 : 1);
+      const mon = new Date(cur.setDate(diff));
+      sDate = toISO(mon);
+      eDate = todayStr;
+    } else if (preset === 'last_week') {
+      const cur = new Date(now);
+      const day = cur.getDay();
+      const diffToMon = cur.getDate() - day + (day === 0 ? -6 : 1) - 7;
+      const lastMon = new Date(cur.setDate(diffToMon));
+      const lastSun = new Date(lastMon);
+      lastSun.setDate(lastSun.getDate() + 6);
+      sDate = toISO(lastMon);
+      eDate = toISO(lastSun);
+    } else if (preset === 'this_month') {
+      const first = new Date(now.getFullYear(), now.getMonth(), 1);
+      sDate = toISO(first);
+      eDate = todayStr;
+    } else if (preset === 'last_month') {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      sDate = toISO(first);
+      eDate = toISO(last);
+    }
+
+    setStartDate(sDate);
+    setEndDate(eDate);
+    handleGenerate(sDate, eDate, selectedVehicleId);
   };
 
-  const exportColumns = ['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration (HH:MM:SS)', 'Est. Fuel Wasted', 'Location Details'];
+  const columns = ['#', 'Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Est. Fuel Wasted', 'Address', 'G-Map'];
 
   const getExportData = () => {
-    const exportRows = [];
-    Object.values(groupedData).forEach(group => {
-      group.events.forEach(row => {
-        const isIdle = row.status === 'Idle';
-        const fuelWasted = isIdle ? `~${((row.duration_seconds / 3600) * 2.0).toFixed(1)} L` : '0.0 L';
-        exportRows.push({
-          'Vehicle Name': row.vehicle_name || '-',
-          'Status': isIdle ? 'Engine ON (Idle - Fuel Wasted)' : 'Engine OFF (Parked)',
-          'Start Time': formatLocalTime(row.start_time),
-          'End Time': formatLocalTime(row.end_time),
-          'Duration (HH:MM:SS)': formatDuration(row.duration_seconds || 0),
-          'Est. Fuel Wasted': fuelWasted,
-          'Location Details': row.address || 'Unknown Location'
-        });
-      });
+    return filteredData.map((row, idx) => {
+      const isIdle = row.status === 'Idle';
+      const fuelWasted = isIdle ? `~${((row.duration_seconds / 3600) * 2.0).toFixed(1)} L` : '0.0 L';
+      return {
+        '#': idx + 1,
+        'Vehicle Name': row.vehicle_name || selectedVehicle?.name || '-',
+        'Status': isIdle ? 'Engine ON (Idle)' : 'Engine OFF (Parked)',
+        'Start Time': formatLocalTime(row.start_time),
+        'End Time': formatLocalTime(row.end_time),
+        'Duration': formatDuration(row.duration_seconds || 0),
+        'Est. Fuel Wasted': fuelWasted,
+        'Address': row.address || '-'
+      };
     });
-    return exportRows;
   };
 
-  // Group data by vehicle and calculate summaries
-  const groupedData = data.reduce((acc, row) => {
-    if (!acc[row.vehicle_id]) {
-      acc[row.vehicle_id] = {
-        vehicle_name: row.vehicle_name,
-        plate: row.plate,
-        moving_seconds: 0,
-        idle_seconds: 0,
-        parked_seconds: 0,
-        events: []
-      };
-    }
-
-    if (row.status === 'Moving') {
-      acc[row.vehicle_id].moving_seconds += parseFloat(row.duration_seconds || 0);
-    } else if (row.status === 'Idle') {
-      acc[row.vehicle_id].idle_seconds += parseFloat(row.duration_seconds || 0);
-      if (stoppageTypeFilter === 'all' || stoppageTypeFilter === 'idle') {
-        acc[row.vehicle_id].events.push(row);
-      }
-    } else if (row.status === 'Parked') {
-      acc[row.vehicle_id].parked_seconds += parseFloat(row.duration_seconds || 0);
-      if (stoppageTypeFilter === 'all' || stoppageTypeFilter === 'parked') {
-        acc[row.vehicle_id].events.push(row);
-      }
-    }
-
-    return acc;
-  }, {});
-
-  const activeGroups = Object.values(groupedData).filter(group => group.events.length > 0);
-  const totalStoppageCount = activeGroups.reduce((sum, g) => sum + g.events.length, 0);
-  const tableColumns = ['Engine / Stoppage Status', 'Start Time', 'End Time', 'Duration', 'Est. Fuel Wasted', 'Location Details'];
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A' }}>
+    <div style={{
+      display: 'flex',
+      flex: 1,
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+      background: '#F8FAFC',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }}>
 
-      {/* Filters Bar */}
-      <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '12px', padding: '10px 16px', background: '#fff', borderRadius: '10px', border: '1px solid #E2E8F0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#F3E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Truck size={14} color="#9333EA" />
+      {/* ═══════════ LEFT: COMPACT 135px VEHICLE SIDEBAR ═══════════ */}
+      <div style={{
+        width: '135px',
+        minWidth: '135px',
+        maxWidth: '135px',
+        background: '#FFFFFF',
+        borderRight: '1px solid #CBD5E1',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
+      }}>
+        {/* Search */}
+        <div style={{ padding: '6px', borderBottom: '1px solid #E2E8F0' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: '#F8FAFC',
+            border: '1px solid #CBD5E1',
+            borderRadius: '4px',
+            padding: '3px 6px'
+          }}>
+            <Search size={11} color="#64748B" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchVehicle}
+              onChange={e => setSearchVehicle(e.target.value)}
+              style={{
+                width: '100%',
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: '11px',
+                color: '#0F172A'
+              }}
+            />
           </div>
-          <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, minWidth: '180px' }}>
-            <option value="">All Vehicles</option>
-            {vehicles.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-          </select>
         </div>
 
-        <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#DBEAFE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Calendar size={14} color="#2563EB" />
-          </div>
-          <CustomDatePicker value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
-          <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 700 }}>→</span>
-          <CustomDatePicker value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '13px', fontWeight: 500, width: '140px', boxSizing: 'border-box' }} />
-        </div>
-
-        <div style={{ width: '1px', height: '28px', background: '#E2E8F0' }} />
-
-        {/* Stoppage Filter Type */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748B' }}>Filter:</span>
+        {/* Group Filter */}
+        <div style={{ padding: '4px 6px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
           <select
-            value={stoppageTypeFilter}
-            onChange={e => setStoppageTypeFilter(e.target.value)}
-            style={{ padding: '7px 12px', borderRadius: '6px', border: '1px solid #E2E8F0', outline: 'none', background: '#FAFAFA', color: '#0F172A', fontSize: '12px', fontWeight: 600 }}
+            value={selectedGroup}
+            onChange={e => setSelectedGroup(e.target.value)}
+            style={{
+              width: '100%',
+              fontSize: '11px',
+              padding: '2px 4px',
+              borderRadius: '4px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              outline: 'none',
+              cursor: 'pointer'
+            }}
           >
-            <option value="all">All Stoppages (Parked + Idle)</option>
-            <option value="idle">🔥 Engine ON (Idle - Fuel Waste)</option>
-            <option value="parked">🅿️ Engine OFF (Parked)</option>
+            {groupOptions.map(g => (
+              <option key={g} value={g}>{g}</option>
+            ))}
           </select>
         </div>
 
-        <button onClick={handleGenerate} disabled={loading} style={{ padding: '8px 20px', borderRadius: '8px', background: 'linear-gradient(135deg, #f97316, #ea580c)', color: '#FFF', border: 'none', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', boxShadow: '0 2px 8px rgba(249,115,22,0.3)', marginLeft: 'auto' }}>
-          {loading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
-          Generate
-        </button>
-      </div>
-
-      {/* Results */}
-      <div style={{ background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '16px' }}>
-        <div style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAFA', borderRadius: '12px 12px 0 0' }}>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-            Stoppage Report Results
-            <span style={{ color: '#64748B', fontWeight: 500, fontSize: '13px', marginLeft: '8px' }}>
-              ({totalStoppageCount} records)
-            </span>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => exportToPDF(exportColumns, getExportData(), 'Stoppage Report', 'stoppage_report')} disabled={totalStoppageCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: totalStoppageCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: totalStoppageCount ? 1 : 0.5 }}>
-              <FileText size={16} color="#DC2626" /> PDF
-            </button>
-            <button onClick={() => exportToExcel(getExportData(), 'stoppage_report')} disabled={totalStoppageCount === 0} style={{ padding: '8px 16px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #CBD5E1', color: '#475569', fontSize: '13px', fontWeight: 600, cursor: totalStoppageCount ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', opacity: totalStoppageCount ? 1 : 0.5 }}>
-              <Download size={16} color="#10B981" /> Excel
-            </button>
-          </div>
-        </div>
-
-        <div style={{ overflowX: 'auto', flex: 1, padding: '16px' }}>
-          {activeGroups.length === 0 ? (
-            <div style={{ padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
-              <Filter size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              No stoppage data found for the selected criteria.
+        {/* Vehicle List */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
+          {filteredVehicles.length === 0 ? (
+            <div style={{ padding: '8px', fontSize: '10.5px', color: '#94A3B8', textAlign: 'center' }}>
+              No vehicles
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              {activeGroups.map((group, gIdx) => {
-                const estTotalDieselWastedLiters = ((group.idle_seconds / 3600) * 2.0).toFixed(1);
-
-                return (
-                  <div key={gIdx} style={{ border: '1px solid #E2E8F0', borderRadius: '8px', overflow: 'hidden' }}>
-
-                    {/* Top Bar - Vehicle Info */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', background: '#DCE4EF', padding: '12px 16px', fontWeight: 700, fontSize: '13px', color: '#1E293B', borderBottom: '1px solid #CBD5E1' }}>
-                      <div>Vehicle Name : {group.vehicle_name} ({group.plate || '-'})</div>
-                      <div>From : {formatLocalTime(filters.startDate + 'T00:00:00')} - To : {formatLocalTime(filters.endDate + 'T23:59:59')}</div>
-                    </div>
-
-                    {/* Summary Bar - Durations & Diesel Waste Metric */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: '#F8FAFC', padding: '12px 16px', fontWeight: 600, fontSize: '13px', color: '#475569', borderBottom: '1px solid #CBD5E1', textAlign: 'center' }}>
-                      <div>Moving : {formatDuration(group.moving_seconds)}</div>
-                      <div>Parked (Engine OFF) : {formatDuration(group.parked_seconds)}</div>
-                      <div style={{ color: group.idle_seconds > 0 ? '#DC2626' : '#475569' }}>
-                        Idle (Engine ON) : {formatDuration(group.idle_seconds)}
-                      </div>
-                      <div style={{ color: group.idle_seconds > 0 ? '#B91C1C' : '#64748B', fontWeight: 700 }}>
-                        Est. Diesel Wasted : ~{estTotalDieselWastedLiters} L
-                      </div>
-                    </div>
-
-                    {/* Events Table */}
-                    <table className="report-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center' }}>
-                      <thead>
-                        <tr style={{ background: '#F1F5F9', borderBottom: '1px solid #E2E8F0' }}>
-                          {tableColumns.map(c => <th key={c} style={{ padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#475569' }}>{c}</th>)}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {group.events.map((row, idx) => {
-                          const isIdle = row.status === 'Idle';
-                          const fuelWasted = isIdle ? `~${((row.duration_seconds / 3600) * 2.0).toFixed(1)} L` : '0.0 L';
-
-                          return (
-                            <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9', background: isIdle ? '#FFFBFB' : '#FFFFFF' }}>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', textAlign: 'center' }}>
-                                {isIdle ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '12px', fontWeight: 700 }}>
-                                    <Flame size={13} color="#DC2626" /> Engine ON (Idle - Fuel Wasted)
-                                  </span>
-                                ) : (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', padding: '4px 10px', borderRadius: '6px', background: '#EFF6FF', border: '1px solid #BFDBFE', color: '#2563EB', fontSize: '12px', fontWeight: 700 }}>
-                                    <PauseCircle size={13} color="#2563EB" /> Engine OFF (Parked)
-                                  </span>
-                                )}
-                              </td>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.start_time)}</td>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569' }}>{formatLocalTime(row.end_time)}</td>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', color: '#1E293B', fontWeight: 600 }}>{formatDuration(row.duration_seconds || 0)}</td>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', color: isIdle ? '#DC2626' : '#64748B', fontWeight: isIdle ? 700 : 500 }}>
-                                {fuelWasted}
-                              </td>
-                              <td style={{ padding: '12px 16px', fontSize: '13px', color: '#475569', minWidth: '220px', textAlign: 'left' }}>
-                                {row.lat && row.lng ? (
-                                  <a
-                                    href={`https://www.google.com/maps?q=${row.lat},${row.lng}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    style={{ color: '#2563EB', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                  >
-                                    <span>{row.address && row.address !== '-' ? row.address : `${parseFloat(row.lat).toFixed(4)}, ${parseFloat(row.lng).toFixed(4)}`}</span>
-                                    <ExternalLink size={12} />
-                                  </a>
-                                ) : (
-                                  <span>{row.address || '-'}</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })}
-            </div>
+            filteredVehicles.map(v => {
+              const isSelected = String(v.id) === String(selectedVehicleId);
+              const isOnline = v.online || v.status === 'Running' || v.status === 'Idle';
+              return (
+                <div
+                  key={v.id}
+                  onClick={() => {
+                    setSelectedVehicleId(v.id);
+                    handleGenerate(startDate, endDate, v.id);
+                  }}
+                  title={v.name || v.plate}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    marginBottom: '2px',
+                    cursor: 'pointer',
+                    background: isSelected ? '#D1FAE5' : 'transparent',
+                    borderLeft: isSelected ? '3px solid #059669' : '3px solid transparent',
+                    transition: 'all 0.15s ease'
+                  }}
+                  onMouseEnter={e => {
+                    if (!isSelected) e.currentTarget.style.background = '#ECFDF5';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isSelected) e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <span style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: isOnline ? '#10B981' : '#94A3B8',
+                    flexShrink: 0
+                  }} />
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: isSelected ? 700 : 500,
+                    color: isSelected ? '#065F46' : '#1E293B',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    {v.name || v.plate}
+                  </span>
+                </div>
+              );
+            })
           )}
         </div>
+      </div>
+
+      {/* ═══════════ RIGHT: EXCEL WORKSPACE ═══════════ */}
+      <div style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#FFFFFF',
+        padding: '10px 14px',
+        overflow: 'hidden',
+        gap: '6px'
+      }}>
+
+        {/* ── 1. Top Controls Bar: Dates + Type Filter + Generate + Exports ── */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '8px',
+          paddingBottom: '4px',
+          borderBottom: '1px solid #E2E8F0'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Start Date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '5px', background: '#F8FAFC' }}>
+              <Calendar size={13} color="#64748B" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => { setStartDate(e.target.value); setActivePreset(''); }}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '11.5px', color: '#0F172A', cursor: 'pointer', fontWeight: 500 }}
+              />
+            </div>
+
+            <span style={{ fontSize: '12px', color: '#94A3B8', fontWeight: 600 }}>→</span>
+
+            {/* End Date */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '5px', background: '#F8FAFC' }}>
+              <Calendar size={13} color="#64748B" />
+              <input
+                type="date"
+                value={endDate}
+                onChange={e => { setEndDate(e.target.value); setActivePreset(''); }}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '11.5px', color: '#0F172A', cursor: 'pointer', fontWeight: 500 }}
+              />
+            </div>
+
+            {/* Type Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', border: '1px solid #CBD5E1', padding: '3px 8px', borderRadius: '5px', background: '#F8FAFC' }}>
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>Type:</span>
+              <select
+                value={stoppageTypeFilter}
+                onChange={e => setStoppageTypeFilter(e.target.value)}
+                style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: '11.5px', color: '#0F172A', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <option value="all">All Stoppages</option>
+                <option value="idle">Idle (Engine ON - Waste)</option>
+                <option value="parked">Parked (Engine OFF)</option>
+              </select>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={() => handleGenerate(startDate, endDate, selectedVehicleId)}
+              disabled={loading}
+              style={{
+                background: 'linear-gradient(135deg, #059669, #047857)',
+                color: '#FFFFFF',
+                border: 'none',
+                padding: '5px 16px',
+                borderRadius: '999px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: '0 2px 4px rgba(5,150,105,0.25)'
+              }}
+            >
+              {loading ? <Loader2 size={12} className="animate-spin" /> : <Play size={10} fill="#FFFFFF" color="#FFFFFF" />}
+              <span>Generate</span>
+            </button>
+          </div>
+
+          {/* Export Icons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              onClick={() => exportToExcel(getExportData(), 'stoppage_report')}
+              disabled={filteredData.length === 0}
+              title="Download Excel Report"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#F0FDF4',
+                border: '1px solid #DCFCE7',
+                padding: '3px 8px',
+                borderRadius: '5px',
+                cursor: filteredData.length ? 'pointer' : 'not-allowed',
+                opacity: filteredData.length ? 1 : 0.5
+              }}
+            >
+              <FileSpreadsheet size={13} color="#16A34A" />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#15803D' }}>Excel</span>
+            </button>
+
+            <button
+              onClick={() => exportToPDF(columns, getExportData(), 'Stoppage Report', 'stoppage_report')}
+              disabled={filteredData.length === 0}
+              title="Download PDF Report"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#FEF2F2',
+                border: '1px solid #FEE2E2',
+                padding: '3px 8px',
+                borderRadius: '5px',
+                cursor: filteredData.length ? 'pointer' : 'not-allowed',
+                opacity: filteredData.length ? 1 : 0.5
+              }}
+            >
+              <FileText size={13} color="#DC2626" />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#B91C1C' }}>PDF</span>
+            </button>
+
+            <button
+              onClick={() => exportToCSV(getExportData(), 'stoppage_report')}
+              disabled={filteredData.length === 0}
+              title="Download CSV"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: '#EFF6FF',
+                border: '1px solid #DBEAFE',
+                padding: '3px 8px',
+                borderRadius: '5px',
+                cursor: filteredData.length ? 'pointer' : 'not-allowed',
+                opacity: filteredData.length ? 1 : 0.5
+              }}
+            >
+              <Download size={13} color="#2563EB" />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#1D4ED8' }}>CSV</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── 2. Segmented Quick Date Pill Bar ── */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '2px',
+          width: 'fit-content',
+          margin: '0 auto'
+        }}>
+          {[
+            { id: 'today', label: 'Today' },
+            { id: 'yesterday', label: 'Yesterday' },
+            { id: 'this_week', label: 'This Week' },
+            { id: 'last_week', label: 'Last Week' },
+            { id: 'this_month', label: 'This Month' },
+            { id: 'last_month', label: 'Last Month' }
+          ].map(p => {
+            const isActive = activePreset === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setQuickRange(p.id)}
+                style={{
+                  background: isActive ? '#064E3B' : '#E6F4EA',
+                  border: 'none',
+                  color: isActive ? '#FFFFFF' : '#334155',
+                  fontSize: '11px',
+                  fontWeight: isActive ? 700 : 600,
+                  cursor: 'pointer',
+                  padding: '4px 14px',
+                  borderRadius: '999px',
+                  boxShadow: isActive ? '0 1px 3px rgba(6,78,59,0.3)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── 3. Executive Metadata Banner (Excel Sheet Format) ── */}
+        <div style={{
+          border: '1px solid #D1FAE5',
+          background: '#F7FDF9',
+          overflow: 'hidden'
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', lineHeight: '1.25' }}>
+            <tbody>
+              {/* Row 1 */}
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ width: '14%', padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  Vehicle Group
+                </td>
+                <td style={{ width: '36%', padding: '5px 8px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #E2E8F0' }}>
+                  {selectedVehicle?.group_name || selectedVehicle?.group?.name || 'Default Group'}
+                </td>
+                <td style={{ width: '14%', padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  Vehicle Name
+                </td>
+                <td style={{ width: '36%', padding: '5px 8px', fontWeight: 700, color: '#0F172A' }}>
+                  {selectedVehicle?.name || selectedVehicle?.plate || '-'}
+                </td>
+              </tr>
+              {/* Row 2 */}
+              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
+                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  Vehicle Id
+                </td>
+                <td style={{ padding: '5px 8px', fontWeight: 700, color: '#0F172A', borderRight: '1px solid #E2E8F0', fontFamily: 'monospace' }}>
+                  {selectedVehicle?.plate || selectedVehicle?.imei || selectedVehicle?.id || '-'}
+                </td>
+                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  Total Idle / Stoppage
+                </td>
+                <td style={{ padding: '5px 8px', fontWeight: 700, color: '#059669' }}>
+                  Idle: {summaryMetrics.idleFormatted} (~{summaryMetrics.idleFuelWasted} L) | Parked: {summaryMetrics.parkedFormatted}
+                </td>
+              </tr>
+              {/* Row 3 */}
+              <tr>
+                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  From Date
+                </td>
+                <td style={{ padding: '5px 8px', color: '#0F172A', borderRight: '1px solid #E2E8F0', fontWeight: 600 }}>
+                  {startDate}
+                </td>
+                <td style={{ padding: '5px 8px', fontWeight: 800, color: '#064E3B', background: '#ECFDF5', borderRight: '1px solid #E2E8F0', textTransform: 'uppercase', fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                  To Date
+                </td>
+                <td style={{ padding: '5px 8px', color: '#0F172A', fontWeight: 600 }}>
+                  {endDate}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── 4. Excel Format Data Table ── */}
+        <div style={{
+          flex: 1,
+          border: '1px solid #CBD5E1',
+          overflow: 'auto',
+          background: '#FFFFFF'
+        }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', minWidth: '850px' }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+              <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', width: '40px', textAlign: 'center' }}>#</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Status</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Start Time</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>End Time</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Duration</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Idle Wastage</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Address</th>
+                <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '60px' }}>G-Map</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '40px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span>Loading stoppage records...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={8} style={{ padding: '30px', textAlign: 'center', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '12px' }}>
+                    No stoppage records found for the selected criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredData.map((row, idx) => {
+                  const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
+                  const isIdle = row.status === 'Idle';
+                  const fuelWasted = isIdle ? `~${((row.duration_seconds / 3600) * 2.0).toFixed(1)} L` : '0.0 L';
+                  const gMapUrl = row.lat && row.lng ? `https://www.google.com/maps?q=${row.lat},${row.lng}` : null;
+                  return (
+                    <tr
+                      key={idx}
+                      style={{ background: bg, transition: 'background 0.15s ease' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#ECFDF5'}
+                      onMouseLeave={e => e.currentTarget.style.background = bg}
+                    >
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#475569' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: isIdle ? '#D97706' : '#64748B' }}>
+                        {isIdle ? 'Idle (ON)' : 'Parked (OFF)'}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap' }}>
+                        {formatLocalTime(row.start_time)}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#475569', whiteSpace: 'nowrap' }}>
+                        {formatLocalTime(row.end_time)}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 600, color: '#1E293B' }}>
+                        {formatDuration(row.duration_seconds || 0)}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontWeight: 700, color: isIdle ? '#EA580C' : '#94A3B8' }}>
+                        {fuelWasted}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'left', color: '#1E293B', whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>
+                        {row.address || '-'}
+                      </td>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
+                        {gMapUrl ? (
+                          <a
+                            href={gMapUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#2563EB', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                          >
+                            <span>Link</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        ) : '-'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
       </div>
     </div>
   );

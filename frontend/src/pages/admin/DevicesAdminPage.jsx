@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Server, Loader2, AlertTriangle, Search, ChevronLeft, ChevronRight, X, Truck,
   Building2, Activity, Wifi, WifiOff, Plus, FileSpreadsheet, Download,
-  Clock, Trash2, Cpu
+  Clock, Trash2, Cpu, Edit2, Copy, Check
 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
 import * as api from '../../api/adminApi';
@@ -12,6 +12,7 @@ import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
 import DeviceInventoryUploadModal from '../../components/modals/DeviceInventoryUploadModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import { getNoDataThresholdHours } from '../../utils/markerUtils';
+import { copyToClipboard } from '../../utils/clipboard';
 
 const formatLastComm = (isoString) => {
   if (!isoString) return 'Never';
@@ -59,6 +60,19 @@ const DevicesAdminPage = () => {
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [isExcelModalOpen, setIsExcelModalOpen] = useState(false);
   const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
+  const [copiedImei, setCopiedImei] = useState(null);
+
+  const handleCopyImei = async (imei, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    const success = await copyToClipboard(imei);
+    if (success) {
+      setCopiedImei(imei);
+      setTimeout(() => setCopiedImei(null), 2000);
+    }
+  };
 
   useEffect(() => {
     const handleThresholdChange = (e) => {
@@ -184,30 +198,31 @@ const DevicesAdminPage = () => {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
             title="Download formatted Excel template for bulk onboarding"
           >
-            <Download size={14} className="text-slate-600" />
+            <Download size={14} className="text-slate-500" />
             <span>Excel Template</span>
           </button>
 
           <button
             onClick={() => setIsInventoryModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
             title="Import hardware stock spreadsheet (APM, Volty) with Serial Numbers & ICCIDs"
           >
-            <Cpu size={14} className="text-blue-200" />
+            <Cpu size={14} className="text-indigo-600" />
             <span>Device Master / Inventory</span>
           </button>
 
           <button
             onClick={() => setIsExcelModalOpen(true)}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-white bg-slate-900 hover:bg-black rounded-lg shadow-sm transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 rounded-lg shadow-xs transition-all cursor-pointer"
           >
-            <FileSpreadsheet size={14} className="text-amber-400" />
+            <FileSpreadsheet size={14} className="text-emerald-600" />
             <span>Upload Excel</span>
           </button>
 
           <button
             onClick={() => navigate('/onBoardDevice')}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-orange-500 hover:bg-orange-600 rounded-lg shadow-sm transition-all cursor-pointer"
+            style={{ background: 'var(--brand-primary, #EA580C)' }}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white rounded-lg shadow-sm transition-all cursor-pointer hover:opacity-90"
           >
             <Plus size={16} />
             <span>Add Device</span>
@@ -300,20 +315,21 @@ const DevicesAdminPage = () => {
         <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff', borderRadius: '8px 8px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ background: '#1e1b4b', position: 'sticky', top: 0, zIndex: 10 }}>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '60px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>SL.NO</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DEVICE IMEI</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>TYPE</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLE</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>API PROPAGATION</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>STATUS</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em' }}>LAST COMMUNICATION</th>
+              <tr style={{ background: 'var(--brand-header, #1e1b4b)', position: 'sticky', top: 0, zIndex: 10 }}>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '60px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>SL.NO</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>DEVICE IMEI</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>TYPE</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>ASSIGNED VEHICLE</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>API PROPAGATION</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>STATUS</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>LAST COMMUNICATION</th>
+                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '85px', textAlign: 'center' }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
               {paginatedDevices.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ padding: '40px', textAlign: 'center' }}>
+                  <td colSpan="8" style={{ padding: '40px', textAlign: 'center' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.7 }}>
                       <Server size={32} color="#94a3b8" />
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '8px' }}>No devices found</div>
@@ -321,34 +337,56 @@ const DevicesAdminPage = () => {
                   </td>
                 </tr>
               ) : paginatedDevices.map((d, idx) => {
-                let statusText = 'Offline';
-                let statusColor = '#64748b';
-                let dotColor = '#cbd5e1';
-
                 const online = isDeviceOnline(d);
+                let statusBadge;
+
                 if (!d.last_update) {
-                  statusText = 'Unreachable';
-                  statusColor = '#64748b';
-                  dotColor = '#cbd5e1';
+                  statusBadge = (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '3px 8px', borderRadius: '999px',
+                      background: '#F1F5F9', border: '1px solid #E2E8F0',
+                      color: '#475569', fontSize: '11px', fontWeight: 700
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94A3B8' }} />
+                      Unreachable
+                    </span>
+                  );
                 } else if (online) {
-                  statusText = 'Online';
-                  statusColor = '#059669';
-                  dotColor = '#10b981';
+                  statusBadge = (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '3px 8px', borderRadius: '999px',
+                      background: '#ECFDF5', border: '1px solid #A7F3D0',
+                      color: '#065F46', fontSize: '11px', fontWeight: 700
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10B981' }} />
+                      Online
+                    </span>
+                  );
                 } else {
-                  statusText = 'No Data';
-                  statusColor = '#dc2626';
-                  dotColor = '#ef4444';
+                  statusBadge = (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '5px',
+                      padding: '3px 8px', borderRadius: '999px',
+                      background: '#FEF2F2', border: '1px solid #FECACA',
+                      color: '#991B1B', fontSize: '11px', fontWeight: 700
+                    }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#EF4444' }} />
+                      No Data
+                    </span>
+                  );
                 }
 
                 return (
                   <tr
                     key={d.id}
                     style={{
-                      borderBottom: '1px solid #e0e7ff',
-                      height: '38px',
+                      borderBottom: '1px solid #F1F5F9',
+                      height: '42px',
                       transition: 'background 0.15s'
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.background = '#f5f3ff'; }}
+                    onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     {/* Sl. No based on current page */}
@@ -358,7 +396,59 @@ const DevicesAdminPage = () => {
 
                     {/* Device IMEI */}
                     <td style={{ padding: '8px 14px', fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
-                      {d.imei}
+                      <div
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <span>{d.imei}</span>
+                        {copiedImei === d.imei ? (
+                          <span style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            background: '#ECFDF5',
+                            border: '1px solid #A7F3D0',
+                            color: '#047857',
+                            fontSize: '10.5px',
+                            fontWeight: 700,
+                            padding: '1px 6px',
+                            borderRadius: '4px'
+                          }}>
+                            <Check size={11} color="#047857" />
+                            Copied
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleCopyImei(d.imei, e)}
+                            title="Copy IMEI to clipboard"
+                            style={{
+                              border: '1px solid #E2E8F0',
+                              background: '#F8FAFC',
+                              padding: '3px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#EEF2F6';
+                              e.currentTarget.style.borderColor = '#CBD5E1';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#F8FAFC';
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                            }}
+                          >
+                            <Copy size={12} className="text-slate-500" />
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     {/* Device Type */}
@@ -370,7 +460,30 @@ const DevicesAdminPage = () => {
 
                     {/* Assigned Vehicle */}
                     <td style={{ padding: '8px 14px', fontSize: '13px', color: '#1e293b', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
-                      {d.vehicle_name || 'Unassigned'}
+                      {d.vehicle_id ? (
+                        <span
+                          onClick={() => navigate(`/admin/vehicles/edit/${d.vehicle_id}`)}
+                          style={{
+                            cursor: 'pointer',
+                            color: '#0F172A',
+                            fontWeight: 600,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            transition: 'color 0.15s'
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.color = 'var(--brand-primary, #EA580C)'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = '#0F172A'; }}
+                          title="Click to view/edit assigned vehicle"
+                        >
+                          <Truck size={14} className="text-slate-400 shrink-0" />
+                          <span>{d.vehicle_name}</span>
+                        </span>
+                      ) : (
+                        <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '12px' }}>
+                          Unassigned
+                        </span>
+                      )}
                     </td>
 
                     {/* API Propagation */}
@@ -419,17 +532,76 @@ const DevicesAdminPage = () => {
 
                     {/* Status */}
                     <td style={{ padding: '8px 14px', borderRight: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: dotColor, display: 'inline-block' }} />
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: statusColor }}>
-                          {statusText}
-                        </span>
-                      </div>
+                      {statusBadge}
                     </td>
 
                     {/* Last Comm */}
-                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b', fontWeight: 500 }}>
+                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b', fontWeight: 500, borderRight: '1px solid #e2e8f0' }}>
                       {formatLastComm(d.last_update)}
+                    </td>
+
+                    {/* Action */}
+                    <td style={{ padding: '6px 14px', textAlign: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        {d.vehicle_id ? (
+                          <button
+                            onClick={() => navigate(`/admin/vehicles/edit/${d.vehicle_id}`)}
+                            title="Edit Assigned Vehicle"
+                            style={{
+                              padding: '5px',
+                              borderRadius: '6px',
+                              border: '1px solid #E2E8F0',
+                              background: '#FFFFFF',
+                              cursor: 'pointer',
+                              color: '#475569',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.color = 'var(--brand-primary, #EA580C)';
+                              e.currentTarget.style.borderColor = 'var(--brand-primary, #EA580C)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.color = '#475569';
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                            }}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                        ) : null}
+                        {isSuperAdmin && (
+                          <button
+                            onClick={(e) => handleDelete(d.id, e)}
+                            title="Delete Device"
+                            style={{
+                              padding: '5px',
+                              borderRadius: '6px',
+                              border: '1px solid #E2E8F0',
+                              background: '#FFFFFF',
+                              cursor: 'pointer',
+                              color: '#94A3B8',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.color = '#DC2626';
+                              e.currentTarget.style.borderColor = '#FCA5A5';
+                              e.currentTarget.style.background = '#FEF2F2';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.color = '#94A3B8';
+                              e.currentTarget.style.borderColor = '#E2E8F0';
+                              e.currentTarget.style.background = '#FFFFFF';
+                            }}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

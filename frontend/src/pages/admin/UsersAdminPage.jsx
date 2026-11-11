@@ -211,10 +211,10 @@ const UsersAdminPage = () => {
           onClick={handleOpenAddModal}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#f97316', color: '#FFFFFF',
+            background: 'var(--brand-primary, #f97316)', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.25)',
+            cursor: 'pointer', boxShadow: '0 4px 12px var(--brand-glow, rgba(249,115,22,0.25))',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.4)'; }}
@@ -266,7 +266,7 @@ const UsersAdminPage = () => {
             <div className="overflow-x-auto" style={{ overflowY: 'auto', flex: 1 }}>
               <table className="pastel-table" style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ background: '#1e1b4b' }}>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'No Data Time', 'Status', 'Actions'].map(h => (
                       <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         {h}
@@ -346,22 +346,38 @@ const UsersAdminPage = () => {
                       <td style={{ padding: '16px 20px' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {user?.id !== u.id && (
-                            <button
-                              onClick={(e) => handleImpersonate(u, e)}
-                              disabled={switchingUserId !== null}
+                            <a
+                              href={`/switch-login/${u.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open user session in new tab"
                               style={{
-                                background: '#E0F2FE', color: '#0369A1', border: 'none', padding: '6px 12px',
-                                borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(3,105,161,0.1)'
+                                background: '#E0F2FE',
+                                color: '#0369A1',
+                                textDecoration: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '12px',
+                                fontWeight: 600,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                cursor: 'pointer',
+                                boxShadow: '0 2px 4px rgba(3,105,161,0.1)',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.background = '#BAE6FD';
+                                e.currentTarget.style.color = '#0284C7';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.background = '#E0F2FE';
+                                e.currentTarget.style.color = '#0369A1';
                               }}
                             >
-                              {switchingUserId === u.id ? (
-                                <Loader2 size={12} className="animate-spin" />
-                              ) : (
-                                <Shuffle size={12} />
-                              )}
+                              <Shuffle size={12} />
                               <span>Switch</span>
-                            </button>
+                            </a>
                           )}
                           <button
                             onClick={() => handleViewUser(u)}
@@ -446,23 +462,42 @@ const UsersAdminPage = () => {
               </div>
 
               {user?.id !== viewingUser.id && (
-                <button
-                  onClick={(e) => handleImpersonate(viewingUser, e)}
-                  disabled={switchingUserId !== null}
+                <a
+                  href={`/switch-login/${viewingUser.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Open user session in new tab"
                   style={{
-                    width: '100%', marginBottom: '12px', padding: '10px', borderRadius: '8px',
-                    background: '#E0F2FE', border: 'none', color: '#0369A1',
-                    fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(3,105,161,0.1)'
+                    width: '100%',
+                    marginBottom: '12px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    background: '#E0F2FE',
+                    textDecoration: 'none',
+                    color: '#0369A1',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 4px rgba(3,105,161,0.1)',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#BAE6FD';
+                    e.currentTarget.style.color = '#0284C7';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = '#E0F2FE';
+                    e.currentTarget.style.color = '#0369A1';
                   }}
                 >
-                  {switchingUserId === viewingUser.id ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : (
-                    <Shuffle size={14} />
-                  )}
-                  <span>Switch Login (Impersonate)</span>
-                </button>
+                  <Shuffle size={14} />
+                  <span>Switch Login (New Tab)</span>
+                </a>
               )}
 
               <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>

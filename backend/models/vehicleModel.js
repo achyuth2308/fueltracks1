@@ -76,6 +76,7 @@ const VehicleModel = {
     const result = await db.query(
       `SELECT v.*, v.metadata,
               o.name as org_name,
+              d.device_type, d.licence_id,
               vls.lat, vls.lng, vls.speed as current_speed,
               vls.fuel as current_fuel, vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
@@ -100,6 +101,7 @@ const VehicleModel = {
               vls.today_distance as today_distance
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
+       LEFT JOIN devices d ON v.imei = d.device_id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
        WHERE v.id = $1`,
       [vehicleId]
@@ -335,6 +337,19 @@ const VehicleModel = {
       } catch (err) {
         console.error('[REDIS] Cache invalidation failed for vehicle update:', err.message);
       }
+
+      // Keep devices.device_type in sync with vehicle device version / model
+      const modelToSync = (metadata && metadata.deviceModel) || deviceVersion;
+      if (modelToSync) {
+        try {
+          await db.query(
+            `UPDATE devices SET device_type = $1 WHERE device_id = $2`,
+            [modelToSync, updatedVehicle.imei]
+          );
+        } catch (syncErr) {
+          console.warn('[DB] Failed to sync device_type to devices table:', syncErr.message);
+        }
+      }
     }
     
     return updatedVehicle;
@@ -405,6 +420,59 @@ const VehicleModel = {
     }
 
     return result.rows[0] || null;
+  },
+
+  /**
+   * Move an existing device (current IMEI) to a completely new vehicle,
+   * detaching it from the old vehicle so old history stays separated.
+   */
+  async reassignDeviceToNewVehicle({ oldVehicleId, newPlate, newName, targetOrgId, model, category, deactivateOldVehicle = false }) {
+    // 1. Get old vehicle
+    const oldVehRes = await db.query(`SELECT * FROM vehicles WHERE id = $1`, [oldVehicleId]);
+    if (oldVehRes.rows.length === 0) throw new Error('Source vehicle not found.');
+    const oldVeh = oldVehRes.rows[0];
+    const imei = oldVeh.imei;
+    if (!imei) throw new Error('Source vehicle has no IMEI device assigned.');
+
+    // 2. Unlink IMEI from old vehicle
+    await db.query(
+      `UPDATE vehicles SET imei = NULL, is_active = $1, updated_at = NOW() WHERE id = $2`,
+      [!deactivateOldVehicle, oldVehicleId]
+    );
+
+    // 3. Create the brand new vehicle with clean history
+    const finalOrgId = targetOrgId || oldVeh.org_id;
+    const finalName = (newName || newPlate).trim();
+    const finalPlate = (newPlate || newName).trim();
+    const finalModel = model || oldVeh.model || 'truck';
+    const finalCategory = category || oldVeh.category || 'General';
+
+    const newVehRes = await db.query(
+      `INSERT INTO vehicles (name, plate, imei, org_id, model, category, licence_issued_date, licence_expire_date, is_active, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE, NOW(), NOW())
+       RETURNING *`,
+      [finalName, finalPlate, imei, finalOrgId, finalModel, finalCategory, oldVeh.licence_issued_date, oldVeh.licence_expire_date]
+    );
+    const newVehicle = newVehRes.rows[0];
+
+    // 4. Create clean initial state for new vehicle
+    await db.query(
+      `INSERT INTO vehicle_latest_state (vehicle_id, is_online, speed, odometer, today_distance, last_seen)
+       VALUES ($1, FALSE, 0, 0, 0, NULL)
+       ON CONFLICT (vehicle_id) DO NOTHING`,
+      [newVehicle.id]
+    );
+
+    // 5. Update devices table to point to new vehicle and new org
+    await db.query(
+      `UPDATE devices SET vehicle_id = $1, org_id = $2, updated_at = NOW() WHERE device_id = $3`,
+      [newVehicle.plate, finalOrgId, imei]
+    );
+
+    // 6. Invalidate Redis cache
+    try { await redis.del(`vehicle:imei:${imei}`); } catch (_) {}
+
+    return newVehicle;
   },
 
   /**

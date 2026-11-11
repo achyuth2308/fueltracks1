@@ -31,8 +31,9 @@ export const deleteVehicle = async (id) => {
   return response.data;
 };
 
-export const migrateVehicle = async (id, newImei) => {
-  const response = await axiosInstance.post(`/api/vehicles/${id}/migrate`, { newImei });
+export const migrateVehicle = async (id, data) => {
+  const payload = typeof data === 'string' ? { newImei: data } : data;
+  const response = await axiosInstance.post(`/api/vehicles/${id}/migrate`, payload);
   return response.data;
 };
 

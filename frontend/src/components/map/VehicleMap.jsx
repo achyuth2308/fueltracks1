@@ -17,7 +17,7 @@ const FitBoundsToTrail = ({ coords }) => {
       const isInitial = prevCoordsLength.current === 0;
       prevCoordsLength.current = coords.length;
       const latest = coords[coords.length - 1];
-      map.setView(latest, 15, { animate: false });
+      map.setView(latest, 18, { animate: false });
     }
   }, [coords, map]);
 
@@ -150,13 +150,14 @@ const VehicleMap = ({ vehicle, vehicleId, initialLat, initialLng, initialIgnitio
       <MapContainer
         key={location.pathname}
         center={center}
-        zoom={15}
+        zoom={18}
+        maxZoom={19}
         style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
         zoomControl={false}
       >
         <ResizeMap />
         <LayersControl position="topleft">
-          <BaseLayer checked name="OpenStreetMap Standard (OSM)">
+          <BaseLayer checked name="OSM">
             <TileLayer
               attribution='&copy; OpenStreetMap contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

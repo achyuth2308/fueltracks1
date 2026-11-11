@@ -333,9 +333,28 @@ const VEHICLE_MODELS = [
 ];
 
 const DEVICE_MODELS = [
-  'GT06N (9964)', 'AIS140', 'AIS140 V2', 'VOLTY', 'BSTPL',
+  'VOLTY', 'AIS140', 'AIS140 V2', 'GT06N (9964)', 'BSTPL',
   'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM'
 ];
+
+const resolveDeviceModel = (raw) => {
+  if (!raw) return '';
+  const upper = String(raw).trim().toUpperCase();
+  if (upper.includes('VOLTYFUEL') || upper.includes('TRANSYNC') || upper.includes('NAV 140') || upper.includes('5011')) return 'VOLTYFUEL';
+  if (upper.includes('VOLTY') || upper.includes('5004')) return 'VOLTY';
+  if (upper.includes('AIS140 V2') || upper.includes('VAMO') || upper.includes('5003')) return 'AIS140 V2';
+  if (upper.includes('AIS140') || upper.includes('TRACKNOW') || upper.includes('5001')) return 'AIS140';
+  if (upper.includes('BSTPL-17IS') || upper.includes('5010')) return 'BSTPL-17IS';
+  if (upper.includes('BSTPL') || upper.includes('5000')) return 'BSTPL';
+  if (upper.includes('CONCOX') || upper.includes('5002') || upper.includes('GT800')) return 'CONCOX';
+  if (upper.includes('V5 4G') || upper.includes('5009')) return 'V5 4G';
+  if (upper.includes('FMB') || upper.includes('TELTONIKA') || upper.includes('5005')) return 'FMB 920';
+  if (upper.includes('PT06') || upper.includes('5006')) return 'PT06';
+  if (upper.includes('PN02') || upper.includes('5008')) return 'PN02';
+  if (upper.includes('EC08') || upper.includes('5007') || upper.includes('GT06')) return 'GT06N (9964)';
+  if (upper.includes('APMK') || upper.includes('APM') || upper.includes('5012')) return 'APMK';
+  return String(raw).trim();
+};
 
 // Mapping of Device Model to Telemetry TCP Port
 const DEVICE_MODEL_PORTS = {
@@ -565,7 +584,7 @@ const EditVehiclePage = () => {
     model: 'Bus',
     serverName: '',
     gpsSimNo: '',
-    deviceVersion: 'GT06N (9964)',
+    deviceVersion: 'VOLTY',
     timezone: 'IST',
     apn: '',
     licenceIssuedDate: getTodayStr(),
@@ -578,7 +597,7 @@ const EditVehiclePage = () => {
       registrationNo: '',
       vehicleTypeSelect: 'Bus',
       vehicleModel: 'Mazda',
-      deviceModel: 'GT06N (9964)',
+      deviceModel: 'VOLTY',
       iccid: '',
       telecomOperator: 'AIRCEL',
       installationDate: '',
@@ -644,7 +663,10 @@ const EditVehiclePage = () => {
         .then(res => {
           const v = res.data;
           const meta = v.metadata || {};
-          const currentDeviceModel = meta.deviceModel || v.device_version || 'GT06N (9964)';
+          const currentDeviceModel = resolveDeviceModel(v.device_type)
+            || resolveDeviceModel(meta.deviceModel)
+            || resolveDeviceModel(v.device_version)
+            || 'VOLTY';
           let dynamicIp = meta.ipAddress;
           if (!dynamicIp || dynamicIp.includes('fueltracks.in')) {
             dynamicIp = getDefaultServerIp();
@@ -1319,7 +1341,11 @@ const EditVehiclePage = () => {
                 }
               }));
             }}
-            options={DEVICE_MODELS}
+            options={
+              (form.deviceVersion || form.metadata.deviceModel) && !DEVICE_MODELS.includes(form.deviceVersion || form.metadata.deviceModel)
+                ? [form.deviceVersion || form.metadata.deviceModel, ...DEVICE_MODELS]
+                : DEVICE_MODELS
+            }
             focused={focusedField === 'dModel'}
             onFocus={() => setFocusedField('dModel')}
             onBlur={() => setFocusedField(null)}

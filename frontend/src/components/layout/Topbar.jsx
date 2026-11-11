@@ -8,6 +8,7 @@ import * as adminApi from '../../api/adminApi';
 import * as vehicleApi from '../../api/vehicleApi';
 import axiosInstance from '../../api/axios';
 import { applyBrowserBranding, getFullImageUrl } from '../../utils/branding';
+import { getCurrentTheme } from '../../utils/theme';
 import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 
 const Topbar = ({ onMenuClick, vehicles = [] }) => {
@@ -15,12 +16,29 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
-  const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!localStorage.getItem('adminToken'));
+  const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!(sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken')));
   const { connected, socket, joinOrgRoom } = useSocket();
   const [stats, setStats] = useState({ total: 0, online: 0, offline: 0, unreachable: 0 });
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
   const [time, setTime] = useState(new Date());
   const [brandProfile, setBrandProfile] = useState(null);
+  const [currentTheme, setCurrentTheme] = useState(() => getCurrentTheme());
+
+  useEffect(() => {
+    const handleThemeChanged = (e) => {
+      if (e?.detail) {
+        setCurrentTheme(e.detail);
+      } else {
+        setCurrentTheme(getCurrentTheme(brandProfile));
+      }
+    };
+    window.addEventListener('app-theme-changed', handleThemeChanged);
+    window.addEventListener('sidebar-theme-changed', handleThemeChanged);
+    return () => {
+      window.removeEventListener('app-theme-changed', handleThemeChanged);
+      window.removeEventListener('sidebar-theme-changed', handleThemeChanged);
+    };
+  }, [brandProfile]);
 
   const [alerts, setAlerts] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -376,17 +394,18 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   const dateStr = formatLocalDate(time);
 
   return (
-    <header style={{
+    <header className="topbar-header" style={{
       height: '56px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0 20px',
-      background: brandProfile?.secondary_color || '#1e1b4b',
-      borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+      background: '#FFFFFF',
+      borderBottom: '1px solid #E2E8F0',
+      boxShadow: '0 1px 3px rgba(0, 0, 0, 0.03)',
       flexShrink: 0,
       zIndex: 9999,
-      transition: 'background-color 0.3s ease',
+      transition: 'all 0.2s ease',
     }}>
       {/* Left: logo + org */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -397,7 +416,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           style={{
             background: 'transparent',
             border: 'none',
-            color: '#f1f5f9',
+            color: '#334155',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -408,34 +427,6 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           <Menu size={24} />
         </button>
 
-        {!isDashboard && (
-          <button
-            type="button"
-            onClick={() => navigate(-1)}
-            title="Go Back"
-            style={{
-              background: 'rgba(255, 255, 255, 0.12)',
-              border: '1px solid rgba(255, 255, 255, 0.22)',
-              borderRadius: '8px',
-              color: '#FFFFFF',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '6px 10px',
-              gap: '6px',
-              fontSize: '12px',
-              fontWeight: 700,
-              transition: 'all 0.15s ease',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.22)'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255, 255, 255, 0.12)'; }}
-          >
-            <ArrowLeft size={16} />
-            <span className="hidden sm:inline">Back</span>
-          </button>
-        )}
-
         {/* Logo & Brand Identity */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
@@ -443,8 +434,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
             borderRadius: '8px',
             overflow: 'hidden',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: brandProfile?.logo_url ? 'white' : 'transparent',
-            boxShadow: '0 4px 10px rgba(99,102,241,0.3)',
+            background: '#FFFFFF',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.04)',
             padding: brandProfile?.logo_url ? '2px' : '0'
           }}>
             {/* Show FuelTracks logo only for superadmin; for dealers/customers, only show logo if they have one uploaded */}
@@ -456,21 +448,21 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
                 onError={(e) => { if(user?.role === 'superadmin') e.currentTarget.src = '/fuelimage.png'; else e.currentTarget.style.display = 'none'; }}
               />
             ) : (
-              <span style={{ fontSize: '18px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.03em' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--brand-primary, #F97316)', letterSpacing: '-0.03em' }}>
                 {(brandProfile?.brand_name || user?.orgName || '').slice(0, 2).toUpperCase()}
               </span>
             )}
           </div>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+            <div style={{ fontSize: '15px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
               {user?.role === 'superadmin' ? 'FuelTracks' : (brandProfile?.brand_name || user?.orgName || 'Telematics')}
             </div>
             {brandProfile?.brand_tagline && user?.role !== 'superadmin' ? (
-              <div style={{ fontSize: '9px', fontWeight: 600, color: brandProfile?.primary_color || '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--brand-primary, #EA580C)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {brandProfile.brand_tagline.slice(0, 28)}
               </div>
             ) : (
-              <div style={{ fontSize: '9px', fontWeight: 600, color: '#a78bfa', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '9.5px', fontWeight: 700, color: 'var(--brand-primary, #EA580C)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 {user?.role === 'superadmin' ? 'Enterprise Admin' : 'Telematics Portal'}
               </div>
             )}
@@ -481,14 +473,14 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         {user?.role === 'superadmin' && user?.orgName && !user.orgName.toLowerCase().startsWith('fueltracks') && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '7px', marginLeft: '16px' }}>
             <div style={{
-              width: '5px', height: '5px', borderRadius: '50%',
-              background: '#f97316',
-              boxShadow: '0 0 6px rgba(249,115,22,0.5)',
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--brand-primary, #F97316)',
+              boxShadow: '0 0 6px rgba(249,115,22,0.4)',
             }} />
             <span
               className="hidden sm:block"
               style={{
-                fontSize: '12px', fontWeight: 600, color: '#93c5fd',
+                fontSize: '12px', fontWeight: 600, color: '#475569',
                 maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
               {user.orgName}
@@ -498,26 +490,33 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       </div>
 
       {/* Right: stats + clock + socket */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
         {/* Fleet stats */}
-        <div className="hidden md:flex" style={{ alignItems: 'center', gap: '12px' }}>
+        <div className="hidden md:flex" style={{
+          alignItems: 'center',
+          gap: '12px',
+          background: '#F8FAFC',
+          borderRadius: '999px',
+          padding: '4px 14px',
+          border: '1px solid #E2E8F0'
+        }}>
           {[
-            { label: 'Total', value: stats.total, color: '#f1f5f9' },
-            { label: 'Online', value: stats.online, color: '#f97316', dot: true },
-            { label: 'No Data', value: stats.offline, color: '#0ea5e9', dot: true, isNoData: true },
-            { label: 'Unreachable', value: stats.unreachable || 0, color: '#94a3b8', dot: true },
+            { label: 'Total', value: stats.total, color: '#0F172A' },
+            { label: 'Online', value: stats.online, color: '#10B981', dot: true },
+            { label: 'No Data', value: stats.offline, color: '#0284C7', dot: true, isNoData: true },
+            { label: 'Unreachable', value: stats.unreachable || 0, color: '#64748B', dot: true },
           ].map(({ label, value, color, dot, isNoData }) => (
             <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
               {dot && (
                 <div style={{
                   width: '6px', height: '6px', borderRadius: '50%', background: color,
-                  boxShadow: color === '#f97316' ? '0 0 6px rgba(249,115,22,0.4)' : 'none',
+                  boxShadow: color === '#10B981' ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
                 }} />
               )}
-              <span style={{ fontSize: '11px', color: '#93c5fd', fontWeight: 500 }}>{label}</span>
+              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{label}</span>
               <span style={{
-                fontSize: '12px', fontWeight: 700, color,
+                fontSize: '12px', fontWeight: 800, color: dot ? color : '#0F172A',
                 fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
               }}>
                 {value}
@@ -528,37 +527,37 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
         </div>
 
         {/* Divider */}
-        <div className="hidden md:block" style={{ width: '1px', height: '20px', background: '#ea580c' }} />
+        <div className="hidden md:block" style={{ width: '1px', height: '20px', background: '#E2E8F0' }} />
 
         {/* Live clock */}
         <div className="hidden sm:flex" style={{ textAlign: 'right', alignItems: 'center', gap: '8px' }}>
-          <ClockIcon size={14} color="#93c5fd" />
+          <ClockIcon size={14} color="var(--brand-primary, #EA580C)" />
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#f1f5f9', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', fontFamily: 'JetBrains Mono, monospace', letterSpacing: '0.02em', lineHeight: '1' }}>
               {timeStr}
             </div>
-            <div style={{ fontSize: '9px', color: '#93c5fd', fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>
+            <div style={{ fontSize: '9px', color: '#64748B', fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: '2px' }}>
               {dateStr}
             </div>
           </div>
         </div>
 
         {/* Divider */}
-        <div className="hidden sm:block" style={{ width: '1px', height: '20px', background: '#ea580c' }} />
+        <div className="hidden sm:block" style={{ width: '1px', height: '20px', background: '#E2E8F0' }} />
 
         {/* Notifications */}
         {(user?.role !== 'superadmin' && user?.role !== 'dealer') && (() => {
           const unreadCount = alerts.filter(a => !a.isRead && !a.is_read).length;
           return (
             <div style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowDropdown(!showDropdown)}>
-              <Bell size={18} color="#f1f5f9" />
+              <Bell size={18} color="#475569" />
               {unreadCount > 0 && (
                 <div style={{
                   position: 'absolute', top: '-2px', right: '-2px',
                   width: '14px', height: '14px', borderRadius: '50%',
-                  background: '#f97316', color: 'white',
+                  background: 'var(--brand-primary, #F97316)', color: 'white',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '9px', fontWeight: 'bold', border: '2px solid #223A57',
+                  fontSize: '9px', fontWeight: 'bold', border: '2px solid #FFFFFF',
                 }}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </div>
@@ -603,8 +602,9 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           display: 'flex', alignItems: 'center', gap: '5px',
           padding: '4px 10px',
           borderRadius: '99px',
-          background: connected ? (brandProfile?.primary_color || '#f97316') : '#475569',
-          border: `1px solid ${connected ? (brandProfile?.primary_color || '#7ea0b6') : '#3b82f6'}`,
+          background: connected ? 'linear-gradient(135deg, #EA580C 0%, #C2410C 100%)' : '#475569',
+          border: `1px solid ${connected ? '#EA580C' : '#3b82f6'}`,
+          boxShadow: connected ? '0 0 8px rgba(234, 88, 12, 0.4)' : 'none'
         }}>
           {connected
             ? <Wifi size={12} color="#ffffff" />
@@ -613,7 +613,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
           <span style={{
             fontSize: '10px', fontWeight: 700,
             letterSpacing: '0.08em', textTransform: 'uppercase',
-            color: connected ? '#ffffff' : '#4d6076',
+            color: '#ffffff',
           }}>
             {connected ? 'Live' : 'Off'}
           </span>
@@ -628,20 +628,20 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
               alignItems: 'center',
               gap: '6px',
               padding: '5px 12px',
-              borderRadius: '8px',
-              background: '#d97706',
+              borderRadius: '999px',
+              background: currentTheme.avatarGlow || 'rgba(16, 185, 129, 0.12)',
+              border: `1.5px solid ${currentTheme.primary || '#10B981'}`,
               color: '#ffffff',
-              border: 'none',
               fontWeight: 700,
-              fontSize: '12px',
+              fontSize: '11.5px',
               cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(217,119,6,0.3)',
+              boxShadow: `0 2px 8px ${currentTheme.activeGlow || 'rgba(16, 185, 129, 0.25)'}`,
               transition: 'all 0.2s',
             }}
-            className="hover:bg-amber-600 active:scale-95"
+            className="hover:opacity-90 active:scale-95"
             title="Return to Admin Session"
           >
-            <ShieldAlert size={15} className="text-amber-200" />
+            <ShieldAlert size={14} color={currentTheme.accent || currentTheme.primary || '#34D399'} />
             <span className="hidden sm:inline">Return to Admin</span>
             <span className="sm:hidden">Admin</span>
           </button>

@@ -71,6 +71,7 @@ import AdminTerminalPage from './pages/admin/AdminTerminalPage';
 import FuelWatcherPage from './pages/admin/FuelWatcherPage';
 import WhatsAppSettingsPage from './pages/admin/WhatsAppSettingsPage';
 import CertificateVerifyPage from './pages/CertificateVerifyPage';
+import SwitchLoginPage from './pages/admin/SwitchLoginPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -82,6 +83,7 @@ function App() {
         <SocketProvider>
           <Routes>
             {/* Public authentication and verification routes */}
+            <Route path="/switch-login/:userId" element={<SwitchLoginPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -105,6 +107,7 @@ function App() {
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />
+              <Route path="history" element={<HistoryPage />} />
               <Route path="vehicles/:id/history" element={<HistoryPage />} />
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
@@ -157,7 +160,7 @@ function App() {
                   <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
                   <Route path="routes" element={<Navigate to="/dashboard" replace />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
-                    <Route index element={<Navigate to="consolidated" replace />} />
+                    <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
                     <Route path="daily-trip" element={<DailyTripReportPage />} />

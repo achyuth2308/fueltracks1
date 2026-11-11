@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Server, Loader2, AlertOctagon, Download, Eye, X, Copy,
@@ -38,7 +38,7 @@ function extractParsedData(m) {
   let p = {};
   if (m.parsed_data) {
     if (typeof m.parsed_data === 'string') {
-      try { p = JSON.parse(m.parsed_data); } catch (e) { p = {}; }
+      try { p = JSON.parse(m.parsed_data); } catch { p = {}; }
     } else if (typeof m.parsed_data === 'object') {
       p = m.parsed_data;
     }
@@ -90,12 +90,7 @@ const SensorLogsPage = () => {
   const [copiedHex, setCopiedHex] = useState(false);
   const [copiedImei, setCopiedImei] = useState(false);
 
-  useEffect(() => {
-    fetchVehicle();
-    fetchMessages(1);
-  }, [id]);
-
-  const fetchVehicle = async () => {
+  const fetchVehicle = useCallback(async () => {
     try {
       const res = await api.get(`/api/vehicles/${id}`);
       if (res.data?.data) {
@@ -104,7 +99,28 @@ const SensorLogsPage = () => {
     } catch (e) {
       console.warn('Failed to fetch vehicle metadata', e);
     }
-  };
+  }, [id]);
+
+  const fetchMessages = useCallback(async (page = 1) => {
+    setLoading(true);
+    try {
+      const res = await api.get(`/api/vehicles/${id}/messages`, { params: { page, limit: 100 } });
+      const rawList = res.data.data || [];
+      const enriched = rawList.map(extractParsedData);
+      setMessages(sortDesc(enriched));
+      if (res.data.pagination) setPagination(res.data.pagination);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to fetch sensor logs');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchVehicle();
+    fetchMessages(1);
+  }, [id, fetchVehicle, fetchMessages]);
 
   useEffect(() => {
     if (!socket || !id) return;
@@ -126,22 +142,6 @@ const SensorLogsPage = () => {
       socket.off('raw:update', handleRaw);
     };
   }, [socket, id]);
-
-  const fetchMessages = async (page = 1) => {
-    setLoading(true);
-    try {
-      const res = await api.get(`/api/vehicles/${id}/messages`, { params: { page, limit: 100 } });
-      const rawList = res.data.data || [];
-      const enriched = rawList.map(extractParsedData);
-      setMessages(sortDesc(enriched));
-      if (res.data.pagination) setPagination(res.data.pagination);
-      setError(null);
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch sensor logs');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > (pagination.totalPages || 1)) return;

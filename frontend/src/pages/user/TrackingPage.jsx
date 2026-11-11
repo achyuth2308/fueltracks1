@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Search, CreditCard, ShieldAlert, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Navigation, Truck, Power } from 'lucide-react';
+import { Search, CreditCard, MapPin, Activity, Compass, User, Phone, Shield, Cpu, RefreshCw, BarChart2, AlertCircle, Calendar, X, ChevronRight, ChevronDown, AlertTriangle, Truck, Power } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -9,7 +9,7 @@ import { formatSpeed, formatFuel, formatVoltage, formatOdometer, formatDirection
 import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../utils/dateUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
-import { getVehicleStatus, STATUS_CONFIG, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
+import { getVehicleStatus, getNoDataThresholdHours } from '../../utils/markerUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import ImmobilizerModal from '../../components/modals/ImmobilizerModal';
@@ -45,7 +45,7 @@ const formatCardTimestamp = (isoString) => {
     const min = String(d.getMinutes()).padStart(2, '0');
     const ss = String(d.getSeconds()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
-  } catch (e) {
+  } catch {
     return String(isoString);
   }
 };
@@ -55,6 +55,8 @@ const TrackingPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const isMultiMode = searchParams.get('mode') === 'multi';
 
   useEffect(() => {
     if (user && (user.role === 'superadmin' || user.role === 'dealer')) {
@@ -62,7 +64,7 @@ const TrackingPage = ({ setAppVehicles }) => {
     }
   }, [user, navigate]);
 
-  const { vehicles, groups, loading, error, refetch, fetchVehicles } = useVehicles();
+  const { vehicles, groups, loading, refetch, fetchVehicles } = useVehicles();
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
   const [vehicleForRenewal, setVehicleForRenewal] = useState(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -103,7 +105,9 @@ const TrackingPage = ({ setAppVehicles }) => {
 
   const nearbyVehiclesList = useMemo(() => {
     if (!isNearbyActive || selectedVehicles.length !== 1 || !vehicles.length) return [];
-    const target = vehicles.find(v => String(v.id) === String(selectedVehicles[0]));
+    const targetObj = selectedVehicles[0];
+    const targetId = typeof targetObj === 'object' ? targetObj?.id : targetObj;
+    const target = vehicles.find(v => String(v.id) === String(targetId));
     if (!target || !target.lat || !target.lng) return [];
 
     return vehicles
@@ -145,6 +149,15 @@ const TrackingPage = ({ setAppVehicles }) => {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
+    const isMultiMode = searchParams.get('mode') === 'multi';
+    if (isMultiMode && vehicles?.length > 0) {
+      const activeVehicles = vehicles.filter(v => {
+        const warning = getExpiryWarning(v);
+        return !(warning && warning.type === 'expired');
+      });
+      setSelectedVehicles(activeVehicles);
+      setHasSelectedInitial(true);
+    }
     const multiId = searchParams.get('multitrack');
     if (multiId && vehicles.length > 0) {
       const v = vehicles.find(v => v.id === multiId);
@@ -172,7 +185,10 @@ const TrackingPage = ({ setAppVehicles }) => {
   }, [vehicles, setAppVehicles]);
 
   const currentSelectedVehicles = useMemo(() => {
-    return selectedVehicles.map(sv => vehicles.find(v => v.id === sv.id) || sv);
+    return selectedVehicles.map(sv => {
+      const id = typeof sv === 'object' ? sv?.id : sv;
+      return vehicles.find(v => v.id === id) || sv;
+    });
   }, [vehicles, selectedVehicles]);
 
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
@@ -302,10 +318,6 @@ const TrackingPage = ({ setAppVehicles }) => {
     setStatusFilter(prev => prev === filterType ? null : filterType);
   };
 
-  const handleClearFilters = () => {
-    setStatusFilter(null);
-  };
-
   // getVehicleStatus imported from markerUtils
 
   const renderVehicleCard = (v, groupKey = '') => {
@@ -325,10 +337,10 @@ const TrackingPage = ({ setAppVehicles }) => {
         onClick={(e) => handleVehicleSelect(v, e)}
         title={warning ? warning.text : undefined}
         style={{
-          background: isExpired ? '#FEF2F2' : (isSelected ? '#F0F9FF' : '#FFFFFF'),
-          borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9'),
-          borderLeft: isExpired ? '4px solid #DC2626' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent'),
-          padding: '12px 14px',
+          background: isExpired ? '#FEF2F2' : (isSelected ? '#ECFDF5' : '#FFFFFF'),
+          borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #A7F3D0' : '1px solid #F1F5F9'),
+          borderLeft: isExpired ? '3px solid #DC2626' : (isSelected ? '3px solid #059669' : '3px solid transparent'),
+          padding: '8px 12px',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
           display: 'flex',
@@ -346,7 +358,7 @@ const TrackingPage = ({ setAppVehicles }) => {
               setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
             }
           }
-          if (!isSelected && !isExpired) e.currentTarget.style.background = '#F8FAFC';
+          if (!isSelected && !isExpired) e.currentTarget.style.background = '#F0FDF4';
           if (isExpired) e.currentTarget.style.background = '#FEE2E2';
         }}
         onMouseLeave={e => {
@@ -355,55 +367,93 @@ const TrackingPage = ({ setAppVehicles }) => {
           if (isExpired) e.currentTarget.style.background = '#FEF2F2';
         }}
       >
-        {/* Vehicle Graphic */}
+        {/* Modern Vehicle Icon Squircle */}
         <div style={{
-          width: '38px',
-          height: '38px',
+          width: '32px',
+          height: '32px',
+          borderRadius: '8px',
+          background: isExpired ? '#FEE2E2' : (isSelected ? '#D1FAE5' : '#F1F5F9'),
+          border: `1px solid ${isExpired ? '#FECACA' : (isSelected ? '#A7F3D0' : '#E2E8F0')}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           flexShrink: 0
         }}>
-          {isVan ? (
-            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-              <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill={isExpired ? '#FEE2E2' : '#F1F5F9'} stroke={isExpired ? '#DC2626' : '#64748B'} strokeWidth="2"/>
-              <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill={isExpired ? '#FCA5A5' : '#E2E8F0'} stroke={isExpired ? '#B91C1C' : '#475569'} strokeWidth="2"/>
-              <circle cx="14" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
-              <circle cx="34" cy="27" r="4" fill={isExpired ? '#7F1D1D' : '#334155'}/>
-              <rect x="10" y="14" width="8" height="5" rx="1" fill={isExpired ? '#EF4444' : '#94A3B8'}/>
-            </svg>
-          ) : (
-            <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-              <rect x="4" y="10" width="24" height="15" rx="2" fill={isExpired ? '#DC2626' : (isSelected ? '#0EA5E9' : '#0284C7')} stroke={isExpired ? '#991B1B' : '#0369A1'} strokeWidth="1.5"/>
-              <path d="M28 13H36L42 19V25H28V13Z" fill={isExpired ? '#EF4444' : (isSelected ? '#38BDF8' : '#0EA5E9')} stroke={isExpired ? '#B91C1C' : '#0284C7'} strokeWidth="1.5"/>
-              <circle cx="12" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
-              <circle cx="34" cy="26" r="4" fill={isExpired ? '#7F1D1D' : '#1E293B'}/>
-            </svg>
-          )}
+          {(() => {
+            const iconColor = isExpired ? '#DC2626' : (isSelected ? '#059669' : (v.is_online ? '#059669' : '#64748B'));
+            if (isVan) {
+              return (
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2"/>
+                  <circle cx="7" cy="17" r="2"/>
+                  <path d="M9 17h6"/>
+                  <circle cx="17" cy="17" r="2"/>
+                </svg>
+              );
+            }
+            return (
+              <Truck size={17} color={iconColor} />
+            );
+          })()}
         </div>
 
-        {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
+        {/* Middle Details - Clean Compact Typography (No Duplicate Name/Plate) */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {v.name}
-          </div>
-          <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{
+            fontSize: '12.5px',
+            fontWeight: 700,
+            color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            lineHeight: 1.2
+          }}>
             {v.plate || v.name}
+            {v.name && v.plate && v.name !== v.plate && (
+              <span style={{ fontSize: '11px', fontWeight: 500, color: isExpired ? '#DC2626' : '#64748B', marginLeft: '6px' }}>
+                ({v.name})
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{
+            fontSize: '10.5px',
+            color: isExpired ? '#EF4444' : '#64748B',
+            fontWeight: 500,
+            marginTop: '3px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
             <span>{formatSpeed(v.current_speed, v.is_online)}</span>
-            <span>·</span>
-            <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
+            <span style={{ color: '#CBD5E1' }}>•</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
+            </span>
           </div>
         </div>
 
-        {/* Right Status Dot & Arrow - ALL RED WHEN EXPIRED */}
+        {/* Right Status Badge Pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '10px',
+            fontWeight: 700,
+            padding: '2px 7px',
+            borderRadius: '12px',
+            background: isExpired ? '#FEE2E2' : `${sc}15`,
+            color: isExpired ? '#DC2626' : sc,
+            border: `1px solid ${isExpired ? '#FECACA' : `${sc}30`}`,
+            letterSpacing: '0.01em'
+          }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
             <span>{labelText}</span>
           </div>
-          <ChevronRight size={14} color={isExpired ? '#DC2626' : '#94A3B8'} />
+          <ChevronRight size={13} color={isExpired ? '#DC2626' : '#CBD5E1'} />
         </div>
       </div>
     );
@@ -687,13 +737,13 @@ const TrackingPage = ({ setAppVehicles }) => {
         style={{ height: '100%', position: 'relative' }}
       >
         {/* Header Section */}
-        <div style={{ padding: '14px 14px 10px 14px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+        <div style={{ padding: '10px 12px 8px 12px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div>
-              <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+              <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
                 Fleet Vehicles
               </h2>
-              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+              <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
                 {filteredVehicles.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
               </div>
             </div>
@@ -701,19 +751,19 @@ const TrackingPage = ({ setAppVehicles }) => {
               onClick={() => refetch()}
               style={{
                 background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
-                cursor: 'pointer', padding: '5px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
+                cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
               }}
               title="Refresh"
               onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
               onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
             >
-              <RefreshCw size={13} />
+              <RefreshCw size={12} />
             </button>
           </div>
 
           {/* Search vehicle input */}
-          <div style={{ position: 'relative', width: '100%', marginBottom: '8px' }}>
-            <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+          <div style={{ position: 'relative', width: '100%' }}>
+            <Search size={13} color="#94A3B8" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }} />
             <input
               type="text"
               placeholder="Search vehicle..."
@@ -721,11 +771,11 @@ const TrackingPage = ({ setAppVehicles }) => {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                padding: '6px 10px 6px 30px',
-                borderRadius: '8px',
+                padding: '5px 8px 5px 28px',
+                borderRadius: '6px',
                 border: '1px solid #E2E8F0',
                 background: '#F8FAFC',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 outline: 'none',
                 color: '#0F172A',
                 boxSizing: 'border-box'
@@ -733,45 +783,6 @@ const TrackingPage = ({ setAppVehicles }) => {
             />
           </div>
 
-          {/* Status Filter Badges */}
-          <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
-            {[
-              { key: null, label: `All ${vehicles.length}` },
-              { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
-              { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
-              { key: 'parked', label: `Parked ${metrics.parked}`, color: '#64748B' },
-              { key: 'offline', label: `No Data ${metrics.noData}`, color: '#EF4444' },
-              { key: 'unreachable', label: `Unreachable ${metrics.unreachable}`, color: '#94A3B8' },
-            ].map(pill => {
-              const active = statusFilter === pill.key;
-              const isAllPill = pill.key === null;
-              return (
-                <div key={pill.key || 'all'} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                  <button
-                    onClick={() => setStatusFilter(pill.key)}
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '4px 10px',
-                      borderRadius: '14px',
-                      border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
-                      background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
-                      color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
-                    {pill.label}
-                  </button>
-                  
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         {/* Vehicle List */}
@@ -805,7 +816,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      padding: '8px 14px',
+                      padding: '6px 12px',
                       background: '#F8FAFC',
                       borderTop: '1px solid #E2E8F0',
                       borderBottom: '1px solid #E2E8F0',
@@ -904,12 +915,13 @@ const TrackingPage = ({ setAppVehicles }) => {
       {/* ═══════════ MAP AREA (Full remaining width) ═══════════ */}
       <div className={`flex-1 h-full relative bg-slate-200 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
         <FleetMap
-          vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehicles] : currentSelectedVehicles) : filteredVehicles}
+          vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehiclesList] : currentSelectedVehicles) : filteredVehicles}
           selectedVehicles={currentSelectedVehicles}
           onMarkerClick={handleVehicleSelect}
           onMultiTrackClick={handleMultiTrackClick}
+          isMultiMode={isMultiMode}
           showRoute={false}
-          followSelected={true}
+          followSelected={!isMultiMode}
           nearbyRadius={nearbyRadius}
           isNearbyActive={isNearbyActive}
           liveRouteMetrics={liveRouteMetrics}
@@ -948,7 +960,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             return (
               <button
                 key={pill.type}
-                onClick={() => handleStatusFilterToggle(pill.type)}
+                onClick={() => handleStatusFilterClick(pill.type)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
                   padding: '5px 10px', borderRadius: '20px',
@@ -978,7 +990,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         </div>
 
         {/* ── Top Center "Find Nearby" Action Button ── */}
-        {currentSelectedVehicles.length === 1 && (
+        {currentSelectedVehicles.length === 1 && !isMultiMode && (
           <div style={{
             position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001,
           }}>
@@ -1021,7 +1033,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         )}
 
         {/* ── Real-time Speedometer Widget (bottom-left of map) ── */}
-        {currentSelectedVehicles.length > 0 && (() => {
+        {currentSelectedVehicles.length > 0 && !isMultiMode && (() => {
           const sv = currentSelectedVehicles[0];
           const speed = Math.round(sv.current_speed || 0);
           const maxSpeed = 200;
@@ -1042,7 +1054,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             x: cx + r * Math.cos((angle * Math.PI) / 180),
             y: cy + r * Math.sin((angle * Math.PI) / 180),
           });
-          const arcPath = (from, to, ri = r, outer = false) => {
+          const arcPath = (from, to, ri = r) => {
             const s = polarToCartesian(from);
             const e = polarToCartesian(to);
             const large = Math.abs(to - from) > 180 ? 1 : 0;
@@ -1074,7 +1086,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             <div style={{
               position: 'absolute',
               bottom: '20px',
-              left: '320px',
+              left: '20px',
               zIndex: 1002,
               background: 'rgba(255, 255, 255, 0.2)',
               backdropFilter: 'blur(20px)',
@@ -1169,7 +1181,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         })()}
 
 
-        {currentSelectedVehicles.length > 0 && (
+        {currentSelectedVehicles.length > 0 && !isMultiMode && (
           <div className="tracking-scroll" style={{
             position: 'absolute', top: '54px', right: '12px', bottom: '12px',
             width: '270px', zIndex: 1000, display: 'flex', flexDirection: 'column',

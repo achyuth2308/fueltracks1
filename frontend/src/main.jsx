@@ -3,6 +3,12 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
+import { getCurrentTheme, applyGlobalTheme } from './utils/theme'
+
+// Immediately initialize user-selected theme custom properties on page boot
+try {
+  applyGlobalTheme(getCurrentTheme());
+} catch (e) {}
 
 // Global safety net: if React fails to mount, show a user-friendly error
 // instead of leaving users stuck on the initial HTML loading spinner forever.

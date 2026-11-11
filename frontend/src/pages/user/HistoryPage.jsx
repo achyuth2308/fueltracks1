@@ -1,10 +1,22 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import CustomDatePicker from '../../components/ui/CustomDatePicker';
 import { formatLocalDate, formatLocalTime } from '../../utils/dateUtils';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download, ArrowLeft } from 'lucide-react';
+import { Loader2, Play, Pause, Square, ChevronRight, ChevronLeft, Info, Link as LinkIcon, Download, ArrowLeft, Shield, Check } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
-import { adminApi } from '../../api/axios';
+import axiosInstance, { adminApi } from '../../api/axios';
+import VehicleGeofenceEditorModal from '../../components/geofence/VehicleGeofenceEditorModal';
+
+const formatDurationText = (ms) => {
+  if (!ms || ms < 0) return '0s';
+  const totalSec = Math.floor(ms / 1000);
+  const hrs = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hrs > 0) return `${hrs}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+};
 import RouteMap from '../../components/map/RouteMap';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
@@ -98,6 +110,10 @@ const HistoryPage = () => {
 
   // Tabs state
   const [activeTab, setActiveTab] = useState('All');
+  // Geofence modal from Stoppage state
+  const [geofenceModalOpen, setGeofenceModalOpen] = useState(false);
+  const [geofenceTargetStop, setGeofenceTargetStop] = useState(null);
+  const [geofenceSuccessMsg, setGeofenceSuccessMsg] = useState('');
   const tabs = ['All', 'Movement', 'OverSpeed', 'Parked', 'Idle', 'Ignition', 'Stoppage'];
 
   // Calculate filtered points for the table based on active tab
@@ -121,9 +137,154 @@ const HistoryPage = () => {
     return points;
   };
 
-  const filteredPoints = getFilteredPoints();
-  // Filter out all stopped points (parked and idle) only for the data table
-  const tableFilteredPoints = filteredPoints.filter(p => (p.speed || 0) > 5);
+    const filteredPoints = getFilteredPoints();
+
+  // Compute Stoppage places from all route points for this date
+  const stoppagesList = useMemo(() => {
+    if (!points || points.length === 0) return [];
+    const stops = [];
+    let stopStart = null;
+    let stopEnd = null;
+    let overspeedCount = 0;
+    let firstPointIdx = 0;
+
+    for (let i = 0; i < points.length; i++) {
+      const p = points[i];
+      if (!p.lat || !p.lng) continue;
+
+      if ((p.speed || 0) <= 5) {
+        if (!stopStart) {
+          stopStart = p;
+          firstPointIdx = i;
+        }
+        stopEnd = p;
+        overspeedCount = 0;
+      } else {
+        if (stopStart && stopEnd) {
+          overspeedCount++;
+          if (overspeedCount >= 2) {
+            const startMs = new Date(stopStart.device_time).getTime();
+            const endMs = new Date(stopEnd.device_time).getTime();
+            const diffMin = (endMs - startMs) / (1000 * 60);
+            if (diffMin >= 2) {
+              stops.push({
+                id: `stop-${stops.length + 1}`,
+                index: stops.length + 1,
+                lat: parseFloat(stopStart.lat),
+                lng: parseFloat(stopStart.lng),
+                startTime: stopStart.device_time,
+                endTime: stopEnd.device_time,
+                durationMs: endMs - startMs,
+                type: stopStart.ignition ? 'Idle (Engine ON)' : 'Parked (Engine OFF)',
+                ignition: !!stopStart.ignition,
+                pointIndex: firstPointIdx
+              });
+            }
+            stopStart = null;
+            stopEnd = null;
+            overspeedCount = 0;
+          }
+        }
+      }
+    }
+    if (stopStart && stopEnd) {
+      const startMs = new Date(stopStart.device_time).getTime();
+      const endMs = new Date(stopEnd.device_time).getTime();
+      const diffMin = (endMs - startMs) / (1000 * 60);
+      if (diffMin >= 2) {
+        stops.push({
+          id: `stop-${stops.length + 1}`,
+          index: stops.length + 1,
+          lat: parseFloat(stopStart.lat),
+          lng: parseFloat(stopStart.lng),
+          startTime: stopStart.device_time,
+          endTime: stopEnd.device_time,
+          durationMs: endMs - startMs,
+          type: stopStart.ignition ? 'Idle (Engine ON)' : 'Parked (Engine OFF)',
+          ignition: !!stopStart.ignition,
+          pointIndex: firstPointIdx
+        });
+      }
+    }
+    return stops;
+  }, [points]);
+
+  // Data table filter (keeps parked/idle rows visible in their tabs, cleans jitter in All/Movement)
+  const tableFilteredPoints = useMemo(() => {
+    if (activeTab === 'Parked' || activeTab === 'Idle' || activeTab === 'Stoppage') {
+      return filteredPoints;
+    }
+    return filteredPoints.filter(p => (p.speed || 0) > 5 || p.ignition);
+  }, [activeTab, filteredPoints]);
+
+  const handleOpenGeofenceModal = (stop) => {
+    setGeofenceTargetStop(stop);
+    setGeofenceModalOpen(true);
+  };
+
+  const handleSaveGeofence = async (formData) => {
+    const targetVehId = vehicle?.id || id;
+    if (!targetVehId) return;
+
+    try {
+      if (formData.isPair) {
+        if (formData.fromGeofence?.id) {
+          await axiosInstance.post(`/api/vehicles/${targetVehId}/geofences/link`, {
+            geofenceId: formData.fromGeofence.id,
+            vehicleIds: formData.vehicleIds,
+          });
+        } else if (formData.fromGeofence) {
+          await axiosInstance.post(`/api/vehicles/${targetVehId}/geofences`, formData.fromGeofence);
+        }
+        if (formData.transitDirection !== 'round_trip' && formData.toGeofence) {
+          if (formData.toGeofence?.id) {
+            await axiosInstance.post(`/api/vehicles/${targetVehId}/geofences/link`, {
+              geofenceId: formData.toGeofence.id,
+              vehicleIds: formData.vehicleIds,
+            });
+          } else {
+            await axiosInstance.post(`/api/vehicles/${targetVehId}/geofences`, formData.toGeofence);
+          }
+        }
+      } else if (formData.id) {
+        await axiosInstance.put(`/api/vehicles/${targetVehId}/geofences/${formData.id}`, formData);
+      } else {
+        await axiosInstance.post(`/api/vehicles/${targetVehId}/geofences`, formData);
+      }
+
+      setGeofenceModalOpen(false);
+      setGeofenceTargetStop(null);
+      setGeofenceSuccessMsg('Geofence set successfully at this stoppage location!');
+      setTimeout(() => setGeofenceSuccessMsg(''), 4500);
+    } catch (err) {
+      console.error('Failed to save geofence:', err);
+      alert(err.response?.data?.error || err.message || 'Failed to save geofence');
+    }
+  };
+
+  const handleExportStoppagesCSV = () => {
+    if (stoppagesList.length === 0) return;
+    const headers = ['#', 'Stopped At', 'Started At', 'Duration', 'Status', 'Latitude', 'Longitude'];
+    const rows = [headers.join(',')];
+    stoppagesList.forEach(s => {
+      rows.push([
+        s.index,
+        formatLocalTime(s.startTime).replace(',', ''),
+        formatLocalTime(s.endTime).replace(',', ''),
+        formatDurationText(s.durationMs),
+        s.type,
+        s.lat,
+        s.lng
+      ].join(','));
+    });
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${vehicle?.name || 'Vehicle'}_Stoppages.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   useEffect(() => {
     if (filteredPoints.length > 0 && currentPointIndex >= 0 && tableFilteredPoints.length > 0) {
@@ -183,6 +344,13 @@ const HistoryPage = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        if (!id) {
+          const vList = await vehicleApi.getVehicles({ limit: 1000 });
+          if (vList?.success && vList.data?.length > 0) {
+            navigate('/vehicles/' + vList.data[0].id + '/history', { replace: true });
+            return;
+          }
+        }
         // Fetch current vehicle
         const response = await vehicleApi.getVehicleById(id);
         if (response.success) {
@@ -550,6 +718,7 @@ const HistoryPage = () => {
             vehicleName={vehicle?.name || 'Vehicle'}
             playbackSpeed={playbackSpeed}
             isPlaying={isPlaying}
+            onSetGeofence={handleOpenGeofenceModal}
             vehicleLastKnownPosition={
               vehicle && vehicle.lat != null && vehicle.lng != null
                 ? { lat: vehicle.lat, lng: vehicle.lng }
@@ -661,7 +830,7 @@ const HistoryPage = () => {
           <div style={{ display: 'flex', borderBottom: '1px solid #D1D5DB', background: '#FFFFFF' }}>
             {tabs.map(tab => (
               <button
-                key={tab}
+                key={tab === 'Stoppage' && stoppagesList.length > 0 ? `Stoppage (${stoppagesList.length})` : tab}
                 onClick={() => { setActiveTab(tab); setCurrentPage(1); }}
                 style={{
                   padding: '6px 4px',
@@ -676,12 +845,145 @@ const HistoryPage = () => {
                   flex: 1
                 }}
               >
-                {tab}
+                {tab === 'Stoppage' && stoppagesList.length > 0 ? `Stoppage (${stoppagesList.length})` : tab}
               </button>
             ))}
           </div>
 
-          {/* Data Table */}
+{/* Data Table / Stoppage Places Table */}
+          {activeTab === 'Stoppage' ? (
+            <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ padding: '6px 12px', background: '#F8FAFC', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1E293B' }}>Stoppage Places List</span>
+                  <span style={{ fontSize: '10px', fontWeight: 600, background: '#FEE2E2', color: '#DC2626', padding: '1px 7px', borderRadius: '12px' }}>
+                    {stoppagesList.length} stops detected
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExportStoppagesCSV}
+                  disabled={stoppagesList.length === 0}
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    color: '#0284C7',
+                    background: '#F0F9FF',
+                    border: '1px solid #BAE6FD',
+                    borderRadius: '4px',
+                    padding: '2px 8px',
+                    cursor: stoppagesList.length === 0 ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Download size={11} /> Export CSV
+                </button>
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '9px' }}>
+                  <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
+                    <tr>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '26px' }}>#</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '65px' }}>Stopped At</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '65px' }}>Started At</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '55px' }}>Duration</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '130px' }}>Location / Address</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', borderRight: '1px solid #E5E7EB', width: '42px' }}>Map</th>
+                      <th style={{ padding: '4px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #D1D5DB', width: '88px' }}>Geofence</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stoppagesList.length === 0 ? (
+                      <tr>
+                        <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#9CA3AF' }}>
+                          No stoppage places found for this date.
+                        </td>
+                      </tr>
+                    ) : (
+                      stoppagesList.map((stop) => {
+                        const isSelected = activePoint && Math.abs(activePoint.lat - stop.lat) < 0.0001 && Math.abs(activePoint.lng - stop.lng) < 0.0001;
+                        return (
+                          <tr
+                            key={stop.id}
+                            onClick={() => {
+                              if (stop.pointIndex !== undefined) {
+                                setCurrentPointIndex(stop.pointIndex);
+                              }
+                            }}
+                            style={{
+                              background: isSelected ? 'rgba(224, 242, 254, 0.8)' : 'transparent',
+                              borderBottom: '1px solid rgba(229,231,235,0.5)',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB', fontWeight: 700 }}>
+                              <span style={{ background: '#EF4444', color: '#FFFFFF', padding: '2px 5px', borderRadius: '50%', fontSize: '8px' }}>
+                                {stop.index}
+                              </span>
+                            </td>
+                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB', color: '#111827' }}>
+                              <div style={{ fontWeight: 600 }}>{new Date(stop.startTime).toLocaleTimeString('en-GB')}</div>
+                              <div style={{ fontSize: '8.5px', color: '#6B7280' }}>{formatLocalDate(stop.startTime)}</div>
+                            </td>
+                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB', color: '#111827' }}>
+                              <div style={{ fontWeight: 600 }}>{new Date(stop.endTime).toLocaleTimeString('en-GB')}</div>
+                              <div style={{ fontSize: '8.5px', color: '#6B7280' }}>{formatLocalDate(stop.endTime)}</div>
+                            </td>
+                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB' }}>
+                              <span style={{ background: '#FEE2E2', color: '#DC2626', padding: '2px 5px', borderRadius: '4px', fontWeight: 700, fontSize: '9px' }}>
+                                {formatDurationText(stop.durationMs)}
+                              </span>
+                            </td>
+                            <AddressCell lat={stop.lat} lng={stop.lng} />
+                            <td style={{ padding: '6px 4px', borderRight: '1px solid #E5E7EB' }}>
+                              <a
+                                href={`https://www.google.com/maps?q=${stop.lat},${stop.lng}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ color: '#3B82F6', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px' }}
+                              >
+                                <LinkIcon size={10} /> View
+                              </a>
+                            </td>
+                            <td style={{ padding: '6px 4px' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenGeofenceModal(stop);
+                                }}
+                                style={{
+                                  background: 'linear-gradient(135deg, #0284C7, #0369A1)',
+                                  color: '#FFFFFF',
+                                  border: 'none',
+                                  padding: '4px 7px',
+                                  borderRadius: '4px',
+                                  fontSize: '9px',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                                }}
+                                title="Set geofence around this stoppage place"
+                              >
+                                <Shield size={10} /> Set Geofence
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
           <div style={{ flex: 1, overflowY: 'auto', position: 'relative', background: '#FFFFFF' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '9px' }}>
               <thead style={{ position: 'sticky', top: 0, background: '#F9FAFB', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', zIndex: 10 }}>
@@ -748,6 +1050,8 @@ const HistoryPage = () => {
             </table>
           </div>
 
+          )}
+
           {/* Pagination Controls */}
           {totalPages > 1 && (
             <div style={{ padding: '8px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', borderTop: '1px solid rgba(209,213,219,0.5)' }}>
@@ -784,6 +1088,48 @@ const HistoryPage = () => {
 
         </div>
       </div>
+
+      {/* Geofence Editor Modal initialized at selected Stoppage location */}
+      <VehicleGeofenceEditorModal
+        isOpen={geofenceModalOpen}
+        onClose={() => {
+          setGeofenceModalOpen(false);
+          setGeofenceTargetStop(null);
+        }}
+        vehicle={vehicle}
+        geofenceToEdit={geofenceTargetStop ? {
+          name: `${vehicle?.name || 'Vehicle'} - Stoppage (${formatLocalDate(geofenceTargetStop.startTime)})`,
+          center_lat: geofenceTargetStop.lat,
+          center_lng: geofenceTargetStop.lng,
+          radius: 200,
+          type: 'circle'
+        } : null}
+        onSave={handleSaveGeofence}
+      />
+
+      {/* Success Notification Banner */}
+      {geofenceSuccessMsg && (
+        <div style={{
+          position: 'absolute',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 2000,
+          background: '#10B981',
+          color: '#FFFFFF',
+          padding: '8px 18px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+          fontWeight: 700,
+          fontSize: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <Check size={16} />
+          {geofenceSuccessMsg}
+        </div>
+      )}
 
       <style dangerouslySetInnerHTML={{
         __html: `

@@ -106,10 +106,10 @@ const GroupsAdminPage = () => {
           onClick={() => { setEditingGroup(null); setIsAddModalOpen(true); }}
           style={{
             display: 'flex', alignItems: 'center', gap: '6px',
-            background: '#f97316', color: '#FFFFFF',
+            background: 'var(--brand-primary, #f97316)', color: '#FFFFFF',
             padding: '6px 12px', borderRadius: '8px',
             fontSize: '12px', fontWeight: 700, border: 'none',
-            cursor: 'pointer', boxShadow: '0 2px 8px rgba(249,115,22,0.25)',
+            cursor: 'pointer', boxShadow: '0 2px 8px var(--brand-glow, rgba(249,115,22,0.25))',
             transition: 'all 0.15s ease'
           }}
         >
@@ -167,7 +167,7 @@ const GroupsAdminPage = () => {
             <div style={{ overflowY: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                  <tr style={{ background: '#1e1b4b' }}>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '50px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ID</th>
                     <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '220px', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>GROUP NAME</th>
                     <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLES</th>

@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext } from 'react';
 import * as authApi from '../api/authApi';
 import { impersonateUser } from '../api/adminApi';
 import { setNoDataThresholdHours } from '../utils/markerUtils';
@@ -48,7 +48,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hasAdminSession, setHasAdminSession] = useState(!!localStorage.getItem('adminToken'));
+  const [hasAdminSession, setHasAdminSession] = useState(!!(sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken')));
 
   /**
    * Background refresh of map config. NEVER causes logout.
@@ -62,16 +62,24 @@ export const AuthProvider = ({ children }) => {
         if (u.noDataMinutes !== undefined && u.noDataMinutes !== null) {
           setNoDataThresholdHours(Number(u.noDataMinutes) / 60);
         }
-        setUser(prev => prev ? {
-          noDataMinutes: u.noDataMinutes !== undefined ? Number(u.noDataMinutes) : prev.noDataMinutes,
-          ...prev,
-          mapProvider: response.data.user.mapProvider,
-          apiKey: response.data.user.apiKey,
-          name: response.data.user.name || prev.name,
-          email: response.data.user.email || prev.email,
-          orgName: response.data.user.role === 'superadmin' ? 'FuelTracks Platform' : (response.data.user.orgName || prev.orgName),
-          orgId: response.data.user.role === 'superadmin' ? 'a0000000-0000-0000-0000-000000000001' : (response.data.user.orgId || prev.orgId),
-        } : prev);
+        setUser(prev => {
+          const isSuper = u.role === 'superadmin';
+          return prev ? {
+            ...prev,
+            ...u,
+            id: u.id || prev.id,
+            role: u.role || prev.role,
+            name: u.name || prev.name,
+            email: u.email || prev.email,
+            phone: u.phone || prev.phone,
+            orgId: isSuper ? 'a0000000-0000-0000-0000-000000000001' : (u.orgId || prev.orgId),
+            orgName: isSuper ? 'FuelTracks Platform' : (u.orgName || prev.orgName),
+            orgType: isSuper ? 'super' : (u.orgType || prev.orgType),
+            mapProvider: u.mapProvider || prev.mapProvider,
+            apiKey: u.apiKey || prev.apiKey,
+            noDataMinutes: u.noDataMinutes !== undefined && u.noDataMinutes !== null ? Number(u.noDataMinutes) : prev.noDataMinutes,
+          } : prev;
+        });
       }
     } catch {
       // Intentionally swallowed - transient errors must never log the user out
@@ -79,11 +87,12 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setHasAdminSession(!!localStorage.getItem('adminToken'));
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
+    setHasAdminSession(!!(sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken')));
     if (!token) { setLoading(false); return; }
     const restoredUser = userFromToken(token);
     if (!restoredUser) {
+      if (sessionStorage.getItem('token')) sessionStorage.removeItem('token');
       localStorage.removeItem('token');
       setLoading(false);
       return;
@@ -182,11 +191,18 @@ export const AuthProvider = ({ children }) => {
   };
 
   const restoreAdmin = async () => {
-    const adminToken = localStorage.getItem('adminToken');
+    const isSwitchedSession = sessionStorage.getItem('isSwitchedSession');
+    const adminToken = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken');
     if (!adminToken) return { success: false, error: 'No admin session found' };
     try {
-      localStorage.setItem('token', adminToken);
-      localStorage.removeItem('adminToken');
+      if (isSwitchedSession) {
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('adminToken');
+        sessionStorage.removeItem('isSwitchedSession');
+      } else {
+        localStorage.setItem('token', adminToken);
+        localStorage.removeItem('adminToken');
+      }
       setHasAdminSession(false);
       const restoredUser = userFromToken(adminToken);
       if (restoredUser) { setUser(restoredUser); refreshMapConfig(); return { success: true }; }
@@ -204,4 +220,22 @@ export const AuthProvider = ({ children }) => {
       {children}
     </AuthContext.Provider>
   );
+};
+
+const fallbackAuth = {
+  user: null,
+  loading: true,
+  error: null,
+  isAuthenticated: false,
+  hasAdminSession: false,
+  login: async () => ({ success: false, error: 'Auth initializing' }),
+  logout: async () => {},
+  impersonate: async () => ({ success: false }),
+  restoreAdmin: async () => ({ success: false }),
+  refreshUser: async () => {}
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  return context || fallbackAuth;
 };
