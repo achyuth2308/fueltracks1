@@ -164,6 +164,9 @@ const TrackingPage = ({ setAppVehicles }) => {
       if (v) {
         setSelectedVehicles([v]);
         setHasSelectedInitial(true);
+        if (window.innerWidth <= 768) {
+          setMobileTab('map');
+        }
       }
     }
     const multiId = searchParams.get('multitrack');
