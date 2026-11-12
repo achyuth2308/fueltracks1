@@ -613,7 +613,8 @@ class ReportRepository {
     const query = `
       WITH raw AS (
           SELECT
-              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time, g.fuel,
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              CASE WHEN g.fuel > 0 THEN g.fuel ELSE NULL END AS fuel,
               v.metadata,
               (
                 COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dispenser%'
@@ -803,7 +804,8 @@ class ReportRepository {
     const query = `
       WITH raw AS (
           SELECT
-              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time, g.fuel,
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              CASE WHEN g.fuel > 0 THEN g.fuel ELSE NULL END AS fuel,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
