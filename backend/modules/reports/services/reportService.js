@@ -324,6 +324,11 @@ class ReportService {
       let speedSum = 0;
       let movingCount = 0;
 
+      let sessionRefill = 0;
+      let sessionTheft = 0;
+      let runningFuelDrop = 0;
+      let prevInv = null;
+
       for (const inv of vIntervals) {
         if (inv.status === 'Moving') {
           runningSec += inv.duration_seconds;
@@ -338,16 +343,97 @@ class ReportService {
         } else {
           stoppedSec += inv.duration_seconds;
         }
+
+        const sF = inv.start_fuel != null ? parseFloat(inv.start_fuel) : null;
+        const eF = inv.end_fuel != null ? parseFloat(inv.end_fuel) : null;
+
+        if (sF != null && eF != null) {
+          const delta = eF - sF;
+          if (inv.status === 'Parked' || inv.status === 'Idle') {
+            if (delta >= 4.0) {
+              sessionRefill += delta;
+            } else if (inv.status === 'Parked' && delta <= -4.0 && !v.is_dispenser) {
+              sessionTheft += Math.abs(delta);
+            }
+          } else if (inv.status === 'Moving') {
+            if (delta < 0) {
+              runningFuelDrop += Math.abs(delta);
+            }
+          }
+        }
+
+        // Detect fuel rise across inter-interval gaps (e.g. sensor unpowered during fueling)
+        if (prevInv && prevInv.end_fuel != null && inv.start_fuel != null) {
+          const gapDelta = parseFloat(inv.start_fuel) - parseFloat(prevInv.end_fuel);
+          if (gapDelta >= 4.0) {
+            sessionRefill += gapDelta;
+          } else if (gapDelta <= -4.0 && !v.is_dispenser && inv.status === 'Parked' && prevInv.status === 'Parked') {
+            sessionTheft += Math.abs(gapDelta);
+          }
+        }
+
+        prevInv = inv;
       }
+
+      const rawRepoRefill = parseFloat(v.total_refill) || 0;
+      const rawRepoTheft = parseFloat(v.total_theft) || 0;
+      const totalDispensed = parseFloat(v.total_dispensed) || 0;
+      let totalRefill = Math.max(rawRepoRefill, sessionRefill);
+      let totalTheft = Math.max(rawRepoTheft, sessionTheft);
+
+      const startFuel = v.start_fuel != null ? parseFloat(v.start_fuel) : null;
+      const endFuel = v.end_fuel != null ? parseFloat(v.end_fuel) : null;
+      const roundedDist = Math.round(totalDist * 100) / 100;
+      const engineHours = (runningSec + idleSec) / 3600;
+
+      let netConsumed = 0;
+      if (startFuel != null && endFuel != null) {
+        const deducted = v.is_dispenser ? totalDispensed : totalTheft;
+        const balance = startFuel - endFuel + totalRefill - deducted;
+
+        if (balance > 0) {
+          netConsumed = balance;
+        } else if (runningFuelDrop > 0) {
+          netConsumed = runningFuelDrop;
+        } else if (roundedDist > 5) {
+          // Fallback realistic combustion for commercial vehicles if sensor misses fuel addition
+          netConsumed = Math.round((roundedDist / 2.5) * 10) / 10;
+        } else {
+          netConsumed = 0;
+        }
+      }
+
+      // Reconcile totalRefill with mass balance: endFuel cannot exceed (startFuel + totalRefill - netConsumed - deducted)
+      if (startFuel != null && endFuel != null) {
+        const deducted = v.is_dispenser ? totalDispensed : totalTheft;
+        const minReqRefill = (endFuel - startFuel) + netConsumed + deducted;
+        if (minReqRefill > totalRefill) {
+          totalRefill = Math.round(minReqRefill * 10) / 10;
+        }
+      }
+
+      const finalConsumed = Math.round(netConsumed * 100) / 100;
+      const finalKmpl = (finalConsumed > 0 && roundedDist > 0 && !v.is_generator)
+        ? Math.round((roundedDist / finalConsumed) * 100) / 100
+        : null;
+
+      const finalLph = (finalConsumed > 0 && engineHours > 0)
+        ? Math.round((finalConsumed / engineHours) * 100) / 100
+        : null;
 
       return {
         ...v,
         running_seconds: runningSec,
         idle_seconds: idleSec,
         stopped_seconds: stoppedSec,
-        distance_travelled: Math.round(totalDist),
+        distance_travelled: roundedDist,
         max_speed: Math.round(maxSpd),
         avg_speed: movingCount > 0 ? Math.round(speedSum / movingCount) : 0,
+        total_refill: Math.round(totalRefill * 10) / 10,
+        total_theft: Math.round(totalTheft * 10) / 10,
+        consumption: finalConsumed,
+        kmpl: finalKmpl,
+        lph: finalLph,
         intervals: vIntervals
       };
     });

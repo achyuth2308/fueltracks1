@@ -671,8 +671,34 @@ class ReportRepository {
           SELECT *,
               ${HAVERSINE_SEGMENT_KM} AS segment_km,
               COALESCE(fuel - prev_fuel, 0) AS fuel_diff,
-              GREATEST(5.0, LEAST(30.0, COALESCE(NULLIF(metadata->>'tankSize', '')::numeric, 100) * 0.05)) AS fuel_threshold
+              GREATEST(5.0, LEAST(30.0, COALESCE(NULLIF(metadata->>'tankSize', '')::numeric, 100) * 0.05)) AS fuel_threshold,
+              SUM(CASE WHEN speed > 5 THEN 1 ELSE 0 END) OVER (PARTITION BY vehicle_id ORDER BY device_time) AS stop_block
           FROM raw
+      ),
+      stops AS (
+          SELECT
+              vehicle_id,
+              stop_block,
+              MIN(device_time) AS stop_start,
+              MAX(device_time) AS stop_end,
+              (ARRAY_AGG(fuel ORDER BY device_time ASC) FILTER (WHERE fuel IS NOT NULL))[1] AS s_start_fuel,
+              (ARRAY_AGG(fuel ORDER BY device_time DESC) FILTER (WHERE fuel IS NOT NULL))[1] AS s_end_fuel,
+              BOOL_OR(is_dispenser) AS is_dispenser,
+              BOOL_OR(ignition = true) AS any_ignition,
+              BOOL_AND(ignition = false OR ignition IS NULL) AS all_ignition_off,
+              MAX(fuel_threshold) AS fuel_threshold
+          FROM with_dist
+          WHERE speed <= 5
+          GROUP BY vehicle_id, stop_block
+      ),
+      stop_events AS (
+          SELECT
+              vehicle_id,
+              SUM(CASE WHEN (s_end_fuel - s_start_fuel) >= fuel_threshold THEN (s_end_fuel - s_start_fuel) ELSE 0 END) AS session_refill,
+              SUM(CASE WHEN is_dispenser AND (s_start_fuel - s_end_fuel) >= fuel_threshold THEN (s_start_fuel - s_end_fuel) ELSE 0 END) AS session_dispensed,
+              SUM(CASE WHEN NOT is_dispenser AND all_ignition_off AND (s_start_fuel - s_end_fuel) >= fuel_threshold THEN (s_start_fuel - s_end_fuel) ELSE 0 END) AS session_theft
+          FROM stops
+          GROUP BY vehicle_id
       ),
       aggregated AS (
           SELECT
@@ -696,16 +722,26 @@ class ReportRepository {
               (ARRAY_AGG(t.lat ORDER BY t.device_time DESC) FILTER (WHERE t.lat IS NOT NULL))[1]         AS end_lat,
               (ARRAY_AGG(t.lng ORDER BY t.device_time DESC) FILTER (WHERE t.lng IS NOT NULL))[1]         AS end_lng,
               
-              -- Refills: Any fuel increase >= threshold while stationary
-              SUM(CASE WHEN t.fuel_diff >= t.fuel_threshold AND t.speed <= 5 THEN t.fuel_diff ELSE 0 END) AS total_refill,
+              -- Refills: Detect multi-packet sessions during stops OR packet jumps >= threshold
+              GREATEST(
+                COALESCE(MAX(se.session_refill), 0),
+                SUM(CASE WHEN t.fuel_diff >= t.fuel_threshold AND t.speed <= 5 THEN t.fuel_diff ELSE 0 END)
+              ) AS total_refill,
               
               -- Dispensers / Bowsers: Fuel drops while stationary represent normal DISPENSED fuel, NOT theft
-              SUM(CASE WHEN t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 THEN -t.fuel_diff ELSE 0 END) AS total_dispensed,
+              GREATEST(
+                COALESCE(MAX(se.session_dispensed), 0),
+                SUM(CASE WHEN t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 THEN -t.fuel_diff ELSE 0 END)
+              ) AS total_dispensed,
               
               -- Thefts: Strictly for non-dispenser vehicles when stationary AND ignition is OFF / FALSE / NULL.
               -- If ignition = true, fuel drops are legitimate engine consumption (idling/running), never theft!
-              SUM(CASE WHEN NOT t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 AND (t.ignition = false OR t.ignition IS NULL) THEN -t.fuel_diff ELSE 0 END) AS total_theft
+              GREATEST(
+                COALESCE(MAX(se.session_theft), 0),
+                SUM(CASE WHEN NOT t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 AND (t.ignition = false OR t.ignition IS NULL) THEN -t.fuel_diff ELSE 0 END)
+              ) AS total_theft
           FROM with_dist t
+          LEFT JOIN stop_events se ON t.vehicle_id = se.vehicle_id
           GROUP BY t.vehicle_id
       )
       SELECT
@@ -767,7 +803,7 @@ class ReportRepository {
     const query = `
       WITH raw AS (
           SELECT
-              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time,
+              g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time, g.fuel,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
@@ -806,7 +842,9 @@ class ReportRepository {
           ROUND(SUM(segment_km)::numeric, 2)                         AS distance,
           COALESCE(MAX(speed), 0)                                    AS max_speed,
           COALESCE(ROUND(AVG(NULLIF(speed, 0))::numeric, 1), 0)     AS avg_speed,
-          ROUND(EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time)))) AS duration_seconds
+          ROUND(EXTRACT(EPOCH FROM (MAX(device_time) - MIN(device_time)))) AS duration_seconds,
+          (ARRAY_AGG(fuel ORDER BY device_time ASC) FILTER (WHERE fuel IS NOT NULL))[1] AS start_fuel,
+          (ARRAY_AGG(fuel ORDER BY device_time DESC) FILTER (WHERE fuel IS NOT NULL))[1] AS end_fuel
       FROM islands
       GROUP BY vehicle_id, interval_id, status
       ORDER BY vehicle_id, start_time;
@@ -826,7 +864,9 @@ class ReportRepository {
           max_speed: parseFloat(row.max_speed) || 0,
           avg_speed: parseFloat(row.avg_speed) || 0,
           lat: row.lat,
-          lng: row.lng
+          lng: row.lng,
+          start_fuel: row.start_fuel != null ? parseFloat(row.start_fuel) : null,
+          end_fuel: row.end_fuel != null ? parseFloat(row.end_fuel) : null
         });
       }
 
@@ -852,7 +892,9 @@ class ReportRepository {
             max_speed: 0,
             avg_speed: 0,
             lat: rawList[0].lat,
-            lng: rawList[0].lng
+            lng: rawList[0].lng,
+            start_fuel: rawList[0].start_fuel,
+            end_fuel: rawList[0].start_fuel
           });
         }
 
@@ -872,7 +914,9 @@ class ReportRepository {
             max_speed: cur.max_speed || 0,
             avg_speed: cur.avg_speed || 0,
             lat: cur.lat,
-            lng: cur.lng
+            lng: cur.lng,
+            start_fuel: cur.start_fuel,
+            end_fuel: cur.end_fuel
           });
         }
 
@@ -889,7 +933,9 @@ class ReportRepository {
             max_speed: 0,
             avg_speed: 0,
             lat: lastItem.lat,
-            lng: lastItem.lng
+            lng: lastItem.lng,
+            start_fuel: lastItem.end_fuel,
+            end_fuel: lastItem.end_fuel
           });
         }
 
