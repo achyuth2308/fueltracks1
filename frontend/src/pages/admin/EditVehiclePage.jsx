@@ -316,6 +316,14 @@ const ASSET_CATEGORIES = [
   { value: 'generator', label: 'Generator / DG Set (Stationary Power Unit)' }
 ];
 
+const MODE_OF_VEHICLE_OPTIONS = [
+  'None',
+  'Moving Vehicle',
+  'Machinery',
+  'Dispenser',
+  'Diesel Generator(DG)'
+];
+
 const VEHICLE_MODELS = [
   'Mazda',
   'Tata Motors',
@@ -710,9 +718,9 @@ const EditVehiclePage = () => {
               registrationNo: meta.registrationNo || v.plate || '',
               vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
               vehicleCategory: meta.vehicleCategory || (
-                (v.model?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('fkpcm') || v.name?.toLowerCase().includes('bowser')) ? 'dispenser' :
-                (v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' :
-                (v.model?.toLowerCase().includes('borewell') || v.model?.toLowerCase().includes('jcb') || v.model?.toLowerCase().includes('crane') || v.model?.toLowerCase().includes('machinery') || v.name?.toLowerCase().includes('borewell') || v.name?.toLowerCase().includes('jcb') || v.name?.toLowerCase().includes('crane')) ? 'machinery' : 'moving'
+                (meta.modeOfVehicle === 'Dispenser' || v.model?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('fkpcm') || v.name?.toLowerCase().includes('bowser')) ? 'dispenser' :
+                (meta.modeOfVehicle === 'Diesel Generator(DG)' || meta.modeOfVehicle === 'Stationary' || v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' :
+                (meta.modeOfVehicle === 'Machinery' || v.model?.toLowerCase().includes('borewell') || v.model?.toLowerCase().includes('jcb') || v.model?.toLowerCase().includes('crane') || v.model?.toLowerCase().includes('machinery') || v.name?.toLowerCase().includes('borewell') || v.name?.toLowerCase().includes('jcb') || v.name?.toLowerCase().includes('crane')) ? 'machinery' : 'moving'
               ),
               vehicleModel: meta.vehicleModel || v.make || 'Mazda',
               deviceModel: currentDeviceModel,
@@ -732,7 +740,13 @@ const EditVehiclePage = () => {
               sensorCount: meta.sensorCount || '1',
               numberOfTank: meta.numberOfTank || '1',
               fuelType: meta.fuelType || 'Analog',
-              modeOfVehicle: meta.modeOfVehicle || 'None',
+              modeOfVehicle: meta.modeOfVehicle === 'Moving' ? 'Moving Vehicle' :
+                             meta.modeOfVehicle === 'Stationary' ? 'Diesel Generator(DG)' :
+                             (meta.modeOfVehicle || (
+                               meta.vehicleCategory === 'dispenser' ? 'Dispenser' :
+                               meta.vehicleCategory === 'generator' ? 'Diesel Generator(DG)' :
+                               meta.vehicleCategory === 'machinery' ? 'Machinery' : 'Moving Vehicle'
+                             )),
               tankSize: meta.tankSize !== undefined ? String(meta.tankSize) : '0',
               speedSource: meta.speedSource || '',
               fluctuations: meta.fluctuations || 'YES',
@@ -1337,10 +1351,13 @@ const EditVehiclePage = () => {
               updateMeta('vehicleTypeSelect', val);
               if (val.toLowerCase().includes('dispenser') || val.toLowerCase().includes('bowser')) {
                 updateMeta('vehicleCategory', 'dispenser');
+                updateMeta('modeOfVehicle', 'Dispenser');
               } else if (val.toLowerCase().includes('generator') || val.toLowerCase().includes('dg')) {
                 updateMeta('vehicleCategory', 'generator');
+                updateMeta('modeOfVehicle', 'Diesel Generator(DG)');
               } else if (val.toLowerCase().includes('borewell') || val.toLowerCase().includes('jcb') || val.toLowerCase().includes('crane')) {
                 updateMeta('vehicleCategory', 'machinery');
+                updateMeta('modeOfVehicle', 'Machinery');
               }
             }}
             options={VEHICLE_TYPES}
@@ -1351,7 +1368,14 @@ const EditVehiclePage = () => {
           <SelectField
             label="Fuel / Asset Profile"
             value={form.metadata.vehicleCategory || 'moving'}
-            onChange={e => updateMeta('vehicleCategory', e.target.value)}
+            onChange={e => {
+              const val = e.target.value;
+              updateMeta('vehicleCategory', val);
+              if (val === 'moving') updateMeta('modeOfVehicle', 'Moving Vehicle');
+              else if (val === 'machinery') updateMeta('modeOfVehicle', 'Machinery');
+              else if (val === 'dispenser') updateMeta('modeOfVehicle', 'Dispenser');
+              else if (val === 'generator') updateMeta('modeOfVehicle', 'Diesel Generator(DG)');
+            }}
             options={ASSET_CATEGORIES}
             focused={focusedField === 'vCat'}
             onFocus={() => setFocusedField('vCat')}
@@ -1563,9 +1587,21 @@ const EditVehiclePage = () => {
           {/* Row 3 */}
           <SelectField
             label="Mode of Vehicle"
-            value={form.metadata.modeOfVehicle}
-            onChange={e => updateMeta('modeOfVehicle', e.target.value)}
-            options={['None', 'Moving', 'Stationary']}
+            value={form.metadata.modeOfVehicle || 'None'}
+            onChange={e => {
+              const val = e.target.value;
+              updateMeta('modeOfVehicle', val);
+              if (val === 'Moving Vehicle' || val === 'Moving') {
+                updateMeta('vehicleCategory', 'moving');
+              } else if (val === 'Machinery') {
+                updateMeta('vehicleCategory', 'machinery');
+              } else if (val === 'Dispenser') {
+                updateMeta('vehicleCategory', 'dispenser');
+              } else if (val === 'Diesel Generator(DG)' || val === 'Stationary') {
+                updateMeta('vehicleCategory', 'generator');
+              }
+            }}
+            options={MODE_OF_VEHICLE_OPTIONS}
             focused={focusedField === 'modeVeh'}
             onFocus={() => setFocusedField('modeVeh')}
             onBlur={() => setFocusedField(null)}

@@ -751,8 +751,8 @@ async function start(io) {
          // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
          const isSloshing = speed > 5;
 
-         // Categorize vehicle asset: Fuel Dispenser, Generator, or Moving Vehicle
-         const metaCat = (vehicle.metadata?.vehicleCategory || vehicle.metadata?.vehicleTypeSelect || '').toLowerCase();
+         // Categorize vehicle asset: Fuel Dispenser, Generator, Machinery, or Moving Vehicle
+         const metaCat = (vehicle.metadata?.vehicleCategory || vehicle.metadata?.modeOfVehicle || vehicle.metadata?.vehicleTypeSelect || '').toLowerCase();
          const modelLower = (vehicle.model || '').toLowerCase();
          const nameLower = (vehicle.name || '').toLowerCase();
          const isDispenser = metaCat.includes('dispenser') || metaCat.includes('bowser') ||

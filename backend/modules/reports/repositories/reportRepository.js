@@ -618,6 +618,7 @@ class ReportRepository {
               (
                 COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dispenser%'
                 OR COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%bowser%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%dispenser%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%dispenser%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%bowser%'
                 OR COALESCE(v.model, '') ILIKE '%dispenser%'
@@ -629,6 +630,9 @@ class ReportRepository {
               (
                 COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%generator%'
                 OR COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dg%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%generator%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%dg%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%stationary%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%generator%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%dg%'
                 OR COALESCE(v.model, '') ILIKE '%generator%'
@@ -640,6 +644,7 @@ class ReportRepository {
               ) AS is_generator,
               (
                 COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%machinery%'
+                OR COALESCE(v.metadata->>'modeOfVehicle', '') ILIKE '%machinery%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%borewell%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%jcb%'
                 OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%crane%'
