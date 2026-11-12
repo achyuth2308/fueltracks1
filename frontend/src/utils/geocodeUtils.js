@@ -10,7 +10,11 @@ export const getAddressFromCoordinates = async (lat, lng, forceRefresh = false) 
   const cacheKey = `${parseFloat(lat).toFixed(3)},${parseFloat(lng).toFixed(3)}`;
   
   if (!forceRefresh && addressCache.has(cacheKey)) {
-    return addressCache.get(cacheKey);
+    const cached = addressCache.get(cacheKey);
+    // If cached value was just an old bare pincode (e.g. "631052, IND"), re-fetch rich address
+    if (cached && !/^\d{5,6}(,\s*[A-Z]{2,3})?$/i.test(String(cached).trim())) {
+      return cached;
+    }
   }
   
   try {
