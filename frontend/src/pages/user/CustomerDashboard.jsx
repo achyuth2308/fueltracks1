@@ -799,7 +799,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               <tr>
                 <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Odo (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
-                  {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? 0) || 0)).toLocaleString()}
+                  {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? hoveredVehicle.today_distance ?? 0) || 0)).toLocaleString()}
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Covered (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>

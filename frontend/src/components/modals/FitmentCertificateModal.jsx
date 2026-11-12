@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { X, Printer, Download, Edit3, Check, RotateCcw, ExternalLink, Globe, Wifi, CheckCircle2, Copy, RefreshCw, Upload, Save, Sparkles, Image as ImageIcon, AlertCircle, FileCheck, Loader2, ClipboardPaste, Cpu, ArrowLeft } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
-import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 import fuelTracksLogo from '../../assets/fueltracks_cert_logo.png';
 import DeviceInventoryUploadModal from './DeviceInventoryUploadModal';
 
@@ -466,16 +465,7 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
   const generateQR = async (data, targetMode) => {
     try {
       const verifyUrl = getVerificationUrl(data, targetMode);
-      const url = await QRCode.toDataURL(verifyUrl, {
-        width: 200,
-        margin: 1,
-        errorCorrectionLevel: 'M',
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff'
-        }
-      });
-      setQrCodeUrl(url);
+      setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(verifyUrl)}`);
     } catch (err) {
       console.error('Failed to generate QR code:', err);
     }

@@ -95,6 +95,44 @@ function cleanPacket(raw) {
 }
 
 /**
+ * Robust odometer extraction from trailing fields of APMK packets.
+ */
+function extractPacketOdometer(raw, parts) {
+  if (!parts || parts.length === 0) return 0;
+
+  let preChecksum = raw || '';
+  const starIdx = preChecksum.lastIndexOf('*');
+  if (starIdx !== -1) {
+    preChecksum = preChecksum.substring(0, starIdx);
+  }
+  const cleanTokens = preChecksum.split(',').map(t => t.trim()).filter(t => t !== '');
+
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 5); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[0-9A-Fa-f]{4}$/.test(token) && i === cleanTokens.length - 1 && !token.includes('.')) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+
+    if (/^\d+\.\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+    if (/^\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Parse APMK General Packet:
  * Example:
  * $PVT,APMK,3.0.12,NR,01,L,861329082394405,UNKNOWN,1,29102026,123920,10.006953,N,77.509266,E,0.0,209.44,38,288.0,0.0,0.0,AIRTEL,0,1,25.3,4.0,0,C,20,404,94,63B8,6365,499B,63B8,20,BC20,63B8,20,0,0,0,0,0,0,0000,00,060399,3A*
@@ -187,7 +225,7 @@ function parseApmkGeneralPacket(raw) {
     digitalInput:    '0000',
     digitalOutput:   '00',
     frameNo:         0,
-    odometer:        0,
+    odometer:        extractPacketOdometer(raw, parts),
     isLive,
     deviceTime,
     rawPacket:       raw,

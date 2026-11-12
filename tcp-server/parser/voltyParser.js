@@ -30,6 +30,61 @@ function convertCoords(raw, direction) {
   return parseFloat(val.toFixed(7));
 }
 
+/**
+ * Robust odometer extraction from trailing fields of AIS-140 / Volty packets.
+ * Inspects fixed offset safeGet(40) and trailing tokens before checksum.
+ */
+function extractPacketOdometer(raw, parts, imeiIndex) {
+  if (!parts || parts.length === 0) return 0;
+
+  // 1. Check fixed field safeGet(40) if imeiIndex is known
+  if (imeiIndex !== undefined && imeiIndex >= 0) {
+    let fixedToken = parts[imeiIndex + 40] ? parts[imeiIndex + 40].trim() : '';
+    const starPos = fixedToken.indexOf('*');
+    if (starPos !== -1) fixedToken = fixedToken.substring(0, starPos);
+    const cleanNum = fixedToken.replace(/[^0-9.]/g, '');
+    const fixedVal = parseFloat(cleanNum);
+    if (!isNaN(fixedVal) && fixedVal > 0) {
+      return fixedVal;
+    }
+  }
+
+  // 2. Strip checksum block after '*'
+  let preChecksum = raw || '';
+  const starIdx = preChecksum.lastIndexOf('*');
+  if (starIdx !== -1) {
+    preChecksum = preChecksum.substring(0, starIdx);
+  }
+  const delim = (preChecksum.includes(';') && preChecksum.split(';').length > preChecksum.split(',').length) ? ';' : ',';
+  const cleanTokens = preChecksum.split(delim).map(t => t.trim()).filter(t => t !== '');
+
+  // 3. Scan the last 5 tokens backward for decimal float odometer (e.g. 125.40, 0.48, 12543.2)
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 5); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[0-9A-Fa-f]{4}$/.test(token) && i === cleanTokens.length - 1 && !token.includes('.')) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+
+    if (/^\d+\.\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+
+  // 4. Scan last few tokens for valid integer distance/odometer
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+    if (/^\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+
+  return 0;
+}
+
 function parseVoltyTime(dateStr, timeStr) {
   if (!dateStr) {
     return new Date().toISOString();
@@ -76,7 +131,11 @@ function parseVoltyTime(dateStr, timeStr) {
  * Parses the general tracking packet
  */
 function parseVoltyPacket(raw) {
-  const cleanRaw = raw.replace(/\*/g, '').trim();
+  let cleanRaw = raw.replace(/[\r\n]/g, '').trim();
+  const starIdx = cleanRaw.lastIndexOf('*');
+  if (starIdx !== -1) {
+    cleanRaw = cleanRaw.substring(0, starIdx).trim();
+  }
   // Support both standard comma-delimited and semicolon-delimited Volty packets
   const delimiter = (cleanRaw.includes(';') && cleanRaw.split(';').length > cleanRaw.split(',').length) ? ';' : ',';
   const parts = cleanRaw.split(delimiter);
@@ -235,7 +294,7 @@ function parseVoltyPacket(raw) {
     lat,
     lng,
     speed: cleanSpeed,
-    odometer: 0, 
+    odometer: extractPacketOdometer(raw, parts, imeiIndex), 
     direction: Math.round(parseFloat(heading)) || 0,
     satellites: parseInt(satellites) || 0,
     altitude,

@@ -120,6 +120,44 @@ function cleanPacket(raw) {
   return starIdx !== -1 ? raw.substring(0, starIdx) : raw;
 }
 
+/**
+ * Robust odometer extraction from trailing fields of AIS-140 V2 packets.
+ */
+function extractPacketOdometer(raw, parts) {
+  if (!parts || parts.length === 0) return 0;
+
+  let preChecksum = raw || '';
+  const starIdx = preChecksum.lastIndexOf('*');
+  if (starIdx !== -1) {
+    preChecksum = preChecksum.substring(0, starIdx);
+  }
+  const cleanTokens = preChecksum.split(',').map(t => t.trim()).filter(t => t !== '');
+
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 5); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[0-9A-Fa-f]{4}$/.test(token) && i === cleanTokens.length - 1 && !token.includes('.')) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+
+    if (/^\d+\.\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+    if (/^\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+
+  return 0;
+}
+
 // ============================================================
 // 1. LOGIN PACKET
 // Format: $VehicleNo$IMEI$FirmwareVer$ProtocolVer$Lat$LatDir$Lng$LngDir$
@@ -269,7 +307,7 @@ function parseAis140V2GeneralPacket(raw) {
     digitalInput,
     digitalOutput,
     frameNo:         parseInt(frameNo) || 0,
-    odometer:        0,      // V2 general packet does not carry odometer
+    odometer:        extractPacketOdometer(raw, parts),
     din2:            false,
     din3:            false,
     engineHours:     0,
@@ -375,7 +413,7 @@ function parseAis140V2EmergencyPacket(raw) {
     alertText,
     alertType:    isSosOn ? 'sos' : 'sos_cleared',
     ignition:     true,    // Emergency typically has ignition active
-    odometer:     0,
+    odometer:     parseFloat(distance) || 0,
     direction:    0,
     satellites:   8,
     gsmSignal:    31,
@@ -640,7 +678,7 @@ function parseVamoGeneralPacket(raw) {
     digitalInput:    '0000',
     digitalOutput:   '00',
     frameNo:         0,
-    odometer:        0,
+    odometer:        extractPacketOdometer(raw, parts),
     isLive,
     deviceTime,
     rawPacket:       raw,
