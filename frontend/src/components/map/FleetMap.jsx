@@ -572,7 +572,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
           </table>
 
           {/* Action Links */}
-          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
+          <div style={{ display: 'flex', gap: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
             <a
               href="/reports"
               onClick={(e) => { e.preventDefault(); navigate('/reports'); }}
@@ -593,6 +593,13 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
               style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
             >
               History
+            </a>
+            <a
+              href={`/vehicles/${vehicle.id}`}
+              onClick={(e) => { e.preventDefault(); navigate(`/vehicles/${vehicle.id}`); }}
+              style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              Details
             </a>
           </div>
         </div>
