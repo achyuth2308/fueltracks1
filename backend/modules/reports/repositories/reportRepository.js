@@ -252,15 +252,25 @@ class ReportRepository {
           type: 'leg',
           legNumber: i + 1,
           startTime: curLeg.start_time,
+          start_time: curLeg.start_time,
           endTime: curLeg.end_time,
+          end_time: curLeg.end_time,
           startLat: curLeg.start_lat,
+          start_lat: curLeg.start_lat,
           startLng: curLeg.start_lng,
+          start_lng: curLeg.start_lng,
           endLat: curLeg.end_lat,
+          end_lat: curLeg.end_lat,
           endLng: curLeg.end_lng,
+          end_lng: curLeg.end_lng,
           distance: parseFloat(curLeg.distance) || 0,
+          distance_km: parseFloat(curLeg.distance) || 0,
           durationSeconds: parseFloat(curLeg.duration_seconds) || 0,
+          duration_seconds: parseFloat(curLeg.duration_seconds) || 0,
           maxSpeed: curLeg.max_speed || 0,
-          avgSpeed: curLeg.avg_speed || 0
+          max_speed: curLeg.max_speed || 0,
+          avgSpeed: curLeg.avg_speed || 0,
+          avg_speed: curLeg.avg_speed || 0
         });
 
         // If there is a next leg, add the intermediate stop between them
@@ -273,10 +283,15 @@ class ReportRepository {
             type: 'stop',
             stopNumber: i + 1,
             startTime: stopStart,
+            start_time: stopStart,
             endTime: stopEnd,
+            end_time: stopEnd,
             lat: curLeg.end_lat,
+            start_lat: curLeg.end_lat,
             lng: curLeg.end_lng,
-            durationSeconds: stopSec
+            start_lng: curLeg.end_lng,
+            durationSeconds: stopSec,
+            duration_seconds: stopSec
           });
         }
       }

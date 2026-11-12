@@ -587,7 +587,7 @@ const DailyTripReportPage = () => {
                   Total Distance :
                 </td>
                 <td style={{ width: '36%', padding: '6px 10px', fontWeight: 800, color: '#059669' }}>
-                  {totals.distance} km <span style={{ fontSize: '10.5px', color: '#065F46', fontWeight: 600 }}>({totals.count} days • {totals.legs} legs • {totals.stops} stops)</span>
+                  {totals.distance} km <span style={{ fontSize: '10.5px', color: '#065F46', fontWeight: 600 }}>({totals.count} days • {totals.stops || totals.legs} stops)</span>
                 </td>
               </tr>
               {/* Row 3 */}
@@ -760,7 +760,7 @@ const DailyTripReportPage = () => {
                               lineHeight: '1.2'
                             }}
                           >
-                            <span>{row.legs_count || 1} Legs</span>
+                            <span>{row.legs_count || 1} Stops</span>
                             {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                           </button>
                         </td>
@@ -772,7 +772,7 @@ const DailyTripReportPage = () => {
                           <td colSpan="11" style={{ padding: '8px 14px', background: '#F8FAFC', borderBottom: '1px solid #CBD5E1' }}>
                             <div style={{ fontSize: '11px', fontWeight: 800, color: '#0F172A', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <Activity size={13} color="#10B981" />
-                              <span>Intermediate Legs & Stoppages for {formatLocalDate(row.date)} ({row.vehicle_name})</span>
+                              <span>Intermediate Stops & Stoppages for {formatLocalDate(row.date)} ({row.vehicle_name})</span>
                             </div>
 
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', background: '#FFFFFF', border: '1px solid #CBD5E1' }}>
@@ -791,31 +791,39 @@ const DailyTripReportPage = () => {
                               <tbody>
                                 {row.timeline.map((item, tIdx) => {
                                   const isLeg = item.type === 'leg';
+                                  const sTime = item.start_time || item.startTime;
+                                  const eTime = item.end_time || item.endTime;
+                                  const dur = item.duration_seconds !== undefined ? item.duration_seconds : item.durationSeconds;
+                                  const dist = item.distance_km !== undefined ? item.distance_km : (item.distance !== undefined ? item.distance : 0);
+                                  const maxSpd = item.max_speed !== undefined ? item.max_speed : (item.maxSpeed !== undefined ? item.maxSpeed : 0);
+                                  const lat = item.start_lat || item.startLat || item.lat;
+                                  const lng = item.start_lng || item.startLng || item.lng;
+
                                   return (
                                     <tr key={tIdx} style={{ borderBottom: '1px solid #E2E8F0', background: isLeg ? '#FFFFFF' : '#FFFBEB' }}>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', textAlign: 'center', color: '#64748B' }}>
                                         {tIdx + 1}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', fontWeight: 700, color: isLeg ? '#10B981' : '#D97706' }}>
-                                        {isLeg ? '🚗 Driving Leg' : '⏸️ Stoppage'}
+                                        {isLeg ? '🚗 Driving' : '⏸️ Stoppage'}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>
-                                        {formatLocalTime(item.start_time)}
+                                        {formatLocalTime(sTime)}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', whiteSpace: 'nowrap' }}>
-                                        {formatLocalTime(item.end_time)}
+                                        {formatLocalTime(eTime)}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', textAlign: 'center', fontWeight: 600 }}>
-                                        {formatDuration(item.duration_seconds)}
+                                        {formatDuration(dur)}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', textAlign: 'right', fontWeight: 700 }}>
-                                        {isLeg ? `${item.distance_km || 0} km` : '-'}
+                                        {isLeg ? `${Number(dist).toFixed(2)} km` : '-'}
                                       </td>
                                       <td style={{ padding: '3px 6px', borderRight: '1px solid #E2E8F0', textAlign: 'right', color: '#DC2626' }}>
-                                        {isLeg ? `${item.max_speed || 0}` : '-'}
+                                        {isLeg ? `${Math.round(Number(maxSpd))}` : '-'}
                                       </td>
                                       <td style={{ padding: '3px 6px', color: '#475569' }}>
-                                        <AddressText lat={item.start_lat || item.lat} lng={item.start_lng || item.lng} />
+                                        <AddressText lat={lat} lng={lng} />
                                       </td>
                                     </tr>
                                   );
