@@ -638,6 +638,7 @@ const UsersAdminPage = () => {
         onClose={() => setCredentialsModalOpen(false)}
         initialUser={credentialsTargetUser}
         isNewlyCreated={isNewUserCredentials}
+        orgs={orgs}
       />
       <style dangerouslySetInnerHTML={{
         __html: `

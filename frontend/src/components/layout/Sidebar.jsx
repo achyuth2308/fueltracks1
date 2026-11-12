@@ -265,9 +265,24 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const roleLabel = user?.role || 'Customer';
   const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
+  const isDealerUser = brandProfile?.is_dealer_customer || 
+                       brandProfile?.org_type === 'dealer' || 
+                       brandProfile?.is_dealer ||
+                       (brandProfile?.brand_name && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(brandProfile.brand_name.toUpperCase())) ||
+                       (user?.orgName && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(user.orgName.toUpperCase()) && user?.role !== 'superadmin');
+
+  const isFuelTracksCustomer = !isDealerUser && (brandProfile?.is_fueltracks_direct || user?.role === 'superadmin' || !brandProfile?.is_whitelabel_enabled);
+
   const supportBrand = (brandProfile?.brand_name || brandProfile?.company_name || user?.orgName || 'FUELTRACKS').toUpperCase();
-  const supportPhone = brandProfile?.support_phone || brandProfile?.whatsapp_number || '7337433351';
-  const supportEmail = (brandProfile?.support_email || 'info@fueltracks.in').toLowerCase();
+  const supportPhone = brandProfile?.support_phone || 
+                       brandProfile?.dealer_phone || 
+                       brandProfile?.whatsapp_number || 
+                       brandProfile?.mobile || 
+                       (isFuelTracksCustomer ? '7337433351' : '');
+  const supportEmail = (brandProfile?.support_email || 
+                       brandProfile?.dealer_email || 
+                       brandProfile?.email || 
+                       (isFuelTracksCustomer ? 'info@fueltracks.in' : '')).toLowerCase();
 
   return (
     <>
@@ -854,8 +869,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
           position: 'relative',
           zIndex: 3
         }}>
-          {/* Support Helpline Box - Only for non-admin users (customers) */}
-          {!isAdmin && (!collapsed ? (
+          {/* Support Helpline Box - Only for non-admin users (customers) with available support contact */}
+          {!isAdmin && (supportPhone || supportEmail) && (!collapsed ? (
             <div
               style={{
                 width: '100%',
@@ -878,48 +893,52 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} title="Support Available" />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '2px' }}>
-                <a
-                  href={`tel:${supportPhone}`}
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    color: '#334155',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = currentTheme.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = '#334155'}
-                >
-                  <Phone size={11} className="text-slate-400 shrink-0" />
-                  <span>{supportPhone}</span>
-                </a>
-                <a
-                  href={`mailto:${supportEmail}`}
-                  style={{
-                    fontSize: '10.5px',
-                    fontWeight: 600,
-                    color: '#475569',
-                    textDecoration: 'none',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px',
-                    wordBreak: 'break-all',
-                    whiteSpace: 'normal',
-                    lineHeight: '1.25'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = currentTheme.primary}
-                  onMouseLeave={e => e.currentTarget.style.color = '#475569'}
-                >
-                  <Mail size={11} className="text-slate-400 shrink-0" />
-                  <span>{supportEmail}</span>
-                </a>
+                {supportPhone && (
+                  <a
+                    href={`tel:${supportPhone}`}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      color: '#334155',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = currentTheme.primary}
+                    onMouseLeave={e => e.currentTarget.style.color = '#334155'}
+                  >
+                    <Phone size={11} className="text-slate-400 shrink-0" />
+                    <span>{supportPhone}</span>
+                  </a>
+                )}
+                {supportEmail && (
+                  <a
+                    href={`mailto:${supportEmail}`}
+                    style={{
+                      fontSize: '10.5px',
+                      fontWeight: 600,
+                      color: '#475569',
+                      textDecoration: 'none',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      wordBreak: 'break-all',
+                      whiteSpace: 'normal',
+                      lineHeight: '1.25'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.color = currentTheme.primary}
+                    onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+                  >
+                    <Mail size={11} className="text-slate-400 shrink-0" />
+                    <span>{supportEmail}</span>
+                  </a>
+                )}
               </div>
             </div>
           ) : (
             <div
-              title={`Support: ${supportBrand} - ${supportPhone}`}
+              title={`Support: ${supportBrand}${supportPhone ? ` - ${supportPhone}` : ''}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',

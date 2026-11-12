@@ -6,6 +6,7 @@ import {
   openWhatsAppCredentialsShare
 } from '../../utils/whatsappShare';
 import { sendUserCredentialsWhatsApp } from '../../api/adminApi';
+import { useAuth } from '../../context/AuthContext';
 
 // Inline WhatsApp SVG Icon
 const WhatsAppIcon = ({ size = 18, color = 'currentColor' }) => (
@@ -26,9 +27,12 @@ const WhatsAppIcon = ({ size = 18, color = 'currentColor' }) => (
 const SendCredentialsModal = ({
   isOpen,
   onClose,
-  initialUser = null, // { name, username, phone, password }
-  isNewlyCreated = false
+  initialUser = null, // { name, username, phone, password, org_id, org_name }
+  isNewlyCreated = false,
+  orgs = [],
+  brandProfile = null
 }) => {
+  const { user } = useAuth();
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
@@ -65,10 +69,46 @@ const SendCredentialsModal = ({
     setApiError(null);
   }, [initialUser, isOpen]);
 
+  // Determine dealer branding for credentials message
+  const targetOrgId = initialUser?.org_id || initialUser?.orgId;
+  const userOrg = orgs?.find(o => o.id === targetOrgId);
+  let parentDealerOrg = null;
+  if (userOrg && userOrg.parent_id && userOrg.parent_id !== 'a0000000-0000-0000-0000-000000000001') {
+    parentDealerOrg = orgs?.find(o => o.id === userOrg.parent_id);
+  }
+
+  const isDealerContext = (user?.role === 'dealer') || 
+                          (userOrg?.type === 'dealer') || 
+                          !!parentDealerOrg || 
+                          brandProfile?.is_dealer_customer || 
+                          brandProfile?.org_type === 'dealer';
+
+  const resolvedBrandName = isDealerContext
+    ? (parentDealerOrg?.name || (userOrg?.type === 'dealer' ? userOrg.name : (user?.role === 'dealer' ? user.orgName : (brandProfile?.dealer_name || brandProfile?.brand_name || 'Dealer'))))
+    : 'FuelTracks Technologies Pvt. Ltd.';
+
+  const resolvedPortalUrl = (typeof window !== 'undefined' && window.location.origin && !window.location.origin.includes('fueltracks.in'))
+    ? window.location.origin
+    : (isDealerContext ? (typeof window !== 'undefined' ? window.location.origin : 'https://app.fueltracks.in') : 'https://app.fueltracks.in');
+
+  const resolvedSupportPhone = parentDealerOrg?.phone || 
+                               (userOrg?.type === 'dealer' ? userOrg.phone : (user?.role === 'dealer' ? user.phone : (brandProfile?.support_phone || brandProfile?.dealer_phone)));
+
+  const resolvedSupportEmail = parentDealerOrg?.email || 
+                               (userOrg?.type === 'dealer' ? userOrg.email : (user?.role === 'dealer' ? user.email : (brandProfile?.support_email || brandProfile?.dealer_email)));
+
   if (!isOpen) return null;
 
   const normalizedDigits = normalizeWhatsAppPhone(phone);
-  const previewMessage = formatWhatsAppCredentialsMessage({ name, username, password });
+  const previewMessage = formatWhatsAppCredentialsMessage({
+    name,
+    username,
+    password,
+    brandName: resolvedBrandName,
+    portalUrl: resolvedPortalUrl,
+    supportPhone: resolvedSupportPhone,
+    supportEmail: resolvedSupportEmail
+  });
 
   const handleCopyMessage = async () => {
     try {
@@ -90,7 +130,11 @@ const SendCredentialsModal = ({
       phone: normalizedDigits,
       name,
       username,
-      password
+      password,
+      brandName: resolvedBrandName,
+      portalUrl: resolvedPortalUrl,
+      supportPhone: resolvedSupportPhone,
+      supportEmail: resolvedSupportEmail
     });
   };
 

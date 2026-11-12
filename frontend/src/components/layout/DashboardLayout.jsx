@@ -32,9 +32,24 @@ const DashboardLayout = ({ vehicles = [] }) => {
     return () => window.removeEventListener('profile-updated', handleProfileUpdated);
   }, [user, isAuthenticated]);
 
+  const isDealerUser = brandProfile?.is_dealer_customer || 
+                       brandProfile?.org_type === 'dealer' || 
+                       brandProfile?.is_dealer ||
+                       (brandProfile?.brand_name && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(brandProfile.brand_name.toUpperCase())) ||
+                       (user?.orgName && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(user.orgName.toUpperCase()) && user?.role !== 'superadmin');
+
+  const isFuelTracksCustomer = !isDealerUser && (brandProfile?.is_fueltracks_direct || user?.role === 'superadmin' || !brandProfile?.is_whitelabel_enabled);
+
   const supportBrand = (brandProfile?.brand_name || brandProfile?.company_name || user?.orgName || 'FUELTRACKS').toUpperCase();
-  const supportPhone = brandProfile?.support_phone || brandProfile?.whatsapp_number || '7337433351';
-  const supportEmail = (brandProfile?.support_email || 'info@fueltracks.in').toLowerCase();
+  const supportPhone = brandProfile?.support_phone || 
+                       brandProfile?.dealer_phone || 
+                       brandProfile?.whatsapp_number || 
+                       brandProfile?.mobile || 
+                       (isFuelTracksCustomer ? '7337433351' : '');
+  const supportEmail = (brandProfile?.support_email || 
+                       brandProfile?.dealer_email || 
+                       brandProfile?.email || 
+                       (isFuelTracksCustomer ? 'info@fueltracks.in' : '')).toLowerCase();
   const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
   React.useEffect(() => {
@@ -140,24 +155,32 @@ const DashboardLayout = ({ vehicles = [] }) => {
         >
           <span>Support Details:</span>
           <span style={{ color: '#E0F2FE' }}>{supportBrand}</span>
-          <span>,</span>
-          <a
-            href={`tel:${supportPhone}`}
-            style={{ color: '#FFFFFF', textDecoration: 'none' }}
-            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-          >
-            {supportPhone}
-          </a>
-          <span>,</span>
-          <a
-            href={`mailto:${supportEmail}`}
-            style={{ color: '#FFFFFF', textDecoration: 'none' }}
-            onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
-            onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
-          >
-            {supportEmail}
-          </a>
+          {supportPhone && (
+            <>
+              <span>,</span>
+              <a
+                href={`tel:${supportPhone}`}
+                style={{ color: '#FFFFFF', textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                {supportPhone}
+              </a>
+            </>
+          )}
+          {supportEmail && (
+            <>
+              <span>,</span>
+              <a
+                href={`mailto:${supportEmail}`}
+                style={{ color: '#FFFFFF', textDecoration: 'none' }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                {supportEmail}
+              </a>
+            </>
+          )}
         </div>
       )}
     </div>
