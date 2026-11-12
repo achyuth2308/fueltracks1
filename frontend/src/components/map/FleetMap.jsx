@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
-import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
+import { formatSpeed, formatVoltage, formatDirection, formatOdometer, formatFuel, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
@@ -496,7 +496,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
         offset={[0, -5]}
         autoPan={false}
       >
-        <div style={{ minWidth: '240px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '11px', padding: '2px 0' }}>
+        <div style={{ minWidth: '260px', fontFamily: "'Inter', system-ui, -apple-system, sans-serif", fontSize: '11px', padding: '2px 0' }}>
           {/* No GPS notice */}
           {noGps && (
             <div style={{ marginBottom: '6px', padding: '4px 8px', borderRadius: '6px', background: '#F3F4F6', border: '1px solid #D1D5DB', color: '#6B7280', fontSize: '11px', fontWeight: 600 }}>
@@ -511,7 +511,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
             </div>
           )}
 
-          {/* Table Grid matching Image 2 */}
+          {/* Full Vehicle Telemetry Grid */}
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
             <tbody>
               <tr>
@@ -519,9 +519,21 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
                 <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>- {vehicle.name}</td>
               </tr>
               <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Speed</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {Math.round(vehicle.is_online ? (vehicle.current_speed || 0) : 0)} km/h
+                </td>
+              </tr>
+              <tr>
                 <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Today Distance</td>
                 <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
                   - {liveRouteMetrics[vehicle.id]?.cDist !== undefined ? Number(liveRouteMetrics[vehicle.id].cDist).toFixed(2) : (Number(vehicle.today_distance) || 0).toFixed(2)} kms
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Odometer</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {formatOdometer(liveRouteMetrics[vehicle.id]?.dynamicOdo ?? vehicle.current_odometer ?? vehicle.today_distance ?? 0)}
                 </td>
               </tr>
               {getNoDataDuration(vehicle.last_seen) && (status === 'offline' || status === 'nodata') ? (
@@ -549,13 +561,48 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
               ) : (
                 <tr>
                   <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Moving</td>
-                  <td style={{ color: '#10b981', fontWeight: 700, padding: '2px 0' }}>- {status === 'running' ? 'Running' : status === 'idle' ? 'Idle' : 'Parked'}</td>
+                  <td style={{ color: status === 'running' ? '#10b981' : status === 'idle' ? '#f59e0b' : '#64748b', fontWeight: 700, padding: '2px 0' }}>
+                    - {status === 'running' ? 'Running' : status === 'idle' ? 'Idle' : 'Parked'}
+                  </td>
                 </tr>
               )}
               <tr>
                 <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>ACC Status</td>
                 <td style={{ color: vehicle.current_ignition ? '#16a34a' : '#ef4444', fontWeight: 700, padding: '2px 0' }}>
                   - {vehicle.current_ignition ? 'ON' : 'OFF'}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Veh Battery</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {formatVoltage(vehicle.current_voltage ?? vehicle.metadata?.batteryVoltage)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Dev Battery</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {(() => {
+                    const b = vehicle.current_battery ?? vehicle.battery ?? vehicle.metadata?.devBattery;
+                    return b !== undefined && b !== null ? `${b}%` : '100%';
+                  })()}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Fuel</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {formatFuel(vehicle.current_fuel)}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>GSM / GPS Fix</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - GSM: {vehicle.current_gsm_signal || 0}/31 | Sats: {vehicle.current_satellites || 0}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Direction</td>
+                <td style={{ color: '#111827', fontWeight: 700, padding: '2px 0' }}>
+                  - {formatDirection(course)}
                 </td>
               </tr>
               <tr>
@@ -569,11 +616,15 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
             </tbody>
           </table>
 
+          {/* Location Address */}
+          <LocationDisplay lat={vehicle.lat} lng={vehicle.lng} />
+
           {/* Action Links */}
-          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
-            <a href="/admin/reports" style={{ color: '#0284c7', textDecoration: 'none' }}>Reports</a>
-            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>Track</a>
+          <div style={{ display: 'flex', gap: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
+            <a href="/reports" style={{ color: '#0284c7', textDecoration: 'none' }}>Reports</a>
+            <a href={`/tracking?vehicle=${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>Track</a>
             <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#0284c7', textDecoration: 'none' }}>History</a>
+            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#64748b', textDecoration: 'none' }}>Details</a>
           </div>
         </div>
       </Popup>

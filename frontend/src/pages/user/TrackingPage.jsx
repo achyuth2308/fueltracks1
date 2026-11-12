@@ -158,6 +158,14 @@ const TrackingPage = ({ setAppVehicles }) => {
       setSelectedVehicles(activeVehicles);
       setHasSelectedInitial(true);
     }
+    const vehicleParam = searchParams.get('vehicle');
+    if (vehicleParam && vehicles?.length > 0) {
+      const v = vehicles.find(v => String(v.id) === String(vehicleParam));
+      if (v) {
+        setSelectedVehicles([v]);
+        setHasSelectedInitial(true);
+      }
+    }
     const multiId = searchParams.get('multitrack');
     if (multiId && vehicles.length > 0) {
       const v = vehicles.find(v => v.id === multiId);
