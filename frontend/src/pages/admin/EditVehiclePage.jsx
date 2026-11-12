@@ -310,7 +310,8 @@ const VEHICLE_TYPES = [
 ];
 
 const ASSET_CATEGORIES = [
-  { value: 'moving', label: 'Moving Vehicle (Truck, Tipper, Bus, Car, JCB)' },
+  { value: 'moving', label: 'Moving Vehicle (Truck, Tipper, Bus, Car, Van)' },
+  { value: 'machinery', label: 'Machinery (Borewell, JCB, Crane, Excavator, Rig)' },
   { value: 'dispenser', label: 'Fuel Dispenser / Bowser (Mobile Tanker)' },
   { value: 'generator', label: 'Generator / DG Set (Stationary Power Unit)' }
 ];
@@ -710,7 +711,8 @@ const EditVehiclePage = () => {
               vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
               vehicleCategory: meta.vehicleCategory || (
                 (v.model?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('fkpcm') || v.name?.toLowerCase().includes('bowser')) ? 'dispenser' :
-                (v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' : 'moving'
+                (v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' :
+                (v.model?.toLowerCase().includes('borewell') || v.model?.toLowerCase().includes('jcb') || v.model?.toLowerCase().includes('crane') || v.model?.toLowerCase().includes('machinery') || v.name?.toLowerCase().includes('borewell') || v.name?.toLowerCase().includes('jcb') || v.name?.toLowerCase().includes('crane')) ? 'machinery' : 'moving'
               ),
               vehicleModel: meta.vehicleModel || v.make || 'Mazda',
               deviceModel: currentDeviceModel,
@@ -1337,6 +1339,8 @@ const EditVehiclePage = () => {
                 updateMeta('vehicleCategory', 'dispenser');
               } else if (val.toLowerCase().includes('generator') || val.toLowerCase().includes('dg')) {
                 updateMeta('vehicleCategory', 'generator');
+              } else if (val.toLowerCase().includes('borewell') || val.toLowerCase().includes('jcb') || val.toLowerCase().includes('crane')) {
+                updateMeta('vehicleCategory', 'machinery');
               }
             }}
             options={VEHICLE_TYPES}

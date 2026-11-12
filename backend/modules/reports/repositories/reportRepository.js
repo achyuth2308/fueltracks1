@@ -638,6 +638,19 @@ class ReportRepository {
                 OR COALESCE(v.name, '') ILIKE '%dg set%'
                 OR COALESCE(v.name, '') ILIKE '%genset%'
               ) AS is_generator,
+              (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%machinery%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%borewell%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%jcb%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%crane%'
+                OR COALESCE(v.model, '') ILIKE '%borewell%'
+                OR COALESCE(v.model, '') ILIKE '%jcb%'
+                OR COALESCE(v.model, '') ILIKE '%crane%'
+                OR COALESCE(v.model, '') ILIKE '%machinery%'
+                OR COALESCE(v.name, '') ILIKE '%borewell%'
+                OR COALESCE(v.name, '') ILIKE '%jcb%'
+                OR COALESCE(v.name, '') ILIKE '%crane%'
+              ) AS is_machinery,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
@@ -661,6 +674,7 @@ class ReportRepository {
               t.vehicle_id,
               BOOL_OR(t.is_dispenser)                                                                     AS is_dispenser,
               BOOL_OR(t.is_generator)                                                                     AS is_generator,
+              BOOL_OR(t.is_machinery)                                                                     AS is_machinery,
               SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END)                               AS running_seconds,
               SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
               SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
@@ -696,6 +710,7 @@ class ReportRepository {
           CASE 
             WHEN a.is_dispenser THEN 'dispenser'
             WHEN a.is_generator THEN 'generator'
+            WHEN a.is_machinery THEN 'machinery'
             ELSE 'moving'
           END AS vehicle_category,
           COALESCE(a.running_seconds, 0) AS running_seconds,
