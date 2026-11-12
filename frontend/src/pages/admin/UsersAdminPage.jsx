@@ -350,6 +350,11 @@ const UsersAdminPage = () => {
                               href={`/switch-login/${u.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                const tok = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+                                window.open(`/switch-login/${u.id}?adminToken=${encodeURIComponent(tok)}`, '_blank');
+                              }}
                               title="Open user session in new tab"
                               style={{
                                 background: '#E0F2FE',
@@ -466,6 +471,11 @@ const UsersAdminPage = () => {
                   href={`/switch-login/${viewingUser.id}`}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const tok = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
+                    window.open(`/switch-login/${viewingUser.id}?adminToken=${encodeURIComponent(tok)}`, '_blank');
+                  }}
                   title="Open user session in new tab"
                   style={{
                     width: '100%',

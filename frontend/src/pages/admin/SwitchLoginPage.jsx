@@ -11,13 +11,20 @@ const SwitchLoginPage = () => {
     let isMounted = true;
     const executeSwitch = async () => {
       try {
-        const adminToken = localStorage.getItem('token') || sessionStorage.getItem('adminToken');
+                const searchParams = new URLSearchParams(window.location.search);
+        const tokenFromUrl = searchParams.get('adminToken') || searchParams.get('token');
+        const adminToken = tokenFromUrl || sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || sessionStorage.getItem('token') || localStorage.getItem('token');
+
+        if (tokenFromUrl && window.history?.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+
         if (!adminToken) {
-          if (isMounted) setError('No administrator session found. Please log in first.');
+          if (isMounted) setError('No administrator session found. Please log in to the administrator portal first.');
           return;
         }
 
-        const response = await impersonateUser(userId);
+        const response = await impersonateUser(userId, adminToken);
         if (response?.success && response?.data?.accessToken) {
           const customerToken = response.data.accessToken;
 
