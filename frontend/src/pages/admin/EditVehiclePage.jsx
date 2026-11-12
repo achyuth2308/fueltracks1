@@ -305,7 +305,14 @@ const SectionTitle = ({ title }) => (
 
 const VEHICLE_TYPES = [
   'Bus', 'Truck', 'Car', 'Van', 'Scooty', 'Motorcycle', 'Tractor',
-  'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper'
+  'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper',
+  'Fuel Dispenser / Bowser', 'Generator / DG Set'
+];
+
+const ASSET_CATEGORIES = [
+  { value: 'moving', label: 'Moving Vehicle (Truck, Tipper, Bus, Car, JCB)' },
+  { value: 'dispenser', label: 'Fuel Dispenser / Bowser (Mobile Tanker)' },
+  { value: 'generator', label: 'Generator / DG Set (Stationary Power Unit)' }
 ];
 
 const VEHICLE_MODELS = [
@@ -596,6 +603,7 @@ const EditVehiclePage = () => {
       vehicleId: '',
       registrationNo: '',
       vehicleTypeSelect: 'Bus',
+      vehicleCategory: 'moving',
       vehicleModel: 'Mazda',
       deviceModel: 'VOLTY',
       iccid: '',
@@ -700,6 +708,10 @@ const EditVehiclePage = () => {
               vehicleId: meta.vehicleId || v.plate || '',
               registrationNo: meta.registrationNo || v.plate || '',
               vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
+              vehicleCategory: meta.vehicleCategory || (
+                (v.model?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('fkpcm') || v.name?.toLowerCase().includes('bowser')) ? 'dispenser' :
+                (v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' : 'moving'
+              ),
               vehicleModel: meta.vehicleModel || v.make || 'Mazda',
               deviceModel: currentDeviceModel,
               chassisNo: meta.chassisNo || meta.vin || '',
@@ -798,6 +810,7 @@ const EditVehiclePage = () => {
         driverPhone: form.metadata.driverPhone || form.driverPhone,
         metadata: {
           ...form.metadata,
+          vehicleCategory: form.metadata.vehicleCategory || 'moving',
           vehicleId: form.metadata.vehicleId || form.plate,
           registrationNo: form.plate || form.metadata.registrationNo,
           vehicleTypeSelect: form.model || form.metadata.vehicleTypeSelect,
@@ -1316,10 +1329,28 @@ const EditVehiclePage = () => {
           <SelectField
             label="Vehicle Type"
             value={form.model || form.metadata.vehicleTypeSelect}
-            onChange={e => { updateField('model', e.target.value); updateMeta('vehicleTypeSelect', e.target.value); }}
+            onChange={e => {
+              const val = e.target.value;
+              updateField('model', val);
+              updateMeta('vehicleTypeSelect', val);
+              if (val.toLowerCase().includes('dispenser') || val.toLowerCase().includes('bowser')) {
+                updateMeta('vehicleCategory', 'dispenser');
+              } else if (val.toLowerCase().includes('generator') || val.toLowerCase().includes('dg')) {
+                updateMeta('vehicleCategory', 'generator');
+              }
+            }}
             options={VEHICLE_TYPES}
             focused={focusedField === 'vType'}
             onFocus={() => setFocusedField('vType')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Fuel / Asset Profile"
+            value={form.metadata.vehicleCategory || 'moving'}
+            onChange={e => updateMeta('vehicleCategory', e.target.value)}
+            options={ASSET_CATEGORIES}
+            focused={focusedField === 'vCat'}
+            onFocus={() => setFocusedField('vCat')}
             onBlur={() => setFocusedField(null)}
           />
 

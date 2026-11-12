@@ -750,20 +750,50 @@ async function start(io) {
          
          // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
          const isSloshing = speed > 5;
-         
+
+         // Categorize vehicle asset: Fuel Dispenser, Generator, or Moving Vehicle
+         const metaCat = (vehicle.metadata?.vehicleCategory || vehicle.metadata?.vehicleTypeSelect || '').toLowerCase();
+         const modelLower = (vehicle.model || '').toLowerCase();
+         const nameLower = (vehicle.name || '').toLowerCase();
+         const isDispenser = metaCat.includes('dispenser') || metaCat.includes('bowser') ||
+                             modelLower.includes('dispenser') || modelLower.includes('bowser') ||
+                             nameLower.includes('dispenser') || nameLower.includes('bowser') || nameLower.includes('fkpcm');
+         const isGenerator = metaCat.includes('generator') || metaCat.includes('dg') ||
+                             modelLower.includes('generator') || modelLower.includes('dg set') || modelLower.includes('genset') ||
+                             nameLower.includes('generator') || nameLower.includes('dg set') || nameLower.includes('genset');
+
+         const isEngineOff = ignition === false || ignition === 0 || ignition === '0' || ignition === null || ignition === undefined;
+
          if (!isSloshing) {
            if (diff <= -theftThreshold) {
-             redis.publish('alerts', JSON.stringify({
-               imei: vehicle.imei, alertType: 'fuel_theft',
-               alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
-               lat, lng, deviceTime,
-               alertPayload: {
-                 startLevel: prevFuel,
-                 endLevel: currFuel,
-                 dropLitres: Math.round(Math.abs(diff) * 10) / 10,
-                 theftThreshold
-               }
-             }));
+             if (isDispenser) {
+               // Dispensers/Bowsers: Stationary fuel drop is normal fuel dispensing operation
+               redis.publish('alerts', JSON.stringify({
+                 imei: vehicle.imei, alertType: 'fuel_dispensed',
+                 alertText: `Fuel dispensed: ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L).`,
+                 lat, lng, deviceTime,
+                 alertPayload: {
+                   startLevel: prevFuel,
+                   endLevel: currFuel,
+                   dispensedLitres: Math.round(Math.abs(diff) * 10) / 10,
+                   theftThreshold
+                 }
+               }));
+             } else if (isEngineOff) {
+               // Moving Vehicles & Generators: STRICTLY require engine/ignition = OFF!
+               // When ignition = ON, fuel drop is engine consumption (running/idling), NOT theft!
+               redis.publish('alerts', JSON.stringify({
+                 imei: vehicle.imei, alertType: 'fuel_theft',
+                 alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L) while engine is OFF. Possible theft or leak.`,
+                 lat, lng, deviceTime,
+                 alertPayload: {
+                   startLevel: prevFuel,
+                   endLevel: currFuel,
+                   dropLitres: Math.round(Math.abs(diff) * 10) / 10,
+                   theftThreshold
+                 }
+               }));
+             }
            } else if (diff >= refillThreshold) {
              redis.publish('alerts', JSON.stringify({
                imei: vehicle.imei, alertType: 'fuel_refill',

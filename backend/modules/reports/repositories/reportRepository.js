@@ -615,6 +615,29 @@ class ReportRepository {
           SELECT
               g.vehicle_id, g.lat, g.lng, g.speed, g.ignition, g.device_time, g.fuel,
               v.metadata,
+              (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dispenser%'
+                OR COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%bowser%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%dispenser%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%bowser%'
+                OR COALESCE(v.model, '') ILIKE '%dispenser%'
+                OR COALESCE(v.model, '') ILIKE '%bowser%'
+                OR COALESCE(v.name, '') ILIKE '%dispenser%'
+                OR COALESCE(v.name, '') ILIKE '%bowser%'
+                OR COALESCE(v.name, '') ILIKE '%fkpcm%'
+              ) AS is_dispenser,
+              (
+                COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%generator%'
+                OR COALESCE(v.metadata->>'vehicleCategory', '') ILIKE '%dg%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%generator%'
+                OR COALESCE(v.metadata->>'vehicleTypeSelect', '') ILIKE '%dg%'
+                OR COALESCE(v.model, '') ILIKE '%generator%'
+                OR COALESCE(v.model, '') ILIKE '%dg set%'
+                OR COALESCE(v.model, '') ILIKE '%genset%'
+                OR COALESCE(v.name, '') ILIKE '%generator%'
+                OR COALESCE(v.name, '') ILIKE '%dg set%'
+                OR COALESCE(v.name, '') ILIKE '%genset%'
+              ) AS is_generator,
               LAG(g.lat)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lat,
               LAG(g.lng)         OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_lng,
               LAG(g.device_time) OVER (PARTITION BY g.vehicle_id ORDER BY g.device_time) AS prev_time,
@@ -636,6 +659,8 @@ class ReportRepository {
       aggregated AS (
           SELECT
               t.vehicle_id,
+              BOOL_OR(t.is_dispenser)                                                                     AS is_dispenser,
+              BOOL_OR(t.is_generator)                                                                     AS is_generator,
               SUM(CASE WHEN t.speed > 0 THEN t.duration_seconds ELSE 0 END)                               AS running_seconds,
               SUM(CASE WHEN t.speed = 0 AND t.ignition = true THEN t.duration_seconds ELSE 0 END)         AS idle_seconds,
               SUM(CASE WHEN t.speed = 0 AND (t.ignition = false OR t.ignition IS NULL) THEN t.duration_seconds ELSE 0 END) AS stopped_seconds,
@@ -652,9 +677,15 @@ class ReportRepository {
               (ARRAY_AGG(t.lat ORDER BY t.device_time DESC) FILTER (WHERE t.lat IS NOT NULL))[1]         AS end_lat,
               (ARRAY_AGG(t.lng ORDER BY t.device_time DESC) FILTER (WHERE t.lng IS NOT NULL))[1]         AS end_lng,
               
-              -- Refills and thefts
+              -- Refills: Any fuel increase >= threshold while stationary
               SUM(CASE WHEN t.fuel_diff >= t.fuel_threshold AND t.speed <= 5 THEN t.fuel_diff ELSE 0 END) AS total_refill,
-              SUM(CASE WHEN t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 THEN -t.fuel_diff ELSE 0 END) AS total_theft
+              
+              -- Dispensers / Bowsers: Fuel drops while stationary represent normal DISPENSED fuel, NOT theft
+              SUM(CASE WHEN t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 THEN -t.fuel_diff ELSE 0 END) AS total_dispensed,
+              
+              -- Thefts: Strictly for non-dispenser vehicles when stationary AND ignition is OFF / FALSE / NULL.
+              -- If ignition = true, fuel drops are legitimate engine consumption (idling/running), never theft!
+              SUM(CASE WHEN NOT t.is_dispenser AND t.fuel_diff <= -t.fuel_threshold AND t.speed <= 5 AND (t.ignition = false OR t.ignition IS NULL) THEN -t.fuel_diff ELSE 0 END) AS total_theft
           FROM with_dist t
           GROUP BY t.vehicle_id
       )
@@ -662,6 +693,11 @@ class ReportRepository {
           v.id AS vehicle_id,
           v.name AS vehicle_name,
           v.plate,
+          CASE 
+            WHEN a.is_dispenser THEN 'dispenser'
+            WHEN a.is_generator THEN 'generator'
+            ELSE 'moving'
+          END AS vehicle_category,
           COALESCE(a.running_seconds, 0) AS running_seconds,
           COALESCE(a.idle_seconds, 0) AS idle_seconds,
           COALESCE(a.stopped_seconds, 0) AS stopped_seconds,
@@ -676,20 +712,21 @@ class ReportRepository {
           COALESCE(a.end_lat, (SELECT lat FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lat,
           COALESCE(a.end_lng, (SELECT lng FROM gps_points WHERE vehicle_id = v.id ORDER BY device_time DESC LIMIT 1)) AS end_lng,
           COALESCE(a.total_refill, 0) AS total_refill,
+          COALESCE(a.total_dispensed, 0) AS total_dispensed,
           COALESCE(a.total_theft, 0) AS total_theft,
           CASE 
             WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL 
-            THEN GREATEST(0, ROUND((a.start_fuel - a.end_fuel + a.total_refill - a.total_theft)::numeric, 2))
+            THEN GREATEST(0, ROUND((a.start_fuel - a.end_fuel + a.total_refill - (CASE WHEN a.is_dispenser THEN a.total_dispensed ELSE a.total_theft END))::numeric, 2))
             ELSE NULL
           END AS consumption,
           CASE 
-            WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL AND (a.start_fuel - a.end_fuel + a.total_refill - a.total_theft) > 0
-            THEN ROUND((a.distance_travelled / (a.start_fuel - a.end_fuel + a.total_refill - a.total_theft))::numeric, 2)
+            WHEN NOT COALESCE(a.is_generator, false) AND a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL AND (a.start_fuel - a.end_fuel + a.total_refill - (CASE WHEN a.is_dispenser THEN a.total_dispensed ELSE a.total_theft END)) > 0
+            THEN ROUND((a.distance_travelled / (a.start_fuel - a.end_fuel + a.total_refill - (CASE WHEN a.is_dispenser THEN a.total_dispensed ELSE a.total_theft END)))::numeric, 2)
             ELSE NULL
           END AS kmpl,
           CASE 
             WHEN a.start_fuel IS NOT NULL AND a.end_fuel IS NOT NULL AND a.engine_on_seconds > 0
-            THEN ROUND(((a.start_fuel - a.end_fuel + a.total_refill - a.total_theft) / (a.engine_on_seconds / 3600.0))::numeric, 2)
+            THEN ROUND(((a.start_fuel - a.end_fuel + a.total_refill - (CASE WHEN a.is_dispenser THEN a.total_dispensed ELSE a.total_theft END)) / (a.engine_on_seconds / 3600.0))::numeric, 2)
             ELSE NULL
           END AS lph
       FROM vehicles v

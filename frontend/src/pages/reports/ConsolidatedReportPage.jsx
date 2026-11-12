@@ -216,7 +216,15 @@ const ConsolidatedReportPage = () => {
             'Speed Hike (km/h)': interval.status === 'Moving' ? (interval.max_speed || 0) : 0,
             'Speed Avg (km/h)': interval.status === 'Moving' ? (interval.avg_speed || 0) : 0,
             'Latitude': interval.lat || v.start_lat || '-',
-            'Longitude': interval.lng || v.start_lng || '-'
+            'Longitude': interval.lng || v.start_lng || '-',
+            'Start Fuel (L)': v.start_fuel != null ? v.start_fuel : '-',
+            'End Fuel (L)': v.end_fuel != null ? v.end_fuel : '-',
+            'Refill (L)': v.total_refill || 0,
+            'Dispensed (L)': v.total_dispensed || 0,
+            'Theft (L)': v.total_theft || 0,
+            'Consumed (L)': v.consumption != null ? v.consumption : '-',
+            'Mileage (km/L)': v.kmpl != null ? v.kmpl : '-',
+            'Burn Rate (L/h)': v.lph != null ? v.lph : '-'
           });
         });
       } else {
@@ -512,6 +520,29 @@ const ConsolidatedReportPage = () => {
                         </div>
                       </td>
                     </tr>
+
+                    {/* Fuel Summary Strip Row if fuel metrics exist */}
+                    {(vehicleItem.start_fuel != null || vehicleItem.total_refill > 0 || vehicleItem.total_dispensed > 0 || vehicleItem.total_theft > 0 || vehicleItem.consumption != null) && (
+                      <tr style={{ backgroundColor: '#F0FDF4' }}>
+                        <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '12px', color: '#065F46', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+                            <span>Start Fuel: {vehicleItem.start_fuel != null ? `${vehicleItem.start_fuel} L` : '-'}</span>
+                            <span>End Fuel: {vehicleItem.end_fuel != null ? `${vehicleItem.end_fuel} L` : '-'}</span>
+                            <span style={{ color: '#047857' }}>Refill: +{vehicleItem.total_refill || 0} L</span>
+                            {vehicleItem.vehicle_category === 'dispenser' ? (
+                              <span style={{ color: '#2563EB' }}>Dispensed: {vehicleItem.total_dispensed || 0} L</span>
+                            ) : (
+                              <span style={{ color: (vehicleItem.total_theft > 0 ? '#DC2626' : '#64748B') }}>Theft: -{vehicleItem.total_theft || 0} L</span>
+                            )}
+                            <span style={{ color: '#D97706' }}>Consumed: {vehicleItem.consumption != null ? `${vehicleItem.consumption} L` : '-'}</span>
+                            {vehicleItem.vehicle_category !== 'generator' && (
+                              <span>Mileage: {vehicleItem.kmpl != null ? `${vehicleItem.kmpl} km/L` : '-'}</span>
+                            )}
+                            <span>Burn Rate: {vehicleItem.lph != null ? `${vehicleItem.lph} L/h` : '-'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
 
                     {/* 3. Two-Row Table Header */}
                     <tr style={{ background: '#064E3B' }}>
