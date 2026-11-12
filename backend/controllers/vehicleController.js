@@ -1633,7 +1633,7 @@ const VehicleController = {
   async getVehicleMessages(req, res, next) {
     try {
       const { id } = req.params;
-      const { page, limit, date } = req.query;
+      const { page, limit, date, startDate, endDate, startTime, endTime, from, to } = req.query;
 
       // Look up vehicle by either IMEI or numeric ID
       let imei = null;

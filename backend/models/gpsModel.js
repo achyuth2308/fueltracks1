@@ -877,7 +877,7 @@ const GpsModel = {
   /**
    * Get raw messages for Sensor Data page
    */
-  async getRawMessages(imei, { page = 1, limit = 100, date = null }) {
+  async getRawMessages(imei, { page = 1, limit = 100, date = null, startDate = null, endDate = null, startTime = null, endTime = null, from = null, to = null }) {
     if (!imei) {
       return { messages: [], pagination: { page: 1, limit: 100, total: 0, totalPages: 1 } };
     }

@@ -74,6 +74,14 @@ const sortDesc = (list) => {
   });
 };
 
+const getTodayDate = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const SensorLogsPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -111,7 +119,7 @@ const SensorLogsPage = () => {
       if (res.data.pagination) setPagination(res.data.pagination);
       setError(null);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch sensor logs');
+      setError(err.response?.data?.error || 'Failed to fetch device logs');
     } finally {
       setLoading(false);
     }
@@ -191,9 +199,9 @@ const SensorLogsPage = () => {
 
     const ws = XLSX.utils.json_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Sensor_Packets');
+    XLSX.utils.book_append_sheet(wb, ws, 'Device_Packets');
     const safeName = (vehicle?.plate || vehicle?.name || id).replace(/[^a-zA-Z0-9_-]/g, '_');
-    XLSX.writeFile(wb, `sensor_logs_${safeName}_p${pagination.page}.xlsx`);
+    XLSX.writeFile(wb, `device_logs_${safeName}_p${pagination.page}.xlsx`);
   };
 
   // Export to PDF
@@ -201,7 +209,7 @@ const SensorLogsPage = () => {
     if (messages.length === 0) return;
     const doc = new jsPDF('landscape');
     const vehicleLabel = vehicle?.plate || vehicle?.name || 'Vehicle';
-    doc.text(`Sensor Data Logs — Telemetry Packets (${vehicleLabel})`, 14, 12);
+    doc.text(`Device Logs — Telemetry Packets (${vehicleLabel})`, 14, 12);
     doc.setFontSize(9);
     doc.text(`Vehicle: ${vehicleLabel} | IMEI: ${vehicle?.imei || messages[0]?.imei || '—'} | Protocol: ${vehicle?.device_version || vehicle?.device_model || '—'} | Generated: ${formatLocalTime(new Date().toISOString())}`, 14, 18);
 
@@ -232,7 +240,7 @@ const SensorLogsPage = () => {
     });
 
     const safeName = (vehicle?.plate || vehicle?.name || id).replace(/[^a-zA-Z0-9_-]/g, '_');
-    doc.save(`sensor_logs_${safeName}_page${pagination.page}.pdf`);
+    doc.save(`device_logs_${safeName}_page${pagination.page}.pdf`);
   };
 
   const activeCols = useMemo(() => columns.filter((c) => c.visible), [columns]);
@@ -423,7 +431,7 @@ const SensorLogsPage = () => {
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>Sensor Data Logs</h1>
+                <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#0F172A', margin: 0, letterSpacing: '-0.02em' }}>Device Logs</h1>
 
                 {/* Vehicle Plate / Name Badge */}
                 {vehicle && (

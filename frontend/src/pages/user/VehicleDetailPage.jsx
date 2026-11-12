@@ -565,7 +565,7 @@ const VehicleDetailPage = () => {
             <BarChart4 size={15} /> Analytics
           </Link>
           <Link to={`/vehicles/${id}/messages`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
-            <Server size={15} /> Sensor Logs
+            <Server size={15} /> Device Logs
           </Link>
         </div>
       </div>
