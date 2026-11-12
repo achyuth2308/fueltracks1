@@ -119,17 +119,51 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
   };
 
   useEffect(() => {
+    const hostname = window.location.hostname.toLowerCase();
+    const isCustomDomain = !hostname.includes('fueltracks') && 
+                           hostname !== 'localhost' && 
+                           hostname !== '127.0.0.1';
+
+    const applyAppropriateBranding = (profile) => {
+      if (!profile) return;
+      const isDealerBrand = profile?.is_whitelabel_enabled || 
+                            profile?.is_dealer || 
+                            profile?.is_dealer_customer ||
+                            (profile?.brand_name && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(profile.brand_name.toUpperCase()));
+
+      if (isCustomDomain) {
+        if (isDealerBrand) {
+          applyBrowserBranding(profile);
+          try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(profile)); } catch(e) {}
+        } else {
+          // If profile returned default superadmin FuelTracks info, fetch public branding for this custom domain
+          const parts = hostname.split('.');
+          let slug = parts[0];
+          if (parts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(parts[0])) {
+            slug = parts[1];
+          }
+          axiosInstance.get(`/api/profile/public/${slug}`).then(pubRes => {
+            if (pubRes.data?.success && pubRes.data.data) {
+              applyBrowserBranding(pubRes.data.data);
+              try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(pubRes.data.data)); } catch(e) {}
+            }
+          }).catch(() => {
+            applyBrowserBranding(profile);
+          });
+        }
+      } else if (user?.role !== 'superadmin' || isDealerBrand) {
+        applyBrowserBranding(profile);
+        try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(profile)); } catch(e) {}
+      } else {
+        document.title = 'FuelTracks — Enterprise Fleet Intelligence';
+      }
+    };
+
     const loadProfile = () => {
       axiosInstance.get('/api/profile').then(res => {
         if (res.data?.success && res.data.profile) {
           setBrandProfile(res.data.profile);
-          if (user?.role !== 'superadmin') {
-            applyBrowserBranding(res.data.profile);
-            // Store for white-label PDF headers across all pages
-            try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(res.data.profile)); } catch(e) {}
-          } else {
-            document.title = 'FuelTracks — Enterprise Fleet Intelligence';
-          }
+          applyAppropriateBranding(res.data.profile);
         }
       }).catch(() => {});
     };
@@ -139,11 +173,7 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
     const handleProfileUpdated = (e) => {
       if (e.detail) {
         setBrandProfile(e.detail);
-        if (user?.role !== 'superadmin') {
-          applyBrowserBranding(e.detail);
-        } else {
-          document.title = 'FuelTracks — Enterprise Fleet Intelligence';
-        }
+        applyAppropriateBranding(e.detail);
       } else {
         loadProfile();
       }

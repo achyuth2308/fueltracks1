@@ -4,10 +4,44 @@ import App from './App.jsx'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
 import { getCurrentTheme, applyGlobalTheme } from './utils/theme'
+import { applyBrowserBranding } from './utils/branding'
 
 // Immediately initialize user-selected theme custom properties on page boot
 try {
   applyGlobalTheme(getCurrentTheme());
+} catch (e) {}
+
+// Early custom domain branding detection on page boot
+try {
+  const hostname = window.location.hostname.toLowerCase();
+  const isFuelTracks = hostname.includes('fueltracks') || hostname === 'localhost' || hostname === '127.0.0.1';
+
+  // 1. Instant apply from cached profile
+  const cached = sessionStorage.getItem('activeBrandProfile') || localStorage.getItem('activeBrandProfile');
+  if (cached) {
+    try {
+      applyBrowserBranding(JSON.parse(cached));
+    } catch (e) {}
+  }
+
+  // 2. If on custom domain, fetch public branding immediately so tab favicon/title is applied instantly
+  if (!isFuelTracks) {
+    const parts = hostname.split('.');
+    let dealerSlug = parts[0];
+    if (parts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(parts[0])) {
+      dealerSlug = parts[1];
+    }
+    const apiUrl = import.meta.env.VITE_API_URL || 'https://api.fueltracks.in';
+    fetch(`${apiUrl}/api/profile/public/${encodeURIComponent(dealerSlug)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d?.success && d.data) {
+          applyBrowserBranding(d.data);
+          try { sessionStorage.setItem('activeBrandProfile', JSON.stringify(d.data)); } catch (e) {}
+        }
+      })
+      .catch(() => {});
+  }
 } catch (e) {}
 
 // Global safety net: if React fails to mount, show a user-friendly error

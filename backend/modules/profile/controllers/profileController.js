@@ -19,6 +19,32 @@ class ProfileController {
         }
       }
     }
+
+    // Check if request originates from a custom dealer domain/subdomain (e.g. gps.smtechnologies.org)
+    const rawHost = req.headers['x-forwarded-host'] || req.headers.host || req.headers.origin || req.headers.referer || '';
+    const cleanHost = String(rawHost).replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].toLowerCase();
+    if (cleanHost && !cleanHost.includes('fueltracks') && cleanHost !== 'localhost' && cleanHost !== '127.0.0.1') {
+      const domainParts = cleanHost.split('.');
+      let slug = domainParts[0];
+      if (domainParts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(domainParts[0])) {
+        slug = domainParts[1];
+      }
+      try {
+        const hostOrg = await db.query(
+          `SELECT o.id FROM organizations o
+           LEFT JOIN organization_profiles op ON op.organization_id = o.id
+           WHERE LOWER(op.subdomain) = $1
+              OR REPLACE(REPLACE(LOWER(o.name), ' ', ''), '-', '') = $1
+              OR REPLACE(REPLACE(LOWER(COALESCE(op.brand_name, '')), ' ', ''), '-', '') = $1
+           LIMIT 1`,
+          [slug]
+        );
+        if (hostOrg.rows.length > 0) {
+          return hostOrg.rows[0].id;
+        }
+      } catch (e) {}
+    }
+
     if (req.user?.role === 'superadmin') {
       const saCheck = await db.query("SELECT id FROM organizations WHERE id = 'a0000000-0000-0000-0000-000000000001'");
       if (saCheck.rows.length > 0) {
