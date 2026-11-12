@@ -125,6 +125,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
   }));
 
+  const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({
+    'Fuel Reports': location.pathname.startsWith('/admin/reports/fuel-') || 
+                    location.pathname === '/admin/reports/kmpl-mileage' || 
+                    location.pathname === '/admin/reports/lph-burn-rate'
+  }));
+
   const [tripsExpanded, setTripsExpanded] = useState(() => {
     return location.pathname === '/trips' || isTripReportPath(location.pathname);
   });
@@ -138,6 +144,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     }
     if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
       setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
+      if (location.pathname.startsWith('/admin/reports/fuel-') || 
+          location.pathname === '/admin/reports/kmpl-mileage' || 
+          location.pathname === '/admin/reports/lph-burn-rate') {
+        setOpenNestedSubMenus(prev => ({ ...prev, 'Fuel Reports': true }));
+      }
     }
     if (location.pathname === '/trips' || isTripReportPath(location.pathname)) {
       setTripsExpanded(true);
@@ -235,6 +246,16 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
+            {
+              name: 'Fuel Reports',
+              path: '/admin/reports/fuel-consumption',
+              subItems: [
+                { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
+                { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
+                { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
+                { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
+              ]
+            }
           ],
         },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, color: '#0D9488', roles: ['customer'] },
@@ -778,6 +799,152 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                           gap: '3px'
                         }}>
                           {item.subItems.map((sub) => {
+                            const hasNested = sub.subItems && Array.isArray(sub.subItems) && sub.subItems.length > 0;
+                            if (hasNested) {
+                              const isNestedOpen = !!openNestedSubMenus[sub.name];
+                              const isAnyChildActive = sub.subItems.some(n => location.pathname === n.path);
+                              return (
+                                <div key={sub.name} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenNestedSubMenus(prev => ({ ...prev, [sub.name]: !prev[sub.name] }));
+                                    }}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'space-between',
+                                      padding: '5px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '11.5px',
+                                      color: isAnyChildActive ? (currentTheme.activeText || '#EA580C') : '#1E293B',
+                                      background: isAnyChildActive
+                                        ? (currentTheme.activeBg || '#FFF7ED')
+                                        : 'transparent',
+                                      borderLeft: isAnyChildActive
+                                        ? `3px solid ${currentTheme.primary || '#EA580C'}`
+                                        : '3px solid transparent',
+                                      cursor: 'pointer',
+                                      fontWeight: isAnyChildActive ? 800 : 700,
+                                      userSelect: 'none',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isAnyChildActive) {
+                                        e.currentTarget.style.backgroundColor = '#F1F5F9';
+                                        e.currentTarget.style.color = '#0F172A';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isAnyChildActive) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                        e.currentTarget.style.color = '#1E293B';
+                                      }
+                                    }}
+                                  >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <span style={{
+                                        width: isAnyChildActive ? '6px' : '4px',
+                                        height: isAnyChildActive ? '6px' : '4px',
+                                        borderRadius: '50%',
+                                        background: isAnyChildActive ? (currentTheme.primary || '#EA580C') : '#64748B',
+                                        boxShadow: isAnyChildActive ? `0 0 6px ${currentTheme.primary}` : 'none',
+                                        flexShrink: 0
+                                      }} />
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isAnyChildActive ? 800 : 700 }}>
+                                        {sub.name}
+                                      </span>
+                                    </div>
+                                    <ChevronDown
+                                      size={13}
+                                      color={isAnyChildActive ? (currentTheme.primary || '#EA580C') : '#64748B'}
+                                      style={{
+                                        transform: isNestedOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                        transition: 'transform 0.2s ease',
+                                        flexShrink: 0
+                                      }}
+                                    />
+                                  </div>
+
+                                  {isNestedOpen && (
+                                    <div style={{
+                                      marginLeft: '12px',
+                                      paddingLeft: '8px',
+                                      borderLeft: '1.5px solid #CBD5E1',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '2px',
+                                      marginTop: '1px',
+                                      marginBottom: '4px'
+                                    }}>
+                                      {sub.subItems.map((nested) => {
+                                        const isNestedActive = location.pathname === nested.path;
+                                        return (
+                                          <NavLink
+                                            key={nested.path}
+                                            to={nested.path}
+                                            onClick={(e) => {
+                                              const currentPath = window.location.pathname;
+                                              if (currentPath === '/dashboard' || currentPath === '/tracking') {
+                                                e.preventDefault();
+                                                if (typeof window !== "undefined" && window.innerWidth <= 768 && toggleMobileSidebar) toggleMobileSidebar(false);
+                                                window.location.href = nested.path;
+                                                return;
+                                              }
+                                              if (typeof window !== "undefined" && window.innerWidth <= 768 && toggleMobileSidebar) toggleMobileSidebar(false);
+                                              navigate(nested.path);
+                                            }}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '7px',
+                                              padding: '4px 8px',
+                                              borderRadius: '5px',
+                                              fontSize: '11px',
+                                              textDecoration: 'none',
+                                              color: isNestedActive ? (currentTheme.activeText || '#EA580C') : '#475569',
+                                              background: isNestedActive
+                                                ? (currentTheme.activeBg || '#FFF7ED')
+                                                : 'transparent',
+                                              borderLeft: isNestedActive
+                                                ? `2.5px solid ${currentTheme.primary || '#EA580C'}`
+                                                : '2.5px solid transparent',
+                                              fontWeight: isNestedActive ? 800 : 600,
+                                              transition: 'all 0.15s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              if (!isNestedActive) {
+                                                e.currentTarget.style.backgroundColor = '#F1F5F9';
+                                                e.currentTarget.style.color = '#0F172A';
+                                              }
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              if (!isNestedActive) {
+                                                e.currentTarget.style.backgroundColor = 'transparent';
+                                                e.currentTarget.style.color = '#475569';
+                                              }
+                                            }}
+                                          >
+                                            <span style={{
+                                              width: isNestedActive ? '5px' : '3px',
+                                              height: isNestedActive ? '5px' : '3px',
+                                              borderRadius: '50%',
+                                              background: isNestedActive ? (currentTheme.primary || '#EA580C') : '#94A3B8',
+                                              boxShadow: isNestedActive ? `0 0 5px ${currentTheme.primary}` : 'none',
+                                              flexShrink: 0
+                                            }} />
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                              {nested.name}
+                                            </span>
+                                          </NavLink>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+
                             const [subBase, subQuery] = sub.path.split('?');
                             let isSubActive = false;
                             if (subQuery) {

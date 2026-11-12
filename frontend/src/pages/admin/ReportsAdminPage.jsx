@@ -213,7 +213,10 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
     { path: '/admin/reports/consolidated', label: 'Consolidated Report' },
-    { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption' }
+    { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report' },
+    { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption' },
+    { path: '/admin/reports/kmpl-mileage', label: 'KMPL Mileage Report' },
+    { path: '/admin/reports/lph-burn-rate', label: 'LPH Engine Burn Rate' }
   ];
 
   const exportColumns = ['Vehicle Name', 'Reg No', 'Last Seen', 'Last Comm', 'Driver', 'Driver Mobile', 'Kms', 'Speed', 'Status', 'Duration', 'Veh Battery', 'A/C', 'Fuel (Ltrs)', 'Celsius', 'Nearest Location'];

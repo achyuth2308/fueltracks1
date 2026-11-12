@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
 import TelematicsTimePicker, { to12Hour } from '../../components/ui/TelematicsTimePicker';
 import {
@@ -126,9 +127,18 @@ const mergeTrafficIdles = (intervals, maxHaltSec = 120) => {
 };
 
 const ConsolidatedReportPage = () => {
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+
+  const pageTitle = useMemo(() => {
+    if (location.pathname.includes('fuel-refill')) return 'Fuel Refill Report';
+    if (location.pathname.includes('fuel-consumption')) return 'Fuel Consumption Report';
+    if (location.pathname.includes('kmpl-mileage')) return 'KMPL Mileage Report';
+    if (location.pathname.includes('lph-burn-rate')) return 'LPH Engine Burn Rate';
+    return 'Consolidated Report';
+  }, [location.pathname]);
 
   // Default to yesterday full 24h
   const defaultYesterday = getYesterdayString();
@@ -269,7 +279,7 @@ const ConsolidatedReportPage = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
-              Consolidated Report
+              {pageTitle}
             </h3>
             <Info size={16} color="#059669" style={{ cursor: 'pointer' }} />
           </div>
@@ -377,7 +387,7 @@ const ConsolidatedReportPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <button
               type="button"
-              onClick={() => exportToExcel(getExportData(), 'Consolidated_Report')}
+              onClick={() => exportToExcel(getExportData(), pageTitle.replace(/\s+/g, '_'))}
               disabled={data.length === 0}
               style={{
                 display: 'flex',
@@ -399,7 +409,7 @@ const ConsolidatedReportPage = () => {
             </button>
             <button
               type="button"
-              onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), 'Consolidated_Report')}
+              onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), pageTitle.replace(/\s+/g, '_'))}
               disabled={data.length === 0}
               style={{
                 display: 'flex',
