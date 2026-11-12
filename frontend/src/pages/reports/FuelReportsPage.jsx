@@ -51,6 +51,8 @@ const FuelReportsPage = ({ type: propType }) => {
   // Detect report type from prop or route path
   const reportType = useMemo(() => {
     if (propType) return propType;
+    if (location.pathname.includes('fuel-theft')) return 'theft';
+    if (location.pathname.includes('fuel-consolidated')) return 'consolidated';
     if (location.pathname.includes('fuel-refill')) return 'refill';
     if (location.pathname.includes('fuel-consumption')) return 'consumption';
     if (location.pathname.includes('kmpl-mileage')) return 'kmpl';
@@ -173,6 +175,8 @@ const FuelReportsPage = ({ type: propType }) => {
 
     let totalConsumed = 0;
     let totalTheft = 0;
+    let theftCount = 0;
+    let maxTheft = 0;
 
     let totalDistance = 0;
     let totalEngineSec = 0;
@@ -202,6 +206,8 @@ const FuelReportsPage = ({ type: propType }) => {
 
       totalConsumed += consumed;
       totalTheft += theft;
+      if (theft > 0) theftCount++;
+      if (theft > maxTheft) maxTheft = theft;
 
       totalDistance += dist;
       totalEngineSec += engSec;
@@ -231,6 +237,8 @@ const FuelReportsPage = ({ type: propType }) => {
       totalDispensed: Math.round(totalDispensed),
       totalConsumed: Math.round(totalConsumed),
       totalTheft: Math.round(totalTheft),
+      theftCount,
+      maxTheft: Math.round(maxTheft),
       totalDistance: Math.round(totalDistance),
       totalEngineSec,
       totalRunningSec,
@@ -257,6 +265,34 @@ const FuelReportsPage = ({ type: propType }) => {
             { label: 'Max Single Refill', val: `+${metrics.maxRefill} L`, sub: 'Peak refill event', color: '#7C3AED', bg: '#F5F3FF' },
             { label: 'Total Dispensed', val: `${metrics.totalDispensed} L`, sub: 'Bowser / dispenser units', color: '#0284C7', bg: '#F0F9FF' },
             { label: 'Total Assets Monitored', val: `${filteredData.length}`, sub: 'Fleet sensors reporting', color: '#D97706', bg: '#FFFBEB' }
+          ]
+        };
+      case 'theft':
+        return {
+          title: 'Fuel Theft Report',
+          badgeText: 'Fuel Siphoning & Sudden Drop Audit',
+          icon: AlertTriangle,
+          accentColor: '#DC2626',
+          bannerBg: 'linear-gradient(135deg, #7F1D1D 0%, #DC2626 100%)',
+          cards: [
+            { label: 'Total Suspected Theft', val: `${metrics.totalTheft} L`, sub: `${metrics.theftCount} vehicles affected`, color: '#DC2626', bg: '#FEF2F2' },
+            { label: 'Peak Single Theft', val: `${metrics.maxTheft} L`, sub: 'Highest drop recorded', color: '#991B1B', bg: '#FEE2E2' },
+            { label: 'Standard Consumed', val: `${metrics.totalConsumed} L`, sub: 'Operational consumption', color: '#D97706', bg: '#FFFBEB' },
+            { label: 'Monitored Assets', val: `${filteredData.length}`, sub: 'Sensors online', color: '#0284C7', bg: '#F0F9FF' }
+          ]
+        };
+      case 'consolidated':
+        return {
+          title: 'Fuel Consolidated Report',
+          badgeText: 'Fleet Fuel, Theft & Efficiency Master Summary',
+          icon: Droplets,
+          accentColor: '#0284C7',
+          bannerBg: 'linear-gradient(135deg, #075985 0%, #0284C7 100%)',
+          cards: [
+            { label: 'Total Consumed', val: `${metrics.totalConsumed} L`, sub: 'Fleet burn volume', color: '#EA580C', bg: '#FFF7ED' },
+            { label: 'Total Refilled', val: `+${metrics.totalRefill} L`, sub: `${metrics.refillCount} refills completed`, color: '#059669', bg: '#ECFDF5' },
+            { label: 'Total Suspected Theft', val: `${metrics.totalTheft} L`, sub: 'Unaccounted drops', color: '#DC2626', bg: '#FEF2F2' },
+            { label: 'Fleet Avg Mileage', val: `${metrics.fleetAvgKmpl} km/L`, sub: 'Distance economy', color: '#4F46E5', bg: '#EEF2FF' }
           ]
         };
       case 'kmpl':
@@ -326,6 +362,39 @@ const FuelReportsPage = ({ type: propType }) => {
           'Start Longitude': row.start_lng || '-',
           'End Latitude': row.end_lat || '-',
           'End Longitude': row.end_lng || '-'
+        };
+      }
+
+      if (reportType === 'theft') {
+        return {
+          'S.No': idx + 1,
+          'Vehicle Name': vName,
+          'Reg No': row.plate || '-',
+          'Category': cat,
+          'Start Fuel (L)': row.start_fuel != null ? row.start_fuel : '-',
+          'End Fuel (L)': row.end_fuel != null ? row.end_fuel : '-',
+          'Suspected Theft (-L)': row.total_theft || 0,
+          'Refill (+L)': row.total_refill || 0,
+          'Consumed (L)': row.consumption != null ? row.consumption : '-',
+          'Location': (row.start_lat && row.start_lng) ? `${row.start_lat}, ${row.start_lng}` : '-'
+        };
+      }
+
+      if (reportType === 'consolidated') {
+        return {
+          'S.No': idx + 1,
+          'Vehicle Name': vName,
+          'Reg No': row.plate || '-',
+          'Category': cat,
+          'Total Distance (km)': row.distance_travelled || 0,
+          'Engine ON Hours': formatHMS(row.engine_on_seconds),
+          'Start Fuel (L)': row.start_fuel != null ? row.start_fuel : '-',
+          'End Fuel (L)': row.end_fuel != null ? row.end_fuel : '-',
+          'Refill (+L)': row.total_refill || 0,
+          'Theft (-L)': row.total_theft || 0,
+          'Net Consumed (L)': row.consumption != null ? row.consumption : '-',
+          'Mileage (km/L)': row.kmpl != null ? row.kmpl : '-',
+          'Burn Rate (L/h)': row.lph != null ? row.lph : '-'
         };
       }
 
@@ -711,6 +780,32 @@ const FuelReportsPage = ({ type: propType }) => {
                     </>
                   )}
 
+                  {reportType === 'theft' && (
+                    <>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '10px 16px', textAlign: 'center' }}>Suspected Theft</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Refill (+L)</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Consumed</th>
+                      <th style={{ padding: '10px 14px' }}>Location</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Severity</th>
+                    </>
+                  )}
+
+                  {reportType === 'consolidated' && (
+                    <>
+                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Distance</th>
+                      <th style={{ padding: '10px 12px' }}>Engine Hours</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Refill (+L)</th>
+                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Theft (-L)</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Consumed</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Mileage</th>
+                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Burn Rate</th>
+                    </>
+                  )}
+
                   {reportType === 'kmpl' && (
                     <>
                       <th style={{ padding: '10px 14px', textAlign: 'right' }}>Distance (km)</th>
@@ -847,6 +942,113 @@ const FuelReportsPage = ({ type: propType }) => {
                             ) : (
                               <span style={{ color: '#94A3B8', fontSize: '11px' }}>Normal</span>
                             )}
+                          </td>
+                        </>
+                      )}
+
+                      {/* THEFT REPORT ROWS */}
+                      {reportType === 'theft' && (
+                        <>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                            {theft > 0 ? (
+                              <span style={{
+                                padding: '4px 12px',
+                                borderRadius: '6px',
+                                background: '#FEF2F2',
+                                border: '1px solid #FECACA',
+                                color: '#DC2626',
+                                fontWeight: 800,
+                                fontSize: '13px'
+                              }}>
+                                -{theft} L
+                              </span>
+                            ) : (
+                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11.5px' }}>0 L</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                            {refill > 0 ? `+${refill} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#D97706' }}>
+                            {consumed != null ? `${consumed} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 14px', maxWidth: '240px', fontSize: '11px', color: '#334155', lineHeight: 1.3 }}>
+                            {(row.start_lat && row.start_lng) ? (
+                              <AddressText lat={row.start_lat} lng={row.start_lng} />
+                            ) : (
+                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
+                            )}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                            {theft >= 20 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#DC2626', fontWeight: 800, fontSize: '11px' }}>
+                                <AlertTriangle size={13} /> Critical Theft
+                              </span>
+                            ) : theft > 0 ? (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#B45309', fontWeight: 700, fontSize: '11px' }}>
+                                <AlertTriangle size={13} /> Drop Detected
+                              </span>
+                            ) : (
+                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>Secure</span>
+                            )}
+                          </td>
+                        </>
+                      )}
+
+                      {/* CONSOLIDATED MASTER REPORT ROWS */}
+                      {reportType === 'consolidated' && (
+                        <>
+                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                            {row.distance_travelled || 0} km
+                          </td>
+                          <td style={{ padding: '10px 12px', color: '#0284C7', fontWeight: 700 }}>
+                            {formatHMS(row.engine_on_seconds)}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                            {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                            {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#059669' }}>
+                            {refill > 0 ? `+${refill}` : '0'}
+                          </td>
+                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
+                            {theft > 0 ? `-${theft}` : '0'}
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {consumed != null ? (
+                              <span style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                background: '#FFF7ED',
+                                color: '#C2410C',
+                                fontWeight: 800,
+                                fontSize: '12px'
+                              }}>
+                                {consumed} L
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {kmpl != null && kmpl > 0 ? (
+                              <span style={{ fontWeight: 800, color: kmpl >= 3 ? '#047857' : '#D97706' }}>
+                                {kmpl.toFixed(2)} km/L
+                              </span>
+                            ) : '-'}
+                          </td>
+                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                            {lph != null && lph > 0 ? (
+                              <span style={{ fontWeight: 800, color: lph <= 3 ? '#0F766E' : '#7E22CE' }}>
+                                {lph.toFixed(2)} L/h
+                              </span>
+                            ) : '-'}
                           </td>
                         </>
                       )}

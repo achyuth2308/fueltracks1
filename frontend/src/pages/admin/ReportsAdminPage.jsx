@@ -212,9 +212,11 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/trip', label: 'Automated Trips' },
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
-    { path: '/admin/reports/consolidated', label: 'Consolidated Report' },
+    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
     { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report' },
     { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption' },
+    { path: '/admin/reports/fuel-theft', label: 'Fuel Theft Report' },
+    { path: '/admin/reports/fuel-consolidated', label: 'Fuel Consolidated' },
     { path: '/admin/reports/kmpl-mileage', label: 'KMPL Mileage Report' },
     { path: '/admin/reports/lph-burn-rate', label: 'LPH Engine Burn Rate' }
   ];

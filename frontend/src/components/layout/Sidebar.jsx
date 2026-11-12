@@ -252,6 +252,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
               subItems: [
                 { name: 'Fuel Refill Report', path: '/admin/reports/fuel-refill' },
                 { name: 'Fuel Consumption', path: '/admin/reports/fuel-consumption' },
+                { name: 'Fuel Theft Report', path: '/admin/reports/fuel-theft' },
+                { name: 'Fuel Consolidated', path: '/admin/reports/fuel-consolidated' },
                 { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
                 { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
               ]

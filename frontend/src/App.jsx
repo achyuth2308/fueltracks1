@@ -171,8 +171,10 @@ function App() {
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
                     <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="fuel-consumption" element={<FuelReportsPage type="consumption" />} />
                     <Route path="fuel-refill" element={<FuelReportsPage type="refill" />} />
+                    <Route path="fuel-consumption" element={<FuelReportsPage type="consumption" />} />
+                    <Route path="fuel-theft" element={<FuelReportsPage type="theft" />} />
+                    <Route path="fuel-consolidated" element={<FuelReportsPage type="consolidated" />} />
                     <Route path="kmpl-mileage" element={<FuelReportsPage type="kmpl" />} />
                     <Route path="lph-burn-rate" element={<FuelReportsPage type="lph" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
