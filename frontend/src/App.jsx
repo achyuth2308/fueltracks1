@@ -46,6 +46,7 @@ import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
 import StoppageReportPage from './pages/reports/StoppageReportPage';
 import IdleReportPage from './pages/reports/IdleReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
+import FuelReportsPage from './pages/reports/FuelReportsPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
@@ -170,10 +171,10 @@ function App() {
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
                     <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="fuel-consumption" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="fuel-refill" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="kmpl-mileage" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
-                    <Route path="lph-burn-rate" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
+                    <Route path="fuel-consumption" element={<FuelReportsPage type="consumption" />} />
+                    <Route path="fuel-refill" element={<FuelReportsPage type="refill" />} />
+                    <Route path="kmpl-mileage" element={<FuelReportsPage type="kmpl" />} />
+                    <Route path="lph-burn-rate" element={<FuelReportsPage type="lph" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />
