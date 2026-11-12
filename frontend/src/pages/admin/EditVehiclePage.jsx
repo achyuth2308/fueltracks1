@@ -1547,7 +1547,7 @@ const EditVehiclePage = () => {
             label="Fuel Mode"
             value={form.metadata.fuelMode}
             onChange={e => updateMeta('fuelMode', e.target.value)}
-            options={['Auto Calibrate', 'Manual', 'None']}
+            options={['Auto Calibrate', 'Manual', 'Direct Fuel', 'None']}
             focused={focusedField === 'fuelMode'}
             onFocus={() => setFocusedField('fuelMode')}
             onBlur={() => setFocusedField(null)}
