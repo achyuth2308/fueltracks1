@@ -25,8 +25,8 @@ describe('Device Inventory Master (Production-Safe) Unit Tests', () => {
     }
   });
 
-  it('1. Bulk import rejects oversized batches > 1000 records for memory safety', async () => {
-    const hugeBatch = new Array(1005).fill({ imei: '861329082393712' });
+  it('1. Bulk import rejects oversized batches > 25000 records for memory safety', async () => {
+    const hugeBatch = new Array(25005).fill({ imei: '861329082393712' });
     let statusCode = 0;
     let responseBody = null;
 
@@ -42,7 +42,7 @@ describe('Device Inventory Master (Production-Safe) Unit Tests', () => {
     await DeviceInventoryController.bulkImport(req, res);
     assert.equal(statusCode, 400);
     assert.equal(responseBody.success, false);
-    assert.ok(responseBody.error.includes('safety limit of 1,000'));
+    assert.ok(responseBody.error.includes('safety limit of 25,000'));
   });
 
   it('2. Bulk import upserts APM and Volty hardware records and auto-resolves manufacturer', async () => {

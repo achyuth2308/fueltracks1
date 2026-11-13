@@ -407,8 +407,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
       certNumber: certNumber,
       verificationCode: computeVerificationCode(certNumber, imei, plate),
       vehicleMakeModel: metadata.vehicleMakeModel || (veh.make && veh.model ? `${veh.make} - ${veh.model}` : 'Commercial Vehicle'),
-      chassisNo: metadata.chassisNo || metadata.vin || 'N/A',
-      engineNo: metadata.engineNo || metadata.engine_number || 'N/A',
+      chassisNo: metadata.chassisNo || metadata.vin || veh.chassis_no || veh.vin || '',
+      engineNo: metadata.engineNo || metadata.engine_number || veh.engine_no || veh.engine_number || '',
       customerName: metadata.ownerName || metadata.customerName || veh.driver_name || veh.org_name || 'SRIKRISHNA',
       phone: metadata.ownerPhone || metadata.customerPhone || veh.driver_phone || 'N/A',
       customerAddress: metadata.ownerAddress || metadata.address || 'N/A',
@@ -458,6 +458,8 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
     if (data.installationDate) query.set('installed', data.installationDate);
     if (data.activationDate) query.set('activated', data.activationDate);
     if (data.simValidity) query.set('validity', data.simValidity);
+    if (data.chassisNo && String(data.chassisNo).trim().toUpperCase() !== 'N/A') query.set('chassis', data.chassisNo.trim());
+    if (data.engineNo && String(data.engineNo).trim().toUpperCase() !== 'N/A') query.set('engine', data.engineNo.trim());
     const qs = query.toString() ? `?${query.toString()}` : '';
     return `${base}/verify/${encodeURIComponent(certNum)}${qs}`;
   };
@@ -1210,6 +1212,26 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
               />
             </div>
             <div>
+              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Chassis Number (Optional)</label>
+              <input
+                type="text"
+                value={formData.chassisNo || ''}
+                onChange={(e) => handleInputChange('chassisNo', e.target.value)}
+                placeholder="Shows on cert if entered"
+                className="w-full px-2 py-1 bg-white border border-slate-300 rounded font-mono text-slate-800"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold text-slate-600 uppercase mb-0.5">Engine Number (Optional)</label>
+              <input
+                type="text"
+                value={formData.engineNo || ''}
+                onChange={(e) => handleInputChange('engineNo', e.target.value)}
+                placeholder="Shows on cert if entered"
+                className="w-full px-2 py-1 bg-white border border-slate-300 rounded font-mono text-slate-800"
+              />
+            </div>
+            <div>
               <div className="flex items-center justify-between mb-0.5">
                 <label className="block text-[10px] font-bold text-slate-600 uppercase">VLTD Manufacturer Name</label>
                 <span className="text-[9px] text-blue-600 font-semibold">Select or Type</span>
@@ -1411,281 +1433,6 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
               background: '#ffffff'
             }}
           >
-            {(formData.certFormat === 'standard_gps' || formData.certFormat === 'normal_tracking') ? (
-              /* Standard FuelTracks GPS Fitment Layout */
-              <div>
-                {/* 5% Background Watermark */}
-                <div
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none select-none overflow-hidden"
-                  style={{ zIndex: 0 }}
-                >
-                  <div
-                    style={{
-                      transform: 'rotate(-28deg)',
-                      fontSize: '44px',
-                      fontWeight: '900',
-                      color: '#0f172a',
-                      opacity: 0.05,
-                      whiteSpace: 'nowrap',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase'
-                    }}
-                  >
-                    FUELTRACKS GPS TRACKING
-                  </div>
-                </div>
-
-                {/* Document Body */}
-                <div className="relative z-10 text-[11px]">
-                  {/* Header with Logo, Company Details and QR Code */}
-                  <div className="flex justify-between items-center mb-2">
-                    <div className="flex items-center gap-3" style={{ maxWidth: '580px' }}>
-                      <img
-                        src={activeLogoSrc}
-                        alt="FuelTracks Logo"
-                        style={{
-                          width: '110px',
-                          height: 'auto',
-                          maxHeight: '46px',
-                          objectFit: 'contain',
-                          flexShrink: 0,
-                          display: 'block'
-                        }}
-                      />
-                      <div>
-                        <div style={{ fontWeight: '900', fontSize: '15px', color: '#0f172a', letterSpacing: '0.01em' }}>
-                          {formData.companyName}
-                        </div>
-                        <div style={{ fontSize: '9.8px', color: '#334155', lineHeight: '1.3', marginTop: '1px' }}>
-                          {formData.companyAddress}<br />
-                          Phone: <strong className="text-slate-900">{formData.companyPhone}</strong> | Web: <strong className="text-slate-900">{formData.companyWeb}</strong> | Email: <strong className="text-slate-900">{formData.companyEmail}</strong>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* QR Code */}
-                    <div style={{ width: '96px', textAlign: 'center', flexShrink: 0 }}>
-                      {qrCodeUrl ? (
-                        <img
-                          src={qrCodeUrl}
-                          alt="Scan to verify"
-                          style={{ width: '88px', height: '88px', display: 'block', margin: '0 auto', border: '1px solid #cbd5e1', padding: '3px', background: '#ffffff', borderRadius: '4px' }}
-                        />
-                      ) : (
-                        <div style={{ width: '88px', height: '88px', border: '1px dashed #cbd5e1', margin: '0 auto' }} />
-                      )}
-                      <div style={{ fontSize: '8.5px', color: '#0f172a', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '3px' }}>
-                        Scan to verify
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Thick Divider Rule */}
-                  <div style={{ height: '2px', background: '#0f172a', marginBottom: '6px' }}></div>
-
-                  {/* Title Bar & Certificate Number */}
-                  <div className="flex justify-between items-end border-b border-slate-300 pb-1.5 mb-2">
-                    <div>
-                      <div className="text-[14px] font-black uppercase tracking-wider text-slate-900">
-                        CERTIFICATE OF GPS FITMENT
-                      </div>
-                      <div className="text-[9.5px] text-slate-500 font-semibold">
-                        GPS Tracking Device Installation
-                      </div>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-[8.5px] text-slate-500 uppercase font-bold">Certificate Number</div>
-                      <div className="text-[12px] font-mono font-black text-slate-900 whitespace-nowrap">{formData.certNumber}</div>
-                    </div>
-                  </div>
-
-                  {/* Opening Statement */}
-                  <div className="bg-slate-50 border-l-2 border-slate-900 p-1.5 text-[9.5px] text-slate-700 leading-tight mb-2">
-                    This is to certify that a GPS tracking device has been fitted in the vehicle described below. It was checked, sealed and found working at the time of installation.
-                  </div>
-
-                  {/* Section 1: Vehicle Details */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 bg-slate-100 px-2 py-0.5 rounded border-l-2 border-slate-800 mb-1">
-                      1. VEHICLE DETAILS
-                    </div>
-                    <table className="w-full border-collapse border border-slate-300 bg-white table-fixed text-[10.5px]">
-                      <tbody>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Vehicle Registration No.</span>
-                            <span className="font-black text-slate-950 text-[13px]">{formData.vehicleNo}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Make &amp; Model</span>
-                            <span className="font-bold text-slate-900">{formData.vehicleMakeModel}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Chassis Number</span>
-                            <span className="font-mono font-bold text-slate-900 text-[11px]">{formData.chassisNo}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Engine Number</span>
-                            <span className="font-mono font-bold text-slate-900 text-[11px]">{formData.engineNo}</span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Section 2: Customer Details */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 bg-slate-100 px-2 py-0.5 rounded border-l-2 border-slate-800 mb-1">
-                      2. CUSTOMER DETAILS
-                    </div>
-                    <table className="w-full border-collapse border border-slate-300 bg-white table-fixed text-[10.5px]">
-                      <tbody>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Customer Name</span>
-                            <span className="font-black text-slate-900">{formData.ownerName || formData.customerName}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Customer Phone Number</span>
-                            <span className="font-bold text-slate-900">{formData.phone}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td colSpan="2" className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Customer Full Address</span>
-                            <div className="font-semibold text-slate-800 leading-tight text-[10px] whitespace-normal">
-                              {formData.customerAddress}
-                            </div>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Section 3: GPS Device Details */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 bg-slate-100 px-2 py-0.5 rounded border-l-2 border-slate-800 mb-1">
-                      3. GPS DEVICE DETAILS
-                    </div>
-                    <table className="w-full border-collapse border border-slate-300 bg-white table-fixed text-[10.5px]">
-                      <tbody>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Device Model</span>
-                            <span className="font-bold text-slate-900">{formData.modelName || formData.deviceModel}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5 w-1/2">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">IMEI Number</span>
-                            <span className="font-mono font-black text-slate-950 text-[11.5px]">{formData.imei}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">GPS SIM 1 Number / ICCID</span>
-                            <span className="font-mono font-bold text-slate-900">{formData.iccid || formData.simNumber}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">SIM Operator</span>
-                            <span className="font-bold text-slate-900">{formData.simProvider || formData.simOperator}</span>
-                          </td>
-                        </tr>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Fitment Location in Vehicle</span>
-                            <span className="font-bold text-slate-900">{formData.fitmentLocation}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Seal Number (if used)</span>
-                            <span className="font-mono font-bold text-slate-900">{formData.sealNumber}</span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Section 4: Installation Checks */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 bg-slate-100 px-2 py-0.5 rounded border-l-2 border-slate-800 mb-1">
-                      4. INSTALLATION CHECKS
-                    </div>
-                    <table className="w-full border-collapse border border-slate-300 text-[9px]">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-700 font-bold uppercase text-[8px]">
-                          <th className="border border-slate-200 p-1 text-left w-[35%]">Installation Check</th>
-                          <th className="border border-slate-200 p-1 text-center w-[15%]">Result</th>
-                          <th className="border border-slate-200 p-1 text-left w-[35%]">Installation Check</th>
-                          <th className="border border-slate-200 p-1 text-center w-[15%]">Result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr>
-                          <td className="border border-slate-200 p-1 text-slate-800 font-medium">1. GPS Signal &amp; Satellite Fix</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                          <td className="border border-slate-200 p-1 text-slate-800 font-medium">4. Ignition Detection</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                        </tr>
-                        <tr>
-                          <td className="border border-slate-200 p-1 text-slate-800 font-medium">2. Cellular Network Signal</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                          <td className="border border-slate-200 p-1 text-slate-800 font-medium">5. Data Reaching the Platform</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                        </tr>
-                        <tr>
-                          <td className="border border-slate-200 p-1 text-slate-800 font-medium">3. Main Power Connection</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                          <td className="border border-slate-200 p-1 text-slate-500 font-medium italic">All Hardware Pre-Checks</td>
-                          <td className="border border-slate-200 p-1 text-center"><span className="text-emerald-700 font-black bg-emerald-100 px-1.5 py-0.5 rounded text-[8px]">✔ PASS</span></td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Section 5: Installation & Validity */}
-                  <div className="mb-2">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-slate-900 bg-slate-100 px-2 py-0.5 rounded border-l-2 border-slate-800 mb-1">
-                      5. INSTALLATION &amp; VALIDITY
-                    </div>
-                    <table className="w-full border-collapse border border-slate-300 bg-white table-fixed text-[10.5px]">
-                      <tbody>
-                        <tr>
-                          <td className="border border-slate-200 p-1.5 w-1/3">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Installation Date (DD-MM-YYYY)</span>
-                            <span className="font-mono font-bold text-slate-950 text-[11.5px]">{formData.installationDate || formData.installedDate}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5 w-1/3">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Certificate Issue Date</span>
-                            <span className="font-mono font-bold text-slate-950 text-[11.5px]">{formData.certIssuedDate}</span>
-                          </td>
-                          <td className="border border-slate-200 p-1.5 w-1/3">
-                            <span className="block text-[8.5px] font-bold text-slate-600 uppercase mb-0.5">Service / Validity Expiry Date</span>
-                            <span className="font-mono font-bold text-slate-950 text-[11.5px]">{formData.expiryDate}</span>
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Computer-Generated Certificate Authenticity Banner */}
-                  <div className="bg-slate-100 border border-slate-300 p-1.5 rounded text-center text-[9.5px] font-semibold text-slate-800 mb-2">
-                    ✔ This is a computer-generated certificate and does not require a signature.
-                  </div>
-
-                  {/* Footer */}
-                  <div className="border-t border-slate-300 pt-1 flex justify-between items-center text-[8.5px] text-slate-600">
-                    <div className="max-w-[500px] leading-tight">
-                      <strong className="text-slate-800">Validity Note:</strong> The validity date may differ from the installation date because the SIM in the device may have been activated earlier.
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[7.5px] font-bold text-slate-500 uppercase">Verification Code:</div>
-                      <div className="font-mono font-black text-slate-900 text-[10px]">{formData.verificationCode}</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* MINING VEHICLE VLTD FITMENT CERTIFICATE (TAMIL NADU & TELANGANA MINING) */
               <div style={{ color: '#000000' }}>
                 {/* Header Titles */}
                 <div style={{ textAlign: 'center', marginBottom: '22px' }}>
@@ -1695,7 +1442,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                   <h2 style={{ fontSize: '15px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.01em', marginTop: '4px', margin: 0, color: '#000000' }}>
                     {formData.certFormat === 'telangana_mining'
                       ? 'FITMENT CERTIFICATE – TELANGANA MINING VEHICLE'
-                      : 'FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE'}
+                      : formData.certFormat === 'tamilnadu_mining'
+                        ? 'FITMENT CERTIFICATE – TAMILNADU MINING VEHICLE'
+                        : 'FITMENT CERTIFICATE – NORMAL VEHICLE TRACKING'}
                   </h2>
                   <div style={{ marginTop: '8px' }}>
                     <div style={{
@@ -1718,7 +1467,9 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
 
                 {/* Opening Paragraph */}
                 <p style={{ fontSize: '12.5px', lineHeight: '1.45', margin: '0 0 18px 0', color: '#000000' }}>
-                  This is to certify that the Vehicle Location Tracking Device (VLTD) compliant with Automotive Industry Standard (AIS-140), as prescribed under the Central Motor Vehicle Rules, has been installed and activated in the below mentioned Mining Vehicle
+                  {formData.certFormat === 'normal_tracking' || formData.certFormat === 'standard_gps'
+                    ? 'This is to certify that the Vehicle Location Tracking Device (VLTD) compliant with Automotive Industry Standard (AIS-140), as prescribed under the Central Motor Vehicle Rules, has been installed and activated in the below mentioned Vehicle'
+                    : 'This is to certify that the Vehicle Location Tracking Device (VLTD) compliant with Automotive Industry Standard (AIS-140), as prescribed under the Central Motor Vehicle Rules, has been installed and activated in the below mentioned Mining Vehicle'}
                 </p>
 
                 {/* 1. VEHICLE DETAILS */}
@@ -1732,6 +1483,18 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', width: '45%', fontWeight: 'bold' }}>Vehicle Registration Number</td>
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', width: '55%' }}>{formData.vehicleNo}</td>
                       </tr>
+                      {Boolean(formData.chassisNo && String(formData.chassisNo).trim() && String(formData.chassisNo).trim().toUpperCase() !== 'N/A') && (
+                        <tr>
+                          <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>Chassis Number</td>
+                          <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{formData.chassisNo}</td>
+                        </tr>
+                      )}
+                      {Boolean(formData.engineNo && String(formData.engineNo).trim() && String(formData.engineNo).trim().toUpperCase() !== 'N/A') && (
+                        <tr>
+                          <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>Engine Number</td>
+                          <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{formData.engineNo}</td>
+                        </tr>
+                      )}
                       <tr>
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px', fontWeight: 'bold' }}>Vehicle Category</td>
                         <td style={{ border: '1px solid #94a3b8', padding: '6px 10px' }}>{formData.vehicleCategory}</td>
@@ -1823,27 +1586,32 @@ const FitmentCertificateModal = ({ isOpen, onClose, vehicle, onSaved }) => {
                     <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
                       The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the TSMDC (Telangana State Mineral Development Corporation) / Department of Mines and Geology (Government of Telangana) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
                     </p>
-                  ) : (
+                  ) : formData.certFormat === 'tamilnadu_mining' ? (
                     <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
                       The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Mining Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle shall be integrated with the MiMaS (Mining Monitoring and Management System) Portal, as directed by the Mining / Transport Authorities, for the purpose of mining vehicle tracking, safety monitoring, permit compliance, and regulatory enforcement.
                     </p>
+                  ) : (
+                    <p style={{ fontSize: '12px', lineHeight: '1.45', margin: '0 0 10px 0', color: '#000000', textAlign: 'justify' }}>
+                      The Vehicle Location Tracking Device (VLTD) has been installed and activated in the above-mentioned Vehicle in accordance with AIS-140 specifications and applicable statutory guidelines. The VLTD installed in this vehicle is connected with the FuelTracks Cloud Fleet Management Platform, as well as applicable national/state tracking backends as prescribed, for the purpose of vehicle location tracking, safety monitoring, permit compliance, and fleet management.
+                    </p>
                   )}
                   <p style={{ fontSize: '12px', lineHeight: '1.45', margin: 0, color: '#000000', textAlign: 'justify' }}>
-                    This certificate is issued for Mining Vehicle VLTD compliance and monitoring purposes, in accordance with directions issued by the competent authorities.
+                    {formData.certFormat === 'normal_tracking' || formData.certFormat === 'standard_gps'
+                      ? 'This certificate is issued for Vehicle VLTD fitment, compliance, and monitoring purposes, in accordance with applicable statutory guidelines.'
+                      : 'This certificate is issued for Mining Vehicle VLTD compliance and monitoring purposes, in accordance with directions issued by the competent authorities.'}
                   </p>
                 </div>
 
-                {/* Authorized Signatory */}
+                {/* System Generated Certificate / Signatory Note */}
                 <div style={{ textAlign: 'right', marginTop: '35px', paddingRight: '8px' }}>
-                  <div style={{ fontSize: '13.5px', fontWeight: '900', color: '#000000', marginBottom: '35px', letterSpacing: '0.3px' }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: '900', color: '#000000', marginBottom: '8px', letterSpacing: '0.3px' }}>
                     For FUELTRACKS TECHNOLOGIES PRIVATE LIMITED
                   </div>
-                  <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#000000' }}>
-                    Authorized Signatory
+                  <div style={{ fontSize: '12px', fontStyle: 'italic', fontWeight: '600', color: '#1e293b' }}>
+                    (This is a system generated certificate, hence no signature is required)
                   </div>
                 </div>
               </div>
-            )}
           </div>
         </div>
       </div>

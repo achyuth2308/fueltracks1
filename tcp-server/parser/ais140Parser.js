@@ -76,17 +76,8 @@ function extractPacketOdometer(raw, parts) {
     }
   }
 
-  // 3. Scan last few tokens for valid integer distance/odometer
-  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
-    const token = cleanTokens[i];
-    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
-    if (/^[01]{2,4}$/.test(token)) continue;
-    if (/^\d+$/.test(token)) {
-      const val = parseFloat(token);
-      if (!isNaN(val) && val > 0) return val;
-    }
-  }
-
+  // NOTE: Never match trailing bare integers (/^\d+$/) as odometer in AIS-140!
+  // In AIS-140 standard packets, the trailing integer before checksum is packet sequence number / frame number.
   return 0;
 }
 

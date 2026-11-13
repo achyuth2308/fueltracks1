@@ -418,32 +418,54 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
     setStatusMessage(null);
 
     try {
-      const payload = {
-        batchName: batchName || 'Imported_Batch',
-        records: parsedDevices.map(d => ({
-          imei: d.imei,
-          serial_no: d.serialNo,
-          iccid: d.iccid,
-          device_model: d.model,
-          manufacturer: d.manufacturer,
-          sim_provider: d.simProvider,
-          sim_no: d.simNo
-        }))
-      };
+      const allRecords = parsedDevices.map(d => ({
+        imei: d.imei,
+        serial_no: d.serialNo,
+        iccid: d.iccid,
+        device_model: d.model,
+        manufacturer: d.manufacturer,
+        sim_provider: d.simProvider,
+        sim_no: d.simNo
+      }));
 
-      const res = await axiosInstance.post('/api/admin/device-inventory/bulk-import', payload);
-      if (res.data && res.data.success) {
-        setStatusMessage({
-          type: 'success',
-          text: `Success! ${res.data.importedCount} devices saved into master inventory.`
-        });
-        if (onSuccess) onSuccess(res.data);
-        setTimeout(() => {
-          onClose();
-        }, 1500);
-      } else {
-        setStatusMessage({ type: 'error', text: res.data?.error || 'Failed to save devices.' });
+      // Automatically batch in chunks of 1,000 for seamless safety
+      const BATCH_SIZE = 1000;
+      const totalBatches = Math.ceil(allRecords.length / BATCH_SIZE);
+      let totalImported = 0;
+
+      for (let b = 0; b < totalBatches; b++) {
+        const start = b * BATCH_SIZE;
+        const end = Math.min(start + BATCH_SIZE, allRecords.length);
+        const chunk = allRecords.slice(start, end);
+
+        if (totalBatches > 1) {
+          setStatusMessage({
+            type: 'info',
+            text: `Importing batch ${b + 1} of ${totalBatches} (${start + 1} - ${end} of ${allRecords.length} devices)...`
+          });
+        }
+
+        const payload = {
+          batchName: batchName ? `${batchName}${totalBatches > 1 ? `_part${b + 1}` : ''}` : 'Imported_Batch',
+          records: chunk
+        };
+
+        const res = await axiosInstance.post('/api/admin/device-inventory/bulk-import', payload);
+        if (res.data && res.data.success) {
+          totalImported += (res.data.importedCount !== undefined ? res.data.importedCount : chunk.length);
+        } else {
+          throw new Error(res.data?.error || `Failed to save batch ${b + 1}.`);
+        }
       }
+
+      setStatusMessage({
+        type: 'success',
+        text: `Success! ${totalImported} devices saved into master inventory.`
+      });
+      if (onSuccess) onSuccess({ importedCount: totalImported });
+      setTimeout(() => {
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Import submit error:', err);
       setStatusMessage({
@@ -619,11 +641,15 @@ export default function DeviceInventoryUploadModal({ isOpen, onClose, onSuccess 
               className={`p-3 rounded-lg flex items-center gap-2.5 text-xs font-medium ${
                 statusMessage.type === 'success'
                   ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : statusMessage.type === 'info'
+                  ? 'bg-blue-50 text-blue-800 border border-blue-200'
                   : 'bg-rose-50 text-rose-800 border border-rose-200'
               }`}
             >
               {statusMessage.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
+              ) : statusMessage.type === 'info' ? (
+                <Loader2 className="w-4 h-4 shrink-0 animate-spin text-blue-600" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
               )}

@@ -418,13 +418,14 @@ async function start(io) {
         }
         let distanceMeters = 0;
         
-        // ONLY accumulate software distance if this is a live packet.
-        // Historical buffered packets will NOT add massive jumps to the live odometer.
+        // ONLY accumulate software distance if this is a live packet AND vehicle is actually moving.
+        // Stationary vehicles (speed <= 2 km/h AND ignition OFF) MUST NEVER accumulate GPS drift!
+        const isVehicleMoving = (speed || 0) > 2 || finalIgnition === true;
         if (isLive && prevState && prevState.lat && prevState.lng) {
           distanceMeters = getHaversineDistance(parseFloat(prevState.lat), parseFloat(prevState.lng), parseFloat(lat), parseFloat(lng));
           
-          // Accumulate distance if it's > 5m (filter drift) and < 50km (filter massive spikes)
-          if (distanceMeters > 5 && distanceMeters < 50000) {
+          // Accumulate distance only if vehicle is in motion (filter drift when parked)
+          if (isVehicleMoving && distanceMeters > 10 && distanceMeters < 50000) {
             finalOdometer = prevOdo + (distanceMeters / 1000); // km
           } else {
             finalOdometer = prevOdo;

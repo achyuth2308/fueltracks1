@@ -119,16 +119,8 @@ function extractPacketOdometer(raw, parts) {
     }
   }
 
-  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
-    const token = cleanTokens[i];
-    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
-    if (/^[01]{2,4}$/.test(token)) continue;
-    if (/^\d+$/.test(token)) {
-      const val = parseFloat(token);
-      if (!isNaN(val) && val > 0) return val;
-    }
-  }
-
+  // NOTE: Never match trailing bare integers (/^\d+$/) as odometer in APMK/AIS-140!
+  // Trailing integer is FrameNumber (e.g. 060399), which increments on every packet.
   return 0;
 }
 

@@ -133,6 +133,7 @@ function extractPacketOdometer(raw, parts) {
   }
   const cleanTokens = preChecksum.split(',').map(t => t.trim()).filter(t => t !== '');
 
+  // 2. Scan for decimal float odometer (e.g. 12543.2, 0.48 km)
   for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 5); i--) {
     const token = cleanTokens[i];
     if (/^[0-9A-Fa-f]{2}$/.test(token) && i === cleanTokens.length - 1) continue;
@@ -145,16 +146,9 @@ function extractPacketOdometer(raw, parts) {
     }
   }
 
-  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
-    const token = cleanTokens[i];
-    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
-    if (/^[01]{2,4}$/.test(token)) continue;
-    if (/^\d+$/.test(token)) {
-      const val = parseFloat(token);
-      if (!isNaN(val) && val > 0) return val;
-    }
-  }
-
+  // NOTE: Never match trailing bare integers (/^\d+$/) as odometer in AIS-140!
+  // In AIS-140/AIS-140V2 packets, trailing integers before checksum are FrameNumber / SequenceNumber
+  // (e.g. 002185, 20425), which increment on every packet and falsely hijack the vehicle odometer!
   return 0;
 }
 

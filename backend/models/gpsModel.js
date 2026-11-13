@@ -176,15 +176,16 @@ const GpsModel = {
           -- Same day but no previous coords — keep existing
           WHEN vehicle_latest_state.lat IS NULL OR vehicle_latest_state.lng IS NULL
             THEN COALESCE(vehicle_latest_state.today_distance, 0)
-          -- Same day — add incremental distance only when moving (speed > 3 OR ignition ON)
+          -- Same day — add incremental distance only when moving (speed > 2 OR ignition ON)
           -- Segment must be >10 m and <10 km (raised from 5 km to capture longer update intervals)
           ELSE ROUND((COALESCE(vehicle_latest_state.today_distance, 0) + GREATEST(0,
             CASE WHEN (
+              (COALESCE($4, 0) > 2 OR $7 IS TRUE) AND
               6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *
                 cos(radians($3) - radians(vehicle_latest_state.lng)) +
                 sin(radians(vehicle_latest_state.lat)) * sin(radians($2))
-              )) BETWEEN 0.005 AND 10
+              )) BETWEEN 0.010 AND 10
             )
             THEN 6371 * acos(least(1.0,
                 cos(radians(vehicle_latest_state.lat)) * cos(radians($2)) *

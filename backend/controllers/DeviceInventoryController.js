@@ -3,7 +3,7 @@
 // High-performance hardware stock inventory management (IMEI, Serial, ICCID)
 // Built with strict CPU, RAM, and Database safety:
 //  - LRU caching: sub-millisecond lookups with zero DB hits
-//  - Hard limit of 1,000 records per bulk import
+//  - Hard limit of 25,000 records per bulk import
 //  - Chunked parameterized batch inserts (50 rows/chunk)
 //  - Guaranteed DB client release in finally blocks
 // ============================================================
@@ -11,9 +11,9 @@
 const { LRUCache } = require('lru-cache');
 const db = require('../config/db');
 
-// In-memory LRU Cache (max 1000 devices, 15 min TTL, ~150KB total memory)
+// In-memory LRU Cache (max 25000 devices, 15 min TTL, ~3MB total memory)
 const inventoryCache = new LRUCache({
-  max: 1000,
+  max: 25000,
   ttl: 15 * 60 * 1000
 });
 
@@ -184,11 +184,12 @@ const DeviceInventoryController = {
         return res.status(400).json({ success: false, error: 'Records array is required and must not be empty.' });
       }
 
-      // Enforce hard cap to prevent event loop blocking or memory overload
-      if (records.length > 1000) {
+      // Enforce batch cap (supports large manufacturer sheets up to 25,000 devices safely)
+      const MAX_BATCH_LIMIT = 25000;
+      if (records.length > MAX_BATCH_LIMIT) {
         return res.status(400).json({
           success: false,
-          error: `Batch size exceeds safety limit of 1,000 records (received ${records.length}). Please split into smaller batches.`
+          error: `Batch size exceeds safety limit of ${MAX_BATCH_LIMIT.toLocaleString()} records (received ${records.length}). Please split into smaller batches.`
         });
       }
 

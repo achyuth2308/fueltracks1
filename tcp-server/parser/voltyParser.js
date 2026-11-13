@@ -71,17 +71,8 @@ function extractPacketOdometer(raw, parts, imeiIndex) {
     }
   }
 
-  // 4. Scan last few tokens for valid integer distance/odometer
-  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
-    const token = cleanTokens[i];
-    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
-    if (/^[01]{2,4}$/.test(token)) continue;
-    if (/^\d+$/.test(token)) {
-      const val = parseFloat(token);
-      if (!isNaN(val) && val > 0) return val;
-    }
-  }
-
+  // NOTE: Never match trailing bare integers (/^\d+$/) as odometer in Volty/AIS-140!
+  // In Volty packets, trailing integers before checksum are packet counters/sequence numbers.
   return 0;
 }
 
