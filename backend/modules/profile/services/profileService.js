@@ -6,13 +6,13 @@ const profileRepository = require('../repositories/profileRepository');
 // Secret for API key encryption (In a real app, this should be in .env)
 const rawKey = process.env.ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex').slice(0, 32).padEnd(32, '0');
 // Ensure key is exactly 32 bytes for aes-256-cbc
-const ENCRYPTION_KEY = Buffer.from(rawKey).length === 32 
-  ? Buffer.from(rawKey) 
+const ENCRYPTION_KEY = Buffer.from(rawKey).length === 32
+  ? Buffer.from(rawKey)
   : crypto.createHash('sha256').update(String(rawKey)).digest();
 const IV_LENGTH = 16;
 
 class ProfileService {
-  
+
   encrypt(text) {
     if (!text) return text;
     try {
@@ -37,7 +37,7 @@ class ProfileService {
       let decrypted = decipher.update(encryptedText);
       decrypted = Buffer.concat([decrypted, decipher.final()]);
       return decrypted.toString();
-    } catch(e) {
+    } catch (e) {
       console.error('Decryption Error:', e.message);
       return ''; // Decryption failed
     }
@@ -85,18 +85,33 @@ class ProfileService {
 
     // Inherit white-label dealer branding if organization is a sub-account/customer
     try {
-      const parentRes = await db.query(
+      let parentRes = await db.query(
         `SELECT o.id, o.name, o.type, o.parent_id, o.email, o.phone,
-                u.email as dealer_email, u.phone as dealer_phone
+                u.email as dealer_email, u.phone as dealer_phone, u.name as dealer_user_name
          FROM organizations o
-         LEFT JOIN users u ON u.org_id = o.id AND u.role = 'dealer'
+         LEFT JOIN users u ON u.org_id = o.id AND (u.role = 'dealer' OR u.role = 'admin')
          WHERE o.id = (SELECT parent_id FROM organizations WHERE id = $1)
-         ORDER BY u.created_at ASC
+         ORDER BY (CASE WHEN u.role = 'dealer' THEN 0 ELSE 1 END), u.created_at ASC
          LIMIT 1`,
         [organizationId]
       );
 
-      const isSuperadminParent = parentRes.rows.length > 0 && 
+      // If parent_id was not directly set on organizations table, check if the customer was created by a dealer user
+      if (parentRes.rows.length === 0) {
+        parentRes = await db.query(
+          `SELECT o.id, o.name, o.type, o.parent_id, o.email, o.phone,
+                  u.email as dealer_email, u.phone as dealer_phone, u.name as dealer_user_name
+           FROM users creator
+           JOIN organizations o ON o.id = creator.org_id AND o.type = 'dealer'
+           LEFT JOIN users u ON u.org_id = o.id AND (u.role = 'dealer' OR u.role = 'admin')
+           WHERE creator.id = (SELECT created_by FROM users WHERE org_id = $1 AND created_by IS NOT NULL LIMIT 1)
+           ORDER BY (CASE WHEN u.role = 'dealer' THEN 0 ELSE 1 END), u.created_at ASC
+           LIMIT 1`,
+          [organizationId]
+        );
+      }
+
+      const isSuperadminParent = parentRes.rows.length > 0 &&
         (parentRes.rows[0].id === 'a0000000-0000-0000-0000-000000000001' || parentRes.rows[0].type === 'super');
 
       if (mainProfile.org_type === 'dealer') {
@@ -116,9 +131,10 @@ class ProfileService {
         const parentProfile = await profileRepository.getProfile(parentId);
         const dealerOrg = parentRes.rows[0];
 
-        const dealerEmail = parentProfile?.support_email || dealerOrg.dealer_email || dealerOrg.email || 'fueltrackstpl@gmail.com';
-        const dealerPhone = parentProfile?.support_phone || dealerOrg.dealer_phone || dealerOrg.phone || '7337433351';
-        const dealerName = parentProfile?.brand_name || parentProfile?.org_name || dealerOrg.name || 'SM Technologies';
+        // Prioritize dealer contact details from the users table as well as organization profile
+        const dealerEmail = dealerOrg.dealer_email || parentProfile?.support_email || parentProfile?.email || dealerOrg.email || 'fueltrackstpl@gmail.com';
+        const dealerPhone = dealerOrg.dealer_phone || parentProfile?.support_phone || parentProfile?.whatsapp_number || parentProfile?.mobile || dealerOrg.phone || '7337433351';
+        const dealerName = parentProfile?.brand_name || dealerOrg.dealer_user_name || parentProfile?.org_name || dealerOrg.name || 'SM Technologies';
 
         mainProfile.is_dealer_customer = true;
         mainProfile.dealer_name = dealerName;
@@ -152,7 +168,7 @@ class ProfileService {
     } catch (err) {
       console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);
     }
-    
+
     // Fetch actual license limits from organization device limits
     const orgRes = await db.query('SELECT device_limits FROM organizations WHERE id = $1', [organizationId]);
     const orgRow = orgRes.rows[0];
@@ -167,15 +183,15 @@ class ProfileService {
          COUNT(*) FILTER (WHERE licence_id LIKE 'EN%') AS "Premium",
          COUNT(*) AS "TotalUsed"
        FROM devices 
-       WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`, 
+       WHERE org_id = $1 OR org_id IN (SELECT id FROM organizations WHERE parent_id = $1)`,
       [organizationId]
     );
 
     const used = {
-      Starter:  parseInt(usedResult.rows[0]?.Starter  || 0, 10),
-      Basic:    parseInt(usedResult.rows[0]?.Basic    || 0, 10),
+      Starter: parseInt(usedResult.rows[0]?.Starter || 0, 10),
+      Basic: parseInt(usedResult.rows[0]?.Basic || 0, 10),
       Advanced: parseInt(usedResult.rows[0]?.Advanced || 0, 10),
-      Premium:  parseInt(usedResult.rows[0]?.Premium  || 0, 10),
+      Premium: parseInt(usedResult.rows[0]?.Premium || 0, 10),
     };
 
     // Calculate total allocated and used devices across all tiers
@@ -251,7 +267,7 @@ class ProfileService {
       try {
         const uRes = await db.query('SELECT id, name, email, phone, role FROM users WHERE id = $1', [targetUserId]);
         oldUser = uRes.rows[0] || null;
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const newProfile = await profileRepository.upsertProfile(organizationId, updateData, targetUserId, user?.role);
@@ -317,10 +333,10 @@ class ProfileService {
 
   async updateLogo(organizationId, fieldName, fileUrl, user) {
     const oldProfile = await profileRepository.getProfile(organizationId);
-    
+
     const updateData = {};
     updateData[fieldName] = fileUrl;
-    
+
     const newProfile = await profileRepository.upsertProfile(organizationId, updateData);
 
     // Audit Log
