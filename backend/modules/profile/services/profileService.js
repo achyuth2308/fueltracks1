@@ -106,15 +106,19 @@ class ProfileService {
         mainProfile.is_fueltracks_direct = false;
         mainProfile.dealer_name = mainProfile.brand_name || mainProfile.org_name;
         mainProfile.is_whitelabel_enabled = true;
+        // Dealer reaches Fueltracks for platform support
+        mainProfile.support_brand = 'Fueltracks';
+        mainProfile.support_email = 'fueltrackstpl@gmail.com';
+        mainProfile.support_phone = '7337433351';
       } else if (parentRes.rows.length > 0 && !isSuperadminParent) {
-        // Customer under a Dealer (e.g. SAV BLUE METALS under SMTECHNOLOGIES)
+        // Customer under a Dealer (e.g. customer under SM Technologies)
         const parentId = parentRes.rows[0].id;
         const parentProfile = await profileRepository.getProfile(parentId);
         const dealerOrg = parentRes.rows[0];
 
-        const dealerEmail = parentProfile?.support_email || dealerOrg.dealer_email || dealerOrg.email || null;
-        const dealerPhone = parentProfile?.support_phone || dealerOrg.dealer_phone || dealerOrg.phone || null;
-        const dealerName = parentProfile?.brand_name || parentProfile?.org_name || dealerOrg.name;
+        const dealerEmail = parentProfile?.support_email || dealerOrg.dealer_email || dealerOrg.email || 'fueltrackstpl@gmail.com';
+        const dealerPhone = parentProfile?.support_phone || dealerOrg.dealer_phone || dealerOrg.phone || '7337433351';
+        const dealerName = parentProfile?.brand_name || parentProfile?.org_name || dealerOrg.name || 'SM Technologies';
 
         mainProfile.is_dealer_customer = true;
         mainProfile.dealer_name = dealerName;
@@ -132,21 +136,18 @@ class ProfileService {
         mainProfile.footer_text = parentProfile?.footer_text || mainProfile.footer_text;
 
         // Support details for dealer customers MUST ALWAYS be the dealer's details!
+        mainProfile.support_brand = dealerName;
         mainProfile.support_email = dealerEmail;
         mainProfile.support_phone = dealerPhone;
         mainProfile.is_whitelabel_enabled = true;
         mainProfile.is_fueltracks_direct = false;
       } else {
         // Direct FuelTracks customer or Superadmin organization
-        const isSuperadmin = (mainProfile.org_type === 'super' || !parentRes.rows.length || isSuperadminParent);
         mainProfile.is_dealer_customer = false;
         mainProfile.is_fueltracks_direct = true;
-        if (!mainProfile.support_email && isSuperadmin) {
-          mainProfile.support_email = 'info@fueltracks.in';
-        }
-        if (!mainProfile.support_phone && isSuperadmin) {
-          mainProfile.support_phone = '7337433351';
-        }
+        mainProfile.support_brand = 'Fueltracks';
+        mainProfile.support_email = 'fueltrackstpl@gmail.com';
+        mainProfile.support_phone = '7337433351';
       }
     } catch (err) {
       console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);

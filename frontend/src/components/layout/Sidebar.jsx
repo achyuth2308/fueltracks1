@@ -288,24 +288,22 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
   const roleLabel = user?.role || 'Customer';
   const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
-  const isDealerUser = brandProfile?.is_dealer_customer || 
-                       brandProfile?.org_type === 'dealer' || 
-                       brandProfile?.is_dealer ||
-                       (brandProfile?.brand_name && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(brandProfile.brand_name.toUpperCase())) ||
-                       (user?.orgName && !['FUELTRACKS', 'FUELTRACKS PLATFORM'].includes(user.orgName.toUpperCase()) && user?.role !== 'superadmin');
+  // Support details determination:
+  // If customer belongs to a dealer (e.g. SM Technologies), show dealer's details.
+  // If customer is a FuelTracks direct customer, show FuelTracks details.
+  const isDealerCustomer = brandProfile?.is_dealer_customer === true;
 
-  const isFuelTracksCustomer = !isDealerUser && (brandProfile?.is_fueltracks_direct || user?.role === 'superadmin' || !brandProfile?.is_whitelabel_enabled);
+  const supportBrand = isDealerCustomer
+    ? (brandProfile?.dealer_name || brandProfile?.support_brand || 'SM Technologies')
+    : 'Fueltracks';
 
-  const supportBrand = (brandProfile?.brand_name || brandProfile?.company_name || user?.orgName || 'FUELTRACKS').toUpperCase();
-  const supportPhone = brandProfile?.support_phone || 
-                       brandProfile?.dealer_phone || 
-                       brandProfile?.whatsapp_number || 
-                       brandProfile?.mobile || 
-                       (isFuelTracksCustomer ? '7337433351' : '');
-  const supportEmail = (brandProfile?.support_email || 
-                       brandProfile?.dealer_email || 
-                       brandProfile?.email || 
-                       (isFuelTracksCustomer ? 'info@fueltracks.in' : '')).toLowerCase();
+  const supportPhone = isDealerCustomer
+    ? (brandProfile?.dealer_phone || brandProfile?.support_phone || '7337433351')
+    : (brandProfile?.support_phone || '7337433351');
+
+  const supportEmail = isDealerCustomer
+    ? (brandProfile?.dealer_email || brandProfile?.support_email || 'fueltrackstpl@gmail.com').toLowerCase()
+    : (brandProfile?.support_email || 'fueltrackstpl@gmail.com').toLowerCase();
 
   return (
     <>
