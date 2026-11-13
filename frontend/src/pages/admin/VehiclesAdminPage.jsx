@@ -456,7 +456,7 @@ const VehiclesAdminPage = () => {
               <div style={{ overflow: 'auto', flex: 1 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
                  <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                  <tr style={{ background: '#1e1b4b' }}>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {/* 1. Licence ID */}
                     <th
                       onClick={() => handleSort('licenceId')}

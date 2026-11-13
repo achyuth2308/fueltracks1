@@ -520,7 +520,7 @@ const BillingAdminPage = () => {
                 }}
               >
                 <thead>
-                  <tr style={{ background: '#1e1b4b' }}>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {[
                       'Licence ID', 'Vehicle ID', 'Vehicle Name',
                       'Device IMEI', 'Organization', 'Licence Issued', 'Licence Expiry',

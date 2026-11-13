@@ -17,7 +17,7 @@ import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_
 const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[130px] p-3.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[120px] p-2.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
       border: '1px solid #e2e8f0',
       borderTop: `3px solid ${color}`,
@@ -36,23 +36,23 @@ const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
     }}
   >
     <div className="flex items-center justify-between">
-      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">{label}</span>
+      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">{label}</span>
       <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+        className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
         style={{ background: `${color}15` }}
       >
-        <Icon className="w-4 h-4" color={color} />
+        <Icon className="w-3.5 h-3.5" color={color} />
       </div>
     </div>
-    <div className="mt-2 mb-1">
-      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
+    <div className="mt-1 mb-0.5">
+      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
         {value}
       </div>
     </div>
     {subtext && (
-      <div className="text-[11px] font-[600] text-slate-400 flex items-center justify-between border-t border-slate-100 pt-2 mt-1">
+      <div className="text-[10px] font-[600] text-slate-400 flex items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
         <span>{subtext}</span>
-        <ChevronRight size={13} className="text-slate-300" />
+        <ChevronRight size={12} className="text-slate-300" />
       </div>
     )}
   </div>
@@ -62,7 +62,7 @@ const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
 const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[150px] p-3.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[130px] p-2.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
       border: '1px solid #e2e8f0',
       borderTop: `3px solid ${color}`,
@@ -81,23 +81,23 @@ const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClic
     }}
   >
     <div className="flex items-center justify-between">
-      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">Vehicles</span>
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
-        <Truck className="w-4 h-4" color={color} />
+      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">Vehicles</span>
+      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
+        <Truck className="w-3.5 h-3.5" color={color} />
       </div>
     </div>
-    <div className="mt-2 mb-1">
-      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
+    <div className="mt-1 mb-0.5">
+      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
         {total}
       </div>
     </div>
-    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-2 mt-1">
-      <span className="text-[11px] font-[700] text-emerald-600 flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
+      <span className="text-[10px] font-[700] text-emerald-600 flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
         {online} Online
       </span>
-      <span className="text-[11px] font-[700] text-rose-500 flex items-center gap-1.5">
-        <span className="w-2 h-2 rounded-full bg-rose-500"></span>
+      <span className="text-[10px] font-[700] text-rose-500 flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
         {offline} No Data
       </span>
     </div>
@@ -107,7 +107,7 @@ const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClic
 /* Modern Tier License Card */
 const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online', labelAvailable = 'No Data' }) => (
   <div
-    className="flex-1 min-w-[130px] p-3.5 bg-white rounded-xl transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[120px] p-2.5 bg-white rounded-xl transition-all duration-200 flex flex-col justify-between"
     style={{
       border: '1px solid #e2e8f0',
       borderTop: `3px solid ${color}`,
@@ -126,21 +126,21 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online
     }}
   >
     <div className="flex items-center justify-between">
-      <span className="text-[12px] font-[700] text-slate-500 uppercase tracking-wider">{title}</span>
-      <span className="text-[10px] font-[800] px-2 py-0.5 rounded-full" style={{ background: `${color}15`, color: color }}>
+      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">{title}</span>
+      <span className="text-[9px] font-[800] px-1.5 py-0.5 rounded-full" style={{ background: `${color}15`, color: color }}>
         TIER
       </span>
     </div>
-    <div className="mt-2 mb-1">
-      <div className="text-[26px] font-[800] text-slate-900 leading-tight">
+    <div className="mt-1 mb-0.5">
+      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
         {total}
       </div>
     </div>
-    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-2 mt-1">
-      <span className="text-[11px] font-[600] text-slate-500">
+    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
+      <span className="text-[10px] font-[600] text-slate-500">
         <strong className="text-emerald-600 font-[700]">{used}</strong> {labelUsed}
       </span>
-      <span className="text-[11px] font-[600] text-slate-500">
+      <span className="text-[10px] font-[600] text-slate-500">
         <strong className={available > 0 ? "text-rose-500 font-[700]" : "text-slate-400 font-[700]"}>{available}</strong> {labelAvailable}
       </span>
     </div>
@@ -151,7 +151,7 @@ const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online
 const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline, color = '#0EA5E9', icon: Icon, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[280px] p-4 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="flex-1 min-w-[260px] py-2.5 px-3 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
     style={{
       border: '1px solid #e2e8f0',
       boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
@@ -167,67 +167,67 @@ const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline,
       e.currentTarget.style.borderColor = '#e2e8f0';
     }}
   >
-    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: `${color}15` }}>
-          {Icon && <Icon className="w-4 h-4" color={color} />}
+        <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: `${color}15` }}>
+          {Icon && <Icon className="w-3.5 h-3.5" color={color} />}
         </div>
         <div>
-          <span className="text-[13.5px] font-[800] text-slate-900 block">{title}</span>
-          <span className="text-[11px] font-[600] text-slate-400">Telemetry Status Breakdown</span>
+          <span className="text-[12.5px] font-[800] text-slate-900 block leading-tight">{title}</span>
+          <span className="text-[10px] font-[600] text-slate-400">Telemetry Status Breakdown</span>
         </div>
       </div>
       <div className="text-right">
-        <span className="text-[20px] font-[900] text-slate-900">{total}</span>
-        <span className="text-[11px] font-[600] text-slate-400 block -mt-1">Active Devices</span>
+        <span className="text-[17px] font-[900] text-slate-900 leading-tight">{total}</span>
+        <span className="text-[10px] font-[600] text-slate-400 block -mt-0.5">Active Devices</span>
       </div>
     </div>
 
     {/* Telemetry Status Pills */}
-    <div className="grid grid-cols-5 gap-2 pt-3">
+    <div className="grid grid-cols-5 gap-1.5 pt-1.5">
       {/* Online */}
-      <div className="flex flex-col items-center p-2 rounded-lg bg-emerald-50/60 border border-emerald-100/60">
-        <span className="text-[10px] font-[700] text-emerald-700 flex items-center gap-1">
+      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-emerald-50/60 border border-emerald-100/60">
+        <span className="text-[9.5px] font-[700] text-emerald-700 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
           Online
         </span>
-        <span className="text-[15px] font-[800] text-emerald-700 mt-0.5">{online}</span>
+        <span className="text-[13.5px] font-[800] text-emerald-700 mt-0.5 leading-tight">{online}</span>
       </div>
 
       {/* Moving */}
-      <div className="flex flex-col items-center p-2 rounded-lg bg-teal-50/60 border border-teal-100/60">
-        <span className="text-[10px] font-[700] text-teal-700 flex items-center gap-1">
+      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-teal-50/60 border border-teal-100/60">
+        <span className="text-[9.5px] font-[700] text-teal-700 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
           Moving
         </span>
-        <span className="text-[15px] font-[800] text-teal-700 mt-0.5">{moving}</span>
+        <span className="text-[13.5px] font-[800] text-teal-700 mt-0.5 leading-tight">{moving}</span>
       </div>
 
       {/* Idle */}
-      <div className="flex flex-col items-center p-2 rounded-lg bg-amber-50/60 border border-amber-100/60">
-        <span className="text-[10px] font-[700] text-amber-700 flex items-center gap-1">
+      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-amber-50/60 border border-amber-100/60">
+        <span className="text-[9.5px] font-[700] text-amber-700 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
           Idle
         </span>
-        <span className="text-[15px] font-[800] text-amber-700 mt-0.5">{idle}</span>
+        <span className="text-[13.5px] font-[800] text-amber-700 mt-0.5 leading-tight">{idle}</span>
       </div>
 
       {/* Parked */}
-      <div className="flex flex-col items-center p-2 rounded-lg bg-indigo-50/60 border border-indigo-100/60">
-        <span className="text-[10px] font-[700] text-indigo-700 flex items-center gap-1">
+      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-indigo-50/60 border border-indigo-100/60">
+        <span className="text-[9.5px] font-[700] text-indigo-700 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
           Parked
         </span>
-        <span className="text-[15px] font-[800] text-indigo-700 mt-0.5">{parked}</span>
+        <span className="text-[13.5px] font-[800] text-indigo-700 mt-0.5 leading-tight">{parked}</span>
       </div>
 
       {/* No Data */}
-      <div className="flex flex-col items-center p-2 rounded-lg bg-rose-50/60 border border-rose-100/60">
-        <span className="text-[10px] font-[700] text-rose-700 flex items-center gap-1">
+      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-rose-50/60 border border-rose-100/60">
+        <span className="text-[9.5px] font-[700] text-rose-700 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
           No Data
         </span>
-        <span className="text-[15px] font-[800] text-rose-700 mt-0.5">{offline}</span>
+        <span className="text-[13.5px] font-[800] text-rose-700 mt-0.5 leading-tight">{offline}</span>
       </div>
     </div>
   </div>
@@ -449,25 +449,32 @@ const DashboardPage = ({ setAppVehicles }) => {
       }}
     >
       {/* Top Header & Welcome Banner */}
-      <div className="px-4 md:px-6 pt-5 pb-3 flex flex-wrap items-center justify-between gap-3 shrink-0">
+      <div className="px-4 md:px-6 pt-3 pb-2 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-[20px] md:text-[22px] font-[900] text-slate-900 tracking-tight m-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-[19px] md:text-[21px] font-[900] text-slate-900 tracking-tight m-0">
               Fleet Overview
             </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-[700] bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span
+              style={{
+                background: 'var(--brand-badge-bg, #ecfdf5)',
+                color: 'var(--brand-badge-text, #047857)',
+                borderColor: 'var(--brand-badge-border, #a7f3d0)',
+              }}
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10.5px] font-[700] border"
+            >
+              <span style={{ background: 'var(--brand-primary, #10b981)' }} className="w-1.5 h-1.5 rounded-full animate-pulse"></span>
               Live Telemetry
             </span>
           </div>
-          <p className="text-[12px] md:text-[13px] text-slate-500 mt-0.5 font-[500] m-0">
+          <p className="text-[11.5px] md:text-[12px] text-slate-500 mt-0.5 font-[500] m-0">
             Real-time tracking diagnostics, telemetry status, and organizational metrics.
           </p>
         </div>
       </div>
 
       {/* Row 1: KPI Stats Grid (Uniform Heights & Modern Accents) */}
-      <div className="px-4 md:px-6 pb-2.5 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 shrink-0">
+      <div className="px-4 md:px-6 pb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 shrink-0">
         <StatCard
           label="Users"
           value={totalUsers}
@@ -530,7 +537,7 @@ const DashboardPage = ({ setAppVehicles }) => {
       </div>
 
       {/* Row 2: Device Telemetry Overview Cards */}
-      <div className="px-4 md:px-6 pb-4 grid grid-cols-1 md:grid-cols-2 gap-3.5 shrink-0">
+      <div className="px-4 md:px-6 pb-2.5 grid grid-cols-1 md:grid-cols-2 gap-2.5 shrink-0">
         <DeviceStatusCard
           title="All Devices Telemetry"
           total={allStats.total}
@@ -573,42 +580,42 @@ const DashboardPage = ({ setAppVehicles }) => {
       </div>
 
       {/* Main Layout: Expiring Licenses */}
-      <div className="px-4 md:px-6 pb-6 flex-1 min-h-[360px] flex shrink-0">
+      <div className="px-4 md:px-6 pb-4 flex-1 min-h-[220px] flex shrink-0">
         <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
-                <AlertTriangle size={18} />
+          <div className="py-2.5 px-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-md bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600">
+                <AlertTriangle size={15} />
               </div>
               <div>
-                <h3 className="text-[16px] font-[800] text-slate-900 m-0 leading-tight">
+                <h3 className="text-[14px] font-[800] text-slate-900 m-0 leading-tight">
                   Expiring Vehicle Licenses
                 </h3>
-                <p className="text-[12px] text-slate-500 m-0 mt-0.5 font-[500]">
+                <p className="text-[11px] text-slate-500 m-0 mt-0.5 font-[500]">
                   Vehicles requiring license renewal
                 </p>
               </div>
             </div>
             <button
               onClick={() => navigate('/admin/vehicles')}
-              className="text-[12px] font-[700] text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-transparent border-none"
+              className="text-[11.5px] font-[700] text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer bg-transparent border-none"
             >
-              View All <ChevronRight size={15} />
+              View All <ChevronRight size={14} />
             </button>
           </div>
 
           <div className="flex-1 overflow-y-auto overflow-x-auto w-full">
             {expiringVehicles.length > 0 ? (
               <table className="w-full min-w-[680px] text-left border-collapse">
-                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 z-1">
-                  <tr className="text-[11.5px] font-[700] text-slate-500 uppercase tracking-wider">
-                    <th className="py-3 px-4">Vehicle Name</th>
-                    <th className="py-3 px-4">Registration No</th>
-                    <th className="py-3 px-4">Customer Name</th>
-                    <th className="py-3 px-4">Mobile Number</th>
-                    <th className="py-3 px-4">Expiry Date</th>
-                    <th className="py-3 px-4">Renewal Price</th>
-                    <th className="py-3 px-4">Status</th>
+                <thead className="sticky top-0 z-10" style={{ background: 'var(--brand-header, #1e1b4b)' }}>
+                  <tr className="text-[11px] font-[800] uppercase tracking-wider" style={{ color: '#ffffff' }}>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Vehicle Name</th>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Registration No</th>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Customer Name</th>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Mobile Number</th>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Expiry Date</th>
+                    <th className="py-2.5 px-3 border-r border-white/10" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Renewal Price</th>
+                    <th className="py-2.5 px-3" style={{ color: '#ffffff', letterSpacing: '0.04em' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -620,12 +627,12 @@ const DashboardPage = ({ setAppVehicles }) => {
 
                     return (
                       <tr key={v.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3 px-4 text-[13px] font-[700] text-slate-900">{v.name}</td>
-                        <td className="py-3 px-4 text-[13px] text-slate-700 font-mono">{v.plate || '-'}</td>
-                        <td className="py-3 px-4 text-[13px] text-slate-800 font-[500]">{customerName}</td>
-                        <td className="py-3 px-4 text-[13px] text-slate-600 font-mono">{mobileNumber}</td>
-                        <td className="py-3 px-4 text-[13px] text-slate-600">{formatLocalDate(v.licence_expire_date)}</td>
-                        <td className="py-3 px-4 text-[13px] font-[700]">
+                        <td className="py-2 px-3 text-[12.5px] font-[700] text-slate-900">{v.name}</td>
+                        <td className="py-2 px-3 text-[12px] text-slate-700 font-mono">{v.plate || '-'}</td>
+                        <td className="py-2 px-3 text-[12px] text-slate-800 font-[500]">{customerName}</td>
+                        <td className="py-2 px-3 text-[12px] text-slate-600 font-mono">{mobileNumber}</td>
+                        <td className="py-2 px-3 text-[12px] text-slate-600">{formatLocalDate(v.licence_expire_date)}</td>
+                        <td className="py-2 px-3 text-[12px] font-[700]">
                           {(() => {
                             const ren = v.metadata?.renewal_price;
                             const disc = v.metadata?.discount_price;
@@ -633,10 +640,10 @@ const DashboardPage = ({ setAppVehicles }) => {
                               return (
                                 <div className="flex flex-col">
                                   <div className="flex items-center gap-1.5">
-                                    <span className="text-[11px] line-through text-slate-400">₹{parseFloat(ren).toFixed(2)}</span>
-                                    <span className="text-[13px] font-extrabold text-emerald-600">₹{parseFloat(disc).toFixed(2)}</span>
+                                    <span className="text-[10px] line-through text-slate-400">₹{parseFloat(ren).toFixed(2)}</span>
+                                    <span className="text-[12px] font-extrabold text-emerald-600">₹{parseFloat(disc).toFixed(2)}</span>
                                   </div>
-                                  <span className="text-[10px] text-emerald-600 font-bold">Save ₹{(parseFloat(ren) - parseFloat(disc)).toFixed(2)}</span>
+                                  <span className="text-[9.5px] text-emerald-600 font-bold">Save ₹{(parseFloat(ren) - parseFloat(disc)).toFixed(2)}</span>
                                 </div>
                               );
                             } else if (ren) {
@@ -645,8 +652,8 @@ const DashboardPage = ({ setAppVehicles }) => {
                             return <span className="text-slate-400 font-normal">—</span>;
                           })()}
                         </td>
-                        <td className="py-3 px-4">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-[700] ${isExpired ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
+                        <td className="py-2 px-3">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-[700] ${isExpired ? 'bg-rose-50 text-rose-700 border border-rose-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
                             {status.text}
                           </span>
                         </td>

@@ -551,10 +551,19 @@ const AdminController = {
       const { id } = req.params;
       const { email, username, role, name, phone, isActive, orgId, groupIds, password, noDataMinutes, deviceLimits } = req.body;
 
-      // Ownership check for dealers editing other users
+      // Ownership check for dealers editing other users (allows editing users in dealer's org or child orgs)
       if (req.user.role !== 'superadmin') {
         const user = await UserModel.findById(id);
-        if (!user || (user.org_id !== req.user.orgId && user.org_type === 'dealer')) {
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found.',
+            code: 'USER_NOT_FOUND'
+          });
+        }
+        const userOrg = await OrgModel.findById(user.org_id);
+        const isAuthorized = user.org_id === req.user.orgId || (userOrg && userOrg.parent_id === req.user.orgId);
+        if (!isAuthorized) {
           return res.status(403).json({
             success: false,
             error: 'Access denied to update user.',
@@ -790,7 +799,16 @@ const AdminController = {
 
       if (req.user.role !== 'superadmin') {
         const user = await UserModel.findById(id);
-        if (!user || user.org_id !== req.user.orgId) {
+        if (!user) {
+          return res.status(404).json({
+            success: false,
+            error: 'User not found.',
+            code: 'USER_NOT_FOUND'
+          });
+        }
+        const userOrg = await OrgModel.findById(user.org_id);
+        const isAuthorized = user.org_id === req.user.orgId || (userOrg && userOrg.parent_id === req.user.orgId);
+        if (!isAuthorized) {
           return res.status(403).json({
             success: false,
             error: 'Access denied.',
@@ -1521,13 +1539,17 @@ const AdminController = {
         });
       }
 
-      // Generate JWT for target user
+      // Generate JWT for target user with all display fields for instant client-side decoding
       const token = jwt.sign(
         {
           userId: user.id,
           role: user.role,
           orgId: user.org_id,
           orgType: user.org_type,
+          orgName: user.org_name,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
           noDataMinutes: user.no_data_minutes !== undefined && user.no_data_minutes !== null ? Number(user.no_data_minutes) : 30
         },
         env.JWT_SECRET,
@@ -1594,9 +1616,12 @@ const AdminController = {
     try {
       const targetOrgId = req.query.orgId || req.user.orgId;
 
-      // Dealers may only query their own org
+      // Dealers may query their own org or child orgs
       if (req.user.role !== 'superadmin' && targetOrgId !== req.user.orgId) {
-        return res.status(403).json({ success: false, error: 'Access denied.', code: 'FORBIDDEN' });
+        const org = await OrgModel.findById(targetOrgId);
+        if (!org || org.parent_id !== req.user.orgId) {
+          return res.status(403).json({ success: false, error: 'Access denied.', code: 'FORBIDDEN' });
+        }
       }
 
       const orgResult = await db.query(
@@ -1648,7 +1673,10 @@ const AdminController = {
   async setDeviceLimits(req, res, next) {
     try {
       if (req.user.role !== 'superadmin') {
-        return res.status(403).json({ success: false, error: 'Only superadmin can set device limits.', code: 'FORBIDDEN' });
+        const targetOrg = await OrgModel.findById(id);
+        if (!targetOrg || targetOrg.parent_id !== req.user.orgId) {
+          return res.status(403).json({ success: false, error: 'Access denied to set device limits for this organization.', code: 'FORBIDDEN' });
+        }
       }
 
       const { id } = req.params;

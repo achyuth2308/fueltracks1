@@ -11,7 +11,7 @@ const axiosInstance = axios.create({
 // Request interceptor: attach JWT
 axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -52,6 +52,7 @@ axiosInstance.interceptors.response.use(
     // error.response is null on network errors (server down, timeout, connection reset).
     // Only act on a real HTTP 401 from the server.
     if (error.response && error.response.status === 401) {
+      sessionStorage.removeItem('token');
       localStorage.removeItem('token');
       if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
         window.location.href = '/login';

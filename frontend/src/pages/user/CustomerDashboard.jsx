@@ -292,10 +292,10 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         }}
         title={vWarning ? vWarning.text : undefined}
         style={{
-          background: isExpired ? '#FEF2F2' : (isExpiring ? '#FFFBEB' : (isSelected ? '#F0F9FF' : '#FFFFFF')),
-          borderBottom: isExpired ? '1px solid #FECACA' : (isExpiring ? '1px solid #FDE68A' : (isSelected ? '1px solid #BAE6FD' : '1px solid #F1F5F9')),
-          borderLeft: isExpired ? '4px solid #DC2626' : (isExpiring ? '4px solid #F59E0B' : (isSelected ? '4px solid #0EA5E9' : '4px solid transparent')),
-          padding: '12px 14px',
+          background: isExpired ? '#FEF2F2' : (isExpiring ? '#FFFBEB' : (isSelected ? '#ECFDF5' : '#FFFFFF')),
+          borderBottom: isExpired ? '1px solid #FECACA' : (isExpiring ? '1px solid #FDE68A' : (isSelected ? '1px solid #A7F3D0' : '1px solid #F1F5F9')),
+          borderLeft: isExpired ? '3px solid #DC2626' : (isExpiring ? '3px solid #F59E0B' : (isSelected ? '3px solid #059669' : '3px solid transparent')),
+          padding: '8px 12px',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
           display: 'flex',
@@ -313,7 +313,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
             }
           }
-          if (!isSelected && !isExpired && !isExpiring) e.currentTarget.style.background = '#F8FAFC';
+          if (!isSelected && !isExpired && !isExpiring) e.currentTarget.style.background = '#F0FDF4';
           if (isExpired) e.currentTarget.style.background = '#FEE2E2';
           if (isExpiring && !isSelected) e.currentTarget.style.background = '#FEF3C7';
         }}
@@ -324,10 +324,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           if (isExpiring && !isSelected) e.currentTarget.style.background = '#FFFBEB';
         }}
       >
-        {/* Vehicle Icon Graphic */}
+        {/* Modern Vehicle Icon Squircle */}
         <div style={{
-          width: '38px',
-          height: '38px',
+          width: '32px',
+          height: '32px',
+          borderRadius: '8px',
+          background: isExpired ? '#FEE2E2' : (isSelected ? '#D1FAE5' : '#F1F5F9'),
+          border: `1px solid ${isExpired ? '#FECACA' : (isSelected ? '#A7F3D0' : '#E2E8F0')}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -335,72 +338,90 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         }}>
           {(() => {
             const vType = getVehicleType(v);
+            const iconColor = isExpired ? '#DC2626' : (isSelected ? '#059669' : (v.is_online ? '#10B981' : '#64748B'));
             if (vType === 'bike') {
               return (
-                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                  <path d="M10 24L18 10H26L30 16H36" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M18 10H24" stroke={isSelected ? '#38BDF8' : '#0EA5E9'} strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="12" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
-                  <circle cx="12" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
-                  <circle cx="34" cy="24" r="5.5" stroke="#1E293B" strokeWidth="2.5" fill="#F8FAFC"/>
-                  <circle cx="34" cy="24" r="2" fill={isSelected ? '#0EA5E9' : '#0284C7'}/>
-                  <path d="M16 16C16 14 19 13 23 13C26 13 28 15 29 17" stroke={isSelected ? '#0EA5E9' : '#0284C7'} strokeWidth="2.5" strokeLinecap="round"/>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="5.5" cy="17.5" r="3.5"/>
+                  <circle cx="18.5" cy="17.5" r="3.5"/>
+                  <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9H5"/>
+                  <path d="M12 17.5V14l4-3 3 3"/>
                 </svg>
               );
             }
             if (vType === 'car') {
               return (
-                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                  <path d="M8 20C8 16 12 13 16 13H28C32 13 36 16 38 20V25H8V20Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                  <circle cx="14" cy="25" r="3.5" fill="#1E293B"/>
-                  <circle cx="32" cy="25" r="3.5" fill="#1E293B"/>
-                </svg>
-              );
-            }
-            if (vType === 'van') {
-              return (
-                <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                  <path d="M6 16C6 13.5 8 11 11 11H28L36 16V26H6V16Z" fill="#F1F5F9" stroke="#64748B" strokeWidth="2"/>
-                  <path d="M28 11L36 16H42C43.1 16 44 16.9 44 18V26H36V16L28 11Z" fill="#E2E8F0" stroke="#475569" strokeWidth="2"/>
-                  <circle cx="14" cy="27" r="4" fill="#334155"/>
-                  <circle cx="34" cy="27" r="4" fill="#334155"/>
-                  <rect x="10" y="14" width="8" height="5" rx="1" fill="#94A3B8"/>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2"/>
+                  <circle cx="7" cy="17" r="2"/>
+                  <path d="M9 17h6"/>
+                  <circle cx="17" cy="17" r="2"/>
                 </svg>
               );
             }
             return (
-              <svg width="34" height="26" viewBox="0 0 48 36" fill="none">
-                <rect x="4" y="10" width="24" height="15" rx="2" fill={isSelected ? '#0EA5E9' : '#0284C7'} stroke="#0369A1" strokeWidth="1.5"/>
-                <path d="M28 13H36L42 19V25H28V13Z" fill={isSelected ? '#38BDF8' : '#0EA5E9'} stroke="#0284C7" strokeWidth="1.5"/>
-                <circle cx="12" cy="26" r="4" fill="#1E293B"/>
-                <circle cx="34" cy="26" r="4" fill="#1E293B"/>
-              </svg>
+              <Truck size={17} color={iconColor} />
             );
           })()}
         </div>
 
-        {/* Middle Details - ALL RED TEXT WHEN EXPIRED */}
+        {/* Middle Details - Clean Compact Typography (No Duplicate Name/Plate) */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '12px', fontWeight: 800, color: isExpired ? '#B91C1C' : '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {v.name}
-          </div>
-          <div style={{ fontSize: '11px', color: isExpired ? '#DC2626' : '#64748B', fontWeight: isExpired ? 600 : 400, marginTop: '1px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{
+            fontSize: '12.5px',
+            fontWeight: 700,
+            color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            lineHeight: 1.2
+          }}>
             {v.plate || v.name}
+            {v.name && v.plate && v.name !== v.plate && (
+              <span style={{ fontSize: '11px', fontWeight: 500, color: isExpired ? '#DC2626' : '#64748B', marginLeft: '6px' }}>
+                ({v.name})
+              </span>
+            )}
           </div>
-          <div style={{ fontSize: '10px', color: isExpired ? '#EF4444' : '#94A3B8', fontWeight: isExpired ? 600 : 400, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+          <div style={{
+            fontSize: '10.5px',
+            color: isExpired ? '#EF4444' : '#64748B',
+            fontWeight: 500,
+            marginTop: '3px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
+          }}>
             <span>{formatSpeed(v.current_speed, v.is_online)}</span>
-            <span>·</span>
-            <span>{v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}</span>
+            <span style={{ color: '#CBD5E1' }}>•</span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
+            </span>
           </div>
         </div>
 
-        {/* Right Status Dot & Arrow - RED WHEN EXPIRED, AMBER WHEN EXPIRING */}
+        {/* Right Status Badge Pill */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: isExpired ? '#DC2626' : sc }}>
-            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+          <div style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px',
+            fontSize: '10px',
+            fontWeight: 700,
+            padding: '2px 7px',
+            borderRadius: '12px',
+            background: isExpired ? '#FEE2E2' : (isExpiring ? '#FEF3C7' : `${sc}15`),
+            color: isExpired ? '#DC2626' : (isExpiring ? '#D97706' : sc),
+            border: `1px solid ${isExpired ? '#FECACA' : (isExpiring ? '#FDE68A' : `${sc}30`)}`,
+            letterSpacing: '0.01em'
+          }}>
+            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
             <span>{isExpired ? 'EXPIRED' : (isExpiring ? `EXPIRING (${vWarning.diffDays}d)` : statusLabels[status])}</span>
           </div>
-          <ChevronRight size={14} color={isExpired ? '#DC2626' : (isExpiring ? '#D97706' : '#94A3B8')} />
+          <ChevronRight size={13} color={isExpired ? '#DC2626' : '#CBD5E1'} />
         </div>
       </div>
     );
@@ -640,7 +661,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
               width: '36px', height: '36px', borderRadius: '10px',
-              background: 'linear-gradient(135deg, #4d6076, #6e859b)',
+              background: 'linear-gradient(135deg, #064E3B, #059669)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
               <MapPin size={18} color="#fff" />
@@ -668,7 +689,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <button
               onClick={() => setMobileTab('map')}
               className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${
-                mobileTab === 'map' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-600'
+                mobileTab === 'map' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600'
               }`}
             >
               Map
@@ -778,7 +799,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               <tr>
                 <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Odo (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
-                  {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? 0) || 0)).toLocaleString()}
+                  {Math.max(0, Math.round(Number(liveRouteMetrics[hoveredVehicle.id]?.dynamicOdo ?? hoveredVehicle.current_odometer ?? hoveredVehicle.today_distance ?? 0) || 0)).toLocaleString()}
                 </td>
                 <td style={{ color: '#64748b', padding: '2px 0', width: '28%' }}>Covered (Kms)</td>
                 <td style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0', width: '22%' }}>
@@ -847,13 +868,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           style={{ height: '100%', position: 'relative' }}
         >
           {/* Header Section */}
-          <div style={{ padding: '14px 14px 10px 14px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+          <div style={{ padding: '10px 12px 8px 12px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <div>
-                <h2 style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+                <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
                   Fleet Vehicles
                 </h2>
-                <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginTop: '2px' }}>
+                <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
                   {filtered.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
                 </div>
               </div>
@@ -861,19 +882,19 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 onClick={() => refetch()}
                 style={{
                   background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
-                  cursor: 'pointer', padding: '5px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
+                  cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
                 }}
                 title="Refresh"
                 onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
               >
-                <RefreshCw size={13} />
+                <RefreshCw size={12} />
               </button>
             </div>
 
             {/* Search vehicle input */}
-            <div style={{ position: 'relative', width: '100%', marginBottom: '8px' }}>
-              <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)' }} />
+            <div style={{ position: 'relative', width: '100%' }}>
+              <Search size={13} color="#94A3B8" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
                 placeholder="Search vehicle..."
@@ -881,54 +902,16 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '6px 10px 6px 30px',
-                  borderRadius: '8px',
+                  padding: '5px 8px 5px 28px',
+                  borderRadius: '6px',
                   border: '1px solid #E2E8F0',
                   background: '#F8FAFC',
-                  fontSize: '12px',
+                  fontSize: '11.5px',
                   outline: 'none',
                   color: '#0F172A',
                   boxSizing: 'border-box'
                 }}
               />
-            </div>
-
-            {/* Status Filter Badges */}
-            <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '2px' }}>
-              {[
-                { key: null, label: `All ${vehicles.length}` },
-                { key: 'running', label: `Running ${metrics.running}`, color: '#10B981' },
-                { key: 'idle', label: `Idle ${metrics.idle}`, color: '#F59E0B' },
-                { key: 'parked', label: `Parked ${metrics.parked}`, color: '#64748B' },
-                { key: 'offline', label: `No Data ${metrics.offline || 0}`, color: '#EF4444' },
-                { key: 'unreachable', label: `Unreachable ${(metrics.unreachable || 0) + (metrics.unavailable || 0)}`, color: '#94A3B8' },
-              ].map(pill => {
-                const active = statusFilter === pill.key;
-                const isAllPill = pill.key === null;
-                return (
-                  <button
-                    key={pill.key || 'all'}
-                    onClick={() => setStatusFilter(pill.key)}
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: 700,
-                      padding: '4px 10px',
-                      borderRadius: '14px',
-                      border: active ? (isAllPill ? '1px solid #0F172A' : '1px solid #0EA5E9') : '1px solid #E2E8F0',
-                      background: active ? (isAllPill ? '#0F172A' : '#E0F2FE') : '#F8FAFC',
-                      color: active ? (isAllPill ? '#FFFFFF' : '#0284C7') : (pill.color || '#475569'),
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    {pill.color && <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: pill.color }} />}
-                    {pill.label}
-                  </button>
-                );
-              })}
             </div>
           </div>
 
@@ -966,7 +949,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        padding: '8px 14px',
+                        padding: '6px 12px',
                         background: '#F8FAFC',
                         borderTop: '1px solid #E2E8F0',
                         borderBottom: '1px solid #E2E8F0',

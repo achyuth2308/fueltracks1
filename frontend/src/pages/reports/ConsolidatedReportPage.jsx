@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
 import TelematicsTimePicker, { to12Hour } from '../../components/ui/TelematicsTimePicker';
 import {
@@ -126,9 +127,18 @@ const mergeTrafficIdles = (intervals, maxHaltSec = 120) => {
 };
 
 const ConsolidatedReportPage = () => {
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+
+  const pageTitle = useMemo(() => {
+    if (location.pathname.includes('fuel-refill')) return 'Fuel Refill Report';
+    if (location.pathname.includes('fuel-consumption')) return 'Fuel Consumption Report';
+    if (location.pathname.includes('kmpl-mileage')) return 'KMPL Mileage Report';
+    if (location.pathname.includes('lph-burn-rate')) return 'LPH Engine Burn Rate';
+    return 'Consolidated Report';
+  }, [location.pathname]);
 
   // Default to yesterday full 24h
   const defaultYesterday = getYesterdayString();
@@ -216,7 +226,15 @@ const ConsolidatedReportPage = () => {
             'Speed Hike (km/h)': interval.status === 'Moving' ? (interval.max_speed || 0) : 0,
             'Speed Avg (km/h)': interval.status === 'Moving' ? (interval.avg_speed || 0) : 0,
             'Latitude': interval.lat || v.start_lat || '-',
-            'Longitude': interval.lng || v.start_lng || '-'
+            'Longitude': interval.lng || v.start_lng || '-',
+            'Start Fuel (L)': v.start_fuel != null ? v.start_fuel : '-',
+            'End Fuel (L)': v.end_fuel != null ? v.end_fuel : '-',
+            'Refill (L)': v.total_refill || 0,
+            'Dispensed (L)': v.total_dispensed || 0,
+            'Theft (L)': v.total_theft || 0,
+            'Consumed (L)': v.consumption != null ? v.consumption : '-',
+            'Mileage (km/L)': v.kmpl != null ? v.kmpl : '-',
+            'Burn Rate (L/h)': v.lph != null ? v.lph : '-'
           });
         });
       } else {
@@ -261,24 +279,24 @@ const ConsolidatedReportPage = () => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
-              Consolidated Report
+              {pageTitle}
             </h3>
-            <Info size={16} color="#0284C7" style={{ cursor: 'pointer' }} />
+            <Info size={16} color="#059669" style={{ cursor: 'pointer' }} />
           </div>
 
           <button
             type="button"
             onClick={handleSetYesterday}
             style={{
-              padding: '6px 14px',
-              borderRadius: '4px',
+              padding: '6px 16px',
+              borderRadius: '999px',
               border: 'none',
-              background: '#0284C7',
+              background: '#064E3B',
               color: '#FFFFFF',
               fontSize: '12px',
               fontWeight: 700,
               cursor: 'pointer',
-              boxShadow: '0 1px 3px rgba(2, 132, 199, 0.25)'
+              boxShadow: '0 2px 5px rgba(6, 78, 59, 0.25)'
             }}
             title="Set date range to Yesterday full 24h"
           >
@@ -299,7 +317,7 @@ const ConsolidatedReportPage = () => {
             onChange={e => setFilters(prev => ({ ...prev, vehicleId: e.target.value }))}
             style={{
               padding: '6px 10px',
-              borderRadius: '4px',
+              borderRadius: '6px',
               border: '1px solid #CBD5E1',
               background: '#FFFFFF',
               color: '#0F172A',
@@ -347,17 +365,18 @@ const ConsolidatedReportPage = () => {
             onClick={() => handleFetchReport()}
             disabled={loading}
             style={{
-              padding: '6px 14px',
-              borderRadius: '4px',
-              border: '1px solid #CBD5E1',
-              background: '#FFFFFF',
-              color: '#0F172A',
+              padding: '6px 18px',
+              borderRadius: '999px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
+              color: '#FFFFFF',
               fontSize: '13px',
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: loading ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px'
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(5, 150, 105, 0.25)'
             }}
           >
             {loading ? <Loader2 size={13} className="animate-spin" /> : null}
@@ -368,7 +387,7 @@ const ConsolidatedReportPage = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
             <button
               type="button"
-              onClick={() => exportToExcel(getExportData(), 'Consolidated_Report')}
+              onClick={() => exportToExcel(getExportData(), pageTitle.replace(/\s+/g, '_'))}
               disabled={data.length === 0}
               style={{
                 display: 'flex',
@@ -390,7 +409,7 @@ const ConsolidatedReportPage = () => {
             </button>
             <button
               type="button"
-              onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), 'Consolidated_Report')}
+              onClick={() => exportToPDF(['Vehicle Name', 'Status', 'Start Time', 'End Time', 'Duration', 'Length (km)', 'Speed Hike (km/h)', 'Speed Avg (km/h)'], getExportData(), pageTitle.replace(/\s+/g, '_'))}
               disabled={data.length === 0}
               style={{
                 display: 'flex',
@@ -512,32 +531,55 @@ const ConsolidatedReportPage = () => {
                       </td>
                     </tr>
 
+                    {/* Fuel Summary Strip Row if fuel metrics exist */}
+                    {(vehicleItem.start_fuel != null || vehicleItem.total_refill > 0 || vehicleItem.total_dispensed > 0 || vehicleItem.total_theft > 0 || vehicleItem.consumption != null) && (
+                      <tr style={{ backgroundColor: '#F0FDF4' }}>
+                        <td colSpan={7} style={{ border: cellBorder, padding: '7px 16px', fontWeight: 'bold', fontSize: '12px', color: '#065F46', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', width: '100%', flexWrap: 'wrap', gap: '8px' }}>
+                            <span>Start Fuel: {vehicleItem.start_fuel != null ? `${vehicleItem.start_fuel} L` : '-'}</span>
+                            <span>End Fuel: {vehicleItem.end_fuel != null ? `${vehicleItem.end_fuel} L` : '-'}</span>
+                            <span style={{ color: '#047857' }}>Refill: +{vehicleItem.total_refill || 0} L</span>
+                            {vehicleItem.vehicle_category === 'dispenser' ? (
+                              <span style={{ color: '#2563EB' }}>Dispensed: {vehicleItem.total_dispensed || 0} L</span>
+                            ) : (
+                              <span style={{ color: (vehicleItem.total_theft > 0 ? '#DC2626' : '#64748B') }}>Theft: -{vehicleItem.total_theft || 0} L</span>
+                            )}
+                            <span style={{ color: '#D97706' }}>Consumed: {vehicleItem.consumption != null ? `${vehicleItem.consumption} L` : '-'}</span>
+                            {vehicleItem.vehicle_category !== 'generator' && (
+                              <span>Mileage: {vehicleItem.kmpl != null ? `${vehicleItem.kmpl} km/L` : '-'}</span>
+                            )}
+                            <span>Burn Rate: {vehicleItem.lph != null ? `${vehicleItem.lph} L/h` : '-'}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+
                     {/* 3. Two-Row Table Header */}
-                    <tr style={{ backgroundColor: '#ffffff' }}>
-                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                    <tr style={{ background: '#064E3B' }}>
+                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Status
                       </th>
-                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '180px' }}>
+                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '180px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Start
                       </th>
-                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '180px' }}>
+                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '180px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         End
                       </th>
-                      <th rowSpan={2} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '160px' }}>
+                      <th rowSpan={2} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', verticalAlign: 'middle', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', width: '160px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Duration (HH:MM:SS)
                       </th>
-                      <th colSpan={3} style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000' }}>
+                      <th colSpan={3} style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11.5px', color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Location Details
                       </th>
                     </tr>
-                    <tr style={{ backgroundColor: '#ffffff' }}>
-                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                    <tr style={{ background: '#064E3B' }}>
+                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Length
                       </th>
-                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '120px' }}>
+                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '120px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Speed Hike
                       </th>
-                      <th style={{ border: cellBorder, padding: '6px 8px', textAlign: 'center', fontWeight: 'bold', fontSize: '13px', color: '#000000', width: '110px' }}>
+                      <th style={{ border: '1px solid rgba(255,255,255,0.15)', padding: '7px 8px', textAlign: 'center', fontWeight: 800, fontSize: '11px', color: '#FFFFFF', width: '110px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                         Speed Avg
                       </th>
                     </tr>

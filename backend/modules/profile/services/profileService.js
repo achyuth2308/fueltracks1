@@ -84,28 +84,72 @@ class ProfileService {
     }
 
     // Inherit white-label dealer branding if organization is a sub-account/customer
-    if (!mainProfile.logo_url || !mainProfile.is_whitelabel_enabled) {
-      try {
-        const parentRes = await db.query('SELECT parent_id FROM organizations WHERE id = $1', [organizationId]);
-        if (parentRes.rows.length > 0 && parentRes.rows[0].parent_id) {
-          const parentProfile = await profileRepository.getProfile(parentRes.rows[0].parent_id);
-          if (parentProfile && (parentProfile.is_whitelabel_enabled || parentProfile.logo_url || parentProfile.brand_name)) {
-            mainProfile.brand_name = mainProfile.brand_name || parentProfile.brand_name;
-            mainProfile.brand_tagline = mainProfile.brand_tagline || parentProfile.brand_tagline;
-            mainProfile.logo_url = mainProfile.logo_url || parentProfile.logo_url;
-            mainProfile.favicon_url = mainProfile.favicon_url || parentProfile.favicon_url;
-            mainProfile.login_background_url = mainProfile.login_background_url || parentProfile.login_background_url;
-            mainProfile.primary_color = mainProfile.primary_color || parentProfile.primary_color;
-            mainProfile.secondary_color = mainProfile.secondary_color || parentProfile.secondary_color;
-            mainProfile.footer_text = mainProfile.footer_text || parentProfile.footer_text;
-            mainProfile.support_email = mainProfile.support_email || parentProfile.support_email;
-            mainProfile.support_phone = mainProfile.support_phone || parentProfile.support_phone;
-            mainProfile.is_whitelabel_enabled = parentProfile.is_whitelabel_enabled;
-          }
+    try {
+      const parentRes = await db.query(
+        `SELECT o.id, o.name, o.type, o.parent_id, o.email, o.phone,
+                u.email as dealer_email, u.phone as dealer_phone
+         FROM organizations o
+         LEFT JOIN users u ON u.org_id = o.id AND u.role = 'dealer'
+         WHERE o.id = (SELECT parent_id FROM organizations WHERE id = $1)
+         ORDER BY u.created_at ASC
+         LIMIT 1`,
+        [organizationId]
+      );
+
+      const isSuperadminParent = parentRes.rows.length > 0 && 
+        (parentRes.rows[0].id === 'a0000000-0000-0000-0000-000000000001' || parentRes.rows[0].type === 'super');
+
+      if (mainProfile.org_type === 'dealer') {
+        // Dealer organization viewing their own profile
+        mainProfile.is_dealer = true;
+        mainProfile.is_dealer_customer = false;
+        mainProfile.is_fueltracks_direct = false;
+        mainProfile.dealer_name = mainProfile.brand_name || mainProfile.org_name;
+        mainProfile.is_whitelabel_enabled = true;
+      } else if (parentRes.rows.length > 0 && !isSuperadminParent) {
+        // Customer under a Dealer (e.g. SAV BLUE METALS under SMTECHNOLOGIES)
+        const parentId = parentRes.rows[0].id;
+        const parentProfile = await profileRepository.getProfile(parentId);
+        const dealerOrg = parentRes.rows[0];
+
+        const dealerEmail = parentProfile?.support_email || dealerOrg.dealer_email || dealerOrg.email || null;
+        const dealerPhone = parentProfile?.support_phone || dealerOrg.dealer_phone || dealerOrg.phone || null;
+        const dealerName = parentProfile?.brand_name || parentProfile?.org_name || dealerOrg.name;
+
+        mainProfile.is_dealer_customer = true;
+        mainProfile.dealer_name = dealerName;
+        mainProfile.dealer_email = dealerEmail;
+        mainProfile.dealer_phone = dealerPhone;
+
+        // Customer organization inherits dealer's branding
+        mainProfile.brand_name = parentProfile?.brand_name || dealerName;
+        mainProfile.brand_tagline = parentProfile?.brand_tagline || mainProfile.brand_tagline;
+        mainProfile.logo_url = parentProfile?.logo_url || mainProfile.logo_url;
+        mainProfile.favicon_url = parentProfile?.favicon_url || mainProfile.favicon_url;
+        mainProfile.login_background_url = parentProfile?.login_background_url || mainProfile.login_background_url;
+        mainProfile.primary_color = parentProfile?.primary_color || mainProfile.primary_color;
+        mainProfile.secondary_color = parentProfile?.secondary_color || mainProfile.secondary_color;
+        mainProfile.footer_text = parentProfile?.footer_text || mainProfile.footer_text;
+
+        // Support details for dealer customers MUST ALWAYS be the dealer's details!
+        mainProfile.support_email = dealerEmail;
+        mainProfile.support_phone = dealerPhone;
+        mainProfile.is_whitelabel_enabled = true;
+        mainProfile.is_fueltracks_direct = false;
+      } else {
+        // Direct FuelTracks customer or Superadmin organization
+        const isSuperadmin = (mainProfile.org_type === 'super' || !parentRes.rows.length || isSuperadminParent);
+        mainProfile.is_dealer_customer = false;
+        mainProfile.is_fueltracks_direct = true;
+        if (!mainProfile.support_email && isSuperadmin) {
+          mainProfile.support_email = 'info@fueltracks.in';
         }
-      } catch (err) {
-        console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);
+        if (!mainProfile.support_phone && isSuperadmin) {
+          mainProfile.support_phone = '7337433351';
+        }
       }
+    } catch (err) {
+      console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);
     }
     
     // Fetch actual license limits from organization device limits

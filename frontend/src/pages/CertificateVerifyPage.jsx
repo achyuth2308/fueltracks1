@@ -2,8 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { useSearchParams, useParams, Link } from 'react-router-dom';
 import { ShieldCheck, CheckCircle2, Download, Printer, ArrowLeft, ExternalLink, RefreshCw, AlertTriangle, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
-import QRCode from 'qrcode';
+import html2canvas from 'html2canvas';
 import fuelTracksLogo from '../assets/fueltracks_cert_logo.png';
 
 export function resolveVltdManufacturer(deviceModel, serialNo, explicitMfr) {
@@ -342,15 +341,7 @@ const CertificateVerifyPage = () => {
   // Generate QR Code targeting real verification domain
   useEffect(() => {
     const verifyTarget = `https://app.fueltracks.in/verify/${encodeURIComponent(certData.certNumber)}`;
-    QRCode.toDataURL(verifyTarget, {
-      width: 160,
-      margin: 0,
-      errorCorrectionLevel: 'M',
-      color: {
-        dark: '#0f172a',
-        light: '#ffffff'
-      }
-    }).then(url => setQrCodeUrl(url)).catch(() => {});
+    setQrCodeUrl(`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(verifyTarget)}`);
   }, [certData.certNumber]);
 
   const handlePrint = () => {

@@ -296,9 +296,11 @@ const OnboardController = {
         );
 
         // Also create a vehicle in the vehicles table
+        const effectiveDeviceModel = deviceType || 'VOLTY';
         const metadata = {
           vehicleId: vehicleId || '',
           licenceNo: registrationNo || '',
+          deviceModel: effectiveDeviceModel,
           serviceEngineer: serviceEngineer || '',
           serviceEngineerMob: serviceEngineerMob || '',
           salesman: salesman || '',
@@ -323,8 +325,8 @@ const OnboardController = {
 
         await client.query(
           `INSERT INTO vehicles 
-            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date, is_active, timezone)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10)
+            (org_id, imei, name, plate, model, gps_sim_no, metadata, licence_issued_date, licence_expire_date, is_active, timezone, device_version)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, TRUE, $10, $11)
            ON CONFLICT (imei) DO UPDATE SET
              org_id = EXCLUDED.org_id,
              name = EXCLUDED.name,
@@ -335,8 +337,9 @@ const OnboardController = {
              licence_issued_date = EXCLUDED.licence_issued_date,
              licence_expire_date = EXCLUDED.licence_expire_date,
              timezone = EXCLUDED.timezone,
+             device_version = EXCLUDED.device_version,
              is_active = TRUE`,
-          [targetOrgId, deviceId, vehicleNameValue, registrationNo, vehicleTypeSelect, gpsSimNo, metadata, issuedDate, expireDate, timezone || 'UTC+05:30']
+          [targetOrgId, deviceId, vehicleNameValue, registrationNo, vehicleTypeSelect, gpsSimNo, metadata, issuedDate, expireDate, timezone || 'UTC+05:30', effectiveDeviceModel]
         );
 
         // Ensure vehicle_latest_state exists for the new vehicle

@@ -90,7 +90,7 @@ router.post('/billing/set-vehicle-amount', authorize('superadmin', 'dealer'), Ad
 // DEVICE QUOTA (tier-based limits per dealer org)
 // ============================================================
 router.get('/device-quota', authorize('superadmin', 'dealer'), AdminController.getDeviceQuota);
-router.patch('/orgs/:id/device-limits', authorize('superadmin'), AdminController.setDeviceLimits);
+router.patch('/orgs/:id/device-limits', authorize('superadmin', 'dealer'), AdminController.setDeviceLimits);
 
 // ============================================================
 // RENEWALS CONFIG

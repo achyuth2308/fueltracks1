@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { MapContainer, TileLayer, Polyline, CircleMarker, Popup, Marker, useMap, LayersControl } from 'react-leaflet';
 import { useLocation } from 'react-router-dom';
 import L from 'leaflet';
@@ -21,37 +21,68 @@ const isValidCoord = (lat, lng) => {
     lo > 68.0 && lo < 98.0;
 };
 
-const FitBoundsToRoute = ({ points }) => {
+const FitBoundsToRoute = ({ points, follow }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (points && points.length > 0) {
+    // Only fit full route bounds if follow mode is OFF (Free Map mode)
+    if (!follow && points && points.length > 0) {
       const validPoints = points.filter(p => p.lat != null && p.lng != null && isValidCoord(p.lat, p.lng));
       if (validPoints.length > 0) {
         const bounds = validPoints.map(p => [parseFloat(p.lat), parseFloat(p.lng)]);
         map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
       }
     }
-  }, [points, map]);
+  }, [points, follow, map]);
 
   return null;
 };
 
-// Recenter Map dynamically if follow mode is active AND playback is playing
-const RecenterMap = ({ activePoint, follow, playbackSpeed, isPlaying }) => {
+// Recenter Map dynamically to active vehicle marker at street-level zoom (18)
+const RecenterMap = ({ activePoint, points, follow, playbackSpeed, isPlaying, recenterTrigger }) => {
   const map = useMap();
-  useEffect(() => {
-    if (follow && isPlaying && activePoint && activePoint.lat && activePoint.lng) {
-      if (isValidCoord(activePoint.lat, activePoint.lng)) {
-        let durationSec = 0.4;
-        if (playbackSpeed === 'Slow') durationSec = 0.8;
-        if (playbackSpeed === 'Fast') durationSec = 0.08;
+  const prevFollowRef = useRef(follow);
+  const prevTriggerRef = useRef(recenterTrigger);
 
-        // Smoothly pan to center active vehicle without altering zoom level
-        map.panTo([parseFloat(activePoint.lat), parseFloat(activePoint.lng)], { animate: true, duration: durationSec, easeLinearity: 1 });
-      }
+  useEffect(() => {
+    if (!follow) {
+      prevFollowRef.current = follow;
+      return;
     }
-  }, [activePoint, follow, isPlaying, map, playbackSpeed]);
+
+    const targetPoint = (activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng))
+      ? activePoint
+      : (points && points.length > 0 && isValidCoord(points[0].lat, points[0].lng) ? points[0] : null);
+
+    if (!targetPoint) {
+      prevFollowRef.current = follow;
+      return;
+    }
+
+    const lat = parseFloat(targetPoint.lat);
+    const lng = parseFloat(targetPoint.lng);
+    const currentZoom = map.getZoom();
+    const targetZoom = 18;
+    const justTurnedOnFollow = !prevFollowRef.current && follow;
+    const triggerClicked = recenterTrigger !== prevTriggerRef.current;
+    prevFollowRef.current = follow;
+    prevTriggerRef.current = recenterTrigger;
+
+    if (justTurnedOnFollow || triggerClicked || currentZoom < 17) {
+      // Zoom to maximum street level (18) directly on the vehicle marker
+      map.setView([lat, lng], targetZoom, { animate: true, duration: 0.6 });
+    } else if (isPlaying) {
+      let durationSec = 0.4;
+      if (playbackSpeed === 'Slow') durationSec = 0.8;
+      if (playbackSpeed === 'Fast') durationSec = 0.08;
+
+      // Smoothly pan to center active vehicle while staying zoomed in at street level
+      map.panTo([lat, lng], { animate: true, duration: durationSec, easeLinearity: 1 });
+    } else {
+      map.setView([lat, lng], Math.max(currentZoom, targetZoom), { animate: true, duration: 0.3 });
+    }
+  }, [activePoint, points, follow, isPlaying, map, playbackSpeed, recenterTrigger]);
+
   return null;
 };
 
@@ -101,10 +132,52 @@ const formatDuration = (ms) => {
   return parts.join(' ');
 };
 
-const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1, isPlaying = false }) => {
+const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName = 'Vehicle', vehicleLastKnownPosition = null, playbackSpeed = 1, isPlaying = false, onSetGeofence = null, selectedStoppage = null }) => {
   const location = useLocation();
   const [follow, setFollow] = useState(true);
+  const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [showEvents, setShowEvents] = useState(true);
+
+  // 3-second Stoppage Card overlay state & timer
+  const [displayedStoppage, setDisplayedStoppage] = useState(null);
+  const stoppageTimerRef = useRef(null);
+
+  const triggerStoppageCard = useCallback((stop) => {
+    if (!stop) return;
+    setDisplayedStoppage(stop);
+    if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    stoppageTimerRef.current = setTimeout(() => {
+      setDisplayedStoppage(null);
+    }, 3000);
+  }, []);
+
+  const handleStoppageMouseEnter = () => {
+    if (stoppageTimerRef.current) {
+      clearTimeout(stoppageTimerRef.current);
+      stoppageTimerRef.current = null;
+    }
+  };
+
+  const handleStoppageMouseLeave = () => {
+    if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    stoppageTimerRef.current = setTimeout(() => {
+      setDisplayedStoppage(null);
+    }, 3000);
+  };
+
+  // Trigger when a stoppage row is clicked from HistoryPage
+  useEffect(() => {
+    if (selectedStoppage) {
+      triggerStoppageCard(selectedStoppage);
+    }
+  }, [selectedStoppage, triggerStoppageCard]);
+
+  // Cleanup stoppage timer on unmount
+  useEffect(() => {
+    return () => {
+      if (stoppageTimerRef.current) clearTimeout(stoppageTimerRef.current);
+    };
+  }, []);
 
   const { profile } = useProfile();
   const apiKey = profile?.api_key || '';
@@ -471,6 +544,20 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
     });
   }, [activePoint, stoppages]);
 
+  // When activePoint enters a stoppage during playback, display stoppage card for 3 seconds
+  const prevActiveStopKeyRef = useRef(null);
+  useEffect(() => {
+    if (activeStoppage) {
+      const stopKey = `${activeStoppage.startTime}_${activeStoppage.lat}_${activeStoppage.lng}`;
+      if (prevActiveStopKeyRef.current !== stopKey) {
+        prevActiveStopKeyRef.current = stopKey;
+        triggerStoppageCard(activeStoppage);
+      }
+    } else {
+      prevActiveStopKeyRef.current = null;
+    }
+  }, [activeStoppage, triggerStoppageCard]);
+
   // Sliced positions up to current playback index
   const validCurrentIndex = React.useMemo(() => {
     if (!activePoint || validPoints.length === 0) return -1;
@@ -519,16 +606,21 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}>
-      {/* Following Vehicle toggle - only show when route is plotted */}
+      {/* Map Control Toolbar */}
       {points.length > 0 && (
-        <>
+        <div style={{ position: 'absolute', top: '16px', left: '72px', zIndex: 1000, display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
-            onClick={() => setFollow(!follow)}
+            onClick={() => {
+              if (!follow) {
+                setFollow(true);
+                setRecenterTrigger(c => c + 1);
+              } else {
+                // If clicked while already following, re-center & zoom directly into the marker
+                setRecenterTrigger(c => c + 1);
+              }
+            }}
+            title={follow ? 'Following vehicle at max zoom (Click to re-center & zoom)' : 'Follow Vehicle (Zooms into marker)'}
             style={{
-              position: 'absolute',
-              top: '16px',
-              left: '72px',
-              zIndex: 1000,
               background: follow ? '#0ea5e9' : '#ffffff',
               color: follow ? '#ffffff' : '#475569',
               border: '1px solid #e2e8f0',
@@ -545,17 +637,61 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             }}
           >
             {follow ? <Eye size={15} /> : <EyeOff size={15} />}
-            {follow ? 'Following Vehicle' : 'Free Map'}
+            {follow ? 'Following Vehicle' : 'Follow Vehicle'}
           </button>
+
+          {follow ? (
+            <button
+              onClick={() => setFollow(false)}
+              title="Show entire route on map (Free Map mode)"
+              style={{
+                background: '#ffffff',
+                color: '#64748b',
+                border: '1px solid #e2e8f0',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                transition: 'all 0.2s ease-in-out'
+              }}
+            >
+              <EyeOff size={14} /> Full Route
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setFollow(true);
+                setRecenterTrigger(c => c + 1);
+              }}
+              title="Click to zoom in to vehicle marker"
+              style={{
+                background: '#f8fafc',
+                color: '#0ea5e9',
+                border: '1px solid #bae6fd',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '12px',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+              }}
+            >
+              Free Map (Click to Zoom In)
+            </button>
+          )}
 
           <button
             onClick={() => setSnapToRoads(!snapToRoads)}
             disabled={isSnapping}
             style={{
-              position: 'absolute',
-              top: '16px',
-              left: '235px',
-              zIndex: 1000,
               background: snapToRoads ? '#10B981' : '#ffffff',
               color: snapToRoads ? '#ffffff' : '#475569',
               border: '1px solid #e2e8f0',
@@ -579,58 +715,109 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             )}
             {isSnapping ? 'Snapping...' : snapToRoads ? 'Snapped to Roads' : 'Raw GPS'}
           </button>
-        </>
+        </div>
       )}
 
 
 
-      {/* Active Stoppage Floating Card (Left side overlay) */}
-      {activeStoppage && (
-        <div style={{
-          position: 'absolute',
-          top: '70px',
-          left: '180px',
-          zIndex: 1000,
-          background: '#ffffff',
-          borderRadius: '8px',
-          padding: '16px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          border: '1px solid #e2e8f0',
-          width: '260px',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-          animation: 'fadeIn 0.3s ease-out'
-        }}>
-          <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '14px', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-            Vehicle Stopped
+      {/* 3-Second Stoppage Floating Card (Left side overlay) */}
+      {displayedStoppage && (
+        <div
+          onMouseEnter={handleStoppageMouseEnter}
+          onMouseLeave={handleStoppageMouseLeave}
+          style={{
+            position: 'absolute',
+            top: '70px',
+            left: '72px',
+            zIndex: 1000,
+            background: '#ffffff',
+            borderRadius: '10px',
+            padding: '16px',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.18)',
+            border: '1px solid #e2e8f0',
+            width: '275px',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            animation: 'fadeIn 0.25s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '8px', marginBottom: '12px' }}>
+            <div style={{ fontWeight: 800, color: '#ef4444', fontSize: '13.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+              Vehicle Stopped
+            </div>
+            <button
+              type="button"
+              onClick={() => setDisplayedStoppage(null)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '14px',
+                fontWeight: 700,
+                lineHeight: 1
+              }}
+              title="Close stoppage card"
+            >
+              ✕
+            </button>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', color: '#334155', marginBottom: '12px', fontSize: '12px' }}>
             <tbody>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Stopped At</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.startTime)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(displayedStoppage.startTime)}</td>
               </tr>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Started At</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(activeStoppage.endTime)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700 }}>{formatLocalTime(displayedStoppage.endTime)}</td>
               </tr>
               <tr>
                 <td style={{ paddingBottom: '6px', fontWeight: 600 }}>Duration</td>
-                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(activeStoppage.durationMs)}</td>
+                <td style={{ paddingBottom: '6px', textAlign: 'right', fontWeight: 700, color: '#ef4444' }}>{formatDuration(displayedStoppage.durationMs)}</td>
               </tr>
             </tbody>
           </table>
           <div style={{ textAlign: 'center', color: '#64748B', fontSize: '11px', background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '12px', lineHeight: '1.4' }}>
-            <LocationDisplay lat={activeStoppage.lat} lng={activeStoppage.lng} />
+            <LocationDisplay lat={displayedStoppage.lat} lng={displayedStoppage.lng} />
           </div>
           <a
-            href={`https://maps.google.com/?q=${activeStoppage.lat},${activeStoppage.lng}`}
+            href={`https://maps.google.com/?q=${displayedStoppage.lat},${displayedStoppage.lng}`}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '8px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s' }}
+            style={{ display: 'block', textAlign: 'center', background: '#3B82F6', color: '#FFFFFF', padding: '7px 0', borderRadius: '6px', textDecoration: 'none', fontWeight: 600, fontSize: '12px', transition: 'background 0.2s', marginBottom: '8px' }}
           >
             View in Google Maps
           </a>
+          {onSetGeofence && (
+            <button
+              type="button"
+              onClick={() => {
+                onSetGeofence(displayedStoppage);
+                setDisplayedStoppage(null);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                width: '100%',
+                background: '#10B981',
+                color: '#FFFFFF',
+                padding: '8px 0',
+                borderRadius: '6px',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(16,185,129,0.25)'
+              }}
+            >
+              🛡️ Set Geofence Here
+            </button>
+          )}
         </div>
       )}
 
@@ -648,8 +835,15 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
       </style>
       <MapContainer
         key={location.pathname}
-        center={center}
-        zoom={13}
+        center={
+          activePoint && activePoint.lat && activePoint.lng && isValidCoord(activePoint.lat, activePoint.lng)
+            ? [parseFloat(activePoint.lat), parseFloat(activePoint.lng)]
+            : (points && points.length > 0 && isValidCoord(points[0].lat, points[0].lng)
+              ? [parseFloat(points[0].lat), parseFloat(points[0].lng)]
+              : center)
+        }
+        zoom={18}
+        maxZoom={19}
         className="w-full h-full"
         zoomControl={false}
       >
@@ -658,6 +852,8 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             <TileLayer
               attribution='&copy; OpenStreetMap contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxNativeZoom={19}
+              maxZoom={19}
             />
           </BaseLayer>
 
@@ -681,12 +877,23 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
             <TileLayer
               attribution='&copy; Esri'
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxNativeZoom={19}
+              maxZoom={19}
             />
           </BaseLayer>
         </LayersControl>
 
-        <FitBoundsToRoute points={points} />
-        {points.length > 0 && <RecenterMap activePoint={activePoint} follow={follow} playbackSpeed={playbackSpeed} isPlaying={isPlaying} />}
+        <FitBoundsToRoute points={points} follow={follow} />
+        {points.length > 0 && (
+          <RecenterMap
+            activePoint={activePoint}
+            points={points}
+            follow={follow}
+            playbackSpeed={playbackSpeed}
+            isPlaying={isPlaying}
+            recenterTrigger={recenterTrigger}
+          />
+        )}
         <MapResizer />
 
 
@@ -984,6 +1191,11 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
           <Marker
             key={`stop-${idx}`}
             position={[stop.lat, stop.lng]}
+            eventHandlers={{
+              click: () => {
+                triggerStoppageCard(stop);
+              }
+            }}
             icon={L.divIcon({
               html: `<div style="background: #ef4444; border: 2px solid #FFFFFF; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">
                 <span style="color: white; font-size: 12px; font-weight: bold; line-height: 1;">P</span>
@@ -1026,6 +1238,31 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
                 >
                   View in Google Maps
                 </a>
+                {onSetGeofence && (
+                  <button
+                    type="button"
+                    onClick={() => onSetGeofence(stop)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      width: '100%',
+                      background: '#10B981',
+                      color: '#FFFFFF',
+                      padding: '6px 0',
+                      borderRadius: '4px',
+                      border: 'none',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      marginTop: '6px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    🛡️ Set Geofence Here
+                  </button>
+                )}
               </div>
             </Popup>
           </Marker>
@@ -1054,6 +1291,13 @@ const RouteMap = ({ points = [], activePoint = null, vehicle = null, vehicleName
               icon={activeVehicleIcon}
               zIndexOffset={1000}
               ref={activeMarkerRef}
+              eventHandlers={{
+                click: (e) => {
+                  const lat = parseFloat(activePoint.lat);
+                  const lng = parseFloat(activePoint.lng);
+                  e.target._map?.setView([lat, lng], 18, { animate: true });
+                }
+              }}
             >
               <Popup className="premium-popup modern-hover-card history-playback-popup" autoPan={false}>
                 <div style={{ fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: '11.5px', padding: '6px', minWidth: '190px', background: '#FFFFFF' }}>

@@ -33,8 +33,9 @@ const LoginPage = () => {
 
     if (!dealerParam && typeof window !== 'undefined' && window.location.hostname) {
       const hostname = window.location.hostname.toLowerCase();
+      const isIpOrLocal = /^(\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname === 'localhost' || hostname === '127.0.0.1';
       // If visiting a custom dealership domain (e.g., gps.smtechnologies.org or smtechnologies.org)
-      if (!hostname.includes('fueltracks.in') && !hostname.includes('fueltracks.com') && !hostname.includes('localhost') && hostname !== '127.0.0.1') {
+      if (!isIpOrLocal && !hostname.includes('fueltracks.in') && !hostname.includes('fueltracks.com')) {
         customDomain = true;
         const parts = hostname.split('.');
         if (parts.length >= 3 && ['gps', 'track', 'fleet', 'portal', 'app', 'www'].includes(parts[0])) {
@@ -42,7 +43,7 @@ const LoginPage = () => {
         } else {
           dealerParam = parts[0]; // e.g. "smtechnologies"
         }
-      } else {
+      } else if (!isIpOrLocal) {
         // Platform subdomains, e.g. gps.fueltracks.com or smtechnologies.fueltracks.in
         const parts = hostname.split('.');
         if (parts.length > 2 && !['www', 'app', 'localhost', 'dev'].includes(parts[0])) {

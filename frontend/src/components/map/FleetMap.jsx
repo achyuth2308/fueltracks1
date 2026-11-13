@@ -7,7 +7,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { Truck, User } from 'lucide-react';
-import { formatSpeed, getBatteryStatus } from '../../utils/formatUtils';
+import { formatSpeed, formatVoltage, formatDirection, formatOdometer, formatFuel, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
@@ -45,7 +45,7 @@ const formatCardDateTime = (dateStr) => {
 };
 
 // ── Live Route Plotting & Following for Selected Vehicle ─────────────
-const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false, onRouteFetched }) => {
+const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles = [], showRoute = false, followSelected = false, onRouteFetched, isMultiMode = false }) => {
   const map = useMap();
   const [routePoints, setRoutePoints] = useState([]);
   const [liveTrail, setLiveTrail] = useState([]);
@@ -97,8 +97,9 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
   useEffect(() => {
     const targetVehicleId = selectedVehicle?.id || (selectedVehicles && selectedVehicles[0]?.id);
 
-    if (!showRoute || !targetVehicleId) {
+    if (!showRoute || !targetVehicleId || isMultiMode) {
       setRoutePoints([]);
+      setLiveTrail([]);
       return;
     }
 
@@ -142,7 +143,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     const hasValidCoords = !isNaN(lat) && !isNaN(lng) && lat > 6.5 && lat < 37.5 && lng > 68.0 && lng < 98.0;
 
     if (hasValidCoords) {
-      map.setView([lat, lng], 16, { animate: false });
+      map.setView([lat, lng], 18, { animate: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedVehicle?.id, selectedVehicles?.[0]?.id]);
@@ -290,6 +291,8 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     popupAnchor: [30, -36],
   });
 
+  if (isMultiMode || !showRoute) return null;
+
   return (
     <>
       {segments.map((seg, idx) => seg.length > 1 && (
@@ -325,7 +328,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
 import { getVehicleType, getVehicleStatus, STATUS_CONFIG, createPinIcon, createTeardropIcon } from '../../utils/markerUtils';
 
-const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, liveRouteMetrics = {} }) => {
+const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, liveRouteMetrics = {}, isMultiMode = false }) => {
   const markerRef = useRef(null);
   const navigate = useNavigate();
   const map = useMap();
@@ -410,7 +413,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
       }
 
       // Draw the "pouring" trail behind the vehicle while it animates
-      if (map) {
+      if (map && !isMultiMode) {
         if (!pouringLine) {
           // Inner bright line
           pouringLine = L.polyline([[fromLat, fromLng], [lat, lng]], { color: "#38BDF8", weight: 3, opacity: 1 }).addTo(map);
@@ -508,7 +511,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
             </div>
           )}
 
-          {/* Table Grid matching Image 2 */}
+          {/* Table Grid matching Screenshot */}
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', lineHeight: '1.6' }}>
             <tbody>
               <tr>
@@ -546,7 +549,9 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
               ) : (
                 <tr>
                   <td style={{ color: '#4b5563', fontWeight: 600, padding: '2px 0' }}>Moving</td>
-                  <td style={{ color: '#10b981', fontWeight: 700, padding: '2px 0' }}>- {status === 'running' ? 'Running' : status === 'idle' ? 'Idle' : 'Parked'}</td>
+                  <td style={{ color: status === 'running' ? '#10b981' : status === 'idle' ? '#f59e0b' : '#64748b', fontWeight: 700, padding: '2px 0' }}>
+                    - {status === 'running' ? 'Running' : status === 'idle' ? 'Idle' : 'Parked'}
+                  </td>
                 </tr>
               )}
               <tr>
@@ -567,10 +572,35 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
           </table>
 
           {/* Action Links */}
-          <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
-            <a href="/admin/reports" style={{ color: '#0284c7', textDecoration: 'none' }}>Reports</a>
-            <a href={`/vehicles/${vehicle.id}`} style={{ color: '#0284c7', textDecoration: 'none' }}>Track</a>
-            <a href={`/vehicles/${vehicle.id}/history`} style={{ color: '#0284c7', textDecoration: 'none' }}>History</a>
+          <div style={{ display: 'flex', gap: '14px', borderTop: '1px solid #f1f5f9', paddingTop: '8px', marginTop: '6px', fontSize: '11px', fontWeight: 700 }}>
+            <a
+              href="/reports"
+              onClick={(e) => { e.preventDefault(); navigate('/reports'); }}
+              style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              Reports
+            </a>
+            <a
+              href={`/tracking?vehicle=${vehicle.id}`}
+              onClick={(e) => { e.preventDefault(); navigate(`/tracking?vehicle=${vehicle.id}`); }}
+              style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              Track
+            </a>
+            <a
+              href={`/vehicles/${vehicle.id}/history`}
+              onClick={(e) => { e.preventDefault(); navigate(`/vehicles/${vehicle.id}/history`); }}
+              style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              History
+            </a>
+            <a
+              href={`/vehicles/${vehicle.id}`}
+              onClick={(e) => { e.preventDefault(); navigate(`/vehicles/${vehicle.id}`); }}
+              style={{ color: '#0284c7', textDecoration: 'none', cursor: 'pointer' }}
+            >
+              Details
+            </a>
           </div>
         </div>
       </Popup>
@@ -580,7 +610,7 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
 
 // ── Dynamic Vehicle Markers Layer ──────────────────────────────────────
 
-const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick, liveRouteMetrics }) => {
+const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick, liveRouteMetrics = {}, isMultiMode = false }) => {
   const map = useMap();
 
   // Step 1: resolve / validate every vehicle's coordinates
@@ -619,6 +649,7 @@ const VehicleMarkersLayer = ({ vehicles, allSelected, onMarkerClick, liveRouteMe
             onMarkerClick={onMarkerClick}
             zIndexOffset={zOffset}
             liveRouteMetrics={liveRouteMetrics}
+            isMultiMode={isMultiMode}
           />
         );
       })}
@@ -655,6 +686,7 @@ const FleetMap = ({
   selectedVehicle = null,
   selectedVehicles = null,
   onMarkerClick,
+  isMultiMode = false,
   showRoute = false,
   followSelected = false,
   nearbyRadius = null,
@@ -699,13 +731,13 @@ const FleetMap = ({
         background: '#ffffff',
         border: '1px solid #bae6fd',
         borderRadius: '8px',
-        padding: '6px 10px',
+        padding: '4px 8px',
         boxShadow: '0 2px 10px rgba(249,115,22,0.15)',
         display: 'flex',
         alignItems: 'center',
         gap: '6px'
       }}>
-        <span style={{ fontSize: '11px', fontWeight: 700, color: '#4d6076' }}>Map Type:</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#4d6076' }}>Map:</span>
         <select
           value={mapType}
           onChange={(e) => setMapType(e.target.value)}
@@ -719,9 +751,9 @@ const FleetMap = ({
             cursor: 'pointer'
           }}
         >
-          <option value="osm">OpenStreetMap Standard (OSM)</option>
-          <option value="google">Google Maps Roadmap</option>
-          <option value="satellite">Satellite View</option>
+          <option value="osm">OSM</option>
+          <option value="google">Google</option>
+          <option value="satellite">Satellite</option>
         </select>
       </div>
 
@@ -778,9 +810,10 @@ const FleetMap = ({
         <VehicleRouteAndFit
           selectedVehicle={effectiveSelected}
           vehicles={vehicles}
-          showRoute={showRoute || !!effectiveSelected}
-          followSelected={followSelected}
+          showRoute={!isMultiMode && (showRoute || !!effectiveSelected)}
+          followSelected={!isMultiMode && followSelected}
           onRouteFetched={onRouteFetched}
+          isMultiMode={isMultiMode}
         />
 
         {/* Vehicle Markers — Dynamic screen-space clustering */}
@@ -789,6 +822,7 @@ const FleetMap = ({
           allSelected={allSelected}
           onMarkerClick={onMarkerClick}
           liveRouteMetrics={liveRouteMetrics}
+          isMultiMode={isMultiMode}
         />
       </MapContainer>
 

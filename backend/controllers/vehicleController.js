@@ -65,8 +65,8 @@ const VehicleController = {
                COALESCE(vls.today_distance, 0) as cdist,
                GREATEST(0, CASE
                  WHEN v.metadata->>'odometerReading' IS NOT NULL AND v.metadata->>'odometerReading' != '' AND v.metadata->>'odometerReading' != '0'
-                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(vls.today_distance, vls.odometer, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
-                 ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(vls.today_distance, vls.odometer, 0) END
+                 THEN COALESCE(CAST(NULLIF(v.metadata->>'odometerReading','') AS NUMERIC), 0) + GREATEST(0, (CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END) - COALESCE(CAST(NULLIF(v.metadata->>'odometerSnapshot','') AS NUMERIC), 0))
+                 ELSE CASE WHEN vls.today_start_odometer IS NOT NULL THEN (COALESCE(vls.today_start_odometer, 0) + COALESCE(vls.today_distance, 0)) ELSE COALESCE(NULLIF(vls.odometer, 0), vls.today_distance, 0) END
                END) as dynamic_odo
         FROM vehicles v
         LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
@@ -748,15 +748,7 @@ const VehicleController = {
   async migrateVehicle(req, res, next) {
     try {
       const { id } = req.params;
-      const { newImei } = req.body;
-
-      if (!newImei || !/^\d{15}$/.test(newImei)) {
-        return res.status(400).json({
-          success: false,
-          error: 'A valid 15-digit new IMEI number is required.',
-          code: 'VALIDATION_ERROR'
-        });
-      }
+      const { mode, newImei, newPlate, newName, targetOrgId, model, category, deactivateOldVehicle } = req.body;
 
       // Ownership check
       if (req.user.role !== 'superadmin') {
@@ -770,6 +762,55 @@ const VehicleController = {
         }
       }
 
+      // ── MODE 2: Reassign existing device to a NEW vehicle / customer (Clean History) ──
+      if (mode === 'reassign_device') {
+        if (!newPlate || !newPlate.trim()) {
+          return res.status(400).json({
+            success: false,
+            error: 'New Vehicle Registration Plate / Number is required.',
+            code: 'VALIDATION_ERROR'
+          });
+        }
+
+        // Verify plate is not already taken by another active vehicle
+        const dupPlate = await db.query(
+          `SELECT id FROM vehicles WHERE LOWER(TRIM(plate)) = LOWER(TRIM($1)) AND is_active = TRUE LIMIT 1`,
+          [newPlate.trim()]
+        );
+        if (dupPlate.rows.length > 0) {
+          return res.status(409).json({
+            success: false,
+            error: `An active vehicle with plate "${newPlate.trim()}" already exists.`,
+            code: 'PLATE_ALREADY_EXISTS'
+          });
+        }
+
+        const newVehicle = await VehicleModel.reassignDeviceToNewVehicle({
+          oldVehicleId: id,
+          newPlate: newPlate.trim(),
+          newName: (newName || newPlate).trim(),
+          targetOrgId: req.user.role === 'superadmin' ? targetOrgId : (targetOrgId || req.user.orgId),
+          model,
+          category,
+          deactivateOldVehicle: !!deactivateOldVehicle
+        });
+
+        return res.status(200).json({
+          success: true,
+          data: newVehicle,
+          message: 'Device transferred to new vehicle successfully. New vehicle starts with clean history.'
+        });
+      }
+
+      // ── MODE 1: Replace hardware device on the SAME vehicle (Keeps history) ──
+      if (!newImei || !/^\d{15}$/.test(newImei)) {
+        return res.status(400).json({
+          success: false,
+          error: 'A valid 15-digit new IMEI number is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
       // Check if new IMEI is already in use
       const existing = await VehicleModel.findByImei(newImei);
       if (existing && existing.id !== id) {
@@ -781,10 +822,10 @@ const VehicleController = {
       }
 
       const migrated = await VehicleModel.migrate(id, newImei);
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: migrated,
-        message: 'Vehicle device migrated successfully.'
+        message: 'Vehicle device replaced successfully. Previous vehicle history preserved.'
       });
     } catch (err) {
       next(err);
@@ -1592,7 +1633,7 @@ const VehicleController = {
   async getVehicleMessages(req, res, next) {
     try {
       const { id } = req.params;
-      const { page, limit, date } = req.query;
+      const { page, limit, date, startDate, endDate, startTime, endTime, from, to } = req.query;
 
       // Look up vehicle by either IMEI or numeric ID
       let imei = null;

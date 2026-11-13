@@ -11,7 +11,7 @@ export const SocketProvider = ({ children }) => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token');
       const socketUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
       const socketInstance = io(socketUrl, {

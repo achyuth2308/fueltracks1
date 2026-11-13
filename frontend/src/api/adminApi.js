@@ -112,8 +112,9 @@ export const getAuditStats = async () => {
   return response.data;
 };
 
-export const impersonateUser = async (id) => {
-  const response = await axiosInstance.post(`/api/admin/users/${id}/impersonate`);
+export const impersonateUser = async (id, adminToken = null) => {
+  const config = adminToken ? { headers: { Authorization: `Bearer ${adminToken}` } } : {};
+  const response = await axiosInstance.post(`/api/admin/users/${id}/impersonate`, {}, config);
   return response.data;
 };
 

@@ -25,12 +25,61 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --danger-glow: rgba(239, 68, 68, 0.3);
-  --sidebar-width: 185px;
+  --sidebar-width: 210px;
   --topbar-height: 56px;
   --radius-card: 12px;
   --radius-btn: 8px;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  /* ---------- Global Dynamic Brand Custom Properties ---------- */
+  --brand-primary: #f97316;
+  --brand-secondary: #ea580c;
+  --brand-header: #1e1b4b;
+  --brand-topbar: #ffffff;
+  --brand-topbar-bg: #ffffff;
+  --brand-sidebar-bg: #f8fafc;
+  --brand-sidebar: #f8fafc;
+  --brand-accent: #f97316;
+  --brand-border: #e2e8f0;
+  --brand-glow: rgba(249, 115, 22, 0.25);
+  --brand-text-muted: #64748b;
+  --brand-badge-bg: #fff7ed;
+  --brand-badge-text: #c2410c;
+  --brand-badge-border: #ffedd5;
+}
+
+/* ============================================================
+   GLOBAL DYNAMIC THEME OVERRIDES
+   Ensures topbar, table headers, and portal accents match customized theme
+   ============================================================ */
+header.topbar-header,
+.topbar-header {
+  background: var(--brand-topbar-bg, #ffffff) !important;
+  border-bottom: 1px solid var(--brand-border, #e2e8f0) !important;
+  color: #0f172a !important;
+  transition: background 0.2s ease, border-color 0.2s ease !important;
+}
+
+table thead tr,
+thead tr,
+table thead th,
+thead th,
+.table-header,
+.admin-table thead tr,
+.pastel-table thead tr {
+  background: var(--brand-header, #0f172a) !important;
+  color: #ffffff !important;
+  transition: background-color 0.3s ease, background 0.3s ease;
+}
+
+/* Dynamic Primary Buttons */
+.btn-brand,
+.brand-btn,
+button.btn-primary {
+  background-color: var(--brand-primary) !important;
+  border-color: var(--brand-primary) !important;
+  color: #ffffff !important;
 }
 
 /* ---------- Base Reset ---------- */
@@ -93,6 +142,50 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.35);
+}
+
+/* ============================================================
+   INNOVATIVE CLASSIC TELEMATICS CURSOR POINTER
+   High-visibility precision pointer with vibrant sapphire/cyan jewel fill
+   and sharp pure-white stroke border for 100% contrast everywhere.
+   ============================================================ */
+body,
+html {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cpath d='M2 1l5.2 16 3-6.2L16.5 8 2 1z' fill='%230F172A' stroke='%23FFFFFF' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 2 1, default;
+}
+
+button,
+a,
+[role="button"],
+.cursor-pointer,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"],
+input[type="range"],
+.tab-button,
+.clickable-item {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath d='M3 2l5.5 17 3-6.5L18 9.5 3 2z' fill='%230284C7' stroke='%23FFFFFF' stroke-width='1.5' stroke-linejoin='round'/%3E%3Cpolygon points='5.5,5 9,15.5 11,11 15.5,9' fill='%2338BDF8'/%3E%3C/svg%3E") 3 2, pointer !important;
+}
+
+/* ============================================================
+   CLASSIC INNOVATIVE REPORT HEADING STYLES
+   Executive Deep Sapphire & Slate Navy with razor-sharp white text
+   ============================================================ */
+.report-excel-header th,
+.executive-table th,
+.report-th-classic {
+  background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%) !important;
+  color: #FFFFFF !important;
+  font-weight: 800 !important;
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  text-transform: uppercase !important;
+  border: 1px solid #334155 !important;
+  border-top: 2px solid #38BDF8 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+  padding: 6px 8px !important;
 }
 
 /* ---------- Typography ---------- */
@@ -190,6 +283,7 @@ p {
     opacity: 0;
     transform: translate3d(100%, 0, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -201,6 +295,7 @@ p {
     opacity: 0;
     transform: translate3d(0, -100%, 0);
   }
+
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -1017,9 +1112,11 @@ option {
   stroke: #e2e8f0 !important;
 }
 
-.report-table th, .report-table td {
+.report-table th,
+.report-table td {
   border: 1px solid #E2E8F0;
 }
+
 /* ============================================================
    PASTEL PROFESSIONAL THEME CLASSES
    ============================================================ */
@@ -1031,7 +1128,7 @@ option {
   background: #FFFFFF !important;
   border-radius: 16px !important;
   border: 1px solid #e2e8f0 !important;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.03) !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03) !important;
 }
 
 .pastel-table {
@@ -1053,16 +1150,17 @@ option {
   border-right: none !important;
 }
 
-/* Like gradient alternating colors */
+/* Clean neutral background matching dashboard */
 .pastel-page-bg {
-  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%) !important;
+  background: #f8fafc !important;
 }
 
 .pastel-table th {
-  background: #1e1b4b !important;
+  background: var(--brand-header, #0f172a) !important;
   color: #ffffff !important;
   font-weight: 800 !important;
   border-right: 1px solid rgba(255, 255, 255, 0.15) !important;
+  transition: background-color 0.3s ease, background 0.3s ease !important;
 }
 
 .pastel-table tr {
@@ -1095,10 +1193,12 @@ option {
   transition: none !important;
   animation: none !important;
 }
+
 .leaflet-cluster-anim .leaflet-marker-icon,
 .leaflet-cluster-anim .leaflet-marker-shadow {
   transition: none !important;
 }
+
 /* =================================================================================== */
 
 .marker-cluster {
@@ -1111,10 +1211,10 @@ option {
   font-family: 'Inter', sans-serif !important;
   font-weight: 800 !important;
   font-size: 14px !important;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   border-radius: 50% !important;
   border: 3px solid #ffffff !important;
-  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 14px rgba(37, 99, 235, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.2) !important;
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
@@ -1124,18 +1224,20 @@ option {
   margin-top: -5px;
   text-align: center;
 }
+
 .marker-cluster-medium div {
   background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.2) !important;
   width: 50px !important;
   height: 50px !important;
   margin-left: -8px;
   margin-top: -8px;
   font-size: 16px !important;
 }
+
 .marker-cluster-large div {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 4px 14px rgba(220, 38, 38, 0.6), inset 0 -2px 4px rgba(0, 0, 0, 0.2) !important;
   width: 58px !important;
   height: 58px !important;
   margin-left: -12px;
@@ -1205,6 +1307,7 @@ select option:focus {
 }
 
 @media (max-width: 768px) {
+
   /* Page Containers: Reduce rigid desktop 32px padding on mobile */
   .pastel-page-bg,
   [style*="padding: 32px"],
@@ -1275,6 +1378,7 @@ select option:focus {
 }
 
 @media (max-width: 480px) {
+
   /* Extra narrow screens (320px - 480px) */
   .pastel-page-bg {
     padding: 8px 6px !important;
@@ -1285,4 +1389,3 @@ select option:focus {
     grid-template-columns: 1fr !important;
   }
 }
-

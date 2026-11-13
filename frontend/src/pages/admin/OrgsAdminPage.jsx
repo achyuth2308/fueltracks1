@@ -240,10 +240,10 @@ const OrgsAdminPage = () => {
           onClick={() => handleOpenModal()}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#f97316', color: '#FFFFFF',
+            background: 'var(--brand-primary, #f97316)', color: '#FFFFFF',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 600, border: 'none',
-            cursor: 'pointer', boxShadow: '0 4px 12px rgba(249,115,22,0.2)',
+            cursor: 'pointer', boxShadow: '0 4px 12px var(--brand-glow, rgba(249,115,22,0.2))',
             transition: 'all 0.2s ease'
           }}
           onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 6px 16px rgba(249,115,22,0.3)'; }}
@@ -307,7 +307,7 @@ const OrgsAdminPage = () => {
           <div style={{ overflowX: 'visible', minHeight: '320px' }}>
             <table className="pastel-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: '#1e1b4b', borderBottom: '1px solid #E2E8F0' }}>
+                <tr style={{ background: 'var(--brand-header, #1e1b4b)', borderBottom: '1px solid #E2E8F0' }}>
                   <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
                     SNO
                   </th>
@@ -356,23 +356,23 @@ const OrgsAdminPage = () => {
                             justifyContent: 'center',
                             gap: '6px',
                             padding: '7px 18px',
-                            background: '#f97316',
+                            background: 'var(--brand-primary, #f97316)',
                             color: '#FFFFFF',
                             borderRadius: '8px',
                             fontSize: '13px',
                             fontWeight: 700,
                             border: 'none',
                             cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(249,115,22,0.25)',
+                            boxShadow: '0 2px 6px var(--brand-glow, rgba(249,115,22,0.25))',
                             transition: 'all 0.15s ease'
                           }}
                           onMouseEnter={e => {
-                            e.currentTarget.style.background = '#ea580c';
-                            e.currentTarget.style.boxShadow = '0 4px 10px rgba(249,115,22,0.35)';
+                            e.currentTarget.style.opacity = '0.9';
+                            e.currentTarget.style.boxShadow = '0 4px 10px var(--brand-glow, rgba(249,115,22,0.35))';
                           }}
                           onMouseLeave={e => {
-                            e.currentTarget.style.background = '#f97316';
-                            e.currentTarget.style.boxShadow = '0 2px 6px rgba(249,115,22,0.25)';
+                            e.currentTarget.style.opacity = '1';
+                            e.currentTarget.style.boxShadow = '0 2px 6px var(--brand-glow, rgba(249,115,22,0.25))';
                           }}
                         >
                           <span>Actions</span>

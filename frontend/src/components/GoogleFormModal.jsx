@@ -13,6 +13,7 @@ import {
   Globe,
   Sparkles
 } from 'lucide-react';
+import { copyToClipboard } from '../utils/clipboard';
 
 const GoogleFormModal = ({ isOpen, onClose }) => {
   const [formUrl, setFormUrl] = useState(() => {
@@ -50,16 +51,20 @@ const GoogleFormModal = ({ isOpen, onClose }) => {
     setIsEditingUrl(false);
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(formUrl);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
+  const handleCopyLink = async () => {
+    const ok = await copyToClipboard(formUrl);
+    if (ok) {
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    }
   };
 
-  const handleCopyWebhook = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopiedWebhook(true);
-    setTimeout(() => setCopiedWebhook(false), 2500);
+  const handleCopyWebhook = async () => {
+    const ok = await copyToClipboard(webhookUrl);
+    if (ok) {
+      setCopiedWebhook(true);
+      setTimeout(() => setCopiedWebhook(false), 2500);
+    }
   };
 
   const googleAppsScriptCode = `/**
@@ -102,10 +107,12 @@ function onFormSubmit(e) {
   UrlFetchApp.fetch(webhookUrl, options);
 }`;
 
-  const handleCopyScript = () => {
-    navigator.clipboard.writeText(googleAppsScriptCode);
-    setCopiedScript(true);
-    setTimeout(() => setCopiedScript(false), 2500);
+  const handleCopyScript = async () => {
+    const ok = await copyToClipboard(googleAppsScriptCode);
+    if (ok) {
+      setCopiedScript(true);
+      setTimeout(() => setCopiedScript(false), 2500);
+    }
   };
 
   return (

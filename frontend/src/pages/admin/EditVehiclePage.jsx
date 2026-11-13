@@ -305,7 +305,23 @@ const SectionTitle = ({ title }) => (
 
 const VEHICLE_TYPES = [
   'Bus', 'Truck', 'Car', 'Van', 'Scooty', 'Motorcycle', 'Tractor',
-  'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper'
+  'JCB', 'Crane', 'Ambulance', 'Pickup', 'Borewell', 'Tanker', 'Tipper',
+  'Fuel Dispenser / Bowser', 'Generator / DG Set'
+];
+
+const ASSET_CATEGORIES = [
+  { value: 'moving', label: 'Moving Vehicle (Truck, Tipper, Bus, Car, Van)' },
+  { value: 'machinery', label: 'Machinery (Borewell, JCB, Crane, Excavator, Rig)' },
+  { value: 'dispenser', label: 'Fuel Dispenser / Bowser (Mobile Tanker)' },
+  { value: 'generator', label: 'Generator / DG Set (Stationary Power Unit)' }
+];
+
+const MODE_OF_VEHICLE_OPTIONS = [
+  'None',
+  'Moving Vehicle',
+  'Machinery',
+  'Dispenser',
+  'Diesel Generator(DG)'
 ];
 
 const VEHICLE_MODELS = [
@@ -333,9 +349,28 @@ const VEHICLE_MODELS = [
 ];
 
 const DEVICE_MODELS = [
-  'GT06N (9964)', 'AIS140', 'AIS140 V2', 'VOLTY', 'BSTPL',
+  'VOLTY', 'AIS140', 'AIS140 V2', 'GT06N (9964)', 'BSTPL',
   'BSTPL-17IS', 'CONCOX', 'V5 4G', 'FMB 920', 'PT06', 'EC08', 'PN02', 'VOLTYFUEL', 'APMK', 'APM'
 ];
+
+const resolveDeviceModel = (raw) => {
+  if (!raw) return '';
+  const upper = String(raw).trim().toUpperCase();
+  if (upper.includes('VOLTYFUEL') || upper.includes('TRANSYNC') || upper.includes('NAV 140') || upper.includes('5011')) return 'VOLTYFUEL';
+  if (upper.includes('VOLTY') || upper.includes('5004')) return 'VOLTY';
+  if (upper.includes('AIS140 V2') || upper.includes('VAMO') || upper.includes('5003')) return 'AIS140 V2';
+  if (upper.includes('AIS140') || upper.includes('TRACKNOW') || upper.includes('5001')) return 'AIS140';
+  if (upper.includes('BSTPL-17IS') || upper.includes('5010')) return 'BSTPL-17IS';
+  if (upper.includes('BSTPL') || upper.includes('5000')) return 'BSTPL';
+  if (upper.includes('CONCOX') || upper.includes('5002') || upper.includes('GT800')) return 'CONCOX';
+  if (upper.includes('V5 4G') || upper.includes('5009')) return 'V5 4G';
+  if (upper.includes('FMB') || upper.includes('TELTONIKA') || upper.includes('5005')) return 'FMB 920';
+  if (upper.includes('PT06') || upper.includes('5006')) return 'PT06';
+  if (upper.includes('PN02') || upper.includes('5008')) return 'PN02';
+  if (upper.includes('EC08') || upper.includes('5007') || upper.includes('GT06')) return 'GT06N (9964)';
+  if (upper.includes('APMK') || upper.includes('APM') || upper.includes('5012')) return 'APMK';
+  return String(raw).trim();
+};
 
 // Mapping of Device Model to Telemetry TCP Port
 const DEVICE_MODEL_PORTS = {
@@ -565,7 +600,7 @@ const EditVehiclePage = () => {
     model: 'Bus',
     serverName: '',
     gpsSimNo: '',
-    deviceVersion: 'GT06N (9964)',
+    deviceVersion: 'VOLTY',
     timezone: 'IST',
     apn: '',
     licenceIssuedDate: getTodayStr(),
@@ -577,8 +612,9 @@ const EditVehiclePage = () => {
       vehicleId: '',
       registrationNo: '',
       vehicleTypeSelect: 'Bus',
+      vehicleCategory: 'moving',
       vehicleModel: 'Mazda',
-      deviceModel: 'GT06N (9964)',
+      deviceModel: 'VOLTY',
       iccid: '',
       telecomOperator: 'AIRCEL',
       installationDate: '',
@@ -644,7 +680,10 @@ const EditVehiclePage = () => {
         .then(res => {
           const v = res.data;
           const meta = v.metadata || {};
-          const currentDeviceModel = meta.deviceModel || v.device_version || 'GT06N (9964)';
+          const currentDeviceModel = resolveDeviceModel(v.device_type)
+            || resolveDeviceModel(meta.deviceModel)
+            || resolveDeviceModel(v.device_version)
+            || 'VOLTY';
           let dynamicIp = meta.ipAddress;
           if (!dynamicIp || dynamicIp.includes('fueltracks.in')) {
             dynamicIp = getDefaultServerIp();
@@ -678,6 +717,11 @@ const EditVehiclePage = () => {
               vehicleId: meta.vehicleId || v.plate || '',
               registrationNo: meta.registrationNo || v.plate || '',
               vehicleTypeSelect: meta.vehicleTypeSelect || v.model || 'Bus',
+              vehicleCategory: meta.vehicleCategory || (
+                (meta.modeOfVehicle === 'Dispenser' || v.model?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('dispenser') || v.name?.toLowerCase().includes('fkpcm') || v.name?.toLowerCase().includes('bowser')) ? 'dispenser' :
+                (meta.modeOfVehicle === 'Diesel Generator(DG)' || meta.modeOfVehicle === 'Stationary' || v.model?.toLowerCase().includes('generator') || v.model?.toLowerCase().includes('dg set') || v.name?.toLowerCase().includes('generator') || v.name?.toLowerCase().includes('genset')) ? 'generator' :
+                (meta.modeOfVehicle === 'Machinery' || v.model?.toLowerCase().includes('borewell') || v.model?.toLowerCase().includes('jcb') || v.model?.toLowerCase().includes('crane') || v.model?.toLowerCase().includes('machinery') || v.name?.toLowerCase().includes('borewell') || v.name?.toLowerCase().includes('jcb') || v.name?.toLowerCase().includes('crane')) ? 'machinery' : 'moving'
+              ),
               vehicleModel: meta.vehicleModel || v.make || 'Mazda',
               deviceModel: currentDeviceModel,
               chassisNo: meta.chassisNo || meta.vin || '',
@@ -696,7 +740,13 @@ const EditVehiclePage = () => {
               sensorCount: meta.sensorCount || '1',
               numberOfTank: meta.numberOfTank || '1',
               fuelType: meta.fuelType || 'Analog',
-              modeOfVehicle: meta.modeOfVehicle || 'None',
+              modeOfVehicle: meta.modeOfVehicle === 'Moving' ? 'Moving Vehicle' :
+                             meta.modeOfVehicle === 'Stationary' ? 'Diesel Generator(DG)' :
+                             (meta.modeOfVehicle || (
+                               meta.vehicleCategory === 'dispenser' ? 'Dispenser' :
+                               meta.vehicleCategory === 'generator' ? 'Diesel Generator(DG)' :
+                               meta.vehicleCategory === 'machinery' ? 'Machinery' : 'Moving Vehicle'
+                             )),
               tankSize: meta.tankSize !== undefined ? String(meta.tankSize) : '0',
               speedSource: meta.speedSource || '',
               fluctuations: meta.fluctuations || 'YES',
@@ -776,6 +826,7 @@ const EditVehiclePage = () => {
         driverPhone: form.metadata.driverPhone || form.driverPhone,
         metadata: {
           ...form.metadata,
+          vehicleCategory: form.metadata.vehicleCategory || 'moving',
           vehicleId: form.metadata.vehicleId || form.plate,
           registrationNo: form.plate || form.metadata.registrationNo,
           vehicleTypeSelect: form.model || form.metadata.vehicleTypeSelect,
@@ -1294,10 +1345,40 @@ const EditVehiclePage = () => {
           <SelectField
             label="Vehicle Type"
             value={form.model || form.metadata.vehicleTypeSelect}
-            onChange={e => { updateField('model', e.target.value); updateMeta('vehicleTypeSelect', e.target.value); }}
+            onChange={e => {
+              const val = e.target.value;
+              updateField('model', val);
+              updateMeta('vehicleTypeSelect', val);
+              if (val.toLowerCase().includes('dispenser') || val.toLowerCase().includes('bowser')) {
+                updateMeta('vehicleCategory', 'dispenser');
+                updateMeta('modeOfVehicle', 'Dispenser');
+              } else if (val.toLowerCase().includes('generator') || val.toLowerCase().includes('dg')) {
+                updateMeta('vehicleCategory', 'generator');
+                updateMeta('modeOfVehicle', 'Diesel Generator(DG)');
+              } else if (val.toLowerCase().includes('borewell') || val.toLowerCase().includes('jcb') || val.toLowerCase().includes('crane')) {
+                updateMeta('vehicleCategory', 'machinery');
+                updateMeta('modeOfVehicle', 'Machinery');
+              }
+            }}
             options={VEHICLE_TYPES}
             focused={focusedField === 'vType'}
             onFocus={() => setFocusedField('vType')}
+            onBlur={() => setFocusedField(null)}
+          />
+          <SelectField
+            label="Fuel / Asset Profile"
+            value={form.metadata.vehicleCategory || 'moving'}
+            onChange={e => {
+              const val = e.target.value;
+              updateMeta('vehicleCategory', val);
+              if (val === 'moving') updateMeta('modeOfVehicle', 'Moving Vehicle');
+              else if (val === 'machinery') updateMeta('modeOfVehicle', 'Machinery');
+              else if (val === 'dispenser') updateMeta('modeOfVehicle', 'Dispenser');
+              else if (val === 'generator') updateMeta('modeOfVehicle', 'Diesel Generator(DG)');
+            }}
+            options={ASSET_CATEGORIES}
+            focused={focusedField === 'vCat'}
+            onFocus={() => setFocusedField('vCat')}
             onBlur={() => setFocusedField(null)}
           />
 
@@ -1319,7 +1400,11 @@ const EditVehiclePage = () => {
                 }
               }));
             }}
-            options={DEVICE_MODELS}
+            options={
+              (form.deviceVersion || form.metadata.deviceModel) && !DEVICE_MODELS.includes(form.deviceVersion || form.metadata.deviceModel)
+                ? [form.deviceVersion || form.metadata.deviceModel, ...DEVICE_MODELS]
+                : DEVICE_MODELS
+            }
             focused={focusedField === 'dModel'}
             onFocus={() => setFocusedField('dModel')}
             onBlur={() => setFocusedField(null)}
@@ -1462,7 +1547,7 @@ const EditVehiclePage = () => {
             label="Fuel Mode"
             value={form.metadata.fuelMode}
             onChange={e => updateMeta('fuelMode', e.target.value)}
-            options={['Auto Calibrate', 'Manual', 'None']}
+            options={['Auto Calibrate', 'Manual', 'Direct Fuel', 'None']}
             focused={focusedField === 'fuelMode'}
             onFocus={() => setFocusedField('fuelMode')}
             onBlur={() => setFocusedField(null)}
@@ -1502,9 +1587,21 @@ const EditVehiclePage = () => {
           {/* Row 3 */}
           <SelectField
             label="Mode of Vehicle"
-            value={form.metadata.modeOfVehicle}
-            onChange={e => updateMeta('modeOfVehicle', e.target.value)}
-            options={['None', 'Moving', 'Stationary']}
+            value={form.metadata.modeOfVehicle || 'None'}
+            onChange={e => {
+              const val = e.target.value;
+              updateMeta('modeOfVehicle', val);
+              if (val === 'Moving Vehicle' || val === 'Moving') {
+                updateMeta('vehicleCategory', 'moving');
+              } else if (val === 'Machinery') {
+                updateMeta('vehicleCategory', 'machinery');
+              } else if (val === 'Dispenser') {
+                updateMeta('vehicleCategory', 'dispenser');
+              } else if (val === 'Diesel Generator(DG)' || val === 'Stationary') {
+                updateMeta('vehicleCategory', 'generator');
+              }
+            }}
+            options={MODE_OF_VEHICLE_OPTIONS}
             focused={focusedField === 'modeVeh'}
             onFocus={() => setFocusedField('modeVeh')}
             onBlur={() => setFocusedField(null)}

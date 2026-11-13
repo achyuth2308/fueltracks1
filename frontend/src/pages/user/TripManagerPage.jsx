@@ -799,13 +799,13 @@ export default function TripManagerPage() {
                 width: '38px',
                 height: '38px',
                 borderRadius: '50%',
-                background: '#F1F5F9',
+                background: '#D1FAE5',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#1E293B',
+                color: '#065F46',
               }}>
-                <RouteIcon size={18} color="#2563EB" />
+                <RouteIcon size={18} color="#059669" />
               </div>
               <div>
                 <div style={{ fontSize: '16px', fontWeight: 800, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -851,14 +851,15 @@ export default function TripManagerPage() {
               <button
                 onClick={() => setSelectedDate(getLocalDateString())}
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
+                  padding: '5px 14px',
+                  borderRadius: '999px',
                   border: 'none',
                   fontSize: '11px',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: 'pointer',
-                  background: selectedDate === getLocalDateString() ? '#2563EB' : '#F1F5F9',
-                  color: selectedDate === getLocalDateString() ? '#FFFFFF' : '#475569',
+                  background: selectedDate === getLocalDateString() ? '#064E3B' : '#E6F4EA',
+                  color: selectedDate === getLocalDateString() ? '#FFFFFF' : '#334155',
+                  boxShadow: selectedDate === getLocalDateString() ? '0 2px 5px rgba(6,78,59,0.3)' : 'none',
                 }}
               >
                 Today
@@ -870,14 +871,15 @@ export default function TripManagerPage() {
                   setSelectedDate(getLocalDateString(y));
                 }}
                 style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
+                  padding: '5px 14px',
+                  borderRadius: '999px',
                   border: 'none',
                   fontSize: '11px',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: 'pointer',
-                  background: selectedDate !== getLocalDateString() ? '#2563EB' : '#F1F5F9',
-                  color: selectedDate !== getLocalDateString() ? '#FFFFFF' : '#475569',
+                  background: selectedDate !== getLocalDateString() ? '#064E3B' : '#E6F4EA',
+                  color: selectedDate !== getLocalDateString() ? '#FFFFFF' : '#334155',
+                  boxShadow: selectedDate !== getLocalDateString() ? '0 2px 5px rgba(6,78,59,0.3)' : 'none',
                 }}
               >
                 Yesterday
@@ -912,8 +914,8 @@ export default function TripManagerPage() {
                 background: 'transparent',
                 fontSize: '12px',
                 fontWeight: 800,
-                color: activeTab === 'trip' ? '#2563EB' : '#64748B',
-                borderBottom: activeTab === 'trip' ? '2px solid #2563EB' : '2px solid transparent',
+                color: activeTab === 'trip' ? '#047857' : '#64748B',
+                borderBottom: activeTab === 'trip' ? '2.5px solid #059669' : '2.5px solid transparent',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -926,8 +928,8 @@ export default function TripManagerPage() {
                 <span style={{
                   padding: '1px 6px',
                   borderRadius: '10px',
-                  background: activeTab === 'trip' ? '#EFF6FF' : '#F1F5F9',
-                  color: activeTab === 'trip' ? '#2563EB' : '#64748B',
+                  background: activeTab === 'trip' ? '#D1FAE5' : '#F1F5F9',
+                  color: activeTab === 'trip' ? '#065F46' : '#64748B',
                   fontSize: '10px',
                   fontWeight: 800,
                 }}>
@@ -945,8 +947,8 @@ export default function TripManagerPage() {
                 background: 'transparent',
                 fontSize: '12px',
                 fontWeight: 800,
-                color: activeTab === 'geofences' ? '#2563EB' : '#64748B',
-                borderBottom: activeTab === 'geofences' ? '2px solid #2563EB' : '2px solid transparent',
+                color: activeTab === 'geofences' ? '#047857' : '#64748B',
+                borderBottom: activeTab === 'geofences' ? '2.5px solid #059669' : '2.5px solid transparent',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -958,8 +960,8 @@ export default function TripManagerPage() {
               <span style={{
                 padding: '1px 6px',
                 borderRadius: '10px',
-                background: activeTab === 'geofences' ? '#EFF6FF' : '#F1F5F9',
-                color: activeTab === 'geofences' ? '#2563EB' : '#64748B',
+                background: activeTab === 'geofences' ? '#D1FAE5' : '#F1F5F9',
+                color: activeTab === 'geofences' ? '#065F46' : '#64748B',
                 fontSize: '10px',
                 fontWeight: 800,
               }}>
@@ -976,8 +978,8 @@ export default function TripManagerPage() {
                 background: 'transparent',
                 fontSize: '12px',
                 fontWeight: 800,
-                color: activeTab === 'geofence_reports' ? '#2563EB' : '#64748B',
-                borderBottom: activeTab === 'geofence_reports' ? '2px solid #2563EB' : '2px solid transparent',
+                color: activeTab === 'geofence_reports' ? '#047857' : '#64748B',
+                borderBottom: activeTab === 'geofence_reports' ? '2.5px solid #059669' : '2.5px solid transparent',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -2373,7 +2375,7 @@ export default function TripManagerPage() {
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
-              background: mapLayer === 'google' ? '#2563EB' : 'transparent',
+              background: mapLayer === 'google' ? '#064E3B' : 'transparent',
               color: mapLayer === 'google' ? '#FFFFFF' : '#475569',
               transition: 'all 0.15s ease',
             }}
@@ -2389,7 +2391,7 @@ export default function TripManagerPage() {
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
-              background: mapLayer === 'satellite' ? '#2563EB' : 'transparent',
+              background: mapLayer === 'satellite' ? '#064E3B' : 'transparent',
               color: mapLayer === 'satellite' ? '#FFFFFF' : '#475569',
               transition: 'all 0.15s ease',
             }}
@@ -2405,7 +2407,7 @@ export default function TripManagerPage() {
               fontSize: '11px',
               fontWeight: 700,
               cursor: 'pointer',
-              background: mapLayer === 'osm' ? '#2563EB' : 'transparent',
+              background: mapLayer === 'osm' ? '#064E3B' : 'transparent',
               color: mapLayer === 'osm' ? '#FFFFFF' : '#475569',
               transition: 'all 0.15s ease',
             }}

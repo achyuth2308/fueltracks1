@@ -50,6 +50,47 @@ function convertCoords(raw, direction) {
 }
 
 /**
+ * Robust odometer extraction from trailing fields of AIS-140 packets.
+ */
+function extractPacketOdometer(raw, parts) {
+  if (!parts || parts.length === 0) return 0;
+
+  // 1. Strip trailing checksum block after '*'
+  let preChecksum = raw || '';
+  const starIdx = preChecksum.lastIndexOf('*');
+  if (starIdx !== -1) {
+    preChecksum = preChecksum.substring(0, starIdx);
+  }
+  const cleanTokens = preChecksum.split(',').map(t => t.trim()).filter(t => t !== '');
+
+  // 2. Scan the last 5 tokens backward for decimal float odometer (e.g. 125.40, 0.48)
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 5); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[0-9A-Fa-f]{4}$/.test(token) && i === cleanTokens.length - 1 && !token.includes('.')) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+
+    if (/^\d+\.\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+
+  // 3. Scan last few tokens for valid integer distance/odometer
+  for (let i = cleanTokens.length - 1; i >= Math.max(0, cleanTokens.length - 4); i--) {
+    const token = cleanTokens[i];
+    if (/^[0-9A-Fa-f]{2,4}$/.test(token) && i === cleanTokens.length - 1) continue;
+    if (/^[01]{2,4}$/.test(token)) continue;
+    if (/^\d+$/.test(token)) {
+      const val = parseFloat(token);
+      if (!isNaN(val) && val > 0) return val;
+    }
+  }
+
+  return 0;
+}
+
+/**
  * Parse AIS140 date (DDMMYYYY) + time (HHMMSS) into ISO timestamp
  */
 function parseAis140Time(dateStr, timeStr) {
@@ -114,9 +155,8 @@ function parseAis140NormalPacket(raw) {
   const ignition = parts[22].trim();
   const voltage = parts[24].trim();
 
-  // Extract Odometer from near the end
-  // Format end structure: ...,DigitalInputStatus,DigitalOutputStatus,AnalogInput1,AnalogInput2,FrameNo,Odometer,DebugInfo,Checksum
-  const odometerStr = parts[parts.length - 3] || '0';
+  // Extract Odometer dynamically from trailing packet fields
+  const extractedOdo = extractPacketOdometer(raw, parts);
   const batteryVoltageStr = parts[25] || '0';
 
   const lat = convertCoords(rawLat, latDir);
@@ -131,7 +171,7 @@ function parseAis140NormalPacket(raw) {
     lat,
     lng,
     speed: Math.round(parseFloat(speed)) || 0,
-    odometer: parseFloat(odometerStr) || 0,
+    odometer: extractedOdo,
     direction: Math.round(parseFloat(direction)) || 0,
     satellites: parseInt(satellites) || 0,
     gsmSignal: parseInt(parts[28]) || 0,
@@ -212,6 +252,7 @@ function parseAis140EmergencyPacket(raw) {
   const lat = convertCoords(rawLat, latDir);
   const lng = convertCoords(rawLng, lngDir);
   const deviceTime = parseAis140MergedTime(dateTimeStr);
+  const epbDistance = parts[12] ? (parseFloat(parts[12]) || 0) : 0;
 
   const isSosOn = packetType === 'EMR';
   const alertText = isSosOn ? 'Emergency Message (SOS Pressed)' : 'Stop Message (Emergency Ended)';
@@ -225,7 +266,7 @@ function parseAis140EmergencyPacket(raw) {
     lat,
     lng,
     speed: parseFloat(speed) || 0,
-    odometer: 0,
+    odometer: epbDistance,
     direction: 0,
     satellites: 8,
     gsmSignal: 31,

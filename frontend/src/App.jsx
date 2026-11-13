@@ -46,6 +46,7 @@ import OverspeedingReportPage from './pages/reports/OverspeedingReportPage';
 import StoppageReportPage from './pages/reports/StoppageReportPage';
 import IdleReportPage from './pages/reports/IdleReportPage';
 import ConsolidatedReportPage from './pages/reports/ConsolidatedReportPage';
+import FuelReportsPage from './pages/reports/FuelReportsPage';
 import IndividualReportPage from './pages/reports/IndividualReportPage';
 import ManualTripsReportPage from './pages/reports/ManualTripsReportPage';
 import IgnitionReportPage from './pages/reports/IgnitionReportPage';
@@ -71,6 +72,7 @@ import AdminTerminalPage from './pages/admin/AdminTerminalPage';
 import FuelWatcherPage from './pages/admin/FuelWatcherPage';
 import WhatsAppSettingsPage from './pages/admin/WhatsAppSettingsPage';
 import CertificateVerifyPage from './pages/CertificateVerifyPage';
+import SwitchLoginPage from './pages/admin/SwitchLoginPage';
 
 function App() {
   // Share vehicles state list globally to update the Topbar statistics dynamically
@@ -82,6 +84,7 @@ function App() {
         <SocketProvider>
           <Routes>
             {/* Public authentication and verification routes */}
+            <Route path="/switch-login/:userId" element={<SwitchLoginPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -105,6 +108,7 @@ function App() {
 
               {/* Individual Vehicle details */}
               <Route path="vehicles/:id" element={<VehicleDetailPage />} />
+              <Route path="history" element={<HistoryPage />} />
               <Route path="vehicles/:id/history" element={<HistoryPage />} />
               <Route path="vehicles/:id/report" element={<ReportPage />} />
               <Route path="vehicles/:id/messages" element={<SensorLogsPage />} />
@@ -157,7 +161,7 @@ function App() {
                   <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
                   <Route path="routes" element={<Navigate to="/dashboard" replace />} />
                   <Route path="reports" element={<ReportsAdminPage />}>
-                    <Route index element={<Navigate to="consolidated" replace />} />
+                    <Route index element={<Navigate to="dashboard" replace />} />
                     <Route path="dashboard" element={null} />
                     <Route path="trip" element={<TripReportPage />} />
                     <Route path="daily-trip" element={<DailyTripReportPage />} />
@@ -167,6 +171,12 @@ function App() {
                     <Route path="stoppage" element={<StoppageReportPage />} />
                     <Route path="idle" element={<IdleReportPage />} />
                     <Route path="consolidated" element={<ConsolidatedReportPage defaultMode="vehicle" />} />
+                    <Route path="fuel-refill" element={<FuelReportsPage type="refill" />} />
+                    <Route path="fuel-consumption" element={<FuelReportsPage type="consumption" />} />
+                    <Route path="fuel-theft" element={<FuelReportsPage type="theft" />} />
+                    <Route path="fuel-consolidated" element={<FuelReportsPage type="consolidated" />} />
+                    <Route path="kmpl-mileage" element={<FuelReportsPage type="kmpl" />} />
+                    <Route path="lph-burn-rate" element={<FuelReportsPage type="lph" />} />
                     <Route path="individual" element={<IndividualReportPage />} />
                     <Route path="manual-trips" element={<ManualTripsReportPage />} />
                     <Route path="ignition" element={<IgnitionReportPage />} />

@@ -264,7 +264,7 @@ const IgnitionReportPage = () => {
           </div>
 
           {/* Submit Button */}
-          <button onClick={() => fetchReport()} disabled={loading} style={{ padding: '8px 20px', borderRadius: '4px', background: '#0284C7', color: '#FFFFFF', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <button onClick={() => fetchReport()} disabled={loading} style={{ padding: '8px 22px', borderRadius: '999px', background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 6px rgba(5,150,105,0.25)' }}>
             {loading ? <Loader2 size={15} className="animate-spin" /> : null}
             Submit
           </button>
@@ -280,7 +280,7 @@ const IgnitionReportPage = () => {
             { id: 'thisMonth', label: 'This Month' },
             { id: 'lastMonth', label: 'Last Month' }
           ].map(p => (
-            <button key={p.id} onClick={() => handleQuickPreset(p.id)} style={{ background: 'none', border: 'none', color: '#0284C7', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'none' }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+            <button key={p.id} onClick={() => handleQuickPreset(p.id)} style={{ background: 'none', border: 'none', color: '#047857', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'none' }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
               {p.label}
             </button>
           ))}
@@ -334,12 +334,12 @@ const IgnitionReportPage = () => {
           <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '2px', background: '#FFFFFF' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'center' }}>
               <thead>
-                <tr style={{ background: '#E6F0F5', color: '#334155', borderBottom: '1px solid #CBD5E1' }}>
-                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '20%' }}>Date & Time</th>
-                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '12%' }}>Engine Status</th>
-                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '15%' }}>Duration</th>
-                  <th style={{ padding: '10px 12px', borderRight: '1px solid #CBD5E1', fontWeight: 700, width: '43%' }}>Address</th>
-                  <th style={{ padding: '10px 12px', fontWeight: 700, width: '10%' }}>G-Map</th>
+                <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
+                  <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '20%' }}>Date & Time</th>
+                  <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '12%' }}>Engine Status</th>
+                  <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '15%' }}>Duration</th>
+                  <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '43%' }}>Address</th>
+                  <th style={{ padding: '8px 12px', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '10%' }}>G-Map</th>
                 </tr>
               </thead>
               <tbody>

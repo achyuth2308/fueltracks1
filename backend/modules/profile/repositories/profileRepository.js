@@ -6,11 +6,23 @@ class ProfileRepository {
    */
   async getProfile(organizationId) {
     const query = `
-      SELECT op.*, o.name as org_name, o.type as org_type, o.is_active as org_is_active,
-             o.device_limits
+      SELECT op.*, 
+             o.name as org_name, 
+             o.type as org_type, 
+             o.is_active as org_is_active,
+             o.parent_id,
+             o.email as org_email,
+             o.phone as org_phone,
+             o.contact_person as org_contact_person,
+             o.device_limits,
+             u.email as dealer_user_email,
+             u.phone as dealer_user_phone
       FROM organizations o
       LEFT JOIN organization_profiles op ON op.organization_id = o.id
+      LEFT JOIN users u ON u.org_id = o.id AND (u.role = 'dealer' OR u.role = 'superadmin')
       WHERE o.id = $1
+      ORDER BY (CASE WHEN u.role = 'dealer' THEN 0 WHEN u.role = 'superadmin' THEN 1 ELSE 2 END), u.created_at ASC
+      LIMIT 1
     `;
     const res = await db.query(query, [organizationId]);
     if (res.rows[0]) {
@@ -18,6 +30,23 @@ class ProfileRepository {
       if (!row.brand_name && row.org_name) {
         row.brand_name = row.org_name;
       }
+
+      const cleanStr = (val) => (val && String(val).trim() !== '' ? String(val).trim() : null);
+
+      const resolvedEmail = cleanStr(row.support_email) || 
+                            cleanStr(row.email) || 
+                            cleanStr(row.org_email) || 
+                            cleanStr(row.dealer_user_email);
+
+      const resolvedPhone = cleanStr(row.support_phone) || 
+                            cleanStr(row.whatsapp_number) || 
+                            cleanStr(row.mobile) || 
+                            cleanStr(row.org_phone) || 
+                            cleanStr(row.dealer_user_phone);
+
+      row.support_email = resolvedEmail || row.support_email || null;
+      row.support_phone = resolvedPhone || row.support_phone || null;
+
       return row;
     }
     return null;
@@ -193,9 +222,13 @@ class ProfileRepository {
       SELECT op.brand_name, op.brand_tagline, op.primary_color, op.secondary_color,
              op.logo_url, op.favicon_url, op.login_background_url, op.footer_text,
              op.support_email, op.support_phone, op.is_whitelabel_enabled, op.subdomain,
-             o.name as org_name
+             op.whatsapp_number, op.email as prof_email, op.mobile as prof_mobile,
+             o.id as org_id, o.name as org_name, o.type as org_type, o.parent_id,
+             o.email as org_email, o.phone as org_phone,
+             u.email as dealer_user_email, u.phone as dealer_user_phone
       FROM organizations o
       LEFT JOIN organization_profiles op ON op.organization_id = o.id
+      LEFT JOIN users u ON u.org_id = o.id AND (u.role = 'dealer' OR u.role = 'superadmin')
       WHERE o.id::text = $1 
          OR LOWER(op.subdomain) = LOWER($1)
          OR LOWER(o.name) = LOWER($1)
@@ -210,6 +243,7 @@ class ProfileRepository {
          OR LOWER(COALESCE(op.brand_name, '')) = LOWER($2)
          OR REPLACE(REPLACE(LOWER(o.name), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($2, ' ', ''), '-', ''))
          OR REPLACE(REPLACE(LOWER(COALESCE(op.brand_name, '')), ' ', ''), '-', '') = LOWER(REPLACE(REPLACE($2, ' ', ''), '-', ''))
+      ORDER BY (CASE WHEN u.role = 'dealer' THEN 0 WHEN u.role = 'superadmin' THEN 1 ELSE 2 END), u.created_at ASC
       LIMIT 1
     `;
     const res = await db.query(query, [clean, extractedSlug]);
@@ -218,6 +252,23 @@ class ProfileRepository {
       if (!row.brand_name && row.org_name) {
         row.brand_name = row.org_name;
       }
+
+      const cleanStr = (val) => (val && String(val).trim() !== '' ? String(val).trim() : null);
+
+      const resolvedEmail = cleanStr(row.support_email) || 
+                            cleanStr(row.prof_email) || 
+                            cleanStr(row.org_email) || 
+                            cleanStr(row.dealer_user_email);
+
+      const resolvedPhone = cleanStr(row.support_phone) || 
+                            cleanStr(row.whatsapp_number) || 
+                            cleanStr(row.prof_mobile) || 
+                            cleanStr(row.org_phone) || 
+                            cleanStr(row.dealer_user_phone);
+
+      row.support_email = resolvedEmail || row.support_email || null;
+      row.support_phone = resolvedPhone || row.support_phone || null;
+
       return row;
     }
     return null;

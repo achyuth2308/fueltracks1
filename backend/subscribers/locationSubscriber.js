@@ -404,9 +404,18 @@ async function start(io) {
       }
 
       // 2b. Compute final Odometer based on deviceOdo flag
-      let finalOdometer = odometer != null ? parseFloat(odometer) : null;
-      if (vehicle.metadata?.deviceOdo !== 'YES' && lat && lng) {
-        const prevOdo = prevState && prevState.odometer ? parseFloat(prevState.odometer) : 0;
+      const parsedPacketOdo = (odometer != null && !isNaN(parseFloat(odometer))) ? parseFloat(odometer) : null;
+      const hasValidPacketOdo = parsedPacketOdo !== null && parsedPacketOdo > 0;
+      let finalOdometer = hasValidPacketOdo ? parsedPacketOdo : null;
+
+      // If deviceOdo !== 'YES' OR device did not supply a positive odometer reading from packet,
+      // fallback to software GPS distance accumulation so the odometer never stays stuck at 0.
+      if ((vehicle.metadata?.deviceOdo !== 'YES' || !hasValidPacketOdo) && lat && lng) {
+        let prevOdo = prevState && prevState.odometer ? parseFloat(prevState.odometer) : 0;
+        // If Redis has no previous odometer (e.g. fresh start), fallback to baseline reading
+        if (prevOdo <= 0) {
+          prevOdo = parseFloat(vehicle.metadata?.odometerReading) || 0;
+        }
         let distanceMeters = 0;
         
         // ONLY accumulate software distance if this is a live packet.
@@ -741,20 +750,50 @@ async function start(io) {
          
          // We only trigger alert if there was a real jump AND vehicle is stationary (sloshing filter)
          const isSloshing = speed > 5;
-         
+
+         // Categorize vehicle asset: Fuel Dispenser, Generator, Machinery, or Moving Vehicle
+         const metaCat = (vehicle.metadata?.vehicleCategory || vehicle.metadata?.modeOfVehicle || vehicle.metadata?.vehicleTypeSelect || '').toLowerCase();
+         const modelLower = (vehicle.model || '').toLowerCase();
+         const nameLower = (vehicle.name || '').toLowerCase();
+         const isDispenser = metaCat.includes('dispenser') || metaCat.includes('bowser') ||
+                             modelLower.includes('dispenser') || modelLower.includes('bowser') ||
+                             nameLower.includes('dispenser') || nameLower.includes('bowser') || nameLower.includes('fkpcm');
+         const isGenerator = metaCat.includes('generator') || metaCat.includes('dg') ||
+                             modelLower.includes('generator') || modelLower.includes('dg set') || modelLower.includes('genset') ||
+                             nameLower.includes('generator') || nameLower.includes('dg set') || nameLower.includes('genset');
+
+         const isEngineOff = ignition === false || ignition === 0 || ignition === '0' || ignition === null || ignition === undefined;
+
          if (!isSloshing) {
            if (diff <= -theftThreshold) {
-             redis.publish('alerts', JSON.stringify({
-               imei: vehicle.imei, alertType: 'fuel_theft',
-               alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L). Possible theft or leak.`,
-               lat, lng, deviceTime,
-               alertPayload: {
-                 startLevel: prevFuel,
-                 endLevel: currFuel,
-                 dropLitres: Math.round(Math.abs(diff) * 10) / 10,
-                 theftThreshold
-               }
-             }));
+             if (isDispenser) {
+               // Dispensers/Bowsers: Stationary fuel drop is normal fuel dispensing operation
+               redis.publish('alerts', JSON.stringify({
+                 imei: vehicle.imei, alertType: 'fuel_dispensed',
+                 alertText: `Fuel dispensed: ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L).`,
+                 lat, lng, deviceTime,
+                 alertPayload: {
+                   startLevel: prevFuel,
+                   endLevel: currFuel,
+                   dispensedLitres: Math.round(Math.abs(diff) * 10) / 10,
+                   theftThreshold
+                 }
+               }));
+             } else if (isEngineOff) {
+               // Moving Vehicles & Generators: STRICTLY require engine/ignition = OFF!
+               // When ignition = ON, fuel drop is engine consumption (running/idling), NOT theft!
+               redis.publish('alerts', JSON.stringify({
+                 imei: vehicle.imei, alertType: 'fuel_theft',
+                 alertText: `Fuel dropped rapidly by ${Math.abs(diff).toFixed(1)}L (threshold: ${theftThreshold}L) while engine is OFF. Possible theft or leak.`,
+                 lat, lng, deviceTime,
+                 alertPayload: {
+                   startLevel: prevFuel,
+                   endLevel: currFuel,
+                   dropLitres: Math.round(Math.abs(diff) * 10) / 10,
+                   theftThreshold
+                 }
+               }));
+             }
            } else if (diff >= refillThreshold) {
              redis.publish('alerts', JSON.stringify({
                imei: vehicle.imei, alertType: 'fuel_refill',
@@ -1327,6 +1366,8 @@ async function start(io) {
             vehicle.metadata.odometerSnapshot = String(finalOdometer);
           }
           displayedOdometer = baseline + Math.max(0, (finalOdometer || 0) - snapshot);
+        } else if ((displayedOdometer == null || displayedOdometer <= 0) && (todayDistanceKm || 0) > 0) {
+          displayedOdometer = todayDistanceKm;
         }
 
         const emitLat = hasValidGps ? lat : (prevState ? prevState.lat : null);

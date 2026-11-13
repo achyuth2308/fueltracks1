@@ -39,7 +39,8 @@ const UserModel = {
       `SELECT u.id, u.org_id, u.email, u.username, u.role, u.name, u.phone,
               u.no_data_minutes,
               u.is_active, u.last_login, u.created_at,
-              o.name as org_name, o.type as org_type
+              o.name as org_name, o.type as org_type, o.parent_id as org_parent_id,
+              o.device_limits as device_limits
        FROM users u
        JOIN organizations o ON u.org_id = o.id
        WHERE u.id = $1`,

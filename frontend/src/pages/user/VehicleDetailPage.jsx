@@ -431,9 +431,9 @@ const VehicleDetailPage = () => {
               gap: '6px',
               padding: '8px 14px',
               borderRadius: '8px',
-              background: vehicle.is_immobilized ? '#FEF2F2' : '#F0FDF4',
-              color: vehicle.is_immobilized ? '#DC2626' : '#166534',
-              border: vehicle.is_immobilized ? '1px solid #FECACA' : '1px solid #BBF7D0',
+              background: vehicle.is_immobilized ? '#FEF2F2' : 'var(--brand-badge-bg, #F0FDF4)',
+              color: vehicle.is_immobilized ? '#DC2626' : 'var(--brand-badge-text, #166534)',
+              border: vehicle.is_immobilized ? '1px solid #FECACA' : '1px solid var(--brand-badge-border, #BBF7D0)',
               fontSize: '12px',
               fontWeight: 700,
               cursor: 'pointer',
@@ -565,7 +565,7 @@ const VehicleDetailPage = () => {
             <BarChart4 size={15} /> Analytics
           </Link>
           <Link to={`/vehicles/${id}/messages`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', borderRadius: '8px', background: '#FFFFFF', border: '1px solid #E2E8F0', color: '#475569', textDecoration: 'none', fontSize: '12px', fontWeight: 600 }}>
-            <Server size={15} /> Sensor Logs
+            <Server size={15} /> Device Logs
           </Link>
         </div>
       </div>
@@ -694,9 +694,9 @@ const VehicleDetailPage = () => {
                 gap: '6px',
                 padding: '8px 14px',
                 borderRadius: '8px',
-                background: vehicle.is_immobilized ? '#DC2626' : '#F0FDF4',
-                color: vehicle.is_immobilized ? '#FFFFFF' : '#166534',
-                border: vehicle.is_immobilized ? 'none' : '1px solid #BBF7D0',
+                background: vehicle.is_immobilized ? '#DC2626' : 'var(--brand-badge-bg, #F0FDF4)',
+                color: vehicle.is_immobilized ? '#FFFFFF' : 'var(--brand-badge-text, #166534)',
+                border: vehicle.is_immobilized ? 'none' : '1px solid var(--brand-badge-border, #BBF7D0)',
                 fontWeight: 700,
                 fontSize: '12px',
                 cursor: 'pointer',
