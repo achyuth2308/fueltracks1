@@ -188,7 +188,6 @@ const DevicesAdminPage = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 shrink-0">
         <div>
           <h1 style={{ fontSize: '26px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>Device Inventory</h1>
-          <p style={{ fontSize: '14px', color: '#64748b', marginTop: '2px' }}>Monitor hardware telemetry, connectivity, and provision devices in bulk.</p>
         </div>
 
         {/* Action Buttons */}
@@ -313,17 +312,17 @@ const DevicesAdminPage = () => {
         </div>
       ) : (
         <div style={{ overflowY: 'auto', flex: 1, background: '#ffffff', borderRadius: '8px 8px 0 0', border: '1px solid #e2e8f0', borderBottom: 'none' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
             <thead>
               <tr style={{ background: 'var(--brand-header, #1e1b4b)', position: 'sticky', top: 0, zIndex: 10 }}>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '60px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>SL.NO</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>DEVICE IMEI</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>TYPE</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>ASSIGNED VEHICLE</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>API PROPAGATION</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>STATUS</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.1)' }}>LAST COMMUNICATION</th>
-                <th style={{ padding: '12px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', width: '85px', textAlign: 'center' }}>ACTION</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', width: '60px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>SL.NO</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>DEVICE IMEI</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>TYPE</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLE</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>API PROPAGATION</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>STATUS</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>LAST COMMUNICATION</th>
+                <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', width: '85px', textAlign: 'center' }}>ACTION</th>
               </tr>
             </thead>
             <tbody>
@@ -382,20 +381,20 @@ const DevicesAdminPage = () => {
                   <tr
                     key={d.id}
                     style={{
-                      borderBottom: '1px solid #F1F5F9',
-                      height: '42px',
+                      borderBottom: '1px solid #e0e7ff',
+                      height: '38px',
                       transition: 'background 0.15s'
                     }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     {/* Sl. No based on current page */}
-                    <td style={{ padding: '8px 14px', textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#64748b', borderRight: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: '12.5px', fontWeight: 700, color: '#000000', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                       {startIndex + idx + 1}
                     </td>
 
                     {/* Device IMEI */}
-                    <td style={{ padding: '8px 14px', fontSize: '13px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 700, color: '#000000', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                       <div
                         style={{
                           display: 'inline-flex',
@@ -428,7 +427,7 @@ const DevicesAdminPage = () => {
                             style={{
                               border: '1px solid #E2E8F0',
                               background: '#F8FAFC',
-                              padding: '3px',
+                              padding: '2px 4px',
                               display: 'inline-flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -445,61 +444,61 @@ const DevicesAdminPage = () => {
                               e.currentTarget.style.borderColor = '#E2E8F0';
                             }}
                           >
-                            <Copy size={12} className="text-slate-500" />
+                            <Copy size={11} className="text-slate-500" />
                           </button>
                         )}
                       </div>
                     </td>
 
                     {/* Device Type */}
-                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase' }}>
+                    <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontSize: '11px', textTransform: 'uppercase', fontWeight: 700 }}>
                         {d.type}
                       </span>
                     </td>
 
                     {/* Assigned Vehicle */}
-                    <td style={{ padding: '8px 14px', fontSize: '13px', color: '#1e293b', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 700, borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                       {d.vehicle_id ? (
                         <span
                           onClick={() => navigate(`/admin/vehicles/edit/${d.vehicle_id}`)}
                           style={{
                             cursor: 'pointer',
-                            color: '#0F172A',
-                            fontWeight: 600,
+                            color: '#000000',
+                            fontWeight: 700,
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '6px',
+                            gap: '4px',
                             transition: 'color 0.15s'
                           }}
                           onMouseEnter={e => { e.currentTarget.style.color = 'var(--brand-primary, #EA580C)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.color = '#0F172A'; }}
+                          onMouseLeave={e => { e.currentTarget.style.color = '#000000'; }}
                           title="Click to view/edit assigned vehicle"
                         >
-                          <Truck size={14} className="text-slate-400 shrink-0" />
+                          <Truck size={13} className="text-slate-500 shrink-0" />
                           <span>{d.vehicle_name}</span>
                         </span>
                       ) : (
-                        <span style={{ color: '#94A3B8', fontStyle: 'italic', fontSize: '12px' }}>
+                        <span style={{ color: '#000000', fontWeight: 500, fontSize: '12.5px' }}>
                           Unassigned
                         </span>
                       )}
                     </td>
 
                     {/* API Propagation */}
-                    <td style={{ padding: '8px 14px', borderRight: '1px solid #e2e8f0', minWidth: '190px' }}>
+                    <td style={{ padding: '6px 10px', borderRight: '1px solid #e2e8f0', minWidth: '170px', verticalAlign: 'middle' }}>
                       {d.api_propagation?.target && d.api_propagation.target !== 'Internal Only' ? (
                         <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                             <span style={{
-                              width: '7px',
-                              height: '7px',
+                              width: '6px',
+                              height: '6px',
                               borderRadius: '50%',
                               background: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#10b981' : d.api_propagation.status === 'FAILED' ? '#ef4444' : '#f59e0b',
                               display: 'inline-block',
                               flexShrink: 0
                             }} />
-                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#000000' }}>
                               {d.api_propagation.target}
                             </span>
                           </div>
@@ -507,8 +506,8 @@ const DevicesAdminPage = () => {
                             fontSize: '11px',
                             fontWeight: 500,
                             color: (d.api_propagation.status === 'SUCCESS' || d.api_propagation.status === 'ACTIVE') ? '#059669' : d.api_propagation.status === 'FAILED' ? '#dc2626' : '#d97706',
-                            marginTop: '2px',
-                            paddingLeft: '13px',
+                            marginTop: '1px',
+                            paddingLeft: '10px',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '4px'
@@ -521,8 +520,8 @@ const DevicesAdminPage = () => {
                           </div>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#94a3b8', display: 'inline-block' }} />
                           <span style={{ fontSize: '12px', fontWeight: 500, color: '#64748b' }}>
                             — Internal Only
                           </span>
@@ -531,18 +530,18 @@ const DevicesAdminPage = () => {
                     </td>
 
                     {/* Status */}
-                    <td style={{ padding: '8px 14px', borderRight: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 10px', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                       {statusBadge}
                     </td>
 
                     {/* Last Comm */}
-                    <td style={{ padding: '8px 14px', fontSize: '12px', color: '#64748b', fontWeight: 500, borderRight: '1px solid #e2e8f0' }}>
+                    <td style={{ padding: '6px 10px', fontSize: '12px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                       {formatLastComm(d.last_update)}
                     </td>
 
                     {/* Action */}
-                    <td style={{ padding: '6px 14px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    <td style={{ padding: '4px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
                         {d.vehicle_id ? (
                           <button
                             onClick={() => navigate(`/admin/vehicles/edit/${d.vehicle_id}`)}

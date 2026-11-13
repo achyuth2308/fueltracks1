@@ -515,18 +515,19 @@ const BillingAdminPage = () => {
                   borderCollapse: 'collapse',
                   textAlign: 'left',
                   whiteSpace: 'nowrap',
+                  fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                   height: filteredLicenses.length === 0 ? '100%' : 'auto',
                   flex: filteredLicenses.length === 0 ? 1 : 'none'
                 }}
               >
-                <thead>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {[
                       'Licence ID', 'Vehicle ID', 'Vehicle Name',
                       'Device IMEI', 'Organization', 'Licence Issued', 'Licence Expiry',
                       'Plan Duration', 'Renewal Price', 'Discount Price', 'Status', 'Action'
-                    ].map(h => (
-                      <th key={h} style={{ padding: '12px 20px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    ].map((h, i, arr) => (
+                      <th key={h} style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none' }}>
                         {h}
                       </th>
                     ))}
@@ -564,47 +565,47 @@ const BillingAdminPage = () => {
                     return (
                       <tr
                         key={(l.dbVehicleId || l.vehicleId) + index}
-                        style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}
+                        style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s' }}
                         onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
-                        <td style={{ padding: '16px 20px', fontSize: '13px', fontFamily: 'monospace', color: '#64748B' }}>{l.licenceId}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{l.vehicleId}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 700, color: '#111827' }}>{l.vehicleName}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontFamily: 'monospace' }}>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', fontFamily: 'monospace', color: '#000000', fontWeight: 700, verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{l.licenceId}</td>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 600, verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{l.vehicleId}</td>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 700, color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{l.vehicleName}</td>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontFamily: 'monospace', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           <div>{l.deviceId}</div>
                           {l.gpsSimNo1 && l.gpsSimNo1 !== '-' && (
                             <div style={{ fontSize: '11px', color: '#0284C7', fontWeight: 600 }}>SIM: {l.gpsSimNo1}</div>
                           )}
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827' }}>
-                          <div style={{ fontWeight: 600 }}>{l.organization}</div>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                          <div style={{ fontWeight: 700 }}>{l.organization}</div>
                           {l.customerName && l.customerName !== '-' && (
                             <div style={{ fontSize: '11px', color: '#64748B' }}>
                               {l.customerName}{l.phone && l.phone !== '-' ? ` • ${l.phone}` : ''}
                             </div>
                           )}
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>{formatDate(l.licenceIssuedDate)}</td>
-                        <td style={{ padding: '16px 20px', fontSize: '13px', fontWeight: 700, color: isExp ? '#DC2626' : isExpiring ? '#D97706' : '#111827' }}>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{formatDate(l.licenceIssuedDate)}</td>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 700, color: isExp ? '#DC2626' : isExpiring ? '#D97706' : '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           {formatDate(l.licenceExpiryDate)}
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: '12px', color: '#475569' }}>
-                          <span style={{ background: '#F1F5F9', padding: '4px 8px', borderRadius: '6px', fontWeight: 600 }}>
+                        <td style={{ padding: '6px 10px', fontSize: '12px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                          <span style={{ background: '#F1F5F9', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                             {planLabel}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 800, color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           {l.renewalPrice !== null && l.renewalPrice !== undefined ? `₹${parseFloat(l.renewalPrice).toFixed(2)}` : <span style={{ color: '#94A3B8', fontSize: '12px' }}>Not Set</span>}
                         </td>
-                        <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 800, color: '#059669' }}>
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 800, color: '#059669', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           {l.discountPrice !== null && l.discountPrice !== undefined ? (
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span>₹{parseFloat(l.discountPrice).toFixed(2)}</span>
+                              <span>₹${parseFloat(l.discountPrice).toFixed(2)}</span>
                               {l.renewalPrice && parseFloat(l.renewalPrice) > parseFloat(l.discountPrice) && (
-                                <span style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>
-                                  Save ₹{(parseFloat(l.renewalPrice) - parseFloat(l.discountPrice)).toFixed(2)}
+                                <span style={{ fontSize: '10.5px', color: '#059669', fontWeight: 700 }}>
+                                  Save ₹${(parseFloat(l.renewalPrice) - parseFloat(l.discountPrice)).toFixed(2)}
                                 </span>
                               )}
                             </div>
@@ -612,32 +613,32 @@ const BillingAdminPage = () => {
                             <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 500 }}>—</span>
                           )}
                         </td>
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           <span
                             onClick={() => openSetAmountModal(l)}
                             title="Click to set renewal amount & duration"
                             style={{
-                              padding: '5px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 800, cursor: 'pointer',
+                              padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 800, cursor: 'pointer',
                               background: isExp ? '#FEE2E2' : isExpiring ? '#FEF3C7' : '#D1FAE5',
                               color: isExp ? '#DC2626' : isExpiring ? '#D97706' : '#059669',
                               border: `1px solid ${isExp ? '#FECACA' : isExpiring ? '#FDE68A' : '#A7F3D0'}`,
-                              display: 'inline-flex', alignItems: 'center', gap: '6px'
+                              display: 'inline-flex', alignItems: 'center', gap: '4px'
                             }}
                           >
                             {isExp ? 'EXPIRED' : isExpiring ? `EXPIRING (${l.diffDays}d left)` : 'ACTIVE'}
                           </span>
                         </td>
-                        <td style={{ padding: '16px 20px' }}>
+                        <td style={{ padding: '6px 10px', textAlign: 'center', verticalAlign: 'middle' }}>
                           <button
                             onClick={() => openSetAmountModal(l)}
                             style={{
-                              padding: '6px 14px', background: '#F97316', color: '#FFFFFF',
-                              border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '12px',
-                              cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                              boxShadow: '0 2px 4px rgba(249, 115, 22, 0.2)'
+                              padding: '3px 8px', background: '#F97316', color: '#FFFFFF',
+                              border: 'none', borderRadius: '4px', fontWeight: 700, fontSize: '11.5px',
+                              cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px',
+                              boxShadow: '0 1px 3px rgba(249, 115, 22, 0.2)'
                             }}
                           >
-                            <Edit3 size={14} />
+                            <Edit3 size={11} />
                             Set Amount
                           </button>
                         </td>
@@ -661,13 +662,13 @@ const BillingAdminPage = () => {
                   flex: filteredTransactions.length === 0 ? 1 : 'none'
                 }}
               >
-                <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {[
                       'Transaction / Payment ID', 'Payment Time', 'Vehicle',
                       'User Name & Email', 'Duration', 'Amount Paid', 'Status'
-                    ].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    ].map((h, i, arr) => (
+                      <th key={h} style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.2)' : 'none' }}>
                         {h}
                       </th>
                     ))}
@@ -679,44 +680,44 @@ const BillingAdminPage = () => {
                       <td colSpan="7" style={{ height: '100%', padding: '40px 20px', textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', opacity: 0.5 }}>
                           <Clock size={48} color="#94A3B8" style={{ marginBottom: '16px' }} />
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>No renewal transactions yet</div>
-                          <div style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>Transactions will appear here when users renew licenses.</div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#000000' }}>No renewal transactions yet</div>
+                          <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>Transactions will appear here when users renew licenses.</div>
                         </div>
                       </td>
                     </tr>
                   ) : paginatedTransactions.map((t) => (
                     <tr
                       key={t.id || t.payment_id}
-                      style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }}
+                      style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s' }}
                       onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <td style={{ padding: '16px 20px', fontSize: '13px', fontFamily: 'monospace', fontWeight: 700, color: '#2563EB' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', fontFamily: 'monospace', fontWeight: 700, color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {t.payment_id}
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {formatLocalTime(t.created_at)}
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '14px', fontWeight: 700, color: '#111827' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 700, color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {t.vehicle_name}
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#111827' }}>
-                        <div style={{ fontWeight: 600 }}>{t.user_name}</div>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>{t.user_email}</div>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ fontWeight: 700 }}>{t.user_name}</div>
+                        <div style={{ fontSize: '11px', color: '#64748B' }}>{t.user_email}</div>
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {t.duration_months} Months
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '15px', fontWeight: 800, color: '#059669' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', fontWeight: 800, color: '#059669', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         ₹{parseFloat(t.amount).toFixed(2)}
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle' }}>
                         <span style={{
-                          padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 800,
+                          padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 800,
                           background: '#D1FAE5', color: '#059669', border: '1px solid #A7F3D0',
-                          display: 'inline-flex', alignItems: 'center', gap: '4px'
+                          display: 'inline-flex', alignItems: 'center', gap: '3px'
                         }}>
-                          <CheckCircle size={14} />
+                          <CheckCircle size={12} />
                           {t.status || 'SUCCESS'}
                         </span>
                       </td>

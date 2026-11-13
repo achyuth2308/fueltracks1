@@ -8,6 +8,7 @@ const GroupsAdminPage = () => {
   const navigate = useNavigate();
   const [groups, setGroups] = useState([]);
   const [orgs, setOrgs] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -19,12 +20,14 @@ const GroupsAdminPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [groupsRes, orgsRes] = await Promise.all([
+      const [groupsRes, orgsRes, usersRes] = await Promise.all([
         adminApi.getGroups({ t: Date.now() }),
-        adminApi.getOrgs().catch(() => ({ success: false, data: [] }))
+        adminApi.getOrgs().catch(() => ({ success: false, data: [] })),
+        adminApi.getUsers().catch(() => ({ success: false, data: [] }))
       ]);
       if (groupsRes.success) setGroups(groupsRes.data);
       if (orgsRes.success) setOrgs(orgsRes.data);
+      if (usersRes?.success && Array.isArray(usersRes.data)) setUsers(usersRes.data);
     } catch (err) {
       setError('Failed to load group records. You may not have access.');
     } finally {
@@ -35,6 +38,25 @@ const GroupsAdminPage = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const getAssignedUsers = (group) => {
+    if (group.users && Array.isArray(group.users) && group.users.length > 0) {
+      return group.users;
+    }
+    if (users && users.length > 0) {
+      return users.filter(u => {
+        if (Array.isArray(u.groups)) {
+          return u.groups.some(ug => String(ug.id) === String(group.id) || String(ug.name).toLowerCase() === String(group.name).toLowerCase());
+        }
+        if (typeof u.group_names === 'string') {
+          const names = u.group_names.split(',').map(s => s.trim().toLowerCase());
+          return names.includes(String(group.name).toLowerCase());
+        }
+        return false;
+      });
+    }
+    return [];
+  };
 
   const handleSaveGroup = async (groupData) => {
     if (editingGroup) {
@@ -150,7 +172,8 @@ const GroupsAdminPage = () => {
         {/* Table Container - Direct View */}
         <div style={{
           background: '#FFFFFF', display: 'flex', flexDirection: 'column',
-          flex: viewingGroup ? '1' : '100%', overflow: 'hidden'
+          flex: viewingGroup ? '1' : '100%', overflow: 'hidden',
+          borderRadius: '8px', border: '1px solid #E2E8F0'
         }}>
           {loading ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', flex: 1 }}>
@@ -165,14 +188,21 @@ const GroupsAdminPage = () => {
             </div>
           ) : (
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                <colgroup>
+                  <col style={{ width: '55px' }} />
+                  <col style={{ width: '22%' }} />
+                  <col style={{ width: '45%' }} />
+                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '14%' }} />
+                </colgroup>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '50px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ID</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '220px', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>GROUP NAME</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED VEHICLES</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '130px', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>VEHICLE COUNT</th>
-                    <th style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', width: '130px', textAlign: 'center' }}>ACTION</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ID</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>GROUP NAME</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>ASSIGNED USERS</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>VEHICLE COUNT</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center' }}>ACTION</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -181,54 +211,87 @@ const GroupsAdminPage = () => {
                       <td colSpan="5" style={{ padding: '60px', textAlign: 'center' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.6 }}>
                           <Users2 size={40} color="#94A3B8" style={{ marginBottom: '12px' }} />
-                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>No groups available</div>
-                          <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '2px' }}>Create groups to organize your fleet.</div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#000000' }}>No groups available</div>
+                          <div style={{ fontSize: '13px', color: '#000000', marginTop: '2px' }}>Create groups to organize your fleet.</div>
                         </div>
                       </td>
                     </tr>
-                  ) : filteredGroups.map((g, index) => (
-                    <tr
-                      key={g.id}
-                      style={{
-                        borderBottom: '1px solid #e0e7ff',
-                        background: 'transparent',
-                        transition: 'background 0.15s'
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = '#f5f3ff'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <td style={{ padding: '8px 12px', fontSize: '12px', color: '#64748b', fontWeight: 700, textAlign: 'center', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
-                        {index + 1}
-                      </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
-                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>{g.name}</div>
-                      </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
-                        {(!g.vehicles || g.vehicles.length === 0) ? (
-                          <span style={{ fontSize: '12px', color: '#94a3b8', fontStyle: 'italic' }}>No vehicles assigned</span>
-                        ) : (
-                          <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: 600, lineHeight: 1.4 }}>
-                            {g.vehicles.map(v => v.name || v.vehicleId).filter(Boolean).join(', ')}
+                  ) : filteredGroups.map((g, index) => {
+                    const assignedUsers = getAssignedUsers(g);
+                    const vCount = g.vehicle_count || (g.vehicles ? g.vehicles.length : 0);
+                    return (
+                      <tr
+                        key={g.id}
+                        style={{
+                          borderBottom: '1px solid #e0e7ff',
+                          height: '38px',
+                          background: 'transparent',
+                          transition: 'background 0.15s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 700, textAlign: 'center', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
+                          {index + 1}
+                        </td>
+                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000' }}>{g.name}</div>
+                        </td>
+                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                          {(!assignedUsers || assignedUsers.length === 0) ? (
+                            <span style={{ fontSize: '12.5px', color: '#000000', fontWeight: 500 }}>No users assigned</span>
+                          ) : (
+                            <div style={{ fontSize: '12.5px', color: '#000000', fontWeight: 600, lineHeight: 1.4, wordBreak: 'break-word' }}>
+                              {assignedUsers.map(u => u.name || u.username || u.email).filter(Boolean).join(', ')}
+                            </div>
+                          )}
+                        </td>
+                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/admin/vehicles?groupId=${g.id}`)}
+                            title={`Click to view ${vCount} vehicles in ${g.name}`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              padding: '2px 10px',
+                              borderRadius: '8px',
+                              background: '#FFF7ED',
+                              color: '#EA580C',
+                              border: '1px solid #FFEDD5',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#EA580C';
+                              e.currentTarget.style.color = '#FFFFFF';
+                              e.currentTarget.style.borderColor = '#EA580C';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#FFF7ED';
+                              e.currentTarget.style.color = '#EA580C';
+                              e.currentTarget.style.borderColor = '#FFEDD5';
+                            }}
+                          >
+                            {vCount}
+                          </button>
+                        </td>
+                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '3px 8px', borderRadius: '6px', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#EA580C', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FFEDD5'} onMouseLeave={e => e.currentTarget.style.background = '#FFF7ED'}>
+                              Edit
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '3px 8px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'} onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}>
+                              Delete
+                            </button>
                           </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center', borderRight: '1px solid #e2e8f0' }}>
-                        <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: '12px', background: '#FFF7ED', color: '#EA580C', border: '1px solid #FFEDD5', fontSize: '12px', fontWeight: 800 }}>
-                          {g.vehicle_count || (g.vehicles ? g.vehicles.length : 0)}
-                        </span>
-                      </td>
-                      <td style={{ padding: '8px 12px', verticalAlign: 'middle', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                          <button onClick={(e) => { e.stopPropagation(); setEditingGroup(g); setIsAddModalOpen(true); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#EA580C', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FFEDD5'} onMouseLeave={e => e.currentTarget.style.background = '#FFF7ED'}>
-                            Edit
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); handleDeleteGroup(g); }} style={{ padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: '11px', fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#FEE2E2'} onMouseLeave={e => e.currentTarget.style.background = '#FEF2F2'}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

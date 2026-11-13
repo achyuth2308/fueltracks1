@@ -50,11 +50,11 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
       const rawDeviceType = String(row['Device Type'] || row['Device Type (BSTPL/AIS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Model'] || row.deviceModel || 'AIS140').trim();
       const deviceModel = rawDeviceType.split(' (')[0].trim();
 
-      // IMEI Validation — must be 10-20 numeric digits
+      // IMEI Validation — must be exactly 15 numeric digits compulsory
       if (!imei) {
         errors.push('IMEI number is required');
-      } else if (!/^\d{10,20}$/.test(imei)) {
-        errors.push('IMEI must be 10-20 numeric digits');
+      } else if (!/^\d{15}$/.test(imei)) {
+        errors.push(`IMEI must be exactly 15 digits compulsory (found ${imei.length} digits: ${imei})`);
       } else if (seenImeis.has(imei)) {
         errors.push(`Duplicate IMEI in file (${imei})`);
       } else {
@@ -534,9 +534,11 @@ export default function ExcelBulkUploadModal({ isOpen, onClose, onSuccess, avail
                               {isEditing ? (
                                 <input
                                   type="text"
+                                  maxLength={15}
+                                  placeholder="15-digit IMEI"
                                   value={editFormData._imei || ''}
-                                  onChange={(e) => setEditFormData({ ...editFormData, _imei: e.target.value })}
-                                  className="px-2 py-1 border border-orange-400 rounded text-xs w-36"
+                                  onChange={(e) => setEditFormData({ ...editFormData, _imei: e.target.value.replace(/\D/g, '').slice(0, 15) })}
+                                  className="px-2 py-1 border border-orange-400 rounded text-xs w-36 font-mono"
                                 />
                               ) : (
                                 row._imei || <span className="text-rose-500 font-bold">Missing</span>

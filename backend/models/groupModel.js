@@ -47,13 +47,17 @@ const GroupModel = {
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
-          END AS vehicles
+          END AS vehicles,
+          CASE WHEN COUNT(u.id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)
+          END AS users
         FROM groups g
         JOIN organizations o ON g.org_id = o.id
         JOIN user_groups ug_filter ON g.id = ug_filter.group_id AND ug_filter.user_id = $1
         LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
         LEFT JOIN vehicles v ON vg.vehicle_id = v.id AND v.is_active = TRUE
         LEFT JOIN user_groups ug ON g.id = ug.group_id
+        LEFT JOIN users u ON ug.user_id = u.id AND u.is_active = TRUE
         GROUP BY g.id, o.name
         ORDER BY g.name ASC
       `;
@@ -66,12 +70,16 @@ const GroupModel = {
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
-          END AS vehicles
+          END AS vehicles,
+          CASE WHEN COUNT(u.id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)
+          END AS users
         FROM groups g
         JOIN organizations o ON g.org_id = o.id
         LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
         LEFT JOIN vehicles v ON vg.vehicle_id = v.id AND v.is_active = TRUE
         LEFT JOIN user_groups ug ON g.id = ug.group_id
+        LEFT JOIN users u ON ug.user_id = u.id AND u.is_active = TRUE
         GROUP BY g.id, o.name
         ORDER BY g.name ASC
       `;
@@ -84,12 +92,16 @@ const GroupModel = {
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
-          END AS vehicles
+          END AS vehicles,
+          CASE WHEN COUNT(u.id) = 0 THEN NULL
+               ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)
+          END AS users
         FROM groups g
         JOIN organizations o ON g.org_id = o.id
         LEFT JOIN vehicle_groups vg ON g.id = vg.group_id
         LEFT JOIN vehicles v ON vg.vehicle_id = v.id AND v.is_active = TRUE
         LEFT JOIN user_groups ug ON g.id = ug.group_id
+        LEFT JOIN users u ON ug.user_id = u.id AND u.is_active = TRUE
         WHERE (g.org_id = $1 OR g.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))
         GROUP BY g.id, o.name
         ORDER BY g.name ASC

@@ -8,6 +8,19 @@ import AddUserModal from '../../components/modals/AddUserModal';
 import SendCredentialsModal from '../../components/modals/SendCredentialsModal';
 import { useAuth } from '../../hooks/useAuth';
 
+// Authentic WhatsApp Symbol SVG
+const WhatsAppIcon = ({ size = 13, color = '#25D366' }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    style={{ color, flexShrink: 0 }}
+  >
+    <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91C2.13 13.66 2.59 15.36 3.45 16.86L2.05 22L7.3 20.62C8.75 21.41 10.38 21.83 12.04 21.83C17.5 21.83 21.95 17.38 21.95 11.92C21.95 9.27 20.92 6.78 19.05 4.91C17.18 3.03 14.69 2 12.04 2ZM12.05 20.16C10.57 20.16 9.12 19.76 7.85 19.01L7.55 18.83L4.43 19.65L5.26 16.61L5.06 16.29C4.24 14.98 3.8 13.47 3.8 11.91C3.8 7.37 7.5 3.67 12.05 3.67C14.25 3.67 16.31 4.53 17.87 6.09C19.42 7.65 20.28 9.72 20.28 11.92C20.28 16.46 16.58 20.16 12.05 20.16ZM16.57 14.39C16.32 14.27 15.1 13.67 14.88 13.59C14.65 13.5 14.49 13.46 14.32 13.71C14.16 13.96 13.69 14.51 13.55 14.67C13.4 14.84 13.26 14.86 13.01 14.73C12.76 14.61 11.96 14.35 11.01 13.5C10.27 12.84 9.77 12.03 9.63 11.78C9.48 11.53 9.61 11.4 9.74 11.27C9.85 11.16 9.99 10.98 10.11 10.84C10.24 10.7 10.28 10.59 10.36 10.43C10.45 10.26 10.4 10.12 10.34 9.99C10.28 9.87 9.78 8.65 9.58 8.15C9.38 7.67 9.18 7.73 9.03 7.73C8.89 7.72 8.72 7.72 8.56 7.72C8.39 7.72 8.13 7.78 7.9 8.03C7.67 8.28 7.03 8.88 7.03 10.1C7.03 11.32 7.92 12.5 8.04 12.66C8.17 12.83 9.78 15.31 12.25 16.38C12.84 16.63 13.3 16.78 13.66 16.89C14.25 17.08 14.79 17.05 15.22 16.99C15.7 16.92 16.69 16.39 16.9 15.81C17.11 15.23 17.11 14.73 17.04 14.63C16.98 14.51 16.82 14.45 16.57 14.39Z" />
+  </svg>
+);
+
 
 const formatNoDataTime = (minutes) => {
   const m = Number(minutes) || 30;
@@ -264,11 +277,11 @@ const UsersAdminPage = () => {
             </div>
           ) : (
             <div className="overflow-x-auto" style={{ overflowY: 'auto', flex: 1 }}>
-              <table className="pastel-table" style={{ minWidth: '800px', width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
+              <table style={{ minWidth: '960px', width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
-                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'No Data Time', 'Status', 'Actions'].map(h => (
-                      <th key={h} style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'No Data Time', 'Status', 'Actions'].map((h, i, arr) => (
+                      <th key={h} style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: i < arr.length - 1 ? '1px solid rgba(255, 255, 255, 0.2)' : 'none', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
                     ))}
@@ -277,74 +290,78 @@ const UsersAdminPage = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
-                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '14px' }}>No users found.</td>
+                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>No users found.</td>
                     </tr>
                   ) : filteredUsers.map((u) => (
                     <tr
                       key={u.id}
                       style={{
-                        borderBottom: '1px solid #F1F5F9',
+                        borderBottom: '1px solid #e0e7ff',
+                        height: '38px',
                         background: viewingUser?.id === u.id ? '#f0f9ff' : 'transparent',
-                        transition: 'background 0.2s'
+                        transition: 'background 0.15s'
                       }}
                       onMouseEnter={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = '#F8FAFC'; }}
                       onMouseLeave={e => { if (viewingUser?.id !== u.id) e.currentTarget.style.background = 'transparent'; }}
                     >
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#111827', fontFamily: 'monospace' }}>{u.username || '—'}</div>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', fontFamily: 'monospace' }}>{u.username || '—'}</div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '12.5px', color: '#000000', fontWeight: 700 }}>
                           {u.name || 'Unnamed'}
                         </div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '13px', color: '#111827' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '12.5px', color: '#000000', fontWeight: 600 }}>
                           {u.phone || '—'}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#6B7280' }}>
-                          {u.email || '—'}
-                        </div>
+                        {u.email && (
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            {u.email}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ padding: '16px 20px', fontSize: '13px', color: '#475569', fontWeight: 500 }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {u.group_names ? (
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
                             {u.group_names.split(', ').map((gName, i) => (
-                              <span key={i} style={{ padding: '2px 8px', background: '#F8FAFC', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                              <span key={i} style={{ padding: '1px 6px', background: '#F1F5F9', borderRadius: '4px', fontSize: '11px', fontWeight: 600, color: '#000000' }}>
                                 {gName}
                               </span>
                             ))}
                           </div>
-                        ) : '—'}
+                        ) : (
+                          <span style={{ fontSize: '12.5px', color: '#94a3b8' }}>—</span>
+                        )}
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         <span style={{
-                          padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize',
-                          background: '#F8FAFC', color: '#475569'
+                          padding: '2px 8px', borderRadius: '99px', fontSize: '11px', fontWeight: 700, textTransform: 'capitalize',
+                          background: '#F1F5F9', color: '#000000'
                         }}>
                           {u.role}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         <span style={{
-                          padding: '4px 8px', borderRadius: '6px', fontSize: '11px', fontWeight: 600,
+                          padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
                           background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #DBEAFE'
                         }}>
                           {formatNoDataTime(u.no_data_minutes)}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         <span style={{
-                          padding: '4px 10px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
+                          padding: '2px 8px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
                           background: u.is_active ? '#D1FAE5' : '#FEE2E2',
-                          color: u.is_active ? '#059669' : '#DC2626'
+                          color: u.is_active ? '#065F46' : '#991B1B'
                         }}>
                           {u.is_active ? 'Active' : 'Suspended'}
                         </span>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                           {user?.id !== u.id && (
                             <a
                               href={`/switch-login/${u.id}`}
@@ -360,16 +377,15 @@ const UsersAdminPage = () => {
                                 background: '#E0F2FE',
                                 color: '#0369A1',
                                 textDecoration: 'none',
-                                padding: '6px 12px',
-                                borderRadius: '6px',
-                                fontSize: '12px',
-                                fontWeight: 600,
+                                padding: '3px 8px',
+                                borderRadius: '4px',
+                                fontSize: '11.5px',
+                                fontWeight: 700,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '4px',
+                                gap: '3px',
                                 cursor: 'pointer',
-                                boxShadow: '0 2px 4px rgba(3,105,161,0.1)',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.15s'
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.background = '#BAE6FD';
@@ -380,24 +396,24 @@ const UsersAdminPage = () => {
                                 e.currentTarget.style.color = '#0369A1';
                               }}
                             >
-                              <Shuffle size={12} />
+                              <Shuffle size={11} />
                               <span>Switch</span>
                             </a>
                           )}
                           <button
                             onClick={() => handleViewUser(u)}
                             style={{
-                              background: '#F8FAFC', color: '#475569', border: 'none', padding: '6px 12px',
-                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
+                              background: '#F8FAFC', color: '#000000', border: '1px solid #CBD5E1', padding: '3px 8px',
+                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
                             }}
                           >
                             View
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(u)}
-                            style={{ padding: '6px 12px', borderRadius: '6px', background: '#F1F5F9', border: 'none', color: '#475569', fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#E2E8F0'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#F1F5F9'}
+                            style={{ padding: '3px 8px', borderRadius: '4px', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#EA580C', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#FFEDD5'}
+                            onMouseLeave={e => e.currentTarget.style.background = '#FFF7ED'}
                           >
                             Edit
                           </button>
@@ -405,21 +421,21 @@ const UsersAdminPage = () => {
                             onClick={(e) => handleOpenSendCredentials(u, '', false, e)}
                             title="Send login credentials via WhatsApp"
                             style={{
-                              background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', padding: '6px 10px',
-                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
-                              transition: 'all 0.2s'
+                              background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', padding: '3px 8px',
+                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
+                              transition: 'all 0.15s'
                             }}
                             onMouseEnter={e => e.currentTarget.style.background = '#BBF7D0'}
                             onMouseLeave={e => e.currentTarget.style.background = '#DCFCE7'}
                           >
-                            <MessageSquare size={12} color="#16A34A" />
+                            <WhatsAppIcon size={13} color="#15803D" />
                             <span>WhatsApp</span>
                           </button>
                           <button
                             onClick={() => handleDelete(u.id)}
                             style={{
-                              background: '#FEF2F2', color: '#DC2626', border: '1px solid #FEE2E2', padding: '6px 12px',
-                              borderRadius: '6px', fontSize: '12px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', cursor: 'pointer'
+                              background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '3px 8px',
+                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', cursor: 'pointer'
                             }}
                           >
                             Delete

@@ -153,10 +153,13 @@ const OnboardController = {
 
       for (let i = 0; i < devices.length; i++) {
         const d = devices[i];
-        if (!d.deviceId || !String(d.deviceId).trim()) {
+        const imei = String(d.deviceId || '').trim();
+        if (!imei) {
           throw new Error(`Row ${i + 1}: Device Id (IMEI) is required.`);
         }
-        const imei = String(d.deviceId).trim();
+        if (!/^\d{15}$/.test(imei)) {
+          throw new Error(`Row ${i + 1}: Device Id (IMEI) must be exactly 15 numeric digits compulsory. Received ${imei.length} digits ("${imei}").`);
+        }
         const plate = String(d.registrationNo || d.vehicleId || '').trim().toUpperCase();
         const iccid = String(d.iccid || '').trim();
 
@@ -503,12 +506,12 @@ const OnboardController = {
         const upperPlate = (registrationNo || vehicleIdInput || '').toUpperCase().trim();
         const iccid = String(row.iccid || row['ICCID'] || '').trim();
 
-        // 1. Validate IMEI format
-        if (!imei || !/^\d{10,20}$/.test(imei)) {
+        // 1. Validate IMEI format (strictly 15 digits compulsory)
+        if (!imei || !/^\d{15}$/.test(imei)) {
           skippedResults.push({
             imei: imei || 'EMPTY',
             row: i + 1,
-            reason: `Invalid or missing IMEI (${imei || 'empty'}). Must be 10-20 numeric digits.`
+            reason: `Invalid IMEI (${imei || 'empty'}). IMEI must be exactly 15 numeric digits compulsory (found ${imei.length} digits).`
           });
           continue;
         }

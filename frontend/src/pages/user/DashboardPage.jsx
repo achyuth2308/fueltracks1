@@ -3,235 +3,209 @@ import { formatLocalDate, getVehicleExpiryStatus } from '../../utils/dateUtils';
 import { useNavigate } from 'react-router-dom';
 import {
   Users, Users2, Truck, Activity, AlertTriangle, ChevronRight, ArrowUpRight,
-  Wifi, WifiOff, Navigation, PauseCircle, Shield, Cpu, Smartphone, Plus,
+  Wifi, WifiOff, Navigation, PauseCircle, Shield, Plus, Building2,
   ShieldCheck, CheckCircle2, Clock, Search, ExternalLink, RefreshCw, Radio
 } from 'lucide-react';
 
 import { useVehicles } from '../../hooks/useVehicles';
-import { getDashboardStats } from '../../api/adminApi';
+import { getDashboardStats, getOrgs } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
 import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
+import { getVehicleLicenseTier } from '../../utils/licenseUtils';
 
-/* Modern Stat Card with Top Color Accent */
+/* Modern Entity Stat Card - Style A (Top Accent Line) */
 const StatCard = ({ label, value, color, icon: Icon, subtext, onClick }) => (
   <div
     onClick={onClick}
-    className="flex-1 min-w-[120px] p-2.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
+    className="bg-white rounded-xl p-3 cursor-pointer transition-all duration-200 flex flex-col justify-between hover:-translate-y-0.5"
     style={{
-      border: '1px solid #e2e8f0',
-      borderTop: `3px solid ${color}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
+      border: '1px solid #E2E8F0',
+      borderTop: `3.5px solid ${color}`,
+      boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
     }}
     onMouseEnter={e => {
-      e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}25`;
-      e.currentTarget.style.borderColor = `${color}60`;
+      e.currentTarget.style.boxShadow = `0 6px 16px -2px ${color}25`;
+      e.currentTarget.style.borderColor = `${color}50`;
+      e.currentTarget.style.borderTop = `3.5px solid ${color}`;
     }}
     onMouseLeave={e => {
-      e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
-      e.currentTarget.style.borderColor = '#e2e8f0';
-      e.currentTarget.style.borderTop = `3px solid ${color}`;
+      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+      e.currentTarget.style.borderColor = '#E2E8F0';
+      e.currentTarget.style.borderTop = `3.5px solid ${color}`;
     }}
   >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">{label}</span>
+    <div className="flex items-center justify-between gap-1.5">
+      <span style={{ fontSize: '11px', fontWeight: 800, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        {label}
+      </span>
       <div
-        className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-        style={{ background: `${color}15` }}
+        style={{
+          width: '28px',
+          height: '28px',
+          borderRadius: '7px',
+          background: `${color}14`,
+          color: color,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
       >
-        <Icon className="w-3.5 h-3.5" color={color} />
+        <Icon size={15} strokeWidth={2.4} />
       </div>
     </div>
-    <div className="mt-1 mb-0.5">
-      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
+
+    <div className="my-1.5">
+      <div style={{ fontSize: '24px', fontWeight: 900, color: '#000000', lineHeight: 1 }}>
         {value}
       </div>
     </div>
+
     {subtext && (
-      <div className="text-[10px] font-[600] text-slate-400 flex items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
-        <span>{subtext}</span>
-        <ChevronRight size={12} className="text-slate-300" />
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+        <span
+          style={{
+            fontSize: '10.5px',
+            fontWeight: 700,
+            color: '#000000',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '3px',
+          }}
+        >
+          {subtext}
+          <ChevronRight size={11} strokeWidth={2.8} color="#000000" />
+        </span>
       </div>
     )}
   </div>
 );
 
-/* Modern Vehicle Overview Card */
-const VehicleOverviewCard = ({ total, online, offline, color = '#EC4899', onClick }) => (
-  <div
-    onClick={onClick}
-    className="flex-1 min-w-[130px] p-2.5 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
-    style={{
-      border: '1px solid #e2e8f0',
-      borderTop: `3px solid ${color}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
-    }}
-    onMouseEnter={e => {
-      e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}25`;
-      e.currentTarget.style.borderColor = `${color}60`;
-    }}
-    onMouseLeave={e => {
-      e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
-      e.currentTarget.style.borderColor = '#e2e8f0';
-      e.currentTarget.style.borderTop = `3px solid ${color}`;
-    }}
-  >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">Vehicles</span>
-      <div className="w-6 h-6 rounded-md flex items-center justify-center shrink-0" style={{ background: `${color}15` }}>
-        <Truck className="w-3.5 h-3.5" color={color} />
-      </div>
-    </div>
-    <div className="mt-1 mb-0.5">
-      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
-        {total}
-      </div>
-    </div>
-    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
-      <span className="text-[10px] font-[700] text-emerald-600 flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        {online} Online
-      </span>
-      <span className="text-[10px] font-[700] text-rose-500 flex items-center gap-1">
-        <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-        {offline} No Data
-      </span>
-    </div>
-  </div>
-);
-
-/* Modern Tier License Card */
-const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online', labelAvailable = 'No Data' }) => (
-  <div
-    className="flex-1 min-w-[120px] p-2.5 bg-white rounded-xl transition-all duration-200 flex flex-col justify-between"
-    style={{
-      border: '1px solid #e2e8f0',
-      borderTop: `3px solid ${color}`,
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
-    }}
-    onMouseEnter={e => {
-      e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 8px 20px -3px ${color}20`;
-      e.currentTarget.style.borderColor = `${color}60`;
-    }}
-    onMouseLeave={e => {
-      e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
-      e.currentTarget.style.borderColor = '#e2e8f0';
-      e.currentTarget.style.borderTop = `3px solid ${color}`;
-    }}
-  >
-    <div className="flex items-center justify-between">
-      <span className="text-[11px] font-[700] text-slate-500 uppercase tracking-wider">{title}</span>
-      <span className="text-[9px] font-[800] px-1.5 py-0.5 rounded-full" style={{ background: `${color}15`, color: color }}>
-        TIER
-      </span>
-    </div>
-    <div className="mt-1 mb-0.5">
-      <div className="text-[20px] font-[800] text-slate-900 leading-tight">
-        {total}
-      </div>
-    </div>
-    <div className="flex w-full items-center justify-between border-t border-slate-100 pt-1.5 mt-1">
-      <span className="text-[10px] font-[600] text-slate-500">
-        <strong className="text-emerald-600 font-[700]">{used}</strong> {labelUsed}
-      </span>
-      <span className="text-[10px] font-[600] text-slate-500">
-        <strong className={available > 0 ? "text-rose-500 font-[700]" : "text-slate-400 font-[700]"}>{available}</strong> {labelAvailable}
-      </span>
-    </div>
-  </div>
-);
-
-/* Modern Device Telemetry Card with High-Impact Badges */
-const DeviceStatusCard = ({ title, total, online, moving, idle, parked, offline, color = '#0EA5E9', icon: Icon, onClick }) => (
-  <div
-    onClick={onClick}
-    className="flex-1 min-w-[260px] py-2.5 px-3 bg-white rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
-    style={{
-      border: '1px solid #e2e8f0',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)',
-    }}
-    onMouseEnter={e => {
-      e.currentTarget.style.transform = 'translateY(-2px)';
-      e.currentTarget.style.boxShadow = `0 10px 24px -4px ${color}25`;
-      e.currentTarget.style.borderColor = `${color}70`;
-    }}
-    onMouseLeave={e => {
-      e.currentTarget.style.transform = 'none';
-      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(15,23,42,0.03)';
-      e.currentTarget.style.borderColor = '#e2e8f0';
-    }}
-  >
-    <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-      <div className="flex items-center gap-2">
-        <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: `${color}15` }}>
-          {Icon && <Icon className="w-3.5 h-3.5" color={color} />}
-        </div>
-        <div>
-          <span className="text-[12.5px] font-[800] text-slate-900 block leading-tight">{title}</span>
-          <span className="text-[10px] font-[600] text-slate-400">Telemetry Status Breakdown</span>
+/* Modern Vehicle Overview Card - Style A (Top Accent Line) */
+const VehicleOverviewCard = ({ total, online, offline, color = '#DB2777', onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl p-3 cursor-pointer transition-all duration-200 flex flex-col justify-between hover:-translate-y-0.5"
+      style={{
+        border: '1px solid #E2E8F0',
+        borderTop: `3.5px solid ${color}`,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = `0 6px 16px -2px ${color}25`;
+        e.currentTarget.style.borderColor = `${color}50`;
+        e.currentTarget.style.borderTop = `3.5px solid ${color}`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+        e.currentTarget.style.borderColor = '#E2E8F0';
+        e.currentTarget.style.borderTop = `3.5px solid ${color}`;
+      }}
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <span style={{ fontSize: '11px', fontWeight: 800, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+          Vehicles
+        </span>
+        <div
+          style={{
+            width: '28px',
+            height: '28px',
+            borderRadius: '7px',
+            background: `${color}14`,
+            color: color,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <Truck size={15} strokeWidth={2.4} />
         </div>
       </div>
-      <div className="text-right">
-        <span className="text-[17px] font-[900] text-slate-900 leading-tight">{total}</span>
-        <span className="text-[10px] font-[600] text-slate-400 block -mt-0.5">Active Devices</span>
-      </div>
-    </div>
 
-    {/* Telemetry Status Pills */}
-    <div className="grid grid-cols-5 gap-1.5 pt-1.5">
-      {/* Online */}
-      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-emerald-50/60 border border-emerald-100/60">
-        <span className="text-[9.5px] font-[700] text-emerald-700 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-          Online
+      <div className="my-1.5">
+        <div style={{ fontSize: '24px', fontWeight: 900, color: '#000000', lineHeight: 1 }}>
+          {total}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100" style={{ fontSize: '10.5px', fontWeight: 700 }}>
+        <span className="text-emerald-600 flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+          {online} Online
         </span>
-        <span className="text-[13.5px] font-[800] text-emerald-700 mt-0.5 leading-tight">{online}</span>
-      </div>
-
-      {/* Moving */}
-      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-teal-50/60 border border-teal-100/60">
-        <span className="text-[9.5px] font-[700] text-teal-700 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
-          Moving
-        </span>
-        <span className="text-[13.5px] font-[800] text-teal-700 mt-0.5 leading-tight">{moving}</span>
-      </div>
-
-      {/* Idle */}
-      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-amber-50/60 border border-amber-100/60">
-        <span className="text-[9.5px] font-[700] text-amber-700 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
-          Idle
-        </span>
-        <span className="text-[13.5px] font-[800] text-amber-700 mt-0.5 leading-tight">{idle}</span>
-      </div>
-
-      {/* Parked */}
-      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-indigo-50/60 border border-indigo-100/60">
-        <span className="text-[9.5px] font-[700] text-indigo-700 flex items-center gap-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-          Parked
-        </span>
-        <span className="text-[13.5px] font-[800] text-indigo-700 mt-0.5 leading-tight">{parked}</span>
-      </div>
-
-      {/* No Data */}
-      <div className="flex flex-col items-center py-1 px-1 rounded-md bg-rose-50/60 border border-rose-100/60">
-        <span className="text-[9.5px] font-[700] text-rose-700 flex items-center gap-1">
+        <span className="text-rose-600 flex items-center gap-1">
           <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
-          No Data
+          {offline} No Data
         </span>
-        <span className="text-[13.5px] font-[800] text-rose-700 mt-0.5 leading-tight">{offline}</span>
       </div>
     </div>
-  </div>
-);
+  );
+};
+
+/* Modern Tier License Card - Style A (Top Accent Line) */
+const LicenseCard = ({ title, total, used, available, color, labelUsed = 'Online', labelAvailable = 'No Data', onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white rounded-xl p-3 cursor-pointer transition-all duration-200 flex flex-col justify-between hover:-translate-y-0.5"
+      style={{
+        border: '1px solid #E2E8F0',
+        borderTop: `3.5px solid ${color}`,
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.boxShadow = `0 6px 16px -2px ${color}25`;
+        e.currentTarget.style.borderColor = `${color}50`;
+        e.currentTarget.style.borderTop = `3.5px solid ${color}`;
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
+        e.currentTarget.style.borderColor = '#E2E8F0';
+        e.currentTarget.style.borderTop = `3.5px solid ${color}`;
+      }}
+      title={`View ${title} License Vehicles`}
+    >
+      <div className="flex items-center justify-between gap-1.5">
+        <span style={{ fontSize: '11px', fontWeight: 800, color: '#000000', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {title}
+        </span>
+        <span
+          style={{
+            fontSize: '9px',
+            fontWeight: 800,
+            padding: '1.5px 6px',
+            borderRadius: '6px',
+            background: `${color}14`,
+            color: color,
+            letterSpacing: '0.04em',
+            flexShrink: 0
+          }}
+        >
+          TIER
+        </span>
+      </div>
+
+      <div className="my-1.5">
+        <div style={{ fontSize: '24px', fontWeight: 900, color: '#000000', lineHeight: 1 }}>
+          {total}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between pt-1 border-t border-slate-100" style={{ fontSize: '10.5px', fontWeight: 700 }}>
+        <span className="text-emerald-600">
+          <strong className="font-[800]">{used}</strong> {labelUsed}
+        </span>
+        <span className={available > 0 ? "text-rose-600" : "text-black"}>
+          <strong className="font-[800]">{available}</strong> {labelAvailable}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 
 const DashboardPage = ({ setAppVehicles }) => {
   const navigate = useNavigate();
@@ -240,8 +214,19 @@ const DashboardPage = ({ setAppVehicles }) => {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [quota, setQuota] = useState(null);
   const [apiStats, setApiStats] = useState(null);
+  const [totalOrgs, setTotalOrgs] = useState(0);
   const isDealer = user?.role === 'dealer';
   const [noDataThreshold, setNoDataThreshold] = useState(getNoDataThresholdHours());
+
+  useEffect(() => {
+    getOrgs()
+      .then(res => {
+        if (res?.success && Array.isArray(res.data)) {
+          setTotalOrgs(res.data.length);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const handleThresholdChange = (e) => {
@@ -300,6 +285,7 @@ const DashboardPage = ({ setAppVehicles }) => {
     ? vehicles.filter(v => v.is_online).length
     : (apiStats?.online_vehicles !== undefined ? Number(apiStats.online_vehicles) : 0);
 
+  const totalOrgsCount = totalOrgs || (apiStats?.organizations !== undefined ? Number(apiStats.organizations) : (user?.role === 'superadmin' ? '1' : '-'));
   const totalUsers = apiStats?.users ?? (user?.role === 'superadmin' ? '3' : '-');
   const totalGroups = groups.length || (user?.role === 'superadmin' ? '2' : '-');
   const totalVehicles = vehicles.length > 0
@@ -308,111 +294,27 @@ const DashboardPage = ({ setAppVehicles }) => {
 
   const offlineCount = Math.max(0, totalVehicles - onlineCount);
 
-  const normalizeDeviceType = (v) => {
-    const raw = v.deviceType || v.device_version || v.metadata?.deviceModel || v.metadata?.deviceType || v.model || '';
-    const str = String(raw).trim();
-    const upper = str.toUpperCase();
-    if (!str) return 'VOLTY';
-    if (upper.includes('VOLTY')) return 'VOLTY';
-    if (upper.includes('AIS140') || upper.includes('AIS-140') || upper.includes('AIS 140')) {
-      if (upper.includes('V2')) return 'AIS140 V2';
-      return 'AIS140';
-    }
-    if (upper.includes('CONCOX')) return 'CONCOX';
-    if (upper.includes('FMB') || upper.includes('TELTONIKA')) return 'TELTONIKA';
-    if (upper.includes('BSTPL') || upper.includes('TRACKNOW')) return 'TRACKNOW';
-    return str || 'VOLTY';
-  };
-
-  const { allStats, voltyStats, otherDeviceCards } = useMemo(() => {
-    const calcStats = (vehList) => {
-      let online = 0;
-      let moving = 0;
-      let idle = 0;
-      let parked = 0;
-      let offline = 0;
-
-      vehList.forEach(v => {
-        const status = getVehicleStatus(v, noDataThreshold);
-        if (status === 'running') {
-          moving++;
-          online++;
-        } else if (status === 'idle') {
-          idle++;
-          online++;
-        } else if (status === 'parked') {
-          parked++;
-          online++;
-        } else {
-          offline++;
-        }
-      });
-
-      return {
-        total: vehList.length,
-        online,
-        moving,
-        idle,
-        parked,
-        offline
-      };
-    };
-
-    const all = calcStats(vehicles);
-    if (vehicles.length === 0 && apiStats) {
-      all.total = Number(apiStats.total_vehicles || 0);
-      all.online = Number(apiStats.online_vehicles || 0);
-      all.offline = Math.max(0, all.total - all.online);
-    }
-
-    const voltyVehicles = vehicles.filter(v => normalizeDeviceType(v) === 'VOLTY');
-    const volty = calcStats(voltyVehicles);
-
-    const otherGroups = {};
-    const colorPalette = ['#8B5CF6', '#F59E0B', '#10B981', '#EC4899'];
-    let colorIdx = 0;
-
-    vehicles.forEach(v => {
-      const type = normalizeDeviceType(v);
-      if (type !== 'VOLTY' && type !== 'Other') {
-        if (!otherGroups[type]) {
-          otherGroups[type] = [];
-        }
-        otherGroups[type].push(v);
-      }
-    });
-
-    const otherCards = Object.entries(otherGroups).map(([type, list]) => ({
-      title: `${type} Devices`,
-      color: colorPalette[colorIdx++ % colorPalette.length],
-      ...calcStats(list)
-    }));
-
-    return {
-      allStats: all,
-      voltyStats: volty,
-      otherDeviceCards: otherCards
-    };
-  }, [vehicles, apiStats, noDataThreshold]);
-
   const getTierStats = (type) => {
     if (isDealer && quota) {
+      const limitVal = quota.limits?.[type] ??
+        (type === 'Standard' ? quota.limits?.['Basic'] : undefined) ??
+        (type === 'Standard Pro' ? quota.limits?.['Starter'] : undefined) ?? 0;
+      const usedVal = quota.used?.[type] ??
+        (type === 'Standard' ? quota.used?.['Basic'] : undefined) ??
+        (type === 'Standard Pro' ? quota.used?.['Starter'] : undefined) ?? 0;
+      const availVal = quota.available?.[type] ??
+        (type === 'Standard' ? quota.available?.['Basic'] : undefined) ??
+        (type === 'Standard Pro' ? quota.available?.['Starter'] : undefined) ?? 0;
+
       return {
-        total: quota.limits?.[type] || 0,
-        used: quota.used?.[type] || 0,
-        available: quota.available?.[type] || 0,
+        total: limitVal,
+        used: usedVal,
+        available: availVal,
         labelUsed: 'Used',
         labelAvailable: 'Available'
       };
     } else {
-      const typePrefixes = { 'Starter': 'ST', 'Basic': 'BC', 'Advanced': 'AD', 'Premium': 'EN' };
-      const prefix = typePrefixes[type];
-
-      let typeVehicles = vehicles.filter(v => {
-        if (v.metadata?.licenceType === type) return true;
-        if (v.licenceId && v.licenceId.startsWith(prefix)) return true;
-        return false;
-      });
+      let typeVehicles = vehicles.filter(v => getVehicleLicenseTier(v).toLowerCase() === type.toLowerCase());
 
       const online = typeVehicles.filter(v => v.is_online).length;
       return {
@@ -425,8 +327,8 @@ const DashboardPage = ({ setAppVehicles }) => {
     }
   };
 
-  const starterStats = getTierStats('Starter');
-  const basicStats = getTierStats('Basic');
+  const standardStats = getTierStats('Standard');
+  const standardProStats = getTierStats('Standard Pro');
   const advancedStats = getTierStats('Advanced');
   const premiumStats = getTierStats('Premium');
 
@@ -473,114 +375,168 @@ const DashboardPage = ({ setAppVehicles }) => {
         </div>
       </div>
 
-      {/* Row 1: KPI Stats Grid (Uniform Heights & Modern Accents) */}
-      <div className="px-4 md:px-6 pb-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2 shrink-0">
-        <StatCard
-          label="Users"
-          value={totalUsers}
-          color="#7C3AED"
-          icon={Users}
-          subtext="View Accounts"
-          onClick={() => navigate('/admin/users')}
-        />
-        <StatCard
-          label="Groups"
-          value={totalGroups}
-          color="#2563EB"
-          icon={Users2}
-          subtext="Operational Zones"
-          onClick={() => navigate('/admin/groups')}
-        />
-        <VehicleOverviewCard
-          total={totalVehicles}
-          online={onlineCount}
-          offline={offlineCount}
-          color="#DB2777"
-          onClick={() => navigate('/admin/vehicles')}
-        />
-        <LicenseCard
-          title="Starter"
-          total={starterStats.total}
-          used={starterStats.used}
-          available={starterStats.available}
-          labelUsed={starterStats.labelUsed}
-          labelAvailable={starterStats.labelAvailable}
-          color="#10B981"
-        />
-        <LicenseCard
-          title="Basic"
-          total={basicStats.total}
-          used={basicStats.used}
-          available={basicStats.available}
-          labelUsed={basicStats.labelUsed}
-          labelAvailable={basicStats.labelAvailable}
-          color="#0284C7"
-        />
-        <LicenseCard
-          title="Advanced"
-          total={advancedStats.total}
-          used={advancedStats.used}
-          available={advancedStats.available}
-          labelUsed={advancedStats.labelUsed}
-          labelAvailable={advancedStats.labelAvailable}
-          color="#F59E0B"
-        />
-        <LicenseCard
-          title="Premium"
-          total={premiumStats.total}
-          used={premiumStats.used}
-          available={premiumStats.available}
-          labelUsed={premiumStats.labelUsed}
-          labelAvailable={premiumStats.labelAvailable}
-          color="#8B5CF6"
-        />
-      </div>
-
-      {/* Row 2: Device Telemetry Overview Cards */}
-      <div className="px-4 md:px-6 pb-2.5 grid grid-cols-1 md:grid-cols-2 gap-2.5 shrink-0">
-        <DeviceStatusCard
-          title="All Devices Telemetry"
-          total={allStats.total}
-          online={allStats.online}
-          moving={allStats.moving}
-          idle={allStats.idle}
-          parked={allStats.parked}
-          offline={allStats.offline}
-          color="#2563EB"
-          icon={Cpu}
-          onClick={() => navigate('/admin/vehicles')}
-        />
-        <DeviceStatusCard
-          title="VOLTY Devices Telemetry"
-          total={voltyStats.total}
-          online={voltyStats.online}
-          moving={voltyStats.moving}
-          idle={voltyStats.idle}
-          parked={voltyStats.parked}
-          offline={voltyStats.offline}
-          color="#0EA5E9"
-          icon={Smartphone}
-          onClick={() => navigate('/admin/vehicles')}
-        />
-        {otherDeviceCards.map(dev => (
-          <DeviceStatusCard
-            key={dev.title}
-            title={dev.title}
-            total={dev.total}
-            online={dev.online}
-            moving={dev.moving}
-            idle={dev.idle}
-            parked={dev.parked}
-            offline={dev.offline}
-            color={dev.color}
-            icon={Cpu}
+      {/* Fleet Overview Cards (Style A: Compact 8-Card Single Row) */}
+      <div className="px-4 md:px-6 pb-2.5 shrink-0">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5">
+          <StatCard
+            label="Users"
+            value={totalUsers}
+            color="#7C3AED"
+            icon={Users}
+            subtext="View Users"
+            onClick={() => navigate('/admin/users')}
+          />
+          <StatCard
+            label="Groups"
+            value={totalGroups}
+            color="#2563EB"
+            icon={Users2}
+            subtext="View Groups"
+            onClick={() => navigate('/admin/groups')}
+          />
+          <StatCard
+            label="Organizations"
+            value={totalOrgsCount}
+            color="#D97706"
+            icon={Building2}
+            subtext="View Organizations"
+            onClick={() => navigate('/admin/organizations')}
+          />
+          <VehicleOverviewCard
+            total={totalVehicles}
+            online={onlineCount}
+            offline={offlineCount}
+            color="#DB2777"
             onClick={() => navigate('/admin/vehicles')}
           />
-        ))}
+          <LicenseCard
+            title="Standard"
+            total={standardStats.total}
+            used={standardStats.used}
+            available={standardStats.available}
+            labelUsed={standardStats.labelUsed}
+            labelAvailable={standardStats.labelAvailable}
+            color="#0284C7"
+            onClick={() => navigate('/admin/vehicles?tier=Standard')}
+          />
+          <LicenseCard
+            title="Standard Pro"
+            total={standardProStats.total}
+            used={standardProStats.used}
+            available={standardProStats.available}
+            labelUsed={standardProStats.labelUsed}
+            labelAvailable={standardProStats.labelAvailable}
+            color="#10B981"
+            onClick={() => navigate('/admin/vehicles?tier=Standard%20Pro')}
+          />
+          <LicenseCard
+            title="Advanced"
+            total={advancedStats.total}
+            used={advancedStats.used}
+            available={advancedStats.available}
+            labelUsed={advancedStats.labelUsed}
+            labelAvailable={advancedStats.labelAvailable}
+            color="#F59E0B"
+            onClick={() => navigate('/admin/vehicles?tier=Advanced')}
+          />
+          <LicenseCard
+            title="Premium"
+            total={premiumStats.total}
+            used={premiumStats.used}
+            available={premiumStats.available}
+            labelUsed={premiumStats.labelUsed}
+            labelAvailable={premiumStats.labelAvailable}
+            color="#8B5CF6"
+            onClick={() => navigate('/admin/vehicles?tier=Premium')}
+          />
+        </div>
+      </div>
+
+      {/* Prominent Quick Action Banner: Add Device */}
+      <div className="px-4 md:px-6 pb-2.5 shrink-0">
+        <div
+          onClick={() => navigate('/onBoardDevice')}
+          className="w-full rounded-xl px-5 py-3.5 flex items-center justify-between gap-4 cursor-pointer transition-all duration-150"
+          style={{
+            background: '#FFF7ED',
+            border: '1.5px solid #EA580C',
+            boxShadow: '0 2px 5px rgba(234, 88, 12, 0.08)',
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.borderColor = '#C2410C';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.16)';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.borderColor = '#EA580C';
+            e.currentTarget.style.boxShadow = '0 2px 5px rgba(234, 88, 12, 0.08)';
+            e.currentTarget.style.transform = 'none';
+          }}
+        >
+          <div className="flex items-center gap-3.5">
+            <div
+              style={{
+                width: '44px',
+                height: '44px',
+                borderRadius: '10px',
+                background: '#FFFFFF',
+                color: '#EA580C',
+                border: '1px solid #FED7AA',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 3px rgba(234, 88, 12, 0.12)',
+                flexShrink: 0
+              }}
+            >
+              <Plus size={22} strokeWidth={2.8} />
+            </div>
+            <div>
+              <div style={{ fontSize: '15px', fontWeight: 800, color: '#000000', letterSpacing: '-0.01em', lineHeight: 1.2 }}>
+                Add New Device
+              </div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#000000', marginTop: '3px' }}>
+                Quickly register and connect a new GPS tracking device to your fleet
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate('/onBoardDevice');
+            }}
+            style={{
+              background: '#EA580C',
+              color: '#FFFFFF',
+              border: 'none',
+              padding: '10px 22px',
+              borderRadius: '9px',
+              fontSize: '14px',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = '#C2410C';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = '#EA580C';
+            }}
+          >
+            <Plus size={18} strokeWidth={2.8} />
+            <span>Add Device</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Layout: Expiring Licenses */}
-      <div className="px-4 md:px-6 pb-4 flex-1 min-h-[220px] flex shrink-0">
+      <div className="px-4 md:px-6 pb-4 flex-1 min-h-[220px] flex">
         <div className="w-full bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <div className="py-2.5 px-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-2">

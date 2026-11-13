@@ -548,11 +548,11 @@ const AuditLogsAdminPage = () => {
           </div>
         ) : (
           <div style={{ overflowY: 'auto', flex: 1 }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
               <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                <tr style={{ background: '#1e1b4b' }}>
+                <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                   {['Date & Time', 'Type', 'Action', 'Entity', 'Performed By', 'Old Data', 'New Data', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', fontSize: '12px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>
+                    <th key={h} style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', whiteSpace: 'nowrap', borderRight: '1px solid rgba(255, 255, 255, 0.2)' }}>
                       {h}
                     </th>
                   ))}

@@ -243,30 +243,42 @@ const OnBoardDevicePage = () => {
 
         const prefix = licenceType === 'Starter' ? 'ST' : licenceType === 'Basic' ? 'BC' : licenceType === 'Advanced' ? 'AD' : 'EN';
 
-        const newDevices = json.map((row, idx) => ({
-          id: Date.now() + idx,
-          licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-          deviceId: String(row['VLTD SLNO'] || row['Device ID / IMEI'] || row['Device Id'] || '').trim(),
-          deviceType: String(row['Device Type'] || row['Device Type (VOLTY/AIS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
-          vehicleId: String(row['Vehicle Id'] || '').trim(),
-          vehicleName: String(row['Vehicle Name'] || '').trim(),
-          registrationNo: String(row['Registration No'] || '').trim(),
-          vehicleModel: String(row['Vehicle Model'] || '').trim(),
-          vehicleTypeSelect: String(row['Vehicle Type'] || '').trim(),
-          gpsSimNo: String(row['GPS SIMNO 1'] || row['GPS Sim No'] || '').trim(),
-          gpsSimNo2: String(row['GPS SIMNO 2'] || '').trim(),
-          odoDistance: String(row['Odo Distance'] || '').trim(),
-          serviceEngineer: String(row['Service Engineer'] || '').trim(),
-          serviceEngineerMob: String(row['Service Engineer Mobno'] || '').trim(),
-          salesman: String(row['Salesman'] || '').trim(),
-          salesmanMob: String(row['Salesman Mobno'] || '').trim(),
-          ticketId: String(row['Ticket Id'] || '').trim(),
-          sensorNo: String(row['Sensor No'] || '').trim(),
-          iccid: String(row['ICCID'] || '').trim(),
-          vehicleVoltage: String(row['Vehicle Voltage'] || '').trim(),
-          timezone: String(row['Timezone'] || '').trim(),
-          ignitionDetection: String(row['Ignition Detection'] || row['Ignition Detection (ENGINE ON STATUS WITH IGNITION/IGNITION + VOLTAGE/VOLTAGE)'] || 'ENGINE ON STATUS WITH IGNITION').trim(),
-        }));
+        const newDevices = json.map((row, idx) => {
+          let rawImei = String(row['VLTD SLNO'] || row['Device ID / IMEI'] || row['Device ID(IMEI)'] || row['Device Id'] || row['IMEI'] || '').trim();
+          if (rawImei.includes('e+') || rawImei.includes('E+')) {
+            try { rawImei = BigInt(Number(rawImei)).toString(); } catch (e) {}
+          }
+          const cleanImei = rawImei.replace(/\D/g, '').slice(0, 15);
+          return {
+            id: Date.now() + idx,
+            licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+            deviceId: cleanImei,
+            deviceType: String(row['Device Type'] || row['Device Type (VOLTY/AIS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (VOLTY/BSTPL/AS140/CONCOX/AIS140V2/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY/FMB 920)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX/VOLTY)'] || row['Device Type (BSTPL/AS140/AIS140V2/CONCOX)'] || 'VOLTY').trim(),
+            vehicleId: String(row['Vehicle Id'] || '').trim(),
+            vehicleName: String(row['Vehicle Name'] || '').trim(),
+            registrationNo: String(row['Registration No'] || '').trim(),
+            vehicleModel: String(row['Vehicle Model'] || '').trim(),
+            vehicleTypeSelect: String(row['Vehicle Type'] || '').trim(),
+            gpsSimNo: String(row['GPS SIMNO 1'] || row['GPS Sim No'] || '').trim(),
+            gpsSimNo2: String(row['GPS SIMNO 2'] || '').trim(),
+            odoDistance: String(row['Odo Distance'] || '').trim(),
+            serviceEngineer: String(row['Service Engineer'] || '').trim(),
+            serviceEngineerMob: String(row['Service Engineer Mobno'] || '').trim(),
+            salesman: String(row['Salesman'] || '').trim(),
+            salesmanMob: String(row['Salesman Mobno'] || '').trim(),
+            ticketId: String(row['Ticket Id'] || '').trim(),
+            sensorNo: String(row['Sensor No'] || '').trim(),
+            iccid: String(row['ICCID'] || '').trim(),
+            vehicleVoltage: String(row['Vehicle Voltage'] || '').trim(),
+            timezone: String(row['Timezone'] || '').trim(),
+            ignitionDetection: String(row['Ignition Detection'] || row['Ignition Detection (ENGINE ON STATUS WITH IGNITION/IGNITION + VOLTAGE/VOLTAGE)'] || 'ENGINE ON STATUS WITH IGNITION').trim(),
+          };
+        });
+
+        const invalidExcelRows = newDevices.filter(d => !d.deviceId || d.deviceId.length !== 15);
+        if (invalidExcelRows.length > 0) {
+          setError(`Excel contains ${invalidExcelRows.length} device(s) with invalid IMEI. IMEI must be exactly 15 digits compulsory.`);
+        }
 
         setDevices(newDevices);
         setDeviceEntryMode('details');
@@ -342,6 +354,10 @@ const OnBoardDevicePage = () => {
   const updateDevice = (index, field, value) => {
     const updated = [...devices];
     const prevVehicleId = updated[index].vehicleId;
+    // Strict IMEI Enforcement: numeric digits only, max 15
+    if (field === 'deviceId') {
+      value = String(value || '').replace(/\D/g, '').slice(0, 15);
+    }
     updated[index][field] = value;
     if (field === 'vehicleId') {
       if (!updated[index].vehicleName || updated[index].vehicleName === prevVehicleId) {
@@ -392,8 +408,10 @@ const OnBoardDevicePage = () => {
       }
 
       if (deviceEntryMode === 'details') {
-        const missingIds = devices.filter(d => !d.deviceId);
-        if (missingIds.length > 0) throw new Error('All rows must have a valid Device Id.');
+        const invalidRows = devices.filter(d => !d.deviceId || !/^\d{15}$/.test(String(d.deviceId).trim()));
+        if (invalidRows.length > 0) {
+          throw new Error('Device IMEI must be exactly 15 numeric digits compulsory. Less than or more than 15 digits cannot be accepted.');
+        }
       }
 
       const payload = {
@@ -908,10 +926,24 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '135px' }}>
                             <input
-                              type="text" placeholder="Device IMEI" value={device.deviceId}
+                              type="text"
+                              placeholder="15-digit IMEI"
+                              maxLength={15}
+                              value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
-                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                              style={{
+                                ...inputStyle,
+                                height: '32px',
+                                padding: '3px 8px',
+                                fontSize: '11.5px',
+                                borderColor: device.deviceId && device.deviceId.length !== 15 ? '#EF4444' : undefined
+                              }}
                             />
+                            {device.deviceId && device.deviceId.length !== 15 && (
+                              <div style={{ fontSize: '9px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
+                                {device.deviceId.length}/15 digits
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '165px' }}>
                             <SearchableSelect

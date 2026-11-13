@@ -304,17 +304,22 @@ const OrgsAdminPage = () => {
             <div style={{ fontSize: '13px', color: '#6B7280', marginTop: '4px' }}>{error}</div>
           </div>
         ) : (
-          <div style={{ overflowX: 'visible', minHeight: '320px' }}>
-            <table className="pastel-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <div style={{ overflowX: 'auto', minHeight: '320px' }}>
+            <table className="pastel-table" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', textAlign: 'left', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+              <colgroup>
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '60%' }} />
+                <col style={{ width: '30%' }} />
+              </colgroup>
               <thead>
                 <tr style={{ background: 'var(--brand-header, #1e1b4b)', borderBottom: '1px solid #E2E8F0' }}>
-                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                  <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center' }}>
                     SNO
                   </th>
-                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                  <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'left' }}>
                     ORGANIZATION NAME
                   </th>
-                  <th style={{ padding: '16px 20px', fontSize: '12px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.05em', width: '33.33%', textAlign: 'center' }}>
+                  <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', textTransform: 'uppercase', letterSpacing: '0.02em', textAlign: 'center' }}>
                     ACTIONS
                   </th>
                 </tr>
@@ -323,26 +328,26 @@ const OrgsAdminPage = () => {
                 {visibleOrgs.length === 0 ? (
                   <tr>
                     <td colSpan="3" style={{ padding: '40px', textAlign: 'center' }}>
-                      <div style={{ fontSize: '14px', color: '#6B7280', fontWeight: 500 }}>{searchQuery.trim() ? `No organizations matching "${searchQuery}"` : 'No organizations available'}</div>
+                      <div style={{ fontSize: '13px', color: '#6B7280', fontWeight: 500 }}>{searchQuery.trim() ? `No organizations matching "${searchQuery}"` : 'No organizations available'}</div>
                     </td>
                   </tr>
                 ) : visibleOrgs.map((org, index) => (
-                  <tr key={org.id} style={{ borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                    <td style={{ padding: '16px 20px', textAlign: 'center', fontWeight: 600, color: '#475569', fontSize: '14px', width: '33.33%' }}>
+                  <tr key={org.id} style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s' }} onMouseEnter={e => e.currentTarget.style.background = '#F8FAFC'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                    <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, color: '#000000', fontSize: '12.5px' }}>
                       {index + 1}
                     </td>
-                    <td style={{ padding: '16px 20px', textAlign: 'center', width: '33.33%' }}>
+                    <td style={{ padding: '6px 10px', textAlign: 'left' }}>
                       <div
                         onClick={() => navigate(`/admin/organizations/edit/${org.id}`)}
-                        style={{ fontSize: '14px', fontWeight: 700, color: '#111827', cursor: 'pointer', transition: 'color 0.15s', display: 'inline-block' }}
+                        style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000', cursor: 'pointer', transition: 'color 0.15s', display: 'inline-block' }}
                         onMouseEnter={e => e.currentTarget.style.color = '#f97316'}
-                        onMouseLeave={e => e.currentTarget.style.color = '#111827'}
+                        onMouseLeave={e => e.currentTarget.style.color = '#000000'}
                         title="Click to edit organization"
                       >
                         {org.name}
                       </div>
                     </td>
-                    <td style={{ padding: '16px 20px', textAlign: 'center', width: '33.33%' }}>
+                    <td style={{ padding: '6px 10px', textAlign: 'center' }}>
                       <div className="action-dropdown-container" style={{ position: 'relative', display: 'inline-block' }}>
                         <button
                           type="button"
@@ -354,12 +359,12 @@ const OrgsAdminPage = () => {
                             display: 'inline-flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: '6px',
-                            padding: '7px 18px',
+                            gap: '4px',
+                            padding: '4px 12px',
                             background: 'var(--brand-primary, #f97316)',
                             color: '#FFFFFF',
-                            borderRadius: '8px',
-                            fontSize: '13px',
+                            borderRadius: '6px',
+                            fontSize: '11.5px',
                             fontWeight: 700,
                             border: 'none',
                             cursor: 'pointer',

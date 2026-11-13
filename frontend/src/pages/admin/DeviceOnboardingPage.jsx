@@ -111,7 +111,7 @@ const DeviceOnboardingPage = () => {
     const vIds = new Set();
 
     for (const row of deviceRows) {
-      if (!row.imei || row.imei.length < 5) return `IMEI cannot be empty or invalid for ${row.licenseId}.`;
+      if (!row.imei || !/^\d{15}$/.test(row.imei)) return `IMEI must be exactly 15 numeric digits compulsory for ${row.licenseId}.`;
       if (!row.model) return `Please select a Hardware Model for ${row.licenseId}.`;
       if (!row.vehicleId && flowType === 'existing') return `Please assign a vehicle for ${row.licenseId}.`;
 
@@ -458,11 +458,26 @@ const DeviceOnboardingPage = () => {
                         <td style={{ padding: '14px 16px' }}>
                           <input
                             type="text"
+                            maxLength={15}
                             placeholder="Enter 15-digit IMEI"
                             value={row.imei}
-                            onChange={e => handleRowChange(idx, 'imei', e.target.value.replace(/\D/g, ''))}
-                            style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', outline: 'none', color: '#111827', boxSizing: 'border-box' }}
+                            onChange={e => handleRowChange(idx, 'imei', e.target.value.replace(/\D/g, '').slice(0, 15))}
+                            style={{
+                              width: '100%',
+                              padding: '8px 12px',
+                              borderRadius: '6px',
+                              border: row.imei && row.imei.length !== 15 ? '1px solid #EF4444' : '1px solid #CBD5E1',
+                              fontSize: '13px',
+                              outline: 'none',
+                              color: '#111827',
+                              boxSizing: 'border-box'
+                            }}
                           />
+                          {row.imei && row.imei.length !== 15 && (
+                            <div style={{ fontSize: '10px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
+                              {row.imei.length}/15 digits
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <select

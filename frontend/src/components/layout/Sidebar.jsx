@@ -184,7 +184,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
       label: '',
       items: [
         { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, color: '#2563EB', roles: ['superadmin', 'dealer', 'customer'] },
-        { name: 'Add Device', path: '/admin/devices', icon: Cpu, color: '#0284C7', roles: ['superadmin', 'dealer'] },
+        { name: 'Device Inventory', path: '/admin/devices', icon: Cpu, color: '#0284C7', roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, color: '#059669', roles: ['superadmin', 'dealer'] },
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, color: '#DB2777', roles: ['superadmin', 'dealer'] },
         { name: 'Groups', path: '/admin/groups', icon: Users, color: '#4F46E5', roles: ['superadmin', 'dealer'] },

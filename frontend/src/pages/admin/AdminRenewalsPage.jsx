@@ -183,31 +183,31 @@ const AdminRenewalsPage = () => {
              <div style={{ padding: '40px', textAlign: 'center' }}><Loader2 size={24} className="animate-spin" color="#f97316" style={{margin:'0 auto'}}/></div>
           ) : (
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
                 <thead>
-                  <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Date</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>User</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Vehicle</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Plan</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Amount</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Payment ID</th>
-                    <th style={{ padding: '12px 20px', fontSize: '11px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>Status</th>
+                  <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Date</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>User</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Vehicle</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Plan</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Amount</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: '1px solid rgba(255,255,255,0.2)' }}>Payment ID</th>
+                    <th style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {transactions.map(t => (
-                    <tr key={t.id} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#475569' }}>{formatDate(t.created_at)}</td>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>
+                    <tr key={t.id} style={{ borderBottom: '1px solid #e0e7ff', height: '38px', transition: 'background 0.15s' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{formatDate(t.created_at)}</td>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 600, verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         {t.user_name} <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 400 }}>{t.user_email}</div>
                       </td>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 600 }}>{t.vehicle_name}</td>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#475569' }}>{t.plan_name || 'Vehicle Renewal Plan'}</td>
-                      <td style={{ padding: '12px 20px', fontSize: '13px', color: '#111827', fontWeight: 700 }}>₹{parseFloat(t.amount).toFixed(2)}</td>
-                      <td style={{ padding: '12px 20px', fontSize: '12px', color: '#64748B', fontFamily: 'monospace' }}>{t.payment_id}</td>
-                      <td style={{ padding: '12px 20px' }}>
-                        <span style={{ padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#D1FAE5', color: '#065F46' }}>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 700, verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{t.vehicle_name}</td>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{t.plan_name || 'Vehicle Renewal Plan'}</td>
+                      <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#059669', fontWeight: 800, verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>₹{parseFloat(t.amount).toFixed(2)}</td>
+                      <td style={{ padding: '6px 10px', fontSize: '12px', color: '#000000', fontFamily: 'monospace', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>{t.payment_id}</td>
+                      <td style={{ padding: '6px 10px', verticalAlign: 'middle' }}>
+                        <span style={{ padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 700, background: '#D1FAE5', color: '#065F46' }}>
                           {t.status}
                         </span>
                       </td>
@@ -215,7 +215,7 @@ const AdminRenewalsPage = () => {
                   ))}
                   {transactions.length === 0 && (
                     <tr>
-                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#94A3B8', fontSize: '13px' }}>
                         No transactions found.
                       </td>
                     </tr>

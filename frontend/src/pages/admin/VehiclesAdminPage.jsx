@@ -6,7 +6,7 @@ import {
   Server, MapPin, CheckCircle, ChevronLeft, ChevronRight, Building2,
   Activity, FileSpreadsheet, Download, Layers, CheckSquare, Square,
   Filter, Tag, ArrowUpDown, ArrowUp, ArrowDown,
-  Cpu, Fuel, Settings, FileText,
+  Cpu, Fuel, Settings, FileText, Calendar,
   Shuffle, UserPlus, Sliders, RotateCw, Award, Power
 } from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -19,6 +19,7 @@ import ReprocessModal from '../../components/modals/ReprocessModal';
 import LiveFuelModal from '../../components/modals/LiveFuelModal';
 import FitmentCertificateModal from '../../components/modals/FitmentCertificateModal';
 import ImmobilizerModal from '../../components/modals/ImmobilizerModal';
+import { getVehicleLicenseTier, normalizeTierName } from '../../utils/licenseUtils';
 const StatusDot = ({ online }) => (
   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
     <div style={{
@@ -93,11 +94,58 @@ const VehiclesAdminPage = () => {
   const [error, setError] = useState(null);
 
   // Filters
+  const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const initialTier = normalizeTierName(queryParams.get('tier') || queryParams.get('license')) || 'all';
+  const [selectedLicenseTier, setSelectedLicenseTier] = useState(initialTier);
+  const [showDates, setShowDates] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedOrgId, setSelectedOrgId] = useState('all');
-  const [selectedGroupId, setSelectedGroupId] = useState('all');
+  const [selectedGroupId, setSelectedGroupId] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('groupId') || params.get('group') || 'all';
+  });
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 25;
+
+  // Sync filters when URL query parameters change
+  useEffect(() => {
+    const rawTier = queryParams.get('tier') || queryParams.get('license');
+    setSelectedLicenseTier(normalizeTierName(rawTier));
+
+    const gId = queryParams.get('groupId') || queryParams.get('group');
+    if (gId) {
+      setSelectedGroupId(String(gId));
+    }
+  }, [queryParams]);
+
+  const handleGroupChange = (val) => {
+    setSelectedGroupId(val);
+    const newParams = new URLSearchParams(location.search);
+    if (!val || val === 'all') {
+      newParams.delete('groupId');
+      newParams.delete('group');
+    } else {
+      newParams.set('groupId', val);
+      newParams.delete('group');
+    }
+    const newSearch = newParams.toString();
+    navigate(newSearch ? `?${newSearch}` : location.pathname, { replace: true });
+  };
+
+  const handleLicenseTierChange = (val) => {
+    const normalized = normalizeTierName(val);
+    setSelectedLicenseTier(normalized);
+    const newParams = new URLSearchParams(location.search);
+    if (!normalized || normalized === 'all') {
+      newParams.delete('tier');
+      newParams.delete('license');
+    } else {
+      newParams.set('tier', normalized);
+      newParams.delete('license');
+    }
+    const newSearch = newParams.toString();
+    navigate(newSearch ? `?${newSearch}` : location.pathname, { replace: true });
+  };
 
   // Sorting State
   const [sortKey, setSortKey] = useState(null);
@@ -187,6 +235,12 @@ const VehiclesAdminPage = () => {
   };
 
   const filtered = vehicles.filter(v => {
+    if (selectedLicenseTier && selectedLicenseTier !== 'all') {
+      const tier = getVehicleLicenseTier(v);
+      if (tier.toLowerCase() !== selectedLicenseTier.toLowerCase()) {
+        return false;
+      }
+    }
     const q = searchQuery.toLowerCase();
     const meta = v.metadata || {};
     return (
@@ -212,7 +266,7 @@ const VehiclesAdminPage = () => {
   // Reset to first page when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, selectedOrgId, selectedGroupId]);
+  }, [searchQuery, selectedOrgId, selectedGroupId, selectedLicenseTier]);
 
   const sortedVehicles = useMemo(() => {
     if (!sortKey) return filtered;
@@ -413,8 +467,8 @@ const VehiclesAdminPage = () => {
             <div style={{ width: '180px' }}>
               <FuelTracksSelect
                 height={34}
-                value={selectedGroupId}
-                onChange={setSelectedGroupId}
+                value={String(selectedGroupId)}
+                onChange={handleGroupChange}
                 placeholder="All Groups"
                 searchable={true}
                 searchPlaceholder="Search Group..."
@@ -422,10 +476,101 @@ const VehiclesAdminPage = () => {
                 menuStyle={{ minWidth: '190px' }}
                 options={[
                   { value: 'all', label: 'All Groups' },
-                  ...groups.map(g => ({ value: g.id, label: g.name }))
+                  ...groups.map(g => ({ value: String(g.id), label: g.name }))
                 ]}
               />
             </div>
+          )}
+
+          {/* License Tier Filter */}
+          <div style={{ width: '185px' }}>
+            <FuelTracksSelect
+              height={34}
+              value={selectedLicenseTier}
+              onChange={handleLicenseTierChange}
+              placeholder="All Licenses"
+              options={[
+                { value: 'all', label: 'All Licenses' },
+                { value: 'Standard', label: 'Standard License' },
+                { value: 'Standard Pro', label: 'Standard Pro License' },
+                { value: 'Advanced', label: 'Advanced License' },
+                { value: 'Premium', label: 'Premium License' },
+              ]}
+            />
+          </div>
+
+          {/* Date Columns Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setShowDates(prev => !prev)}
+            style={{
+              height: '34px',
+              padding: '0 12px',
+              borderRadius: '6px',
+              border: showDates ? '1px solid #000000' : '1px solid #CBD5E1',
+              background: showDates ? '#000000' : '#FFFFFF',
+              color: showDates ? '#FFFFFF' : '#000000',
+              fontSize: '11.5px',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              whiteSpace: 'nowrap'
+            }}
+            title={showDates ? "Click to hide license & onboard date columns" : "Click to show license & onboard date columns"}
+          >
+            <Calendar size={14} color={showDates ? '#FFFFFF' : '#000000'} />
+            <span>{showDates ? 'Dates: Showing' : 'Show Dates'}</span>
+          </button>
+
+          {selectedLicenseTier && selectedLicenseTier !== 'all' && (
+            <button
+              onClick={() => handleLicenseTierChange('all')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                background: '#FEF3C7',
+                color: '#92400E',
+                border: '1px solid #FDE68A',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+              title="Click to clear license filter"
+            >
+              <span>License: {selectedLicenseTier}</span>
+              <span style={{ fontSize: '13px', lineHeight: 1, fontWeight: 900 }}>✕</span>
+            </button>
+          )}
+
+          {selectedGroupId && String(selectedGroupId) !== 'all' && (
+            <button
+              onClick={() => handleGroupChange('all')}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                background: '#FFEDD5',
+                color: '#C2410C',
+                border: '1px solid #FDBA74',
+                cursor: 'pointer',
+                transition: 'all 0.15s'
+              }}
+              title="Click to clear group filter"
+            >
+              <span>Group: {groups.find(g => String(g.id) === String(selectedGroupId))?.name || selectedGroupId}</span>
+              <span style={{ fontSize: '13px', lineHeight: 1, fontWeight: 900 }}>✕</span>
+            </button>
           )}
         </div>
       </div>
@@ -449,42 +594,71 @@ const VehiclesAdminPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '48px', color: '#6B7280' }}>
               <Truck size={48} color="#CBD5E1" style={{ marginBottom: '12px' }} />
               <div style={{ fontSize: '15px', fontWeight: 600, color: '#334155' }}>No vehicles found</div>
-              <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Try adjusting your search query, category, or group filter.</div>
+              <div style={{ fontSize: '13px', color: '#94A3B8', marginTop: '4px' }}>Try adjusting your search query, license, or group filter.</div>
             </div>
           ) : (
             <>
-              <div style={{ overflow: 'auto', flex: 1 }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', whiteSpace: 'nowrap' }}>
-                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+              <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, width: '100%' }}>
+              <table style={{ width: '100%', minWidth: showDates ? '1220px' : '1060px', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                <colgroup>
+                  {showDates ? (
+                    <>
+                      <col style={{ width: '6.5%' }} />
+                      <col style={{ width: '13%' }} />
+                      <col style={{ width: '13%' }} />
+                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '10.5%' }} />
+                      <col style={{ width: '8.5%' }} />
+                      <col style={{ width: '7.5%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '6%' }} />
+                    </>
+                  ) : (
+                    <>
+                      <col style={{ width: '7%' }} />
+                      <col style={{ width: '15%' }} />
+                      <col style={{ width: '16%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '9%' }} />
+                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '6%' }} />
+                    </>
+                  )}
+                </colgroup>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
                     {/* 1. Licence ID */}
                     <th
                       onClick={() => handleSort('licenceId')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by Licence ID"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Licence ID</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Licence ID</span>
                         {sortKey === 'licenceId' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 2. Vehicle ID */}
+                    {/* 2. Device ID */}
                     <th
-                      onClick={() => handleSort('vehicleId')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
-                      title="Sort by Vehicle ID"
+                      onClick={() => handleSort('deviceId')}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+                      title="Sort by Device ID"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Vehicle ID</span>
-                        {sortKey === 'vehicleId' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%' }}>
+                        <span style={{ whiteSpace: 'nowrap' }}>Device ID</span>
+                        {sortKey === 'deviceId' ? (
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
@@ -492,15 +666,15 @@ const VehiclesAdminPage = () => {
                     {/* 3. Vehicle Name */}
                     <th
                       onClick={() => handleSort('name')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by Vehicle Name"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Vehicle Name</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Vehicle Name</span>
                         {sortKey === 'name' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
@@ -508,136 +682,124 @@ const VehiclesAdminPage = () => {
                     {/* 4. Org Name */}
                     <th
                       onClick={() => handleSort('orgName')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by Org Name"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Org Name</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Org Name</span>
                         {sortKey === 'orgName' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 5. Device ID */}
-                    <th
-                      onClick={() => handleSort('deviceId')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
-                      title="Sort by Device ID"
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Device ID</span>
-                        {sortKey === 'deviceId' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
-                        ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
-                        )}
-                      </div>
-                    </th>
-
-                    {/* 6. Server Name */}
+                    {/* 5. Server Name */}
                     <th
                       onClick={() => handleSort('serverName')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by Server Name"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Server Name</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Server Name</span>
                         {sortKey === 'serverName' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 7. Last Comm Time */}
+                    {/* 6. Last Comm Time */}
                     <th
                       onClick={() => handleSort('lastCommTime')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by Last Communication Time"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Last Comm Time</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Last Comm</span>
                         {sortKey === 'lastCommTime' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 8. GPS Sim No */}
+                    {/* 7. GPS Sim No */}
                     <th
                       onClick={() => handleSort('gpsSimNo')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
                       title="Sort by GPS SIM No"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>GPS Sim No</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>GPS Sim No</span>
                         {sortKey === 'gpsSimNo' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 9. Licence Issued Date */}
-                    <th
-                      onClick={() => handleSort('licenceIssuedDate')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
-                      title="Sort by Licence Issued Date"
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Licence Issued Date</span>
-                        {sortKey === 'licenceIssuedDate' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
-                        ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
-                        )}
-                      </div>
-                    </th>
+                    {/* Date Columns: Shown when Show Dates is toggled ON */}
+                    {showDates && (
+                      <>
+                        {/* Licence Issued Date */}
+                        <th
+                          onClick={() => handleSort('licenceIssuedDate')}
+                          style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
+                          title="Sort by Licence Issued Date"
+                        >
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Licence Issued</span>
+                            {sortKey === 'licenceIssuedDate' ? (
+                              sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
+                            ) : (
+                              <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
+                            )}
+                          </div>
+                        </th>
 
-                    {/* 10. Onboard Date */}
-                    <th
-                      onClick={() => handleSort('onboardDate')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
-                      title="Sort by Onboard Date"
-                    >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Onboard Date</span>
-                        {sortKey === 'onboardDate' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
-                        ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
-                        )}
-                      </div>
-                    </th>
+                        {/* Onboard Date */}
+                        <th
+                          onClick={() => handleSort('onboardDate')}
+                          style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
+                          title="Sort by Onboard Date"
+                        >
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Onboard Date</span>
+                            {sortKey === 'onboardDate' ? (
+                              sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
+                            ) : (
+                              <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
+                            )}
+                          </div>
+                        </th>
+                      </>
+                    )}
 
-                    {/* 11. Licence Expire Date */}
+                    {/* License Expiry Date (Permanent) */}
                     <th
                       onClick={() => handleSort('licenceExpireDate')}
-                      style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none' }}
-                      title="Sort by Licence Expire Date"
+                      style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', borderRight: '1px solid rgba(255, 255, 255, 0.2)', cursor: 'pointer', userSelect: 'none', overflow: 'hidden', whiteSpace: 'nowrap' }}
+                      title="Sort by License Expiry Date"
                     >
-                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                        <span>Licence Expire Date</span>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', width: '100%', overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>License Expiry</span>
                         {sortKey === 'licenceExpireDate' ? (
-                          sortOrder === 'asc' ? <ArrowUp size={13} style={{ color: '#f97316' }} /> : <ArrowDown size={13} style={{ color: '#f97316' }} />
+                          sortOrder === 'asc' ? <ArrowUp size={12} style={{ color: '#f97316', flexShrink: 0 }} /> : <ArrowDown size={12} style={{ color: '#f97316', flexShrink: 0 }} />
                         ) : (
-                          <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
+                          <ArrowUpDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
                         )}
                       </div>
                     </th>
 
-                    {/* 12. Actions */}
-                    <th style={{ padding: '10px 14px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.04em', textAlign: 'center' }}>
-                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                    {/* Actions */}
+                    <th style={{ padding: '8px 5px', fontSize: '11.5px', fontWeight: 800, textTransform: 'uppercase', color: '#ffffff', letterSpacing: '0.02em', textAlign: 'center', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '3px' }}>
                         <span>Actions</span>
-                        <ArrowUpDown size={13} style={{ opacity: 0.6 }} />
                       </div>
                     </th>
                   </tr>
@@ -651,88 +813,88 @@ const VehiclesAdminPage = () => {
                         key={v.id}
                         style={{
                           borderBottom: '1px solid #e0e7ff',
-                          height: '40px',
+                          height: '38px',
                           background: 'transparent',
-                          transition: 'background 0.15s',
-                          whiteSpace: 'nowrap'
+                          transition: 'background 0.15s'
                         }}
                         onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                       >
                         {/* 1. Licence ID */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
+                        <td
+                          style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={v.licenceId || meta.licenceId ? `Licence ID: ${v.licenceId || meta.licenceId}\nIssued: ${formatLocalDate(v.licence_issued_date || meta.licenceIssuedDate) || '-'}\nExpires: ${formatLocalDate(v.licence_expire_date || meta.licenceExpireDate) || '-'}` : undefined}
+                        >
                           {v.licenceId || meta.licenceId || v.licence_no || '-'}
                         </td>
 
-                        {/* 2. Vehicle ID */}
-                        <td style={{ padding: '8px 14px', fontSize: '13px', color: '#0f172a', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
-                          {meta.vehicleId || v.plate || '-'}
+                        {/* 2. Device ID */}
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>
+                          {v.imei || v.device_id || '-'}
                         </td>
 
                         {/* 3. Vehicle Name */}
-                        <td style={{ padding: '8px 14px', fontSize: '13px', color: '#0f172a', fontWeight: 700, borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 700, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.name || '-'}
                         </td>
 
                         {/* 4. Org Name */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontWeight: 600, borderRight: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.org_name || user?.org_name || '-'}
                         </td>
 
-                        {/* 5. Device ID */}
-                        <td style={{ padding: '8px 14px', fontSize: '13px', color: '#0f172a', fontWeight: 700, fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
-                          {v.imei || v.device_id || '-'}
+                        {/* 5. Server Name */}
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {getServerAddress(v)}
                         </td>
 
-                        {/* 6. Server Name */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
-                          <span style={{ display: 'inline-block', background: '#f1f5f9', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
-                            {getServerAddress(v)}
-                          </span>
-                        </td>
-
-                        {/* 7. Last Comm Time */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#334155', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
+                        {/* 6. Last Comm Time */}
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.last_seen ? (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: v.is_online ? '#10b981' : '#94a3b8' }} />
-                              <span>{formatLocalTime(v.last_seen)}</span>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ width: '6.5px', height: '6.5px', borderRadius: '50%', background: v.is_online ? '#10b981' : '#dc2626', flexShrink: 0 }} />
+                              <span style={{ color: '#000000' }}>{formatLocalTime(v.last_seen)}</span>
                             </div>
                           ) : (v.last_comm_time || meta.lastCommTime ? (
-                            <span>{formatLocalTime(v.last_comm_time || meta.lastCommTime)}</span>
+                            <span style={{ color: '#000000' }}>{formatLocalTime(v.last_comm_time || meta.lastCommTime)}</span>
                           ) : (
-                            <span style={{ color: '#94a3b8' }}>-</span>
+                            <span style={{ color: '#000000' }}>-</span>
                           ))}
                         </td>
 
-                        {/* 8. GPS Sim No */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', fontFamily: 'monospace', borderRight: '1px solid #e2e8f0' }}>
+                        {/* 7. GPS Sim No */}
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.gps_sim_no || meta.sim1 || meta.simNo || meta.sim || '-'}
                         </td>
 
-                        {/* 9. Licence Issued Date */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
-                          {v.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate
-                            ? formatLocalDate(v.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate)
-                            : '-'}
-                        </td>
+                        {/* Date Columns: Shown when Show Dates is toggled ON */}
+                        {showDates && (
+                          <>
+                            {/* Licence Issued Date */}
+                            <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {v.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate
+                                ? formatLocalDate(v.licence_issued_date || meta.licenceIssuedDate || meta.installedDate || meta.installationDate)
+                                : '-'}
+                            </td>
 
-                        {/* 10. Onboard Date */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
-                          {meta.onboardingDate || meta.onboardDate || v.created_at
-                            ? formatLocalDate(meta.onboardingDate || meta.onboardDate || v.created_at)
-                            : '-'}
-                        </td>
+                            {/* Onboard Date */}
+                            <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {meta.onboardingDate || meta.onboardDate || v.created_at
+                                ? formatLocalDate(meta.onboardingDate || meta.onboardDate || v.created_at)
+                                : '-'}
+                            </td>
+                          </>
+                        )}
 
-                        {/* 11. Licence Expire Date */}
-                        <td style={{ padding: '8px 14px', fontSize: '12px', color: '#475569', borderRight: '1px solid #e2e8f0' }}>
+                        {/* License Expiry Date (Permanent) */}
+                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {v.licence_expire_date || meta.licenceExpireDate || meta.expiryDate
                             ? formatLocalDate(v.licence_expire_date || meta.licenceExpireDate || meta.expiryDate)
                             : '-'}
                         </td>
 
-                        {/* 12. Actions */}
-                        <td style={{ padding: '8px 14px', textAlign: 'center', position: 'relative' }} onClick={e => e.stopPropagation()}>
+                        {/* Actions */}
+                        <td style={{ padding: '5px 4px', textAlign: 'center', position: 'relative' }} onClick={e => e.stopPropagation()}>
                           <div style={{ position: 'relative', display: 'inline-block' }}>
                             <button
                               type="button"
@@ -762,30 +924,30 @@ const VehiclesAdminPage = () => {
                               }}
                               title="Click to choose vehicle action"
                               style={{
-                                padding: '6px 14px',
-                                borderRadius: '8px',
+                                padding: '4px 8px',
+                                borderRadius: '6px',
                                 background: '#f97316',
                                 border: 'none',
                                 color: '#ffffff',
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '6px',
-                                fontSize: '12px',
+                                gap: '3px',
+                                fontSize: '11.5px',
                                 fontWeight: 700,
                                 cursor: 'pointer',
                                 transition: 'all 0.15s ease',
-                                boxShadow: '0 2px 6px rgba(249, 115, 22, 0.25)'
+                                boxShadow: '0 1px 4px rgba(249, 115, 22, 0.2)'
                               }}
                               onMouseEnter={e => {
                                 e.currentTarget.style.background = '#ea580c';
-                                e.currentTarget.style.boxShadow = '0 4px 10px rgba(249, 115, 22, 0.35)';
+                                e.currentTarget.style.boxShadow = '0 3px 8px rgba(249, 115, 22, 0.3)';
                               }}
                               onMouseLeave={e => {
                                 e.currentTarget.style.background = '#f97316';
-                                e.currentTarget.style.boxShadow = '0 2px 6px rgba(249, 115, 22, 0.25)';
+                                e.currentTarget.style.boxShadow = '0 1px 4px rgba(249, 115, 22, 0.2)';
                               }}
                             >
-                              <span style={{ fontSize: '10px' }}>◀</span>
+                              <span style={{ fontSize: '9px' }}>◀</span>
                               <span>Actions</span>
                             </button>
 
@@ -1324,11 +1486,11 @@ const VehiclesAdminPage = () => {
                 boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
               }}>
                 {/* Left: Showing info */}
-                <div style={{ fontSize: '13px', color: '#64748b' }}>
+                <div style={{ fontSize: '12px', color: '#000000', fontWeight: 600 }}>
                   <span>
-                    Showing <strong style={{ color: '#0f172a' }}>{startIndex + 1}</strong> to{' '}
-                    <strong style={{ color: '#0f172a' }}>{Math.min(startIndex + pageSize, filtered.length)}</strong> of{' '}
-                    <strong style={{ color: '#0f172a' }}>{filtered.length}</strong> entries
+                    Showing <strong style={{ color: '#000000' }}>{startIndex + 1}</strong> to{' '}
+                    <strong style={{ color: '#000000' }}>{Math.min(startIndex + pageSize, filtered.length)}</strong> of{' '}
+                    <strong style={{ color: '#000000' }}>{filtered.length}</strong> entries
                   </span>
                 </div>
 

@@ -91,8 +91,8 @@ const DeviceInventoryController = {
       }
 
       const cleanImei = String(rawImei).trim().replace(/\D/g, '');
-      if (cleanImei.length < 10 || cleanImei.length > 20) {
-        return res.status(400).json({ success: false, error: 'Invalid IMEI format (must be 10-20 digits).' });
+      if (cleanImei.length !== 15) {
+        return res.status(400).json({ success: false, error: 'Invalid IMEI format (must be exactly 15 numeric digits compulsory).' });
       }
 
       // 1. Check in-memory cache first (0 DB query, 0 DB CPU, 0 connection pool usage)
@@ -213,8 +213,8 @@ const DeviceInventoryController = {
         }
         imei = imei.replace(/\D/g, '');
 
-        if (!imei || imei.length < 10 || imei.length > 20) {
-          skippedRows.push({ row: i + 1, imei: imei || 'EMPTY', reason: 'Invalid or missing numeric IMEI (10-20 digits required).' });
+        if (!imei || imei.length !== 15) {
+          skippedRows.push({ row: i + 1, imei: imei || 'EMPTY', reason: `Invalid or missing numeric IMEI (${imei || 'empty'}). IMEI must be exactly 15 numeric digits compulsory.` });
           continue;
         }
 
