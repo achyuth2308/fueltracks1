@@ -1,50 +1,67 @@
 # FuelTracks - Fleet Tracking & Management System
 
-A multi-tenant, high-concurrency GPS tracking platform for B2B logistics and fleet management. It features a multi-port TCP daemon that ingests raw telemetry packets from **BSTPL-17**, **AIS140/tNavIC**, and **Concox (V5/VL149/GT800)** GPS devices, parses GPS coordinates (converting DDM and decimal formats to standardized decimal degrees), buffers records in Redis, and asynchronously writes to a PostgreSQL database (optimized with TimescaleDB) and publishes real-time WebSocket events.
+A multi-tenant, high-concurrency GPS tracking platform for B2B logistics, fleet management, and telematics. It features a multi-port TCP ingestion daemon that processes raw telemetry packets from **BSTPL-17**, **AIS140/tNavIC**, **Concox (V5/VL149/GT800)**, **AIS140 V2**, **Volty / VoltyFuel**, and **Teltonika FMB920** GPS devices, normalizes coordinates into standardized decimal degrees, buffers telemetry in Redis, asynchronously writes to a PostgreSQL/TimescaleDB database, and broadcasts real-time WebSocket events to both a React web dashboard and a Flutter mobile app.
 
 ---
 
 ## 🏗️ System Architecture & Components
 
 FuelTracks consists of four primary components:
-1. **TCP Daemon ([tcp-server/server.js](tcp-server/server.js))**: Runs isolated net socket listeners on separate ports side-by-side:
-   - **Port 5000** for **BSTPL-17** devices (terminated with `#`).
-   - **Port 5001** for **AIS140 / tNavIC** devices (terminated with `*`).
-   - **Port 5002** for **Concox** devices (binary protocol, parses login/heartbeat/alarm buffers and responds with custom ACK packets).
-   It parses raw data, validates IMEI identification, pushes to Redis Pub/Sub channels for decoupling, and writes diagnostic logs into `raw_packets`.
-2. **REST API Server ([backend/server.js](backend/server.js))**: An Express.js backend (Port 3001) that handles multi-tenant authentication, RBAC administration (Superadmins, Dealers, Customers), CRUD of vehicles, devices, organizations, groups, custom reporting logs, geofences, billing, audits, and the new **alert notification system**.
-3. **WebSockets Publisher**: Managed via Socket.io inside the Express server, subscribing to Redis channels and piping live vehicle positions, telemetry, and **real-time alert events** directly to active client rooms (`vehicle:<id>` and `org:<org_id>`).
-4. **Web Frontend (`frontend/`)**: A Vite-powered React single page application (SPA) with styled dashboards using Leaflet maps, Recharts analytics, Lucide icons, and a new **Alert History & Notification Preferences** page.
+
+1. **TCP Daemon ([tcp-server/server.js](tcp-server/server.js))**: Runs isolated TCP net socket listeners on separate ports side-by-side:
+   - **Port 5000**: **BSTPL-17** devices (packets terminated with `#`).
+   - **Port 5001**: **AIS140 / tNavIC** devices (packets terminated with `*`).
+   - **Port 5002**: **Concox** binary protocol (parses login, heartbeat, alarm buffers and responds with custom ACK packets).
+   - **Port 5003**: **AIS140 V2** protocol devices.
+   - **Port 5004**: **Volty / VoltyFuel** devices.
+   - **Port 5005**: **Teltonika FMB920** devices.
+   - **Port 5010**: **BSTPL-17IS** devices.
+   Validates device identification (IMEI), pushes telemetry to Redis Pub/Sub channels for decoupling, and writes diagnostic logs into `raw_packets`.
+
+2. **REST API & Real-time Server ([backend/server.js](backend/server.js))**: An Express.js backend (Port 3001) that handles:
+   - Multi-tenant authentication & RBAC (Superadmin, Dealer, Customer).
+   - Fleet operations (vehicles, devices, organizations, groups, geofences, routes).
+   - Analytical reporting (trips, distance, engine runtime, stoppages, speed violations).
+   - Multi-channel notification engine (FCM push, WhatsApp Cloud API, Brevo transactional emails).
+   - Public B2B Integration API (`/api/v1/*`) with API-key authorization.
+   - Document Scanner & Aadhaar Masking module for automated RC/ID onboarding.
+
+3. **WebSockets Publisher**: Managed via Socket.io on the API server, subscribing to Redis channels and piping live vehicle positions, telemetry, and **real-time alert events** directly to active client rooms (`vehicle:<id>` and `org:<org_id>`).
+
+4. **Web Frontend (`frontend/`)**: A Vite-powered React SPA featuring live Leaflet maps, Recharts analytics, Lucide icons, white-label branding, geofence polygon editors, and notification preference controls.
+
+5. **Mobile App (`../mobile-app/`)**: A cross-platform Flutter application (iOS & Android) with Riverpod 2.5, Dio HTTP client, Socket.io real-time map tracking, FlutterMap (OpenStreetMap) & Google Maps rendering, and background Firebase Cloud Messaging (FCM) notifications.
 
 ```
-┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
-│ BSTPL-17 GPS Device  │   │  AIS140 GPS Device   │   │  Concox GPS Device   │
-└──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
-           │                          │                          │
-           │ TCP (Port 5000)          │ TCP (Port 5001)          │ TCP (Port 5002)
-           └───────────┬──────────────┴──────────────────────────┘
-                       ▼
-┌─────────────────────────────────────────────────┐
-│     TCP Daemon (Tri-protocol listeners)         │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       │ Redis Pub/Sub (locations + alerts)
-                       ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│                              API Server                                │
-├──────────────┬───────────────────────────────────┬─────────────────────┤
-│  Socket.io   │          REST API                 │  Alert Subscriber   │
-│  Real-time   │  /api/auth  /api/vehicles         │  → DB save          │
-│  events      │  /api/admin /api/alerts           │  → Socket.io emit   │
-│              │  /api/reports /api/profile        │  → FCM push (Firebase)│
-└──────┬───────┴────────────────────┬──────────────┴─────────────────────┘
-       │                            │
-       │ WebSockets                 │ HTTP REST + FCM Push
-       ▼                            ▼
-┌──────────────────┐   ┌────────────────────┐   ┌──────────────────────┐
-│  React Frontend  │   │  PostgreSQL 15+    │   │  Flutter Mobile App  │
-│  (Web Dashboard) │   │  (TimescaleDB)     │   │  (FCM Push Notifs)   │
-└──────────────────┘   └────────────────────┘   └──────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           GPS Tracking Hardware                             │
+│  BSTPL-17  │  AIS-140  │  Concox V5  │  Volty  │  Teltonika FMB920  │  AIS140 V2 │
+└─────┬────────────┬─────────────┬────────────┬──────────────┬──────────────┬─────┘
+      │:5000       │:5001        │:5002       │:5004         │:5005         │:5003
+      └────────────┴─────────────┼────────────┴──────────────┴──────────────┘
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   TCP Ingestion Daemon (Multi-Port Listeners)               │
+└────────────────────────────────┬────────────────────────────────────────────┘
+                                 │ Redis Pub/Sub (`locations`, `alerts`)
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Express.js API & Gateway                           │
+├─────────────────────┬──────────────────────────┬────────────────────────────┤
+│  Socket.io Engine   │    REST & Public API     │     Alert Subscribers      │
+│  - vehicle:<id>     │  - /api/auth             │  - DB persistence          │
+│  - org:<org_id>     │  - /api/vehicles         │  - FCM Push Dispatcher     │
+│  - live telemetry   │  - /api/admin            │  - WhatsApp Cloud API      │
+│                     │  - /api/reports          │  - Brevo Email Service     │
+│                     │  - /api/v1/public        │                            │
+└──────────┬──────────┴──────────────┬───────────┴──────────────┬─────────────┘
+           │                         │                          │
+           │ WebSockets (Socket.io)  │ HTTP REST                │ FCM Push
+           ▼                         ▼                          ▼
+┌───────────────────────┐ ┌───────────────────────┐  ┌────────────────────────┐
+│  React Web Dashboard  │ │ PostgreSQL + Timescale│  │   Flutter Mobile App   │
+│  (Vite SPA - Port 5173)│ │ (Hypertable Partition)│  │   (iOS & Android)      │
+└───────────────────────┘ └───────────────────────┘  └────────────────────────┘
 ```
 
 ---
@@ -52,324 +69,335 @@ FuelTracks consists of four primary components:
 ## 📂 Directory Structure
 
 ```
-fueltracks/
-├── backend/              # Express REST API, controllers, and socket managers
-│   ├── config/           # DB, env, and Redis configurations
-│   ├── controllers/      # Route controllers (auth, vehicle, onboarding, admin, alerts, etc.)
-│   ├── middleware/        # JWT auth, RBAC authorization, rate limiters
-│   ├── models/           # DB access queries (gpsModel, vehicleModel, etc.)
-│   ├── modules/          # Encapsulated sub-systems (profile, reports)
-│   ├── routes/           # Router registrations (auth, vehicle, admin, alerts, etc.)
-│   ├── services/         # External service integrations (email, FCM push notifications)
-│   │   └── fcmService.js # Firebase Cloud Messaging push notification dispatcher
-│   └── subscribers/      # Redis channel subscribers (location, alerts + FCM dispatch)
-├── database/             # Postgres initial schema, seeds, and SQL migrations
-│   ├── schema.sql        # Full base database tables declaration
-│   ├── seed.sql          # Sample seed data for local development
-│   └── *.sql             # Standalone migration files (devices, audit, geofence, etc.)
-├── frontend/             # Vite + React web application
-│   ├── src/
-│   │   ├── api/          # Axios API clients (vehicleApi, alertsApi, adminApi, etc.)
-│   │   ├── pages/
-│   │   │   ├── user/     # Customer-facing pages (Dashboard, Tracking, Alerts, etc.)
-│   │   │   └── admin/    # Admin pages (Vehicles, Orgs, Users, Geofences, etc.)
-│   │   └── components/   # Shared UI components (Sidebar, Topbar, Modals, etc.)
-│   └── public/           # Static asset files
-├── scripts/              # Command-line tools (init, simulator, migration runner)
-├── tcp-server/           # TCP net socket daemon
-│   ├── parser/           # Telemetry packet parsers (BSTPL, AIS140, Concox, Alerts)
-│   └── server.js         # Tri-port TCP listeners and client socket managers
-├── ecosystem.config.js   # PM2 configuration for production process management
-├── deploy.sh             # EC2 deployment automation script
-└── .env.example          # Sample environment configuration template
+FUELTRACKS-SOFTWARE-MOBILEAPP/
+├── fueltracks1/                     # Backend, Web Frontend, TCP Daemon & Database
+│   ├── backend/                     # Express REST API & Real-time Services
+│   │   ├── config/                  # DB pool, Redis, and env validation
+│   │   ├── controllers/             # Auth, vehicle, admin, alerts, whatsapp, scanner
+│   │   ├── middleware/              # JWT, RBAC authorization, rate limiters, upload guard
+│   │   ├── models/                  # SQL queries (gpsModel, vehicleModel, alertModel)
+│   │   ├── modules/                 # Profile and reports sub-systems
+│   │   ├── routes/                  # API endpoint route declarations
+│   │   ├── services/                # FCM push, WhatsApp Cloud API, Brevo email
+│   │   └── subscribers/             # Redis channel listeners (locations, alerts)
+│   ├── database/                    # PostgreSQL baseline schema, seeds, and migrations
+│   │   ├── schema.sql               # Base tables and relational declarations
+│   │   ├── seed.sql                 # Sample seed data for development
+│   │   └── timescale_migration.sql  # Hypertable, chunking & compression configs
+│   ├── frontend/                    # Vite + React Web Application
+│   │   ├── src/                     # Components, pages, context, and API clients
+│   │   ├── .env                     # Local frontend dev config (VITE_API_URL)
+│   │   └── .env.production          # Production frontend config
+│   ├── scripts/                     # Simulators, DB migration runners, and smoke tests
+│   ├── tcp-server/                  # Multi-port TCP socket ingestion server
+│   │   ├── parser/                  # Packet decoders (BSTPL, AIS140, Concox, Volty, FMB920)
+│   │   └── server.js                # TCP net server daemon entrypoint
+│   ├── ecosystem.config.js          # PM2 production cluster configuration
+│   ├── deploy.sh                    # Automated EC2 Ubuntu deployment script
+│   ├── .env                         # Backend environment variables
+│   └── .env.example                 # Reference environment template
+│
+└── mobile-app/                      # Cross-Platform Flutter Mobile Application
+    ├── lib/                         # Application source code
+    │   ├── core/                    # App config, networking, notifications, themes
+    │   └── features/                # Live tracking, history, alerts, vehicle details
+    ├── assets/                      # Fonts, vehicle icons, and 3D glb models
+    ├── .env                         # Mobile runtime environment config
+    └── .env.example                 # Reference mobile environment template
 ```
 
 ---
 
-## 🗄️ Database Schema & TimescaleDB Optimization
+## 🗄️ Database Architecture & TimescaleDB Optimization
 
-The system operates on **19 relational tables** with cascades, indices, and auto-updating triggers:
+The database is built on PostgreSQL with TimescaleDB extensions for high-throughput write scalability:
 
-### Core Hierarchy & Fleet
-* **`organizations`**: Tenants configured in a three-tier tree structure (`super` → `dealer` → `customer`).
-* **`users`**: Platform administrators and customers. Stores encrypted credentials, username, and reset tokens.
-* **`groups`**: Logical clusters created by Dealers to partition user-vehicle access.
-* **`vehicles`**: Physical assets equipped with GPS modules. Tied to an IMEI, licence expiration date, and optional metadata.
-* **`devices`**: Registered tracking hardware models linked to organizational nodes.
-* **`vehicle_groups`** / **`user_groups`**: Many-to-many relationship mappings.
+### Core Hierarchy & Multi-Tenancy
+* **`organizations`**: Three-tier multi-tenant hierarchy (`superadmin` → `dealer` → `customer`).
+* **`users`**: Platform administrators and fleet owners with bcrypt-hashed credentials and RBAC roles.
+* **`groups`**: Segmentation clusters to control user-vehicle access.
+* **`vehicles`**: Physical assets with registration numbers, IMEIs, device types, and validity dates.
+* **`devices`**: GPS tracking hardware registered to organizations.
+* **`vehicle_groups`** / **`user_groups`**: Association tables for access control.
 
-### Geofences & Routes
-* **`geofences`**: Geographical zones defined as circles (latitude/longitude/radius) or polygons (JSON coordinates).
-* **`routes`**: Predefined path paths with a tolerance radius (meters) to monitor path deviations.
-* **`vehicle_geofences`** / **`vehicle_routes`**: Relationship mappings for geofence/route assignments.
-
-### Telemetry & Diagnostics (TimescaleDB Optimized)
-* **`gps_points`**: High-frequency telemetry writes (lat, lng, speed, direction, odometer, ignition, fuel, alerts).
+### Telemetry & Hypertable TimescaleDB
+* **`gps_points`**: High-frequency telemetry writes (lat, lng, speed, direction, ignition, odometer, fuel, alerts).
   > [!TIP]
-  > In production, this table is a **TimescaleDB Hypertable** partitioned into 7-day chunks. Columnar compression applies to chunks older than 14 days, and a retention policy drops telemetry older than 180 days. Continuous aggregates (`gps_points_hourly` and `gps_points_daily`) accelerate analytical queries.
-* **`vehicle_latest_state`**: A denormalized, single-row-per-vehicle table for fast dashboard reads.
-* **`alerts`**: Telemetry warning events with type, location, timestamp, and `is_read` status.
-* **`raw_packets`**: Debugging logs of unparsed TCP streams and parsed JSON payloads (auto-cleaned after 7 days).
-* **`audit_logs`**: Audit trail of all organization, vehicle, and configuration changes.
-* **`organization_profiles`**: White-label configuration (logos, favicons, map settings, notification channels).
+  > Configured as a **TimescaleDB Hypertable** partitioned into 7-day chunks. Columnar compression activates on data older than 14 days, and retention policies purge records older than 180 days. Continuous aggregates provide instantaneous hourly and daily rollups.
+* **`vehicle_latest_state`**: Single-row-per-vehicle denormalized cache table for sub-millisecond dashboard queries.
+* **`alerts`**: Telemetry alerts (overspeed, SOS, geofence in/out, ignition on/off, power disconnection) with read receipts.
+* **`raw_packets`**: Raw hex/string packet buffer for hardware troubleshooting (auto-cleaned after 7 days).
 
-### Alert Notification System (New)
-* **`user_alert_preferences`**: Per-user JSONB toggles controlling which alert types (overspeed, geofence, ignition, SOS, etc.) are active for push notifications.
-* **`user_fcm_tokens`**: Per-device FCM tokens for Firebase push notifications. Supports multiple devices per user.
+### Automated Document Scanner & Compliance
+* **`document_scans`**: Uploaded RC books, driving licenses, and Aadhaar cards.
+* **`document_scan_extractions`**: Extracted OCR metadata (engine number, chassis, owner name).
+* **Aadhaar Privacy**: Stores only masked Aadhaar numbers (`XXXX-XXXX-1234`) and irreversible HMAC-SHA256 salted hashes.
 
 ---
 
 ## ⚙️ Configuration & Environment Variables
 
-Create a `.env` file in the root directory. Copy properties from `.env.example`:
+FuelTracks utilizes three dedicated `.env` files across its modules:
 
-| Variable | Description | Default Value |
+### 1. Backend & TCP Server (`fueltracks1/.env`)
+
+Copy `fueltracks1/.env.example` to `fueltracks1/.env`:
+
+| Variable | Description | Default / Example |
 | :--- | :--- | :--- |
-| `DB_HOST` | PostgreSQL Database Server Host | `127.0.0.1` |
-| `DB_PORT` | PostgreSQL Database Connection Port | `5432` |
-| `DB_NAME` | PostgreSQL Database Name | `fueltracks` |
-| `DB_USER` | PostgreSQL Username | `postgres` |
-| `DB_PASS` | PostgreSQL Password | `postgres` |
-| `PG_POOL_MAX` | Max database connections in the PG pool | `20` |
-| `REDIS_HOST` | Redis Server Host | `127.0.0.1` |
-| `REDIS_PORT` | Redis Server Port | `6379` |
-| `JWT_SECRET` | Cryptographic key for signing JSON Web Tokens | *Required in Prod (min 32 chars)* |
-| `JWT_EXPIRES_IN` | Token expiration timeline | `24h` |
-| `TCP_PORT` | Port for accepting BSTPL-17 device streams | `5000` |
-| `AIS140_TCP_PORT` | Port for accepting AIS140 device streams | `5001` |
-| `CONCOX_TCP_PORT` | Port for accepting Concox binary streams | `5002` |
-| `API_PORT` | Port for REST API and WebSockets | `3001` |
-| `NODE_ENV` | Application mode (`development` / `production`) | `development` |
-| `CORS_ORIGIN` | Allowed CORS domain endpoints (comma separated) | `*` |
-| `BREVO_SENDER_EMAIL` | Sender email address for transaction emails | `info@fueltracks.in` |
-| `BREVO_API_KEY` | API key for Brevo Email Service | *(Optional in Dev)* |
-| `FRONTEND_URL` | Base URL of React Frontend application | `http://localhost:5173` |
-| `FIREBASE_SERVICE_ACCOUNT_JSON` | Firebase Admin SDK service account JSON (stringified) for FCM push notifications | *(Optional — FCM disabled if not set)* |
+| **`DB_HOST`** | PostgreSQL host | `127.0.0.1` |
+| **`DB_PORT`** | PostgreSQL port | `5432` |
+| **`DB_NAME`** | Database name | `fueltracks` |
+| **`DB_USER`** | PostgreSQL user | `postgres` |
+| **`DB_PASS`** | PostgreSQL password | `postgres` |
+| **`PG_POOL_MAX`** | Connection pool limit | `20` |
+| **`REDIS_HOST`** | Redis host | `127.0.0.1` |
+| **`REDIS_PORT`** | Redis port | `6379` |
+| **`JWT_SECRET`** | Secret key for signing JWTs (min 32 chars) | *64-byte random hex string* |
+| **`JWT_EXPIRES_IN`**| Token validity duration | `24h` |
+| **`API_PORT`** | Express REST API & Socket.io port | `3001` |
+| **`TCP_PORT`** | BSTPL-17 device port | `5000` |
+| **`AIS140_TCP_PORT`**| AIS140 / tNavIC device port | `5001` |
+| **`CONCOX_TCP_PORT`**| Concox binary device port | `5002` |
+| **`AIS140V2_TCP_PORT`**| AIS140 V2 protocol port | `5003` |
+| **`VOLTY_TCP_PORT`** | Volty / VoltyFuel protocol port | `5004` |
+| **`FMB920_TCP_PORT`**| Teltonika FMB920 device port | `5005` |
+| **`BSTPL17IS_TCP_PORT`**| BSTPL-17IS protocol port | `5010` |
+| **`NODE_ENV`** | Execution mode (`development` / `production`) | `development` |
+| **`CORS_ORIGIN`** | Permitted CORS origins | `*` *(or specific domain in prod)* |
+| **`FRONTEND_URL`** | Web dashboard origin | `http://localhost:5173` |
+| **`BREVO_SENDER_EMAIL`** | Transactional email sender address | `info@fueltracks.in` |
+| **`BREVO_API_KEY`** | Brevo API key for transactional emails | *(Optional in dev)* |
+| **`WHATSAPP_ENABLED`** | Toggle WhatsApp notification pipeline | `false` |
+| **`WHATSAPP_ACCESS_TOKEN`** | Meta Cloud API System User token | *(From Meta Developer portal)* |
+| **`WHATSAPP_PHONE_NUMBER_ID`** | Meta Sender Phone Number ID | *(From Meta Developer portal)* |
+| **`WHATSAPP_WABA_ID`** | WhatsApp Business Account ID | *(From Meta Developer portal)* |
+| **`WHATSAPP_APP_SECRET`** | Meta App Secret for signature verification | *(From Meta Developer portal)* |
+| **`WHATSAPP_VERIFY_TOKEN`** | Custom webhook handshake verification token | *(Custom secret string)* |
+| **`DOCUMENT_SCANNER_ENABLED`** | Enable RC/Aadhaar document scanner API | `false` |
+| **`AADHAAR_HMAC_PEPPER`** | Pepper salt for irreversible Aadhaar HMACs | *(Min 32 random characters)* |
+| **`FIREBASE_SERVICE_ACCOUNT_JSON`** | Stringified JSON credentials for FCM push | *(Optional in dev)* |
 
-> [!IMPORTANT]
-> `FIREBASE_SERVICE_ACCOUNT_JSON` must be the **entire contents** of your Firebase service account JSON file, minified to a single line. The server auto-initializes Firebase Admin SDK on first use and gracefully skips FCM dispatch if this variable is absent.
+### 2. Frontend Configuration (`fueltracks1/frontend/.env`)
+```env
+VITE_API_URL=http://localhost:3001
+```
+
+### 3. Mobile App Configuration (`mobile-app/.env`)
+```env
+ENV=development
+API_BASE_URL=https://api.fueltracks.in
+SOCKET_URL=https://api.fueltracks.in
+GOOGLE_MAPS_API_KEY=AIzaSyBUfwgEy51elZbDcxVXIPJ4x8-7_oMUZDk
+```
 
 ---
 
 ## 🚀 Installation & Setup
 
 ### 1. Prerequisites
-Ensure you have **Node.js (v18+)**, **PostgreSQL (15+)** with the TimescaleDB extension (`sudo apt install timescaledb-2-postgresql-15`), and **Redis** active.
+- **Node.js**: v18.0.0 or higher
+- **PostgreSQL**: 15+ (with TimescaleDB recommended for production)
+- **Redis**: 6.0+
+- **Flutter SDK**: 3.24+ (for mobile app)
 
-### 2. Node Modules Setup
-Run from the root directory to install all dependencies:
+### 2. Backend & TCP Ingestion Setup
 ```bash
+# Navigate to backend directory
+cd fueltracks1
+
+# Install dependencies
 npm install
-```
 
-To install frontend dependencies:
-```bash
-npm --prefix frontend install
-```
+# Setup environment
+cp .env.example .env
+# Edit .env with your PostgreSQL credentials and JWT secret
 
-### 3. Database Setup
-
-#### Option A: Fresh Database Installation (Destructive)
-```bash
-npm run db:init
-```
-
-#### Option B: Run Outstanding Migrations (Safe)
-```bash
+# Run database migrations
 npm run db:migrate
+# Or initialize a fresh database with seed data:
+# npm run db:init
 ```
 
-#### Option C: TimescaleDB Initialization (Production)
+### 3. Web Frontend Setup
 ```bash
-npm run db:timescale
-# Or: sudo -u postgres psql -d fueltracks -f database/timescale_migration.sql
+cd fueltracks1/frontend
+
+# Install dependencies
+npm install
+
+# Start local Vite development server
+npm run dev
 ```
 
-> [!NOTE]
-> The new `user_alert_preferences`, `user_fcm_tokens` tables and the `alerts.is_read` column are **auto-created on server boot** via `IF NOT EXISTS` migrations — no manual SQL needed.
+### 4. Mobile App Setup
+```bash
+cd mobile-app
+
+# Get Flutter dependencies
+flutter pub get
+
+# Run on an emulator or connected device with runtime environment
+flutter run --dart-define-from-file=.env
+```
 
 ---
 
-## 🏃 Running the Application
+## 🏃 Running the Servers
 
-* **Start REST API Backend (Port 3001)**:
-  ```bash
-  npm run start:api
-  ```
-  *(Dev hot-reload: `npm run dev:api`)*
+From the `fueltracks1` directory:
 
-* **Start TCP Socket Receiver (Ports 5000, 5001, 5002)**:
-  ```bash
-  npm run start:tcp
-  ```
-  *(Dev hot-reload: `npm run dev:tcp`)*
-
-* **Start React Web Frontend (Port 5173)**:
-  ```bash
-  npm run start:frontend
-  ```
-
-* **Run System Smoke Test**:
-  ```bash
-  npm run smoke-test
-  ```
+| Service | Development (Auto-Reload) | Production / Direct |
+| :--- | :--- | :--- |
+| **REST API Server** (Port 3001) | `npm run dev:api` | `npm run start:api` |
+| **TCP Ingestion Daemon** (Ports 5000-5010) | `npm run dev:tcp` | `npm run start:tcp` |
+| **React Frontend** (Port 5173) | `npm run start:frontend` | `npm run build:frontend` |
+| **System Smoke Test** | `npm run smoke-test` | `npm run smoke-test` |
 
 ---
 
-## 🧪 Device Telemetry Simulator
+## 🧪 Device Telemetry Simulators
 
-* **Simulate BSTPL-17 (Port 5000)**:
-  ```bash
-  npm run sim:bstpl
-  ```
+Test GPS packet ingestion locally without physical devices:
 
-* **Simulate AIS140 / tNavIC (Port 5001)**:
-  ```bash
-  npm run sim:ais140
-  ```
+```bash
+cd fueltracks1
 
-* **Simulate Concox V5 / GT800 (Port 5002)**:
-  ```bash
-  npm run sim:concox
-  ```
+# BSTPL-17 Protocol (Port 5000)
+npm run sim:bstpl
 
-* **Simulate AIS140 V2 (Port 5003)**:
-  ```bash
-  npm run sim:ais140v2
-  ```
+# AIS140 / tNavIC Protocol (Port 5001)
+npm run sim:ais140
 
-* **Simulate VOLTY (Port 5004)**:
-  ```bash
-  npm run sim:volty
-  ```
+# Concox V5 / GT800 Protocol (Port 5002)
+npm run sim:concox
+
+# AIS140 V2 Protocol (Port 5003)
+npm run sim:ais140v2
+
+# Volty / VoltyFuel Protocol (Port 5004)
+npm run sim:volty
+
+# Teltonika FMB920 Protocol (Port 5005)
+npm run sim:fmb920
+
+# Simulate Safety Park Violation Alert
+npm run sim:safetypark
+```
 
 ---
 
 ## 🛠️ Production Deployment & Process Management
 
-### Process Management (PM2)
+Deploy on Ubuntu using PM2 process management:
+
 ```bash
-# Start backend API & TCP server instances
+cd fueltracks1
+
+# Start all processes (API, TCP Ingestion, Daily Cron Jobs)
 npm run pm2:start
 
-# Reload services with zero-downtime
+# Zero-downtime reload
 npm run pm2:reload
 
-# Inspect output logs
+# Inspect live logs
 npm run pm2:logs
 ```
 
-### Deployment Script
-[deploy.sh](deploy.sh) is configured for Ubuntu (AWS EC2):
-1. Pulls latest code from Git.
-2. Runs `npm install` (picks up new dependencies like `firebase-admin`).
-3. Builds frontend production bundle.
-4. Restarts PM2 processes.
-5. Runs DB migrations and TimescaleDB alignments.
-6. Configures Nginx reverse proxies:
-   - `api.fueltracks.in` → Port 3001 (WebSockets upgrade enabled).
-   - `app.fueltracks.in` → `frontend/dist` static build.
-7. Auto-provisions SSL via Certbot (Let's Encrypt).
+The [deploy.sh](deploy.sh) script handles:
+1. `git pull` of the latest branch commits.
+2. `npm install` for backend and frontend.
+3. Building frontend production assets (`frontend/dist`).
+4. Running pending database migrations (`scripts/runMigrations.js`).
+5. Reloading PM2 processes with memory leak guards.
+6. Nginx reverse proxy configuration (`api.fueltracks.in` & `app.fueltracks.in`) with automated Let's Encrypt SSL certificates.
 
 ---
 
-## 🔔 Alert & Notification System
+## 🔔 Alert & Notification Engine
 
-FuelTracks includes a fully integrated alert and push notification system:
+FuelTracks features an integrated alert processing pipeline:
 
-### How It Works
-1. GPS device triggers an event (overspeed, SOS, geofence entry, ignition, etc.).
-2. TCP daemon parses the packet and publishes to the Redis `alerts` channel.
-3. `alertSubscriber.js` consumes the event and:
-   - Saves the alert to the `alerts` table.
-   - Dispatches Email/WhatsApp notifications via the org's notification profile.
-   - Emits `alert:new` via Socket.io to `vehicle:<id>` and `org:<orgId>` rooms (real-time web feed).
-   - Queries `user_fcm_tokens` to find devices of org users who have that alert type **enabled** in `user_alert_preferences`, then calls Firebase FCM to deliver push notifications to the Flutter mobile app.
-
-### User-Facing Features (Web)
-- **Alert History tab**: Paginated, filterable list of all org alerts with unread/read status. Mark individual or all alerts as read.
-- **Notification Settings tab**: Per-user toggle switches grouped by Critical / Warning / Info to control which alert types trigger push notifications.
-- **Live Feed tab**: Real-time Socket.io stream of incoming alerts for the session, with a connection status indicator.
-- **Toast popups**: Non-intrusive alert toasts appear across all pages when a new alert fires.
-
-### API Endpoints (`/api/alerts`)
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/api/alerts` | Paginated alerts for the user's org. Supports `?page`, `?limit`, `?alertType` |
-| `PUT` | `/api/alerts/:id/read` | Mark a single alert as read |
-| `PUT` | `/api/alerts/read-all` | Mark all org alerts as read |
-| `GET` | `/api/alerts/preferences` | Get the calling user's notification preference toggles |
-| `PUT` | `/api/alerts/preferences` | Update notification preference toggles |
-| `POST` | `/api/alerts/fcm-token` | Register an FCM device token (called by Flutter app on login) |
-| `DELETE` | `/api/alerts/fcm-token` | Remove an FCM token (called on logout) |
+1. **Ingestion**: GPS devices trigger events (overspeed, SOS, geofence transition, ignition change, battery tamper).
+2. **Parsing**: The TCP daemon publishes parsed alerts to the Redis `alerts` channel.
+3. **Dispatch (`alertSubscriber.js`)**:
+   - Persists the alert to PostgreSQL.
+   - Broadcasts real-time WebSockets to `org:<org_id>` and `vehicle:<vehicle_id>` rooms.
+   - Dispatches FCM push notifications to subscribed devices recorded in `user_fcm_tokens` that match `user_alert_preferences`.
+   - Sends transactional WhatsApp and Email notifications for critical alerts.
 
 ---
 
-## 🧪 REST API Endpoints
+## 🧪 REST API Reference Summary
 
-### 🔐 Authentication
-* **POST** `/api/auth/login` — Login. Returns JWT Token + profile.
-* **POST** `/api/auth/logout` — Logout active session.
-* **GET** `/api/auth/me` — Retrieve active user session.
-* **POST** `/api/auth/forgot-password` — Request a password reset token.
-* **POST** `/api/auth/reset-password` — Reset password using token.
+### 🔐 Authentication (`/api/auth`)
+* `POST /api/auth/login` — Sign in; returns JWT token and user profile.
+* `POST /api/auth/logout` — Invalidate session.
+* `GET /api/auth/me` — Retrieve active profile.
+* `POST /api/auth/forgot-password` — Request password reset email.
+* `POST /api/auth/reset-password` — Reset password with token.
 
-### 🚚 Vehicles & Fleet
-* **GET** `/api/vehicles` — List vehicles with live positions and connectivity states.
-* **GET** `/api/vehicles/:id` — Single vehicle details.
-* **POST** `/api/vehicles` — Register a vehicle (unique 15-digit IMEI required).
-* **PUT** `/api/vehicles/:id` — Update vehicle details.
-* **DELETE** `/api/vehicles/:id` — Delete vehicle.
-* **POST** `/api/vehicles/:id/migrate` — Migrate vehicle to another org.
-* **GET** `/api/vehicles/:id/history` — Historical GPS logs (`startDate`, `endDate`, `page`, `limit`).
-* **GET** `/api/vehicles/:id/route` — GPS path series for route drawing.
-* **GET** `/api/vehicles/:id/report` — Fleet analytics (distance, speed, engine runtime).
-* **GET** `/api/vehicles/:id/alerts` — Recent telemetry alert logs.
-* **GET** `/api/vehicles/:id/messages` — Raw diagnostic packet logs.
+### 🚚 Fleet & Vehicle Operations (`/api/vehicles`)
+* `GET /api/vehicles` — Vehicle directory with live coordinates, ignition, and connectivity status.
+* `GET /api/vehicles/:id` — Single vehicle specification.
+* `POST /api/vehicles` — Register a vehicle with 15-digit IMEI.
+* `PUT /api/vehicles/:id` — Update vehicle attributes.
+* `DELETE /api/vehicles/:id` — Remove vehicle.
+* `POST /api/vehicles/:id/migrate` — Migrate asset to another organization.
+* `GET /api/vehicles/:id/history` — Historical telemetry replay logs.
+* `GET /api/vehicles/:id/route` — Interpolated GPS path points.
+* `GET /api/vehicles/:id/report` — Analytics (distance, max speed, idle time).
+* `GET /api/vehicles/:id/alerts` — Vehicle-specific alert history.
 
-### 🏢 Tenant & Admin Operations (`/api/admin/*`)
-* **GET / POST / PUT / DELETE** `/api/admin/orgs` — Organizations (tenant tree).
-* **GET / POST / PUT / DELETE** `/api/admin/users` — Platform users.
-* **GET / POST / PUT / DELETE** `/api/admin/groups` — Device segmentation groups.
-* **GET** `/api/admin/devices` — Registered tracking devices.
-* **POST** `/api/admin/onboard/devices` — Mass IMEI onboarding.
-* **GET** `/api/admin/billing/expired` — Out-of-licence vehicles.
-* **PATCH** `/api/admin/orgs/:id/device-limits` — Subscription thresholds.
-* **GET / POST / PUT / DELETE** `/api/admin/renewal-plans` — Payment plans.
-* **GET** `/api/admin/renewal-transactions` — Payment records.
+### 🏢 Tenant & Fleet Administration (`/api/admin`)
+* `GET / POST / PUT / DELETE /api/admin/orgs` — Tenant hierarchy CRUD.
+* `GET / POST / PUT / DELETE /api/admin/users` — User administration.
+* `GET / POST / PUT / DELETE /api/admin/groups` — Device segmentation groups.
+* `GET /api/admin/devices` — Tracking hardware inventory.
+* `POST /api/admin/onboard/devices` — Batch device and vehicle onboarding.
+* `GET /api/admin/billing/expired` — Expired license tracking.
+* `PATCH /api/admin/orgs/:id/device-limits` — Manage subscription vehicle quotas.
 
-### 🗺️ Geofencing & Route Boundaries (`/api/admin/*`)
-* **GET / POST / PUT / DELETE** `/api/admin/geofences` — CRUD Geofences (Polygon / Circle).
-* **POST** `/api/admin/geofences/:id/assign` — Assign geofence to vehicles.
-* **GET / POST / PUT / DELETE** `/api/admin/routes` — CRUD route paths.
-* **POST** `/api/admin/routes/:id/assign` — Assign route corridor to vehicles.
+### 🗺️ Geofencing & Corridor Monitoring (`/api/admin`)
+* `GET / POST / PUT / DELETE /api/admin/geofences` — Polygon and Circular geofence zones.
+* `POST /api/admin/geofences/:id/assign` — Assign geofence boundaries to vehicles.
+* `GET / POST / PUT / DELETE /api/admin/routes` — Defined route corridors with deviation tolerance.
+* `POST /api/admin/routes/:id/assign` — Assign route corridors to assets.
 
-### 🔔 Alerts & Notifications (`/api/alerts/*`)
-* **GET** `/api/alerts` — Paginated alert history for the user's org.
-* **PUT** `/api/alerts/:id/read` — Mark single alert as read.
-* **PUT** `/api/alerts/read-all` — Mark all alerts as read.
-* **GET** `/api/alerts/preferences` — Get user notification preferences.
-* **PUT** `/api/alerts/preferences` — Update notification preferences.
-* **POST** `/api/alerts/fcm-token` — Register FCM device token.
-* **DELETE** `/api/alerts/fcm-token` — Remove FCM device token.
+### 🔔 Alerts & Preferences (`/api/alerts`)
+* `GET /api/alerts` — Paginated organization alert history.
+* `PUT /api/alerts/:id/read` — Mark an alert as acknowledged.
+* `PUT /api/alerts/read-all` — Mark all alerts as read.
+* `GET / PUT /api/alerts/preferences` — Get/update per-user push notification filter toggles.
+* `POST /api/alerts/fcm-token` — Register device FCM token for push notifications.
+* `DELETE /api/alerts/fcm-token` — Unregister device FCM token on logout.
 
-### 📊 Reports (`/api/reports/*`)
-* **GET** `/api/reports/trip` — Trip summaries.
-* **GET** `/api/reports/distance` — Daily distance metrics.
-* **GET** `/api/reports/activity` — Engine run duration and states.
-* **GET** `/api/reports/route-history` — Historical path trace.
-* **GET** `/api/reports/ignition` — Ignition status intervals.
-* **GET** `/api/reports/overspeeding` — Speed limit violations.
-* **GET** `/api/reports/stoppages` — Stoppage duration logs.
-* **GET** `/api/reports/consolidated` — Multi-vehicle aggregated report.
-* **GET** `/api/reports/individual` — High-resolution single-asset stats.
-* **GET** `/api/reports/dashboard` — Live counts and KPIs.
+### 📊 Fleet Analytics & Reports (`/api/reports`)
+* `GET /api/reports/trip` — Start/end locations, distance, and duration.
+* `GET /api/reports/distance` — Daily odometer summary per vehicle.
+* `GET /api/reports/activity` — Ignition run vs idle duration breakdown.
+* `GET /api/reports/stoppages` — Parking and stoppage durations with locations.
+* `GET /api/reports/overspeeding` — Speed threshold violations.
+* `GET /api/reports/consolidated` — Fleet-wide aggregate metrics.
+* `GET /api/reports/dashboard` — Live count cards and fleet status summary.
 
-### ⚙️ Organization Settings & White-Labeling (`/api/profile/*`)
-* **GET** `/api/profile` — Fetch white-label theme, logos, and org profile.
-* **PUT** `/api/profile` — Update white-label settings.
-* **POST** `/api/profile/logo` — Upload organization logo.
-* **POST** `/api/profile/favicon` — Upload custom tab icon.
-* **POST** `/api/profile/background` — Upload branded auth background.
-* **POST** `/api/profile/change-password` — Update user password.
-* **GET** `/api/profile/audit` — User modification audit trail.
+### 💬 WhatsApp Cloud API Integration (`/api/whatsapp`)
+* `GET /api/whatsapp/webhook` — Meta Webhook challenge verification.
+* `POST /api/whatsapp/webhook` — Incoming status updates and message events.
+* `GET / POST /api/whatsapp/recipients` — Manage alert notification phone recipients.
+* `GET / PUT /api/whatsapp/settings` — Configure automated daily summary schedules.
+* `GET /api/whatsapp/messages` — WhatsApp outbox logs with delivery receipts.
+* `POST /api/whatsapp/messages/:id/retry` — Manual outbox message retry.
+
+### 📄 Document Scanner & RC Onboarding (`/api/v1/document-scans`)
+* `POST /api/v1/document-scans` — Upload RC/Aadhaar document for OCR extraction.
+* `GET /api/v1/document-scans/:id` — Poll processing status and extracted vehicle data.
+* `GET /api/v1/document-scans/:id/vehicle-matches` — Inspect candidate match vehicles in the fleet.
+* `POST /api/v1/document-scans/:id/confirm` — Confirm and merge extracted metadata into vehicle profile.
+
+### 🔌 Third-Party Integration API (`/api/v1`)
+Authorized via `X-API-Key` header:
+* `GET /api/v1/vehicles` — Vehicle list for integrated external ERP/TMS systems.
+* `GET /api/v1/location/live` — Instantaneous location snapshot.
+* `POST /api/v1/location/history` — Historical vehicle trajectory for third-party systems.
+* `POST / GET / DELETE /api/v1/webhooks` — Webhook event subscription management.

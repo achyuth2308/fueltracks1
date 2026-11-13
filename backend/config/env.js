@@ -50,7 +50,9 @@ const env = {
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:5173',
 
   // WhatsApp Cloud API (Meta Graph API)
-  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'true' || Boolean(process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN),
+  WHATSAPP_ENABLED: process.env.WHATSAPP_ENABLED === 'false'
+    ? false
+    : (process.env.WHATSAPP_ENABLED === 'true' || Boolean(process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN)),
   WHATSAPP_ACCESS_TOKEN: process.env.WHATSAPP_ACCESS_TOKEN || process.env.WHATSAPP_TOKEN || '',
   WHATSAPP_PHONE_NUMBER_ID: process.env.WHATSAPP_PHONE_NUMBER_ID || process.env.PHONE_NUMBER_ID || '',
   WHATSAPP_WABA_ID: process.env.WHATSAPP_WABA_ID || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID || '',
