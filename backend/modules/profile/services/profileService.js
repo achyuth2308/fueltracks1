@@ -221,6 +221,34 @@ class ProfileService {
     // Also fetch dealer stats if it's a dealer organization
     const dealerStats = await profileRepository.getDealerStats(organizationId);
 
+    // Check if the organization has any vehicles equipped with fuel sensors / fuel monitoring
+    let hasFuelVehicles = (used.Advanced > 0) || (used.Premium > 0);
+    if (!hasFuelVehicles && organizationId !== 'a0000000-0000-0000-0000-000000000001') {
+      try {
+        const fuelVehCheck = await db.query(
+          `SELECT 1 FROM vehicles v
+           LEFT JOIN devices d ON v.imei = d.device_id
+           WHERE (v.org_id = $1 OR v.org_id IN (SELECT id FROM organizations WHERE parent_id = $1))
+             AND v.is_active = TRUE
+             AND (
+               (d.licence_id ILIKE 'AD%' OR d.licence_id ILIKE 'EN%')
+               OR (v.metadata->'fuelCalibration' IS NOT NULL AND v.metadata->'fuelCalibration' != '{}'::jsonb)
+               OR (v.metadata->>'tankSize' ~ '^[0-9]+(\\.[0-9]+)?$' AND (v.metadata->>'tankSize')::numeric > 0)
+               OR (v.metadata->>'tankCapacity' ~ '^[0-9]+(\\.[0-9]+)?$' AND (v.metadata->>'tankCapacity')::numeric > 0)
+             )
+           LIMIT 1`,
+          [organizationId]
+        );
+        hasFuelVehicles = fuelVehCheck.rows.length > 0;
+      } catch (fErr) {
+        console.error('[ProfileService] Error checking fuel vehicles:', fErr.message);
+        hasFuelVehicles = false;
+      }
+    } else if (organizationId === 'a0000000-0000-0000-0000-000000000001') {
+      hasFuelVehicles = true;
+    }
+    mainProfile.has_fuel_vehicles = hasFuelVehicles;
+
     return { profile: mainProfile, license, dealerStats };
   }
 

@@ -40,7 +40,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import { SIDEBAR_THEMES, generateCustomTheme, getCurrentTheme, applyGlobalTheme } from '../../utils/theme';
 
-const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
+const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   const { user, logout, restoreAdmin, hasAdminSession } = useAuth();
   const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!(sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken')));
   const navigate = useNavigate();
@@ -179,7 +179,23 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
     return () => window.removeEventListener('profile-updated', handleProfileUpdated);
   }, [user]);
 
-  const navGroups = [
+  // Check whether any vehicle has a fuel sensor or fuel monitoring
+  const hasFuelFeature = useMemo(() => {
+    if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
+    if (brandProfile?.has_fuel_vehicles !== undefined) return brandProfile.has_fuel_vehicles;
+    if (vehicles && vehicles.length > 0) {
+      return vehicles.some(v => 
+        (v.tank_capacity && v.tank_capacity > 0) ||
+        (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
+        (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
+        (v.licenceId && (v.licenceId.startsWith('AD') || v.licenceId.startsWith('EN'))) ||
+        (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0)
+      );
+    }
+    return false;
+  }, [user, brandProfile, vehicles]);
+
+  const navGroups = useMemo(() => [
     {
       label: '',
       items: [
@@ -221,7 +237,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             { name: 'Manual Trips', path: '/trips?type=manual', type: 'manual' },
           ],
         },
-        {
+        ...(hasFuelFeature ? [{
           name: 'Fuel Analytics',
           path: '/fuel-analytics',
           icon: Fuel,
@@ -231,7 +247,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             { name: 'Analytics Chart', path: '/fuel-analytics' },
             { name: 'Fuel Raw Data', path: '/fuel-raw-data' }
           ]
-        },
+        }] : []),
         {
           name: 'Reports',
           path: '/admin/reports/dashboard',
@@ -246,7 +262,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
             { name: 'Stoppage', path: '/admin/reports/stoppage' },
             { name: 'Individual', path: '/admin/reports/individual' },
             { name: 'Vehicle Consolidated', path: '/admin/reports/consolidated' },
-            {
+            ...(hasFuelFeature ? [{
               name: 'Fuel Reports',
               path: '/admin/reports/fuel-consumption',
               subItems: [
@@ -257,14 +273,14 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                 { name: 'KMPL Mileage Report', path: '/admin/reports/kmpl-mileage' },
                 { name: 'LPH Engine Burn Rate', path: '/admin/reports/lph-burn-rate' }
               ]
-            }
+            }] : [])
           ],
         },
         { name: 'Renewals', path: '/renewals', icon: RefreshCw, color: '#0D9488', roles: ['customer'] },
         { name: 'Alerts', path: '/alerts', icon: Bell, color: '#EF4444', roles: ['customer'] },
       ],
     },
-  ];
+  ], [hasFuelFeature]);
 
   const handleRestoreAdmin = async (e) => {
     if (e) e.preventDefault();
@@ -595,7 +611,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar }) => {
                                   {[
                                     { name: 'Automated Trips', path: '/admin/reports/trip' },
                                     { name: 'Manual Trips', path: '/admin/reports/manual-trips' },
-                                    { name: 'Total Trip (Fuel Data)', path: '/admin/reports/daily-trip' },
+                                    { name: hasFuelFeature ? 'Total Trip (Fuel Data)' : 'Total Trip', path: '/admin/reports/daily-trip' },
                                   ].map((rItem) => {
                                     const isRActive = location.pathname === rItem.path;
                                     return (

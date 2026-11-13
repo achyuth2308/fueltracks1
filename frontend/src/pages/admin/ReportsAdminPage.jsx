@@ -201,7 +201,30 @@ const ReportsAdminPage = () => {
     });
   }, [vehicles, searchQuery, statusFilter]);
 
-  const REPORT_TABS = [
+  // Check whether any vehicle has a fuel sensor installed or licensed
+  const hasFuelFeature = useMemo(() => {
+    if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
+    if (!vehicles || vehicles.length === 0) return false;
+    return vehicles.some(v => 
+      (v.tank_capacity && v.tank_capacity > 0) ||
+      (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
+      (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
+      (v.licenceId && (v.licenceId.startsWith('AD') || v.licenceId.startsWith('EN'))) ||
+      (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0)
+    );
+  }, [vehicles, user]);
+
+  const isFuelTab = location.pathname.startsWith('/admin/reports/fuel-') || 
+                    location.pathname === '/admin/reports/kmpl-mileage' || 
+                    location.pathname === '/admin/reports/lph-burn-rate';
+
+  useEffect(() => {
+    if (!loading && vehicles.length > 0 && !hasFuelFeature && isFuelTab) {
+      navigate('/admin/reports/dashboard', { replace: true });
+    }
+  }, [loading, vehicles, hasFuelFeature, isFuelTab, navigate]);
+
+  const ALL_REPORT_TABS = [
     { path: '/admin/reports/dashboard', label: 'Fleet Dashboard' },
     { path: '/admin/reports/distance', label: 'Daily Distance' },
     { path: '/admin/reports/ignition', label: 'Engine ON' },
@@ -213,15 +236,24 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
     { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
-    { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report' },
-    { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption' },
-    { path: '/admin/reports/fuel-theft', label: 'Fuel Theft Report' },
-    { path: '/admin/reports/fuel-consolidated', label: 'Fuel Consolidated' },
-    { path: '/admin/reports/kmpl-mileage', label: 'KMPL Mileage Report' },
-    { path: '/admin/reports/lph-burn-rate', label: 'LPH Engine Burn Rate' }
+    { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report', isFuel: true },
+    { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption', isFuel: true },
+    { path: '/admin/reports/fuel-theft', label: 'Fuel Theft Report', isFuel: true },
+    { path: '/admin/reports/fuel-consolidated', label: 'Fuel Consolidated', isFuel: true },
+    { path: '/admin/reports/kmpl-mileage', label: 'KMPL Mileage Report', isFuel: true },
+    { path: '/admin/reports/lph-burn-rate', label: 'LPH Engine Burn Rate', isFuel: true }
   ];
 
-  const exportColumns = ['Vehicle Name', 'Reg No', 'Last Seen', 'Last Comm', 'Driver', 'Driver Mobile', 'Kms', 'Speed', 'Status', 'Duration', 'Veh Battery', 'A/C', 'Fuel (Ltrs)', 'Celsius', 'Nearest Location'];
+  const REPORT_TABS = useMemo(() => {
+    return ALL_REPORT_TABS.filter(tab => hasFuelFeature || !tab.isFuel);
+  }, [hasFuelFeature]);
+
+  const exportColumns = useMemo(() => {
+    const cols = ['Vehicle Name', 'Reg No', 'Last Seen', 'Last Comm', 'Driver', 'Driver Mobile', 'Kms', 'Speed', 'Status', 'Duration', 'Veh Battery', 'A/C'];
+    if (hasFuelFeature) cols.push('Fuel (Ltrs)');
+    cols.push('Celsius', 'Nearest Location');
+    return cols;
+  }, [hasFuelFeature]);
 
   const getExportData = () => {
     return filteredVehicles.map(v => {
@@ -230,7 +262,7 @@ const ReportsAdminPage = () => {
       const speed = Math.round(v.current_speed || 0);
       const ignition = !!(v.current_ignition !== undefined ? v.current_ignition : v.ignition);
       const details = getVehicleStatusDetails(v);
-      return {
+      const row = {
         'Vehicle Name': v.name || '-',
         'Reg No': v.plate || '-',
         'Last Seen': `${seen.time} ${seen.date}`,
@@ -243,10 +275,13 @@ const ReportsAdminPage = () => {
         'Duration': getVehicleDuration(v),
         'Veh Battery': formatVoltage(v.current_voltage || v.metadata?.batteryVoltage),
         'A/C': ignition ? 'ON' : 'OFF',
-        'Fuel (Ltrs)': v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0'),
-        'Celsius': v.temperature !== undefined ? `${v.temperature}` : '0',
-        'Nearest Location': v.address || '-'
       };
+      if (hasFuelFeature) {
+        row['Fuel (Ltrs)'] = v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0');
+      }
+      row['Celsius'] = v.temperature !== undefined ? `${v.temperature}` : '0';
+      row['Nearest Location'] = v.address || '-';
+      return row;
     });
   };
 
@@ -537,7 +572,9 @@ const ReportsAdminPage = () => {
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '80px' }}>Duration HH:MM:SS</th>
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '70px' }}>Veh Battery</th>
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>A/C</th>
-                  <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '65px' }}>Fuel (Ltrs)</th>
+                  {hasFuelFeature && (
+                    <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'right', width: '65px' }}>Fuel (Ltrs)</th>
+                  )}
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>Celsius</th>
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'left', minWidth: '200px' }}>Nearest Location</th>
                   <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', letterSpacing: '0.04em', textTransform: 'uppercase', padding: '8px 6px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center', width: '50px' }}>G-Map</th>
@@ -546,7 +583,7 @@ const ReportsAdminPage = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={16} style={{ padding: '30px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
+                    <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '30px', textAlign: 'center', border: '1px solid #CBD5E1' }}>
                       <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '12px', fontWeight: 600 }}>
                         <Loader2 size={16} className="animate-spin" />
                         <span>Syncing fleet telemetry data...</span>
@@ -555,7 +592,7 @@ const ReportsAdminPage = () => {
                   </tr>
                 ) : filteredVehicles.length === 0 ? (
                   <tr>
-                    <td colSpan={16} style={{ padding: '24px', textAlign: 'center', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '12px' }}>
+                    <td colSpan={hasFuelFeature ? 16 : 15} style={{ padding: '24px', textAlign: 'center', color: '#64748B', border: '1px solid #CBD5E1', fontSize: '12px' }}>
                       No vehicles found matching criteria.
                     </td>
                   </tr>
@@ -614,9 +651,11 @@ const ReportsAdminPage = () => {
                         <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap', fontWeight: 700, fontSize: '10.5px', color: ignition ? '#10B981' : '#64748B' }}>
                           {ignition ? 'ON' : 'OFF'}
                         </td>
-                        <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                          {v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0')}
-                        </td>
+                        {hasFuelFeature && (
+                          <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#0F172A', fontSize: '11px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                            {v.current_fuel !== undefined ? Number(v.current_fuel).toFixed(1) : (v.fuel_level !== undefined ? Number(v.fuel_level).toFixed(1) : '0')}
+                          </td>
+                        )}
                         <td style={{ padding: '4px 6px', border: '1px solid #CBD5E1', color: '#334155', fontSize: '11px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                           {v.temperature !== undefined ? `${v.temperature}` : '0'}
                         </td>
