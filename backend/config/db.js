@@ -23,10 +23,10 @@ const pool = new Pool({
   database: env.DB_NAME,
   user: env.DB_USER,
   password: env.DB_PASS,
-  max: 15,                          // Hard cap — never more than 15 for API
+  max: 35,                          // Scaled to 35 to prevent queue exhaustion during traffic peaks
   idleTimeoutMillis: 30000,         // Release idle connections after 30s
-  connectionTimeoutMillis: 3000,    // Fail fast (3s) — don't hold login hostage
-  options: '-c timezone=UTC',
+  connectionTimeoutMillis: 8000,    // 8s timeout to buffer transient traffic spikes
+  options: '-c timezone=UTC -c statement_timeout=10000', // Kill runaway queries > 10s to safeguard pool
 });
 
 pool.on('connect', () => {
@@ -45,10 +45,10 @@ const gpsPool = new Pool({
   database: env.DB_NAME,
   user: env.DB_USER,
   password: env.DB_PASS,
-  max: 10,                          // 10 connections for GPS writes
+  max: 25,                          // 25 connections for high-frequency GPS writes
   idleTimeoutMillis: 60000,         // GPS connections can stay longer
-  connectionTimeoutMillis: 5000,    // GPS writes can wait up to 5s
-  options: '-c timezone=UTC',
+  connectionTimeoutMillis: 8000,    // GPS writes can wait up to 8s
+  options: '-c timezone=UTC -c statement_timeout=10000',
 });
 
 gpsPool.on('connect', () => {

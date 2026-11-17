@@ -368,7 +368,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Middle Details - Clean Compact Typography (No Duplicate Name/Plate) */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: '12.5px',
+            fontSize: '11.5px',
             fontWeight: 700,
             color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
             whiteSpace: 'nowrap',
@@ -411,7 +411,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             gap: '4px',
             fontSize: '10px',
             fontWeight: 700,
-            padding: '2px 7px',
+            padding: '2px 5px',
             borderRadius: '12px',
             background: isExpired ? '#FEE2E2' : (isExpiring ? '#FEF3C7' : `${sc}15`),
             color: isExpired ? '#DC2626' : (isExpiring ? '#D97706' : sc),
@@ -445,7 +445,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             style={{
               position: 'absolute',
               top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-              left: window.innerWidth > 768 ? '315px' : '12px',
+              left: window.innerWidth > 768 ? '245px' : '12px',
               right: window.innerWidth > 768 ? 'auto' : '12px',
               zIndex: 10000,
               width: window.innerWidth > 768 ? '360px' : 'auto',
@@ -738,7 +738,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         <div style={{
           position: 'absolute',
           top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-          left: window.innerWidth > 768 ? '320px' : '12px',
+          left: window.innerWidth > 768 ? '250px' : '12px',
           right: window.innerWidth > 768 ? 'auto' : '12px',
           width: window.innerWidth > 768 ? '360px' : 'auto',
           maxWidth: 'calc(100vw - 24px)',
@@ -862,13 +862,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
         {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
         <div
-          className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[310px] ${
+          className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[240px] ${
             mobileTab === 'list' ? 'flex' : 'hidden md:flex'
           }`}
           style={{ height: '100%', position: 'relative' }}
         >
           {/* Header Section */}
-          <div style={{ padding: '10px 12px 8px 12px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+          <div style={{ padding: '8px 10px 6px 10px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <div>
                 <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>

@@ -24,7 +24,7 @@ const distQueue = [];
 const distQueueSet = new Set();
 let distQueueRunning = 0;
 let distQueueDrops = 0;
-const MAX_DIST_CONCURRENCY = 4;
+const MAX_DIST_CONCURRENCY = 2;
 const MAX_DIST_QUEUE_LEN = 5000;
 
 setInterval(() => {
@@ -905,8 +905,8 @@ async function start(io) {
         const throttleKey = `dist:throttle:${vehicleId}`;
         const alreadyQueued = await redis.exists(throttleKey);
         if (!alreadyQueued) {
-          // Arm the throttle — expires in 60s so next full recompute fires then
-          await redis.set(throttleKey, '1', 'EX', 60);
+          // Arm the throttle — expires in 180s (3m) to protect DB pool from excessive recomputes
+          await redis.set(throttleKey, '1', 'EX', 180);
           // Run the heavy full-history recompute in the background via queue
           queueDistanceRecompute(vehicleId, imei);
         }
@@ -916,7 +916,7 @@ async function start(io) {
         const throttleKey = `dist:throttle:${vehicleId}`;
         const alreadyQueued = await redis.exists(throttleKey);
         if (!alreadyQueued) {
-          await redis.set(throttleKey, '1', 'EX', 60);
+          await redis.set(throttleKey, '1', 'EX', 180);
           queueDistanceRecompute(vehicleId, imei);
         }
       }

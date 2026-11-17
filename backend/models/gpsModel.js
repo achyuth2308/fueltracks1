@@ -884,13 +884,39 @@ const GpsModel = {
     }
     const offset = (page - 1) * limit;
 
+    let startTs = null;
+    let endTs = null;
+
+    if (from) {
+      startTs = from;
+    } else if (startDate) {
+      const sTime = startTime ? (startTime.length === 5 ? `${startTime}:00` : startTime) : '00:00:00';
+      startTs = `${startDate} ${sTime}+05:30`;
+    } else if (date) {
+      startTs = `${date} 00:00:00+05:30`;
+    }
+
+    if (to) {
+      endTs = to;
+    } else if (endDate) {
+      const eTime = endTime ? (endTime.length === 5 ? `${endTime}:59` : endTime) : '23:59:59';
+      endTs = `${endDate} ${eTime}+05:30`;
+    } else if (date) {
+      endTs = `${date} 23:59:59+05:30`;
+    }
+
     let whereClause = `WHERE imei = $1`;
     const params = [imei];
     let paramIdx = 2;
 
-    if (date) {
-      whereClause += ` AND (DATE(COALESCE(device_time, received_at) + interval '5 hours 30 minutes') = $${paramIdx}::date OR DATE(received_at + interval '5 hours 30 minutes') = $${paramIdx}::date)`;
-      params.push(date);
+    if (startTs) {
+      whereClause += ` AND COALESCE(device_time, received_at) >= $${paramIdx}::timestamptz`;
+      params.push(startTs);
+      paramIdx++;
+    }
+    if (endTs) {
+      whereClause += ` AND COALESCE(device_time, received_at) <= $${paramIdx}::timestamptz`;
+      params.push(endTs);
       paramIdx++;
     }
 
@@ -898,54 +924,122 @@ const GpsModel = {
       `SELECT COUNT(*) FROM raw_packets ${whereClause}`,
       params
     );
-    const total = parseInt(countResult.rows[0]?.count || 0);
+    let total = parseInt(countResult.rows[0]?.count || 0);
+    let useGpsFallback = false;
+    let fallbackWhere = 'WHERE v.imei = $1';
+    let fallbackParams = [imei];
+    let fallbackIdx = 2;
 
-    const queryParams = [...params, limit, offset];
-    const result = await db.query(
-      `SELECT id, imei, raw, parsed, error, received_at,
-              COALESCE(packet_type, 'DATA') as packet_type,
-              COALESCE(device_time, received_at) as device_time,
-              COALESCE(odometer, 0) as odometer,
-              COALESCE(raw_hex, raw) as raw_hex,
-              parsed_data,
-              COALESCE(
-                CASE WHEN parsed_data->>'lat' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lat')::numeric ELSE NULL END,
-                NULL
-              ) as lat,
-              COALESCE(
-                CASE WHEN parsed_data->>'lng' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lng')::numeric ELSE NULL END,
-                CASE WHEN parsed_data->>'lon' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lon')::numeric ELSE NULL END,
-                NULL
-              ) as lng,
-              COALESCE(
-                CASE WHEN parsed_data->>'speed' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'speed')::numeric ELSE NULL END,
-                0
-              ) as speed,
-              COALESCE(
-                CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
-                CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
-                NULL
-              ) as fuel,
-              COALESCE(
-                CASE WHEN parsed_data->>'voltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'voltage')::numeric ELSE NULL END,
-                CASE WHEN parsed_data->>'mainVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'mainVoltage')::numeric ELSE NULL END,
-                CASE WHEN parsed_data->>'battVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'battVoltage')::numeric ELSE NULL END,
-                NULL
-              ) as voltage,
-              COALESCE(
-                CASE 
-                  WHEN parsed_data->>'ignition' IN ('true', '1', 't') THEN true
-                  WHEN parsed_data->>'ignition' IN ('false', '0', 'f') THEN false
-                  ELSE NULL 
-                END,
-                NULL
-              ) as ignition
-       FROM raw_packets
-       ${whereClause}
-       ORDER BY received_at DESC, id DESC
-       LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
-      queryParams
-    );
+    if (total === 0) {
+      if (startTs) {
+        fallbackWhere += ` AND gp.device_time >= $${fallbackIdx}::timestamptz`;
+        fallbackParams.push(startTs);
+        fallbackIdx++;
+      }
+      if (endTs) {
+        fallbackWhere += ` AND gp.device_time <= $${fallbackIdx}::timestamptz`;
+        fallbackParams.push(endTs);
+        fallbackIdx++;
+      }
+      const gpCount = await db.query(
+        `SELECT COUNT(*) FROM gps_points gp JOIN vehicles v ON gp.vehicle_id = v.id ${fallbackWhere}`,
+        fallbackParams
+      );
+      const gpTotal = parseInt(gpCount.rows[0]?.count || 0);
+      if (gpTotal > 0) {
+        total = gpTotal;
+        useGpsFallback = true;
+      }
+    }
+
+    let result;
+    if (useGpsFallback) {
+      const gpQueryParams = [...fallbackParams, limit, offset];
+      result = await db.query(
+        `SELECT gp.id, v.imei,
+                NULL as raw,
+                TRUE as parsed,
+                NULL as error,
+                COALESCE(gp.server_time, gp.device_time) as received_at,
+                'TELEMETRY' as packet_type,
+                gp.device_time,
+                COALESCE(gp.odometer, 0) as odometer,
+                NULL as raw_hex,
+                jsonb_build_object(
+                  'lat', gp.lat,
+                  'lng', gp.lng,
+                  'speed', gp.speed,
+                  'fuel', gp.fuel,
+                  'voltage', gp.voltage,
+                  'battery', gp.battery,
+                  'ignition', gp.ignition,
+                  'satellites', gp.satellites,
+                  'gsmSignal', gp.gsm_signal,
+                  'direction', gp.direction
+                ) as parsed_data,
+                gp.lat,
+                gp.lng,
+                COALESCE(gp.speed, 0) as speed,
+                gp.fuel,
+                gp.voltage,
+                gp.battery,
+                gp.ignition,
+                gp.direction
+         FROM gps_points gp
+         JOIN vehicles v ON gp.vehicle_id = v.id
+         ${fallbackWhere}
+         ORDER BY gp.device_time DESC, gp.id DESC
+         LIMIT $${fallbackIdx} OFFSET $${fallbackIdx + 1}`,
+        gpQueryParams
+      );
+    } else {
+      const queryParams = [...params, limit, offset];
+      result = await db.query(
+        `SELECT id, imei, raw, parsed, error, received_at,
+                COALESCE(packet_type, 'DATA') as packet_type,
+                COALESCE(device_time, received_at) as device_time,
+                COALESCE(odometer, 0) as odometer,
+                COALESCE(raw_hex, raw) as raw_hex,
+                parsed_data,
+                COALESCE(
+                  CASE WHEN parsed_data->>'lat' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lat')::numeric ELSE NULL END,
+                  NULL
+                ) as lat,
+                COALESCE(
+                  CASE WHEN parsed_data->>'lng' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lng')::numeric ELSE NULL END,
+                  CASE WHEN parsed_data->>'lon' ~ '^-?[0-9]+\.?[0-9]*$' THEN (parsed_data->>'lon')::numeric ELSE NULL END,
+                  NULL
+                ) as lng,
+                COALESCE(
+                  CASE WHEN parsed_data->>'speed' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'speed')::numeric ELSE NULL END,
+                  0
+                ) as speed,
+                COALESCE(
+                  CASE WHEN parsed_data->>'fuel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuel')::numeric ELSE NULL END,
+                  CASE WHEN parsed_data->>'fuelLevel' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'fuelLevel')::numeric ELSE NULL END,
+                  NULL
+                ) as fuel,
+                COALESCE(
+                  CASE WHEN parsed_data->>'voltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'voltage')::numeric ELSE NULL END,
+                  CASE WHEN parsed_data->>'mainVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'mainVoltage')::numeric ELSE NULL END,
+                  CASE WHEN parsed_data->>'battVoltage' ~ '^[0-9]+\.?[0-9]*$' THEN (parsed_data->>'battVoltage')::numeric ELSE NULL END,
+                  NULL
+                ) as voltage,
+                COALESCE(
+                  CASE 
+                    WHEN parsed_data->>'ignition' IN ('true', '1', 't') THEN true
+                    WHEN parsed_data->>'ignition' IN ('false', '0', 'f') THEN false
+                    ELSE NULL 
+                  END,
+                  NULL
+                ) as ignition
+         FROM raw_packets
+         ${whereClause}
+         ORDER BY received_at DESC, id DESC
+         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`,
+        queryParams
+      );
+    }
 
     // Fallback extraction helper for raw packet string
     const extractPacketFallback = (rawStr) => {

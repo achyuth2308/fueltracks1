@@ -10,6 +10,9 @@ import * as XLSX from 'xlsx';
 import api from '../../api/axios';
 import { formatLocalTime } from '../../utils/dateUtils';
 import { useSocket } from '../../hooks/useSocket';
+import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
+import TelematicsTimePicker from '../../components/ui/TelematicsTimePicker';
+import { Calendar, Clock, Filter } from 'lucide-react';
 
 const DEFAULT_COLUMNS = [
   { key: 'imei', label: 'Device IMEI', visible: true, width: '155px' },
@@ -98,6 +101,13 @@ const SensorLogsPage = () => {
   const [copiedHex, setCopiedHex] = useState(false);
   const [copiedImei, setCopiedImei] = useState(false);
 
+  const todayStr = useMemo(() => getTodayDate(), []);
+  const [startDate, setStartDate] = useState(todayStr);
+  const [startTime, setStartTime] = useState('00:00');
+  const [endDate, setEndDate] = useState(todayStr);
+  const [endTime, setEndTime] = useState('23:59');
+  const [activePreset, setActivePreset] = useState('today');
+
   const fetchVehicle = useCallback(async () => {
     try {
       const res = await api.get(`/api/vehicles/${id}`);
@@ -109,10 +119,24 @@ const SensorLogsPage = () => {
     }
   }, [id]);
 
-  const fetchMessages = useCallback(async (page = 1) => {
+  const fetchMessages = useCallback(async (page = 1, customParams = null) => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/vehicles/${id}/messages`, { params: { page, limit: 100 } });
+      const sDate = customParams?.startDate !== undefined ? customParams.startDate : startDate;
+      const eDate = customParams?.endDate !== undefined ? customParams.endDate : endDate;
+      const sTime = customParams?.startTime !== undefined ? customParams.startTime : startTime;
+      const eTime = customParams?.endTime !== undefined ? customParams.endTime : endTime;
+
+      const params = {
+        page,
+        limit: 100,
+        startDate: sDate,
+        endDate: eDate,
+        startTime: sTime,
+        endTime: eTime
+      };
+
+      const res = await api.get(`/api/vehicles/${id}/messages`, { params });
       const rawList = res.data.data || [];
       const enriched = rawList.map(extractParsedData);
       setMessages(sortDesc(enriched));
@@ -123,7 +147,41 @@ const SensorLogsPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, startDate, endDate, startTime, endTime]);
+
+  const applyPreset = (preset) => {
+    setActivePreset(preset);
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const toIso = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+    if (preset === 'today') {
+      const today = toIso(now);
+      setStartDate(today);
+      setStartTime('00:00');
+      setEndDate(today);
+      setEndTime('23:59');
+      fetchMessages(1, { startDate: today, endDate: today, startTime: '00:00', endTime: '23:59' });
+    } else if (preset === 'yesterday') {
+      const yest = new Date(now.getTime() - 86400000);
+      const yestStr = toIso(yest);
+      setStartDate(yestStr);
+      setStartTime('00:00');
+      setEndDate(yestStr);
+      setEndTime('23:59');
+      fetchMessages(1, { startDate: yestStr, endDate: yestStr, startTime: '00:00', endTime: '23:59' });
+    } else if (preset === 'last24h') {
+      const yest = new Date(now.getTime() - 86400000);
+      const sDate = toIso(yest);
+      const eDate = toIso(now);
+      const curTime = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+      setStartDate(sDate);
+      setStartTime(curTime);
+      setEndDate(eDate);
+      setEndTime(curTime);
+      fetchMessages(1, { startDate: sDate, endDate: eDate, startTime: curTime, endTime: curTime });
+    }
+  };
 
   useEffect(() => {
     fetchVehicle();
@@ -136,11 +194,13 @@ const SensorLogsPage = () => {
 
     const handleRaw = (data) => {
       if (data.vehicleId && String(data.vehicleId) !== String(id)) return;
-      setMessages((prev) => {
-        const enriched = extractParsedData(data);
-        const filtered = prev.filter((m) => m.id !== enriched.id);
-        return sortDesc([enriched, ...filtered]).slice(0, 100);
-      });
+      if (endDate === todayStr) {
+        setMessages((prev) => {
+          const enriched = extractParsedData(data);
+          const filtered = prev.filter((m) => m.id !== enriched.id);
+          return sortDesc([enriched, ...filtered]).slice(0, 100);
+        });
+      }
     };
 
     socket.on('raw:update', handleRaw);
@@ -548,6 +608,142 @@ const SensorLogsPage = () => {
               Next
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* ── Date Range & Time Range Filter Bar ── */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 24px',
+        background: '#FFFFFF',
+        borderBottom: '1px solid #E2E8F0',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        {/* Left: Presets + Date & Time Inputs */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+          {/* Quick Presets */}
+          <div style={{ display: 'flex', alignItems: 'center', background: '#F1F5F9', borderRadius: '8px', padding: '2px' }}>
+            {[
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: 'last24h', label: 'Last 24h' }
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.id)}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  background: activePreset === p.id ? '#FFFFFF' : 'transparent',
+                  color: activePreset === p.id ? '#EA580C' : '#64748B',
+                  boxShadow: activePreset === p.id ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ width: '1px', height: '22px', background: '#CBD5E1' }} />
+
+          {/* From Date & Time */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em' }}>From:</span>
+            <TelematicsDatePicker
+              value={startDate}
+              onChange={(iso) => {
+                setStartDate(iso);
+                setActivePreset('custom');
+              }}
+            />
+            <TelematicsTimePicker
+              value={startTime}
+              onChange={(time24) => {
+                setStartTime(time24);
+                setActivePreset('custom');
+              }}
+            />
+          </div>
+
+          {/* To Date & Time */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em' }}>To:</span>
+            <TelematicsDatePicker
+              value={endDate}
+              onChange={(iso) => {
+                setEndDate(iso);
+                setActivePreset('custom');
+              }}
+            />
+            <TelematicsTimePicker
+              value={endTime}
+              onChange={(time24) => {
+                setEndTime(time24);
+                setActivePreset('custom');
+              }}
+            />
+          </div>
+
+          {/* Submit / Apply Filter Button */}
+          <button
+            type="button"
+            onClick={() => fetchMessages(1)}
+            disabled={loading}
+            style={{
+              padding: '6px 16px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #F97316 0%, #EA580C 100%)',
+              color: '#FFFFFF',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: loading ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(234, 88, 12, 0.25)',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <Filter size={13} />}
+            Submit
+          </button>
+        </div>
+
+        {/* Right: Live Stream Status Indicator */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '4px 10px',
+            borderRadius: '20px',
+            fontSize: '11.5px',
+            fontWeight: 700,
+            background: endDate === todayStr ? '#ECFDF5' : '#F1F5F9',
+            color: endDate === todayStr ? '#059669' : '#64748B',
+            border: `1px solid ${endDate === todayStr ? '#A7F3D0' : '#E2E8F0'}`
+          }}>
+            <span style={{
+              width: '7px',
+              height: '7px',
+              borderRadius: '50%',
+              background: endDate === todayStr ? '#10B981' : '#94A3B8'
+            }} />
+            {endDate === todayStr ? 'Live Socket Stream Active' : 'Historical Data View'}
+          </span>
+          <span style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+            {pagination.total} packets found
+          </span>
         </div>
       </div>
 

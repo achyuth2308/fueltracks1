@@ -10,6 +10,7 @@ import { Truck, User } from 'lucide-react';
 import { formatSpeed, formatVoltage, formatDirection, formatOdometer, formatFuel, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
+import VehicleLiveGaugesOverlay from '../ui/VehicleLiveGaugesOverlay';
 import { useProfile } from '../../modules/profile/hooks/useProfile';
 
 
@@ -701,6 +702,29 @@ const FleetMap = ({
     ? (Array.isArray(selectedVehicles) ? selectedVehicles[0] || null : selectedVehicles)
     : selectedVehicle;
 
+  const [gaugesDismissedVehicleId, setGaugesDismissedVehicleId] = useState(null);
+
+  // Determine if a single vehicle is specifically selected (not multi-track mode, not bulk selected)
+  const singleSelectedVehicle = useMemo(() => {
+    if (isMultiMode) return null;
+    let target = null;
+    if (selectedVehicle) {
+      target = selectedVehicle;
+    } else if (Array.isArray(selectedVehicles) && selectedVehicles.length === 1) {
+      target = selectedVehicles[0];
+    }
+    if (!target) return null;
+    const targetId = typeof target === 'object' ? target.id : target;
+    return vehicles.find(v => v.id === targetId) || (typeof target === 'object' ? target : null);
+  }, [isMultiMode, selectedVehicle, selectedVehicles, vehicles]);
+
+  // Reset dismissal if user switches to a different vehicle
+  useEffect(() => {
+    if (singleSelectedVehicle?.id && gaugesDismissedVehicleId && gaugesDismissedVehicleId !== singleSelectedVehicle.id) {
+      setGaugesDismissedVehicleId(null);
+    }
+  }, [singleSelectedVehicle?.id]);
+
   const allSelected = selectedVehicles != null
     ? (Array.isArray(selectedVehicles) ? selectedVehicles : [selectedVehicles])
     : (selectedVehicle ? [selectedVehicle] : []);
@@ -825,6 +849,14 @@ const FleetMap = ({
           isMultiMode={isMultiMode}
         />
       </MapContainer>
+      {/* Real-time Speed & Fuel Live Gauges Overlay (Legacy Parity) */}
+      {singleSelectedVehicle && gaugesDismissedVehicleId !== singleSelectedVehicle.id && (
+        <VehicleLiveGaugesOverlay
+          vehicle={singleSelectedVehicle}
+          onClose={() => setGaugesDismissedVehicleId(singleSelectedVehicle.id)}
+        />
+      )}
+
 
       <style dangerouslySetInnerHTML={{
         __html: `

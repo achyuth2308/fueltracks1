@@ -249,6 +249,13 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           ]
         }] : []),
         {
+          name: 'Device Data',
+          path: '/device-data',
+          icon: Cpu,
+          color: '#0EA5E9',
+          roles: ['superadmin', 'dealer', 'customer'],
+        },
+        {
           name: 'Reports',
           path: '/admin/reports/dashboard',
           icon: FileText,

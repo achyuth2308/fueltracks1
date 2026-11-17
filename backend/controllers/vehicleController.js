@@ -1684,7 +1684,13 @@ const VehicleController = {
       const result = await GpsModel.getRawMessages(imei || vehicle?.imei, {
         page: parseInt(page) || 1,
         limit: parseInt(limit) || 100,
-        date: date || null
+        date: date || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        startTime: startTime || null,
+        endTime: endTime || null,
+        from: from || null,
+        to: to || null
       });
 
       res.status(200).json({

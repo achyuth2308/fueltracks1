@@ -411,7 +411,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         {/* Middle Details - Clean Compact Typography (No Duplicate Name/Plate) */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
-            fontSize: '12.5px',
+            fontSize: '11.5px',
             fontWeight: 700,
             color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
             whiteSpace: 'nowrap',
@@ -454,7 +454,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             gap: '4px',
             fontSize: '10px',
             fontWeight: 700,
-            padding: '2px 7px',
+            padding: '2px 5px',
             borderRadius: '12px',
             background: isExpired ? '#FEE2E2' : `${sc}15`,
             color: isExpired ? '#DC2626' : sc,
@@ -491,7 +491,7 @@ const TrackingPage = ({ setAppVehicles }) => {
             style={{
               position: 'absolute',
               top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-              left: window.innerWidth > 768 ? '315px' : '12px',
+              left: window.innerWidth > 768 ? '245px' : '12px',
               right: window.innerWidth > 768 ? 'auto' : '12px',
               zIndex: 10000,
               width: window.innerWidth > 768 ? '360px' : 'auto',
@@ -613,7 +613,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         <div style={{
           position: 'absolute',
           top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-          left: window.innerWidth > 768 ? '320px' : '12px',
+          left: window.innerWidth > 768 ? '250px' : '12px',
           right: window.innerWidth > 768 ? 'auto' : '12px',
           width: window.innerWidth > 768 ? '360px' : 'auto',
           maxWidth: 'calc(100vw - 24px)',
@@ -742,13 +742,13 @@ const TrackingPage = ({ setAppVehicles }) => {
 
       {/* ═══════════ LEFT PANEL: Vehicle List (Docked seamlessly matching Image 2) ═══════════ */}
       <div
-        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[310px] ${
+        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[240px] ${
           mobileTab === 'list' ? 'flex' : 'hidden md:flex'
         }`}
         style={{ height: '100%', position: 'relative' }}
       >
         {/* Header Section */}
-        <div style={{ padding: '10px 12px 8px 12px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+        <div style={{ padding: '8px 10px 6px 10px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div>
               <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
@@ -1043,156 +1043,7 @@ const TrackingPage = ({ setAppVehicles }) => {
           </div>
         )}
 
-        {/* ── Real-time Speedometer Widget (bottom-left of map) ── */}
-        {currentSelectedVehicles.length > 0 && !isMultiMode && (() => {
-          const sv = currentSelectedVehicles[0];
-          const speed = Math.round(sv.current_speed || 0);
-          const maxSpeed = 200;
-          // Arc: 220 degrees total, starts at 200 deg and ends at 340 deg (bottom)
-          const startAngle = -220; // degrees, from 3 o'clock
-          const totalArc = 240;   // degrees
-          const pct = Math.min(speed / maxSpeed, 1);
-          const needleAngle = startAngle + pct * totalArc; // in degrees
-
-          // Convert to radians for needle tip
-          const cx = 90, cy = 90, r = 68;
-          const needleRad = (needleAngle * Math.PI) / 180;
-          const nx = cx + r * Math.cos(needleRad);
-          const ny = cy + r * Math.sin(needleRad);
-
-          // Arc helper: polar to cartesian
-          const polarToCartesian = (angle) => ({
-            x: cx + r * Math.cos((angle * Math.PI) / 180),
-            y: cy + r * Math.sin((angle * Math.PI) / 180),
-          });
-          const arcPath = (from, to, ri = r) => {
-            const s = polarToCartesian(from);
-            const e = polarToCartesian(to);
-            const large = Math.abs(to - from) > 180 ? 1 : 0;
-            return `M ${s.x} ${s.y} A ${ri} ${ri} 0 ${large} 1 ${e.x} ${e.y}`;
-          };
-
-          // Ticks
-          const ticks = [];
-          for (let i = 0; i <= 20; i++) {
-            const pctTick = i / 20;
-            const angle = startAngle + pctTick * totalArc;
-            const rad = (angle * Math.PI) / 180;
-            const isMajor = i % 4 === 0;
-            const inner = isMajor ? 55 : 60;
-            const outer2 = 68;
-            const x1 = cx + inner * Math.cos(rad);
-            const y1 = cy + inner * Math.sin(rad);
-            const x2 = cx + outer2 * Math.cos(rad);
-            const y2 = cy + outer2 * Math.sin(rad);
-            ticks.push({ x1, y1, x2, y2, isMajor, pctTick });
-          }
-
-          // Speed color
-          let speedColor = '#10b981';
-          if (speed > 80) speedColor = '#f59e0b';
-          if (speed > 120) speedColor = '#ef4444';
-
-          return (
-            <div style={{
-              position: 'absolute',
-              bottom: '20px',
-              left: '20px',
-              zIndex: 1002,
-              background: 'rgba(255, 255, 255, 0.2)',
-              backdropFilter: 'blur(20px)',
-              WebkitBackdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.5)',
-              borderRadius: '20px',
-              padding: '12px 16px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-              minWidth: '200px',
-            }}>
-              {/* Vehicle name */}
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#1f2937', textAlign: 'center', maxWidth: '180px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {sv.name}
-              </div>
-
-              {/* SVG Speedometer */}
-              <svg width="180" height="110" viewBox="0 0 180 110">
-                {/* Background arc zones */}
-                {/* Green zone: 0-80 (0-40%) */}
-                <path d={arcPath(startAngle, startAngle + 0.4 * totalArc)} fill="none" stroke="rgba(16,185,129,0.25)" strokeWidth="10" strokeLinecap="butt" />
-                {/* Yellow zone: 80-120 (40-60%) */}
-                <path d={arcPath(startAngle + 0.4 * totalArc, startAngle + 0.6 * totalArc)} fill="none" stroke="rgba(245,158,11,0.25)" strokeWidth="10" strokeLinecap="butt" />
-                {/* Red zone: 120-200 (60-100%) */}
-                <path d={arcPath(startAngle + 0.6 * totalArc, startAngle + totalArc)} fill="none" stroke="rgba(239,68,68,0.25)" strokeWidth="10" strokeLinecap="butt" />
-
-                {/* Active speed arc */}
-                {speed > 0 && (
-                  <path
-                    d={arcPath(startAngle, needleAngle)}
-                    fill="none"
-                    stroke={speedColor}
-                    strokeWidth="10"
-                    strokeLinecap="butt"
-                    style={{ transition: 'all 0.6s ease' }}
-                  />
-                )}
-
-                {/* Tick marks */}
-                {ticks.map((t, i) => (
-                  <line
-                    key={i}
-                    x1={t.x1} y1={t.y1}
-                    x2={t.x2} y2={t.y2}
-                    stroke={t.pctTick > 0.6 ? '#ef4444' : t.pctTick > 0.4 ? '#f59e0b' : '#10b981'}
-                    strokeWidth={t.isMajor ? 2 : 1}
-                    opacity={0.7}
-                  />
-                ))}
-
-                {/* Speed labels */}
-                {[0, 50, 100, 150, 200].map((label, i) => {
-                  const pctL = label / maxSpeed;
-                  const ang = startAngle + pctL * totalArc;
-                  const rad = (ang * Math.PI) / 180;
-                  const lx = cx + 47 * Math.cos(rad);
-                  const ly = cy + 47 * Math.sin(rad);
-                  return (
-                    <text key={i} x={lx} y={ly} textAnchor="middle" dominantBaseline="middle"
-                      fontSize="8" fontWeight="700" fill="#4b5563">
-                      {label}
-                    </text>
-                  );
-                })}
-
-                {/* Needle */}
-                <line
-                  x1={cx} y1={cy}
-                  x2={nx} y2={ny}
-                  stroke={speedColor}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  style={{ transition: 'all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1)' }}
-                />
-                {/* Needle base circle */}
-                <circle cx={cx} cy={cy} r="5" fill="#1f2937" />
-                <circle cx={cx} cy={cy} r="2.5" fill={speedColor} />
-              </svg>
-
-              {/* Speed readout */}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginTop: '-8px' }}>
-                <span style={{ fontSize: '28px', fontWeight: 900, color: speedColor, lineHeight: 1, fontVariantNumeric: 'tabular-nums', transition: 'color 0.4s', fontFamily: 'monospace' }}>
-                  {speed}
-                </span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: '#6b7280' }}>km/h</span>
-              </div>
-            </div>
-          );
-        })()}
-
-
-        {currentSelectedVehicles.length > 0 && !isMultiMode && (
+                {currentSelectedVehicles.length > 0 && !isMultiMode && (
           <div className="tracking-scroll" style={{
             position: 'absolute', top: '54px', right: '12px', bottom: '12px',
             width: '270px', zIndex: 1000, display: 'flex', flexDirection: 'column',
