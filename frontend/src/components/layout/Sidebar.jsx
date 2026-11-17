@@ -114,10 +114,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     applyGlobalTheme(custom);
   };
   const isTripReportPath = (p) => {
-    return p === '/admin/reports/trip' || 
-           p === '/admin/reports/manual-trips' || 
-           p === '/admin/reports/daily-trip' ||
-           p.startsWith('/admin/reports/geofence');
+    return p === '/admin/reports/trip' ||
+      p === '/admin/reports/manual-trips' ||
+      p === '/admin/reports/daily-trip' ||
+      p.startsWith('/admin/reports/geofence');
   };
 
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
@@ -126,9 +126,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   }));
 
   const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({
-    'Fuel Reports': location.pathname.startsWith('/admin/reports/fuel-') || 
-                    location.pathname === '/admin/reports/kmpl-mileage' || 
-                    location.pathname === '/admin/reports/lph-burn-rate'
+    'Fuel Reports': location.pathname.startsWith('/admin/reports/fuel-') ||
+      location.pathname === '/admin/reports/kmpl-mileage' ||
+      location.pathname === '/admin/reports/lph-burn-rate'
   }));
 
   const [tripsExpanded, setTripsExpanded] = useState(() => {
@@ -144,9 +144,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     }
     if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
       setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
-      if (location.pathname.startsWith('/admin/reports/fuel-') || 
-          location.pathname === '/admin/reports/kmpl-mileage' || 
-          location.pathname === '/admin/reports/lph-burn-rate') {
+      if (location.pathname.startsWith('/admin/reports/fuel-') ||
+        location.pathname === '/admin/reports/kmpl-mileage' ||
+        location.pathname === '/admin/reports/lph-burn-rate') {
         setOpenNestedSubMenus(prev => ({ ...prev, 'Fuel Reports': true }));
       }
     }
@@ -184,7 +184,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
     if (brandProfile?.has_fuel_vehicles !== undefined) return brandProfile.has_fuel_vehicles;
     if (vehicles && vehicles.length > 0) {
-      return vehicles.some(v => 
+      return vehicles.some(v =>
         (v.tank_capacity && v.tank_capacity > 0) ||
         (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
         (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
@@ -348,9 +348,8 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           marginLeft: isOpen ? '0px' : '-210px',
           transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
-        className={`fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[210px] ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
-        }`}
+        className={`fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[210px] ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+          }`}
       >
         {/* Clean Sidebar Header - Just Customer Name / Super Admin Label */}
         <div style={{
@@ -684,7 +683,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                     }
                     return location.pathname === sub.path;
                   });
-                  
+
                   let customIsActive = false;
                   if (itemSearch) {
                     customIsActive = location.pathname === itemPathBase && location.search.includes(itemSearch);
