@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, AlertTriangle, CheckCircle, Shuffle, Cpu, ArrowRight, ShieldCheck, RefreshCw, ChevronRight, Home } from 'lucide-react';
+import {
+  ArrowLeft, Home, ChevronRight, Loader2, AlertTriangle, CheckCircle2,
+  Cpu, Shuffle, Check
+} from 'lucide-react';
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 
 const VEHICLE_MODELS = [
   { value: 'truck', label: 'Truck / Lorry' },
-  { value: 'car', label: 'Car' },
+  { value: 'car', label: 'Car / Sedan / SUV' },
   { value: 'bike', label: 'Bike / Scooter' },
-  { value: 'bus', label: 'Bus' },
+  { value: 'bus', label: 'Bus / Coach' },
   { value: 'van', label: 'Van / Pickup' },
   { value: 'tractor', label: 'Tractor' },
   { value: 'jcb', label: 'JCB / Heavy Equipment' },
@@ -23,13 +26,12 @@ const MigrationPage = () => {
   const [vehicle, setVehicle] = useState(null);
   const [orgs, setOrgs] = useState([]);
 
-  // Mode: 'replace_hardware' (same vehicle, new device, keeps history)
-  //   or 'reassign_device' (same device, new vehicle/customer, clean slate)
+  // Mode: 'replace_hardware' (default) or 'reassign_device'
   const [migrationMode, setMigrationMode] = useState('replace_hardware');
 
   // Fields for Mode 1: Replace Hardware on Same Vehicle
-  const [newVehicleId, setNewVehicleId] = useState('');
-  const [newImei, setNewImei] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [deviceImei, setDeviceImei] = useState('');
 
   // Fields for Mode 2: Move Device to Different Vehicle
   const [reassignPlate, setReassignPlate] = useState('');
@@ -49,8 +51,8 @@ const MigrationPage = () => {
       .then(([vehRes, orgRes]) => {
         const v = vehRes.data || vehRes;
         setVehicle(v);
-        setNewVehicleId(v.plate || v.name || v.imei || '');
-        setNewImei('');
+        setVehicleId(v.plate || v.name || v.imei || '');
+        setDeviceImei('');
         setReassignOrgId(v.org_id || '');
         setReassignModel(v.model || 'truck');
         setOrgs(Array.isArray(orgRes.data) ? orgRes.data : (Array.isArray(orgRes) ? orgRes : []));
@@ -70,41 +72,42 @@ const MigrationPage = () => {
 
     // MODE 1: Replace Hardware Device on Same Vehicle
     if (migrationMode === 'replace_hardware') {
-      if (!newImei || !/^\d{15}$/.test(newImei)) {
-        setError('Please enter a valid 15-digit target Device ID / IMEI.');
+      const cleanImei = deviceImei.trim();
+      if (!cleanImei || !/^\d{15}$/.test(cleanImei)) {
+        setError('Please enter a valid 15-digit Device ID / IMEI No.');
         return;
       }
 
-      if (vehicle?.imei && newImei === vehicle.imei) {
-        setError('Target IMEI is identical to current IMEI. Please enter the new device IMEI to migrate to.');
+      if (vehicle?.imei && cleanImei === vehicle.imei) {
+        setError('Target IMEI is identical to current IMEI. Please enter the new device IMEI.');
         return;
       }
 
       setMigrating(true);
       try {
-        if (newVehicleId && newVehicleId !== (vehicle?.plate || vehicle?.name || vehicle?.imei)) {
+        if (vehicleId && vehicleId.trim() !== (vehicle?.plate || vehicle?.name || vehicle?.imei)) {
           await vehicleApi.updateVehicle(id, {
             ...vehicle,
-            plate: newVehicleId,
-            name: newVehicleId
+            plate: vehicleId.trim().toUpperCase(),
+            name: vehicleId.trim()
           });
         }
 
-        await vehicleApi.migrateVehicle(id, { mode: 'replace_hardware', newImei });
+        await vehicleApi.migrateVehicle(id, { mode: 'replace_hardware', newImei: cleanImei });
 
-        setSuccess('Hardware replaced successfully! All past telemetry and trip history are preserved.');
+        setSuccess('Vehicle migrated successfully! New hardware device linked.');
         setTimeout(() => {
           navigate('/admin/vehicles');
-        }, 1300);
+        }, 1200);
       } catch (err) {
-        setError(err.response?.data?.error || err.message || 'Failed to replace device');
+        setError(err.response?.data?.error || err.message || 'Failed to migrate vehicle');
       } finally {
         setMigrating(false);
       }
       return;
     }
 
-    // MODE 2: Move Device to Different Vehicle / Customer (Clean History)
+    // MODE 2: Move Device to Different Vehicle
     if (migrationMode === 'reassign_device') {
       if (!reassignPlate || !reassignPlate.trim()) {
         setError('Please enter the registration plate for the new vehicle.');
@@ -112,7 +115,7 @@ const MigrationPage = () => {
       }
 
       if (vehicle?.plate && reassignPlate.trim().toUpperCase() === vehicle.plate.trim().toUpperCase()) {
-        setError('The new vehicle plate must be different from the current vehicle plate.');
+        setError('The new vehicle plate must be different from current vehicle plate.');
         return;
       }
 
@@ -127,10 +130,10 @@ const MigrationPage = () => {
           deactivateOldVehicle: deactivateOld
         });
 
-        setSuccess('Device transferred to new vehicle! The new vehicle starts fresh with zero previous history.');
+        setSuccess('Tracker moved to new vehicle successfully!');
         setTimeout(() => {
           navigate('/admin/vehicles');
-        }, 1400);
+        }, 1300);
       } catch (err) {
         setError(err.response?.data?.error || err.message || 'Failed to reassign device');
       } finally {
@@ -149,592 +152,516 @@ const MigrationPage = () => {
   }
 
   const displayVehicleId = vehicle?.plate || vehicle?.name || vehicle?.imei || 'Vehicle';
-  const isImeiValid = /^\d{15}$/.test(newImei);
+  const isImeiValid = /^\d{15}$/.test(deviceImei.trim());
 
   return (
-    <div style={{ background: '#EEF5F8', minHeight: '100%', padding: '16px 24px 30px 24px', boxSizing: 'border-box' }}>
-      <style>{`
-        .migration-wrapper {
-          max-width: 1040px;
-          width: 100%;
-          margin: 0 auto;
-        }
-        .migration-tabs-grid {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 12px;
-          padding: 12px 24px;
-          background: #f8fafc;
-          border-bottom: 1px solid #e2e8f0;
-        }
-        .migration-info-grid {
-          display: grid;
-          grid-template-columns: minmax(240px, 320px) 1fr;
-          gap: 12px;
-          margin-bottom: 16px;
-        }
-        .migration-fields-mode1 {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 16px;
-          margin-bottom: 8px;
-        }
-        .migration-fields-mode2 {
-          display: grid;
-          grid-template-columns: 1.2fr 1fr 1fr;
-          gap: 16px;
-          margin-bottom: 14px;
-        }
-        @media (max-width: 840px) {
-          .migration-tabs-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .migration-info-grid {
-            grid-template-columns: 1fr !important;
-          }
-          .migration-fields-mode1 {
-            grid-template-columns: 1fr !important;
-          }
-          .migration-fields-mode2 {
-            grid-template-columns: 1fr !important;
-          }
-        }
-        @media (max-width: 640px) {
-          .migration-card-body {
-            padding: 14px 16px !important;
-          }
-          .migration-footer {
-            flex-direction: column-reverse !important;
-            gap: 8px !important;
-            padding: 12px 16px !important;
-          }
-          .migration-footer button {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-        }
-      `}</style>
+    <div style={{
+      background: '#f8fafc',
+      minHeight: '100%',
+      padding: '20px 30px',
+      boxSizing: 'border-box',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }}>
+      <div style={{ maxWidth: '1020px', margin: '0 auto' }}>
 
-      <div className="migration-wrapper">
-        {/* Top Header Bar & Breadcrumb Path */}
+        {/* 1. Top Header & Breadcrumb (Inspired by sample, refined with FuelTracks styling) */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '16px',
-          marginBottom: '14px',
-          flexWrap: 'wrap'
+          flexWrap: 'wrap',
+          gap: '12px',
+          marginBottom: '20px'
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+          {/* Left Title */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/admin/vehicles')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '34px',
+                height: '34px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#ffffff',
+                cursor: 'pointer',
+                color: '#334155',
+                transition: 'all 0.15s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = '#f1f5f9'}
+              onMouseLeave={e => e.currentTarget.style.background = '#ffffff'}
+              title="Back to Vehicles"
+            >
+              <ArrowLeft size={16} />
+            </button>
             <h1 style={{
-              fontSize: '20px',
+              fontSize: '22px',
               fontWeight: 800,
               color: '#0f172a',
               margin: 0,
               letterSpacing: '-0.02em'
             }}>
-              Vehicle & Telemetry Migration
+              Vehicle Migration
             </h1>
-            <div style={{ width: '1px', height: '18px', background: '#cbd5e1' }} />
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-              <span
-                onClick={() => navigate('/admin/vehicles')}
-                style={{ cursor: 'pointer', transition: 'color 0.15s' }}
-                onMouseEnter={e => e.currentTarget.style.color = '#f97316'}
-                onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
-              >
-                Vehicles
-              </span>
-              <ChevronRight size={13} color="#94a3b8" />
-              <span>Migration</span>
-              <ChevronRight size={13} color="#94a3b8" />
-              <span style={{ color: '#ea580c', fontWeight: 700 }}>{displayVehicleId}</span>
-            </div>
           </div>
 
-          <div style={{ fontSize: '12px', color: '#64748b' }}>
-            Replace hardware or reassign tracker to a fresh vehicle
+          {/* Right Breadcrumb */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            fontSize: '13px',
+            color: '#64748b',
+            fontWeight: 500
+          }}>
+            <span
+              onClick={() => navigate('/admin/vehicles')}
+              style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#64748b' }}
+              title="Home / Vehicles"
+            >
+              <Home size={15} />
+            </span>
+            <ChevronRight size={13} color="#94a3b8" />
+            <span
+              onClick={() => navigate('/admin/vehicles')}
+              style={{ cursor: 'pointer', transition: 'color 0.15s' }}
+              onMouseEnter={e => e.currentTarget.style.color = '#ea580c'}
+              onMouseLeave={e => e.currentTarget.style.color = '#64748b'}
+            >
+              Vehicle list
+            </span>
+            <ChevronRight size={13} color="#94a3b8" />
+            <span>Vehicle Migration</span>
+            <ChevronRight size={13} color="#94a3b8" />
+            <span style={{ color: '#ea580c', fontWeight: 800 }}>{displayVehicleId}</span>
           </div>
         </div>
 
-        {/* Status Alerts */}
-        {error && (
-          <div style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: '8px',
-            padding: '10px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#dc2626',
-            fontSize: '13px',
-            fontWeight: 600,
-            marginBottom: '14px'
-          }}>
-            <AlertTriangle size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {success && (
-          <div style={{
-            background: '#f0fdf4',
-            border: '1px solid #bbf7d0',
-            borderRadius: '8px',
-            padding: '10px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#16a34a',
-            fontSize: '13px',
-            fontWeight: 600,
-            marginBottom: '14px'
-          }}>
-            <CheckCircle size={16} />
-            <span>{success}</span>
-          </div>
-        )}
-
-        {/* Form Card Container */}
+        {/* 2. Main Form Card */}
         <div style={{
           background: '#ffffff',
           borderRadius: '12px',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.05)',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
           overflow: 'hidden'
         }}>
-          {/* Header Bar */}
+          {/* Card Header */}
           <div style={{
-            padding: '12px 24px',
+            padding: '16px 28px',
             borderBottom: '1px solid #f1f5f9',
-            background: '#f8fafc',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <RefreshCw size={15} color="#475569" />
-              <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                Device Migration Wizard
-              </h2>
-            </div>
-            <span style={{
-              fontSize: '11.5px',
+            <h2 style={{
+              fontSize: '16px',
               fontWeight: 700,
-              color: '#334155',
-              background: '#e2e8f0',
-              padding: '3px 10px',
-              borderRadius: '6px'
+              color: '#1e293b',
+              margin: 0
             }}>
-              Current Vehicle: {displayVehicleId}
-            </span>
+              Vehicle Migration
+            </h2>
+
+            {/* Mode Switcher Pills (Solid Deep FuelTracks Orange) */}
+            <div style={{
+              display: 'inline-flex',
+              background: '#f1f5f9',
+              padding: '4px',
+              borderRadius: '9px',
+              gap: '4px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <button
+                type="button"
+                onClick={() => { setMigrationMode('replace_hardware'); setError(''); }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '7px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: migrationMode === 'replace_hardware' ? '#ea580c' : 'transparent',
+                  color: migrationMode === 'replace_hardware' ? '#ffffff' : '#475569',
+                  boxShadow: migrationMode === 'replace_hardware' ? '0 2px 5px rgba(234, 88, 12, 0.3)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Replace Device
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMigrationMode('reassign_device'); setError(''); }}
+                style={{
+                  padding: '6px 16px',
+                  borderRadius: '7px',
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  border: 'none',
+                  cursor: 'pointer',
+                  background: migrationMode === 'reassign_device' ? '#ea580c' : 'transparent',
+                  color: migrationMode === 'reassign_device' ? '#ffffff' : '#475569',
+                  boxShadow: migrationMode === 'reassign_device' ? '0 2px 5px rgba(234, 88, 12, 0.3)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                Move to New Vehicle
+              </button>
+            </div>
           </div>
 
-          {/* TWO-MODE SELECTION TABS */}
-          <div className="migration-tabs-grid">
-            {/* Tab 1: Replace Hardware */}
-            <button
-              type="button"
-              onClick={() => {
-                setMigrationMode('replace_hardware');
-                setError('');
-              }}
-              style={{
-                padding: '10px 14px',
-                borderRadius: '8px',
-                border: migrationMode === 'replace_hardware' ? '2px solid #f97316' : '1px solid #cbd5e1',
-                background: migrationMode === 'replace_hardware' ? '#fff7ed' : '#ffffff',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '3px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px', color: migrationMode === 'replace_hardware' ? '#c2410c' : '#1e293b' }}>
-                <Cpu size={16} color={migrationMode === 'replace_hardware' ? '#ea580c' : '#64748b'} />
-                <span>Replace GPS Tracker</span>
-              </div>
-              <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-                Same vehicle, new hardware. <b>Preserves all previous trips & distance.</b>
-              </div>
-            </button>
+          {/* Form Content */}
+          <form onSubmit={handleMigrate} style={{ padding: '36px 28px 40px 28px' }}>
 
-            {/* Tab 2: Reassign to Different Vehicle */}
-            <button
-              type="button"
-              onClick={() => {
-                setMigrationMode('reassign_device');
-                setError('');
-              }}
-              style={{
-                padding: '10px 14px',
+            {/* Error & Success Messages */}
+            {error && (
+              <div style={{
+                maxWidth: '680px',
+                margin: '0 auto 24px auto',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
                 borderRadius: '8px',
-                border: migrationMode === 'reassign_device' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                background: migrationMode === 'reassign_device' ? '#eff6ff' : '#ffffff',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'all 0.15s ease',
+                padding: '10px 16px',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '3px'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, fontSize: '13px', color: migrationMode === 'reassign_device' ? '#1d4ed8' : '#1e293b' }}>
-                <Shuffle size={16} color={migrationMode === 'reassign_device' ? '#2563eb' : '#64748b'} />
-                <span>Move to Different Vehicle</span>
+                alignItems: 'center',
+                gap: '8px',
+                color: '#dc2626',
+                fontSize: '13px',
+                fontWeight: 600
+              }}>
+                <AlertTriangle size={16} />
+                <span>{error}</span>
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.4 }}>
-                Same device, new vehicle/customer. <b>Clean slate (starts at 0 km, no old trips).</b>
-              </div>
-            </button>
-          </div>
+            )}
 
-          <form onSubmit={handleMigrate}>
-            <div className="migration-card-body" style={{ padding: '18px 24px 22px 24px' }}>
-              {/* Info Row: Left: Current IMEI, Right: Mode Guarantee Details */}
-              <div className="migration-info-grid">
-                {/* Current Hardware IMEI */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  background: '#f8fafc',
-                  borderRadius: '8px',
-                  border: '1px solid #e2e8f0',
-                  fontSize: '12px'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b' }}>
-                    <Cpu size={15} color="#f97316" />
-                    <span style={{ fontWeight: 600 }}>Physical IMEI:</span>
-                  </div>
-                  <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', letterSpacing: '0.04em' }}>
-                    {vehicle?.imei || 'Not Assigned'}
-                  </span>
+            {success && (
+              <div style={{
+                maxWidth: '680px',
+                margin: '0 auto 24px auto',
+                background: '#f0fdf4',
+                border: '1px solid #bbf7d0',
+                borderRadius: '8px',
+                padding: '10px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: '#16a34a',
+                fontSize: '13px',
+                fontWeight: 700
+              }}>
+                <CheckCircle2 size={16} />
+                <span>{success}</span>
+              </div>
+            )}
+
+            {/* ─────────────── MODE 1: REPLACE DEVICE (Matching the sample layout) ─────────────── */}
+            {migrationMode === 'replace_hardware' ? (
+              <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '22px' }}>
+
+                {/* Field 1: Vehicle Id */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <label style={{
+                    width: '180px',
+                    textAlign: 'right',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    color: '#334155',
+                    flexShrink: 0
+                  }}>
+                    Vehicle Id :
+                  </label>
+                  <input
+                    type="text"
+                    value={vehicleId}
+                    onChange={e => setVehicleId(e.target.value)}
+                    style={{
+                      flex: 1,
+                      height: '40px',
+                      padding: '0 14px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#f8fafc',
+                      fontSize: '13.5px',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      outline: 'none',
+                      transition: 'border-color 0.15s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#ea580c'}
+                    onBlur={e => e.target.style.borderColor = '#cbd5e1'}
+                  />
                 </div>
 
-                {/* Mode Explanation Banner */}
-                {migrationMode === 'replace_hardware' ? (
-                  <div style={{
-                    padding: '9px 14px',
-                    background: '#fff7ed',
-                    borderRadius: '8px',
-                    border: '1px solid #fed7aa',
-                    color: '#9a3412',
-                    fontSize: '12px',
-                    lineHeight: 1.45,
-                    display: 'flex',
-                    alignItems: 'center'
+                {/* Field 2: Device Id / IMEI No */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <label style={{
+                    width: '180px',
+                    textAlign: 'right',
+                    fontSize: '13.5px',
+                    fontWeight: 600,
+                    color: '#334155',
+                    flexShrink: 0
                   }}>
-                    <span><b>Keep History:</b> Past trips, distance, and alerts of <b>{displayVehicleId}</b> remain intact. New IMEI will continue seamlessly.</span>
-                  </div>
-                ) : (
-                  <div style={{
-                    padding: '9px 14px',
-                    background: '#eff6ff',
-                    borderRadius: '8px',
-                    border: '1px solid #bfdbfe',
-                    color: '#1e40af',
-                    fontSize: '12px',
-                    lineHeight: 1.45,
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}>
-                    <span><b>Clean Slate Guarantee:</b> New vehicle starts at <b>0 km with no old trips</b>. Old vehicle <b>{displayVehicleId}</b> history is archived separately.</span>
-                  </div>
-                )}
-              </div>
-
-              {/* ───────────────────────────────────────────────────────────── */}
-              {/* MODE 1: REPLACE GPS DEVICE (SAME VEHICLE)                     */}
-              {/* ───────────────────────────────────────────────────────────── */}
-              {migrationMode === 'replace_hardware' && (
-                <div className="migration-fields-mode1">
-                  {/* Vehicle Id / Plate */}
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      fontSize: '11.5px',
-                      fontWeight: 700,
-                      color: '#475569',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.02em',
-                      marginBottom: '5px'
-                    }}>
-                      Vehicle ID / Plate Name<span style={{ color: '#ef4444' }}>*</span>
-                    </label>
+                    Device Id / IMEI No :
+                  </label>
+                  <div style={{ flex: 1, position: 'relative' }}>
                     <input
                       type="text"
                       required
-                      value={newVehicleId}
-                      onChange={e => setNewVehicleId(e.target.value)}
-                      placeholder="e.g. KA05LT0001"
+                      value={deviceImei}
+                      onChange={e => setDeviceImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
+                      placeholder="Enter 15-digit Device Id / IMEI"
                       style={{
                         width: '100%',
-                        height: '38px',
-                        padding: '0 12px',
-                        borderRadius: '6px',
-                        border: '1px solid #cbd5e1',
-                        background: '#ffffff',
-                        fontSize: '13px',
-                        fontWeight: 600,
-                        color: '#0f172a',
-                        outline: 'none',
-                        boxSizing: 'border-box'
-                      }}
-                    />
-                  </div>
-
-                  {/* Target New Device IMEI */}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                      <label style={{
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em'
-                      }}>
-                        New Hardware Device IMEI<span style={{ color: '#ef4444' }}>*</span>
-                      </label>
-                      <span style={{
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        color: isImeiValid ? '#10b981' : (newImei ? '#f97316' : '#94a3b8')
-                      }}>
-                        {newImei.length}/15 digits
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      required
-                      value={newImei}
-                      onChange={e => setNewImei(e.target.value.replace(/\D/g, '').slice(0, 15))}
-                      placeholder="Enter 15-digit new IMEI"
-                      style={{
-                        width: '100%',
-                        height: '38px',
-                        padding: '0 12px',
+                        height: '40px',
+                        padding: '0 14px',
                         borderRadius: '6px',
                         border: isImeiValid ? '1.5px solid #10b981' : '1px solid #cbd5e1',
                         background: '#ffffff',
-                        fontSize: '13px',
+                        fontSize: '13.5px',
                         fontWeight: 600,
                         fontFamily: 'monospace',
-                        letterSpacing: '0.04em',
                         color: '#0f172a',
                         outline: 'none',
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        transition: 'border-color 0.15s'
                       }}
+                      onFocus={e => { if (!isImeiValid) e.target.style.borderColor = '#ea580c'; }}
+                      onBlur={e => { if (!isImeiValid) e.target.style.borderColor = '#cbd5e1'; }}
                     />
+                    {isImeiValid && (
+                      <span style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        color: '#10b981',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <Check size={16} />
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
 
-              {/* ───────────────────────────────────────────────────────────── */}
-              {/* MODE 2: MOVE TO DIFFERENT VEHICLE / CUSTOMER (CLEAN SLATE)    */}
-              {/* ───────────────────────────────────────────────────────────── */}
-              {migrationMode === 'reassign_device' && (
-                <>
-                  <div className="migration-fields-mode2">
-                    {/* New Vehicle Plate Number */}
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        marginBottom: '5px'
-                      }}>
-                        New Vehicle Plate / Reg Number<span style={{ color: '#ef4444' }}>*</span>
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={reassignPlate}
-                        onChange={e => setReassignPlate(e.target.value.toUpperCase())}
-                        placeholder="e.g. AP39TV1234"
-                        style={{
-                          width: '100%',
-                          height: '38px',
-                          padding: '0 12px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13px',
-                          fontWeight: 700,
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-
-                    {/* Vehicle Type / Model */}
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        marginBottom: '5px'
-                      }}>
-                        Vehicle Model / Type
-                      </label>
-                      <select
-                        value={reassignModel}
-                        onChange={e => setReassignModel(e.target.value)}
-                        style={{
-                          width: '100%',
-                          height: '38px',
-                          padding: '0 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        {VEHICLE_MODELS.map(m => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Organization / Customer */}
-                    <div>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        color: '#475569',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.02em',
-                        marginBottom: '5px'
-                      }}>
-                        Assign to Organization / Customer
-                      </label>
-                      <select
-                        value={reassignOrgId}
-                        onChange={e => setReassignOrgId(e.target.value)}
-                        style={{
-                          width: '100%',
-                          height: '38px',
-                          padding: '0 10px',
-                          borderRadius: '6px',
-                          border: '1px solid #cbd5e1',
-                          background: '#ffffff',
-                          fontSize: '13px',
-                          color: '#0f172a',
-                          outline: 'none',
-                          boxSizing: 'border-box'
-                        }}
-                      >
-                        {orgs.map(o => (
-                          <option key={o.id} value={o.id}>{o.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Archive checkbox */}
+                {/* Current Hardware Hint */}
+                {vehicle?.imei && (
                   <div style={{
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
+                    marginLeft: '200px',
+                    fontSize: '11.5px',
+                    color: '#64748b',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '10px'
+                    gap: '6px'
                   }}>
-                    <input
-                      type="checkbox"
-                      id="deactivateOld"
-                      checked={deactivateOld}
-                      onChange={e => setDeactivateOld(e.target.checked)}
-                      style={{ width: '16px', height: '16px', accentColor: '#2563eb', cursor: 'pointer' }}
-                    />
-                    <label htmlFor="deactivateOld" style={{ fontSize: '12.5px', color: '#334155', cursor: 'pointer', fontWeight: 500 }}>
-                      Mark previous vehicle (<b>{displayVehicleId}</b>) as inactive while preserving all historical trips & reports
-                    </label>
+                    <span>Current Active IMEI:</span>
+                    <strong style={{ fontFamily: 'monospace', color: '#0f172a' }}>{vehicle.imei}</strong>
                   </div>
-                </>
-              )}
-            </div>
+                )}
 
-            {/* Footer Action Buttons */}
+              </div>
+            ) : (
+              /* ─────────────── MODE 2: MOVE TO NEW VEHICLE ─────────────── */
+              <div style={{ maxWidth: '640px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+
+                {/* Current Tracker Info (FuelTracks Warm Pastel Styling) */}
+                <div style={{
+                  padding: '11px 18px',
+                  background: '#fff7ed',
+                  borderRadius: '8px',
+                  border: '1px solid #fed7aa',
+                  fontSize: '12.5px',
+                  color: '#9a3412',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px'
+                }}>
+                  <span>Moving Tracker IMEI:</span>
+                  <strong style={{ fontFamily: 'monospace', color: '#0f172a' }}>{vehicle?.imei || 'Not Set'}</strong>
+                  <span style={{ color: '#fed7aa' }}>|</span>
+                  <span>From: <strong style={{ color: '#0f172a' }}>{displayVehicleId}</strong></span>
+                </div>
+
+                {/* New Vehicle Plate */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <label style={{ width: '180px', textAlign: 'right', fontSize: '13.5px', fontWeight: 600, color: '#334155', flexShrink: 0 }}>
+                    New Vehicle Plate :
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={reassignPlate}
+                    onChange={e => setReassignPlate(e.target.value.toUpperCase())}
+                    placeholder="e.g. AP39TV1234"
+                    style={{
+                      flex: 1,
+                      height: '40px',
+                      padding: '0 14px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '13.5px',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border-color 0.15s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#ea580c'}
+                    onBlur={e => e.target.style.borderColor = '#cbd5e1'}
+                  />
+                </div>
+
+                {/* Model / Type */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <label style={{ width: '180px', textAlign: 'right', fontSize: '13.5px', fontWeight: 600, color: '#334155', flexShrink: 0 }}>
+                    Vehicle Model :
+                  </label>
+                  <select
+                    value={reassignModel}
+                    onChange={e => setReassignModel(e.target.value)}
+                    style={{
+                      flex: 1,
+                      height: '40px',
+                      padding: '0 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      fontSize: '13.5px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                      transition: 'border-color 0.15s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#ea580c'}
+                    onBlur={e => e.target.style.borderColor = '#cbd5e1'}
+                  >
+                    {VEHICLE_MODELS.map(m => (
+                      <option key={m.value} value={m.value}>{m.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Organization */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                  <label style={{ width: '180px', textAlign: 'right', fontSize: '13.5px', fontWeight: 600, color: '#334155', flexShrink: 0 }}>
+                    Assign Organization :
+                  </label>
+                  <select
+                    value={reassignOrgId}
+                    onChange={e => setReassignOrgId(e.target.value)}
+                    style={{
+                      flex: 1,
+                      height: '40px',
+                      padding: '0 12px',
+                      borderRadius: '6px',
+                      border: '1px solid #cbd5e1',
+                      background: '#ffffff',
+                      fontSize: '13.5px',
+                      fontWeight: 600,
+                      color: '#0f172a',
+                      outline: 'none',
+                      transition: 'border-color 0.15s'
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#ea580c'}
+                    onBlur={e => e.target.style.borderColor = '#cbd5e1'}
+                  >
+                    {orgs.map(o => (
+                      <option key={o.id} value={o.id}>{o.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Archive Old Vehicle */}
+                <div style={{
+                  marginLeft: '200px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}>
+                  <input
+                    type="checkbox"
+                    id="archiveOld"
+                    checked={deactivateOld}
+                    onChange={e => setDeactivateOld(e.target.checked)}
+                    style={{ width: '16px', height: '16px', accentColor: '#ea580c', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="archiveOld" style={{ fontSize: '12.5px', color: '#475569', cursor: 'pointer', fontWeight: 500 }}>
+                    Deactivate old vehicle (<strong>{displayVehicleId}</strong>) while archiving past trips
+                  </label>
+                </div>
+
+              </div>
+            )}
+
+            {/* 3. Centered Action Buttons (FuelTracks Primary Orange & Clean Secondary) */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: '12px',
-              padding: '14px 24px',
-              background: '#fafbfc',
-              borderTop: '1px solid #f1f5f9'
+              justifyContent: 'center',
+              gap: '14px',
+              marginTop: '36px'
             }}>
+              {/* Cancel Button */}
               <button
                 type="button"
                 onClick={() => navigate('/admin/vehicles')}
                 style={{
-                  height: '38px',
-                  padding: '0 20px',
-                  borderRadius: '6px',
+                  height: '40px',
+                  padding: '0 26px',
+                  borderRadius: '8px',
                   background: '#ffffff',
                   color: '#475569',
-                  fontSize: '13px',
-                  fontWeight: 600,
+                  fontSize: '13.5px',
+                  fontWeight: 700,
                   border: '1px solid #cbd5e1',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  transition: 'all 0.15s ease',
+                  boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)'
                 }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#f8fafc'; e.currentTarget.style.borderColor = '#94a3b8'; e.currentTarget.style.color = '#0f172a'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#ffffff'; e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
               >
                 Cancel
               </button>
 
+              {/* Migrate Vehicle Button (Deep Solid FuelTracks Orange) */}
               <button
                 type="submit"
-                disabled={migrating || (migrationMode === 'replace_hardware' && !isImeiValid) || (migrationMode === 'reassign_device' && !reassignPlate.trim())}
+                disabled={migrating}
                 style={{
-                  height: '38px',
-                  padding: '0 24px',
-                  borderRadius: '6px',
-                  background: migrationMode === 'replace_hardware' ? '#f97316' : '#2563eb',
+                  height: '42px',
+                  padding: '0 34px',
+                  borderRadius: '8px',
+                  background: '#ea580c',
                   color: '#ffffff',
-                  fontSize: '13px',
-                  fontWeight: 700,
+                  fontSize: '13.5px',
+                  fontWeight: 800,
                   border: 'none',
                   cursor: migrating ? 'not-allowed' : 'pointer',
-                  boxShadow: migrationMode === 'replace_hardware'
-                    ? '0 2px 6px rgba(249, 115, 22, 0.28)'
-                    : '0 2px 6px rgba(37, 99, 235, 0.28)',
+                  boxShadow: '0 3px 10px rgba(234, 88, 12, 0.35)',
                   transition: 'all 0.15s ease',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  opacity: (migrating || (migrationMode === 'replace_hardware' && !isImeiValid) || (migrationMode === 'reassign_device' && !reassignPlate.trim())) ? 0.65 : 1
+                  opacity: 1
                 }}
+                onMouseEnter={e => { if (!migrating) e.currentTarget.style.background = '#c2410c'; }}
+                onMouseLeave={e => { if (!migrating) e.currentTarget.style.background = '#ea580c'; }}
               >
-                {migrating && <Loader2 size={15} className="animate-spin" />}
-                <span>
-                  {migrating
-                    ? 'Processing...'
-                    : migrationMode === 'replace_hardware'
-                      ? 'Replace Tracker (Keep History)'
-                      : 'Move Tracker (Fresh Start)'}
-                </span>
+                {migrating && <Loader2 size={16} className="animate-spin" />}
+                <span>{migrating ? 'Migrating...' : 'Migrate Vehicle'}</span>
               </button>
             </div>
+
           </form>
         </div>
+
       </div>
     </div>
   );

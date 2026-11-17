@@ -269,7 +269,16 @@ const VehiclesAdminPage = () => {
   }, [searchQuery, selectedOrgId, selectedGroupId, selectedLicenseTier]);
 
   const sortedVehicles = useMemo(() => {
-    if (!sortKey) return filtered;
+    if (!sortKey) {
+      return [...filtered].sort((a, b) => {
+        const metaA = a.metadata || {};
+        const metaB = b.metadata || {};
+        const dateA = new Date(a.created_at || metaA.onboardingDate || metaA.onboardDate || a.licence_issued_date || 0).getTime();
+        const dateB = new Date(b.created_at || metaB.onboardingDate || metaB.onboardDate || b.licence_issued_date || 0).getTime();
+        if (dateB !== dateA) return dateB - dateA;
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
+    }
     return [...filtered].sort((a, b) => {
       const metaA = a.metadata || {};
       const metaB = b.metadata || {};

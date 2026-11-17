@@ -234,7 +234,7 @@ const VehicleModel = {
                 v.category,
                 o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
                 vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer
-       ORDER BY v.name ASC NULLS LAST, v.created_at DESC
+       ORDER BY v.created_at DESC NULLS LAST, v.id DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
       params
     );

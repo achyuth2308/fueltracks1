@@ -46,7 +46,13 @@ const GroupModel = {
           COUNT(DISTINCT v.id) AS vehicle_count,
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
-               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+               ELSE json_agg(DISTINCT jsonb_build_object(
+                 'id', v.id,
+                 'name', v.name,
+                 'plate', v.plate,
+                 'imei', v.imei,
+                 'vehicleId', COALESCE(v.plate, v.metadata->>'vehicleId', v.name)
+               )) FILTER (WHERE v.id IS NOT NULL)
           END AS vehicles,
           CASE WHEN COUNT(u.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)
@@ -69,7 +75,13 @@ const GroupModel = {
           COUNT(DISTINCT v.id) AS vehicle_count,
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
-               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+               ELSE json_agg(DISTINCT jsonb_build_object(
+                 'id', v.id,
+                 'name', v.name,
+                 'plate', v.plate,
+                 'imei', v.imei,
+                 'vehicleId', COALESCE(v.plate, v.metadata->>'vehicleId', v.name)
+               )) FILTER (WHERE v.id IS NOT NULL)
           END AS vehicles,
           CASE WHEN COUNT(u.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)
@@ -91,7 +103,13 @@ const GroupModel = {
           COUNT(DISTINCT v.id) AS vehicle_count,
           COUNT(DISTINCT ug.user_id) AS user_count,
           CASE WHEN COUNT(v.id) = 0 THEN NULL
-               ELSE json_agg(DISTINCT jsonb_build_object('id', v.id, 'name', v.name, 'vehicleId', v.metadata->>'vehicleId')) FILTER (WHERE v.id IS NOT NULL)
+               ELSE json_agg(DISTINCT jsonb_build_object(
+                 'id', v.id,
+                 'name', v.name,
+                 'plate', v.plate,
+                 'imei', v.imei,
+                 'vehicleId', COALESCE(v.plate, v.metadata->>'vehicleId', v.name)
+               )) FILTER (WHERE v.id IS NOT NULL)
           END AS vehicles,
           CASE WHEN COUNT(u.id) = 0 THEN NULL
                ELSE json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name, 'username', u.username, 'email', u.email)) FILTER (WHERE u.id IS NOT NULL)

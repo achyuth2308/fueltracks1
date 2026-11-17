@@ -4,7 +4,7 @@ import {
   Home, ChevronRight, Loader2, AlertTriangle, CheckCircle, RotateCw, Download,
   Radio, Fuel, Settings2, SlidersHorizontal, X, ArrowRight, ArrowLeft, Box,
   Table, Plus, Trash2, Upload, FileSpreadsheet, Activity, Cpu, Sparkles, Check, Info,
-  ChevronDown, Gauge, Save
+  ChevronDown, Gauge, Save, CheckCircle2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import * as vehicleApi from '../../api/vehicleApi';
@@ -2659,6 +2659,8 @@ const EditCalibratePage = () => {
 
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const handleTankChange = useCallback((tNum, data) => {
     tanksRef.current[tNum] = data;
@@ -2786,21 +2788,25 @@ const EditCalibratePage = () => {
       if (cType === 'Auto') {
         if (tSize <= 0) {
           setError(`Tank ${tNum}: Please specify a valid Tank Size (Litres) or valid dimensions for Auto calibration.`);
+          setShowErrorModal(true);
           return;
         }
         if (tData.minAdc !== '' && tData.maxAdc !== '' && parseFloat(tData.minAdc) === parseFloat(tData.maxAdc)) {
           setError(`Tank ${tNum}: Minimum and Maximum values cannot be identical.`);
+          setShowErrorModal(true);
           return;
         }
       } else if (cType === 'Manual') {
         const points = tData.calibrationPoints || [];
         if (!Array.isArray(points) || points.length < 2) {
           setError(`Tank ${tNum}: Manual calibration requires at least 2 calibration points in the table.`);
+          setShowErrorModal(true);
           return;
         }
       } else if (cType === 'Direct') {
         if (tData.directUnit === 'Percentage' && tSize <= 0) {
           setError(`Tank ${tNum}: Direct Percentage mode requires a valid Tank Size (Litres) to calculate actual volume.`);
+          setShowErrorModal(true);
           return;
         }
       }
@@ -2855,6 +2861,10 @@ const EditCalibratePage = () => {
         setVehicle(res.data);
       }
       setSuccess('Vehicle fuel configuration and calibration saved successfully.');
+      setShowSuccessModal(true);
+      setTimeout(() => {
+        navigate('/admin/vehicles');
+      }, 1500);
 
       setLiveModalConfig({
         tankCapacity: totalCapacity > 0 ? totalCapacity : (parseFloat(tank1Data.tankSize) || 0),
@@ -2865,6 +2875,7 @@ const EditCalibratePage = () => {
     } catch (err) {
       console.error('Calibration save error:', err);
       setError(err.response?.data?.error || err.message || 'Failed to save calibration.');
+      setShowErrorModal(true);
     } finally {
       setSaving(false);
     }
@@ -3967,6 +3978,175 @@ const EditCalibratePage = () => {
         tanksConfig={tanksRef.current || tanksData}
         noOfTank={parseInt(noOfTank) || 1}
       />
+      {/* Success Modal Popup */}
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '36px 32px',
+            maxWidth: '420px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              background: '#ecfdf5',
+              border: '4px solid #d1fae5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+              color: '#059669'
+            }}>
+              <CheckCircle2 size={36} strokeWidth={2.5} />
+            </div>
+
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: '#0f172a',
+              margin: '0 0 8px 0'
+            }}>
+              Calibration Saved Successfully!
+            </h3>
+
+            <p style={{
+              fontSize: '13.5px',
+              color: '#64748b',
+              lineHeight: 1.5,
+              margin: '0 0 24px 0'
+            }}>
+              Vehicle fuel configuration and calibration points have been saved. Closing and returning to the vehicles list...
+            </p>
+
+            <button
+              type="button"
+              onClick={() => navigate('/admin/vehicles')}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                background: '#f97316',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f97316'; }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal Popup */}
+      {showErrorModal && error && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '36px 32px',
+            maxWidth: '420px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              background: '#fef2f2',
+              border: '4px solid #fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+              color: '#dc2626'
+            }}>
+              <AlertTriangle size={36} strokeWidth={2.5} />
+            </div>
+
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: '#0f172a',
+              margin: '0 0 8px 0'
+            }}>
+              Save Failed
+            </h3>
+
+            <p style={{
+              fontSize: '13.5px',
+              color: '#64748b',
+              lineHeight: 1.5,
+              margin: '0 0 24px 0'
+            }}>
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowErrorModal(false)}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#b91c1c'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#dc2626'; }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

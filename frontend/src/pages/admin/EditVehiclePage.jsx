@@ -419,6 +419,8 @@ const EditVehiclePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
   const [orgs, setOrgs] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
 
@@ -801,6 +803,7 @@ const EditVehiclePage = () => {
   const handleSave = async () => {
     if (!form.name || form.name.trim() === '') {
       setError('Vehicle Name is mandatory.');
+      setShowErrorModal(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -844,14 +847,21 @@ const EditVehiclePage = () => {
       if (isEditing) {
         await vehicleApi.updateVehicle(id, payload);
         setSuccess('Vehicle updated successfully!');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          navigate('/admin/vehicles');
+        }, 1500);
       } else {
         await vehicleApi.createVehicle(payload);
         setSuccess('Vehicle registered successfully!');
-        setTimeout(() => navigate('/admin/vehicles'), 1200);
+        setShowSuccessModal(true);
+        setTimeout(() => {
+          navigate('/admin/vehicles');
+        }, 1500);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to save vehicle');
+      setShowErrorModal(true);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSubmitting(false);
@@ -2054,7 +2064,7 @@ const EditVehiclePage = () => {
             onMouseLeave={e => { if (!submitting) e.currentTarget.style.background = '#f97316'; }}
           >
             {submitting ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-            <span>Update</span>
+            <span>{submitting ? (isEditing ? 'Updating...' : 'Saving...') : (isEditing ? 'Update' : 'Save')}</span>
           </button>
 
           {/* Fuel Calibration Button (FuelTracks Dark Navy) */}
@@ -2091,6 +2101,178 @@ const EditVehiclePage = () => {
         </div>
 
       </div>
+
+      {/* Success Modal Popup */}
+      {showSuccessModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '36px 32px',
+            maxWidth: '420px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              background: '#ecfdf5',
+              border: '4px solid #d1fae5',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+              color: '#059669'
+            }}>
+              <CheckCircle2 size={36} strokeWidth={2.5} />
+            </div>
+
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: '#0f172a',
+              margin: '0 0 8px 0'
+            }}>
+              {isEditing ? 'Vehicle Updated Successfully!' : 'Vehicle Registered Successfully!'}
+            </h3>
+
+            <p style={{
+              fontSize: '13.5px',
+              color: '#64748b',
+              lineHeight: 1.5,
+              margin: '0 0 24px 0'
+            }}>
+              {isEditing
+                ? 'All vehicle details have been saved successfully. Closing and returning to the vehicles list...'
+                : 'Vehicle registration completed. Closing and returning to the vehicles list...'}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => navigate('/admin/vehicles')}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                background: '#f97316',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(249, 115, 22, 0.3)',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#ea580c'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#f97316'; }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal Popup */}
+      {showErrorModal && error && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '36px 32px',
+            maxWidth: '420px',
+            width: '90%',
+            textAlign: 'center',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center'
+          }}>
+            <div style={{
+              width: '68px',
+              height: '68px',
+              borderRadius: '50%',
+              background: '#fef2f2',
+              border: '4px solid #fee2e2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: '18px',
+              color: '#dc2626'
+            }}>
+              <AlertTriangle size={36} strokeWidth={2.5} />
+            </div>
+
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: 800,
+              color: '#0f172a',
+              margin: '0 0 8px 0'
+            }}>
+              Update Failed
+            </h3>
+
+            <p style={{
+              fontSize: '13.5px',
+              color: '#64748b',
+              lineHeight: 1.5,
+              margin: '0 0 24px 0'
+            }}>
+              {error}
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setShowErrorModal(false)}
+              style={{
+                width: '100%',
+                padding: '12px 24px',
+                background: '#dc2626',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
+                transition: 'background 0.15s ease'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#b91c1c'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#dc2626'; }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

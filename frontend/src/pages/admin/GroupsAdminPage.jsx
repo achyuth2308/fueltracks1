@@ -86,9 +86,51 @@ const GroupsAdminPage = () => {
     }
   };
 
-  const filteredGroups = groups.filter(g =>
-    (g.name || '').toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getMatchingVehicles = (group, query) => {
+    if (!query || !query.trim() || !group?.vehicles || !Array.isArray(group.vehicles)) return [];
+    const q = query.trim().toLowerCase();
+    return group.vehicles.filter(v => {
+      const plate = (v.plate || '').toLowerCase();
+      const name = (v.name || '').toLowerCase();
+      const imei = (v.imei || '').toLowerCase();
+      const vid = (v.vehicleId || '').toLowerCase();
+      return plate.includes(q) || name.includes(q) || imei.includes(q) || vid.includes(q);
+    });
+  };
+
+  const filteredGroups = groups.filter(g => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.trim().toLowerCase();
+
+    // 1. Match Group name, description, or organization
+    if ((g.name || '').toLowerCase().includes(q)) return true;
+    if ((g.description || '').toLowerCase().includes(q)) return true;
+    if ((g.org_name || '').toLowerCase().includes(q)) return true;
+
+    // 2. Match vehicle plate, name, imei, or vehicleId in this group
+    if (g.vehicles && Array.isArray(g.vehicles)) {
+      const hasVehicleMatch = g.vehicles.some(v =>
+        (v.plate || '').toLowerCase().includes(q) ||
+        (v.name || '').toLowerCase().includes(q) ||
+        (v.imei || '').toLowerCase().includes(q) ||
+        (v.vehicleId || '').toLowerCase().includes(q)
+      );
+      if (hasVehicleMatch) return true;
+    }
+
+    // 3. Match assigned users
+    const assigned = getAssignedUsers(g);
+    if (assigned && assigned.length > 0) {
+      const hasUserMatch = assigned.some(u =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.email || '').toLowerCase().includes(q)
+      );
+      if (hasUserMatch) return true;
+    }
+
+    return false;
+  });
 
   return (
     <div className="pastel-page-bg" style={{ padding: '16px 20px', height: '100%', display: 'flex', flexDirection: 'column', gap: '10px', boxSizing: 'border-box' }}>
@@ -149,21 +191,41 @@ const GroupsAdminPage = () => {
       />
 
       {/* Search Bar */}
-      <div style={{ background: '#FFFFFF', padding: '8px 12px', borderRadius: '10px', border: '1px solid #E2E8F0', marginBottom: '8px' }}>
-        <div style={{ position: 'relative', width: '100%', maxWidth: '320px' }}>
+      <div style={{ background: '#FFFFFF', padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
           <Search style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={15} />
           <input
             type="text"
-            placeholder="Search groups..."
+            placeholder="Search by group name or vehicle number / plate..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              width: '100%', padding: '6px 10px 6px 32px',
+              width: '100%', padding: '7px 30px 7px 32px',
               borderRadius: '6px', border: '1px solid #CBD5E1',
-              fontSize: '12px', outline: 'none', color: '#0F172A', boxSizing: 'border-box'
+              fontSize: '12.5px', outline: 'none', color: '#0F172A', boxSizing: 'border-box'
             }}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              style={{
+                position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)',
+                background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer',
+                padding: '2px', display: 'flex', alignItems: 'center'
+              }}
+              title="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
+        {searchQuery.trim() && (
+          <div style={{ fontSize: '12px', color: '#475569', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>Showing results for "<strong style={{ color: '#0f172a' }}>{searchQuery}</strong>" —</span>
+            <span style={{ color: '#EA580C', fontWeight: 800 }}>{filteredGroups.length} group{filteredGroups.length === 1 ? '' : 's'} found</span>
+          </div>
+        )}
       </div>
 
       {/* Main Content Layout */}
@@ -191,9 +253,9 @@ const GroupsAdminPage = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', tableLayout: 'fixed', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
                 <colgroup>
                   <col style={{ width: '55px' }} />
-                  <col style={{ width: '22%' }} />
-                  <col style={{ width: '45%' }} />
-                  <col style={{ width: '14%' }} />
+                  <col style={{ width: '28%' }} />
+                  <col style={{ width: '39%' }} />
+                  <col style={{ width: '15%' }} />
                   <col style={{ width: '14%' }} />
                 </colgroup>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
@@ -208,17 +270,64 @@ const GroupsAdminPage = () => {
                 <tbody>
                   {filteredGroups.length === 0 ? (
                     <tr>
-                      <td colSpan="5" style={{ padding: '60px', textAlign: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', opacity: 0.6 }}>
+                      <td colSpan="5" style={{ padding: '50px 20px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <Users2 size={40} color="#94A3B8" style={{ marginBottom: '12px' }} />
-                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#000000' }}>No groups available</div>
-                          <div style={{ fontSize: '13px', color: '#000000', marginTop: '2px' }}>Create groups to organize your fleet.</div>
+                          <div style={{ fontSize: '15px', fontWeight: 700, color: '#000000' }}>
+                            {searchQuery ? `No groups found matching "${searchQuery}"` : 'No groups available'}
+                          </div>
+                          <div style={{ fontSize: '12.5px', color: '#64748B', marginTop: '4px', maxWidth: '420px', lineHeight: 1.4 }}>
+                            {searchQuery
+                              ? 'Neither group names nor any assigned vehicle numbers / plates match this query. The vehicle may not be assigned to any group.'
+                              : 'Create groups to organize your fleet.'}
+                          </div>
+                          {searchQuery && (
+                            <div style={{ marginTop: '16px', display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                              <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  border: '1px solid #CBD5E1',
+                                  background: '#FFFFFF',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  color: '#334155',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Clear Search
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => navigate(`/admin/vehicles?search=${encodeURIComponent(searchQuery)}`)}
+                                style={{
+                                  padding: '6px 14px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  background: '#EA580C',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  color: '#FFFFFF',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '6px'
+                                }}
+                              >
+                                <Truck size={14} />
+                                <span>Check in Vehicles List</span>
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
                   ) : filteredGroups.map((g, index) => {
                     const assignedUsers = getAssignedUsers(g);
                     const vCount = g.vehicle_count || (g.vehicles ? g.vehicles.length : 0);
+                    const matchingVehicles = getMatchingVehicles(g, searchQuery);
                     return (
                       <tr
                         key={g.id}
@@ -234,8 +343,44 @@ const GroupsAdminPage = () => {
                         <td style={{ padding: '6px 10px', fontSize: '12.5px', color: '#000000', fontWeight: 700, textAlign: 'center', borderRight: '1px solid #e2e8f0', verticalAlign: 'middle' }}>
                           {index + 1}
                         </td>
-                        <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
-                          <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#000000' }}>{g.name}</div>
+                        <td style={{ padding: '8px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
+                          <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#000000' }}>{g.name}</div>
+                          {g.description && (
+                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{g.description}</div>
+                          )}
+                          {matchingVehicles.length > 0 && (
+                            <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: 800, color: '#C2410C', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                                <Truck size={12} color="#EA580C" />
+                                <span>Vehicle in this group:</span>
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                {matchingVehicles.map(mv => (
+                                  <span
+                                    key={mv.id || mv.plate || mv.imei || mv.name}
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      background: '#FFF7ED',
+                                      color: '#C2410C',
+                                      border: '1px solid #FFEDD5',
+                                      padding: '2px 8px',
+                                      borderRadius: '5px',
+                                      fontSize: '11px',
+                                      fontWeight: 800
+                                    }}
+                                    title={`Plate: ${mv.plate || 'N/A'} | IMEI: ${mv.imei || 'N/A'}`}
+                                  >
+                                    <span>{mv.plate || mv.vehicleId || mv.name}</span>
+                                    {mv.name && mv.plate && mv.name.toLowerCase() !== mv.plate.toLowerCase() && (
+                                      <span style={{ color: '#9A3412', fontWeight: 500, fontSize: '10.5px' }}>({mv.name})</span>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </td>
                         <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           {(!assignedUsers || assignedUsers.length === 0) ? (

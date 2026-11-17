@@ -1338,12 +1338,12 @@ const AdminController = {
       const result = await db.query(query, params);
 
       const data = result.rows.map(row => {
-        let licenceType = 'Unknown';
+        let licenceType = 'Standard';
         if (row.licence_id) {
-          if (row.licence_id.startsWith('ST')) licenceType = 'Starter';
-          else if (row.licence_id.startsWith('BC')) licenceType = 'Basic';
+          if (row.licence_id.startsWith('ST')) licenceType = 'Standard Pro';
+          else if (row.licence_id.startsWith('BC')) licenceType = 'Standard';
           else if (row.licence_id.startsWith('AD')) licenceType = 'Advanced';
-          else if (row.licence_id.startsWith('EN')) licenceType = 'Premium';
+          else if (row.licence_id.startsWith('EN') || row.licence_id.startsWith('PR')) licenceType = 'Premium';
         }
 
         const metadata = row.metadata || {};
