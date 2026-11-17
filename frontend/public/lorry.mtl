@@ -1,0 +1,38 @@
+# 3D Indian Multi-Axle Cargo Lorry Materials
+
+newmtl BodyGreen
+Kd 0.0 0.82 0.55
+Ks 0.2 0.2 0.2
+Ns 30
+
+newmtl WhiteCage
+Kd 0.94 0.94 0.94
+Ks 0.1 0.1 0.1
+Ns 10
+
+newmtl DarkChassis
+Kd 0.14 0.15 0.17
+Ks 0.1 0.1 0.1
+Ns 20
+
+newmtl Rubber
+Kd 0.08 0.08 0.08
+Ks 0.05 0.05 0.05
+Ns 5
+
+newmtl Chrome
+Kd 0.85 0.85 0.88
+Ks 0.9 0.9 0.9
+Ns 80
+
+newmtl Glass
+Kd 0.4 0.6 0.65
+Ks 0.8 0.8 0.8
+d 0.6
+Ns 60
+
+newmtl Lights
+Kd 1.0 0.95 0.7
+Ks 1.0 1.0 1.0
+Ns 100
+
