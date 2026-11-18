@@ -51,7 +51,8 @@ import {
   Legend,
   Brush,
   ReferenceDot,
-  ReferenceArea
+  ReferenceArea,
+  ReferenceLine
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axios';
@@ -103,6 +104,16 @@ function formatDateIST(isoString) {
   } catch (e) {
     return '—';
   }
+}
+
+// Clean X-Axis tick formatter: converts "01:33:23 pm" into "01:33 PM"
+function formatXAxisTick(val) {
+  if (!val) return '';
+  const match = String(val).match(/^(\d{1,2}:\d{2}):\d{2}\s*([ap]m)?$/i);
+  if (match) {
+    return `${match[1]} ${match[2] ? match[2].toUpperCase() : ''}`.trim();
+  }
+  return val;
 }
 
 // Exact format matching Fuel Fill report: HH:mm:ss DD-MM-YYYY
@@ -271,8 +282,19 @@ export default function FuelAnalyticsPage() {
   const [activeTableTab, setActiveTableTab] = useState(null);
   const [rawSearchQuery, setRawSearchQuery] = useState('');
   const [rawSortOrder, setRawSortOrder] = useState('desc');
-  const [rawPageSize, setRawPageSize] = useState(50);
+  const [rawPageSize, setRawPageSize] = useState('all');
   const [rawCurrentPage, setRawCurrentPage] = useState(1);
+
+  // Graph card ref & interactive point inspection from raw telemetry stream
+  const graphCardRef = useRef(null);
+  const [selectedTelemetryPoint, setSelectedTelemetryPoint] = useState(null);
+
+  const handleRowClick = (r) => {
+    setSelectedTelemetryPoint(r);
+    if (graphCardRef.current) {
+      graphCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   // Consumption Rate Table Filter Controls
   const [consumptionMileageInput, setConsumptionMileageInput] = useState(5);
@@ -1421,6 +1443,7 @@ export default function FuelAnalyticsPage() {
       return {
         index: idx + 1,
         timestamp: pt.timestamp,
+        timeStr: pt.timeStr,
         dateTimeStr,
         speed: pt.speed ?? 0,
         status: pt.status || 'OFF',
@@ -2166,84 +2189,194 @@ export default function FuelAnalyticsPage() {
 
 
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
+        <div ref={graphCardRef} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-4 sm:p-5 rounded-2xl shadow-sm space-y-3">
           
-          <div className="flex items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800/80">
-            <div>
-              <h2 className="text-lg font-bold flex items-center gap-2">
-                <Sliders className="w-5 h-5 text-emerald-500" />
-                Fuel vs. Speed vs. Distance Correlation
+          {/* Compact Top Header with Inline Mini-Pill Telematics Toggles */}
+          <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800/80">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Sliders className="w-4 h-4 text-emerald-500 shrink-0" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                Fuel & Telemetry Correlation
+                <span className="text-xs font-mono font-medium text-slate-400">
+                  ({processedData.chartData.length} Points)
+                </span>
               </h2>
-              <p className="text-xs text-slate-400">
-                Interactive time-series displaying fuel level drops during speed bursts and idle idling intervals
-              </p>
+              {selectedTelemetryPoint && (
+                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-sky-50 dark:bg-sky-950/60 border border-sky-400 text-sky-700 dark:text-sky-300 text-[11px] font-semibold animate-in fade-in">
+                  <span>📍 Selected: #{selectedTelemetryPoint.index} @ {selectedTelemetryPoint.timeStr || selectedTelemetryPoint.dateTimeStr} ({selectedTelemetryPoint.filteredFuel != null ? `${selectedTelemetryPoint.filteredFuel} L` : '—'})</span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTelemetryPoint(null)}
+                    className="hover:text-red-500 font-bold ml-1 cursor-pointer"
+                    title="Clear selected inspection point"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Compact Mini-Pill Telematics Toggles */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Layer 1: All Fuel Data (Admin Diagnostic Only) */}
+              {showAdminDiagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllFuel(!showAllFuel)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
+                    showAllFuel
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-400/80 shadow-xs font-semibold'
+                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700/70'
+                  }`}
+                  title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
+                  <span>All Fuel</span>
+                </button>
+              )}
+
+              {/* Layer 2: Filtered Fuel Data */}
+              <button
+                type="button"
+                onClick={() => setShowFilteredFuel(!showFilteredFuel)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
+                  showFilteredFuel
+                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-400 shadow-xs ring-1 ring-sky-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Anti-Slosh Smoothed Fuel Curve"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
+                <span>Filtered Fuel</span>
+              </button>
+
+              {/* Layer 3: Normalize (Admin Diagnostic Only) */}
+              {showAdminDiagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowNormalize(!showNormalize)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
+                    showNormalize
+                      ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-400 shadow-xs ring-1 ring-rose-500/20 font-semibold'
+                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                  }`}
+                  title="Toggle Monotonic Physical Reality Consumption Curve"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
+                  <span>Normalize</span>
+                </button>
+              )}
+
+              {/* Layer 4: Engine */}
+              <button
+                type="button"
+                onClick={() => setShowEngine(!showEngine)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
+                  showEngine
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-400 shadow-xs ring-1 ring-amber-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Engine Ignition Status"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                <span>Engine</span>
+              </button>
+
+              {/* Layer 5: Speed */}
+              <button
+                type="button"
+                onClick={() => setShowSpeed(!showSpeed)}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all cursor-pointer select-none ${
+                  showSpeed
+                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-400 shadow-xs ring-1 ring-cyan-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Speed Secondary Axis"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
+                <span>Speed</span>
+              </button>
             </div>
           </div>
 
-          {/* Graph + Side Controls Row */}
-          <div className="flex flex-col lg:flex-row items-stretch gap-4 pt-2">
-            
-            {/* Graph Area */}
-            <div className="flex-1 min-w-0">
-              <div className="h-[390px] w-full">
-                {loading ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
-                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
-                    <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
-                  </div>
-                ) : processedData.chartData.length === 0 ? (
-                  <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
-                    <Fuel className="w-10 h-10 opacity-30" />
-                    <span className="text-sm font-medium">No telemetry packets found for this period</span>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 0 }}>
-                      <defs>
-                        <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#0284c7" stopOpacity={0.22} />
-                          <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
-                        </linearGradient>
-                      </defs>
+          {/* Full-Width Enlarged Graph Canvas (Occupies >80% of Card Area) */}
+          <div className="w-full pt-1">
+            <div className="h-[520px] w-full">
+              {loading ? (
+                <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
+                  <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+                  <span className="text-sm font-medium">Loading high-resolution fuel graph...</span>
+                </div>
+              ) : processedData.chartData.length === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center gap-2 text-slate-400">
+                  <Fuel className="w-10 h-10 opacity-30" />
+                  <span className="text-sm font-medium">No telemetry packets found for this period</span>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <ComposedChart data={processedData.chartData} margin={{ top: 15, right: 20, left: 15, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
+                        <stop offset="95%" stopColor="#0284c7" stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
 
-                      <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
-                      
-                      <XAxis 
-                        dataKey="timeStr" 
-                        stroke="#64748b" 
-                        fontSize={11} 
-                        tickLine={false} 
-                      />
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" opacity={0.25} />
+                    
+                    <XAxis 
+                      dataKey="timeStr" 
+                      stroke="#64748b" 
+                      fontSize={11} 
+                      tickLine={false} 
+                      tickFormatter={formatXAxisTick}
+                      minTickGap={35}
+                    />
 
-                      {/* Left Y Axis: Fuel (Litres) */}
-                      <YAxis 
-                        yAxisId="fuel" 
-                        width={50}
-                        domain={[0, Math.ceil(tankCapacity * 1.05)]} 
-                        stroke="#0284c7" 
-                        fontSize={11} 
-                        tickLine={false}
-                        orientation="left"
-                        unit="L"
-                      />
+                    {/* Left Y Axis: Fuel (Litres) */}
+                    <YAxis 
+                      yAxisId="fuel" 
+                      width={55}
+                      domain={[0, Math.ceil(tankCapacity * 1.05)]} 
+                      stroke="#0284c7" 
+                      fontSize={11} 
+                      tickLine={false}
+                      orientation="left"
+                      unit=" L"
+                      label={{ 
+                        value: 'Fuel Level (L)', 
+                        angle: -90, 
+                        position: 'insideLeft', 
+                        offset: 12,
+                        style: { textAnchor: 'middle', fill: '#0284c7', fontSize: 11, fontWeight: 700 } 
+                      }}
+                    />
 
-                      {/* Right Y Axis: Speed (km/h) */}
-                      <YAxis 
-                        yAxisId="speed" 
-                        domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
-                        stroke="#06b6d4" 
-                        fontSize={11} 
-                        tickLine={false} 
-                        orientation="right"
-                        unit="km/h"
-                      />
+                    {/* Right Y Axis: Speed (km/h) */}
+                    <YAxis 
+                      yAxisId="speed" 
+                      width={60}
+                      domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
+                      stroke="#06b6d4" 
+                      fontSize={11} 
+                      tickLine={false} 
+                      orientation="right"
+                      unit=" km/h"
+                      label={{ 
+                        value: 'Speed (km/h)', 
+                        angle: 90, 
+                        position: 'insideRight', 
+                        offset: 12,
+                        style: { textAnchor: 'middle', fill: '#06b6d4', fontSize: 11, fontWeight: 700 } 
+                      }}
+                    />
 
-                      {/* Hidden Y Axis for Engine Ignition baseline step line */}
-                      <YAxis 
-                        yAxisId="engine" 
-                        domain={[0, 10]} 
-                        hide={true}
-                      />
+                    {/* Hidden Y Axis for Engine Ignition baseline step line */}
+                    <YAxis 
+                      yAxisId="engine" 
+                      domain={[0, 10]} 
+                      hide={true}
+                    />
 
                       {/* High Precision Multi-Layer Tooltip with Dedicated Side-by-Side Cards (Left: Event Card, Right: Telemetry Card) */}
                       <Tooltip 
@@ -2595,6 +2728,76 @@ export default function FuelAnalyticsPage() {
                         </React.Fragment>
                       ))}
 
+                      {/* 10. Refill Vertical Timeline Marker Lines with Timestamps */}
+                      {showRefillEvents && processedData.refuels.map((r, idx) => (
+                        <ReferenceLine
+                          key={`ref-vert-line-${idx}`}
+                          yAxisId="fuel"
+                          x={r.endTimeStr || r.startTimeStr}
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                          label={{
+                            value: `⛽ +${r.liters}L (${r.time || r.endTimeStr})`,
+                            position: 'insideTopLeft',
+                            fill: '#10b981',
+                            fontSize: 10,
+                            fontWeight: 700
+                          }}
+                        />
+                      ))}
+
+                      {/* 11. Theft Vertical Timeline Marker Lines with Timestamps */}
+                      {showTheftEvents && processedData.drops.map((d, idx) => (
+                        <ReferenceLine
+                          key={`drop-vert-line-${idx}`}
+                          yAxisId="fuel"
+                          x={d.startTimeStr}
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                          strokeDasharray="4 3"
+                          label={{
+                            value: `⚠️ -${d.liters}L (${d.time || d.startTimeStr})`,
+                            position: 'insideTopRight',
+                            fill: '#ef4444',
+                            fontSize: 10,
+                            fontWeight: 700
+                          }}
+                        />
+                      ))}
+
+                      {/* 12. Selected Telemetry Packet Marker from Raw Data Table */}
+                      {selectedTelemetryPoint && (
+                        <ReferenceLine
+                          key="selected-packet-vert-line"
+                          yAxisId="fuel"
+                          x={selectedTelemetryPoint.timeStr}
+                          stroke="#38bdf8"
+                          strokeWidth={2}
+                          strokeDasharray="3 3"
+                          label={{
+                            value: `📍 #${selectedTelemetryPoint.index} (${selectedTelemetryPoint.timeStr})`,
+                            position: 'top',
+                            fill: '#38bdf8',
+                            fontSize: 11,
+                            fontWeight: 800
+                          }}
+                        />
+                      )}
+                      {selectedTelemetryPoint && selectedTelemetryPoint.filteredFuel != null && (
+                        <ReferenceDot
+                          key="selected-packet-dot"
+                          yAxisId="fuel"
+                          x={selectedTelemetryPoint.timeStr}
+                          y={selectedTelemetryPoint.filteredFuel}
+                          r={7}
+                          fill="#38bdf8"
+                          stroke="#ffffff"
+                          strokeWidth={2.5}
+                          isFront={true}
+                        />
+                      )}
+
                       <Brush 
                         dataKey="timeStr" 
                         height={24} 
@@ -2607,89 +2810,6 @@ export default function FuelAnalyticsPage() {
                 )}
               </div>
             </div>
-
-            {/* Right: Telematics Visibility Toggles (Clean Pill Stack, No Card) */}
-            <div className="shrink-0 flex flex-col justify-center gap-2 py-2 pr-1">
-              {/* Layer 1: All Fuel Data (Admin Diagnostic Only) */}
-              {showAdminDiagnostics && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllFuel(!showAllFuel)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
-                    showAllFuel
-                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-400/80 shadow-xs font-semibold'
-                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700/70'
-                  }`}
-                  title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
-                  <span>All Fuel Data</span>
-                </button>
-              )}
-
-              {/* Layer 2: Filtered Fuel Data */}
-              <button
-                type="button"
-                onClick={() => setShowFilteredFuel(!showFilteredFuel)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
-                  showFilteredFuel
-                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-400 shadow-xs ring-1 ring-sky-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Anti-Slosh Smoothed Fuel Curve"
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
-                <span>Filtered Fuel Data</span>
-              </button>
-
-              {/* Layer 3: Normalize (Admin Diagnostic Only) */}
-              {showAdminDiagnostics && (
-                <button
-                  type="button"
-                  onClick={() => setShowNormalize(!showNormalize)}
-                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
-                    showNormalize
-                      ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-400 shadow-xs ring-1 ring-rose-500/20 font-semibold'
-                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                  }`}
-                  title="Toggle Monotonic Physical Reality Consumption Curve"
-                >
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
-                  <span>Normalize</span>
-                </button>
-              )}
-
-              {/* Layer 4: Engine */}
-              <button
-                type="button"
-                onClick={() => setShowEngine(!showEngine)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
-                  showEngine
-                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-400 shadow-xs ring-1 ring-amber-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Engine Ignition Status"
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                <span>Engine</span>
-              </button>
-
-              {/* Layer 5: Speed */}
-              <button
-                type="button"
-                onClick={() => setShowSpeed(!showSpeed)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
-                  showSpeed
-                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-400 shadow-xs ring-1 ring-cyan-500/20 font-semibold'
-                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border border-dashed border-slate-300 dark:border-slate-700/70'
-                }`}
-                title="Toggle Speed Secondary Axis"
-              >
-                <span className={`w-2 h-2 rounded-full shrink-0 ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
-                <span>Speed</span>
-              </button>
-            </div>
-          </div>
         </div>
 
         {/* ── UNDER THE GRAPH: FUEL INTELLIGENCE & QUICK NAVIGATION ── */}
@@ -3110,18 +3230,11 @@ export default function FuelAnalyticsPage() {
                       <span>{rawSortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
                     </button>
 
-                    {/* Page Size Selector */}
-                    <select
-                      value={rawPageSize}
-                      onChange={(e) => setRawPageSize(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                      className="px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 rounded-xl font-semibold text-slate-700 dark:text-slate-300 focus:outline-none cursor-pointer"
-                    >
-                      <option value={25}>25 / page</option>
-                      <option value={50}>50 / page</option>
-                      <option value={100}>100 / page</option>
-                      <option value={250}>250 / page</option>
-                      <option value="all">All Records</option>
-                    </select>
+                    {/* Continuous Stream Indicator */}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-50 dark:bg-sky-950/40 border border-sky-400/40 text-sky-700 dark:text-sky-300 font-semibold text-xs select-none">
+                      <Activity className="w-3.5 h-3.5 text-sky-500" />
+                      <span>Continuous Stream</span>
+                    </div>
                   </div>
                 </div>
 
@@ -3150,9 +3263,25 @@ export default function FuelAnalyticsPage() {
                           </td>
                         </tr>
                       ) : (
-                        paginatedRawRows.map((r, idx) => (
-                          <tr key={idx} className="hover:bg-sky-500/5 dark:hover:bg-sky-500/10 transition-colors">
-                            <td className="px-3.5 py-2 text-slate-400 font-mono text-[11px]">{r.index}</td>
+                        paginatedRawRows.map((r, idx) => {
+                          const isSelected = selectedTelemetryPoint?.index === r.index;
+                          return (
+                            <tr 
+                              key={idx} 
+                              onClick={() => handleRowClick(r)}
+                              className={`cursor-pointer transition-all duration-150 select-none ${
+                                isSelected
+                                  ? 'bg-sky-500/20 dark:bg-sky-500/25 border-l-4 border-sky-500 font-bold text-sky-950 dark:text-sky-100 shadow-xs'
+                                  : 'hover:bg-sky-500/5 dark:hover:bg-sky-500/10'
+                              }`}
+                              title="Click to highlight this packet on the fuel graph above"
+                            >
+                              <td className="px-3.5 py-2 font-mono text-[11px] text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  {isSelected && <span className="text-sky-500 font-bold text-xs">▶</span>}
+                                  {r.index}
+                                </span>
+                              </td>
                             <td className="px-3.5 py-2 font-mono text-slate-700 dark:text-slate-300 whitespace-nowrap">
                               {r.dateTimeStr}
                             </td>
@@ -3206,52 +3335,35 @@ export default function FuelAnalyticsPage() {
                               </span>
                             </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Pagination & Summary Footer */}
-                <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="font-medium">
-                    {filteredRawRows.length === 0 ? (
-                      'No records'
-                    ) : (
-                      rawPageSize === 'all' ? (
-                        `Showing all ${filteredRawRows.length} records`
-                      ) : (
-                        `Showing ${(rawCurrentPage - 1) * Number(rawPageSize) + 1} to ${Math.min(rawCurrentPage * Number(rawPageSize), filteredRawRows.length)} of ${filteredRawRows.length} records`
-                      )
+                        );
+                      })
                     )}
-                  </div>
+                  </tbody>
+                </table>
+              </div>
 
-                  {rawPageSize !== 'all' && rawTotalPages > 1 && (
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setRawCurrentPage(p => Math.max(1, p - 1))}
-                        disabled={rawCurrentPage === 1}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Previous Page"
-                      >
-                        <ChevronLeft className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-mono text-xs font-semibold text-slate-800 dark:text-slate-200">
-                        {rawCurrentPage} / {rawTotalPages}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setRawCurrentPage(p => Math.min(rawTotalPages, p + 1))}
-                        disabled={rawCurrentPage === rawTotalPages}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-                        title="Next Page"
-                      >
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+              {/* Continuous Stream Summary Footer (No 1/11 pages) */}
+              <div className="p-3 sm:px-5 bg-slate-50/70 dark:bg-slate-900/70 border-t border-slate-200/80 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+                <div className="font-medium flex items-center gap-2 flex-wrap">
+                  {filteredRawRows.length === 0 ? (
+                    'No records found for this period'
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Showing all <strong className="text-slate-800 dark:text-slate-200">{filteredRawRows.length}</strong> telemetry packets continuously</span>
+                      {selectedTelemetryPoint && (
+                        <span className="ml-2 px-2.5 py-0.5 rounded-full bg-sky-500/15 text-sky-600 dark:text-sky-400 text-[11px] font-bold">
+                          Inspecting Packet #{selectedTelemetryPoint.index} ({selectedTelemetryPoint.timeStr || selectedTelemetryPoint.dateTimeStr})
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
+
+                <div className="text-[11px] text-slate-400">
+                  💡 Click any packet row to inspect point on graph above
+                </div>
+              </div>
               </motion.div>
             )}
 
