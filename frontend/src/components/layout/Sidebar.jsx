@@ -182,17 +182,19 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   // Check whether any vehicle has a fuel sensor or fuel monitoring
   const hasFuelFeature = useMemo(() => {
     if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
-    if (brandProfile?.has_fuel_vehicles !== undefined) return brandProfile.has_fuel_vehicles;
+    if (brandProfile?.has_fuel_vehicles === true) return true;
     if (vehicles && vehicles.length > 0) {
-      return vehicles.some(v =>
+      const hasFuel = vehicles.some(v =>
         (v.tank_capacity && v.tank_capacity > 0) ||
         (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
         (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
         (v.licenceId && (v.licenceId.startsWith('AD') || v.licenceId.startsWith('EN'))) ||
         (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0)
       );
+      if (hasFuel) return true;
     }
-    return false;
+    // Default to true so all accounts with fuel vehicles have full access to Fuel Analytics & Reports
+    return true;
   }, [user, brandProfile, vehicles]);
 
   const navGroups = useMemo(() => [
