@@ -75,6 +75,7 @@ const TrackingPage = ({ setAppVehicles }) => {
   const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [immobilizerVehicle, setImmobilizerVehicle] = useState(null);
   const [hasSelectedInitial, setHasSelectedInitial] = useState(false);
+  const [centerVehicleId, setCenterVehicleId] = useState(null);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
   const [hoveredVehicleAddress, setHoveredVehicleAddress] = useState(null);
@@ -303,12 +304,37 @@ const TrackingPage = ({ setAppVehicles }) => {
     } else {
       setExpiredModalVehicle(null);
     }
+
+    if (isMultiMode) {
+      // In Multi Mode: Pan / Fly to clicked vehicle without deselecting other vehicles
+      setCenterVehicleId(vehicle.id);
+      setSelectedVehicles(prev => {
+        if (prev.some(v => v.id === vehicle.id)) return prev;
+        return [...prev, vehicle];
+      });
+      return;
+    }
     setSelectedVehicles(prev => {
       const isSelected = prev.some(v => v.id === vehicle.id);
       if (isSelected) {
         return prev.filter(v => v.id !== vehicle.id);
       } else {
         return [vehicle]; // Default single click replaces selection
+      }
+    });
+  };
+
+  const handleToggleVehicleInMulti = (vehicle, e) => {
+    if (e) e.stopPropagation();
+    const warning = getExpiryWarning(vehicle);
+    if (warning && warning.type === 'expired') return;
+
+    setSelectedVehicles(prev => {
+      const isSelected = prev.some(v => v.id === vehicle.id);
+      if (isSelected) {
+        return prev.filter(v => v.id !== vehicle.id);
+      } else {
+        return [...prev, vehicle];
       }
     });
   };
@@ -378,6 +404,22 @@ const TrackingPage = ({ setAppVehicles }) => {
           if (isExpired) e.currentTarget.style.background = '#FEF2F2';
         }}
       >
+        {isMultiMode && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => handleToggleVehicleInMulti(v, e)}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '16px',
+              height: '16px',
+              accentColor: '#059669',
+              cursor: 'pointer',
+              flexShrink: 0
+            }}
+          />
+        )}
+
         {/* Modern Vehicle Icon Squircle */}
         <div style={{
           width: '32px',
@@ -752,14 +794,28 @@ const TrackingPage = ({ setAppVehicles }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div>
               <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                Fleet Vehicles
+                {isMultiMode ? 'Multi Tracking' : 'Fleet Vehicles'}
               </h2>
               <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
                 {filteredVehicles.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
               </div>
             </div>
-            <button
-              onClick={() => refetch()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={() => navigate(isMultiMode ? '/tracking' : '/tracking?mode=multi')}
+                style={{
+                  background: isMultiMode ? '#ECFDF5' : '#F8FAFC',
+                  border: isMultiMode ? '1px solid #10B981' : '1px solid #E2E8F0',
+                  color: isMultiMode ? '#059669' : '#64748B',
+                  cursor: 'pointer', padding: '3px 7px', borderRadius: '5px',
+                  fontSize: '10.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px'
+                }}
+                title={isMultiMode ? 'Switch to Single Tracking' : 'Switch to Multi Tracking'}
+              >
+                {isMultiMode ? '✓ Multi' : 'Multi'}
+              </button>
+              <button
+                onClick={() => refetch()}
               style={{
                 background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
                 cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
@@ -769,7 +825,8 @@ const TrackingPage = ({ setAppVehicles }) => {
               onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
             >
               <RefreshCw size={12} />
-            </button>
+              </button>
+            </div>
           </div>
 
           {/* Search vehicle input */}
@@ -793,6 +850,83 @@ const TrackingPage = ({ setAppVehicles }) => {
               }}
             />
           </div>
+
+          {/* Multi-Tracking Selection Bar */}
+          {isMultiMode && (
+            <div style={{
+              marginTop: '6px',
+              padding: '6px 8px',
+              background: '#F0FDF4',
+              borderRadius: '6px',
+              border: '1px solid #BBF7D0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '6px',
+              fontSize: '11px',
+              fontWeight: 600
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#166534', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={filteredVehicles.length > 0 && selectedVehicles.length === filteredVehicles.length}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      const active = filteredVehicles.filter(v => {
+                        const w = getExpiryWarning(v);
+                        return !(w && w.type === 'expired');
+                      });
+                      setSelectedVehicles(active);
+                    } else {
+                      setSelectedVehicles([]);
+                    }
+                  }}
+                  style={{ width: '14px', height: '14px', accentColor: '#16A34A', cursor: 'pointer' }}
+                />
+                <span>Track All ({selectedVehicles.length}/{filteredVehicles.length})</span>
+              </label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const active = filteredVehicles.filter(v => {
+                      const w = getExpiryWarning(v);
+                      return !(w && w.type === 'expired');
+                    });
+                    setSelectedVehicles(active);
+                  }}
+                  style={{
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    borderRadius: '4px',
+                    background: '#DCFCE7',
+                    color: '#15803D',
+                    border: '1px solid #86EFAC',
+                    cursor: 'pointer'
+                  }}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedVehicles([])}
+                  style={{
+                    padding: '2px 6px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    borderRadius: '4px',
+                    background: '#F1F5F9',
+                    color: '#64748B',
+                    border: '1px solid #CBD5E1',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -926,8 +1060,15 @@ const TrackingPage = ({ setAppVehicles }) => {
       {/* ═══════════ MAP AREA (Full remaining width) ═══════════ */}
       <div className={`flex-1 h-full relative bg-slate-200 ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
         <FleetMap
-          vehicles={currentSelectedVehicles.length > 0 ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehiclesList] : currentSelectedVehicles) : filteredVehicles}
+          vehicles={
+            isMultiMode
+              ? (currentSelectedVehicles.length > 0 ? currentSelectedVehicles : filteredVehicles)
+              : (currentSelectedVehicles.length > 0
+                  ? (isNearbyActive ? [...currentSelectedVehicles, ...nearbyVehiclesList] : currentSelectedVehicles)
+                  : filteredVehicles)
+          }
           selectedVehicles={currentSelectedVehicles}
+          centerVehicleId={centerVehicleId}
           onMarkerClick={handleVehicleSelect}
           onMultiTrackClick={handleMultiTrackClick}
           isMultiMode={isMultiMode}

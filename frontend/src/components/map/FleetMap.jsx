@@ -6,7 +6,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import L from 'leaflet';
-import { Truck, User } from 'lucide-react';
+import { Truck, User, Compass } from 'lucide-react';
 import { formatSpeed, formatVoltage, formatDirection, formatOdometer, formatFuel, getBatteryStatus } from '../../utils/formatUtils';
 import { formatLocalTime, getNoDataDuration } from '../../utils/dateUtils';
 import LocationDisplay from '../ui/LocationDisplay';
@@ -134,6 +134,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
 
   // 1. Zoom to selected vehicle instantly without dragging across the screen
   useEffect(() => {
+    if (isMultiMode) return; // Do not auto-zoom to selectedVehicles[0] in multi-mode
     const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
     if (!targetVehicle?.id) return;
 
@@ -155,13 +156,15 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
     let t1 = null;
     let t2 = null;
 
-    const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
-    if (targetVehicle) {
-      hasFitInitially.current = false;
-      return;
+    if (!isMultiMode) {
+      const targetVehicle = selectedVehicle || (selectedVehicles && selectedVehicles[0]);
+      if (targetVehicle) {
+        hasFitInitially.current = false;
+        return;
+      }
     }
 
-    if (!hasFitInitially.current) {
+    if (!hasFitInitially.current || isMultiMode) {
       // Don't trigger fit bounds or fallback if vehicles haven't loaded yet
       if (!vehicles || vehicles.length === 0) {
         return;
@@ -204,7 +207,7 @@ const VehicleRouteAndFit = ({ selectedVehicle, selectedVehicles = [], vehicles =
       if (t1) clearTimeout(t1);
       if (t2) clearTimeout(t2);
     };
-  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles?.length, map, followSelected]);
+  }, [selectedVehicle?.id, selectedVehicles?.[0]?.id, vehicles?.length, map, followSelected, isMultiMode]);
 
   // 3. Pan to follow vehicle as it moves in real time (unless user manually dragged the map away)
   useEffect(() => {
@@ -467,16 +470,16 @@ const VehicleMarker = ({ vehicle, isSelected, onMarkerClick, zIndexOffset = 0, l
 
   // Memoize the initial icon so react-leaflet never destroys the DOM node during position updates
   const initialIcon = useMemo(() => {
-    return createPinIcon(vehicle, noGps, clusterRank, { speed, course, status });
-  }, []); // Only run once on mount
+    return createPinIcon(vehicle, noGps, clusterRank, { speed, course, status, showPlateLabel: isMultiMode || isSelected });
+  }, [isMultiMode, isSelected]); // Only run once on mount
 
   // Manually update the icon HTML when properties change
   useEffect(() => {
     if (markerRef.current && markerRef.current._icon) {
-      const newIcon = createPinIcon(vehicle, noGps, clusterRank, { speed, course, status });
+      const newIcon = createPinIcon(vehicle, noGps, clusterRank, { speed, course, status, showPlateLabel: isMultiMode || isSelected });
       markerRef.current._icon.innerHTML = newIcon.options.html;
     }
-  }, [speed, course, status, noGps, clusterRank, vehicle]);
+  }, [speed, course, status, noGps, clusterRank, vehicle, isMultiMode, isSelected]);
 
   return (
     <Marker
@@ -682,10 +685,90 @@ const ResizeMap = () => {
   return null;
 };
 
+// Smoothly pan to centered vehicle in multi mode without deselecting other vehicles
+const CenterMapController = ({ centerVehicleId, vehicles }) => {
+  const map = useMap();
+  const lastCenteredRef = useRef(null);
+
+  useEffect(() => {
+    if (!centerVehicleId || !vehicles || !map) return;
+    if (lastCenteredRef.current === centerVehicleId) return;
+    const v = vehicles.find(item => String(item.id) === String(centerVehicleId));
+    if (v && v.lat && v.lng) {
+      const lat = parseFloat(v.lat);
+      const lng = parseFloat(v.lng);
+      if (!isNaN(lat) && !isNaN(lng) && lat > 6 && lat < 38 && lng > 68 && lng < 98) {
+        lastCenteredRef.current = centerVehicleId;
+        try {
+          map.flyTo([lat, lng], 17, { duration: 0.8 });
+        } catch (e) {
+          map.setView([lat, lng], 17);
+        }
+      }
+    }
+  }, [centerVehicleId, vehicles, map]);
+
+  return null;
+};
+
+// Fit All Vehicles button overlay for Multi Mode
+const FitAllBoundsButton = ({ vehicles }) => {
+  const map = useMap();
+
+  const handleFit = () => {
+    if (!vehicles || vehicles.length === 0 || !map) return;
+    const validCoords = vehicles
+      .filter(v => v.lat && v.lng)
+      .map(v => [parseFloat(v.lat), parseFloat(v.lng)])
+      .filter(coord => !isNaN(coord[0]) && !isNaN(coord[1]) && coord[0] > 6 && coord[0] < 38 && coord[1] > 68 && coord[1] < 98);
+
+    if (validCoords.length > 0) {
+      try {
+        const bounds = L.latLngBounds(validCoords);
+        map.invalidateSize();
+        map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15, animate: true });
+      } catch (e) {
+        console.warn('fitBounds error:', e);
+      }
+    }
+  };
+
+  return (
+    <div style={{ position: 'absolute', bottom: '24px', right: '12px', zIndex: 1000 }}>
+      <button
+        onClick={handleFit}
+        type="button"
+        title="Fit all vehicles in view"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '7px 14px',
+          background: '#0F172A',
+          color: '#38BDF8',
+          border: '1.5px solid #0284C7',
+          borderRadius: '8px',
+          fontSize: '12px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          transition: 'all 0.2s ease',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = '#1E293B'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = '#0F172A'; }}
+      >
+        <Compass size={15} color="#38BDF8" />
+        <span>Fit All Vehicles ({vehicles.length})</span>
+      </button>
+    </div>
+  );
+};
+
 const FleetMap = ({
   vehicles = [],
   selectedVehicle = null,
   selectedVehicles = null,
+  centerVehicleId = null,
   onMarkerClick,
   isMultiMode = false,
   showRoute = false,
@@ -814,6 +897,12 @@ const FleetMap = ({
             maxZoom={22}
           />
         )}
+
+        {/* Center Controller when vehicle clicked in multi-mode */}
+        <CenterMapController centerVehicleId={centerVehicleId} vehicles={vehicles} />
+
+        {/* Fit All button overlay for multi mode */}
+        {isMultiMode && <FitAllBoundsButton vehicles={vehicles} />}
 
         {/* Radius Circle for Nearby Mode */}
         {isNearbyActive && effectiveSelected && effectiveSelected.lat && effectiveSelected.lng && (
