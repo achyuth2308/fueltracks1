@@ -464,51 +464,54 @@ const FuelReportsPage = ({ type: propType }) => {
   const IconComp = config.icon;
 
   return (
-    <div style={{ padding: '16px', background: '#F8FAFC', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+    <div style={{ padding: '8px 12px', background: '#F1F5F9', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
       
-      {/* 1. Header Box with Filter Controls */}
+      {/* 1. Header Box with Filter Controls (Compact Excel Ribbon) */}
       <div style={{
         background: '#FFFFFF',
-        borderRadius: '10px',
-        padding: '14px 18px',
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+        borderRadius: '6px',
+        padding: '8px 12px',
+        border: '1px solid #CBD5E1',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px'
+        gap: '8px'
       }}>
         {/* Title row with Quick Presets */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
-              width: '32px', height: '32px', borderRadius: '8px',
+              width: '26px', height: '26px', borderRadius: '6px',
               background: `${config.accentColor}18`,
               border: `1px solid ${config.accentColor}35`,
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <IconComp size={18} color={config.accentColor} />
+              <IconComp size={15} color={config.accentColor} />
             </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0F172A' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: '#0F172A' }}>
                 {config.title}
               </h3>
-              <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>
-                {config.badgeText} • Time Period: {formatBannerDateTime(filters.startDate, filters.startTime)} to {formatBannerDateTime(filters.endDate, filters.endTime)}
-              </div>
+              <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 700, background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}>
+                {config.badgeText}
+              </span>
+              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>
+                • {formatBannerDateTime(filters.startDate, filters.startTime)} to {formatBannerDateTime(filters.endDate, filters.endTime)}
+              </span>
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <button
               type="button"
               onClick={() => handlePreset('yesterday')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
+                padding: '4px 10px',
+                borderRadius: '5px',
                 border: '1px solid #CBD5E1',
                 background: '#FFFFFF',
                 color: '#334155',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer',
                 transition: 'all 0.15s ease'
@@ -520,12 +523,12 @@ const FuelReportsPage = ({ type: propType }) => {
               type="button"
               onClick={() => handlePreset('today')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
+                padding: '4px 10px',
+                borderRadius: '5px',
                 border: '1px solid #CBD5E1',
                 background: '#FFFFFF',
                 color: '#334155',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
@@ -536,12 +539,12 @@ const FuelReportsPage = ({ type: propType }) => {
               type="button"
               onClick={() => handlePreset('last7')}
               style={{
-                padding: '5px 12px',
-                borderRadius: '6px',
+                padding: '4px 10px',
+                borderRadius: '5px',
                 border: '1px solid #CBD5E1',
                 background: '#FFFFFF',
                 color: '#334155',
-                fontSize: '11.5px',
+                fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer'
               }}
@@ -556,7 +559,7 @@ const FuelReportsPage = ({ type: propType }) => {
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
-          gap: '8px'
+          gap: '6px'
         }}>
           {/* Vehicle Dropdown */}
           <select
@@ -568,12 +571,12 @@ const FuelReportsPage = ({ type: propType }) => {
               handleFetchReport(updated);
             }}
             style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
+              padding: '5px 8px',
+              borderRadius: '5px',
               border: '1px solid #CBD5E1',
               background: '#FFFFFF',
               color: '#0F172A',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: 600,
               outline: 'none',
               minWidth: '160px'
@@ -592,12 +595,12 @@ const FuelReportsPage = ({ type: propType }) => {
             value={categoryFilter}
             onChange={e => setCategoryFilter(e.target.value)}
             style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
+              padding: '5px 8px',
+              borderRadius: '5px',
               border: '1px solid #CBD5E1',
               background: '#FFFFFF',
               color: '#0F172A',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: 600,
               outline: 'none'
             }}
@@ -639,46 +642,46 @@ const FuelReportsPage = ({ type: propType }) => {
             onClick={() => handleFetchReport()}
             disabled={loading}
             style={{
-              padding: '6px 16px',
-              borderRadius: '6px',
+              padding: '5px 14px',
+              borderRadius: '5px',
               border: 'none',
               background: config.accentColor,
               color: '#FFFFFF',
-              fontSize: '12px',
+              fontSize: '11.5px',
               fontWeight: 700,
               cursor: loading ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              boxShadow: `0 2px 6px ${config.accentColor}40`
+              gap: '5px',
+              boxShadow: `0 1px 3px ${config.accentColor}40`
             }}
           >
-            {loading ? <Loader2 size={13} className="animate-spin" /> : null}
+            {loading ? <Loader2 size={12} className="animate-spin" /> : null}
             Submit
           </button>
 
           {/* Search Box */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginLeft: 'auto' }}>
-            <Search size={14} color="#94A3B8" style={{ position: 'absolute', left: '10px' }} />
+            <Search size={13} color="#94A3B8" style={{ position: 'absolute', left: '8px' }} />
             <input
               type="text"
               placeholder="Search vehicle / plate..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
-                padding: '6px 10px 6px 30px',
-                borderRadius: '6px',
+                padding: '5px 8px 5px 26px',
+                borderRadius: '5px',
                 border: '1px solid #CBD5E1',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 outline: 'none',
-                width: '180px',
+                width: '160px',
                 color: '#0F172A'
               }}
             />
           </div>
 
           {/* Export Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <button
               type="button"
               onClick={() => exportToExcel(getExportData(), config.title.replace(/\s+/g, '_'))}
@@ -686,19 +689,19 @@ const FuelReportsPage = ({ type: propType }) => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
+                gap: '4px',
+                padding: '5px 10px',
+                borderRadius: '5px',
                 border: 'none',
                 background: filteredData.length === 0 ? '#E2E8F0' : '#10B981',
                 color: '#FFFFFF',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer'
               }}
               title="Export to Excel"
             >
-              <FileSpreadsheet size={13} />
+              <FileSpreadsheet size={12} />
               Excel
             </button>
             <button
@@ -708,159 +711,157 @@ const FuelReportsPage = ({ type: propType }) => {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '5px',
-                padding: '6px 12px',
-                borderRadius: '6px',
+                gap: '4px',
+                padding: '5px 10px',
+                borderRadius: '5px',
                 border: 'none',
                 background: filteredData.length === 0 ? '#E2E8F0' : '#EF4444',
                 color: '#FFFFFF',
-                fontSize: '12px',
+                fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: filteredData.length === 0 ? 'not-allowed' : 'pointer'
               }}
               title="Export to PDF"
             >
-              <FileText size={13} />
+              <FileText size={12} />
               PDF
             </button>
           </div>
         </div>
       </div>
 
-      {/* 2. Specialized KPI Summary Cards Row */}
+      {/* 2. Compact KPI Summary Bar (Excel Ribbon Style - Zero Wasted Space) */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))',
-        gap: '12px'
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: '6px'
       }}>
         {config.cards.map((card, cIdx) => (
           <div
             key={cIdx}
             style={{
               background: '#FFFFFF',
-              borderRadius: '10px',
-              padding: '12px 16px',
-              border: '1px solid #E2E8F0',
+              borderRadius: '5px',
+              padding: '6px 12px',
+              border: '1px solid #CBD5E1',
+              borderLeft: `4px solid ${card.color}`,
               display: 'flex',
-              flexDirection: 'column',
-              gap: '4px',
-              boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
             }}
           >
-            <div style={{ fontSize: '11.5px', color: '#64748B', fontWeight: 600 }}>
+            <span style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
               {card.label}
-            </div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: card.color }}>
+            </span>
+            <span style={{ fontSize: '14.5px', fontWeight: 800, color: card.color, fontFamily: 'monospace, "SF Mono", monospace' }}>
               {card.val}
-            </div>
-            <div style={{ fontSize: '10.5px', color: '#94A3B8', fontWeight: 500 }}>
-              {card.sub}
-            </div>
+            </span>
           </div>
         ))}
       </div>
 
-      {/* 3. Specialized Data Table */}
+      {/* 3. Excel Format Data Table */}
       <div style={{
         background: '#FFFFFF',
-        borderRadius: '10px',
-        border: '1px solid #E2E8F0',
-        overflow: 'hidden',
-        boxShadow: '0 1px 4px rgba(0,0,0,0.03)'
+        borderRadius: '5px',
+        border: '1px solid #CBD5E1',
+        overflow: 'auto',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
       }}>
         {loading ? (
-          <div style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <Loader2 size={28} className="animate-spin text-orange-500" />
-            <div style={{ fontSize: '13px', color: '#64748B', fontWeight: 600 }}>Loading telematics data...</div>
+          <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <Loader2 size={24} className="animate-spin text-emerald-600" />
+            <div style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Loading telematics data...</div>
           </div>
         ) : filteredData.length === 0 ? (
-          <div style={{ padding: '60px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <Info size={32} color="#94A3B8" />
-            <div style={{ fontSize: '14px', color: '#334155', fontWeight: 700 }}>No telemetry records found</div>
-            <div style={{ fontSize: '12px', color: '#64748B' }}>Try selecting a broader date range or removing vehicle filters.</div>
+          <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+            <Info size={28} color="#94A3B8" />
+            <div style={{ fontSize: '13px', color: '#334155', fontWeight: 700 }}>No telemetry records found</div>
+            <div style={{ fontSize: '11.5px', color: '#64748B' }}>Try selecting another date range or vehicle.</div>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '12px', color: '#1E293B' }}>
-              <thead>
-                <tr style={{ background: '#F8FAFC', borderBottom: '1px solid #CBD5E1', color: '#475569', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  <th style={{ padding: '10px 12px', width: '40px', textAlign: 'center' }}>#</th>
-                  <th style={{ padding: '10px 14px' }}>Vehicle Name</th>
-                  <th style={{ padding: '10px 12px' }}>Category</th>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', color: '#0F172A', minWidth: '850px' }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+                <tr style={{ background: '#0F172A' }}>
+                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '38px', textAlign: 'center' }}>#</th>
+                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Vehicle Name</th>
+                  <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Category</th>
 
                   {/* Type-Specific Table Headers */}
                   {reportType === 'refill' && (
                     <>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Refill Quantity</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Dispensed</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Consumed</th>
-                      <th style={{ padding: '10px 14px' }}>Refill Location</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Refill Quantity</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Dispensed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Refill Location</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
                     </>
                   )}
 
                   {reportType === 'theft' && (
                     <>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'center' }}>Suspected Theft</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Consumed</th>
-                      <th style={{ padding: '10px 14px' }}>Location</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Severity</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Suspected Theft</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Location</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Severity</th>
                     </>
                   )}
 
                   {reportType === 'consolidated' && (
                     <>
-                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Distance</th>
-                      <th style={{ padding: '10px 12px' }}>Engine Hours</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Theft (-L)</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Consumed</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Mileage</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Burn Rate</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine Hours</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Theft (-L)</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Mileage</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Burn Rate</th>
                     </>
                   )}
 
                   {reportType === 'kmpl' && (
                     <>
-                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Distance (km)</th>
-                      <th style={{ padding: '10px 12px' }}>Running Time</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Fuel Consumed</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'center' }}>Actual Mileage</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Avg Speed</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Max Speed</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Rating</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Running Time</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Actual Mileage</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Avg Speed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Max Speed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Rating</th>
                     </>
                   )}
 
                   {reportType === 'lph' && (
                     <>
-                      <th style={{ padding: '10px 14px' }}>Engine ON Time</th>
-                      <th style={{ padding: '10px 12px' }}>Working Time</th>
-                      <th style={{ padding: '10px 12px' }}>Idle Time</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'right' }}>Fuel Consumed</th>
-                      <th style={{ padding: '10px 16px', textAlign: 'center' }}>Burn Rate</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Efficiency</th>
-                      <th style={{ padding: '10px 14px' }}>Current Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine ON</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Working Time</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Idle Time</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Fuel Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Burn Rate</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Efficiency</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Current Fuel</th>
                     </>
                   )}
 
                   {reportType === 'consumption' && (
                     <>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Start Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>End Fuel</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Refill (+L)</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Theft (-L)</th>
-                      <th style={{ padding: '10px 14px', textAlign: 'center' }}>Net Consumed</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'right' }}>Distance</th>
-                      <th style={{ padding: '10px 12px' }}>Engine Hours</th>
-                      <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Start Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>End Fuel</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Refill (+L)</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Theft (-L)</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Net Consumed</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'right' }}>Distance</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Engine Hours</th>
+                      <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', textAlign: 'center' }}>Status</th>
                     </>
                   )}
                 </tr>
@@ -874,43 +875,46 @@ const FuelReportsPage = ({ type: propType }) => {
                   const consumed = row.consumption != null ? parseFloat(row.consumption) : null;
                   const kmpl = row.kmpl != null ? parseFloat(row.kmpl) : null;
                   const lph = row.lph != null ? parseFloat(row.lph) : null;
+                  const bg = idx % 2 === 0 ? '#FFFFFF' : '#F8FAFC';
 
                   return (
                     <tr
                       key={row.vehicle_id || idx}
                       style={{
-                        borderBottom: '1px solid #F1F5F9',
-                        background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA',
-                        transition: 'background 0.15s ease'
+                        background: bg,
+                        transition: 'background 0.1s ease'
                       }}
                       onMouseEnter={e => e.currentTarget.style.background = '#F0F9FF'}
-                      onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA'}
+                      onMouseLeave={e => e.currentTarget.style.background = bg}
                     >
-                      <td style={{ padding: '10px 12px', textAlign: 'center', color: '#94A3B8', fontWeight: 600 }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', color: '#64748B', fontWeight: 600 }}>
                         {idx + 1}
                       </td>
 
                       {/* Vehicle Name */}
-                      <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                        <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '12.5px' }}>
-                          {row.vehicle_name || 'Vehicle'}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#64748B' }}>
-                          {row.plate || '-'}
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 800, color: '#0F172A', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>{row.vehicle_name || 'Vehicle'}</span>
+                          {row.plate && (
+                            <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, background: '#F1F5F9', padding: '1px 5px', borderRadius: '3px', border: '1px solid #E2E8F0' }}>
+                              {row.plate}
+                            </span>
+                          )}
                         </div>
                       </td>
 
                       {/* Category Badge */}
-                      <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>
+                      <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', whiteSpace: 'nowrap' }}>
                         <span style={{
-                          padding: '3px 8px',
-                          borderRadius: '999px',
-                          fontSize: '10.5px',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          fontSize: '10px',
                           fontWeight: 700,
                           textTransform: 'uppercase',
                           letterSpacing: '0.02em',
                           background: cat === 'generator' ? '#FEF3C7' : cat === 'machinery' ? '#E0E7FF' : cat === 'dispenser' ? '#CCFBF1' : '#F1F5F9',
-                          color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569'
+                          color: cat === 'generator' ? '#B45309' : cat === 'machinery' ? '#4338CA' : cat === 'dispenser' ? '#0F766E' : '#475569',
+                          border: '1px solid rgba(0,0,0,0.06)'
                         }}>
                           {cat}
                         </span>
@@ -919,22 +923,22 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* REFILL REPORT ROWS */}
                       {reportType === 'refill' && (
                         <>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
                             {refill > 0 ? (
                               <span style={{
-                                padding: '3px 10px',
-                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
                                 background: '#ECFDF5',
                                 border: '1px solid #A7F3D0',
                                 color: '#047857',
                                 fontWeight: 800,
-                                fontSize: '12px'
+                                fontSize: '11px'
                               }}>
                                 +{refill} L
                               </span>
@@ -942,26 +946,26 @@ const FuelReportsPage = ({ type: propType }) => {
                               <span style={{ color: '#94A3B8', fontWeight: 600 }}>0 L</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0284C7' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0284C7' }}>
                             {dispensed > 0 ? `${dispensed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#D97706' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
                             {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 14px', maxWidth: '240px', fontSize: '11px', color: '#334155', lineHeight: 1.3 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
                             {(row.start_lat && row.start_lng) ? (
                               <AddressText lat={row.start_lat} lng={row.start_lng} />
                             ) : (
                               <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                             {refill > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#059669', fontWeight: 700, fontSize: '11px' }}>
-                                <CheckCircle2 size={13} /> Refilled
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>
+                                <CheckCircle2 size={12} /> Refilled
                               </span>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '11px' }}>Normal</span>
+                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>Normal</span>
                             )}
                           </td>
                         </>
@@ -970,53 +974,53 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* THEFT REPORT ROWS */}
                       {reportType === 'theft' && (
                         <>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
                             {theft > 0 ? (
                               <span style={{
-                                padding: '4px 12px',
-                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
                                 background: '#FEF2F2',
                                 border: '1px solid #FECACA',
                                 color: '#DC2626',
                                 fontWeight: 800,
-                                fontSize: '13px'
+                                fontSize: '11px'
                               }}>
                                 -{theft} L
                               </span>
                             ) : (
-                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11.5px' }}>0 L</span>
+                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>0 L</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#059669' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#059669' }}>
                             {refill > 0 ? `+${refill} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#D97706' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#D97706' }}>
                             {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 14px', maxWidth: '240px', fontSize: '11px', color: '#334155', lineHeight: 1.3 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', maxWidth: '200px', fontSize: '10.5px', color: '#334155', lineHeight: 1.2 }}>
                             {(row.start_lat && row.start_lng) ? (
                               <AddressText lat={row.start_lat} lng={row.start_lng} />
                             ) : (
                               <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Location unavailable</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                             {theft >= 20 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#DC2626', fontWeight: 800, fontSize: '11px' }}>
-                                <AlertTriangle size={13} /> Critical Theft
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 800, fontSize: '10.5px' }}>
+                                <AlertTriangle size={12} /> Critical Theft
                               </span>
                             ) : theft > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#B45309', fontWeight: 700, fontSize: '11px' }}>
-                                <AlertTriangle size={13} /> Drop Detected
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#B45309', fontWeight: 700, fontSize: '10.5px' }}>
+                                <AlertTriangle size={12} /> Drop Detected
                               </span>
                             ) : (
-                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>Secure</span>
+                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Secure</span>
                             )}
                           </td>
                         </>
@@ -1025,51 +1029,32 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* CONSOLIDATED MASTER REPORT ROWS */}
                       {reportType === 'consolidated' && (
                         <>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
                             {row.distance_travelled || 0} km
                           </td>
-                          <td style={{ padding: '10px 12px', color: '#0284C7', fontWeight: 700 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 600 }}>
                             {formatHMS(row.engine_on_seconds)}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#059669' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>
                             {refill > 0 ? `+${refill}` : '0'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
                             {theft > 0 ? `-${theft}` : '0'}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                            {consumed != null ? (
-                              <span style={{
-                                padding: '3px 8px',
-                                borderRadius: '6px',
-                                background: '#FFF7ED',
-                                color: '#C2410C',
-                                fontWeight: 800,
-                                fontSize: '12px'
-                              }}>
-                                {consumed} L
-                              </span>
-                            ) : '-'}
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }}>
+                            {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                            {kmpl != null && kmpl > 0 ? (
-                              <span style={{ fontWeight: 800, color: kmpl >= 3 ? '#047857' : '#D97706' }}>
-                                {kmpl.toFixed(2)} km/L
-                              </span>
-                            ) : '-'}
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: kmpl >= 3 ? '#047857' : '#D97706' }}>
+                            {kmpl != null && kmpl > 0 ? `${kmpl.toFixed(2)} km/L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                            {lph != null && lph > 0 ? (
-                              <span style={{ fontWeight: 800, color: lph <= 3 ? '#0F766E' : '#7E22CE' }}>
-                                {lph.toFixed(2)} L/h
-                              </span>
-                            ) : '-'}
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: lph <= 3 ? '#0F766E' : '#7E22CE' }}>
+                            {lph != null && lph > 0 ? `${lph.toFixed(2)} L/h` : '-'}
                           </td>
                         </>
                       )}
@@ -1077,47 +1062,47 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* KMPL MILEAGE ROWS */}
                       {reportType === 'kmpl' && (
                         <>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#0F172A' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#0F172A' }}>
                             {row.distance_travelled || 0} km
                           </td>
-                          <td style={{ padding: '10px 12px', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {formatHMS(row.running_seconds)}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#D97706' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#D97706' }}>
                             {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
                             {kmpl != null && kmpl > 0 ? (
                               <span style={{
-                                padding: '4px 12px',
-                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
                                 background: kmpl >= 3.5 ? '#ECFDF5' : kmpl >= 2.0 ? '#FFFBEB' : '#FEF2F2',
                                 border: `1px solid ${kmpl >= 3.5 ? '#A7F3D0' : kmpl >= 2.0 ? '#FDE68A' : '#FECACA'}`,
                                 color: kmpl >= 3.5 ? '#047857' : kmpl >= 2.0 ? '#B45309' : '#DC2626',
                                 fontWeight: 800,
-                                fontSize: '13px'
+                                fontSize: '11px'
                               }}>
                                 {kmpl.toFixed(2)} km/L
                               </span>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>—</span>
+                              <span style={{ color: '#94A3B8' }}>—</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {row.avg_speed || 0} km/h
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {row.max_speed || 0} km/h
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                             {kmpl != null && kmpl >= 3.5 ? (
-                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '11px' }}>Optimal</span>
+                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Optimal</span>
                             ) : kmpl != null && kmpl >= 2.0 ? (
-                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '11px' }}>Moderate</span>
+                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Moderate</span>
                             ) : kmpl != null && kmpl > 0 ? (
-                              <span style={{ color: '#DC2626', fontWeight: 700, fontSize: '11px' }}>Low Mileage</span>
+                              <span style={{ color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>Low Mileage</span>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '11px' }}>—</span>
+                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
                             )}
                           </td>
                         </>
@@ -1126,47 +1111,47 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* LPH BURN RATE ROWS */}
                       {reportType === 'lph' && (
                         <>
-                          <td style={{ padding: '10px 14px', color: '#0284C7', fontWeight: 700 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#0284C7', fontWeight: 700 }}>
                             {formatHMS(row.engine_on_seconds)}
                           </td>
-                          <td style={{ padding: '10px 12px', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {formatHMS(row.running_seconds)}
                           </td>
-                          <td style={{ padding: '10px 12px', color: '#D97706', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#D97706', fontWeight: 600 }}>
                             {formatHMS(row.idle_seconds)}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#EA580C' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#EA580C' }}>
                             {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace' }}>
                             {lph != null && lph > 0 ? (
                               <span style={{
-                                padding: '4px 12px',
-                                borderRadius: '6px',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
                                 background: lph <= 2.5 ? '#F0FDFA' : lph <= 5.0 ? '#FFFBEB' : '#FAF5FF',
                                 border: `1px solid ${lph <= 2.5 ? '#99F6E4' : lph <= 5.0 ? '#FDE68A' : '#E9D5FF'}`,
                                 color: lph <= 2.5 ? '#0F766E' : lph <= 5.0 ? '#B45309' : '#7E22CE',
                                 fontWeight: 800,
-                                fontSize: '13px'
+                                fontSize: '11px'
                               }}>
                                 {lph.toFixed(2)} L/h
                               </span>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>—</span>
+                              <span style={{ color: '#94A3B8' }}>—</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                             {lph != null && lph <= 2.5 ? (
-                              <span style={{ color: '#0F766E', fontWeight: 700, fontSize: '11px' }}>Efficient</span>
+                              <span style={{ color: '#0F766E', fontWeight: 700, fontSize: '10.5px' }}>Efficient</span>
                             ) : lph != null && lph <= 5.0 ? (
-                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '11px' }}>Standard</span>
+                              <span style={{ color: '#D97706', fontWeight: 700, fontSize: '10.5px' }}>Standard</span>
                             ) : lph != null && lph > 0 ? (
-                              <span style={{ color: '#7E22CE', fontWeight: 700, fontSize: '11px' }}>High Burn</span>
+                              <span style={{ color: '#7E22CE', fontWeight: 700, fontSize: '10.5px' }}>High Burn</span>
                             ) : (
-                              <span style={{ color: '#94A3B8', fontSize: '11px' }}>—</span>
+                              <span style={{ color: '#94A3B8', fontSize: '10.5px' }}>—</span>
                             )}
                           </td>
-                          <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
                           </td>
                         </>
@@ -1175,48 +1160,34 @@ const FuelReportsPage = ({ type: propType }) => {
                       {/* CONSUMPTION REPORT ROWS */}
                       {reportType === 'consumption' && (
                         <>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.start_fuel != null ? `${row.start_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', color: '#334155' }}>
                             {row.end_fuel != null ? `${row.end_fuel} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: '#059669' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#059669' }}>
                             {refill > 0 ? `+${refill} L` : '0 L'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: theft > 0 ? '#DC2626' : '#94A3B8' }}>
                             {theft > 0 ? `-${theft} L` : '0 L'}
                           </td>
-                          <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                            {consumed != null ? (
-                              <span style={{
-                                padding: '3px 10px',
-                                borderRadius: '6px',
-                                background: '#FFF7ED',
-                                border: '1px solid #FFEDD5',
-                                color: '#C2410C',
-                                fontWeight: 800,
-                                fontSize: '12px'
-                              }}>
-                                {consumed} L
-                              </span>
-                            ) : (
-                              <span style={{ color: '#94A3B8' }}>-</span>
-                            )}
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#C2410C' }}>
+                            {consumed != null ? `${consumed} L` : '-'}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'right', fontWeight: 600, color: '#0F172A' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: '#0F172A' }}>
                             {row.distance_travelled || 0} km
                           </td>
-                          <td style={{ padding: '10px 12px', color: '#475569', fontWeight: 600 }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center', fontFamily: 'monospace', color: '#475569', fontWeight: 600 }}>
                             {formatHMS(row.engine_on_seconds)}
                           </td>
-                          <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <td style={{ padding: '4px 8px', border: '1px solid #CBD5E1', textAlign: 'center' }}>
                             {theft > 0 ? (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#DC2626', fontWeight: 700, fontSize: '11px' }}>
-                                <AlertTriangle size={13} /> Fuel Theft
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', color: '#DC2626', fontWeight: 700, fontSize: '10.5px' }}>
+                                <AlertTriangle size={12} /> Fuel Theft
                               </span>
                             ) : (
-                              <span style={{ color: '#059669', fontWeight: 600, fontSize: '11px' }}>Normal</span>
+                              <span style={{ color: '#059669', fontWeight: 700, fontSize: '10.5px' }}>Normal</span>
                             )}
                           </td>
                         </>
