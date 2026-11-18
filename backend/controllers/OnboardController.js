@@ -186,11 +186,19 @@ const OnboardController = {
       // ── Database duplicate checks for single/form onboarding ─────
       const formImeis = Array.from(seenImeisForm.keys());
       if (formImeis.length > 0) {
-        const existingDev = await client.query(`SELECT device_id FROM devices WHERE device_id = ANY($1::text[])`, [formImeis]);
+        // Only reject if device is already actively assigned to a vehicle in devices table
+        const existingDev = await client.query(
+          `SELECT device_id FROM devices WHERE device_id = ANY($1::text[]) AND vehicle_id IS NOT NULL AND TRIM(vehicle_id) != ''`,
+          [formImeis]
+        );
         if (existingDev.rows.length > 0) {
-          throw new Error(`Device with IMEI "${existingDev.rows[0].device_id}" is already registered in the system.`);
+          throw new Error(`Device with IMEI "${existingDev.rows[0].device_id}" is already registered and assigned to an existing vehicle in the system.`);
         }
-        const existingVeh = await client.query(`SELECT imei FROM vehicles WHERE imei = ANY($1::text[])`, [formImeis]);
+        // Only reject if vehicle is active
+        const existingVeh = await client.query(
+          `SELECT imei FROM vehicles WHERE imei = ANY($1::text[]) AND is_active = TRUE`,
+          [formImeis]
+        );
         if (existingVeh.rows.length > 0) {
           throw new Error(`Vehicle with IMEI "${existingVeh.rows[0].imei}" is already registered in the system.`);
         }
@@ -458,10 +466,18 @@ const OnboardController = {
       // ── 2. Pre-fetch existing database records for duplicate detection ──
       const existingImeisSet = new Set();
       if (rawImeisList.length > 0) {
-        const dbDevRes = await client.query(`SELECT device_id FROM devices WHERE device_id = ANY($1::text[])`, [rawImeisList]);
+        // Only treat as occupied if device is actively bound to a vehicle
+        const dbDevRes = await client.query(
+          `SELECT device_id FROM devices WHERE device_id = ANY($1::text[]) AND vehicle_id IS NOT NULL AND TRIM(vehicle_id) != ''`,
+          [rawImeisList]
+        );
         dbDevRes.rows.forEach(r => { if (r.device_id) existingImeisSet.add(String(r.device_id).trim()); });
 
-        const dbVehRes = await client.query(`SELECT imei FROM vehicles WHERE imei = ANY($1::text[])`, [rawImeisList]);
+        // Only treat as occupied if vehicle is active
+        const dbVehRes = await client.query(
+          `SELECT imei FROM vehicles WHERE imei = ANY($1::text[]) AND is_active = TRUE`,
+          [rawImeisList]
+        );
         dbVehRes.rows.forEach(r => { if (r.imei) existingImeisSet.add(String(r.imei).trim()); });
       }
 

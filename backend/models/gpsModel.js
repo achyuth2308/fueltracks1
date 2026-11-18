@@ -926,11 +926,19 @@ const GpsModel = {
     );
     let total = parseInt(countResult.rows[0]?.count || 0);
     let useGpsFallback = false;
-    let fallbackWhere = 'WHERE v.imei = $1';
-    let fallbackParams = [imei];
+    let fallbackWhere = 'WHERE gp.vehicle_id = $1';
+    let fallbackParams = [];
     let fallbackIdx = 2;
 
     if (total === 0) {
+      // Check if vehicle exists before attempting fallback to avoid full table scans on unknown IMEIs
+      const vehRes = await db.query('SELECT id FROM vehicles WHERE imei = $1 LIMIT 1', [imei]);
+      if (vehRes.rows.length === 0) {
+        return { messages: [], pagination: { page, limit, total: 0, totalPages: 1 } };
+      }
+      const vehicleId = vehRes.rows[0].id;
+      fallbackParams.push(vehicleId);
+
       if (startTs) {
         fallbackWhere += ` AND gp.device_time >= $${fallbackIdx}::timestamptz`;
         fallbackParams.push(startTs);
@@ -942,7 +950,7 @@ const GpsModel = {
         fallbackIdx++;
       }
       const gpCount = await db.query(
-        `SELECT COUNT(*) FROM gps_points gp JOIN vehicles v ON gp.vehicle_id = v.id ${fallbackWhere}`,
+        `SELECT COUNT(*) FROM gps_points gp ${fallbackWhere}`,
         fallbackParams
       );
       const gpTotal = parseInt(gpCount.rows[0]?.count || 0);

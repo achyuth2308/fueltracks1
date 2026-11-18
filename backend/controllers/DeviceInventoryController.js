@@ -146,7 +146,7 @@ const DeviceInventoryController = {
           // Fallback to vehicles table if device was onboarded with vehicle
           try {
             const vehRes = await client.query(
-              `SELECT plate, name, model, gps_sim_no, metadata, created_at FROM vehicles WHERE imei = $1 OR (metadata IS NOT NULL AND (metadata->>'imei' = $1 OR metadata->>'vlttdSlno' = $1)) LIMIT 1`,
+              `SELECT plate, name, model, gps_sim_no, metadata, created_at FROM vehicles WHERE (imei = $1 OR (metadata IS NOT NULL AND (metadata->>'imei' = $1 OR metadata->>'vlttdSlno' = $1))) AND is_active = TRUE LIMIT 1`,
               [cleanImei]
             );
             if (vehRes.rows.length > 0) {
@@ -165,10 +165,12 @@ const DeviceInventoryController = {
                 sim_no: v.gps_sim_no || meta.sim1 || meta.gpsSimNo || null,
                 batch_name: 'Vehicle_Metadata',
                 created_at: meta.installedDate || meta.onboardingDate || v.created_at,
-                updated_at: new Date()
+                updated_at: new Date(),
+                is_assigned: true,
+                source: 'vehicles'
               };
               inventoryCache.set(cleanImei, synthesized);
-              return res.json({ success: true, data: synthesized, fromCache: false, source: 'vehicles' });
+              return res.json({ success: true, data: synthesized, fromCache: false, is_assigned: true, source: 'vehicles' });
             }
           } catch (_) {}
 
