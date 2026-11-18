@@ -424,9 +424,9 @@ const OnBoardDevicePage = () => {
 
     try {
       const res = await adminApi.lookupImei(imei);
-      // ONLY reject if the device is explicitly assigned to an active vehicle or device
+      // ONLY reject if the device is explicitly assigned to an active vehicle
       const isAlreadyAssigned = Boolean(
-        res && res.success && res.data && (res.data.is_assigned === true || res.data.source === 'devices' || res.data.source === 'vehicles')
+        res && res.success && res.data && res.data.is_assigned === true
       );
 
       if (isAlreadyAssigned) {
@@ -467,19 +467,23 @@ const OnBoardDevicePage = () => {
   };
 
   const updateDevice = (index, field, value) => {
-    const updated = [...devices];
-    const prevVehicleId = updated[index].vehicleId;
     // Strict IMEI Enforcement: numeric digits only, max 15
     if (field === 'deviceId') {
       value = String(value || '').replace(/\D/g, '').slice(0, 15);
     }
-    updated[index][field] = value;
-    if (field === 'vehicleId') {
-      if (!updated[index].vehicleName || updated[index].vehicleName === prevVehicleId) {
-        updated[index].vehicleName = value;
-      }
-    }
-    setDevices(updated);
+
+    setDevices(prev => {
+      return prev.map((item, i) => {
+        if (i !== index) return item;
+        const nextItem = { ...item, [field]: value };
+        if (field === 'vehicleId') {
+          if (!nextItem.vehicleName || nextItem.vehicleName === item.vehicleId) {
+            nextItem.vehicleName = value;
+          }
+        }
+        return nextItem;
+      });
+    });
 
     if (field === 'deviceId') {
       if (imeiDebounceTimers.current[index]) {
@@ -487,7 +491,7 @@ const OnBoardDevicePage = () => {
       }
       if (value.length === 15) {
         // 1. Instant check for duplicates in other rows
-        const duplicateInForm = updated.some((d, dIdx) => dIdx !== index && String(d.deviceId || '').trim() === value);
+        const duplicateInForm = devices.some((d, dIdx) => dIdx !== index && String(d.deviceId || '').trim() === value);
         if (duplicateInForm) {
           setImeiStatus(prev => ({ ...prev, [index]: 'exists' }));
           setImeiErrorMsg(prev => ({ ...prev, [index]: 'IMEI already entered in another row' }));
@@ -497,7 +501,7 @@ const OnBoardDevicePage = () => {
         // 2. Query server for verification and auto-fill
         setImeiStatus(prev => ({ ...prev, [index]: 'checking' }));
         imeiDebounceTimers.current[index] = setTimeout(() => {
-          checkImeiExists(value, index, updated);
+          checkImeiExists(value, index);
         }, 150);
       } else {
         setImeiStatus(prev => ({ ...prev, [index]: null }));

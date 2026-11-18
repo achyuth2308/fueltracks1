@@ -126,19 +126,21 @@ const DeviceInventoryController = {
           // Check devices table first
           try {
             const devRes = await client.query(
-              `SELECT device_id, device_type, created_at FROM devices WHERE device_id = $1 LIMIT 1`,
+              `SELECT device_id, device_type, created_at, vehicle_id FROM devices WHERE device_id = $1 LIMIT 1`,
               [cleanImei]
             );
             if (devRes.rows.length > 0) {
               const d = devRes.rows[0];
+              const isAssigned = Boolean(d.vehicle_id && String(d.vehicle_id).trim() !== '');
               const synthesized = {
                 imei: cleanImei,
                 device_model: d.device_type,
                 created_at: d.created_at,
-                source: 'devices'
+                is_assigned: isAssigned,
+                source: isAssigned ? 'devices' : 'inventory'
               };
               inventoryCache.set(cleanImei, synthesized);
-              return res.json({ success: true, data: synthesized, fromCache: false, source: 'devices' });
+              return res.json({ success: true, data: synthesized, fromCache: false, is_assigned: isAssigned, source: synthesized.source });
             }
           } catch (_) {}
           // Fallback to vehicles table if device was onboarded with vehicle
@@ -182,7 +184,7 @@ const DeviceInventoryController = {
         let assignedSource = null;
         try {
           const devRes = await client.query(
-            `SELECT device_id FROM devices WHERE device_id = $1 LIMIT 1`,
+            `SELECT device_id FROM devices WHERE device_id = $1 AND vehicle_id IS NOT NULL AND TRIM(vehicle_id) != '' LIMIT 1`,
             [cleanImei]
           );
           if (devRes.rows.length > 0) {
