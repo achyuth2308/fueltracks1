@@ -2365,8 +2365,8 @@ export default function FuelAnalyticsPage() {
                                   </span>
                                 </div>
 
-                                {/* Normalize */}
-                                {(showNormalize || showConsumptionLayer) && (
+                                {/* Normalize (Admin Diagnostic Only) */}
+                                {showAdminDiagnostics && showNormalize && (
                                   <div className="flex items-center justify-between gap-4">
                                     <span className="text-red-400 font-semibold flex items-center gap-1.5">
                                       <span className="w-2 h-2 rounded-full bg-red-500" />
@@ -2378,8 +2378,8 @@ export default function FuelAnalyticsPage() {
                                   </div>
                                 )}
 
-                                {/* All Fuel Data */}
-                                {showAllFuel && (
+                                {/* All Fuel Data (Admin Diagnostic Only) */}
+                                {showAdminDiagnostics && showAllFuel && (
                                   <div className="flex items-center justify-between gap-4 text-slate-300">
                                     <span className="flex items-center gap-1.5">
                                       <span className="w-2 h-2 rounded-full bg-slate-400" />
@@ -2434,8 +2434,8 @@ export default function FuelAnalyticsPage() {
                         />
                       )}
 
-                      {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line) */}
-                      {showAllFuel && (
+                      {/* 2. All Fuel Data (Raw Telemetry Scatter/Dashed Line - Admin Diagnostic Only) */}
+                      {showAdminDiagnostics && showAllFuel && (
                         <Line
                           yAxisId="fuel"
                           type="linear"
@@ -2476,8 +2476,8 @@ export default function FuelAnalyticsPage() {
                         />
                       )}
 
-                      {/* 5. Master Hero: Normalize / Consumption Line (RED) */}
-                      {(showNormalize || showConsumptionLayer) && (
+                      {/* 5. Master Hero: Normalize / Consumption Line (RED - Admin Diagnostic Only) */}
+                      {showAdminDiagnostics && showNormalize && (
                         <Line
                           yAxisId="fuel"
                           type="monotone"
@@ -3134,9 +3134,9 @@ export default function FuelAnalyticsPage() {
                         <th className="px-3.5 py-2.5">Timestamp (IST)</th>
                         <th className="px-3.5 py-2.5">Speed</th>
                         <th className="px-3.5 py-2.5">Engine Status</th>
-                        <th className="px-3.5 py-2.5">Raw Fuel</th>
+                        {showAdminDiagnostics && <th className="px-3.5 py-2.5">Raw Fuel</th>}
                         <th className="px-3.5 py-2.5">Filtered Fuel</th>
-                        <th className="px-3.5 py-2.5">Normalized Fuel</th>
+                        {showAdminDiagnostics && <th className="px-3.5 py-2.5">Normalized Fuel</th>}
                         <th className="px-3.5 py-2.5">Odometer</th>
                         <th className="px-3.5 py-2.5">Voltage</th>
                         <th className="px-3.5 py-2.5">Classification</th>
@@ -3145,7 +3145,7 @@ export default function FuelAnalyticsPage() {
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
                       {paginatedRawRows.length === 0 ? (
                         <tr>
-                          <td colSpan="10" className="px-4 py-12 text-center text-slate-400">
+                          <td colSpan={showAdminDiagnostics ? 10 : 8} className="px-4 py-12 text-center text-slate-400">
                             {loading ? 'Fetching telemetry packets...' : 'No telemetry packets recorded for this period.'}
                           </td>
                         </tr>
@@ -3171,15 +3171,19 @@ export default function FuelAnalyticsPage() {
                                 {r.status}
                               </span>
                             </td>
-                            <td className="px-3.5 py-2 font-mono font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                              {r.rawFuel != null ? `${r.rawFuel} L` : '—'}
-                            </td>
+                            {showAdminDiagnostics && (
+                              <td className="px-3.5 py-2 font-mono font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                                {r.rawFuel != null ? `${r.rawFuel} L` : '—'}
+                              </td>
+                            )}
                             <td className="px-3.5 py-2 font-mono font-semibold text-sky-600 dark:text-sky-400 whitespace-nowrap">
                               {r.filteredFuel != null ? `${r.filteredFuel} L` : '—'}
                             </td>
-                            <td className="px-3.5 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
-                              {r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—'}
-                            </td>
+                            {showAdminDiagnostics && (
+                              <td className="px-3.5 py-2 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                                {r.normalizedFuel != null ? `${r.normalizedFuel} L` : '—'}
+                              </td>
+                            )}
                             <td className="px-3.5 py-2 font-mono text-slate-600 dark:text-slate-400 whitespace-nowrap">
                               {r.odometer !== '—' ? `${r.odometer} km` : '—'}
                             </td>
