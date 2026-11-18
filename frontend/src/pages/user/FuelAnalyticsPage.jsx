@@ -1795,18 +1795,18 @@ export default function FuelAnalyticsPage() {
         </div>
 
         {/* ── LINE 2: CONTROLS BAR (Group, Vehicle, From, To, Interval, Apply) ── */}
-        <div className="relative z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 px-4 py-3 rounded-2xl shadow-sm">
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+        <div className="relative z-50 bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 px-3.5 py-2.5 rounded-xl shadow-sm">
+          <div className="flex flex-wrap items-center gap-2">
             
             {/* Group Selector Dropdown */}
-            <div className="relative min-w-[140px] sm:min-w-[170px] shrink-0" ref={groupDropdownRef}>
+            <div className="relative min-w-[125px] sm:min-w-[145px] shrink-0" ref={groupDropdownRef}>
               <button
                 type="button"
                 onClick={() => {
                   setIsGroupDropdownOpen(!isGroupDropdownOpen);
                   setIsDropdownOpen(false);
                 }}
-                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                className="w-full h-[34px] flex items-center justify-between gap-1.5 px-2.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-lg text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-xs"
                 title="Filter vehicles by fleet group"
               >
                 <div className="flex items-center gap-1.5 truncate">
@@ -1917,11 +1917,11 @@ export default function FuelAnalyticsPage() {
             </div>
 
             {/* Custom Searchable Vehicle Dropdown */}
-            <div className="relative min-w-[200px] sm:min-w-[260px] shrink-0" ref={dropdownRef}>
+            <div className="relative min-w-[165px] sm:min-w-[195px] shrink-0" ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                className="w-full flex items-center justify-between gap-2 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-sm"
+                className="w-full h-[34px] flex items-center justify-between gap-1.5 px-2.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-lg text-left text-xs font-medium hover:border-emerald-500 dark:hover:border-emerald-500 transition-all shadow-xs"
               >
                 <div className="flex items-center gap-2 truncate">
                   <span className={`w-2 h-2 rounded-full shrink-0 ${
@@ -2037,7 +2037,7 @@ export default function FuelAnalyticsPage() {
               onClick={() => {
                 try { startInputRef.current?.showPicker?.(); } catch (e) { startInputRef.current?.focus?.(); }
               }}
-              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-emerald-500 transition-colors cursor-pointer shrink-0"
+              className="relative h-[34px] flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 shadow-xs hover:border-emerald-500 transition-colors cursor-pointer shrink-0"
               title="Click to select start date and time"
             >
               <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
@@ -2072,7 +2072,7 @@ export default function FuelAnalyticsPage() {
               onClick={() => {
                 try { endInputRef.current?.showPicker?.(); } catch (e) { endInputRef.current?.focus?.(); }
               }}
-              className="relative flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm hover:border-cyan-500 transition-colors cursor-pointer shrink-0"
+              className="relative h-[34px] flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 shadow-xs hover:border-cyan-500 transition-colors cursor-pointer shrink-0"
               title="Click to select end date and time"
             >
               <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400 shrink-0 pointer-events-none">
@@ -2104,7 +2104,7 @@ export default function FuelAnalyticsPage() {
             </div>
 
             {/* Sampling Interval Selector */}
-            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-xl px-3 py-2 shadow-sm shrink-0">
+            <div className="h-[34px] flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700/80 rounded-lg px-2.5 shadow-xs shrink-0">
               <div className="flex items-center gap-1 text-slate-500 dark:text-slate-400">
                 <Sliders className="w-3.5 h-3.5 text-blue-500 shrink-0" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Interval</span>
@@ -2128,7 +2128,7 @@ export default function FuelAnalyticsPage() {
               type="button"
               onClick={() => fetchVehicleFuelData(customStart, customEnd)}
               disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-emerald-500/20 disabled:opacity-50 shrink-0"
+              className="h-[34px] flex items-center gap-1.5 px-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs shadow-emerald-500/20 disabled:opacity-50 shrink-0"
               title="Apply Date-Time Range"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -2145,10 +2145,118 @@ export default function FuelAnalyticsPage() {
           </div>
         )}
 
+        {/* ── HIGH-LEVEL FUEL INTELLIGENCE KPI HERO STRIP (ABOVE GRAPH) ── */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-4 py-3 shadow-xs">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 shrink-0">
+              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                <Flame className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
+                    Fuel Intelligence
+                  </span>
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Live Engine
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400">Instant event telemetry for selected range</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 max-w-3xl lg:ml-4">
+              {/* 1. Refill */}
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
+                showRefillEvents
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-xs ring-1 ring-emerald-500/20'
+                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showRefillEvents}
+                    onChange={(e) => setShowRefillEvents(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                      Refills
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {processedData.refuels.length} refuels
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
+                  +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
+                </span>
+              </label>
+
+              {/* 2. Theft / Drain */}
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
+                showTheftEvents
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-xs ring-1 ring-rose-500/20'
+                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showTheftEvents}
+                    onChange={(e) => setShowTheftEvents(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      Theft / Drain
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {processedData.drops.length} siphons
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
+                  -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
+                </span>
+              </label>
+
+              {/* 3. Consumption */}
+              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
+                showConsumptionLayer
+                  ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-xs ring-1 ring-sky-500/20'
+                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={showConsumptionLayer}
+                    onChange={(e) => setShowConsumptionLayer(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                  />
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                      Consumption
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Burn ({processedData.mileageKmpl} km/L)
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
+                  {processedData.fuelConsumed.toFixed(1)} L
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
           
-          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-3 pb-2 border-b border-slate-100 dark:border-slate-800/80">
             <div>
               <h2 className="text-lg font-bold flex items-center gap-2">
                 <Sliders className="w-5 h-5 text-emerald-500" />
@@ -2159,15 +2267,15 @@ export default function FuelAnalyticsPage() {
               </p>
             </div>
 
-            {/* 5-Layer Telematics Visibility Toggles inside Graph Card */}
-            <div className="flex items-center flex-wrap gap-2 shrink-0">
+            {/* 5-Layer Telematics Visibility Toggles inside Graph Header */}
+            <div className="flex items-center flex-wrap gap-1.5 shrink-0">
               {/* Layer 1: All Fuel Data */}
               <button
                 type="button"
                 onClick={() => setShowAllFuel(!showAllFuel)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showAllFuel
-                    ? 'bg-slate-200 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 border-slate-400/60 shadow-sm'
+                    ? 'bg-slate-200 dark:bg-slate-700/80 text-slate-900 dark:text-slate-100 border-slate-400/60 shadow-xs'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
@@ -2180,9 +2288,9 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowFilteredFuel(!showFilteredFuel)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showFilteredFuel
-                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-400/60 shadow-sm ring-1 ring-sky-500/20'
+                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border-sky-400/60 shadow-xs ring-1 ring-sky-500/20'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Anti-Slosh Smoothed Fuel Curve"
@@ -2195,9 +2303,9 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowNormalize(!showNormalize)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showNormalize
-                    ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-400/60 shadow-sm ring-1 ring-rose-500/20'
+                    ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border-rose-400/60 shadow-xs ring-1 ring-rose-500/20'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Monotonic Physical Reality Consumption Curve"
@@ -2210,9 +2318,9 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowEngine(!showEngine)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showEngine
-                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-400/60 shadow-sm ring-1 ring-amber-500/20'
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-400/60 shadow-xs ring-1 ring-amber-500/20'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Engine Ignition Status"
@@ -2225,9 +2333,9 @@ export default function FuelAnalyticsPage() {
               <button
                 type="button"
                 onClick={() => setShowSpeed(!showSpeed)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer select-none ${
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-semibold transition-all cursor-pointer select-none ${
                   showSpeed
-                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border-cyan-400/60 shadow-sm ring-1 ring-cyan-500/20'
+                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border-cyan-400/60 shadow-xs ring-1 ring-cyan-500/20'
                     : 'bg-slate-50 dark:bg-slate-800/50 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border-dashed border-slate-200 dark:border-slate-700/60'
                 }`}
                 title="Toggle Speed Secondary Axis"
@@ -2238,12 +2346,9 @@ export default function FuelAnalyticsPage() {
             </div>
           </div>
 
-          {/* Side-by-Side: Correlation Graph on Left + Fuel Intelligence Panel on Right */}
-          <div className="flex flex-col lg:flex-row gap-5 items-stretch pt-2">
-            
-            {/* Left: Correlation Graph (Reduced horizontally towards left) */}
-            <div className="flex-1 min-w-0">
-              <div className="h-[390px] w-full">
+          {/* Graph (Full Width) */}
+          <div className="w-full pt-2">
+            <div className="h-[390px] w-full">
                 {loading ? (
                   <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
                     <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
@@ -2665,321 +2770,99 @@ export default function FuelAnalyticsPage() {
                 )}
               </div>
             </div>
+          </div>
 
-            {/* Right Column: Dedicated Fuel Intelligence & Event Layer Control Panel (Compact & Sleek) */}
-            <div className="w-full lg:w-[220px] xl:w-[230px] shrink-0 flex flex-col justify-between bg-slate-50/80 dark:bg-slate-800/60 backdrop-blur-md rounded-2xl p-3 border border-slate-200/80 dark:border-slate-700/70 shadow-sm">
-              <div className="space-y-2.5">
-                {/* Panel Title */}
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700/80 pb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Flame className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                      Fuel Intelligence
-                    </span>
-                  </div>
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Live Engine
-                  </span>
-                </div>
+        {/* ── QUICK NAVIGATION TABLE SHORTCUTS STRIP ── */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-4 py-2.5 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Detailed Telemetry Tables:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* 1. Raw Fuel Data */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTableTab(prev => prev === 'raw' ? null : 'raw');
+                  setTimeout(() => {
+                    const el = document.getElementById('analytics-tables-container');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-xs font-bold cursor-pointer shadow-xs ${
+                  activeTableTab === 'raw'
+                    ? 'bg-sky-600 text-white ring-2 ring-sky-500/40 shadow-sky-500/20'
+                    : 'bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-slate-200 dark:border-slate-700 hover:border-sky-300'
+                }`}
+                title="Toggle On-Demand Raw Fuel Telemetry Table"
+              >
+                <Database className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'raw' ? 'text-white' : 'text-sky-500'}`} />
+                <span>1. Raw Fuel Data</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full shrink-0 ${
+                  activeTableTab === 'raw' ? 'bg-white/25 text-white font-bold' : 'bg-sky-500/15 text-sky-700 dark:text-sky-300'
+                }`}>
+                  {processedRawRows.length}
+                </span>
+              </button>
 
-                {/* 3 Interactive Layer Checkboxes */}
-                <div className="space-y-2">
-                  {/* 1. Refill Checkbox */}
-                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
-                    showRefillEvents
-                      ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-sm ring-1 ring-emerald-500/20'
-                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={showRefillEvents}
-                      onChange={(e) => setShowRefillEvents(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          1. Refill
-                        </span>
-                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
-                          +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                        {processedData.refuels.length} refuels (settled)
-                      </p>
-                    </div>
-                  </label>
+              {/* 2. Refill History */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTableTab(prev => prev === 'refills' ? null : 'refills');
+                  setTimeout(() => {
+                    const el = document.getElementById('analytics-tables-container');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-xs font-bold cursor-pointer shadow-xs ${
+                  activeTableTab === 'refills'
+                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40 shadow-emerald-500/20'
+                    : 'bg-white dark:bg-slate-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-slate-200 dark:border-slate-700 hover:border-emerald-300'
+                }`}
+                title="Toggle Detected Refuels & Event History"
+              >
+                <Fuel className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'refills' ? 'text-white' : 'text-emerald-500'}`} />
+                <span>2. Refill History</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full shrink-0 ${
+                  activeTableTab === 'refills' ? 'bg-white/25 text-white font-bold' : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                }`}>
+                  {processedData.refuels.length}
+                </span>
+              </button>
 
-                  {/* 2. Theft / Drain Checkbox */}
-                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
-                    showTheftEvents
-                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-sm ring-1 ring-rose-500/20'
-                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={showTheftEvents}
-                      onChange={(e) => setShowTheftEvents(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                          2. Theft / Drain
-                        </span>
-                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
-                          -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                        {processedData.drops.length} siphons verified
-                      </p>
-                    </div>
-                  </label>
-
-                  {/* 3. Consumption Checkbox */}
-                  <label className={`flex items-start gap-2 p-2 rounded-xl border transition-all cursor-pointer select-none ${
-                    showConsumptionLayer
-                      ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-sm ring-1 ring-sky-500/20'
-                      : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
-                  }`}>
-                    <input
-                      type="checkbox"
-                      checked={showConsumptionLayer}
-                      onChange={(e) => setShowConsumptionLayer(e.target.checked)}
-                      className="mt-0.5 w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                          3. Consumption
-                        </span>
-                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
-                          {processedData.fuelConsumed.toFixed(1)} L
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight mt-0.5">
-                        Burn ({processedData.mileageKmpl} km/L)
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* 3 Highlighted Quick Navigation Links */}
-                <div className="pt-2.5 border-t border-slate-200/80 dark:border-slate-700/80 space-y-1.5">
-                  <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 block px-0.5">
-                    Quick Navigation
-                  </span>
-
-                  {/* 1. Raw Fuel Data */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTableTab(prev => prev === 'raw' ? null : 'raw');
-                      setTimeout(() => {
-                        const el = document.getElementById('analytics-tables-container');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 50);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
-                      activeTableTab === 'raw'
-                        ? 'bg-sky-600 text-white ring-2 ring-sky-500/40 shadow-sky-500/20'
-                        : 'bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 border border-sky-300/60 dark:border-sky-800/60'
-                    }`}
-                    title="Toggle On-Demand Raw Fuel Telemetry Table"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Database className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'raw' ? 'text-white' : 'text-sky-500'}`} />
-                      <span className="truncate">1. Raw Fuel Data</span>
-                    </span>
-                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
-                      activeTableTab === 'raw' ? 'bg-white/25 text-white font-bold' : 'bg-sky-500/20 text-sky-700 dark:text-sky-300'
-                    }`}>
-                      {processedRawRows.length}
-                    </span>
-                  </button>
-
-                  {/* 2. Refill History */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTableTab(prev => prev === 'refills' ? null : 'refills');
-                      setTimeout(() => {
-                        const el = document.getElementById('analytics-tables-container');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 50);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
-                      activeTableTab === 'refills'
-                        ? 'bg-emerald-600 text-white ring-2 ring-emerald-500/40 shadow-emerald-500/20'
-                        : 'bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300/60 dark:border-emerald-800/60'
-                    }`}
-                    title="Toggle Detected Refuels & Event History"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <Fuel className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'refills' ? 'text-white' : 'text-emerald-500'}`} />
-                      <span className="truncate">2. Refill History</span>
-                    </span>
-                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
-                      activeTableTab === 'refills' ? 'bg-white/25 text-white font-bold' : 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-                    }`}>
-                      {processedData.refuels.length}
-                    </span>
-                  </button>
-
-                  {/* 3. Consumption Rate */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setActiveTableTab(prev => prev === 'consumption' ? null : 'consumption');
-                      setTimeout(() => {
-                        const el = document.getElementById('analytics-tables-container');
-                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }, 50);
-                    }}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all text-[11px] font-bold cursor-pointer shadow-xs ${
-                      activeTableTab === 'consumption'
-                        ? 'bg-amber-600 text-white ring-2 ring-amber-500/40 shadow-amber-500/20'
-                        : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-300 border border-amber-300/60 dark:border-amber-800/60'
-                    }`}
-                    title="Toggle Trip & Consumption Breakdown Table"
-                  >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'consumption' ? 'text-white' : 'text-amber-500'}`} />
-                      <span className="truncate">3. Consumption Rate</span>
-                    </span>
-                    <span className={`text-[9px] font-mono px-1 py-0.2 rounded shrink-0 ${
-                      activeTableTab === 'consumption' ? 'bg-white/25 text-white font-bold' : 'bg-amber-500/20 text-amber-700 dark:text-amber-300'
-                    }`}>
-                      {processedData.mileageKmpl} km/L
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Quick Help Note */}
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700/80 text-[9px] text-slate-400 flex items-center justify-between">
-                <span>Hover curve for event</span>
-                <span className="font-mono text-slate-500">5-10m settling</span>
-              </div>
+              {/* 3. Consumption Rate */}
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTableTab(prev => prev === 'consumption' ? null : 'consumption');
+                  setTimeout(() => {
+                    const el = document.getElementById('analytics-tables-container');
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 50);
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-xs font-bold cursor-pointer shadow-xs ${
+                  activeTableTab === 'consumption'
+                    ? 'bg-amber-600 text-white ring-2 ring-amber-500/40 shadow-amber-500/20'
+                    : 'bg-white dark:bg-slate-800 hover:bg-amber-50 dark:hover:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-slate-200 dark:border-slate-700 hover:border-amber-300'
+                }`}
+                title="Toggle Trip & Consumption Breakdown Table"
+              >
+                <TrendingUp className={`w-3.5 h-3.5 shrink-0 ${activeTableTab === 'consumption' ? 'text-white' : 'text-amber-500'}`} />
+                <span>3. Consumption Rate</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full shrink-0 ${
+                  activeTableTab === 'consumption' ? 'bg-white/25 text-white font-bold' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                }`}>
+                  {processedData.mileageKmpl} km/L
+                </span>
+              </button>
             </div>
           </div>
         </div>
 
-        {/* ── 2. TELEMETRY EXECUTIVE STATS BOARD (ULTRA-SLIM COMPACT STRIP) ── */}
-        <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 divide-y sm:divide-y-0 sm:divide-x divide-slate-200/80 dark:divide-slate-800/80">
 
-            {/* SECTION 1: ENGINE STATUS */}
-            <div className="py-2 px-3 flex flex-col justify-center">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Engine Status</span>
-                <Activity className="w-3 h-3 text-slate-400" />
-              </div>
-              <div className="flex items-center gap-1.5 my-0.5">
-                {processedData.currentStatus === 'ON (Moving)' && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    ON (Moving)
-                  </span>
-                )}
-                {processedData.currentStatus === 'ON (Idle)' && (
-                  <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400">
-                    <Flame className="w-3 h-3 text-amber-500" />
-                    ON (Idle)
-                  </span>
-                )}
-                {processedData.currentStatus === 'OFF' && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    OFF
-                  </span>
-                )}
-              </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                Mov: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.movingHours}h</strong> • Idle: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.idleHours}h</strong>
-              </div>
-            </div>
-
-            {/* SECTION 2: SPEED METRICS */}
-            <div className="py-2 px-3 flex flex-col justify-center">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Speed</span>
-                <Gauge className="w-3 h-3 text-cyan-500" />
-              </div>
-              <div className="flex items-baseline gap-1 my-0.5">
-                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
-                  {processedData.currentSpeed}
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold">km/h</span>
-              </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                Max: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.maxSpeed}</strong> • Avg: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.avgSpeed} km/h</strong>
-              </div>
-            </div>
-
-            {/* SECTION 3: LIVE FUEL LEVEL */}
-            <div className="py-2 px-3 flex flex-col justify-center">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Fuel Level</span>
-                <span className="text-[10px] font-bold text-emerald-500">{fuelPercent}%</span>
-              </div>
-              <div className="flex items-baseline gap-1 my-0.5">
-                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {processedData.currentFuel}
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold">L</span>
-                <span className="text-[9px] text-slate-400">/ {tankCapacity}L</span>
-              </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                Start: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.startFuel}L</strong> • End: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.endFuel}L</strong>
-              </div>
-            </div>
-
-            {/* SECTION 4: DISTANCE TRAVELED */}
-            <div className="py-2 px-3 flex flex-col justify-center">
-              <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 mb-0.5">
-                <span className="text-[10px] font-semibold uppercase tracking-wider">Distance</span>
-                <Compass className="w-3 h-3 text-violet-500" />
-              </div>
-              <div className="flex items-baseline gap-1 my-0.5">
-                <span className="text-lg font-black font-mono tracking-tight text-slate-900 dark:text-white">
-                  {processedData.totalDistance}
-                </span>
-                <span className="text-[10px] text-slate-400 font-semibold">km</span>
-              </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                Period: <strong className="text-slate-700 dark:text-slate-300 font-mono">{activePreset}</strong> • Odo: <strong className="text-slate-700 dark:text-slate-300 font-mono">{selectedVehicle?.odometer ? Math.round(selectedVehicle.odometer) : '—'}</strong>
-              </div>
-            </div>
-
-            {/* SECTION 5: HERO FUEL ECONOMY & MILEAGE */}
-            <div className="py-2 px-3 flex flex-col justify-center bg-emerald-500/[0.03] dark:bg-emerald-950/20">
-              <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-300 mb-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
-                  <TrendingUp className="w-3 h-3 text-emerald-500" /> Fuel Economy
-                </span>
-                <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-bold">
-                  Efficiency
-                </span>
-              </div>
-              <div className="flex items-baseline gap-1 my-0.5">
-                <span className="text-lg font-black font-mono tracking-tight text-emerald-600 dark:text-emerald-400">
-                  {processedData.mileageKmpl > 0 ? processedData.mileageKmpl : '—'}
-                </span>
-                <span className="text-[10px] text-emerald-700 dark:text-emerald-300 font-bold">km / L</span>
-              </div>
-              <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
-                Burned: <strong className="text-emerald-600 dark:text-emerald-400 font-mono">{processedData.fuelConsumed}L</strong> • Dist: <strong className="text-slate-700 dark:text-slate-300 font-mono">{processedData.totalDistance}km</strong>
-              </div>
-            </div>
-
-          </div>
-        </div>
 
         {/* ── FUEL FILL AND THEFT DETAILS PERMANENT SUMMARY BOARD ── */}
         <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl shadow-xs overflow-hidden">
