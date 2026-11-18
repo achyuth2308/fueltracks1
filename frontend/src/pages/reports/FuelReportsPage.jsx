@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import TelematicsDatePicker from '../../components/ui/TelematicsDatePicker';
 import TelematicsTimePicker, { to12Hour } from '../../components/ui/TelematicsTimePicker';
 import {
@@ -47,6 +47,7 @@ const formatBannerDateTime = (dateStr, timeStr) => {
 
 const FuelReportsPage = ({ type: propType }) => {
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   // Detect report type from prop or route path
   const reportType = useMemo(() => {
@@ -68,23 +69,12 @@ const FuelReportsPage = ({ type: propType }) => {
 
   const defaultYesterday = getYesterdayString();
   const [filters, setFilters] = useState(() => ({
-    vehicleId: '',
+    vehicleId: searchParams.get('vehicleId') || '',
     startDate: defaultYesterday,
     startTime: '00:00',
     endDate: defaultYesterday,
     endTime: '23:59'
   }));
-
-  // Fetch vehicles for dropdown
-  useEffect(() => {
-    vehicleApi.getVehicles({ t: Date.now(), limit: 1000 })
-      .then(res => {
-        if (res.success && res.data) {
-          setVehicles(res.data);
-        }
-      })
-      .catch(console.error);
-  }, []);
 
   const handleFetchReport = async (overrideFilters = null) => {
     const activeFilters = overrideFilters || filters;
@@ -103,7 +93,7 @@ const FuelReportsPage = ({ type: propType }) => {
       const params = new URLSearchParams();
       params.append('startDate', start.toISOString());
       params.append('endDate', end.toISOString());
-      if (activeFilters.vehicleId) {
+      if (activeFilters.vehicleId && activeFilters.vehicleId !== 'ALL') {
         params.append('vehicleId', activeFilters.vehicleId);
       }
 
@@ -119,9 +109,35 @@ const FuelReportsPage = ({ type: propType }) => {
     }
   };
 
-  // Initial load
+  // Fetch vehicles for dropdown & auto-load initial vehicle (fast single-vehicle lookup)
   useEffect(() => {
-    handleFetchReport();
+    let isMounted = true;
+    vehicleApi.getVehicles({ t: Date.now(), limit: 1000 })
+      .then(res => {
+        if (!isMounted) return;
+        if (res.success && res.data && res.data.length > 0) {
+          setVehicles(res.data);
+          const urlVId = searchParams.get('vehicleId');
+          // Prioritize URL vehicleId if valid, otherwise default to first vehicle
+          const initialVId = (urlVId && res.data.some(v => String(v.id) === String(urlVId)))
+            ? urlVId
+            : res.data[0].id;
+
+          setFilters(prev => {
+            const nextFilters = { ...prev, vehicleId: initialVId };
+            handleFetchReport(nextFilters);
+            return nextFilters;
+          });
+        } else if (res.success && res.data) {
+          setVehicles(res.data);
+          handleFetchReport();
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        if (isMounted) handleFetchReport();
+      });
+    return () => { isMounted = false; };
   }, [reportType]);
 
   const handlePreset = (preset) => {
@@ -545,7 +561,12 @@ const FuelReportsPage = ({ type: propType }) => {
           {/* Vehicle Dropdown */}
           <select
             value={filters.vehicleId}
-            onChange={e => setFilters(prev => ({ ...prev, vehicleId: e.target.value }))}
+            onChange={e => {
+              const newVId = e.target.value;
+              const updated = { ...filters, vehicleId: newVId };
+              setFilters(updated);
+              handleFetchReport(updated);
+            }}
             style={{
               padding: '6px 10px',
               borderRadius: '6px',
@@ -555,15 +576,15 @@ const FuelReportsPage = ({ type: propType }) => {
               fontSize: '12px',
               fontWeight: 600,
               outline: 'none',
-              minWidth: '150px'
+              minWidth: '160px'
             }}
           >
-            <option value="">All Vehicles ({vehicles.length})</option>
             {vehicles.map(v => (
               <option key={v.id} value={v.id}>
                 {v.name} {v.plate ? `(${v.plate})` : ''}
               </option>
             ))}
+            <option value="ALL">── All Vehicles (Fleet Summary - {vehicles.length}) ──</option>
           </select>
 
           {/* Category Filter */}
