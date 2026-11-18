@@ -345,9 +345,6 @@ const GroupsAdminPage = () => {
                         </td>
                         <td style={{ padding: '8px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                           <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#000000' }}>{g.name}</div>
-                          {g.description && (
-                            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '1px' }}>{g.description}</div>
-                          )}
                           {matchingVehicles.length > 0 && (
                             <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10.5px', fontWeight: 800, color: '#C2410C', textTransform: 'uppercase', letterSpacing: '0.02em' }}>

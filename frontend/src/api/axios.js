@@ -40,6 +40,7 @@ export const adminApi = {
   },
   deleteDevice: (id) => axiosInstance.delete(`/api/admin/devices/${id}`).then(res => res.data),
   onboardDevices: (payload) => axiosInstance.post('/api/admin/onboard/devices', payload).then(res => res.data),
+  lookupImei: (imei) => axiosInstance.get('/api/admin/device-inventory/lookup', { params: { imei } }).then(res => res.data),
   getDealers: () => axiosInstance.get('/api/admin/dealers').then(res => res.data),
   getDealerDetails: (id) => axiosInstance.get(`/api/admin/dealers/${id}/details`).then(res => res.data)
 };

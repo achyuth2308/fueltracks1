@@ -123,10 +123,28 @@ const DeviceInventoryController = {
         const result = await client.query(query, [cleanImei]);
 
         if (result.rows.length === 0) {
+          // Check devices table first
+          try {
+            const devRes = await client.query(
+              `SELECT device_id, device_type, created_at FROM devices WHERE device_id = $1 LIMIT 1`,
+              [cleanImei]
+            );
+            if (devRes.rows.length > 0) {
+              const d = devRes.rows[0];
+              const synthesized = {
+                imei: cleanImei,
+                device_model: d.device_type,
+                created_at: d.created_at,
+                source: 'devices'
+              };
+              inventoryCache.set(cleanImei, synthesized);
+              return res.json({ success: true, data: synthesized, fromCache: false, source: 'devices' });
+            }
+          } catch (_) {}
           // Fallback to vehicles table if device was onboarded with vehicle
           try {
             const vehRes = await client.query(
-              `SELECT plate, name, model, gps_sim_no, metadata, created_at FROM vehicles WHERE imei = $1 LIMIT 1`,
+              `SELECT plate, name, model, gps_sim_no, metadata, created_at FROM vehicles WHERE imei = $1 OR (metadata IS NOT NULL AND (metadata->>'imei' = $1 OR metadata->>'vlttdSlno' = $1)) LIMIT 1`,
               [cleanImei]
             );
             if (vehRes.rows.length > 0) {

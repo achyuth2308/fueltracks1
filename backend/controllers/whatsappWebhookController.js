@@ -227,7 +227,6 @@ ${credsBody.trim()}
 📱 *Android App:* https://play.google.com/store/apps/details?id=com.fueltracks.customer
 🍏 *iOS App:* https://apps.apple.com/in/app/fueltracks-vehicle-tracking/id6814368846
 
-After logging in, please update your password.
 For assistance, contact FuelTracks Support.`;
 
                     await WhatsAppService.sendTextMessage({

@@ -313,6 +313,7 @@ const OnboardController = {
           odoDistance: odoDistance || '',
           make: vehicleModel || '',
           gpsSimNo2: gpsSimNo2 || '',
+          sim2: gpsSimNo2 || '',
           iccid: iccid || '',
           vehicleVoltage: vehicleVoltage || '',
           ignitionDetection: ignitionDetection || '',

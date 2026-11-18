@@ -612,28 +612,28 @@ const VehiclesAdminPage = () => {
                 <colgroup>
                   {showDates ? (
                     <>
-                      <col style={{ width: '6.5%' }} />
+                      <col style={{ width: '9%' }} />
                       <col style={{ width: '13%' }} />
-                      <col style={{ width: '13%' }} />
-                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '12%' }} />
+                      <col style={{ width: '10%' }} />
                       <col style={{ width: '10.5%' }} />
-                      <col style={{ width: '8.5%' }} />
-                      <col style={{ width: '7.5%' }} />
+                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '6.5%' }} />
+                      <col style={{ width: '7%' }} />
                       <col style={{ width: '8%' }} />
-                      <col style={{ width: '8%' }} />
-                      <col style={{ width: '8%' }} />
+                      <col style={{ width: '7%' }} />
                       <col style={{ width: '6%' }} />
                     </>
                   ) : (
                     <>
-                      <col style={{ width: '7%' }} />
-                      <col style={{ width: '15%' }} />
-                      <col style={{ width: '16%' }} />
-                      <col style={{ width: '14%' }} />
-                      <col style={{ width: '12%' }} />
                       <col style={{ width: '11%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '14%' }} />
+                      <col style={{ width: '13%' }} />
+                      <col style={{ width: '11%' }} />
+                      <col style={{ width: '14%' }} />
                       <col style={{ width: '9%' }} />
-                      <col style={{ width: '10%' }} />
+                      <col style={{ width: '8%' }} />
                       <col style={{ width: '6%' }} />
                     </>
                   )}
@@ -871,9 +871,18 @@ const VehiclesAdminPage = () => {
                           ))}
                         </td>
 
-                        {/* 7. GPS Sim No */}
-                        <td style={{ padding: '6px 5px', fontSize: '12.5px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {v.gps_sim_no || meta.sim1 || meta.simNo || meta.sim || '-'}
+                        {/* 7. GPS Sim No (Stacked Primary + Secondary SIM) */}
+                        <td
+                          style={{ padding: '4px 5px', fontSize: '12px', color: '#000000', fontWeight: 600, borderRight: '1px solid #e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          title={`SIM 1: ${v.gps_sim_no || meta.sim1 || meta.simNo || '-'}${meta.sim2 || meta.gpsSimNo2 ? `\nSIM 2: ${meta.sim2 || meta.gpsSimNo2}` : ''}`}
+                        >
+                          <div>{v.gps_sim_no || meta.sim1 || meta.simNo || meta.sim || '-'}</div>
+                          {(meta.sim2 || meta.gpsSimNo2) && (
+                            <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
+                              <span style={{ color: '#F97316', fontWeight: 800, fontSize: '9px', marginRight: '2px' }}>S2:</span>
+                              {meta.sim2 || meta.gpsSimNo2}
+                            </div>
+                          )}
                         </td>
 
                         {/* Date Columns: Shown when Show Dates is toggled ON */}

@@ -7,6 +7,7 @@ import {
 import * as vehicleApi from '../../api/vehicleApi';
 import * as adminApi from '../../api/adminApi';
 import { expandScientificNotation } from '../../utils/formatUtils';
+import ComboboxInput from '../../components/ui/ComboboxInput';
 
 // FuelTracks Design System Theme Tokens
 const inputBaseStyle = {
@@ -422,6 +423,7 @@ const EditVehiclePage = () => {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [orgs, setOrgs] = useState([]);
+  const [users, setUsers] = useState([]);
   const [focusedField, setFocusedField] = useState(null);
 
   // RC Scanner States
@@ -618,6 +620,7 @@ const EditVehiclePage = () => {
       vehicleModel: 'Mazda',
       deviceModel: 'VOLTY',
       iccid: '',
+      sim2: '',
       telecomOperator: 'AIRCEL',
       installationDate: '',
       onboardDate: '',
@@ -634,7 +637,7 @@ const EditVehiclePage = () => {
       fluctuations: 'YES',
       fuelBatteryVolt: 'NO',
       // Configuration Details
-      deviceOdo: 'YES',
+      deviceOdo: 'NO',
       assetTrack: 'NO',
       safetyPark: 'NO',
       rigMode: 'NO',
@@ -666,8 +669,8 @@ const EditVehiclePage = () => {
       engineNo: '',
       alternateVehicleName: '',
       description: '',
-      serviceEngineer: 'Service Engineer',
-      salesman: 'Salesman',
+      serviceEngineer: '',
+      salesman: '',
       supportPerson: '',
       ticketId: '',
       sensorNo: ''
@@ -676,6 +679,10 @@ const EditVehiclePage = () => {
 
   useEffect(() => {
     adminApi.getOrgs?.().then(res => setOrgs(res.data || [])).catch(console.error);
+    adminApi.getUsers?.().then(res => {
+      const list = Array.isArray(res) ? res : (res?.data || []);
+      setUsers(list);
+    }).catch(console.error);
 
     if (isEditing) {
       vehicleApi.getVehicleById(id)
@@ -733,6 +740,7 @@ const EditVehiclePage = () => {
               rcFrontUrl: meta.rcFrontUrl || '',
               rcBackUrl: meta.rcBackUrl || '',
               iccid: expandScientificNotation(meta.iccid || ''),
+              sim2: expandScientificNotation(meta.sim2 || meta.gpsSimNo2 || meta.simNo2 || ''),
               telecomOperator: meta.telecomOperator || 'AIRCEL',
               installationDate: meta.installationDate || meta.installedDate || '',
               onboardDate: meta.onboardDate || meta.onboardingDate || (v.created_at ? new Date(v.created_at).toISOString().split('T')[0] : ''),
@@ -754,7 +762,7 @@ const EditVehiclePage = () => {
               fluctuations: meta.fluctuations || 'YES',
               fuelBatteryVolt: meta.fuelBatteryVolt || 'NO',
               // Configuration Details
-              deviceOdo: meta.deviceOdo || 'YES',
+              deviceOdo: meta.deviceOdo || 'NO',
               assetTrack: meta.assetTrack || 'NO',
               safetyPark: meta.safetyPark || 'NO',
               rigMode: meta.rigMode || 'NO',
@@ -781,8 +789,8 @@ const EditVehiclePage = () => {
               chassisNo: meta.chassisNo || '',
               alternateVehicleName: meta.alternateVehicleName || '',
               description: meta.description || meta.remarks || '',
-              serviceEngineer: meta.serviceEngineer || 'Service Engineer',
-              salesman: meta.salesman || 'Salesman',
+              serviceEngineer: (meta.serviceEngineer && meta.serviceEngineer !== 'Service Engineer') ? meta.serviceEngineer : '',
+              salesman: (meta.salesman && meta.salesman !== 'Salesman') ? meta.salesman : '',
               supportPerson: meta.supportPerson || '',
               ticketId: meta.ticketId || '',
               sensorNo: meta.sensorNo || ''
@@ -836,6 +844,8 @@ const EditVehiclePage = () => {
           vehicleModel: form.metadata.vehicleModel,
           deviceModel: form.deviceVersion,
           sim1: form.gpsSimNo,
+          sim2: form.metadata.sim2 || '',
+          gpsSimNo2: form.metadata.sim2 || '',
           licenceId: form.metadata.licenceId,
           licenceIssuedDate: form.licenceIssuedDate,
           licenceExpireDate: form.licenceExpireDate,
@@ -1442,7 +1452,18 @@ const EditVehiclePage = () => {
             placeholder="IMEI Number"
           />
           <InputField
-            label="GPS Sim Number"
+            label="GPS Sim ICCID"
+            value={form.metadata.iccid}
+            onChange={e => updateMeta('iccid', e.target.value)}
+            placeholder="ICCID"
+            focused={focusedField === 'iccid'}
+            onFocus={() => setFocusedField('iccid')}
+            onBlur={() => setFocusedField(null)}
+          />
+
+          {/* Row 5: GPS SIM 1 and GPS SIM 2 directly together */}
+          <InputField
+            label="GPS Sim Number 1"
             value={form.gpsSimNo}
             onChange={e => { updateField('gpsSimNo', e.target.value); updateMeta('sim1', e.target.value); }}
             placeholder="0123456789"
@@ -1450,15 +1471,13 @@ const EditVehiclePage = () => {
             onFocus={() => setFocusedField('sim1')}
             onBlur={() => setFocusedField(null)}
           />
-
-          {/* Row 5 */}
           <InputField
-            label="GPS Sim ICCID"
-            value={form.metadata.iccid}
-            onChange={e => updateMeta('iccid', e.target.value)}
-            placeholder="ICCID"
-            focused={focusedField === 'iccid'}
-            onFocus={() => setFocusedField('iccid')}
+            label="GPS Sim Number 2"
+            value={form.metadata.sim2 || ''}
+            onChange={e => { updateMeta('sim2', e.target.value); updateMeta('gpsSimNo2', e.target.value); }}
+            placeholder="Second SIM number"
+            focused={focusedField === 'sim2'}
+            onFocus={() => setFocusedField('sim2')}
             onBlur={() => setFocusedField(null)}
           />
           <SelectField
@@ -1958,25 +1977,53 @@ const EditVehiclePage = () => {
             onFocus={() => setFocusedField('desc')}
             onBlur={() => setFocusedField(null)}
           />
-          <InputField
+          <ComboboxInput
             label="Service Engineer"
-            value={form.metadata.serviceEngineer}
-            onChange={e => updateMeta('serviceEngineer', e.target.value)}
-            placeholder="Service Engineer"
+            labelStyle={labelStyle}
+            value={form.metadata.serviceEngineer || ''}
+            onChange={val => updateMeta('serviceEngineer', val)}
+            options={users.map(u => ({
+              value: u.name || u.email,
+              label: u.name || u.email,
+              sublabel: u.name && u.email ? u.email : undefined
+            }))}
+            placeholder="-- Select or type Engineer --"
             focused={focusedField === 'eng'}
             onFocus={() => setFocusedField('eng')}
             onBlur={() => setFocusedField(null)}
+            inputStyle={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              height: '42px',
+              borderColor: focusedField === 'eng' ? '#f97316' : '#cbd5e1'
+            }}
           />
 
           {/* Row 4 */}
-          <InputField
+          <ComboboxInput
             label="Salesman"
-            value={form.metadata.salesman}
-            onChange={e => updateMeta('salesman', e.target.value)}
-            placeholder="Salesman"
+            labelStyle={labelStyle}
+            value={form.metadata.salesman || ''}
+            onChange={val => updateMeta('salesman', val)}
+            options={users.map(u => ({
+              value: u.name || u.email,
+              label: u.name || u.email,
+              sublabel: u.name && u.email ? u.email : undefined
+            }))}
+            placeholder="-- Select or type Salesman --"
             focused={focusedField === 'sales'}
             onFocus={() => setFocusedField('sales')}
             onBlur={() => setFocusedField(null)}
+            inputStyle={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: 600,
+              height: '42px',
+              borderColor: focusedField === 'sales' ? '#f97316' : '#cbd5e1'
+            }}
           />
           <InputField
             label="Support Person"

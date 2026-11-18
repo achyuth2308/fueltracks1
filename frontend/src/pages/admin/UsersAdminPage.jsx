@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { Users, ArrowLeft, Plus, Edit, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare, Clock, Cpu } from 'lucide-react';
+import { Users, ArrowLeft, Plus, Edit, Edit2, Eye, Trash2, Loader2, AlertTriangle, Search, ChevronRight, User as UserIcon, Building2, Truck, X, Shuffle, MessageSquare, Clock, Cpu } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import { getUserVehicles } from '../../api/adminApi';
 import AddUserModal from '../../components/modals/AddUserModal';
@@ -280,7 +280,7 @@ const UsersAdminPage = () => {
               <table style={{ minWidth: '960px', width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
                 <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                   <tr style={{ background: 'var(--brand-header, #1e1b4b)' }}>
-                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'No Data Time', 'Status', 'Actions'].map((h, i, arr) => (
+                    {['Username', 'Customer Name', 'Contact', 'Groups', 'Role', 'Status', 'Actions'].map((h, i, arr) => (
                       <th key={h} style={{ padding: '8px 10px', fontSize: '11.5px', fontWeight: 800, color: '#ffffff', textTransform: 'uppercase', letterSpacing: '0.02em', borderRight: i < arr.length - 1 ? '1px solid rgba(255, 255, 255, 0.2)' : 'none', whiteSpace: 'nowrap' }}>
                         {h}
                       </th>
@@ -290,7 +290,7 @@ const UsersAdminPage = () => {
                 <tbody>
                   {filteredUsers.length === 0 ? (
                     <tr>
-                      <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>No users found.</td>
+                      <td colSpan="7" style={{ padding: '40px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>No users found.</td>
                     </tr>
                   ) : filteredUsers.map((u) => (
                     <tr
@@ -345,14 +345,6 @@ const UsersAdminPage = () => {
                       </td>
                       <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
                         <span style={{
-                          padding: '2px 6px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
-                          background: '#EFF6FF', color: '#1D4ED8', border: '1px solid #DBEAFE'
-                        }}>
-                          {formatNoDataTime(u.no_data_minutes)}
-                        </span>
-                      </td>
-                      <td style={{ padding: '6px 10px', verticalAlign: 'middle', borderRight: '1px solid #e2e8f0' }}>
-                        <span style={{
                           padding: '2px 8px', borderRadius: '99px', fontSize: '11px', fontWeight: 700,
                           background: u.is_active ? '#D1FAE5' : '#FEE2E2',
                           color: u.is_active ? '#065F46' : '#991B1B'
@@ -361,7 +353,7 @@ const UsersAdminPage = () => {
                         </span>
                       </td>
                       <td style={{ padding: '6px 10px', verticalAlign: 'middle' }}>
-                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                           {user?.id !== u.id && (
                             <a
                               href={`/switch-login/${u.id}`}
@@ -372,20 +364,23 @@ const UsersAdminPage = () => {
                                 const tok = sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken') || sessionStorage.getItem('token') || localStorage.getItem('token') || '';
                                 window.open(`/switch-login/${u.id}?adminToken=${encodeURIComponent(tok)}`, '_blank');
                               }}
-                              title="Open user session in new tab"
+                              title="Switch to customer session in a new tab"
                               style={{
                                 background: '#E0F2FE',
                                 color: '#0369A1',
+                                border: '1px solid #BAE6FD',
                                 textDecoration: 'none',
-                                padding: '3px 8px',
-                                borderRadius: '4px',
+                                padding: '0 8px',
+                                height: '28px',
+                                borderRadius: '6px',
                                 fontSize: '11.5px',
                                 fontWeight: 700,
                                 display: 'inline-flex',
                                 alignItems: 'center',
-                                gap: '3px',
+                                gap: '4px',
                                 cursor: 'pointer',
-                                transition: 'all 0.15s'
+                                transition: 'all 0.15s',
+                                boxSizing: 'border-box'
                               }}
                               onMouseEnter={(e) => {
                                 e.currentTarget.style.background = '#BAE6FD';
@@ -396,49 +391,127 @@ const UsersAdminPage = () => {
                                 e.currentTarget.style.color = '#0369A1';
                               }}
                             >
-                              <Shuffle size={11} />
+                              <Shuffle size={12} />
                               <span>Switch</span>
                             </a>
                           )}
                           <button
+                            type="button"
                             onClick={() => handleViewUser(u)}
+                            title="View User Details"
                             style={{
-                              background: '#F8FAFC', color: '#000000', border: '1px solid #CBD5E1', padding: '3px 8px',
-                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', cursor: 'pointer',
-                            }}
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditModal(u)}
-                            style={{ padding: '3px 8px', borderRadius: '4px', background: '#FFF7ED', border: '1px solid #FDBA74', color: '#EA580C', fontSize: '11.5px', fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s' }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#FFEDD5'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#FFF7ED'}
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={(e) => handleOpenSendCredentials(u, '', false, e)}
-                            title="Send login credentials via WhatsApp"
-                            style={{
-                              background: '#DCFCE7', color: '#15803D', border: '1px solid #BBF7D0', padding: '3px 8px',
-                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer',
+                              width: '28px',
+                              height: '28px',
+                              padding: 0,
+                              borderRadius: '6px',
+                              background: '#F8FAFC',
+                              color: '#334155',
+                              border: '1px solid #CBD5E1',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
                               transition: 'all 0.15s'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.background = '#BBF7D0'}
-                            onMouseLeave={e => e.currentTarget.style.background = '#DCFCE7'}
-                          >
-                            <WhatsAppIcon size={13} color="#15803D" />
-                            <span>WhatsApp</span>
-                          </button>
-                          <button
-                            onClick={() => handleDelete(u.id)}
-                            style={{
-                              background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', padding: '3px 8px',
-                              borderRadius: '4px', fontSize: '11.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', cursor: 'pointer'
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#F1F5F9';
+                              e.currentTarget.style.borderColor = '#94A3B8';
+                              e.currentTarget.style.color = '#0F172A';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#F8FAFC';
+                              e.currentTarget.style.borderColor = '#CBD5E1';
+                              e.currentTarget.style.color = '#334155';
                             }}
                           >
-                            Delete
+                            <Eye size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenEditModal(u)}
+                            title="Edit User"
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              padding: 0,
+                              borderRadius: '6px',
+                              background: '#FFF7ED',
+                              border: '1px solid #FDBA74',
+                              color: '#EA580C',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#FFEDD5';
+                              e.currentTarget.style.borderColor = '#FB923C';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#FFF7ED';
+                              e.currentTarget.style.borderColor = '#FDBA74';
+                            }}
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenSendCredentials(u, '', false, e)}
+                            title="Send Login Credentials via WhatsApp"
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              padding: 0,
+                              borderRadius: '6px',
+                              background: '#DCFCE7',
+                              color: '#15803D',
+                              border: '1px solid #BBF7D0',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#BBF7D0';
+                              e.currentTarget.style.borderColor = '#86EFAC';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#DCFCE7';
+                              e.currentTarget.style.borderColor = '#BBF7D0';
+                            }}
+                          >
+                            <WhatsAppIcon size={14} color="#15803D" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(u.id)}
+                            title="Delete User"
+                            style={{
+                              width: '28px',
+                              height: '28px',
+                              padding: 0,
+                              borderRadius: '6px',
+                              background: '#FEF2F2',
+                              color: '#DC2626',
+                              border: '1px solid #FECACA',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = '#FEE2E2';
+                              e.currentTarget.style.borderColor = '#FCA5A5';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = '#FEF2F2';
+                              e.currentTarget.style.borderColor = '#FECACA';
+                            }}
+                          >
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </td>

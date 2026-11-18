@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Settings, Plus, CheckCircle, AlertTriangle, Loader2, Save, Cpu, User, Building2, Layers, Truck } from 'lucide-react';
 import * as adminApi from '../../api/adminApi';
 import * as vehicleApi from '../../api/vehicleApi';
+import { adminApi as axiosAdminApi } from '../../api/axios';
 import { useAuth } from '../../hooks/useAuth';
 
 const DeviceOnboardingPage = () => {
@@ -40,6 +41,9 @@ const DeviceOnboardingPage = () => {
 
   // Generated Rows
   const [deviceRows, setDeviceRows] = useState([]);
+  // Per-row IMEI check status: { [idx]: 'checking' | 'exists' | 'ok' | null }
+  const [imeiStatus, setImeiStatus] = useState({});
+  const imeiDebounceTimers = useRef({});
 
   useEffect(() => {
     // Fetch base data
@@ -96,10 +100,48 @@ const DeviceOnboardingPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceType, quantity]);
 
+  const checkImeiExists = async (imei, idx) => {
+    if (imei.length !== 15) {
+      setImeiStatus(prev => ({ ...prev, [idx]: null }));
+      return;
+    }
+    setImeiStatus(prev => ({ ...prev, [idx]: 'checking' }));
+    try {
+      // Use the device-inventory lookup endpoint — returns device data if IMEI is registered
+      const res = await axiosAdminApi.lookupImei(imei);
+      // If lookup returns data (not null), the IMEI is already in the system
+      const exists = res && res.success && res.data !== null && res.data !== undefined;
+      setImeiStatus(prev => ({ ...prev, [idx]: exists ? 'exists' : 'ok' }));
+    } catch (err) {
+      // 404 means not found = available
+      if (err?.response?.status === 404) {
+        setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
+      } else {
+        setImeiStatus(prev => ({ ...prev, [idx]: null }));
+      }
+    }
+  };
+
   const handleRowChange = (index, field, value) => {
     const newRows = [...deviceRows];
     newRows[index][field] = value;
     setDeviceRows(newRows);
+
+    if (field === 'imei') {
+      // Clear any pending timer for this row
+      if (imeiDebounceTimers.current[index]) {
+        clearTimeout(imeiDebounceTimers.current[index]);
+      }
+      if (value.length === 15) {
+        // Debounce 400ms then check
+        imeiDebounceTimers.current[index] = setTimeout(() => {
+          checkImeiExists(value, index);
+        }, 400);
+      } else {
+        // Reset status while typing
+        setImeiStatus(prev => ({ ...prev, [index]: null }));
+      }
+    }
   };
 
   const validate = () => {
@@ -110,10 +152,14 @@ const DeviceOnboardingPage = () => {
     const imeis = new Set();
     const vIds = new Set();
 
-    for (const row of deviceRows) {
+    for (let i = 0; i < deviceRows.length; i++) {
+      const row = deviceRows[i];
       if (!row.imei || !/^\d{15}$/.test(row.imei)) return `IMEI must be exactly 15 numeric digits compulsory for ${row.licenseId}.`;
       if (!row.model) return `Please select a Hardware Model for ${row.licenseId}.`;
       if (!row.vehicleId && flowType === 'existing') return `Please assign a vehicle for ${row.licenseId}.`;
+
+      if (imeiStatus[i] === 'exists') return `IMEI ${row.imei} already exists in the system. Please use a different IMEI.`;
+      if (imeiStatus[i] === 'checking') return `Please wait — still verifying IMEI ${row.imei}.`;
 
       if (imeis.has(row.imei)) return `Duplicate IMEI detected: ${row.imei}.`;
       imeis.add(row.imei);
@@ -466,16 +512,42 @@ const DeviceOnboardingPage = () => {
                               width: '100%',
                               padding: '8px 12px',
                               borderRadius: '6px',
-                              border: row.imei && row.imei.length !== 15 ? '1px solid #EF4444' : '1px solid #CBD5E1',
+                              border: imeiStatus[idx] === 'exists'
+                                ? '1px solid #EF4444'
+                                : imeiStatus[idx] === 'ok'
+                                  ? '1px solid #10B981'
+                                  : row.imei && row.imei.length !== 15
+                                    ? '1px solid #EF4444'
+                                    : '1px solid #CBD5E1',
                               fontSize: '13px',
                               outline: 'none',
                               color: '#111827',
                               boxSizing: 'border-box'
                             }}
                           />
+                          {/* Length warning */}
                           {row.imei && row.imei.length !== 15 && (
                             <div style={{ fontSize: '10px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
                               {row.imei.length}/15 digits
+                            </div>
+                          )}
+                          {/* Real-time IMEI existence check feedback */}
+                          {row.imei.length === 15 && imeiStatus[idx] === 'checking' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#6B7280', fontWeight: 600, marginTop: '4px' }}>
+                              <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                              Checking...
+                            </div>
+                          )}
+                          {row.imei.length === 15 && imeiStatus[idx] === 'exists' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#EF4444', fontWeight: 700, marginTop: '4px' }}>
+                              <AlertTriangle size={11} />
+                              ⚠ IMEI already exists in the system
+                            </div>
+                          )}
+                          {row.imei.length === 15 && imeiStatus[idx] === 'ok' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#10B981', fontWeight: 700, marginTop: '4px' }}>
+                              <CheckCircle size={11} />
+                              IMEI is available
                             </div>
                           )}
                         </td>

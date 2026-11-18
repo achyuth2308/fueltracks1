@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import { Cpu, ArrowLeft, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X } from 'lucide-react';
+import { Cpu, ArrowLeft, Save, Loader2, Home, ChevronRight, ChevronDown, ChevronUp, CheckCircle, AlertTriangle, AlertCircle, Eye, EyeOff, Upload, FileUp, Shield, FileSpreadsheet, Download, Plus, X, Trash2 } from 'lucide-react';
 import { adminApi } from '../../api/axios';
+import * as vehicleApi from '../../api/vehicleApi';
 import { getDeviceQuota, createOrg } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import ExcelBulkUploadModal from '../../components/ExcelBulkUploadModal';
@@ -10,6 +11,7 @@ import AddGroupModal from '../../components/modals/AddGroupModal';
 import AddUserModal from '../../components/modals/AddUserModal';
 import { generateVehicleOnboardingTemplate } from '../../utils/excelTemplateGenerator';
 import SearchableSelect from '../../components/ui/SearchableSelect';
+import ComboboxInput from '../../components/ui/ComboboxInput';
 
 // Device types in ascending order based on port numbers (5000 -> 5012)
 const DEVICE_TYPE_OPTIONS = [
@@ -178,6 +180,11 @@ const OnBoardDevicePage = () => {
 
   const [devices, setDevices] = useState([]);
   const [expandedRows, setExpandedRows] = useState({});
+  const [imeiStatus, setImeiStatus] = useState({});
+  const [imeiErrorMsg, setImeiErrorMsg] = useState({});
+  const imeiDebounceTimers = useRef({});
+  const [knownImeis, setKnownImeis] = useState(new Set());
+  const knownImeisRef = useRef(new Set());
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState('');
@@ -291,11 +298,52 @@ const OnBoardDevicePage = () => {
     reader.readAsArrayBuffer(selectedFile);
   };
 
+  const loadKnownImeis = async () => {
+    try {
+      const set = new Set();
+      // 1. Fetch from vehicles API
+      try {
+        const vRes = await vehicleApi.getVehicles();
+        const vList = vRes?.data || (Array.isArray(vRes) ? vRes : []);
+        vList.forEach(v => {
+          const i1 = String(v.imei || '').trim();
+          const i2 = String(v.device_id || '').trim();
+          const i3 = String(v.metadata?.imei || v.metadata?.vlttdSlno || '').trim();
+          if (i1) set.add(i1);
+          if (i2) set.add(i2);
+          if (i3) set.add(i3);
+        });
+      } catch (e) {
+        console.warn('[OnBoard] Vehicles load error for IMEI check:', e);
+      }
+
+      // 2. Fetch from devices API
+      try {
+        const dRes = await adminApi.getDevices?.();
+        const dList = dRes?.data || (Array.isArray(dRes) ? dRes : []);
+        dList.forEach(d => {
+          const i1 = String(d.device_id || '').trim();
+          const i2 = String(d.imei || '').trim();
+          if (i1) set.add(i1);
+          if (i2) set.add(i2);
+        });
+      } catch (e) {
+        console.warn('[OnBoard] Devices load error for IMEI check:', e);
+      }
+
+      knownImeisRef.current = set;
+      setKnownImeis(set);
+    } catch (err) {
+      console.error('[OnBoard] Failed to preload IMEIs:', err);
+    }
+  };
+
   useEffect(() => {
     // Fetch data for dropdowns
     adminApi.getOrgs?.().then(res => setOrgs(res.data)).catch(console.error);
     adminApi.getUsers?.().then(res => setUsers(res.data)).catch(console.error);
     adminApi.getGroups?.().then(res => setGroups(res.data)).catch(console.error);
+    loadKnownImeis();
   }, []);
 
   // Fetch quota for dealer users when licenceType changes
@@ -339,6 +387,7 @@ const OnBoardDevicePage = () => {
         vehicleName: '',
         vehicleTypeSelect: '',
         gpsSimNo: '',
+        gpsSimNo2: '',
         odoDistance: '',
         serviceEngineer: '',
         salesman: '',
@@ -349,6 +398,60 @@ const OnBoardDevicePage = () => {
     }
     setDevices(newRows);
     setStep(2);
+  };
+
+  const checkImeiExists = async (imei, idx, currentDevices = devices) => {
+    if (!imei || imei.length !== 15) {
+      setImeiStatus(prev => ({ ...prev, [idx]: null }));
+      setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+      return;
+    }
+
+    // 1. Check duplicate within current form rows
+    const duplicateInForm = currentDevices.some((d, dIdx) => dIdx !== idx && String(d.deviceId || '').trim() === imei);
+    if (duplicateInForm) {
+      setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
+      setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already entered in another row' }));
+      return;
+    }
+
+    // 2. Instant check against pre-loaded known IMEIs
+    if (knownImeisRef.current.has(imei)) {
+      setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
+      setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
+      return;
+    }
+
+    setImeiStatus(prev => ({ ...prev, [idx]: 'checking' }));
+    setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+
+    try {
+      const res = await adminApi.lookupImei(imei);
+      const exists = Boolean(res && res.success && res.data !== null && res.data !== undefined);
+      if (exists) {
+        setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
+        setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
+        knownImeisRef.current.add(imei);
+      } else {
+        setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
+        setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+      }
+    } catch (err) {
+      // If server lookup returns 404, device is available
+      if (err?.response?.status === 404) {
+        setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
+        setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+      } else {
+        // Fall back to pre-loaded check
+        if (knownImeisRef.current.has(imei)) {
+          setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
+          setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
+        } else {
+          setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
+          setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+        }
+      }
+    }
   };
 
   const updateDevice = (index, field, value) => {
@@ -365,6 +468,37 @@ const OnBoardDevicePage = () => {
       }
     }
     setDevices(updated);
+
+    if (field === 'deviceId') {
+      if (imeiDebounceTimers.current[index]) {
+        clearTimeout(imeiDebounceTimers.current[index]);
+      }
+      if (value.length === 15) {
+        // 1. Instant check for duplicates in other rows
+        const duplicateInForm = updated.some((d, dIdx) => dIdx !== index && String(d.deviceId || '').trim() === value);
+        if (duplicateInForm) {
+          setImeiStatus(prev => ({ ...prev, [index]: 'exists' }));
+          setImeiErrorMsg(prev => ({ ...prev, [index]: 'IMEI already entered in another row' }));
+          return;
+        }
+
+        // 2. Instant check against pre-loaded system IMEIs (0ms lag!)
+        if (knownImeisRef.current.has(value)) {
+          setImeiStatus(prev => ({ ...prev, [index]: 'exists' }));
+          setImeiErrorMsg(prev => ({ ...prev, [index]: 'IMEI already exists in the system' }));
+          return;
+        }
+
+        // 3. Otherwise show checking and query server
+        setImeiStatus(prev => ({ ...prev, [index]: 'checking' }));
+        imeiDebounceTimers.current[index] = setTimeout(() => {
+          checkImeiExists(value, index, updated);
+        }, 150);
+      } else {
+        setImeiStatus(prev => ({ ...prev, [index]: null }));
+        setImeiErrorMsg(prev => ({ ...prev, [index]: null }));
+      }
+    }
   };
 
   const toggleRowExpansion = (index) => {
@@ -372,6 +506,72 @@ const OnBoardDevicePage = () => {
       ...prev,
       [index]: !prev[index]
     }));
+  };
+
+  const handleRemoveRow = (removeIdx) => {
+    if (devices.length === 1) {
+      if (window.confirm('Remove this device row?')) {
+        setDevices([]);
+        setImeiStatus({});
+        setImeiErrorMsg({});
+        setExpandedRows({});
+      }
+      return;
+    }
+
+    setDevices(prev => prev.filter((_, i) => i !== removeIdx));
+
+    // Shift per-row state
+    setImeiStatus(prev => {
+      const next = {};
+      Object.keys(prev).forEach(kStr => {
+        const k = Number(kStr);
+        if (k < removeIdx) next[k] = prev[k];
+        else if (k > removeIdx) next[k - 1] = prev[k];
+      });
+      return next;
+    });
+
+    setImeiErrorMsg(prev => {
+      const next = {};
+      Object.keys(prev).forEach(kStr => {
+        const k = Number(kStr);
+        if (k < removeIdx) next[k] = prev[k];
+        else if (k > removeIdx) next[k - 1] = prev[k];
+      });
+      return next;
+    });
+
+    setExpandedRows(prev => {
+      const next = {};
+      Object.keys(prev).forEach(kStr => {
+        const k = Number(kStr);
+        if (k < removeIdx) next[k] = prev[k];
+        else if (k > removeIdx) next[k - 1] = prev[k];
+      });
+      return next;
+    });
+  };
+
+  const handleAddRow = () => {
+    const prefix = licenceType === 'Starter' ? 'ST' : licenceType === 'Basic' ? 'BC' : licenceType === 'Advanced' ? 'AD' : 'EN';
+    const newRow = {
+      id: Date.now() + devices.length,
+      licenceId: `${prefix}6A1FE9FC0E${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+      deviceId: '',
+      deviceType: 'VOLTY',
+      vehicleId: '',
+      vehicleName: '',
+      vehicleTypeSelect: '',
+      gpsSimNo: '',
+      odoDistance: '',
+      serviceEngineer: '',
+      salesman: '',
+      supportPerson: '',
+      ticketId: '',
+      sensorNo: ''
+    };
+    setDevices(prev => [...prev, newRow]);
   };
 
   const handleSubmit = async () => {
@@ -411,6 +611,15 @@ const OnBoardDevicePage = () => {
         const invalidRows = devices.filter(d => !d.deviceId || !/^\d{15}$/.test(String(d.deviceId).trim()));
         if (invalidRows.length > 0) {
           throw new Error('Device IMEI must be exactly 15 numeric digits compulsory. Less than or more than 15 digits cannot be accepted.');
+        }
+        for (let i = 0; i < devices.length; i++) {
+          const did = String(devices[i].deviceId || '').trim();
+          if (imeiStatus[i] === 'exists' || knownImeisRef.current.has(did)) {
+            throw new Error(`IMEI "${did}" already exists in the system. Please use a unique IMEI.`);
+          }
+          if (imeiStatus[i] === 'checking') {
+            throw new Error(`Please wait, still verifying IMEI "${did}".`);
+          }
         }
       }
 
@@ -705,18 +914,6 @@ const OnBoardDevicePage = () => {
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
-                    Mobile Number <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Enter Mobile Number"
-                    style={inputStyle}
-                    value={newUser.phone}
-                    onChange={e => setNewUser({ ...newUser, phone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
                     Email <span style={{ color: '#EF4444' }}>*</span>
                   </label>
                   <div style={{ position: 'relative' }}>
@@ -746,6 +943,18 @@ const OnBoardDevicePage = () => {
                       <AlertCircle size={12} /> Email already exists
                     </div>
                   )}
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
+                    Mobile Number <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Enter Mobile Number"
+                    style={inputStyle}
+                    value={newUser.phone}
+                    onChange={e => setNewUser({ ...newUser, phone: e.target.value })}
+                  />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '5px' }}>
@@ -902,7 +1111,7 @@ const OnBoardDevicePage = () => {
                     <tr style={{ background: '#F8FAFC', color: '#334155', borderBottom: '1px solid #CBD5E1' }}>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '34px', textAlign: 'center', borderRight: '1px solid #E2E8F0' }}>No</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '130px', borderRight: '1px solid #E2E8F0' }}>LicenceId</th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '135px', borderRight: '1px solid #E2E8F0' }}>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '155px', borderRight: '1px solid #E2E8F0' }}>
                         Device ID(IMEI) <span style={{ color: '#EF4444' }}>*</span>
                       </th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '165px', borderRight: '1px solid #E2E8F0' }}>
@@ -910,8 +1119,9 @@ const OnBoardDevicePage = () => {
                       </th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '125px', borderRight: '1px solid #E2E8F0' }}>Vehicle Id</th>
                       <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '135px', borderRight: '1px solid #E2E8F0' }}>Vehicle Type</th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM No</th>
-                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, textAlign: 'center', width: '95px' }}>Action</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 1</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, width: '120px', borderRight: '1px solid #E2E8F0' }}>GPS SIM 2</th>
+                      <th style={{ padding: '7px 8px', fontSize: '11.5px', fontWeight: 700, textAlign: 'center', width: '120px' }}>Action</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -924,7 +1134,7 @@ const OnBoardDevicePage = () => {
                               {device.licenceId}
                             </div>
                           </td>
-                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '135px' }}>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '155px' }}>
                             <input
                               type="text"
                               placeholder="15-digit IMEI"
@@ -936,12 +1146,41 @@ const OnBoardDevicePage = () => {
                                 height: '32px',
                                 padding: '3px 8px',
                                 fontSize: '11.5px',
-                                borderColor: device.deviceId && device.deviceId.length !== 15 ? '#EF4444' : undefined
+                                border: imeiStatus[idx] === 'exists'
+                                  ? '2px solid #EF4444'
+                                  : imeiStatus[idx] === 'ok'
+                                    ? '1.5px solid #10B981'
+                                    : device.deviceId && device.deviceId.length !== 15
+                                      ? '1.5px solid #EF4444'
+                                      : '1px solid #CBD5E1',
+                                background: imeiStatus[idx] === 'exists'
+                                  ? '#FEF2F2'
+                                  : imeiStatus[idx] === 'ok'
+                                    ? '#F0FDF4'
+                                    : '#FFFFFF'
                               }}
                             />
                             {device.deviceId && device.deviceId.length !== 15 && (
-                              <div style={{ fontSize: '9px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
+                              <div style={{ fontSize: '9.5px', color: '#EF4444', fontWeight: 700, marginTop: '2px' }}>
                                 {device.deviceId.length}/15 digits
+                              </div>
+                            )}
+                            {device.deviceId && device.deviceId.length === 15 && imeiStatus[idx] === 'checking' && (
+                              <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <Loader2 size={11} style={{ animation: 'spin 1s linear infinite' }} />
+                                Checking IMEI...
+                              </div>
+                            )}
+                            {device.deviceId && device.deviceId.length === 15 && imeiStatus[idx] === 'exists' && (
+                              <div style={{ fontSize: '10px', color: '#DC2626', fontWeight: 800, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <AlertTriangle size={12} color="#DC2626" />
+                                <span>{imeiErrorMsg[idx] || 'IMEI already exists in the system'}</span>
+                              </div>
+                            )}
+                            {device.deviceId && device.deviceId.length === 15 && imeiStatus[idx] === 'ok' && (
+                              <div style={{ fontSize: '10px', color: '#16A34A', fontWeight: 700, marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <CheckCircle size={12} color="#16A34A" />
+                                <span>IMEI available</span>
                               </div>
                             )}
                           </td>
@@ -992,39 +1231,73 @@ const OnBoardDevicePage = () => {
                           </td>
                           <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '120px' }}>
                             <input
-                              type="text" placeholder="GPS SIM No" value={device.gpsSimNo}
+                              type="text" placeholder="GPS SIM 1" value={device.gpsSimNo}
                               onChange={(e) => updateDevice(idx, 'gpsSimNo', e.target.value)}
                               style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
                             />
                           </td>
-                          <td style={{ padding: '6px 6px', textAlign: 'center', width: '95px' }}>
-                            <button
-                              type="button"
-                              onClick={() => toggleRowExpansion(idx)}
-                              style={{
-                                padding: '5px 10px',
-                                background: expandedRows[idx] ? '#F1F5F9' : '#f97316',
-                                color: expandedRows[idx] ? '#334155' : '#FFFFFF',
-                                fontSize: '11px',
-                                fontWeight: 600,
-                                border: expandedRows[idx] ? '1px solid #CBD5E1' : 'none',
-                                borderRadius: '5px',
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '4px',
-                                boxShadow: expandedRows[idx] ? 'none' : '0 2px 4px rgba(249,115,22,0.15)'
-                              }}
-                            >
-                              {expandedRows[idx] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                              {expandedRows[idx] ? 'Hide' : 'Show Details'}
-                            </button>
+                          <td style={{ padding: '6px 6px', borderRight: '1px solid #E2E8F0', width: '125px' }}>
+                            <input
+                              type="text" placeholder="GPS SIM 2" value={device.gpsSimNo2 || ''}
+                              onChange={(e) => updateDevice(idx, 'gpsSimNo2', e.target.value)}
+                              style={{ ...inputStyle, height: '32px', padding: '3px 8px', fontSize: '11.5px' }}
+                            />
+                          </td>
+                          <td style={{ padding: '6px 6px', textAlign: 'center', width: '120px' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}>
+                              <button
+                                type="button"
+                                onClick={() => toggleRowExpansion(idx)}
+                                style={{
+                                  padding: '5px 8px',
+                                  background: expandedRows[idx] ? '#F1F5F9' : '#f97316',
+                                  color: expandedRows[idx] ? '#334155' : '#FFFFFF',
+                                  fontSize: '11px',
+                                  fontWeight: 600,
+                                  border: expandedRows[idx] ? '1px solid #CBD5E1' : 'none',
+                                  borderRadius: '5px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  boxShadow: expandedRows[idx] ? 'none' : '0 1px 3px rgba(249,115,22,0.2)'
+                                }}
+                                title={expandedRows[idx] ? 'Hide extra fields' : 'Show extra details'}
+                              >
+                                {expandedRows[idx] ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                <span>{expandedRows[idx] ? 'Hide' : 'Details'}</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveRow(idx)}
+                                style={{
+                                  width: '26px',
+                                  height: '26px',
+                                  padding: 0,
+                                  background: '#FEE2E2',
+                                  color: '#DC2626',
+                                  border: '1px solid #FCA5A5',
+                                  borderRadius: '5px',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Remove this device row"
+                                onMouseEnter={e => { e.currentTarget.style.background = '#DC2626'; e.currentTarget.style.color = '#FFFFFF'; }}
+                                onMouseLeave={e => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.color = '#DC2626'; }}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                         {expandedRows[idx] && (
                           <tr style={{ background: '#FAFAFA', borderBottom: '1px solid #E2E8F0' }}>
                             <td style={{ borderRight: '1px solid #F1F5F9' }}></td>
-                            <td colSpan="7" style={{ padding: '12px 14px' }}>
+                            <td colSpan="8" style={{ padding: '12px 14px' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                 {/* Row 1: 4 fields (Full 4-column row) */}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -1045,44 +1318,40 @@ const OnBoardDevicePage = () => {
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Service Engineer</label>
-                                    <SearchableSelect
+                                    <ComboboxInput
+                                      label="Service Engineer"
+                                      value={device.serviceEngineer || ''}
+                                      onChange={(val) => updateDevice(idx, 'serviceEngineer', val)}
                                       options={users.map(u => ({
                                         value: u.name || u.email,
                                         label: u.name || u.email,
                                         sublabel: u.name && u.email ? u.email : undefined
                                       }))}
-                                      value={device.serviceEngineer}
-                                      onChange={(val) => updateDevice(idx, 'serviceEngineer', val)}
-                                      placeholder="-- Select Engineer --"
-                                      searchPlaceholder="Search engineer..."
-                                      emptyMessage="No engineer found"
-                                      usePortal={true}
-                                      triggerStyle={{
+                                      placeholder="-- Select or type Engineer --"
+                                      inputStyle={{
                                         padding: '5px 8px',
                                         fontSize: '12px',
+                                        height: '32px',
                                         borderColor: '#CBD5E1',
                                         background: '#FFFFFF'
                                       }}
                                     />
                                   </div>
                                   <div>
-                                    <label style={{ fontSize: '11px', fontWeight: 600, color: '#111827', marginBottom: '3px', display: 'block' }}>Salesman</label>
-                                    <SearchableSelect
+                                    <ComboboxInput
+                                      label="Salesman"
+                                      value={device.salesman || ''}
+                                      onChange={(val) => updateDevice(idx, 'salesman', val)}
                                       options={users.map(u => ({
                                         value: u.name || u.email,
                                         label: u.name || u.email,
                                         sublabel: u.name && u.email ? u.email : undefined
                                       }))}
-                                      value={device.salesman}
-                                      onChange={(val) => updateDevice(idx, 'salesman', val)}
-                                      placeholder="-- Select Salesman --"
-                                      searchPlaceholder="Search salesman..."
-                                      emptyMessage="No salesman found"
-                                      usePortal={true}
-                                      triggerStyle={{
+                                      placeholder="-- Select or type Salesman --"
+                                      inputStyle={{
                                         padding: '5px 8px',
                                         fontSize: '12px',
+                                        height: '32px',
                                         borderColor: '#CBD5E1',
                                         background: '#FFFFFF'
                                       }}
@@ -1127,6 +1396,38 @@ const OnBoardDevicePage = () => {
                 </table>
               </div>
             )}
+
+            {/* Table actions bar: Add Device button & summary */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', marginTop: '-8px' }}>
+              <button
+                type="button"
+                onClick={handleAddRow}
+                style={{
+                  padding: '7px 14px',
+                  background: '#FFFFFF',
+                  border: '1px dashed #EA580C',
+                  borderRadius: '6px',
+                  color: '#EA580C',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = '#FFF7ED'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; }}
+              >
+                <Plus size={14} />
+                <span>Add Another Device</span>
+              </button>
+
+              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>
+                Total: <strong style={{ color: '#0F172A' }}>{devices.length}</strong> {devices.length === 1 ? 'device' : 'devices'}
+              </span>
+            </div>
 
             {/* Final Submit Button */}
             <div style={{ display: 'flex', justifyContent: 'center', paddingTop: '8px' }}>
