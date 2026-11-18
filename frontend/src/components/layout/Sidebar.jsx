@@ -121,7 +121,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   };
 
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
-    'Fuel Analytics': location.pathname.startsWith('/fuel-'),
+    'Fuel Analytics': location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel'),
     'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
   }));
 
@@ -139,7 +139,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   });
 
   useEffect(() => {
-    if (location.pathname.startsWith('/fuel-')) {
+    if (location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel')) {
       setOpenSubMenus(prev => ({ ...prev, 'Fuel Analytics': true }));
     }
     if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
@@ -212,6 +212,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         { name: 'Terminal', path: '/admin/terminal', icon: Terminal, color: '#0D9488', roles: ['superadmin', 'dealer'] },
         { name: 'Audit', path: '/admin/audit-logs', icon: ClipboardList, color: '#EA580C', roles: ['superadmin', 'dealer'] },
         { name: 'Archived Audit', path: '/admin/audit-logs?archived=true', icon: Archive, color: '#475569', roles: ['superadmin', 'dealer'] },
+        ...(hasFuelFeature ? [{
+          name: 'Fuel Analytics',
+          path: '/fuel-analytics',
+          icon: Fuel,
+          color: '#F97316',
+          roles: ['superadmin', 'dealer', 'customer'],
+          subItems: [
+            { name: 'Analytics Chart', path: '/fuel-analytics' },
+            { name: 'Fuel Raw Data', path: '/fuel-raw-data' }
+          ]
+        }] : []),
         { name: 'Fuel Watcher', path: '/admin/fuel-watcher', icon: Droplets, color: '#0284C7', roles: ['superadmin', 'dealer'] },
         { name: 'Organisation Profile', path: '/admin/profile', icon: Settings, color: '#64748B', roles: ['superadmin', 'dealer'] },
         { name: 'Dealer White-Label', path: '/admin/dealer-profile', icon: Sparkles, color: '#F59E0B', roles: ['superadmin', 'dealer'] },
@@ -239,17 +250,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             { name: 'Manual Trips', path: '/trips?type=manual', type: 'manual' },
           ],
         },
-        ...(hasFuelFeature ? [{
-          name: 'Fuel Analytics',
-          path: '/fuel-analytics',
-          icon: Fuel,
-          color: '#F97316',
-          roles: ['customer'],
-          subItems: [
-            { name: 'Analytics Chart', path: '/fuel-analytics' },
-            { name: 'Fuel Raw Data', path: '/fuel-raw-data' }
-          ]
-        }] : []),
         {
           name: 'Device Data',
           path: '/device-data',

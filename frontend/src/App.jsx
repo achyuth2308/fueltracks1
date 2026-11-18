@@ -154,12 +154,14 @@ function App() {
                   <Route path="mining-registrations" element={<MiningRegistrationsAdminPage />} />
                   <Route path="terminal" element={<AdminTerminalPage />} />
                   <Route path="fuel-watcher" element={<FuelWatcherPage />} />
+                  <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />
+                  <Route path="fuel-raw-data" element={<FuelRawDataPage />} />
                 </Route>
 
                 {/* Shared Protected Routes (All authenticated users including customers) */}
                 <Route element={<ProtectedRoute allowedRoles={['superadmin', 'dealer', 'customer']} />}>
                   {/* System and Integrations */}
-                  <Route path="fuel" element={<FuelAdminPage />} />
+                  <Route path="fuel" element={<FuelAnalyticsPage />} />
                   <Route path="alerts" element={<AlertsAdminPage />} />
                   <Route path="geofences" element={<Navigate to="/dashboard" replace />} />
                   <Route path="routes" element={<Navigate to="/dashboard" replace />} />
