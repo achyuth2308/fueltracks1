@@ -2145,113 +2145,6 @@ export default function FuelAnalyticsPage() {
           </div>
         )}
 
-        {/* ── HIGH-LEVEL FUEL INTELLIGENCE KPI HERO STRIP (ABOVE GRAPH) ── */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-4 py-3 shadow-xs">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5 shrink-0">
-              <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-                <Flame className="w-4 h-4" />
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                    Fuel Intelligence
-                  </span>
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Live Engine
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-400">Instant event telemetry for selected range</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 max-w-3xl lg:ml-4">
-              {/* 1. Refill */}
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
-                showRefillEvents
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-xs ring-1 ring-emerald-500/20'
-                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={showRefillEvents}
-                    onChange={(e) => setShowRefillEvents(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      Refills
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {processedData.refuels.length} refuels
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono">
-                  +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
-                </span>
-              </label>
-
-              {/* 2. Theft / Drain */}
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
-                showTheftEvents
-                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-xs ring-1 ring-rose-500/20'
-                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={showTheftEvents}
-                    onChange={(e) => setShowTheftEvents(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      Theft / Drain
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      {processedData.drops.length} siphons
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono">
-                  -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
-                </span>
-              </label>
-
-              {/* 3. Consumption */}
-              <label className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border transition-all cursor-pointer select-none ${
-                showConsumptionLayer
-                  ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-xs ring-1 ring-sky-500/20'
-                  : 'bg-white/60 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
-              }`}>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={showConsumptionLayer}
-                    onChange={(e) => setShowConsumptionLayer(e.target.checked)}
-                    className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
-                  />
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                      Consumption
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      Burn ({processedData.mileageKmpl} km/L)
-                    </div>
-                  </div>
-                </div>
-                <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono">
-                  {processedData.fuelConsumed.toFixed(1)} L
-                </span>
-              </label>
-            </div>
-          </div>
-        </div>
 
         {/* ── 1. MULTI-AXIS SYNCHRONIZED VISUALIZATION GRAPH ── */}
         <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 p-5 sm:p-6 rounded-2xl shadow-sm space-y-4">
@@ -2772,15 +2665,108 @@ export default function FuelAnalyticsPage() {
             </div>
           </div>
 
-        {/* ── QUICK NAVIGATION TABLE SHORTCUTS STRIP ── */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl px-4 py-2.5 shadow-xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                Detailed Telemetry Tables:
+        {/* ── UNDER THE GRAPH: FUEL INTELLIGENCE & QUICK NAVIGATION ── */}
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-3.5 sm:p-4 shadow-xs space-y-3">
+          
+          {/* Row 1: Fuel Intelligence Layer Filters */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 shrink-0">
+              <Flame className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                Fuel Intelligence
+              </span>
+              <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 ml-1">
+                Live Engine
               </span>
             </div>
-            <div className="flex flex-wrap items-center gap-2.5">
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 1. Refill */}
+              <label className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none text-xs font-semibold ${
+                showRefillEvents
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-400/60 dark:border-emerald-700/60 shadow-xs ring-1 ring-emerald-500/20'
+                  : 'bg-white/80 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-emerald-300 opacity-70'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={showRefillEvents}
+                  onChange={(e) => setShowRefillEvents(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-emerald-600 focus:ring-emerald-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  1. Refill
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-mono ml-0.5">
+                  +{processedData.refuels.reduce((acc, r) => acc + r.liters, 0).toFixed(1)} L
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({processedData.refuels.length} refuels)
+                </span>
+              </label>
+
+              {/* 2. Theft / Drain */}
+              <label className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none text-xs font-semibold ${
+                showTheftEvents
+                  ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-400/60 dark:border-rose-700/60 shadow-xs ring-1 ring-rose-500/20'
+                  : 'bg-white/80 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-rose-300 opacity-70'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={showTheftEvents}
+                  onChange={(e) => setShowTheftEvents(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-rose-600 focus:ring-rose-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                  2. Theft / Drain
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-700 dark:text-rose-300 font-mono ml-0.5">
+                  -{processedData.drops.reduce((acc, d) => acc + d.liters, 0).toFixed(1)} L
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({processedData.drops.length} siphons)
+                </span>
+              </label>
+
+              {/* 3. Consumption */}
+              <label className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none text-xs font-semibold ${
+                showConsumptionLayer
+                  ? 'bg-sky-50 dark:bg-sky-950/40 border-sky-400/60 dark:border-sky-700/60 shadow-xs ring-1 ring-sky-500/20'
+                  : 'bg-white/80 dark:bg-slate-900/40 border-slate-200 dark:border-slate-700/60 hover:border-sky-300 opacity-70'
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={showConsumptionLayer}
+                  onChange={(e) => setShowConsumptionLayer(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-sky-500 border-slate-300 dark:border-slate-600 cursor-pointer"
+                />
+                <span className="flex items-center gap-1.5 text-slate-900 dark:text-slate-100">
+                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                  3. Consumption
+                </span>
+                <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-sky-500/15 text-sky-700 dark:text-sky-300 font-mono ml-0.5">
+                  {processedData.fuelConsumed.toFixed(1)} L
+                </span>
+                <span className="text-[10px] text-slate-400 font-normal">
+                  ({processedData.mileageKmpl} km/L)
+                </span>
+              </label>
+            </div>
+          </div>
+
+          {/* Subtle Horizontal Divider */}
+          <div className="border-t border-slate-200/70 dark:border-slate-700/60" />
+
+          {/* Row 2: Quick Navigation Buttons */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 shrink-0">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Quick Navigation
+              </span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
               {/* 1. Raw Fuel Data */}
               <button
                 type="button"
