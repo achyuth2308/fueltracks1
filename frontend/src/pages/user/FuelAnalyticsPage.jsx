@@ -2326,7 +2326,7 @@ export default function FuelAnalyticsPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
+                  <ComposedChart data={processedData.chartData} margin={{ top: 15, right: 45, left: 65, bottom: 5 }}>
                     <defs>
                       <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
@@ -2348,7 +2348,6 @@ export default function FuelAnalyticsPage() {
                     {/* Left Y Axis: Fuel (Litres) */}
                     <YAxis 
                       yAxisId="fuel" 
-                      width={62}
                       domain={[0, Math.ceil(tankCapacity * 1.05)]} 
                       stroke="#0284c7" 
                       fontSize={11} 
@@ -2362,7 +2361,6 @@ export default function FuelAnalyticsPage() {
                     {/* Right Y Axis: Speed (km/h) */}
                     <YAxis 
                       yAxisId="speed" 
-                      width={65}
                       domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
                       stroke="#06b6d4" 
                       fontSize={11} 
