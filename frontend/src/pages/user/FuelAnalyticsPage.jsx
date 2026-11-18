@@ -2314,7 +2314,7 @@ export default function FuelAnalyticsPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={processedData.chartData} margin={{ top: 15, right: 20, left: 15, bottom: 5 }}>
+                  <ComposedChart data={processedData.chartData} margin={{ top: 15, right: 25, left: 25, bottom: 5 }}>
                     <defs>
                       <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
@@ -2336,18 +2336,20 @@ export default function FuelAnalyticsPage() {
                     {/* Left Y Axis: Fuel (Litres) */}
                     <YAxis 
                       yAxisId="fuel" 
-                      width={55}
+                      width={68}
                       domain={[0, Math.ceil(tankCapacity * 1.05)]} 
                       stroke="#0284c7" 
                       fontSize={11} 
                       tickLine={false}
+                      axisLine={false}
                       orientation="left"
                       unit=" L"
+                      tick={{ fill: '#0284c7', fontWeight: 600 }}
                       label={{ 
                         value: 'Fuel Level (L)', 
                         angle: -90, 
                         position: 'insideLeft', 
-                        offset: 12,
+                        offset: -5,
                         style: { textAnchor: 'middle', fill: '#0284c7', fontSize: 11, fontWeight: 700 } 
                       }}
                     />
@@ -2355,18 +2357,20 @@ export default function FuelAnalyticsPage() {
                     {/* Right Y Axis: Speed (km/h) */}
                     <YAxis 
                       yAxisId="speed" 
-                      width={60}
+                      width={68}
                       domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
                       stroke="#06b6d4" 
                       fontSize={11} 
                       tickLine={false} 
+                      axisLine={false}
                       orientation="right"
                       unit=" km/h"
+                      tick={{ fill: '#06b6d4', fontWeight: 600 }}
                       label={{ 
                         value: 'Speed (km/h)', 
                         angle: 90, 
                         position: 'insideRight', 
-                        offset: 12,
+                        offset: -5,
                         style: { textAnchor: 'middle', fill: '#06b6d4', fontSize: 11, fontWeight: 700 } 
                       }}
                     />
