@@ -2301,6 +2301,18 @@ export default function FuelAnalyticsPage() {
 
           {/* Full-Width Enlarged Graph Canvas (Occupies >80% of Card Area) */}
           <div className="w-full pt-1">
+            {/* Axis Header Badges: Clean, Unclipped, Never Rotated */}
+            <div className="flex items-center justify-between px-2 pb-1.5 text-xs">
+              <span className="font-bold text-sky-600 dark:text-sky-400 flex items-center gap-1.5 text-[11px] font-mono">
+                <Fuel className="w-3.5 h-3.5 text-sky-500" />
+                <span>Fuel Level (Liters)</span>
+              </span>
+              <span className="font-bold text-cyan-600 dark:text-cyan-400 flex items-center gap-1.5 text-[11px] font-mono">
+                <span>Speed (km/h)</span>
+                <Gauge className="w-3.5 h-3.5 text-cyan-500" />
+              </span>
+            </div>
+
             <div className="h-[520px] w-full">
               {loading ? (
                 <div className="h-full flex flex-col items-center justify-center gap-3 text-slate-400">
@@ -2314,7 +2326,7 @@ export default function FuelAnalyticsPage() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={processedData.chartData} margin={{ top: 15, right: 25, left: 25, bottom: 5 }}>
+                  <ComposedChart data={processedData.chartData} margin={{ top: 10, right: 15, left: 10, bottom: 5 }}>
                     <defs>
                       <linearGradient id="filteredFuelGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#0284c7" stopOpacity={0.25} />
@@ -2336,7 +2348,7 @@ export default function FuelAnalyticsPage() {
                     {/* Left Y Axis: Fuel (Litres) */}
                     <YAxis 
                       yAxisId="fuel" 
-                      width={68}
+                      width={62}
                       domain={[0, Math.ceil(tankCapacity * 1.05)]} 
                       stroke="#0284c7" 
                       fontSize={11} 
@@ -2345,19 +2357,12 @@ export default function FuelAnalyticsPage() {
                       orientation="left"
                       unit=" L"
                       tick={{ fill: '#0284c7', fontWeight: 600 }}
-                      label={{ 
-                        value: 'Fuel Level (L)', 
-                        angle: -90, 
-                        position: 'insideLeft', 
-                        offset: -5,
-                        style: { textAnchor: 'middle', fill: '#0284c7', fontSize: 11, fontWeight: 700 } 
-                      }}
                     />
 
                     {/* Right Y Axis: Speed (km/h) */}
                     <YAxis 
                       yAxisId="speed" 
-                      width={68}
+                      width={65}
                       domain={[0, Math.max(80, processedData.maxSpeed + 10)]} 
                       stroke="#06b6d4" 
                       fontSize={11} 
@@ -2366,13 +2371,6 @@ export default function FuelAnalyticsPage() {
                       orientation="right"
                       unit=" km/h"
                       tick={{ fill: '#06b6d4', fontWeight: 600 }}
-                      label={{ 
-                        value: 'Speed (km/h)', 
-                        angle: 90, 
-                        position: 'insideRight', 
-                        offset: -5,
-                        style: { textAnchor: 'middle', fill: '#06b6d4', fontSize: 11, fontWeight: 700 } 
-                      }}
                     />
 
                     {/* Hidden Y Axis for Engine Ignition baseline step line */}
