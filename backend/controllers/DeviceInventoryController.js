@@ -176,10 +176,41 @@ const DeviceInventoryController = {
         }
 
         const device = result.rows[0];
+
+        // Check if device is actively assigned in devices or vehicles table
+        let isAssigned = false;
+        let assignedSource = null;
+        try {
+          const devRes = await client.query(
+            `SELECT device_id FROM devices WHERE device_id = $1 LIMIT 1`,
+            [cleanImei]
+          );
+          if (devRes.rows.length > 0) {
+            isAssigned = true;
+            assignedSource = 'devices';
+          }
+        } catch (_) {}
+
+        if (!isAssigned) {
+          try {
+            const vehRes = await client.query(
+              `SELECT id FROM vehicles WHERE imei = $1 AND is_active = TRUE LIMIT 1`,
+              [cleanImei]
+            );
+            if (vehRes.rows.length > 0) {
+              isAssigned = true;
+              assignedSource = 'vehicles';
+            }
+          } catch (_) {}
+        }
+
+        device.is_assigned = isAssigned;
+        device.source = isAssigned ? assignedSource : 'inventory';
+
         // Populate cache
         inventoryCache.set(cleanImei, device);
 
-        return res.json({ success: true, data: device, fromCache: false });
+        return res.json({ success: true, data: device, fromCache: false, is_assigned: isAssigned });
       } finally {
         client.release();
       }

@@ -301,31 +301,35 @@ const OnBoardDevicePage = () => {
   const loadKnownImeis = async () => {
     try {
       const set = new Set();
-      // 1. Fetch from vehicles API
+      // 1. Fetch from vehicles API (only active vehicles currently bound to a device)
       try {
         const vRes = await vehicleApi.getVehicles();
         const vList = vRes?.data || (Array.isArray(vRes) ? vRes : []);
         vList.forEach(v => {
+          if (v.is_active === false) return;
           const i1 = String(v.imei || '').trim();
           const i2 = String(v.device_id || '').trim();
           const i3 = String(v.metadata?.imei || v.metadata?.vlttdSlno || '').trim();
-          if (i1) set.add(i1);
-          if (i2) set.add(i2);
-          if (i3) set.add(i3);
+          if (i1 && i1.length === 15) set.add(i1);
+          if (i2 && i2.length === 15) set.add(i2);
+          if (i3 && i3.length === 15) set.add(i3);
         });
       } catch (e) {
         console.warn('[OnBoard] Vehicles load error for IMEI check:', e);
       }
 
-      // 2. Fetch from devices API
+      // 2. Fetch from devices API (only devices that are already bound to an active vehicle)
       try {
         const dRes = await adminApi.getDevices?.();
         const dList = dRes?.data || (Array.isArray(dRes) ? dRes : []);
         dList.forEach(d => {
-          const i1 = String(d.device_id || '').trim();
-          const i2 = String(d.imei || '').trim();
-          if (i1) set.add(i1);
-          if (i2) set.add(i2);
+          // Only treat as occupied if device is actively bound to a vehicle
+          if (d.vehicle_uuid || d.vehicle_name) {
+            const i1 = String(d.device_id || '').trim();
+            const i2 = String(d.imei || '').trim();
+            if (i1 && i1.length === 15) set.add(i1);
+            if (i2 && i2.length === 15) set.add(i2);
+          }
         });
       } catch (e) {
         console.warn('[OnBoard] Devices load error for IMEI check:', e);
@@ -415,42 +419,50 @@ const OnBoardDevicePage = () => {
       return;
     }
 
-    // 2. Instant check against pre-loaded known IMEIs
-    if (knownImeisRef.current.has(imei)) {
-      setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
-      setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
-      return;
-    }
-
     setImeiStatus(prev => ({ ...prev, [idx]: 'checking' }));
     setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
 
     try {
       const res = await adminApi.lookupImei(imei);
-      const exists = Boolean(res && res.success && res.data !== null && res.data !== undefined);
-      if (exists) {
+      // ONLY reject if the device is explicitly assigned to an active vehicle or device
+      const isAlreadyAssigned = Boolean(
+        res && res.success && res.data && (res.data.is_assigned === true || res.data.source === 'devices' || res.data.source === 'vehicles')
+      );
+
+      if (isAlreadyAssigned) {
         setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
-        setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
-        knownImeisRef.current.add(imei);
+        setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already assigned to an existing vehicle' }));
       } else {
+        // Device is available for onboarding (either brand new or in hardware stock)
         setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
         setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
-      }
-    } catch (err) {
-      // If server lookup returns 404, device is available
-      if (err?.response?.status === 404) {
-        setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
-        setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
-      } else {
-        // Fall back to pre-loaded check
-        if (knownImeisRef.current.has(imei)) {
-          setImeiStatus(prev => ({ ...prev, [idx]: 'exists' }));
-          setImeiErrorMsg(prev => ({ ...prev, [idx]: 'IMEI already exists in the system' }));
-        } else {
-          setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
-          setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
+
+        // If the device is from hardware stock inventory, auto-fill details to assist the user
+        if (res && res.success && res.data) {
+          const inv = res.data;
+          setDevices(prev => {
+            const next = [...prev];
+            if (next[idx]) {
+              const row = { ...next[idx] };
+              if (inv.device_model && (!row.deviceType || row.deviceType === 'VOLTY')) {
+                row.deviceType = inv.device_model;
+              }
+              if (inv.sim_no && !row.gpsSimNo) {
+                row.gpsSimNo = inv.sim_no;
+              }
+              if (inv.iccid && !row.iccid) {
+                row.iccid = inv.iccid;
+              }
+              next[idx] = row;
+            }
+            return next;
+          });
         }
       }
+    } catch (err) {
+      // If server lookup returns 404 or fails, do not block the user
+      setImeiStatus(prev => ({ ...prev, [idx]: 'ok' }));
+      setImeiErrorMsg(prev => ({ ...prev, [idx]: null }));
     }
   };
 
@@ -482,14 +494,7 @@ const OnBoardDevicePage = () => {
           return;
         }
 
-        // 2. Instant check against pre-loaded system IMEIs (0ms lag!)
-        if (knownImeisRef.current.has(value)) {
-          setImeiStatus(prev => ({ ...prev, [index]: 'exists' }));
-          setImeiErrorMsg(prev => ({ ...prev, [index]: 'IMEI already exists in the system' }));
-          return;
-        }
-
-        // 3. Otherwise show checking and query server
+        // 2. Query server for verification and auto-fill
         setImeiStatus(prev => ({ ...prev, [index]: 'checking' }));
         imeiDebounceTimers.current[index] = setTimeout(() => {
           checkImeiExists(value, index, updated);
@@ -614,7 +619,7 @@ const OnBoardDevicePage = () => {
         }
         for (let i = 0; i < devices.length; i++) {
           const did = String(devices[i].deviceId || '').trim();
-          if (imeiStatus[i] === 'exists' || knownImeisRef.current.has(did)) {
+          if (imeiStatus[i] === 'exists') {
             throw new Error(`IMEI "${did}" already exists in the system. Please use a unique IMEI.`);
           }
           if (imeiStatus[i] === 'checking') {
@@ -1141,6 +1146,12 @@ const OnBoardDevicePage = () => {
                               maxLength={15}
                               value={device.deviceId}
                               onChange={(e) => updateDevice(idx, 'deviceId', e.target.value)}
+                              onPaste={(e) => {
+                                e.preventDefault();
+                                const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+                                const clean = String(pasted).replace(/\D/g, '').slice(0, 15);
+                                updateDevice(idx, 'deviceId', clean);
+                              }}
                               style={{
                                 ...inputStyle,
                                 height: '32px',

@@ -109,9 +109,11 @@ const DeviceOnboardingPage = () => {
     try {
       // Use the device-inventory lookup endpoint — returns device data if IMEI is registered
       const res = await axiosAdminApi.lookupImei(imei);
-      // If lookup returns data (not null), the IMEI is already in the system
-      const exists = res && res.success && res.data !== null && res.data !== undefined;
-      setImeiStatus(prev => ({ ...prev, [idx]: exists ? 'exists' : 'ok' }));
+      // ONLY reject if the device is already assigned to an active vehicle or device
+      const isAlreadyAssigned = Boolean(
+        res && res.success && res.data && (res.data.is_assigned || res.data.source === 'devices' || res.data.source === 'vehicles')
+      );
+      setImeiStatus(prev => ({ ...prev, [idx]: isAlreadyAssigned ? 'exists' : 'ok' }));
     } catch (err) {
       // 404 means not found = available
       if (err?.response?.status === 404) {
