@@ -146,7 +146,7 @@ async function pushToMines(vehicle, point) {
       extbatteryvoltage: point.voltage != null && !isNaN(point.voltage) ? Number(point.voltage) : 12.8,
       mainpowerstatustype: 1,
       gpsstatus: true,
-      packettype: point.packetType || 'GPS',
+      packettype: 'GPS',
       altitude: point.altitude != null ? Math.round(point.altitude) : 20,
       noofsatellites: point.satellites != null ? Math.round(point.satellites) : 8,
       operatorname: vehicle.metadata?.simOperator || 'Airtel',
