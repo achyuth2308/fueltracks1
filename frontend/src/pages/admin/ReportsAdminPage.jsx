@@ -224,7 +224,7 @@ const ReportsAdminPage = () => {
     }
   }, [loading, vehicles, hasFuelFeature, isFuelTab, navigate]);
 
-  const ALL_REPORT_TABS = [
+  const GENERAL_REPORT_TABS = [
     { path: '/admin/reports/dashboard', label: 'Fleet Dashboard' },
     { path: '/admin/reports/distance', label: 'Daily Distance' },
     { path: '/admin/reports/ignition', label: 'Engine ON' },
@@ -235,7 +235,10 @@ const ReportsAdminPage = () => {
     { path: '/admin/reports/trip', label: 'Automated Trips' },
     { path: '/admin/reports/manual-trips', label: 'Manual Trips' },
     { path: '/admin/reports/daily-trip', label: 'Total Trip' },
-    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' },
+    { path: '/admin/reports/consolidated', label: 'Vehicle Consolidated' }
+  ];
+
+  const FUEL_REPORT_TABS = [
     { path: '/admin/reports/fuel-refill', label: 'Fuel Refill Report', isFuel: true },
     { path: '/admin/reports/fuel-consumption', label: 'Fuel Consumption', isFuel: true },
     { path: '/admin/reports/fuel-theft', label: 'Fuel Theft Report', isFuel: true },
@@ -245,8 +248,11 @@ const ReportsAdminPage = () => {
   ];
 
   const REPORT_TABS = useMemo(() => {
-    return ALL_REPORT_TABS.filter(tab => hasFuelFeature || !tab.isFuel);
-  }, [hasFuelFeature]);
+    if (isFuelTab) {
+      return FUEL_REPORT_TABS;
+    }
+    return GENERAL_REPORT_TABS;
+  }, [isFuelTab]);
 
   const exportColumns = useMemo(() => {
     const cols = ['Vehicle Name', 'Reg No', 'Last Seen', 'Last Comm', 'Driver', 'Driver Mobile', 'Kms', 'Speed', 'Status', 'Duration', 'Veh Battery', 'A/C'];
@@ -304,27 +310,37 @@ const ReportsAdminPage = () => {
       }}>
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => {
+            if (isFuelTab) {
+              navigate('/admin/reports/dashboard');
+            } else {
+              navigate(-1);
+            }
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            width: '32px',
-            height: '32px',
-            borderRadius: '8px',
+            gap: isFuelTab ? '5px' : '0',
+            padding: isFuelTab ? '0 10px' : '0',
+            height: '30px',
+            borderRadius: '6px',
             border: '1px solid #CBD5E1',
-            background: '#FFFFFF',
+            background: isFuelTab ? '#F8FAFC' : '#FFFFFF',
             cursor: 'pointer',
             color: '#334155',
+            fontSize: '11px',
+            fontWeight: 700,
             boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
             transition: 'all 0.15s ease',
             flexShrink: 0
           }}
-          onMouseEnter={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.borderColor = '#94A3B8'; }}
-          onMouseLeave={e => { e.currentTarget.style.background = '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
-          title="Go Back"
+          onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.borderColor = '#94A3B8'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = isFuelTab ? '#F8FAFC' : '#FFFFFF'; e.currentTarget.style.borderColor = '#CBD5E1'; }}
+          title={isFuelTab ? "Back to General Reports" : "Go Back"}
         >
-          <ArrowLeft size={16} />
+          <ArrowLeft size={14} />
+          {isFuelTab && <span>General Reports</span>}
         </button>
         {REPORT_TABS.map(tab => {
           const isActive = location.pathname === tab.path;
