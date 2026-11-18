@@ -199,14 +199,28 @@ async function pushToMines(vehicle, point) {
     }).catch(error => {
       // 403, 500, or network timeout
       const status = error.response?.status || 504;
-      const responseData = error.response?.data ? (typeof error.response.data === 'string' ? error.response.data.slice(0, 300) : JSON.stringify(error.response.data).slice(0, 300)) : error.message;
+      const rawData = error.response?.data;
+      const responseData = rawData ? (typeof rawData === 'string' ? rawData.slice(0, 300) : JSON.stringify(rawData).slice(0, 300)) : error.message;
       const errMsg = error.response ? `${error.response.status} - ${responseData}` : error.message;
       console.error(`[MINES PUSH] ❌ Error pushing for ${vehicle.plate || imei}:`, errMsg);
+
+      let displayMessage = status === 504 ? 'Failed (504 Timeout)' : `Failed (${status})`;
+      let pushStatus = 'FAILED';
+
+      // Check if government server rejected due to unmapped IMEI on their portal
+      if (typeof responseData === 'string' && /no vehicle mapping found/i.test(responseData)) {
+        displayMessage = 'Not Mapped on Gov Portal';
+        pushStatus = 'UNMAPPED';
+      } else if (typeof responseData === 'string' && /too many clients/i.test(responseData)) {
+        displayMessage = 'Gov Server Busy';
+        pushStatus = 'WARNING';
+      }
+
       redis.set(`api_push_status:${imei}`, JSON.stringify({
         target: 'Mines Server',
-        status: 'FAILED',
+        status: pushStatus,
         code: status,
-        message: status === 504 ? 'Failed (504 Timeout)' : `Failed (${status})`,
+        message: displayMessage,
         timestamp: Date.now()
       }), 'EX', 86400).catch(() => {});
     });
