@@ -43,7 +43,7 @@ class ProfileService {
     }
   }
 
-  async getProfile(organizationId) {
+  async getProfile(organizationId, currentUser = null) {
     let currentOrgId = organizationId;
     let mapProvider = null;
     let encryptedApiKey = null;
@@ -100,16 +100,36 @@ class ProfileService {
         (parentRes.rows[0].id === 'a0000000-0000-0000-0000-000000000001' || parentRes.rows[0].type === 'super');
 
       if (mainProfile.org_type === 'dealer') {
-        // Dealer organization viewing their own profile
-        mainProfile.is_dealer = true;
-        mainProfile.is_dealer_customer = false;
-        mainProfile.is_fueltracks_direct = false;
-        mainProfile.dealer_name = mainProfile.brand_name || mainProfile.org_name;
-        mainProfile.is_whitelabel_enabled = true;
-        // Dealer reaches Fueltracks for platform support
-        mainProfile.support_brand = 'Fueltracks';
-        mainProfile.support_email = 'info@fueltracks.in';
-        mainProfile.support_phone = '7337433356';
+        const isCustomerUser = currentUser?.role === 'customer';
+
+        if (isCustomerUser) {
+          // A customer created under this dealer viewing their dashboard (e.g. SHEKHAR on gps.smtechnologies.org)
+          const dealerEmail = mainProfile.support_email || mainProfile.dealer_user_email || mainProfile.email || mainProfile.org_email || 'info@fueltracks.in';
+          const dealerPhone = mainProfile.support_phone || mainProfile.dealer_user_phone || mainProfile.whatsapp_number || mainProfile.mobile || mainProfile.org_phone || '7337433356';
+          const dealerName = mainProfile.brand_name || mainProfile.org_name || 'SM Technologies';
+
+          mainProfile.is_dealer = false;
+          mainProfile.is_dealer_customer = true;
+          mainProfile.is_fueltracks_direct = false;
+          mainProfile.dealer_name = dealerName;
+          mainProfile.dealer_email = dealerEmail;
+          mainProfile.dealer_phone = dealerPhone;
+          mainProfile.support_brand = dealerName;
+          mainProfile.support_email = dealerEmail;
+          mainProfile.support_phone = dealerPhone;
+          mainProfile.is_whitelabel_enabled = true;
+        } else {
+          // Dealer organization viewing their own profile (Dealer Admin)
+          mainProfile.is_dealer = true;
+          mainProfile.is_dealer_customer = false;
+          mainProfile.is_fueltracks_direct = false;
+          mainProfile.dealer_name = mainProfile.brand_name || mainProfile.org_name;
+          mainProfile.is_whitelabel_enabled = true;
+          // Dealer reaches Fueltracks for platform support
+          mainProfile.support_brand = 'Fueltracks';
+          mainProfile.support_email = 'info@fueltracks.in';
+          mainProfile.support_phone = '7337433356';
+        }
       } else if (parentRes.rows.length > 0 && !isSuperadminParent) {
         // Customer under a Dealer (e.g. customer under SM Technologies)
         const parentId = parentRes.rows[0].id;

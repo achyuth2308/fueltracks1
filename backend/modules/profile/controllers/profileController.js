@@ -85,7 +85,7 @@ class ProfileController {
   async getProfile(req, res, next) {
     try {
       const orgId = await this.getOrganizationId(req);
-      const data = await profileService.getProfile(orgId);
+      const data = await profileService.getProfile(orgId, req.user);
       res.json({ success: true, ...data });
     } catch (err) {
       next(err);
