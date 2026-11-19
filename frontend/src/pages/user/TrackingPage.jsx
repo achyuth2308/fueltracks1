@@ -10,6 +10,7 @@ import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, getNoDataThresholdHours } from '../../utils/markerUtils';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 import DummyRazorpayModal from '../../components/modals/DummyRazorpayModal';
 import ImmobilizerModal from '../../components/modals/ImmobilizerModal';
@@ -56,15 +57,14 @@ const TrackingPage = ({ setAppVehicles }) => {
   const location = useLocation();
   const { user } = useAuth();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const isMultiMode = searchParams.get('mode') === 'multi';
+  const { vehicles, groups, loading, refetch, fetchVehicles } = useVehicles();
+  const isMultiMode = searchParams.get('mode') === 'multi' && (vehicles?.length > 1);
 
   useEffect(() => {
     if (user && (user.role === 'superadmin' || user.role === 'dealer')) {
       navigate('/dashboard', { replace: true });
     }
   }, [user, navigate]);
-
-  const { vehicles, groups, loading, refetch, fetchVehicles } = useVehicles();
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
   const [vehicleForRenewal, setVehicleForRenewal] = useState(null);
   const [collapsedGroups, setCollapsedGroups] = useState({});
@@ -151,7 +151,11 @@ const TrackingPage = ({ setAppVehicles }) => {
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const isMultiMode = searchParams.get('mode') === 'multi';
-    if (isMultiMode && vehicles?.length > 0) {
+    if (isMultiMode && vehicles?.length === 1) {
+      navigate('/tracking', { replace: true });
+      return;
+    }
+    if (isMultiMode && vehicles?.length > 1) {
       const activeVehicles = vehicles.filter(v => {
         const warning = getExpiryWarning(v);
         return !(warning && warning.type === 'expired');
@@ -377,13 +381,13 @@ const TrackingPage = ({ setAppVehicles }) => {
           background: isExpired ? '#FEF2F2' : (isSelected ? '#ECFDF5' : '#FFFFFF'),
           borderBottom: isExpired ? '1px solid #FECACA' : (isSelected ? '1px solid #A7F3D0' : '1px solid #F1F5F9'),
           borderLeft: isExpired ? '3px solid #DC2626' : (isSelected ? '3px solid #059669' : '3px solid transparent'),
-          padding: '8px 12px',
+          padding: '8px 10px',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '10px'
+          gap: '8px'
         }}
         onMouseEnter={e => {
           setHoveredVehicleId(v.id);
@@ -481,6 +485,14 @@ const TrackingPage = ({ setAppVehicles }) => {
             textOverflow: 'ellipsis'
           }}>
             <span>{formatSpeed(v.current_speed, v.is_online)}</span>
+            {hasVehicleFuelCapability(v) && v.current_fuel !== undefined && v.current_fuel !== null && (
+              <>
+                <span style={{ color: '#CBD5E1' }}>•</span>
+                <span style={{ color: '#0284C7', fontWeight: 600 }}>
+                  ⛽ {Math.round(Number(v.current_fuel))}L
+                </span>
+              </>
+            )}
             <span style={{ color: '#CBD5E1' }}>•</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
@@ -758,7 +770,7 @@ const TrackingPage = ({ setAppVehicles }) => {
                   {formatDirection(hoveredVehicle.current_direction)}
                 </td>
               </tr>
-              {(hoveredVehicle.current_fuel != null || hoveredVehicle.tank_capacity) && (
+              {hasVehicleFuelCapability(hoveredVehicle) && (
                 <tr>
                   <td style={{ color: '#64748b', padding: '2px 0' }}>Fuel</td>
                   <td colSpan="3" style={{ color: '#0f172a', fontWeight: 700, padding: '2px 0' }}>
@@ -784,7 +796,7 @@ const TrackingPage = ({ setAppVehicles }) => {
 
       {/* ═══════════ LEFT PANEL: Vehicle List (Docked seamlessly matching Image 2) ═══════════ */}
       <div
-        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[240px] ${
+        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[260px] ${
           mobileTab === 'list' ? 'flex' : 'hidden md:flex'
         }`}
         style={{ height: '100%', position: 'relative' }}
@@ -794,26 +806,28 @@ const TrackingPage = ({ setAppVehicles }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <div>
               <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                {isMultiMode ? 'Multi Tracking' : 'Fleet Vehicles'}
+                {isMultiMode ? 'Multi Tracking' : (vehicles?.length === 1 ? 'My Vehicle' : 'Fleet Vehicles')}
               </h2>
               <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
-                {filteredVehicles.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
+                {filteredVehicles.length} {filteredVehicles.length === 1 ? 'vehicle' : 'vehicles'} {groups?.length ? `• ${groups.length} groups` : ''}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <button
-                onClick={() => navigate(isMultiMode ? '/tracking' : '/tracking?mode=multi')}
-                style={{
-                  background: isMultiMode ? '#ECFDF5' : '#F8FAFC',
-                  border: isMultiMode ? '1px solid #10B981' : '1px solid #E2E8F0',
-                  color: isMultiMode ? '#059669' : '#64748B',
-                  cursor: 'pointer', padding: '3px 7px', borderRadius: '5px',
-                  fontSize: '10.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px'
-                }}
-                title={isMultiMode ? 'Switch to Single Tracking' : 'Switch to Multi Tracking'}
-              >
-                {isMultiMode ? '✓ Multi' : 'Multi'}
-              </button>
+              {vehicles?.length > 1 && (
+                <button
+                  onClick={() => navigate(isMultiMode ? '/tracking' : '/tracking?mode=multi')}
+                  style={{
+                    background: isMultiMode ? '#ECFDF5' : '#F8FAFC',
+                    border: isMultiMode ? '1px solid #10B981' : '1px solid #E2E8F0',
+                    color: isMultiMode ? '#059669' : '#64748B',
+                    cursor: 'pointer', padding: '3px 7px', borderRadius: '5px',
+                    fontSize: '10.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px'
+                  }}
+                  title={isMultiMode ? 'Switch to Single Tracking' : 'Switch to Multi Tracking'}
+                >
+                  {isMultiMode ? '✓ Multi' : 'Multi'}
+                </button>
+              )}
               <button
                 onClick={() => refetch()}
               style={{
@@ -1142,7 +1156,7 @@ const TrackingPage = ({ setAppVehicles }) => {
         </div>
 
         {/* ── Top Center "Find Nearby" Action Button ── */}
-        {currentSelectedVehicles.length === 1 && !isMultiMode && (
+        {vehicles?.length > 1 && currentSelectedVehicles.length === 1 && !isMultiMode && (
           <div style={{
             position: 'absolute', top: '24px', left: '50%', transform: 'translateX(-50%)', zIndex: 1001,
           }}>
@@ -1257,6 +1271,24 @@ const TrackingPage = ({ setAppVehicles }) => {
                   </button>
                 </div>
 
+                {/* No GPS Fix Banner (Cleanly docked inside the vehicle card) */}
+                {(!currentSelectedVehicle.last_seen || !currentSelectedVehicle.lat || !currentSelectedVehicle.lng) && (
+                  <div style={{
+                    background: '#FFFBEB',
+                    borderBottom: '1px solid #FDE68A',
+                    padding: '8px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    fontSize: '11px',
+                    color: '#B45309',
+                    fontWeight: 600
+                  }}>
+                    <AlertCircle size={14} color="#D97706" style={{ flexShrink: 0 }} />
+                    <span>No GPS fix yet • Device not transmitted</span>
+                  </div>
+                )}
+
                 {/* Telemetry details continuous list (No card background boxes, edge-to-edge dividers) */}
                 <div style={{ display: 'flex', flexDirection: 'column', flex: 1, background: '#FFFFFF' }}>
                   {[
@@ -1264,7 +1296,9 @@ const TrackingPage = ({ setAppVehicles }) => {
                     ...(currentSelectedVehicles.length === 1 ? [
                       { label: 'Odometer', value: formatOdometer(liveRouteMetrics[currentSelectedVehicle.id]?.dynamicOdo || currentSelectedVehicle.current_odometer), icon: Compass, color: '#64748B' },
                       { label: 'Ignition', value: currentSelectedVehicle.current_ignition ? 'ON' : 'OFF', icon: Shield, color: currentSelectedVehicle.current_ignition ? '#10B981' : '#64748B' },
-                      { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel, currentSelectedVehicle.tank_capacity), icon: BarChart2, color: '#F59E0B' },
+                      ...(hasVehicleFuelCapability(currentSelectedVehicle) ? [
+                        { label: 'Fuel Level', value: formatFuel(currentSelectedVehicle.current_fuel, currentSelectedVehicle.tank_capacity), icon: BarChart2, color: '#F59E0B' }
+                      ] : []),
                       { label: 'Voltage', value: formatVoltage(currentSelectedVehicle.current_voltage || currentSelectedVehicle.metadata?.batteryVoltage), icon: Cpu, color: '#8B5CF6' }
                     ] : []),
                     { label: 'Last Update', value: getRelativeTime(currentSelectedVehicle.last_seen), icon: Calendar, color: '#64748B' },

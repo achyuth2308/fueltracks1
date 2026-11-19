@@ -57,6 +57,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import axiosInstance from '../../api/axios';
 import { formatLocalTime, formatLocalDate } from '../../utils/dateUtils';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 
 // Helper to format IST strings cleanly
 // Get portal/dealer brand name for PDF headers (white-label support)
@@ -339,7 +340,8 @@ export default function FuelAnalyticsPage() {
             : (Array.isArray(vehiclesRes.value?.data?.vehicles) ? vehiclesRes.value.data.vehicles : []);
           setVehicles(list);
           if (list.length > 0 && !selectedVehicle) {
-            const initialV = list.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.fuel != null) || list[0];
+            const fuelOnly = list.filter(v => hasVehicleFuelCapability(v));
+            const initialV = fuelOnly.length > 0 ? fuelOnly[0] : list[0];
             setSelectedVehicle(initialV);
           }
         }
@@ -512,15 +514,21 @@ export default function FuelAnalyticsPage() {
     return { list, unassignedCount: 0 };
   }, [groups, vehicles]);
 
+  // Only fuel-capable vehicles are relevant for Fuel Analytics
+  const fuelCapableVehicles = useMemo(() => {
+    const list = vehicles.filter(v => hasVehicleFuelCapability(v));
+    return list.length > 0 ? list : vehicles;
+  }, [vehicles]);
+
   // Vehicles belonging to the selected group
   const vehiclesInSelectedGroup = useMemo(() => {
-    if (selectedGroupId === 'all') return vehicles;
+    if (selectedGroupId === 'all') return fuelCapableVehicles;
 
     if (selectedGroupId === '__unassigned__') {
       const assignedIds = new Set();
       availableGroups.list.forEach(g => {
         const targetName = g.name.trim().toLowerCase();
-        vehicles.forEach(v => {
+        fuelCapableVehicles.forEach(v => {
           const matches = (
             (Array.isArray(v.groups) && v.groups.some(vg => String(vg.id) === String(g.id) || (vg.name && vg.name.trim().toLowerCase() === targetName))) ||
             (v.group_id && String(v.group_id) === String(g.id)) ||
@@ -529,13 +537,13 @@ export default function FuelAnalyticsPage() {
           if (matches) assignedIds.add(v.id);
         });
       });
-      return vehicles.filter(v => !assignedIds.has(v.id));
+      return fuelCapableVehicles.filter(v => !assignedIds.has(v.id));
     }
 
     const currentGroup = availableGroups.list.find(g => g.id === selectedGroupId);
     const targetName = currentGroup?.name?.trim()?.toLowerCase();
 
-    return vehicles.filter(v => {
+    return fuelCapableVehicles.filter(v => {
       const matchArray = Array.isArray(v.groups) && v.groups.some(vg => 
         String(vg.id) === String(selectedGroupId) || (targetName && vg.name?.trim()?.toLowerCase() === targetName)
       );
@@ -543,7 +551,7 @@ export default function FuelAnalyticsPage() {
       const matchName = targetName && v.group_name && v.group_name.split(',').map(s => s.trim().toLowerCase()).includes(targetName);
       return matchArray || matchId || matchName;
     });
-  }, [vehicles, selectedGroupId, availableGroups]);
+  }, [fuelCapableVehicles, selectedGroupId, availableGroups]);
 
   // Search filtered vehicles (within selected group)
   const filteredVehicles = useMemo(() => {
@@ -577,13 +585,13 @@ export default function FuelAnalyticsPage() {
     setIsGroupDropdownOpen(false);
     setGroupSearchQuery('');
 
-    let nextVehicles = vehicles;
+    let nextVehicles = fuelCapableVehicles;
     if (groupId === '__unassigned__') {
-      nextVehicles = vehicles.filter(v => (!v.groups || v.groups.length === 0) && !v.group_name && !v.group_id);
+      nextVehicles = fuelCapableVehicles.filter(v => (!v.groups || v.groups.length === 0) && !v.group_name && !v.group_id);
     } else if (groupId !== 'all') {
       const currentGroup = availableGroups.list.find(g => g.id === groupId);
       const targetName = currentGroup?.name?.trim()?.toLowerCase();
-      nextVehicles = vehicles.filter(v => {
+      nextVehicles = fuelCapableVehicles.filter(v => {
         const matchArray = Array.isArray(v.groups) && v.groups.some(vg => 
           String(vg.id) === String(groupId) || (targetName && vg.name?.trim()?.toLowerCase() === targetName)
         );
@@ -595,8 +603,7 @@ export default function FuelAnalyticsPage() {
 
     // Always select the first / default vehicle present in the newly selected group
     if (nextVehicles.length > 0) {
-      const bestVehicle = nextVehicles.find(v => v.metadata?.fuel || v.metadata?.fuelCalibration || v.current_fuel != null) || nextVehicles[0];
-      setSelectedVehicle(bestVehicle);
+      setSelectedVehicle(nextVehicles[0]);
     } else {
       setSelectedVehicle(null);
       setHistoryPoints([]);
@@ -2294,6 +2301,88 @@ export default function FuelAnalyticsPage() {
                 title="Toggle Speed Secondary Axis"
               >
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
+                <span>Speed</span>
+              </button>
+            </div>
+
+            {/* Telematics Visibility Toggles (Clean Pill Stack in Toolbar) */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {/* Layer 1: All Fuel Data (Admin Diagnostic Only) */}
+              {showAdminDiagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllFuel(!showAllFuel)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
+                    showAllFuel
+                      ? 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 border border-slate-400/80 shadow-xs font-semibold'
+                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 border border-dashed border-slate-300 dark:border-slate-700/70'
+                  }`}
+                  title="Toggle Raw Unfiltered Sensor Fuel Telemetry"
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${showAllFuel ? 'bg-slate-600 dark:bg-slate-300' : 'bg-slate-400'}`} />
+                  <span>All Fuel Data</span>
+                </button>
+              )}
+
+              {/* Layer 2: Filtered Fuel Data */}
+              <button
+                type="button"
+                onClick={() => setShowFilteredFuel(!showFilteredFuel)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
+                  showFilteredFuel
+                    ? 'bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-300 border border-sky-400 shadow-xs ring-1 ring-sky-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Anti-Slosh Smoothed Fuel Curve"
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${showFilteredFuel ? 'bg-sky-500' : 'bg-slate-400'}`} />
+                <span>Filtered Fuel Data</span>
+              </button>
+
+              {/* Layer 3: Normalize (Admin Diagnostic Only) */}
+              {showAdminDiagnostics && (
+                <button
+                  type="button"
+                  onClick={() => setShowNormalize(!showNormalize)}
+                  className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
+                    showNormalize
+                      ? 'bg-rose-50 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300 border border-rose-400 shadow-xs ring-1 ring-rose-500/20 font-semibold'
+                      : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                  }`}
+                  title="Toggle Monotonic Physical Reality Consumption Curve"
+                >
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${showNormalize ? 'bg-rose-500' : 'bg-slate-400'}`} />
+                  <span>Normalize</span>
+                </button>
+              )}
+
+              {/* Layer 4: Engine */}
+              <button
+                type="button"
+                onClick={() => setShowEngine(!showEngine)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
+                  showEngine
+                    ? 'bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border border-amber-400 shadow-xs ring-1 ring-amber-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Engine Ignition Status"
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${showEngine ? 'bg-amber-500' : 'bg-slate-400'}`} />
+                <span>Engine</span>
+              </button>
+
+              {/* Layer 5: Speed */}
+              <button
+                type="button"
+                onClick={() => setShowSpeed(!showSpeed)}
+                className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer select-none ${
+                  showSpeed
+                    ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 border border-cyan-400 shadow-xs ring-1 ring-cyan-500/20 font-semibold'
+                    : 'bg-white/60 dark:bg-slate-800/40 text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border border-dashed border-slate-300 dark:border-slate-700/70'
+                }`}
+                title="Toggle Speed Secondary Axis"
+              >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${showSpeed ? 'bg-cyan-500' : 'bg-slate-400'}`} />
                 <span>Speed</span>
               </button>
             </div>

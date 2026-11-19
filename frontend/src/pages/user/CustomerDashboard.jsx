@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight, ChevronDown, Users2, X, AlertTriangle, User, Compass, Shield, Cpu, Search } from 'lucide-react';
+import {
+  Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight,
+  ChevronDown, ChevronLeft, Users2, X, AlertTriangle, User, Compass, Shield,
+  Cpu, Search, Maximize2, Minimize2, Fuel
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
 import { useAuth } from '../../hooks/useAuth';
@@ -11,6 +15,7 @@ import { getRelativeTime, getVehicleExpiryStatus, formatLocalDate } from '../../
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, getVehicleType, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 import * as vehicleApi from '../../api/vehicleApi';
 
 const getExpiryWarning = (vehicle) => {
@@ -19,8 +24,8 @@ const getExpiryWarning = (vehicle) => {
   if (status.isExpired) {
     return { type: 'expired', text: 'License Expired', diffDays: status.diffDays };
   } else if (status.isExpiring) {
-    return { 
-      type: 'expiring', 
+    return {
+      type: 'expiring',
       text: `Your license is going to expire in ${status.diffDays} day${status.diffDays === 1 ? '' : 's'}`,
       diffDays: status.diffDays
     };
@@ -74,6 +79,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [dismissedToastId, setDismissedToastId] = useState(null);
   const [dismissedBannerVehicleId, setDismissedBannerVehicleId] = useState(null);
@@ -111,7 +117,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     return () => clearInterval(interval);
   }, []);
 
-  const handleRouteFetched = () => {}; // No-op, we don't need this anymore since we fetch all metrics at once
+  const handleRouteFetched = () => { }; // No-op, we don't need this anymore since we fetch all metrics at once
 
   useEffect(() => {
     if (hoveredVehicle) {
@@ -267,6 +273,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     const status = getStatus(v);
     const isSelected = currentSelected?.id === v.id;
     const sc = isExpired ? '#DC2626' : (isExpiring ? '#D97706' : statusColors[status]);
+    const vHasFuel = hasVehicleFuelCapability(v);
 
     return (
       <div
@@ -295,13 +302,13 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           background: isExpired ? '#FEF2F2' : (isExpiring ? '#FFFBEB' : (isSelected ? '#ECFDF5' : '#FFFFFF')),
           borderBottom: isExpired ? '1px solid #FECACA' : (isExpiring ? '1px solid #FDE68A' : (isSelected ? '1px solid #A7F3D0' : '1px solid #F1F5F9')),
           borderLeft: isExpired ? '3px solid #DC2626' : (isExpiring ? '3px solid #F59E0B' : (isSelected ? '3px solid #059669' : '3px solid transparent')),
-          padding: '8px 12px',
+          padding: '8px 10px',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '10px'
+          gap: '8px'
         }}
         onMouseEnter={e => {
           setHoveredVehicleId(v.id);
@@ -342,20 +349,20 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             if (vType === 'bike') {
               return (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5.5" cy="17.5" r="3.5"/>
-                  <circle cx="18.5" cy="17.5" r="3.5"/>
-                  <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9H5"/>
-                  <path d="M12 17.5V14l4-3 3 3"/>
+                  <circle cx="5.5" cy="17.5" r="3.5" />
+                  <circle cx="18.5" cy="17.5" r="3.5" />
+                  <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9H5" />
+                  <path d="M12 17.5V14l4-3 3 3" />
                 </svg>
               );
             }
             if (vType === 'car') {
               return (
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2"/>
-                  <circle cx="7" cy="17" r="2"/>
-                  <path d="M9 17h6"/>
-                  <circle cx="17" cy="17" r="2"/>
+                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2" />
+                  <circle cx="7" cy="17" r="2" />
+                  <path d="M9 17h6" />
+                  <circle cx="17" cy="17" r="2" />
                 </svg>
               );
             }
@@ -396,6 +403,15 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             textOverflow: 'ellipsis'
           }}>
             <span>{formatSpeed(v.current_speed, v.is_online)}</span>
+            {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
+              <>
+                <span style={{ color: '#CBD5E1' }}>•</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#0284C7', fontWeight: 600 }}>
+                  <Fuel size={10} />
+                  {Math.round(Number(v.current_fuel))}L
+                </span>
+              </>
+            )}
             <span style={{ color: '#CBD5E1' }}>•</span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
               {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
@@ -457,78 +473,78 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               border: '1px solid #DC2626'
             }}
           >
-              {/* Red Header Bar */}
-              <div style={{
-                background: '#DC2626',
-                color: '#FFFFFF',
-                padding: '12px 16px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}>
-                <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.2px' }}>
-                  Licence Expiry Message
-                </span>
-                <button
-                  onClick={() => setExpiredModalVehicle(null)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#FFFFFF',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    padding: '2px',
-                    borderRadius: '4px'
-                  }}
-                >
-                  <X size={18} />
-                </button>
-              </div>
+            {/* Red Header Bar */}
+            <div style={{
+              background: '#DC2626',
+              color: '#FFFFFF',
+              padding: '12px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between'
+            }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.2px' }}>
+                Licence Expiry Message
+              </span>
+              <button
+                onClick={() => setExpiredModalVehicle(null)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '2px',
+                  borderRadius: '4px'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
 
-              {/* Body Content */}
-              <div style={{ padding: '24px 20px', background: '#FFFFFF' }}>
-                <p style={{
-                  margin: 0,
-                  color: '#DC2626',
-                  fontSize: '14px',
+            {/* Body Content */}
+            <div style={{ padding: '24px 20px', background: '#FFFFFF' }}>
+              <p style={{
+                margin: 0,
+                color: '#DC2626',
+                fontSize: '14px',
+                fontWeight: 600,
+                lineHeight: '1.5'
+              }}>
+                Your license has expired. Please contact sales team or renew yourself
+              </p>
+            </div>
+
+            {/* Footer Bar */}
+            <div style={{
+              padding: '12px 16px',
+              background: '#F8FAFC',
+              borderTop: '1px solid #E2E8F0',
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '10px'
+            }}>
+              <button
+                onClick={() => setExpiredModalVehicle(null)}
+                style={{
+                  padding: '6px 18px',
+                  background: '#FFFFFF',
+                  color: '#475569',
+                  border: '1px solid #CBD5E1',
+                  borderRadius: '6px',
+                  fontSize: '13px',
                   fontWeight: 600,
-                  lineHeight: '1.5'
-                }}>
-                  Your license has expired. Please contact sales team or renew yourself
-                </p>
-              </div>
-
-              {/* Footer Bar */}
-              <div style={{
-                padding: '12px 16px',
-                background: '#F8FAFC',
-                borderTop: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '10px'
-              }}>
-                <button
-                  onClick={() => setExpiredModalVehicle(null)}
-                  style={{
-                    padding: '6px 18px',
-                    background: '#FFFFFF',
-                    color: '#475569',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '13px',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Top Warning Toast ── */}
       <AnimatePresence>
@@ -620,7 +636,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
               <AlertTriangle size={18} color={isExp ? '#DC2626' : '#D97706'} style={{ flexShrink: 0 }} />
               <span style={{ fontSize: '13px', fontWeight: 700, color: isExp ? '#991B1B' : '#B45309' }}>
-                {isExp 
+                {isExp
                   ? `Your license has expired for vehicle ${expiringAlertVehicle.name} (${expiringAlertVehicle.plate || expiringAlertVehicle.imei})!`
                   : `Your license is going to expire in ${w.diffDays} day${w.diffDays === 1 ? '' : 's'} for vehicle ${expiringAlertVehicle.name} (${expiringAlertVehicle.plate || expiringAlertVehicle.imei})!`}
               </span>
@@ -680,17 +696,15 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           <div className="flex md:hidden items-center bg-slate-100 p-1 rounded-lg border border-slate-200 gap-1">
             <button
               onClick={() => setMobileTab('list')}
-              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${
-                mobileTab === 'list' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
-              }`}
+              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${mobileTab === 'list' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'
+                }`}
             >
               List
             </button>
             <button
               onClick={() => setMobileTab('map')}
-              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${
-                mobileTab === 'map' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600'
-              }`}
+              className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${mobileTab === 'map' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600'
+                }`}
             >
               Map
             </button>
@@ -707,7 +721,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                 color={statusColors[s]} active={statusFilter === s || (s === 'unreachable' && statusFilter === 'unavailable')}
                 onClick={() => setStatusFilter(prev => prev === s ? null : s)}
               />
-              
+
             </div>
           ))}
 
@@ -729,6 +743,16 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             title="Refresh"
           >
             <RefreshCw size={14} />
+          </button>
+
+          {/* Desktop Full Map / Show Fleet List Toggle */}
+          <button
+            onClick={() => setIsSidebarCollapsed(prev => !prev)}
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 text-[11.5px] font-semibold rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs transition-colors shrink-0 ml-1 cursor-pointer"
+            title={isSidebarCollapsed ? (vehicles.length === 1 ? "Show Vehicle" : "Show Fleet List") : "Collapse Fleet List (Full Map)"}
+          >
+            {isSidebarCollapsed ? <Minimize2 size={13} className="text-emerald-600" /> : <Maximize2 size={13} />}
+            <span>{isSidebarCollapsed ? (vehicles.length === 1 ? "Show Vehicle" : "Show Fleet") : "Full Map"}</span>
           </button>
         </div>
       </div>
@@ -861,192 +885,227 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       <div className="tracking-container" style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
 
         {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
-        <div
-          className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[240px] ${
-            mobileTab === 'list' ? 'flex' : 'hidden md:flex'
-          }`}
-          style={{ height: '100%', position: 'relative' }}
-        >
-          {/* Header Section */}
-          <div style={{ padding: '8px 10px 6px 10px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-              <div>
-                <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
-                  Fleet Vehicles
-                </h2>
-                <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
-                  {filtered.length} vehicles {groups?.length ? `• ${groups.length} groups` : ''}
+        {!isSidebarCollapsed && (
+          <div
+            className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[260px] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'
+              }`}
+            style={{ height: '100%', position: 'relative' }}
+          >
+            {/* Header Section */}
+            <div style={{ padding: '8px 10px 6px 10px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div>
+                  <h2 style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', textTransform: 'uppercase', letterSpacing: '0.04em', margin: 0 }}>
+                    {vehicles.length === 1 ? 'My Vehicle' : 'Fleet Vehicles'}
+                  </h2>
+                  <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginTop: '1px' }}>
+                    {filtered.length} {filtered.length === 1 ? 'vehicle' : 'vehicles'} {groups?.length ? `• ${groups.length} groups` : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    onClick={() => refetch()}
+                    style={{
+                      background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
+                      cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
+                    }}
+                    title="Refresh"
+                    onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
+                  >
+                    <RefreshCw size={12} />
+                  </button>
+                  <button
+                    onClick={() => setIsSidebarCollapsed(true)}
+                    className="hidden md:flex"
+                    style={{
+                      background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
+                      cursor: 'pointer', padding: '4px', borderRadius: '6px', alignItems: 'center', transition: 'all 0.2s'
+                    }}
+                    title="Collapse Fleet List"
+                    onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
+                  >
+                    <ChevronLeft size={13} />
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => refetch()}
-                style={{
-                  background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#64748B',
-                  cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex', alignItems: 'center', transition: 'all 0.2s'
-                }}
-                title="Refresh"
-                onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; e.currentTarget.style.color = '#0F172A'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; e.currentTarget.style.color = '#64748B'; }}
-              >
-                <RefreshCw size={12} />
-              </button>
+
+              {/* Search vehicle input */}
+              <div style={{ position: 'relative', width: '100%' }}>
+                <Search size={13} color="#94A3B8" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }} />
+                <input
+                  type="text"
+                  placeholder="Search vehicle..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '5px 8px 5px 28px',
+                    borderRadius: '6px',
+                    border: '1px solid #E2E8F0',
+                    background: '#F8FAFC',
+                    fontSize: '11.5px',
+                    outline: 'none',
+                    color: '#0F172A',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
             </div>
 
-            {/* Search vehicle input */}
-            <div style={{ position: 'relative', width: '100%' }}>
-              <Search size={13} color="#94A3B8" style={{ position: 'absolute', left: '9px', top: '50%', transform: 'translateY(-50%)' }} />
-              <input
-                type="text"
-                placeholder="Search vehicle..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '5px 8px 5px 28px',
-                  borderRadius: '6px',
-                  border: '1px solid #E2E8F0',
-                  background: '#F8FAFC',
-                  fontSize: '11.5px',
-                  outline: 'none',
-                  color: '#0F172A',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-          </div>
+            {/* Vehicle List Items */}
+            <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '0', display: 'flex', flexDirection: 'column', flex: 1 }}>
+              {loading ? (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', gap: '8px', opacity: 0.7 }}>
+                  <RefreshCw size={18} color="#0EA5E9" className="animate-spin" />
+                  <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Loading vehicles...</span>
+                </div>
+              ) : error ? (
+                <div style={{ padding: '20px', textAlign: 'center' }}>
+                  <AlertCircle size={24} color="#ef4444" style={{ margin: '0 auto 8px' }} />
+                  <div style={{ fontSize: '12px', color: '#64748B' }}>Failed to load vehicles</div>
+                </div>
+              ) : filtered.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px', textAlign: 'center' }}>
+                  <Truck size={28} color="#94A3B8" style={{ marginBottom: '8px' }} />
+                  <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>
+                    {vehicles.length === 0 ? 'No vehicles assigned' : 'No vehicles match search'}
+                  </span>
+                </div>
+              ) : groupedVehicles ? (
+                groupedVehicles.map(gm => {
+                  // If search is active and group has 0 matches, hide the group
+                  if (searchQuery.trim() && gm.vehicles.length === 0) return null;
+                  const isCollapsed = !!collapsedGroups[gm.group.id];
 
-          {/* Vehicle List Items */}
-          <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '0', display: 'flex', flexDirection: 'column', flex: 1 }}>
-            {loading ? (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', gap: '8px', opacity: 0.7 }}>
-                <RefreshCw size={18} color="#0EA5E9" className="animate-spin" />
-                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Loading vehicles...</span>
-              </div>
-            ) : error ? (
-              <div style={{ padding: '20px', textAlign: 'center' }}>
-                <AlertCircle size={24} color="#ef4444" style={{ margin: '0 auto 8px' }} />
-                <div style={{ fontSize: '12px', color: '#64748B' }}>Failed to load vehicles</div>
-              </div>
-            ) : filtered.length === 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '30px', textAlign: 'center' }}>
-                <Truck size={28} color="#94A3B8" style={{ marginBottom: '8px' }} />
-                <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>
-                  {vehicles.length === 0 ? 'No vehicles assigned' : 'No vehicles match search'}
-                </span>
-              </div>
-            ) : groupedVehicles ? (
-              groupedVehicles.map(gm => {
-                // If search is active and group has 0 matches, hide the group
-                if (searchQuery.trim() && gm.vehicles.length === 0) return null;
-                const isCollapsed = !!collapsedGroups[gm.group.id];
-
-                return (
-                  <div key={gm.group.id} style={{ display: 'flex', flexDirection: 'column' }}>
-                    {/* Modern Group Header */}
-                    <div
-                      onClick={() => toggleGroupCollapse(gm.group.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '6px 12px',
-                        background: '#F8FAFC',
-                        borderTop: '1px solid #E2E8F0',
-                        borderBottom: '1px solid #E2E8F0',
-                        cursor: 'pointer',
-                        userSelect: 'none',
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 5,
-                        transition: 'background 0.15s ease'
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
-                        <span style={{
-                          fontSize: '12px',
-                          fontWeight: 700,
-                          color: '#0F172A',
-                          letterSpacing: '0.02em',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>
-                          {gm.group.name}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          background: '#FFFFFF',
-                          border: '1px solid #E2E8F0',
-                          color: '#475569'
-                        }}>
-                          {gm.vehicles.length} {gm.vehicles.length === 1 ? 'veh' : 'vehs'}
-                        </span>
-                        {gm.onlineCount > 0 && (
+                  return (
+                    <div key={gm.group.id} style={{ display: 'flex', flexDirection: 'column' }}>
+                      {/* Modern Group Header */}
+                      <div
+                        onClick={() => toggleGroupCollapse(gm.group.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '6px 12px',
+                          background: '#F8FAFC',
+                          borderTop: '1px solid #E2E8F0',
+                          borderBottom: '1px solid #E2E8F0',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          position: 'sticky',
+                          top: 0,
+                          zIndex: 5,
+                          transition: 'background 0.15s ease'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
+                        onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
                           <span style={{
-                            fontSize: '10.5px',
-                            fontWeight: 600,
-                            padding: '2px 6px',
-                            borderRadius: '10px',
-                            background: '#F0FDF4',
-                            border: '1px solid #BBF7D0',
-                            color: '#16A34A',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '3px'
+                            fontSize: '12px',
+                            fontWeight: 700,
+                            color: '#0F172A',
+                            letterSpacing: '0.02em',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}>
-                            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16A34A' }} />
-                            {gm.onlineCount}
+                            {gm.group.name}
                           </span>
-                        )}
-                        {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
-                      </div>
-                    </div>
-
-                    {/* Group Vehicles List */}
-                    {!isCollapsed && (
-                      gm.vehicles.length === 0 ? (
-                        <div style={{ padding: '12px 16px', fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', background: '#FAFAFA', textAlign: 'center' }}>
-                          No vehicles match filters in this group
                         </div>
-                      ) : (
-                        gm.vehicles.map(v => renderVehicleCard(v, gm.group.id))
-                      )
-                    )}
-                  </div>
-                );
-              })
-            ) : (
-              filtered.map(v => renderVehicleCard(v, 'all'))
-            )}
-            {/* Mobile Floating Button to switch to Map */}
-            <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 100 }}>
-              <button
-                onClick={() => setMobileTab('map')}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                  padding: '9px 16px', borderRadius: '30px',
-                  background: '#0284C7', color: '#FFFFFF',
-                  fontSize: '12px', fontWeight: 700, border: 'none',
-                  boxShadow: '0 4px 14px rgba(2,132,199,0.4)', cursor: 'pointer'
-                }}
-              >
-                <MapPin size={15} color="#FFFFFF" />
-                <span>View Map</span>
-              </button>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                          <span style={{
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            background: '#FFFFFF',
+                            border: '1px solid #E2E8F0',
+                            color: '#475569'
+                          }}>
+                            {gm.vehicles.length} {gm.vehicles.length === 1 ? 'veh' : 'vehs'}
+                          </span>
+                          {gm.onlineCount > 0 && (
+                            <span style={{
+                              fontSize: '10.5px',
+                              fontWeight: 600,
+                              padding: '2px 6px',
+                              borderRadius: '10px',
+                              background: '#F0FDF4',
+                              border: '1px solid #BBF7D0',
+                              color: '#16A34A',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px'
+                            }}>
+                              <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#16A34A' }} />
+                              {gm.onlineCount}
+                            </span>
+                          )}
+                          {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
+                        </div>
+                      </div>
+
+                      {/* Group Vehicles List */}
+                      {!isCollapsed && (
+                        gm.vehicles.length === 0 ? (
+                          <div style={{ padding: '12px 16px', fontSize: '11px', color: '#94A3B8', fontStyle: 'italic', background: '#FAFAFA', textAlign: 'center' }}>
+                            No vehicles match filters in this group
+                          </div>
+                        ) : (
+                          gm.vehicles.map(v => renderVehicleCard(v, gm.group.id))
+                        )
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                filtered.map(v => renderVehicleCard(v, 'all'))
+              )}
+              {/* Mobile Floating Button to switch to Map */}
+              <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', right: '16px', zIndex: 100 }}>
+                <button
+                  onClick={() => setMobileTab('map')}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '6px',
+                    padding: '9px 16px', borderRadius: '30px',
+                    background: '#0284C7', color: '#FFFFFF',
+                    fontSize: '12px', fontWeight: 700, border: 'none',
+                    boxShadow: '0 4px 14px rgba(2,132,199,0.4)', cursor: 'pointer'
+                  }}
+                >
+                  <MapPin size={15} color="#FFFFFF" />
+                  <span>View Map</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Right: Map + optional vehicle detail */}
         <div className={`flex-1 relative overflow-hidden h-full ${mobileTab === 'map' ? 'block' : 'hidden md:block'}`}>
+          {/* Desktop Floating Button to restore Fleet List when collapsed */}
+          {isSidebarCollapsed && (
+            <div className="hidden md:block" style={{ position: 'absolute', top: '14px', left: '14px', zIndex: 1000 }}>
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '7px 12px', borderRadius: '8px',
+                  background: '#FFFFFF', color: '#0F172A',
+                  fontSize: '11px', fontWeight: 700, border: '1px solid #E2E8F0',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)', cursor: 'pointer'
+                }}
+              >
+                <Truck size={14} color="#059669" />
+                <span>{vehicles.length === 1 ? "Show Vehicle" : `Show Fleet (${filtered.length})`}</span>
+              </button>
+            </div>
+          )}
+
           <FleetMap
             vehicles={currentSelected ? (isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected]) : filtered}
             selectedVehicles={currentSelected ? [currentSelected] : []}
@@ -1058,6 +1117,170 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             showRoute={!!currentSelected}
             liveRouteMetrics={liveRouteMetrics}
           />
+
+          {/* ── Selected Vehicle Floating HUD Card (Bottom-Left) ── */}
+          {currentSelected && (
+            <div style={{
+              position: 'absolute',
+              bottom: window.innerWidth > 768 ? '24px' : '75px',
+              left: window.innerWidth > 768 ? '24px' : '12px',
+              zIndex: 1000,
+              background: 'rgba(255, 255, 255, 0.96)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
+              width: window.innerWidth > 768 ? '320px' : 'calc(100% - 24px)',
+              maxWidth: '360px',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+            }}>
+              {/* Header: Name, Plate, Status pill & Close */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {currentSelected.plate || currentSelected.name}
+                  </div>
+                  {currentSelected.plate && currentSelected.name && currentSelected.name !== currentSelected.plate && (
+                    <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentSelected.name}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '12px',
+                    background: `${statusColors[getStatus(currentSelected)]}18`,
+                    color: statusColors[getStatus(currentSelected)],
+                    border: `1px solid ${statusColors[getStatus(currentSelected)]}35`
+                  }}>
+                    {statusLabels[getStatus(currentSelected)]}
+                  </span>
+                  <button
+                    onClick={() => setSelectedVehicle(null)}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: '#94A3B8', display: 'flex' }}
+                    title="Deselect"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Metrics grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', padding: '7px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
+                <div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Speed</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
+                    {formatSpeed(currentSelected.current_speed, currentSelected.is_online)}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Ignition</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: currentSelected.current_ignition ? '#16A34A' : '#EF4444' }}>
+                    {currentSelected.current_ignition ? 'ON' : 'OFF'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Today Dist</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
+                    {liveRouteMetrics[currentSelected.id]?.cDist !== undefined ? Number(liveRouteMetrics[currentSelected.id].cDist).toFixed(2) : (Number(currentSelected.today_distance) || 0).toFixed(2)} km
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Veh Battery</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
+                    {formatVoltage(currentSelected.current_voltage || currentSelected.metadata?.batteryVoltage)}
+                  </div>
+                </div>
+              </div>
+
+              {/* FUEL METRICS (STRICTLY GATED: ONLY RENDERED IF VEHICLE HAS FUEL SENSOR) */}
+              {hasVehicleFuelCapability(currentSelected) && (
+                <div style={{
+                  marginTop: '7px',
+                  padding: '7px 9px',
+                  borderRadius: '8px',
+                  background: '#F0F9FF',
+                  border: '1px solid #BAE6FD',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '5px', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Fuel size={13} color="#FFFFFF" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Fuel Level</div>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4A6E' }}>
+                        {currentSelected.current_fuel !== undefined && currentSelected.current_fuel !== null
+                          ? `${Math.round(Number(currentSelected.current_fuel))} L`
+                          : 'Monitoring'}
+                        {currentSelected.tank_capacity ? ` / ${currentSelected.tank_capacity} L` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  {currentSelected.tank_capacity && currentSelected.current_fuel != null && (
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', background: '#E0F2FE', padding: '1px 6px', borderRadius: '10px' }}>
+                      {Math.min(100, Math.round((Number(currentSelected.current_fuel) / Number(currentSelected.tank_capacity)) * 100))}%
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                <button
+                  onClick={() => navigate(`/tracking?vehicle=${currentSelected.id}`)}
+                  style={{
+                    flex: 1,
+                    padding: '6px 10px',
+                    borderRadius: '7px',
+                    background: '#0F172A',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '5px'
+                  }}
+                >
+                  <Navigation size={12} />
+                  <span>Live Track</span>
+                </button>
+                {hasVehicleFuelCapability(currentSelected) && (
+                  <button
+                    onClick={() => navigate(`/fuel-analytics?vehicle=${currentSelected.id}`)}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      borderRadius: '7px',
+                      background: '#0284C7',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px'
+                    }}
+                  >
+                    <Activity size={12} />
+                    <span>Fuel Analytics</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Mobile Floating Button to switch back to List */}
           <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>
@@ -1077,7 +1300,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           </div>
 
           {/* ── Nearby Mode Controls ── */}
-          {currentSelected && (
+          {vehicles.length > 1 && currentSelected && (
             <div style={{
               position: 'absolute',
               bottom: window.innerWidth > 768 ? '24px' : '65px',

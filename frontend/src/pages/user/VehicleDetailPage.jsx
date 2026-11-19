@@ -17,6 +17,7 @@ import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
 import { formatSpeed, formatFuel, formatOdometer, formatVoltage, getBatteryStatus } from '../../utils/formatUtils';
 import { getVehicleStatus, STATUS_CONFIG } from '../../utils/markerUtils';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 import { useSocket } from '../../hooks/useSocket';
 import { useVehicles } from '../../hooks/useVehicles';
 
@@ -735,19 +736,21 @@ const VehicleDetailPage = () => {
             </div>
           </div>
 
-          {/* Fuel */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Fuel size={18} color="#8B5CF6" />
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>FUEL</div>
-              <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatFuel(vehicle.current_fuel)}</div>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '#16A34A' : '#64748B' }}>
-                {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '● Normal' : '● Not Available'}
+          {/* Fuel (Rendered only if vehicle has fuel sensor / calibration) */}
+          {hasVehicleFuelCapability(vehicle) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>
+              <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Fuel size={18} color="#8B5CF6" />
+              </div>
+              <div>
+                <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748B', textTransform: 'uppercase' }}>FUEL</div>
+                <div style={{ fontSize: '16px', fontWeight: 800, color: '#111827' }}>{formatFuel(vehicle.current_fuel)}</div>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '#16A34A' : '#64748B' }}>
+                  {vehicle.current_fuel !== undefined && vehicle.current_fuel !== null ? '● Normal' : '● Not Available'}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Battery */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', borderLeft: '1px solid #F1F5F9', paddingLeft: '12px' }}>

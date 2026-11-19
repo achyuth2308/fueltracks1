@@ -76,3 +76,44 @@ export const normalizeTierName = (tier) => {
   }
   return tier;
 };
+
+/**
+ * Checks whether an individual vehicle has fuel monitoring hardware/capability configured.
+ */
+export const hasVehicleFuelCapability = (v) => {
+  if (!v) return false;
+  // 1. Explicit boolean flag if configured on vehicle
+  if (v.fuel_sensor === false || v.has_fuel_sensor === false) return false;
+  if (v.fuel_sensor === true || v.has_fuel_sensor === true) return true;
+
+  // 2. Tank capacity or calibrated fuel settings
+  const directCap = Number(v.tank_capacity);
+  if (!isNaN(directCap) && directCap > 0) return true;
+
+  const meta = v.metadata || {};
+  const metaTank = parseFloat(meta.tankSize || meta.tank_size || meta.tankCapacity || 0);
+  if (!isNaN(metaTank) && metaTank > 0) return true;
+
+  if (meta.fuelCalibration && typeof meta.fuelCalibration === 'object' && Object.keys(meta.fuelCalibration).length > 0) {
+    return true;
+  }
+
+  // 3. Current live fuel telemetry
+  if (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0) {
+    return true;
+  }
+
+  // 4. Tier based detection (Advanced AD / Premium EN include fuel hardware)
+  const tier = getVehicleLicenseTier(v);
+  if (tier === 'Advanced' || tier === 'Premium') return true;
+
+  return false;
+};
+
+/**
+ * Checks whether a fleet of vehicles has ANY vehicle with fuel capability.
+ */
+export const hasAnyFuelVehicle = (vehicles) => {
+  if (!Array.isArray(vehicles) || vehicles.length === 0) return false;
+  return vehicles.some(v => hasVehicleFuelCapability(v));
+};

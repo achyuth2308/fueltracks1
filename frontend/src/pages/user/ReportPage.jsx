@@ -26,6 +26,7 @@ import {
 import * as vehicleApi from '../../api/vehicleApi';
 import { formatLocalTime, formatLocalDate } from '../../utils/dateUtils';
 import { formatSpeed, formatFuel } from '../../utils/formatUtils';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 
 const ReportPage = () => {
   const { id } = useParams();
@@ -98,6 +99,8 @@ const ReportPage = () => {
   // Recharts styling tokens
   const gridStroke = '#1e293b'; // slate-800
   const axisColor = '#94a3b8'; // slate-400
+
+  const hasFuel = vehicle ? hasVehicleFuelCapability(vehicle) : false;
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-slate-950 p-6 space-y-6 print:bg-white print:text-slate-900 print:p-0">
@@ -173,7 +176,7 @@ const ReportPage = () => {
       ) : (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className={`grid grid-cols-2 ${hasFuel ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-4`}>
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
               <TrendingUp className="w-5 h-5 text-blue-500" />
               <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Distance Travelled</p>
@@ -195,21 +198,23 @@ const ReportPage = () => {
                 {summary?.max_speed ? formatSpeed(summary.max_speed) : '0 km/h'}
               </h3>
             </div>
-            <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
-              <Fuel className="w-5 h-5 text-amber-500" />
-              <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Fuel Variance</p>
-              <h3 className="text-xl font-bold text-slate-100 font-mono">
-                {summary?.min_fuel && summary?.max_fuel 
-                  ? `${(parseFloat(summary.max_fuel) - parseFloat(summary.min_fuel)).toFixed(1)}%` 
-                  : '0.0%'}
-              </h3>
-            </div>
+            {hasFuel && (
+              <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                <Fuel className="w-5 h-5 text-amber-500" />
+                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Fuel Variance</p>
+                <h3 className="text-xl font-bold text-slate-100 font-mono">
+                  {summary?.min_fuel && summary?.max_fuel 
+                    ? `${(parseFloat(summary.max_fuel) - parseFloat(summary.min_fuel)).toFixed(1)}%` 
+                    : '0.0%'}
+                </h3>
+              </div>
+            )}
           </div>
 
           {/* Charts Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 print:block print:space-y-6">
             {/* Speed progression chart */}
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4 print:border-slate-300">
+            <div className={`p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4 print:border-slate-300 ${!hasFuel ? 'lg:col-span-2' : ''}`}>
               <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-850 pb-2">
                 Velocity Log Analytics (km/h)
               </h4>
@@ -229,24 +234,26 @@ const ReportPage = () => {
             </div>
 
             {/* Fuel drop charts */}
-            <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4 print:border-slate-300">
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-850 pb-2">
-                Fuel Levels Tracking (%)
-              </h4>
-              <div className="h-64 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dailyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                    <XAxis dataKey="date" stroke={axisColor} fontSize={10} tickFormatter={formatLocalDate} />
-                    <YAxis stroke={axisColor} fontSize={10} />
-                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
-                    <Legend />
-                    <Line type="monotone" dataKey="max_fuel" name="Max Fuel" stroke="#22c55e" strokeWidth={2.5} />
-                    <Line type="monotone" dataKey="min_fuel" name="Min Fuel" stroke="#f59e0b" strokeWidth={2.5} />
-                  </LineChart>
-                </ResponsiveContainer>
+            {hasFuel && (
+              <div className="p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4 print:border-slate-300">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest border-b border-slate-850 pb-2">
+                  Fuel Levels Tracking (%)
+                </h4>
+                <div className="h-64 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={dailyData}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+                      <XAxis dataKey="date" stroke={axisColor} fontSize={10} tickFormatter={formatLocalDate} />
+                      <YAxis stroke={axisColor} fontSize={10} />
+                      <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155' }} />
+                      <Legend />
+                      <Line type="monotone" dataKey="max_fuel" name="Max Fuel" stroke="#22c55e" strokeWidth={2.5} />
+                      <Line type="monotone" dataKey="min_fuel" name="Min Fuel" stroke="#f59e0b" strokeWidth={2.5} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Daily Distance Bar Chart */}
             <div className="lg:col-span-2 p-5 bg-slate-900 border border-slate-800 rounded-xl space-y-4 print:border-slate-300">
@@ -282,13 +289,13 @@ const ReportPage = () => {
                     <th className="px-4 py-3">Distance</th>
                     <th className="px-4 py-3">Peak Speed</th>
                     <th className="px-4 py-3">Avg Speed</th>
-                    <th className="px-4 py-3">Fuel Levels (Max / Min)</th>
+                    {hasFuel && <th className="px-4 py-3">Fuel Levels (Max / Min)</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800 print:divide-slate-300">
                   {dailyData.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-4 py-6 text-center text-slate-500 italic">
+                      <td colSpan={hasFuel ? 6 : 5} className="px-4 py-6 text-center text-slate-500 italic">
                         No report history found for the selected query dates.
                       </td>
                     </tr>
@@ -302,10 +309,12 @@ const ReportPage = () => {
                         </td>
                         <td className="px-4 py-3 font-bold text-red-400">{formatSpeed(row.max_speed)}</td>
                         <td className="px-4 py-3 font-mono">{formatSpeed(Math.round(row.avg_speed))}</td>
-                        <td className="px-4 py-3 font-mono text-slate-400">
-                          <span className="text-green-400 font-bold">{formatFuel(row.max_fuel)}</span> /{' '}
-                          <span className="text-amber-400 font-bold">{formatFuel(row.min_fuel)}</span>
-                        </td>
+                        {hasFuel && (
+                          <td className="px-4 py-3 font-mono text-slate-400">
+                            <span className="text-green-400 font-bold">{formatFuel(row.max_fuel)}</span> /{' '}
+                            <span className="text-amber-400 font-bold">{formatFuel(row.min_fuel)}</span>
+                          </td>
+                        )}
                       </tr>
                     ))
                   )}

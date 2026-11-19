@@ -217,7 +217,7 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
       {/* ─── 1. SPEEDOMETER GAUGE ─── */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '210px' }}>
         <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
-          Speed - {speed} Km/h
+          Speed - {vehicle.last_seen ? `${speed} Km/h` : 'N/A'}
         </div>
 
         <svg width="210" height="114" viewBox="0 0 210 115">

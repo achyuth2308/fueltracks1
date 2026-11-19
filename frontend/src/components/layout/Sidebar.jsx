@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { SIDEBAR_THEMES, generateCustomTheme, getCurrentTheme, applyGlobalTheme } from '../../utils/theme';
+import { hasAnyFuelVehicle } from '../../utils/licenseUtils';
 
 const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   const { user, logout, restoreAdmin, hasAdminSession } = useAuth();
@@ -121,8 +122,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   };
 
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
+    'Dashboard': location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard',
     'Fuel Analytics': location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel'),
-    'Reports': location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname),
+    'Reports': location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname),
   }));
 
   const [openNestedSubMenus, setOpenNestedSubMenus] = useState(() => ({
@@ -139,10 +141,13 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   });
 
   useEffect(() => {
+    if (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard') {
+      setOpenSubMenus(prev => ({ ...prev, 'Dashboard': true }));
+    }
     if (location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel')) {
       setOpenSubMenus(prev => ({ ...prev, 'Fuel Analytics': true }));
     }
-    if (location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname)) {
+    if (location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname)) {
       setOpenSubMenus(prev => ({ ...prev, 'Reports': true }));
       if (location.pathname.startsWith('/admin/reports/fuel-') ||
         location.pathname === '/admin/reports/kmpl-mileage' ||
@@ -184,24 +189,26 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
     if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
     if (brandProfile?.has_fuel_vehicles === true) return true;
     if (vehicles && vehicles.length > 0) {
-      const hasFuel = vehicles.some(v =>
-        (v.tank_capacity && v.tank_capacity > 0) ||
-        (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
-        (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
-        (v.licenceId && (v.licenceId.startsWith('AD') || v.licenceId.startsWith('EN'))) ||
-        (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0)
-      );
-      if (hasFuel) return true;
+      return hasAnyFuelVehicle(vehicles);
     }
-    // Default to true so all accounts with fuel vehicles have full access to Fuel Analytics & Reports
-    return true;
+    return false;
   }, [user, brandProfile, vehicles]);
 
   const navGroups = useMemo(() => [
     {
       label: '',
       items: [
-        { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, color: '#2563EB', roles: ['superadmin', 'dealer', 'customer'] },
+        {
+          name: 'Dashboard',
+          path: '/dashboard',
+          icon: LayoutDashboard,
+          color: '#2563EB',
+          roles: ['superadmin', 'dealer', 'customer'],
+          subItems: [
+            { name: 'Live Map Dashboard', path: '/dashboard' },
+            { name: 'Fleet Dashboard', path: '/admin/reports/dashboard' },
+          ]
+        },
         { name: 'Device Inventory', path: '/admin/devices', icon: Cpu, color: '#0284C7', roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, color: '#059669', roles: ['superadmin', 'dealer'] },
         { name: 'Vehicles', path: '/admin/vehicles', icon: Truck, color: '#DB2777', roles: ['superadmin', 'dealer'] },
@@ -235,7 +242,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           subItems: [
             { name: 'Live Tracking', path: '/tracking' },
             { name: 'History Tracking', path: '/history' },
-            { name: 'Multi Tracking', path: '/tracking?mode=multi' },
+            ...((vehicles && vehicles.length > 1) ? [{ name: 'Multi Tracking', path: '/tracking?mode=multi' }] : []),
           ],
         },
         {
@@ -259,12 +266,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         },
         {
           name: 'Reports',
-          path: '/admin/reports/dashboard',
+          path: '/admin/reports/distance',
           icon: FileText,
           color: '#7C3AED',
           roles: ['customer'],
           subItems: [
-            { name: 'Fleet Dashboard', path: '/admin/reports/dashboard' },
             { name: 'Daily Distance', path: '/admin/reports/distance' },
             { name: 'Engine ON', path: '/admin/reports/ignition' },
             { name: 'Overspeeding', path: '/admin/reports/overspeeding' },
@@ -360,27 +366,51 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         className={`fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[210px] ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
           }`}
       >
-        {/* Clean Sidebar Header - Just Customer Name / Super Admin Label */}
+        {/* Clean Sidebar Header - Tenant Identity Badge */}
         <div style={{
-          padding: '16px 14px 12px 14px',
+          padding: '14px 14px 12px 14px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderBottom: '1px solid #E2E8F0',
-          marginBottom: '6px',
+          marginBottom: '8px',
           position: 'relative',
           zIndex: 2
         }}>
-          <div style={{
-            fontSize: '14px',
-            fontWeight: 800,
-            color: '#0F172A',
-            letterSpacing: '-0.02em',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            {user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '9px', minWidth: 0, flex: 1 }}>
+            <div style={{
+              width: '28px',
+              height: '28px',
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #0F172A, #334155)',
+              color: '#FFFFFF',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '12px',
+              fontWeight: 800,
+              flexShrink: 0,
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+            }}>
+              {(user?.name || (user?.role === 'superadmin' ? 'S' : 'C')).charAt(0).toUpperCase()}
+            </div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{
+                fontSize: '13px',
+                fontWeight: 800,
+                color: '#0F172A',
+                letterSpacing: '-0.01em',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.2
+              }}>
+                {user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')}
+              </div>
+              <div style={{ fontSize: '9.5px', color: '#94A3B8', fontWeight: 600, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                {user?.role === 'superadmin' ? 'Platform Control' : 'Fleet Portal'}
+              </div>
+            </div>
           </div>
 
           {/* Close button for mobile */}
@@ -432,14 +462,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                             borderRadius: '8px',
                             cursor: 'pointer',
                             fontSize: '13px',
-                            fontWeight: isParentActive ? 800 : 700,
-                            color: isParentActive ? '#FFFFFF' : '#0F172A',
+                            fontWeight: isParentActive ? 750 : 600,
+                            color: isParentActive ? (currentTheme.primary || '#EA580C') : '#334155',
                             background: isParentActive
-                              ? (currentTheme.primary || 'var(--brand-primary, #EA580C)')
+                              ? `${currentTheme.primary || '#EA580C'}14`
                               : 'transparent',
-                            boxShadow: isParentActive
-                              ? `0 3px 10px -1px ${currentTheme.primary}45`
-                              : 'none',
+                            border: isParentActive
+                              ? `1px solid ${currentTheme.primary || '#EA580C'}30`
+                              : '1px solid transparent',
+                            boxShadow: 'none',
                             position: 'relative',
                             overflow: 'hidden',
                             transition: 'all 0.15s ease',
@@ -466,15 +497,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              background: isParentActive ? 'rgba(255, 255, 255, 0.22)' : `${item.color || '#0284C7'}18`,
-                              border: isParentActive ? '1px solid rgba(255, 255, 255, 0.35)' : `1px solid ${item.color || '#0284C7'}30`,
+                              background: isParentActive ? (currentTheme.primary || '#EA580C') : '#F1F5F9',
+                              border: isParentActive ? 'none' : '1px solid #E2E8F0',
                               flexShrink: 0,
                               transition: 'all 0.18s ease'
                             }}
                           >
                             <Icon
                               size={14}
-                              color={isParentActive ? '#FFFFFF' : (item.color || '#0284C7')}
+                              color={isParentActive ? '#FFFFFF' : '#64748B'}
                               strokeWidth={2.4}
                             />
                           </div>
@@ -516,7 +547,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                padding: '5px 8px',
+                                padding: '6px 10px',
                                 borderRadius: '6px',
                                 fontSize: '11.5px',
                                 textDecoration: 'none',
@@ -701,7 +732,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                   } else if (item.path === '/admin/audit-logs') {
                     customIsActive = location.pathname === item.path && !location.search.includes('archived=true');
                   } else if (item.name === 'Reports') {
-                    customIsActive = location.pathname.startsWith('/admin/reports') && !isTripReportPath(location.pathname);
+                    customIsActive = location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname);
+                  } else if (item.name === 'Dashboard') {
+                    customIsActive = location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard';
                   } else if (hasSubItems) {
                     customIsActive = isAnySubActive || location.pathname === item.path;
                   } else {
@@ -746,14 +779,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                           marginBottom: '3px',
                           borderRadius: '8px',
                           fontSize: '13px',
-                          fontWeight: customIsActive ? 800 : 700,
-                          color: customIsActive ? '#FFFFFF' : '#0F172A',
+                          fontWeight: customIsActive ? 750 : 600,
+                          color: customIsActive ? (currentTheme.primary || '#EA580C') : '#334155',
                           background: customIsActive
-                            ? (currentTheme.primary || 'var(--brand-primary, #EA580C)')
+                            ? `${currentTheme.primary || '#EA580C'}14`
                             : 'transparent',
-                          boxShadow: customIsActive
-                            ? `0 3px 10px -1px ${currentTheme.primary}45`
-                            : 'none',
+                          border: customIsActive
+                            ? `1px solid ${currentTheme.primary || '#EA580C'}30`
+                            : '1px solid transparent',
+                          boxShadow: 'none',
                           position: 'relative',
                           overflow: 'hidden',
                           whiteSpace: 'nowrap',
@@ -781,15 +815,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: customIsActive ? 'rgba(255, 255, 255, 0.22)' : `${item.color || currentTheme.primary}18`,
-                            border: customIsActive ? '1px solid rgba(255, 255, 255, 0.35)' : `1px solid ${item.color || currentTheme.primary}30`,
+                            background: customIsActive ? (currentTheme.primary || '#EA580C') : '#F1F5F9',
+                            border: customIsActive ? 'none' : '1px solid #E2E8F0',
                             flexShrink: 0,
                             transition: 'all 0.18s ease'
                           }}
                         >
                           <Icon
                             size={14}
-                            color={customIsActive ? '#FFFFFF' : (item.color || currentTheme.primary)}
+                            color={customIsActive ? '#FFFFFF' : '#64748B'}
                             strokeWidth={2.4}
                           />
                         </div>
@@ -845,9 +879,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                       background: isAnyChildActive
                                         ? (currentTheme.activeBg || '#FFF7ED')
                                         : 'transparent',
-                                      borderLeft: isAnyChildActive
-                                        ? `3px solid ${currentTheme.primary || '#EA580C'}`
-                                        : '3px solid transparent',
+                                      
                                       cursor: 'pointer',
                                       fontWeight: isAnyChildActive ? 800 : 700,
                                       userSelect: 'none',
@@ -930,9 +962,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                               background: isNestedActive
                                                 ? (currentTheme.activeBg || '#FFF7ED')
                                                 : 'transparent',
-                                              borderLeft: isNestedActive
-                                                ? `2.5px solid ${currentTheme.primary || '#EA580C'}`
-                                                : '2.5px solid transparent',
+                                              
                                               fontWeight: isNestedActive ? 800 : 600,
                                               transition: 'all 0.15s ease'
                                             }}
@@ -1003,14 +1033,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                   borderRadius: '6px',
                                   fontSize: '11.5px',
                                   textDecoration: 'none',
-                                  color: isSubActive ? (currentTheme.activeText || '#EA580C') : '#1E293B',
+                                  color: isSubActive ? (currentTheme.activeText || '#EA580C') : '#475569',
                                   background: isSubActive
                                     ? (currentTheme.activeBg || '#FFF7ED')
                                     : 'transparent',
-                                  borderLeft: isSubActive
-                                    ? `3px solid ${currentTheme.primary || '#EA580C'}`
-                                    : '3px solid transparent',
-                                  fontWeight: isSubActive ? 800 : 700,
+                                  
+                                  fontWeight: isSubActive ? 750 : 600,
                                   transition: 'all 0.15s ease'
                                 }}
                                 onMouseEnter={(e) => {

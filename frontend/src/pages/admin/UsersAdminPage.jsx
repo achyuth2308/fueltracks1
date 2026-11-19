@@ -526,33 +526,40 @@ const UsersAdminPage = () => {
         {/* Right Side: Details Panel */}
         {viewingUser && (
           <div
-            className="fixed inset-0 z-50 md:static md:z-auto md:w-[380px] w-full"
+            className="fixed inset-0 z-50 md:static md:z-auto md:w-[265px] w-full"
             style={{
-              background: '#FFFFFF', borderRadius: '16px', border: '1px solid #E2E8F0',
+              background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0',
               boxShadow: '0 4px 6px rgba(0,0,0,0.02)', display: 'flex', flexDirection: 'column',
               overflow: 'hidden', animation: 'fadeInRight 0.3s ease'
             }}
           >
             {/* Mobile backdrop/close area could go here if it wasn't full screen, but it's full width */}
             {/* Details Header */}
-            <div style={{ padding: '24px', borderBottom: '1px solid #F1F5F9', position: 'relative' }}>
+            <div style={{ padding: '12px', borderBottom: '1px solid #F1F5F9', position: 'relative' }}>
               <button
                 onClick={() => setViewingUser(null)}
-                style={{ position: 'absolute', top: '24px', right: '24px', background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer' }}
+                style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '2px' }}
+                title="Close"
               >
-                <X size={20} />
+                <X size={16} />
               </button>
 
-              <div style={{
-                width: '64px', height: '64px', borderRadius: '16px', background: '#EEF5F8',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '16px'
-              }}>
-                <UserIcon size={32} color="#f97316" />
-              </div>
-              <h2 style={{ fontSize: '20px', fontWeight: 800, color: '#111827', marginBottom: '4px' }}>{viewingUser.name || 'Unnamed User'}</h2>
-              <div style={{ fontSize: '13px', color: '#6B7280', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <span>{viewingUser.email}</span>
-                {viewingUser.phone && <span>{viewingUser.phone}</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', paddingRight: '18px' }}>
+                <div style={{
+                  width: '32px', height: '32px', borderRadius: '8px', background: '#EEF5F8',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                }}>
+                  <UserIcon size={18} color="#f97316" />
+                </div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <h2 style={{ fontSize: '13.5px', fontWeight: 800, color: '#111827', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={viewingUser.name || 'Unnamed User'}>
+                    {viewingUser.name || 'Unnamed User'}
+                  </h2>
+                  <div style={{ fontSize: '11px', color: '#6B7280', display: 'flex', flexDirection: 'column', lineHeight: 1.2, marginTop: '1px' }}>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={viewingUser.email}>{viewingUser.email}</span>
+                    {viewingUser.phone && <span>{viewingUser.phone}</span>}
+                  </div>
+                </div>
               </div>
 
               {user?.id !== viewingUser.id && (
@@ -568,20 +575,20 @@ const UsersAdminPage = () => {
                   title="Open user session in new tab"
                   style={{
                     width: '100%',
-                    marginBottom: '12px',
-                    padding: '10px',
-                    borderRadius: '8px',
+                    marginTop: '6px',
+                    padding: '5px 8px',
+                    borderRadius: '6px',
                     background: '#E0F2FE',
                     textDecoration: 'none',
                     color: '#0369A1',
-                    fontSize: '13px',
+                    fontSize: '11px',
                     fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    gap: '6px',
+                    gap: '4px',
                     cursor: 'pointer',
-                    boxShadow: '0 2px 4px rgba(3,105,161,0.1)',
+                    boxShadow: '0 1px 3px rgba(3,105,161,0.08)',
                     boxSizing: 'border-box',
                     transition: 'all 0.2s'
                   }}
@@ -594,18 +601,18 @@ const UsersAdminPage = () => {
                     e.currentTarget.style.color = '#0369A1';
                   }}
                 >
-                  <Shuffle size={14} />
+                  <Shuffle size={12} />
                   <span>Switch Login (New Tab)</span>
                 </a>
               )}
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '12px' }}>
-                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '10px', borderRadius: '8px', background: '#EEF5F8', border: '1px solid #E2E8F0', color: '#111827', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', cursor: 'pointer' }}>
-                  <Edit size={14} /> Edit User
+              <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                <button onClick={(e) => handleOpenEditModal(viewingUser, e)} style={{ flex: 1, padding: '5px 8px', borderRadius: '6px', background: '#EEF5F8', border: '1px solid #E2E8F0', color: '#111827', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <Edit size={12} /> Edit User
                 </button>
                 {user?.id !== viewingUser.id && (
-                  <button onClick={(e) => handleDelete(viewingUser.id, e)} style={{ padding: '10px', borderRadius: '8px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-                    <Trash2 size={16} />
+                  <button onClick={(e) => handleDelete(viewingUser.id, e)} title="Delete user" style={{ padding: '5px 8px', borderRadius: '6px', background: '#FEF2F2', border: '1px solid #FEE2E2', color: '#DC2626', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                    <Trash2 size={13} />
                   </button>
                 )}
               </div>
@@ -613,68 +620,68 @@ const UsersAdminPage = () => {
               <button
                 onClick={(e) => handleOpenSendCredentials(viewingUser, '', false, e)}
                 style={{
-                  width: '100%', marginTop: '10px', padding: '10px 14px', borderRadius: '8px',
+                  width: '100%', marginTop: '6px', padding: '6px 10px', borderRadius: '6px',
                   background: '#25D366', border: 'none', color: '#FFFFFF',
-                  fontSize: '13px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', cursor: 'pointer',
-                  boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)',
+                  fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '5px', cursor: 'pointer',
+                  boxShadow: '0 1px 4px rgba(37, 211, 102, 0.2)',
                   transition: 'background 0.2s'
                 }}
                 onMouseEnter={e => e.currentTarget.style.background = '#20bd5a'}
                 onMouseLeave={e => e.currentTarget.style.background = '#25D366'}
               >
-                <MessageSquare size={15} />
+                <MessageSquare size={13} />
                 <span>Send Credentials via WhatsApp</span>
               </button>
             </div>
 
             {/* Details Content */}
-            <div style={{ padding: '24px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ padding: '12px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Access & Permissions</h3>
-                <div style={{ background: '#EEF5F8', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid #F1F5F9' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Building2 size={16} color="#64748B" /></div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Organization</div>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.org_name || 'None'}</div>
+                <h3 style={{ fontSize: '9.5px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Access & Permissions</h3>
+                <div style={{ background: '#EEF5F8', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0 }}><Building2 size={12} color="#64748B" /></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Organization</div>
+                      <div style={{ fontSize: '11px', color: '#111827', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{viewingUser.org_name || 'None'}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Users size={16} color="#64748B" /></div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Assigned Groups</div>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{viewingUser.group_names || '—'}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0 }}><Users size={12} color="#64748B" /></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Assigned Groups</div>
+                      <div style={{ fontSize: '11px', color: '#111827', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{viewingUser.group_names || '—'}</div>
                     </div>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Clock size={16} color="#64748B" /></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0 }}><Clock size={12} color="#64748B" /></div>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>No Data Threshold</div>
-                      <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>{formatNoDataTime(viewingUser.no_data_minutes)}</div>
+                      <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>No Data Threshold</div>
+                      <div style={{ fontSize: '11px', color: '#111827', fontWeight: 700 }}>{formatNoDataTime(viewingUser.no_data_minutes)}</div>
                     </div>
                   </div>
                   {viewingUser.role === 'dealer' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0' }}><Cpu size={16} color="#ea580c" /></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0 }}><Cpu size={12} color="#ea580c" /></div>
                       <div>
-                        <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>Device Allowance (Licenses)</div>
-                        <div style={{ fontSize: '12px', color: '#ea580c', fontWeight: 700, marginTop: '2px' }}>
+                        <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Device Allowance (Licenses)</div>
+                        <div style={{ fontSize: '10.5px', color: '#ea580c', fontWeight: 700, marginTop: '2px' }}>
                           Starter: {viewingUser.device_limits?.Starter || 0} &bull; Basic: {viewingUser.device_limits?.Basic || 0} &bull; Advanced: {viewingUser.device_limits?.Advanced || 0} &bull; Premium: {viewingUser.device_limits?.Premium || 0}
                         </div>
                       </div>
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0, marginTop: '2px' }}><Truck size={16} color="#64748B" /></div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '11px', color: '#64748B', fontWeight: 600, marginBottom: '6px' }}>Accessible Vehicles</div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '5px', background: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #E2E8F0', flexShrink: 0, marginTop: '2px' }}><Truck size={12} color="#64748B" /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, marginBottom: '3px' }}>Accessible Vehicles</div>
                       {vehiclesLoading ? (
-                        <div style={{ fontSize: '12px', color: '#9ca3af' }}>Loading...</div>
+                        <div style={{ fontSize: '10.5px', color: '#9ca3af' }}>Loading...</div>
                       ) : userVehicles.length === 0 ? (
-                        <div style={{ fontSize: '13px', color: '#111827', fontWeight: 700 }}>—</div>
+                        <div style={{ fontSize: '11px', color: '#111827', fontWeight: 700 }}>—</div>
                       ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                           {Object.entries(
                             userVehicles.reduce((acc, v) => {
                               const gName = v.group_name || 'General';
@@ -683,14 +690,14 @@ const UsersAdminPage = () => {
                               return acc;
                             }, {})
                           ).map(([grpName, vList]) => (
-                            <div key={grpName} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <div style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                            <div key={grpName} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0284C7', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
                                 Group: {grpName} ({vList.length})
                               </div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px' }}>
                                 {vList.map(v => (
                                   <span key={`${grpName}-${v.id}`} style={{
-                                    padding: '2px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 600,
+                                    padding: '1px 5px', borderRadius: '4px', fontSize: '9.5px', fontWeight: 600,
                                     background: v.is_online ? '#D1FAE5' : '#F1F5F9',
                                     color: v.is_online ? '#059669' : '#475569'
                                   }}>
@@ -708,14 +715,14 @@ const UsersAdminPage = () => {
               </div>
 
               <div>
-                <h3 style={{ fontSize: '11px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>Account Status</h3>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #F1F5F9' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>Status</span>
-                  <span style={{ fontSize: '13px', color: viewingUser.is_active ? '#059669' : '#DC2626', fontWeight: 700 }}>{viewingUser.is_active ? 'Active' : 'Suspended'}</span>
+                <h3 style={{ fontSize: '9.5px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Account Status</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>Status</span>
+                  <span style={{ fontSize: '11px', color: viewingUser.is_active ? '#059669' : '#DC2626', fontWeight: 700 }}>{viewingUser.is_active ? 'Active' : 'Suspended'}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0' }}>
-                  <span style={{ fontSize: '13px', color: '#64748B', fontWeight: 500 }}>System Role</span>
-                  <span style={{ fontSize: '13px', color: '#111827', fontWeight: 700, textTransform: 'capitalize' }}>{viewingUser.role}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0' }}>
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 500 }}>System Role</span>
+                  <span style={{ fontSize: '11px', color: '#111827', fontWeight: 700, textTransform: 'capitalize' }}>{viewingUser.role}</span>
                 </div>
               </div>
 

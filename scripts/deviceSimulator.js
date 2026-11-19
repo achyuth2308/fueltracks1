@@ -1097,6 +1097,7 @@ function startAis140V2Simulator() {
 // VOLTY SIMULATOR  (port 5004)
 // ============================================================
 const voltyDevices = [
+  { imei: '861329087487006', reg: 'TN34A4195', lat: 17.435421, lng: 78.490532, speed: 42, hdg: 90, ignition: 1, vBatt: 12.8 },
   { imei: '888888888888801', reg: 'DL1VLT01', lat: 17.345, lng: 78.532, speed: 5, hdg: 110, ignition: 1, vBatt: 4.1 },
   { imei: '888888888888802', reg: 'DL1VLT02', lat: 17.346, lng: 78.533, speed: 38, hdg: 115, ignition: 1, vBatt: 4.2 }
 ];

@@ -13,6 +13,7 @@ import { formatVoltage } from '../../utils/formatUtils';
 import { formatLocalDate } from '../../utils/dateUtils';
 import AddressText from '../../components/ui/AddressText';
 import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
+import { hasAnyFuelVehicle } from '../../utils/licenseUtils';
 
 const formatDateTimeLines = (isoString) => {
   if (!isoString) return { time: '-', date: '-' };
@@ -205,13 +206,7 @@ const ReportsAdminPage = () => {
   const hasFuelFeature = useMemo(() => {
     if (user?.role === 'superadmin' || user?.role === 'dealer') return true;
     if (!vehicles || vehicles.length === 0) return false;
-    return vehicles.some(v => 
-      (v.tank_capacity && v.tank_capacity > 0) ||
-      (v.metadata?.tankSize && parseFloat(v.metadata.tankSize) > 0) ||
-      (v.metadata?.fuelCalibration && Object.keys(v.metadata.fuelCalibration).length > 0) ||
-      (v.licenceId && (v.licenceId.startsWith('AD') || v.licenceId.startsWith('EN'))) ||
-      (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) > 0)
-    );
+    return hasAnyFuelVehicle(vehicles);
   }, [vehicles, user]);
 
   const isFuelTab = location.pathname.startsWith('/admin/reports/fuel-') || 

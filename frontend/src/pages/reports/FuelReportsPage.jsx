@@ -12,6 +12,7 @@ import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import AddressText from '../../components/ui/AddressText';
 import { getLocalDateString } from '../../utils/dateUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 
 const getYesterdayString = () => {
   const d = new Date();
@@ -64,6 +65,9 @@ const FuelReportsPage = ({ type: propType }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const fuelCapableVehicles = useMemo(() => {
+    return vehicles.filter(v => hasVehicleFuelCapability(v));
+  }, [vehicles]);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
@@ -117,11 +121,12 @@ const FuelReportsPage = ({ type: propType }) => {
         if (!isMounted) return;
         if (res.success && res.data && res.data.length > 0) {
           setVehicles(res.data);
+          const fuelOnly = res.data.filter(v => hasVehicleFuelCapability(v));
           const urlVId = searchParams.get('vehicleId');
-          // Prioritize URL vehicleId if valid, otherwise default to first vehicle
+          // Prioritize URL vehicleId if valid, otherwise default to first fuel-capable vehicle
           const initialVId = (urlVId && res.data.some(v => String(v.id) === String(urlVId)))
             ? urlVId
-            : res.data[0].id;
+            : (fuelOnly.length > 0 ? fuelOnly[0].id : res.data[0].id);
 
           setFilters(prev => {
             const nextFilters = { ...prev, vehicleId: initialVId };
@@ -582,12 +587,12 @@ const FuelReportsPage = ({ type: propType }) => {
               minWidth: '160px'
             }}
           >
-            {vehicles.map(v => (
+            {(fuelCapableVehicles.length > 0 ? fuelCapableVehicles : vehicles).map(v => (
               <option key={v.id} value={v.id}>
                 {v.name} {v.plate ? `(${v.plate})` : ''}
               </option>
             ))}
-            <option value="ALL">── All Vehicles (Fleet Summary - {vehicles.length}) ──</option>
+            <option value="ALL">── All Fuel Vehicles ({fuelCapableVehicles.length || vehicles.length}) ──</option>
           </select>
 
           {/* Category Filter */}
