@@ -653,6 +653,32 @@ export default function FuelAnalyticsPage() {
     const calUpdatedAt = cal.updatedAt ? new Date(cal.updatedAt).getTime() : 0;
     const ptTime = pointDeviceTime ? new Date(pointDeviceTime).getTime() : 0;
 
+    const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+    let minCalibratedLtr = 0;
+    let minCalibratedAdc = 0;
+    let sorted = [];
+    if (Array.isArray(points) && points.length >= 2) {
+      sorted = points
+        .map(p => ({
+          adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
+          ltr: parseFloat(p.litres)
+        }))
+        .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
+        .sort((a, b) => a.adc - b.adc);
+
+      if (sorted.length >= 2) {
+        minCalibratedLtr = sorted[0].ltr;
+        minCalibratedAdc = sorted[0].adc;
+      }
+    }
+
+    // Open-Circuit / Disconnected Sensor Floor:
+    // If the lowest calibration point is at ground / 0 ADC (<= 20 ADC), receiving num <= minCalibratedLtr
+    // represents an open circuit / unplugged probe (0 Volts), NOT real fuel!
+    if (minCalibratedLtr > 0 && minCalibratedAdc <= 20 && num <= minCalibratedLtr) {
+      return null;
+    }
+
     // If point was recorded after calibration was configured AND is within reasonable tank limits,
     // it was already calibrated by the backend.
     const isAfterCalibration = calUpdatedAt > 0 && ptTime >= calUpdatedAt;
@@ -675,22 +701,12 @@ export default function FuelAnalyticsPage() {
     }
 
     // 2. Manual Calibration (Points table)
-    const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
-    if (Array.isArray(points) && points.length >= 2) {
-      const sorted = points
-        .map(p => ({
-          adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
-          ltr: parseFloat(p.litres)
-        }))
-        .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
-        .sort((a, b) => a.adc - b.adc);
-
-      if (sorted.length >= 2) {
-        // Disconnect guard for manual points:
-        // If calibrated empty ADC > 50 and incoming ADC is < 40% of empty ADC, sensor is disconnected/offline
-        if (sorted[0].adc > 50 && num < sorted[0].adc * 0.4) {
-          return null;
-        }
+    if (sorted.length >= 2) {
+      // Disconnect guard for manual points:
+      // If calibrated empty ADC > 50 and incoming ADC is < 40% of empty ADC, sensor is disconnected/offline
+      if (sorted[0].adc > 50 && num < sorted[0].adc * 0.4) {
+        return null;
+      }
 
         // If already after calibration and value is in Litres range, don't re-run through ADC curve
         if (isAfterCalibration && num <= sorted[sorted.length - 1].ltr * 1.1) {
@@ -711,7 +727,6 @@ export default function FuelAnalyticsPage() {
           }
         }
       }
-    }
 
     // 3. Auto Calibration (minAdc -> maxAdc)
     const emptyAdc = parseFloat(cal.minAdc ?? meta.fuelEmptyAdc ?? 0);
@@ -777,6 +792,25 @@ export default function FuelAnalyticsPage() {
     }
 
     // 1. First pass: extract calibrated raw sensor fuel and motion states
+    const meta = selectedVehicle?.metadata || {};
+    const cal = meta.fuelCalibration || meta.fuel || {};
+    const calPoints = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+    let minCalibratedLtr = 0;
+    let minCalibratedAdc = 0;
+    if (Array.isArray(calPoints) && calPoints.length >= 2) {
+      const sp = calPoints
+        .map(p => ({
+          adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
+          ltr: parseFloat(p.litres)
+        }))
+        .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
+        .sort((a, b) => a.adc - b.adc);
+      if (sp.length >= 2) {
+        minCalibratedLtr = sp[0].ltr;
+        minCalibratedAdc = sp[0].adc;
+      }
+    }
+
     const rawFuels = sorted.map(pt => pt.fuel != null ? calibrateFuelValue(pt.fuel, pt.device_time) : null);
 
     // 2. Speed-Adaptive Anti-Slosh Filter: Window 5 Median + Conditional EMA -> "Filtered Fuel Data"
@@ -786,7 +820,7 @@ export default function FuelAnalyticsPage() {
     let lastEma = null;
 
     // Seed lastEma with first valid non-null fuel point in the dataset so an offline sensor doesn't initialize to 0
-    const firstValidRaw = rawFuels.find(f => f != null && f > 0);
+    const firstValidRaw = rawFuels.find(f => f != null && f > (minCalibratedLtr || 0));
     if (firstValidRaw != null) {
       lastEma = firstValidRaw;
     }
@@ -804,9 +838,13 @@ export default function FuelAnalyticsPage() {
           lastEma = median;
         } else if (spd <= 6.0) {
           // Stationary at bunk or parked: no road slosh waves.
-          // If fuel changes meaningfully (refuel or drain), track median directly so no 12-min lag occurs.
-          // For tiny settling variations (< 3L), gently converge.
-          if (Math.abs(median - lastEma) >= 3.0) {
+          // Disconnect cliff drop guard:
+          // A stationary vehicle CANNOT drop > 35% of tank capacity in one step straight down to the calibration floor (<= minCalibratedLtr + 5).
+          // If median suddenly collapses while previous fuel was high, it is a disconnected sensor! Hold lastEma!
+          const isSuddenCollapse = (lastEma - median) > (tankCapacity * 0.35) && median <= (minCalibratedLtr + 5);
+          if (isSuddenCollapse) {
+            // Sensor disconnect artifact: hold lastEma
+          } else if (Math.abs(median - lastEma) >= 3.0) {
             lastEma = median;
           } else {
             lastEma = (0.5 * median) + (0.5 * lastEma);
