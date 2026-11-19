@@ -43,11 +43,11 @@ const DashboardLayout = ({ vehicles = [] }) => {
 
   const supportPhone = isDealerCustomer
     ? (brandProfile?.dealer_phone || brandProfile?.support_phone || '7337433356')
-    : (brandProfile?.support_phone || '7337433356');
+    : '7337433356';
 
   const supportEmail = isDealerCustomer
     ? (brandProfile?.dealer_email || brandProfile?.support_email || 'info@fueltracks.in').toLowerCase()
-    : (brandProfile?.support_email || 'info@fueltracks.in').toLowerCase();
+    : 'info@fueltracks.in';
   const isAdmin = user?.role === 'superadmin' || location.pathname.startsWith('/admin');
 
   React.useEffect(() => {

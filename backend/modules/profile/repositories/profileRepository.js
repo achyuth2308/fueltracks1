@@ -34,20 +34,26 @@ class ProfileRepository {
       const cleanStr = (val) => (val && String(val).trim() !== '' ? String(val).trim() : null);
 
       const isCustomer = row.org_type === 'customer';
+      const isSuper = row.org_type === 'super' || row.id === 'a0000000-0000-0000-0000-000000000001';
 
       const resolvedEmail = cleanStr(row.support_email) || 
-                            (!isCustomer ? cleanStr(row.email) : null) || 
-                            (!isCustomer ? cleanStr(row.org_email) : null) || 
-                            cleanStr(row.dealer_user_email);
+                            (!isCustomer && !isSuper ? cleanStr(row.email) : null) || 
+                            (!isCustomer && !isSuper ? cleanStr(row.org_email) : null) || 
+                            (!isSuper ? cleanStr(row.dealer_user_email) : null);
 
       const resolvedPhone = cleanStr(row.support_phone) || 
-                            (!isCustomer ? cleanStr(row.whatsapp_number) : null) || 
-                            (!isCustomer ? cleanStr(row.mobile) : null) || 
-                            (!isCustomer ? cleanStr(row.org_phone) : null) || 
-                            cleanStr(row.dealer_user_phone);
+                            (!isCustomer && !isSuper ? cleanStr(row.whatsapp_number) : null) || 
+                            (!isCustomer && !isSuper ? cleanStr(row.mobile) : null) || 
+                            (!isCustomer && !isSuper ? cleanStr(row.org_phone) : null) || 
+                            (!isSuper ? cleanStr(row.dealer_user_phone) : null);
 
-      row.support_email = resolvedEmail || (isCustomer ? null : row.support_email) || null;
-      row.support_phone = resolvedPhone || (isCustomer ? null : row.support_phone) || null;
+      row.support_email = resolvedEmail || (isCustomer || isSuper ? 'info@fueltracks.in' : row.support_email) || 'info@fueltracks.in';
+      row.support_phone = resolvedPhone || (isCustomer || isSuper ? '7337433356' : row.support_phone) || '7337433356';
+
+      if (isSuper) {
+        delete row.dealer_user_email;
+        delete row.dealer_user_phone;
+      }
 
       return row;
     }
