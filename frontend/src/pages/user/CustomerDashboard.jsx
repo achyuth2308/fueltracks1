@@ -413,21 +413,21 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               </>
             )}
             <span style={{ color: '#CBD5E1' }}>•</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
+            <span title={v.last_seen ? new Date(v.last_seen).toLocaleString() : 'Never communicated'} style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never'}
             </span>
           </div>
         </div>
 
         {/* Right Status Badge Pill */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <div style={{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
             fontSize: '10px',
             fontWeight: 700,
-            padding: '2px 5px',
+            padding: '2px 6px',
             borderRadius: '12px',
             background: isExpired ? '#FEE2E2' : (isExpiring ? '#FEF3C7' : `${sc}15`),
             color: isExpired ? '#DC2626' : (isExpiring ? '#D97706' : sc),
@@ -437,7 +437,6 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
             <span>{isExpired ? 'EXPIRED' : (isExpiring ? `EXPIRING (${vWarning.diffDays}d)` : statusLabels[status])}</span>
           </div>
-          <ChevronRight size={13} color={isExpired ? '#DC2626' : '#CBD5E1'} />
         </div>
       </div>
     );
@@ -887,7 +886,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
         {!isSidebarCollapsed && (
           <div
-            className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[260px] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'
+            className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[290px] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'
               }`}
             style={{ height: '100%', position: 'relative' }}
           >
@@ -1116,171 +1115,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             followSelected={true}
             showRoute={!!currentSelected}
             liveRouteMetrics={liveRouteMetrics}
+            gaugesStyle={{
+              left: typeof window !== 'undefined' && window.innerWidth > 768 ? '16px' : '12px',
+              bottom: typeof window !== 'undefined' && window.innerWidth > 768 ? '20px' : '75px'
+            }}
           />
-
-          {/* ── Selected Vehicle Floating HUD Card (Bottom-Left) ── */}
-          {currentSelected && (
-            <div style={{
-              position: 'absolute',
-              bottom: window.innerWidth > 768 ? '24px' : '75px',
-              left: window.innerWidth > 768 ? '24px' : '12px',
-              zIndex: 1000,
-              background: 'rgba(255, 255, 255, 0.96)',
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid #E2E8F0',
-              borderRadius: '14px',
-              padding: '12px 14px',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.12)',
-              width: window.innerWidth > 768 ? '320px' : 'calc(100% - 24px)',
-              maxWidth: '360px',
-              fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
-            }}>
-              {/* Header: Name, Plate, Status pill & Close */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
-                <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {currentSelected.plate || currentSelected.name}
-                  </div>
-                  {currentSelected.plate && currentSelected.name && currentSelected.name !== currentSelected.plate && (
-                    <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {currentSelected.name}
-                    </div>
-                  )}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                  <span style={{
-                    fontSize: '9.5px',
-                    fontWeight: 700,
-                    padding: '2px 7px',
-                    borderRadius: '12px',
-                    background: `${statusColors[getStatus(currentSelected)]}18`,
-                    color: statusColors[getStatus(currentSelected)],
-                    border: `1px solid ${statusColors[getStatus(currentSelected)]}35`
-                  }}>
-                    {statusLabels[getStatus(currentSelected)]}
-                  </span>
-                  <button
-                    onClick={() => setSelectedVehicle(null)}
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: '#94A3B8', display: 'flex' }}
-                    title="Deselect"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Metrics grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', padding: '7px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
-                <div>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Speed</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
-                    {formatSpeed(currentSelected.current_speed, currentSelected.is_online)}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Ignition</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: currentSelected.current_ignition ? '#16A34A' : '#EF4444' }}>
-                    {currentSelected.current_ignition ? 'ON' : 'OFF'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Today Dist</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
-                    {liveRouteMetrics[currentSelected.id]?.cDist !== undefined ? Number(liveRouteMetrics[currentSelected.id].cDist).toFixed(2) : (Number(currentSelected.today_distance) || 0).toFixed(2)} km
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600 }}>Veh Battery</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0F172A' }}>
-                    {formatVoltage(currentSelected.current_voltage || currentSelected.metadata?.batteryVoltage)}
-                  </div>
-                </div>
-              </div>
-
-              {/* FUEL METRICS (STRICTLY GATED: ONLY RENDERED IF VEHICLE HAS FUEL SENSOR) */}
-              {hasVehicleFuelCapability(currentSelected) && (
-                <div style={{
-                  marginTop: '7px',
-                  padding: '7px 9px',
-                  borderRadius: '8px',
-                  background: '#F0F9FF',
-                  border: '1px solid #BAE6FD',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <div style={{ width: '22px', height: '22px', borderRadius: '5px', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Fuel size={13} color="#FFFFFF" />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Fuel Level</div>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4A6E' }}>
-                        {currentSelected.current_fuel !== undefined && currentSelected.current_fuel !== null
-                          ? `${Math.round(Number(currentSelected.current_fuel))} L`
-                          : 'Monitoring'}
-                        {currentSelected.tank_capacity ? ` / ${currentSelected.tank_capacity} L` : ''}
-                      </div>
-                    </div>
-                  </div>
-                  {currentSelected.tank_capacity && currentSelected.current_fuel != null && (
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', background: '#E0F2FE', padding: '1px 6px', borderRadius: '10px' }}>
-                      {Math.min(100, Math.round((Number(currentSelected.current_fuel) / Number(currentSelected.tank_capacity)) * 100))}%
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Action buttons */}
-              <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                <button
-                  onClick={() => navigate(`/tracking?vehicle=${currentSelected.id}`)}
-                  style={{
-                    flex: 1,
-                    padding: '6px 10px',
-                    borderRadius: '7px',
-                    background: '#0F172A',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '5px'
-                  }}
-                >
-                  <Navigation size={12} />
-                  <span>Live Track</span>
-                </button>
-                {hasVehicleFuelCapability(currentSelected) && (
-                  <button
-                    onClick={() => navigate(`/fuel-analytics?vehicle=${currentSelected.id}`)}
-                    style={{
-                      flex: 1,
-                      padding: '6px 10px',
-                      borderRadius: '7px',
-                      background: '#0284C7',
-                      color: '#FFFFFF',
-                      border: 'none',
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '5px'
-                    }}
-                  >
-                    <Activity size={12} />
-                    <span>Fuel Analytics</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Mobile Floating Button to switch back to List */}
           <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>
@@ -1303,21 +1142,23 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           {vehicles.length > 1 && currentSelected && (
             <div style={{
               position: 'absolute',
-              bottom: window.innerWidth > 768 ? '24px' : '65px',
-              right: window.innerWidth > 768 ? '24px' : '12px',
+              bottom: window.innerWidth > 1250 ? '20px' : (window.innerWidth > 768 ? 'auto' : '65px'),
+              top: window.innerWidth > 1250 ? 'auto' : (window.innerWidth > 768 ? '105px' : 'auto'),
+              right: window.innerWidth > 768 ? '16px' : '12px',
               left: window.innerWidth > 768 ? 'auto' : '12px',
               zIndex: 1000,
               background: 'rgba(255, 255, 255, 0.85)',
               backdropFilter: 'blur(16px)',
               WebkitBackdropFilter: 'blur(16px)',
-              border: '1px solid rgba(255, 255, 255, 0.6)',
-              borderRadius: '16px',
-              padding: '12px',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+              border: '1px solid rgba(255, 255, 255, 0.7)',
+              borderRadius: '12px',
+              padding: '9px 12px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '8px',
-              minWidth: '220px'
+              gap: '6px',
+              width: window.innerWidth > 768 ? '210px' : 'calc(100% - 24px)',
+              maxWidth: '220px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

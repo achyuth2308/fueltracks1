@@ -494,8 +494,8 @@ const TrackingPage = ({ setAppVehicles }) => {
               </>
             )}
             <span style={{ color: '#CBD5E1' }}>•</span>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never communicated'}
+            <span title={v.last_seen ? new Date(v.last_seen).toLocaleString() : 'Never communicated'} style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never'}
             </span>
           </div>
         </div>
@@ -796,7 +796,7 @@ const TrackingPage = ({ setAppVehicles }) => {
 
       {/* ═══════════ LEFT PANEL: Vehicle List (Docked seamlessly matching Image 2) ═══════════ */}
       <div
-        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[260px] ${
+        className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[290px] ${
           mobileTab === 'list' ? 'flex' : 'hidden md:flex'
         }`}
         style={{ height: '100%', position: 'relative' }}

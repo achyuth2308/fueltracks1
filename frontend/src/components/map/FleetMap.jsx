@@ -776,7 +776,8 @@ const FleetMap = ({
   nearbyRadius = null,
   isNearbyActive = false,
   liveRouteMetrics = {},
-  onRouteFetched
+  onRouteFetched,
+  gaugesStyle = {}
 }) => {
   const location = useLocation();
   // Support both singular (CustomerDashboard) and plural (TrackingPage) prop patterns
@@ -943,6 +944,7 @@ const FleetMap = ({
         <VehicleLiveGaugesOverlay
           vehicle={singleSelectedVehicle}
           onClose={() => setGaugesDismissedVehicleId(singleSelectedVehicle.id)}
+          style={gaugesStyle}
         />
       )}
 

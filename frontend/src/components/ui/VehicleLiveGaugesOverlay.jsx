@@ -9,7 +9,7 @@ import React, { useMemo } from 'react';
  * - If vehicle has NO fuel sensor: Render ONLY the Speedometer gauge.
  * - If vehicle HAS fuel sensor: Render BOTH Speedometer AND Fuel Gauge side-by-side.
  */
-const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
+const VehicleLiveGaugesOverlay = ({ vehicle, style = {}, onClose }) => {
   if (!vehicle) return null;
 
   // Safely parse metadata if stored as JSON string
@@ -132,25 +132,25 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
     return (currentFuel * mileage).toFixed(1);
   }, [meta, vehicle, currentFuel]);
 
-  // 6. Speedometer Geometry
-  const cx = 105;
-  const cy = 100;
-  const radius = 72;
-  const trackWidth = 16;
-  const outerArcRadius = 84; // 1px outer gray arc line
+  // 6. Speedometer Geometry (Compact & Space-Optimized to prevent collisions)
+  const cx = 82.5;
+  const cy = 76;
+  const radius = 56;
+  const trackWidth = 12;
+  const outerArcRadius = 66; // 1px outer gray arc line
   const maxDisplaySpeed = 200;
   const clampedSpeed = Math.min(maxDisplaySpeed, speed);
 
   // Needle with counter-balance tail
   const needleRad = (clampedSpeed / maxDisplaySpeed) * Math.PI;
-  const needleLength = 62;
+  const needleLength = 48;
   const needleTipX = cx - needleLength * Math.cos(needleRad);
   const needleTipY = cy - needleLength * Math.sin(needleRad);
-  const tailLength = 10;
+  const tailLength = 8;
   const needleTailX = cx + tailLength * Math.cos(needleRad);
   const needleTailY = cy + tailLength * Math.sin(needleRad);
 
-  // Fuel Progress (radius = 72, length = PI * 72 ≈ 226.19)
+  // Fuel Progress (radius = 56, length = PI * 56 ≈ 175.93)
   const totalArc = Math.PI * radius;
   const fuelRatio = effectiveTankSize > 0 ? Math.min(1, Math.max(0, currentFuel / effectiveTankSize)) : 0;
   const fuelDashOffset = totalArc * (1 - fuelRatio);
@@ -165,7 +165,7 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
 
       // Outer ticks touching the 1px gray arc line
       const outerR = outerArcRadius;
-      const innerR = isMajor ? (outerR - 5) : (isMedium ? (outerR - 3.5) : (outerR - 2.5));
+      const innerR = isMajor ? (outerR - 4) : (isMedium ? (outerR - 3) : (outerR - 2));
       items.push({
         x1: cx - innerR * Math.cos(angle),
         y1: cy - innerR * Math.sin(angle),
@@ -176,8 +176,8 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
       });
 
       // Inner ticks along the bottom edge of the colored ribbon
-      const ribbonInner = radius - trackWidth / 2; // 64
-      const tickInner = isMajor ? 58 : (isMedium ? 60 : 61.5);
+      const ribbonInner = radius - trackWidth / 2; // 50
+      const tickInner = isMajor ? 45 : (isMedium ? 47 : 48);
       items.push({
         x1: cx - ribbonInner * Math.cos(angle),
         y1: cy - ribbonInner * Math.sin(angle),
@@ -196,31 +196,66 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
     <div
       style={{
         position: 'absolute',
-        bottom: '24px',
+        bottom: '20px',
         left: '20px',
         zIndex: 1000,
-        background: '#FFFFFF',
-        borderRadius: '6px',
-        border: '1px solid #D1D5DB',
+        background: 'rgba(255, 255, 255, 0.65)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        borderRadius: '10px',
+        border: '1px solid rgba(255, 255, 255, 0.75)',
         borderTop: '3px solid #00BCD4',
-        padding: '12px 18px 14px 18px',
-        boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+        padding: '8px 12px 10px 12px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
         display: 'inline-flex',
         alignItems: 'flex-start',
-        gap: '24px',
+        gap: '12px',
         userSelect: 'none',
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         pointerEvents: 'auto',
+        transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         ...style
       }}
     >
+      {/* Optional Close Button for Meters */}
+      {onClose && (
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '5px',
+            right: '6px',
+            background: 'rgba(255, 255, 255, 0.65)',
+            border: 'none',
+            borderRadius: '50%',
+            width: '18px',
+            height: '18px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: '#64748B',
+            fontSize: '10px',
+            fontWeight: 700,
+            lineHeight: 1,
+            padding: 0,
+            transition: 'all 0.15s ease',
+            zIndex: 10
+          }}
+          title="Close Gauges"
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#0F172A'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.95)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = '#64748B'; e.currentTarget.style.background = 'rgba(255, 255, 255, 0.65)'; }}
+        >
+          ✕
+        </button>
+      )}
       {/* ─── 1. SPEEDOMETER GAUGE ─── */}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '210px' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '165px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
           Speed - {vehicle.last_seen ? `${speed} Km/h` : 'N/A'}
         </div>
 
-        <svg width="210" height="114" viewBox="0 0 210 115">
+        <svg width="165" height="92" viewBox="0 0 165 92">
           {/* Outer 1px Gray Arc Line */}
           <path
             d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
@@ -275,11 +310,11 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
           />
 
           {/* Scale Labels */}
-          <text x="44" y="93" textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">0</text>
-          <text x="68" y="65" textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">50</text>
-          <text x="105" y="52" textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">100</text>
-          <text x="142" y="65" textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">150</text>
-          <text x="166" y="93" textAnchor="middle" fontSize="10" fontWeight="700" fill="#334155">200</text>
+          <text x="30" y="72" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#334155">0</text>
+          <text x="50" y="48" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#334155">50</text>
+          <text x="82.5" y="38" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#334155">100</text>
+          <text x="115" y="48" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#334155">150</text>
+          <text x="135" y="72" textAnchor="middle" fontSize="8.5" fontWeight="700" fill="#334155">200</text>
 
           {/* Needle Pointer with Tail */}
           <line
@@ -294,8 +329,8 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
           />
 
           {/* Base Pivot Knob */}
-          <circle cx={cx} cy={cy} r="6" fill="#0F172A" stroke="#FFFFFF" strokeWidth="1.5" />
-          <circle cx={cx} cy={cy} r="2.5" fill="#FFFFFF" />
+          <circle cx={cx} cy={cy} r="5" fill="#0F172A" stroke="#FFFFFF" strokeWidth="1.5" />
+          <circle cx={cx} cy={cy} r="2" fill="#FFFFFF" />
         </svg>
       </div>
 
@@ -306,17 +341,17 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            width: '210px',
-            borderLeft: '1px solid #E2E8F0',
-            paddingLeft: '24px'
+            width: '165px',
+            borderLeft: '1px solid rgba(148, 163, 184, 0.35)',
+            paddingLeft: '12px'
           }}
         >
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#334155', marginBottom: '8px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: '#334155', marginBottom: '4px' }}>
             Tank Size - {displayTankSize} Ltr
           </div>
 
-          <div style={{ position: 'relative', width: '210px', height: '114px' }}>
-            <svg width="210" height="114" viewBox="0 0 210 115">
+          <div style={{ position: 'relative', width: '165px', height: '92px' }}>
+            <svg width="165" height="92" viewBox="0 0 165 92">
               {/* Outer 1px Gray Arc Line */}
               <path
                 d={`M ${cx - outerArcRadius},${cy} A ${outerArcRadius},${outerArcRadius} 0 0,1 ${cx + outerArcRadius},${cy}`}
@@ -329,7 +364,7 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
               <path
                 d={`M ${cx - radius},${cy} A ${radius},${radius} 0 0,1 ${cx + radius},${cy}`}
                 fill="none"
-                stroke="#E2E8F0"
+                stroke="rgba(203, 213, 225, 0.75)"
                 strokeWidth={trackWidth}
               />
               {/* Green Filled Progress Arc */}
@@ -356,9 +391,9 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
               {/* Centered Fuel Liters Text inside Gauge */}
               <text
                 x={cx}
-                y={cy - 10}
+                y={cy - 8}
                 textAnchor="middle"
-                fontSize="13"
+                fontSize="11.5"
                 fontWeight="700"
                 fill="#0F172A"
               >
@@ -369,10 +404,10 @@ const VehicleLiveGaugesOverlay = ({ vehicle, style = {} }) => {
 
           {/* Estimated Distance */}
           <div style={{ textAlign: 'center', marginTop: '-2px' }}>
-            <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
+            <div style={{ fontSize: '9.5px', fontWeight: 600, color: '#64748B', letterSpacing: '0.02em' }}>
               Estimated Distance
             </div>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
+            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0F172A', marginTop: '1px' }}>
               {estimatedKm} Km
             </div>
           </div>
