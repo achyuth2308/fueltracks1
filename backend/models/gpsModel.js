@@ -930,6 +930,74 @@ const GpsModel = {
     let fallbackParams = [];
     let fallbackIdx = 2;
 
+    // If no records in hot DB, check S3 archive before gps_points fallback
+    if (total === 0 && (startDate || date || from)) {
+      try {
+        const { fetchRawPacketsFromS3 } = require('../services/rawPacketArchiveService');
+        const s3QueryStart = startDate || date || (from ? from.split('T')[0] : null);
+        const s3QueryEnd = endDate || startDate || date || (to ? to.split('T')[0] : s3QueryStart);
+        
+        if (s3QueryStart) {
+          const s3Packets = await fetchRawPacketsFromS3(imei, s3QueryStart, s3QueryEnd);
+          if (s3Packets && s3Packets.length > 0) {
+            let filtered = s3Packets;
+            if (startTs || endTs) {
+              const minTime = startTs ? new Date(startTs).getTime() : 0;
+              const maxTime = endTs ? new Date(endTs).getTime() : Infinity;
+              filtered = s3Packets.filter(p => {
+                const t = new Date(p.device_time || p.received_at).getTime();
+                return t >= minTime && t <= maxTime;
+              });
+            }
+
+            filtered.sort((a, b) => {
+              const tA = new Date(a.received_at || a.device_time).getTime();
+              const tB = new Date(b.received_at || b.device_time).getTime();
+              return tB !== tA ? tB - tA : (b.id - a.id);
+            });
+
+            const totalS3 = filtered.length;
+            const paged = filtered.slice(offset, offset + limit);
+            const formatted = paged.map(row => {
+              const pData = row.parsed_data || {};
+              return {
+                id: row.id,
+                imei: row.imei,
+                raw: row.raw,
+                parsed: row.parsed !== false,
+                error: row.error,
+                received_at: row.received_at,
+                packet_type: row.packet_type || 'DATA',
+                device_time: row.device_time,
+                odometer: row.odometer || 0,
+                raw_hex: row.raw_hex || row.raw,
+                parsed_data: pData,
+                lat: row.lat !== undefined ? row.lat : pData.lat,
+                lng: row.lng !== undefined ? row.lng : (pData.lng || pData.lon),
+                speed: row.speed !== undefined ? row.speed : (pData.speed || 0),
+                fuel: row.fuel !== undefined ? row.fuel : pData.fuel,
+                voltage: row.voltage !== undefined ? row.voltage : pData.voltage,
+                ignition: row.ignition !== undefined ? row.ignition : pData.ignition
+              };
+            });
+
+            return {
+              messages: formatted,
+              pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: totalS3,
+                totalPages: Math.ceil(totalS3 / limit) || 1,
+                source: 's3_archive'
+              }
+            };
+          }
+        }
+      } catch (s3Err) {
+        console.warn('[DB] getRawMessages S3 retrieval fallback warning:', s3Err.message);
+      }
+    }
+
     if (total === 0) {
       // Check if vehicle exists before attempting fallback to avoid full table scans on unknown IMEIs
       const vehRes = await db.query('SELECT id FROM vehicles WHERE imei = $1 LIMIT 1', [imei]);
