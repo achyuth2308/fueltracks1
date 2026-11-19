@@ -33,19 +33,21 @@ class ProfileRepository {
 
       const cleanStr = (val) => (val && String(val).trim() !== '' ? String(val).trim() : null);
 
+      const isCustomer = row.org_type === 'customer';
+
       const resolvedEmail = cleanStr(row.support_email) || 
-                            cleanStr(row.email) || 
-                            cleanStr(row.org_email) || 
+                            (!isCustomer ? cleanStr(row.email) : null) || 
+                            (!isCustomer ? cleanStr(row.org_email) : null) || 
                             cleanStr(row.dealer_user_email);
 
       const resolvedPhone = cleanStr(row.support_phone) || 
-                            cleanStr(row.whatsapp_number) || 
-                            cleanStr(row.mobile) || 
-                            cleanStr(row.org_phone) || 
+                            (!isCustomer ? cleanStr(row.whatsapp_number) : null) || 
+                            (!isCustomer ? cleanStr(row.mobile) : null) || 
+                            (!isCustomer ? cleanStr(row.org_phone) : null) || 
                             cleanStr(row.dealer_user_phone);
 
-      row.support_email = resolvedEmail || row.support_email || null;
-      row.support_phone = resolvedPhone || row.support_phone || null;
+      row.support_email = resolvedEmail || (isCustomer ? null : row.support_email) || null;
+      row.support_phone = resolvedPhone || (isCustomer ? null : row.support_phone) || null;
 
       return row;
     }

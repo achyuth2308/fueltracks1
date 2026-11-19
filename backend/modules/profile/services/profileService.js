@@ -96,21 +96,6 @@ class ProfileService {
         [organizationId]
       );
 
-      // If parent_id was not directly set on organizations table, check if the customer was created by a dealer user
-      if (parentRes.rows.length === 0) {
-        parentRes = await db.query(
-          `SELECT o.id, o.name, o.type, o.parent_id, o.email, o.phone,
-                  u.email as dealer_email, u.phone as dealer_phone, u.name as dealer_user_name
-           FROM users creator
-           JOIN organizations o ON o.id = creator.org_id AND o.type = 'dealer'
-           LEFT JOIN users u ON u.org_id = o.id AND (u.role = 'dealer' OR u.role = 'admin')
-           WHERE creator.id = (SELECT created_by FROM users WHERE org_id = $1 AND created_by IS NOT NULL LIMIT 1)
-           ORDER BY (CASE WHEN u.role = 'dealer' THEN 0 ELSE 1 END), u.created_at ASC
-           LIMIT 1`,
-          [organizationId]
-        );
-      }
-
       const isSuperadminParent = parentRes.rows.length > 0 &&
         (parentRes.rows[0].id === 'a0000000-0000-0000-0000-000000000001' || parentRes.rows[0].type === 'super');
 
@@ -123,8 +108,8 @@ class ProfileService {
         mainProfile.is_whitelabel_enabled = true;
         // Dealer reaches Fueltracks for platform support
         mainProfile.support_brand = 'Fueltracks';
-        mainProfile.support_email = 'fueltrackstpl@gmail.com';
-        mainProfile.support_phone = '7337433351';
+        mainProfile.support_email = 'info@fueltracks.in';
+        mainProfile.support_phone = '7337433356';
       } else if (parentRes.rows.length > 0 && !isSuperadminParent) {
         // Customer under a Dealer (e.g. customer under SM Technologies)
         const parentId = parentRes.rows[0].id;
@@ -132,8 +117,8 @@ class ProfileService {
         const dealerOrg = parentRes.rows[0];
 
         // Prioritize dealer contact details from the users table as well as organization profile
-        const dealerEmail = dealerOrg.dealer_email || parentProfile?.support_email || parentProfile?.email || dealerOrg.email || 'fueltrackstpl@gmail.com';
-        const dealerPhone = dealerOrg.dealer_phone || parentProfile?.support_phone || parentProfile?.whatsapp_number || parentProfile?.mobile || dealerOrg.phone || '7337433351';
+        const dealerEmail = dealerOrg.dealer_email || parentProfile?.support_email || parentProfile?.email || dealerOrg.email || 'info@fueltracks.in';
+        const dealerPhone = dealerOrg.dealer_phone || parentProfile?.support_phone || parentProfile?.whatsapp_number || parentProfile?.mobile || dealerOrg.phone || '7337433356';
         const dealerName = parentProfile?.brand_name || dealerOrg.dealer_user_name || parentProfile?.org_name || dealerOrg.name || 'SM Technologies';
 
         mainProfile.is_dealer_customer = true;
@@ -162,8 +147,8 @@ class ProfileService {
         mainProfile.is_dealer_customer = false;
         mainProfile.is_fueltracks_direct = true;
         mainProfile.support_brand = 'Fueltracks';
-        mainProfile.support_email = 'fueltrackstpl@gmail.com';
-        mainProfile.support_phone = '7337433351';
+        mainProfile.support_email = 'info@fueltracks.in';
+        mainProfile.support_phone = '7337433356';
       }
     } catch (err) {
       console.error('[ProfileService] Error inheriting parent dealer branding:', err.message);
