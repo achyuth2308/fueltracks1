@@ -1,8 +1,21 @@
-const db = require('../config/db');
+const { Pool } = require('pg');
+const env = require('../config/env');
 const { uploadRawPacketsToS3, BUCKET_NAME } = require('../services/rawPacketArchiveService');
 
 const RETENTION_DAYS = parseInt(process.env.RAW_PACKETS_RETENTION_DAYS, 10) || 3;
 const BATCH_SIZE = 5000;
+
+// Dedicated archival pool with statement_timeout = 0 (no timeout for heavy batch jobs)
+const pool = new Pool({
+  host: env.DB_HOST || '127.0.0.1',
+  port: parseInt(env.DB_PORT, 10) || 5432,
+  database: env.DB_NAME || 'fueltracks_restore_test',
+  user: env.DB_USER || 'fuel',
+  password: env.DB_PASS,
+  max: 2,
+  idleTimeoutMillis: 30000,
+  statement_timeout: 0 // Disable timeout for archiver
+});
 
 /**
  * Archives raw packets older than RETENTION_DAYS (default 3 days) to AWS S3,
@@ -12,7 +25,10 @@ async function runRawPacketsArchiveJob() {
   console.log(`[RAW-ARCHIVER] Starting raw_packets S3 archive job (Retention: ${RETENTION_DAYS} days)...`);
   console.log(`[RAW-ARCHIVER] Target S3 Bucket: ${BUCKET_NAME}`);
 
+  const client = await pool.connect();
   try {
+    await client.query('SET statement_timeout = 0');
+
     // 1. Identify cutoff timestamp
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - RETENTION_DAYS);
@@ -22,8 +38,7 @@ async function runRawPacketsArchiveJob() {
     console.log(`[RAW-ARCHIVER] Archiving raw packets received before: ${cutoffStr} 00:00:00 UTC`);
 
     // 2. Find all distinct dates older than cutoff that have packets in raw_packets
-    // We check day by day starting from the oldest available day
-    const oldestRes = await db.query(
+    const oldestRes = await client.query(
       `SELECT received_at::date AS oldest_day 
        FROM raw_packets 
        WHERE received_at < $1::timestamp 
@@ -42,8 +57,8 @@ async function runRawPacketsArchiveJob() {
 
     console.log(`[RAW-ARCHIVER] Date range to archive: ${oldestDay.toISOString().split('T')[0]} to ${endDay.toISOString().split('T')[0]}`);
 
-    // 3. Get all active & known vehicle IMEIs to query efficiently via index
-    const vehRes = await db.query(
+    // 3. Get all registered vehicle IMEIs
+    const vehRes = await client.query(
       `SELECT DISTINCT imei FROM vehicles WHERE imei IS NOT NULL AND TRIM(imei) != ''`
     );
     const vehicleImeis = vehRes.rows.map(r => String(r.imei).trim());
@@ -66,9 +81,10 @@ async function runRawPacketsArchiveJob() {
       let totalCompressedBytes = 0;
 
       // Archive per vehicle IMEI using btree index (idx_raw_packets_imei_time)
-      for (const imei of vehicleImeis) {
+      for (let i = 0; i < vehicleImeis.length; i++) {
+        const imei = vehicleImeis[i];
         try {
-          const packetsRes = await db.query(
+          const packetsRes = await client.query(
             `SELECT id, imei, raw, parsed, error, received_at, packet_type, device_time, odometer, raw_hex, parsed_data
              FROM raw_packets
              WHERE imei = $1 AND received_at >= $2::timestamp AND received_at < $3::timestamp
@@ -87,6 +103,10 @@ async function runRawPacketsArchiveJob() {
         } catch (vehErr) {
           console.error(`[RAW-ARCHIVER] Error archiving IMEI ${imei} for ${dayStartStr}:`, vehErr.message);
         }
+
+        if ((i + 1) % 100 === 0 || i === vehicleImeis.length - 1) {
+          console.log(`[RAW-ARCHIVER] Vehicle scan progress: ${i + 1}/${vehicleImeis.length} vehicles checked (${totalDayUploaded} archived)...`);
+        }
       }
 
       console.log(`[RAW-ARCHIVER] Day ${dayStartStr} S3 Upload Complete: ${totalDayPackets} packets across ${totalDayUploaded} vehicles (${(totalCompressedBytes / (1024 * 1024)).toFixed(2)} MB compressed).`);
@@ -97,7 +117,7 @@ async function runRawPacketsArchiveJob() {
       let hasMore = true;
 
       while (hasMore) {
-        const deleteRes = await db.query(
+        const deleteRes = await client.query(
           `WITH to_delete AS (
              SELECT id FROM raw_packets
              WHERE received_at >= $1::timestamp AND received_at < $2::timestamp
@@ -134,7 +154,7 @@ async function runRawPacketsArchiveJob() {
     // 6. Request gentle VACUUM so PostgreSQL reclaims the disk pages immediately
     console.log(`[RAW-ARCHIVER] Triggering concurrent VACUUM on raw_packets to reclaim disk space...`);
     try {
-      await db.query(`VACUUM (ANALYZE) raw_packets`);
+      await client.query(`VACUUM (ANALYZE) raw_packets`);
       console.log(`[RAW-ARCHIVER] VACUUM complete. Disk space reclaimed.`);
     } catch (vacErr) {
       console.warn(`[RAW-ARCHIVER] VACUUM notice:`, vacErr.message);
@@ -142,6 +162,9 @@ async function runRawPacketsArchiveJob() {
 
   } catch (err) {
     console.error(`[RAW-ARCHIVER] Critical archive error:`, err);
+  } finally {
+    client.release();
+    await pool.end();
   }
 }
 
