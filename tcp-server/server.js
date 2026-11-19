@@ -1615,15 +1615,26 @@ function startFmb920Server(port) {
           dataBuffer = dataBuffer.subarray(parseResult.bytesConsumed);
           totalPacketsParsed++;
 
-          // Process the parsed records
-          for (const record of parseResult.records) {
+          // Process the parsed records in strict chronological forward order (oldest to newest)
+          // Teltonika memory dumps package newest records first; sorting chronologically ensures
+          // historical buffered packets are placed correctly in time and never trigger rollback rejections.
+          const chronologicalRecords = [...parseResult.records].sort((a, b) => (a.timestamp?.getTime() || 0) - (b.timestamp?.getTime() || 0));
+          const nowMs = Date.now();
+
+          for (let rIdx = 0; rIdx < chronologicalRecords.length; rIdx++) {
+            const record = chronologicalRecords[rIdx];
+            const isLastRecord = rIdx === chronologicalRecords.length - 1;
+            const recordAgeMs = Math.abs(nowMs - (record.timestamp ? record.timestamp.getTime() : nowMs));
+            // Only the final record in the burst is live IF within 3 minutes of server time; older buffer records are history
+            const isRecordLive = isLastRecord && (recordAgeMs <= 3 * 60 * 1000);
+
             const lat = record.lat;
             const lng = record.lng;
             const isValidGps = (lat !== 0 || lng !== 0);
 
-            // Update connected device state
+            // Update connected device state (only if live or latest in batch)
             const devInfo = connectedDevices.get(sessionImei) || { socket: sock, clientId: cId, protocolName };
-            if (isValidGps) {
+            if (isValidGps && isLastRecord) {
               devInfo.lat = lat;
               devInfo.lng = lng;
             }
@@ -1639,7 +1650,13 @@ function startFmb920Server(port) {
             // Teltonika Fuel Sensors (Analog, LLS, BLE, CAN):
             // LLS Fuel 1: IO 84, BLE Fuel 1: IO 270, Analog Input 1: IO 9 (mV -> V), CAN Fuel: IO 83
             // LLS Fuel 2: IO 85, BLE Fuel 2: IO 271, Analog Input 2: IO 10 (mV -> V)
-            const fuel1 = record.ioMap[84] ?? record.ioMap[270] ?? (record.ioMap[9] !== undefined ? (record.ioMap[9] / 1000) : (record.ioMap[83] ?? null));
+            // IO 25 = BLE Fuel Sensor Status (32767 / 0x7FFF means sensor disconnected/error)
+            const isBleDisconnected = record.ioMap[25] === 32767 || record.ioMap[25] === 0x7FFF;
+            let rawFuel1 = record.ioMap[84] ?? (record.ioMap[270] !== undefined ? record.ioMap[270] : null) ?? (record.ioMap[9] !== undefined ? (record.ioMap[9] / 1000) : (record.ioMap[83] ?? null));
+            if (isBleDisconnected || (rawFuel1 !== null && rawFuel1 === 0 && (record.ioMap[25] !== undefined || record.ioMap[270] !== undefined))) {
+              rawFuel1 = null; // Do not log 0 ADC as valid fuel when BLE sensor is offline
+            }
+            const fuel1 = rawFuel1;
             const fuel2 = record.ioMap[85] ?? record.ioMap[271] ?? (record.ioMap[10] !== undefined ? (record.ioMap[10] / 1000) : null);
 
             const payload = {
@@ -1656,7 +1673,7 @@ function startFmb920Server(port) {
               voltage: extVolt,
               odometer,
               deviceTime: record.timestamp.toISOString(),
-              isLive: 1, // Codec 8 packets are usually realtime, Priority=1 means high
+              isLive: isRecordLive ? 1 : 0,
               gpsValid: isValidGps ? 'A' : 'V'
             };
 

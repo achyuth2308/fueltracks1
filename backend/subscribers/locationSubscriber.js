@@ -373,8 +373,9 @@ async function start(io) {
           isValidPoint = false;
           rejectReason = `Timestamp in future (>15m ahead of server): ${new Date(deviceTime).toISOString()}`;
         } 
-        // 2. Rollback check for Live points (allow 2 min slack for unordered network delivery)
-        else if (isLive && prevDeviceTimeMs && deviceTimeMs < prevDeviceTimeMs - (2 * 60 * 1000)) {
+        // 2. Rollback check for genuine live streams (allow 2 min slack for unordered network delivery)
+        // Stored buffer dumps (isLive === 0 or false, or timestamp > 5 min behind server) MUST NEVER be dropped!
+        else if ((isLive === true || isLive === 1) && Math.abs(serverTimeMs - deviceTimeMs) < (5 * 60 * 1000) && prevDeviceTimeMs && deviceTimeMs < prevDeviceTimeMs - (2 * 60 * 1000)) {
           isValidPoint = false;
           rejectReason = `Timestamp rollback on live stream: ${new Date(deviceTime).toISOString()} < ${new Date(prevState.deviceTime).toISOString()}`;
         }
@@ -518,6 +519,13 @@ async function start(io) {
               const inputVal = parseFloat(rawVal);
               if (isNaN(inputVal)) return null;
 
+              // Disconnect & Open-Circuit Guard:
+              // BLE offline sends 32767 (0x7FFF), open-circuit analog sends 0 or near 0.
+              // If calibrated empty ADC > 50 and incoming ADC is < 40% of empty ADC, sensor is disconnected/offline.
+              if (inputVal <= 0 || inputVal === 32767 || (points[0].adcValue > 50 && inputVal < points[0].adcValue * 0.4)) {
+                return null;
+              }
+
               if (inputVal <= points[0].adcValue) return points[0].litres;
               if (inputVal >= points[points.length - 1].adcValue) return points[points.length - 1].litres;
 
@@ -540,6 +548,10 @@ async function start(io) {
             const numRaw = parseFloat(rawVal);
 
             if (cap > 0 && fullAdc !== emptyAdc && !isNaN(numRaw)) {
+              // Disconnect & Open-Circuit Guard
+              if (numRaw <= 0 || numRaw === 32767 || (emptyAdc > 50 && numRaw < emptyAdc * 0.4)) {
+                return null;
+              }
               let heightFraction = (numRaw - emptyAdc) / (fullAdc - emptyAdc);
               if (heightFraction < 0) heightFraction = 0;
               if (heightFraction > 1) heightFraction = 1;
@@ -655,7 +667,7 @@ async function start(io) {
           }
           if (calculatedAny) {
             finalFuelLiters = Math.round(combinedLiters * 100) / 100;
-          } else if (fuel == null) {
+          } else {
             finalFuelLiters = null;
           }
         } else {
@@ -666,7 +678,7 @@ async function start(io) {
           const metrics = evaluateTankMetrics(t1, 1) || { litres: null, s1Litres: null, s2Litres: null, s1Raw: null, s2Raw: null };
           if (metrics.litres != null && !isNaN(metrics.litres)) {
             finalFuelLiters = metrics.litres;
-          } else if (fuel == null) {
+          } else {
             finalFuelLiters = null;
           }
           tanksTelemetry[1] = {
@@ -726,10 +738,13 @@ async function start(io) {
          if (vehicleTankCapacity > 0) {
            liveFilteredFuel = Math.max(0, Math.min(vehicleTankCapacity, liveFilteredFuel));
          }
+       } else if (prevState && prevState.filteredFuel != null && !isNaN(parseFloat(prevState.filteredFuel))) {
+         // Sensor disconnected or offline: hold previous valid filtered fuel so live tracking doesn't plummet to 0!
+         liveFilteredFuel = parseFloat(prevState.filteredFuel);
        }
 
        // 2d. Fuel Alerts (Theft & Refill)
-       if (isLive && prevState && prevState.fuel !== undefined && finalFuelLiters !== undefined) {
+       if (isLive && prevState && prevState.fuel != null && finalFuelLiters != null && !isNaN(parseFloat(prevState.fuel)) && !isNaN(parseFloat(finalFuelLiters))) {
          const prevFuel = parseFloat(prevState.fuel);
          const currFuel = parseFloat(finalFuelLiters);
          const capacity = vehicleTankCapacity || parseFloat(vehicle.metadata?.tankSize) || 100;

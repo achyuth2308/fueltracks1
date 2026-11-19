@@ -642,6 +642,11 @@ export default function FuelAnalyticsPage() {
   const calibrateFuelValue = (rawFuel, pointDeviceTime) => {
     if (rawFuel == null || isNaN(rawFuel)) return null;
     const num = parseFloat(rawFuel);
+    if (isNaN(num)) return null;
+
+    // Disconnect & Open-Circuit Guard:
+    // BLE offline sends 32767 (0x7FFF), open-circuit analog sends 0 or near 0.
+    if (num <= 0 || num === 32767 || num === 0x7FFF) return null;
 
     const meta = selectedVehicle?.metadata || {};
     const cal = meta.fuelCalibration || meta.fuel || {};
@@ -681,6 +686,12 @@ export default function FuelAnalyticsPage() {
         .sort((a, b) => a.adc - b.adc);
 
       if (sorted.length >= 2) {
+        // Disconnect guard for manual points:
+        // If calibrated empty ADC > 50 and incoming ADC is < 40% of empty ADC, sensor is disconnected/offline
+        if (sorted[0].adc > 50 && num < sorted[0].adc * 0.4) {
+          return null;
+        }
+
         // If already after calibration and value is in Litres range, don't re-run through ADC curve
         if (isAfterCalibration && num <= sorted[sorted.length - 1].ltr * 1.1) {
           return Math.round(num * 10) / 10;
@@ -706,6 +717,9 @@ export default function FuelAnalyticsPage() {
     const emptyAdc = parseFloat(cal.minAdc ?? meta.fuelEmptyAdc ?? 0);
     const fullAdc = parseFloat(cal.maxAdc ?? meta.fuelFullAdc ?? 4095);
     if (tankCapacity > 0 && fullAdc !== emptyAdc && !isNaN(emptyAdc) && !isNaN(fullAdc)) {
+      if (emptyAdc > 50 && num < emptyAdc * 0.4) {
+        return null;
+      }
       if (num > tankCapacity * 1.15 || !isAfterCalibration) {
         let frac = (num - emptyAdc) / (fullAdc - emptyAdc);
         frac = Math.max(0, Math.min(1, frac));
@@ -770,6 +784,12 @@ export default function FuelAnalyticsPage() {
     // When moving (speed > 6 km/h): apply anti-slosh exponential smoothing to reject highway road ripples.
     const filteredFuels = new Array(sorted.length).fill(null);
     let lastEma = null;
+
+    // Seed lastEma with first valid non-null fuel point in the dataset so an offline sensor doesn't initialize to 0
+    const firstValidRaw = rawFuels.find(f => f != null && f > 0);
+    if (firstValidRaw != null) {
+      lastEma = firstValidRaw;
+    }
     for (let i = 0; i < sorted.length; i++) {
       const windowVals = [];
       for (let w = Math.max(0, i - 2); w <= Math.min(sorted.length - 1, i + 2); w++) {
