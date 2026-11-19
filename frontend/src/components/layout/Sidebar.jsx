@@ -121,8 +121,10 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
       p.startsWith('/admin/reports/geofence');
   };
 
+  const isSuperAdminOrDealer = user?.role === 'superadmin' || user?.role === 'dealer';
+
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
-    'Dashboard': location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard',
+    'Dashboard': !isSuperAdminOrDealer && (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard'),
     'Fuel Analytics': location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel'),
     'Reports': location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname),
   }));
@@ -141,7 +143,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   });
 
   useEffect(() => {
-    if (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard') {
+    if (!isSuperAdminOrDealer && (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard')) {
       setOpenSubMenus(prev => ({ ...prev, 'Dashboard': true }));
     }
     if (location.pathname.startsWith('/fuel-') || location.pathname.startsWith('/admin/fuel')) {
@@ -204,10 +206,11 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           icon: LayoutDashboard,
           color: '#2563EB',
           roles: ['superadmin', 'dealer', 'customer'],
-          subItems: [
-            { name: 'Live Map Dashboard', path: '/dashboard' },
-            { name: 'Fleet Dashboard', path: '/admin/reports/dashboard' },
-          ]
+          ...(!isSuperAdminOrDealer ? {
+            subItems: [
+              { name: 'Fleet Dashboard', path: '/admin/reports/dashboard' },
+            ]
+          } : {})
         },
         { name: 'Device Inventory', path: '/admin/devices', icon: Cpu, color: '#0284C7', roles: ['superadmin', 'dealer'] },
         { name: 'Billing', path: '/admin/billing', icon: FileText, color: '#059669', roles: ['superadmin', 'dealer'] },
@@ -295,7 +298,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
         { name: 'Alerts', path: '/alerts', icon: Bell, color: '#EF4444', roles: ['customer'] },
       ],
     },
-  ], [hasFuelFeature]);
+  ], [hasFuelFeature, isSuperAdminOrDealer, vehicles]);
 
   const handleRestoreAdmin = async (e) => {
     if (e) e.preventDefault();
@@ -734,7 +737,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                   } else if (item.name === 'Reports') {
                     customIsActive = location.pathname.startsWith('/admin/reports') && location.pathname !== '/admin/reports/dashboard' && !isTripReportPath(location.pathname);
                   } else if (item.name === 'Dashboard') {
-                    customIsActive = location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard';
+                    customIsActive = location.pathname === '/dashboard' || (!isSuperAdminOrDealer && location.pathname === '/admin/reports/dashboard');
                   } else if (hasSubItems) {
                     customIsActive = isAnySubActive || location.pathname === item.path;
                   } else {

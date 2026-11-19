@@ -215,12 +215,11 @@ const ReportsAdminPage = () => {
 
   useEffect(() => {
     if (!loading && vehicles.length > 0 && !hasFuelFeature && isFuelTab) {
-      navigate('/admin/reports/dashboard', { replace: true });
+      navigate('/admin/reports/distance', { replace: true });
     }
   }, [loading, vehicles, hasFuelFeature, isFuelTab, navigate]);
 
   const GENERAL_REPORT_TABS = [
-    { path: '/admin/reports/dashboard', label: 'Fleet Dashboard' },
     { path: '/admin/reports/distance', label: 'Daily Distance' },
     { path: '/admin/reports/ignition', label: 'Engine ON' },
     { path: '/admin/reports/overspeeding', label: 'Overspeeding' },
@@ -307,7 +306,7 @@ const ReportsAdminPage = () => {
           type="button"
           onClick={() => {
             if (isFuelTab) {
-              navigate('/admin/reports/dashboard');
+              navigate('/admin/reports/distance');
             } else {
               navigate(-1);
             }
