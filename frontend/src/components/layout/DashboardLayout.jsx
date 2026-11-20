@@ -119,7 +119,7 @@ const DashboardLayout = ({ vehicles = [] }) => {
           vehicles={vehicles}
         />
 
-        <main style={{ flex: 1, overflowY: 'auto', background: '#EEF5F8', position: 'relative' }}>
+        <main style={{ flex: 1, minWidth: 0, overflowY: 'auto', overflowX: 'hidden', background: '#EEF5F8', position: 'relative' }}>
           <ErrorBoundary>
             <Outlet />
           </ErrorBoundary>

@@ -672,7 +672,7 @@ class ReportRepository {
           SELECT *,
               ${HAVERSINE_SEGMENT_KM} AS segment_km,
               COALESCE(fuel - prev_fuel, 0) AS fuel_diff,
-              GREATEST(5.0, LEAST(30.0, COALESCE(NULLIF(metadata->>'tankSize', '')::numeric, 100) * 0.05)) AS fuel_threshold,
+              GREATEST(5.0, LEAST(50.0, COALESCE(NULLIF(metadata->>'tankSize', '')::numeric, 200) * 0.05)) AS fuel_threshold,
               SUM(CASE WHEN speed > 5 THEN 1 ELSE 0 END) OVER (PARTITION BY vehicle_id ORDER BY device_time) AS stop_block
           FROM raw
       ),

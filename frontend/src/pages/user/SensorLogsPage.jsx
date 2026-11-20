@@ -129,7 +129,7 @@ const SensorLogsPage = () => {
 
       const params = {
         page,
-        limit: 100,
+        limit: 5000,
         startDate: sDate,
         endDate: eDate,
         startTime: sTime,
@@ -198,7 +198,7 @@ const SensorLogsPage = () => {
         setMessages((prev) => {
           const enriched = extractParsedData(data);
           const filtered = prev.filter((m) => m.id !== enriched.id);
-          return sortDesc([enriched, ...filtered]).slice(0, 100);
+          return sortDesc([enriched, ...filtered]);
         });
       }
     };
@@ -590,23 +590,9 @@ const SensorLogsPage = () => {
             <Download size={14} /> PDF
           </button>
 
-          {/* Pagination Controls */}
+          {/* Total Packets Counter */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', borderLeft: '1px solid #E2E8F0', paddingLeft: '12px' }}>
-            <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>Page {pagination.page}/{pagination.totalPages || 1}</span>
-            <button
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page <= 1}
-              style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', background: pagination.page <= 1 ? '#F8FAFC' : '#FFFFFF', color: pagination.page <= 1 ? '#94A3B8' : '#111827', cursor: pagination.page <= 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
-            >
-              Prev
-            </button>
-            <button
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page >= (pagination.totalPages || 1)}
-              style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #E2E8F0', background: pagination.page >= (pagination.totalPages || 1) ? '#F8FAFC' : '#FFFFFF', color: pagination.page >= (pagination.totalPages || 1) ? '#94A3B8' : '#111827', cursor: pagination.page >= (pagination.totalPages || 1) ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 600 }}
-            >
-              Next
-            </button>
+            <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 600 }}>{messages.length} Packets</span>
           </div>
         </div>
       </div>

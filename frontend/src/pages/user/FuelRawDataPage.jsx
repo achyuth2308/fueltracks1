@@ -231,7 +231,7 @@ export default function FuelRawDataPage() {
           endDate: endIso,
           noCount: true,
           sample: false, // In raw data page, pull true high-res telemetry without downsampling
-          maxPoints: 1000
+          maxPoints: 10000
         }
       });
 
@@ -713,7 +713,7 @@ export default function FuelRawDataPage() {
   };
 
   return (
-    <div style={{ background: '#F0F4F8', minHeight: '100vh', padding: '20px', boxSizing: 'border-box' }} className="w-full space-y-4">
+    <div style={{ background: '#F0F4F8', minHeight: '100vh', padding: '20px', boxSizing: 'border-box', maxWidth: '100%', overflowX: 'hidden' }} className="w-full space-y-4">
       {/* ══════════════════════════════════════════════════════════════════════ */}
       {/* 1. TOP HEADER BANNER (Terminal Navy Style) */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
@@ -783,9 +783,9 @@ export default function FuelRawDataPage() {
       {/* 2. FILTER CONTROLS (Group, Vehicle, Date Range, Presets) */}
       {/* ══════════════════════════════════════════════════════════════════════ */}
       <div className="bg-white dark:bg-slate-900/80 p-4 md:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           {/* A. Group Dropdown */}
-          <div className="relative" ref={groupDropdownRef}>
+          <div className="w-full sm:w-56 md:w-60 shrink-0 relative" ref={groupDropdownRef}>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
               Fleet Group
             </label>
@@ -862,7 +862,7 @@ export default function FuelRawDataPage() {
           </div>
 
           {/* B. Vehicle Dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="w-full sm:w-64 md:w-72 shrink-0 relative" ref={dropdownRef}>
             <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
               Select Vehicle
             </label>
@@ -930,75 +930,76 @@ export default function FuelRawDataPage() {
             )}
           </div>
 
-          {/* C. Date Pickers & Apply Button */}
-          <div className="lg:col-span-2 flex flex-col sm:flex-row items-end gap-2.5">
-            <div className="w-full sm:w-1/2">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                From Date & Time
-              </label>
-              <div className="relative">
-                <Calendar className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-                <input
-                  type="datetime-local"
-                  value={customStart}
-                  onChange={(e) => {
-                    setCustomStart(e.target.value);
-                    setActivePreset('custom');
-                  }}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+          {/* C. From Date & Time */}
+          <div className="flex-1 min-w-[170px]">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              From Date & Time
+            </label>
+            <div className="relative">
+              <Calendar className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+              <input
+                type="datetime-local"
+                value={customStart}
+                onChange={(e) => {
+                  setCustomStart(e.target.value);
+                  setActivePreset('custom');
+                }}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-1 focus:ring-blue-500"
+              />
             </div>
-
-            <div className="w-full sm:w-1/2">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                To Date & Time
-              </label>
-              <div className="relative">
-                <Clock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-                <input
-                  type="datetime-local"
-                  value={customEnd}
-                  onChange={(e) => {
-                    setCustomEnd(e.target.value);
-                    setActivePreset('custom');
-                  }}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            <div className="w-full sm:w-auto shrink-0 min-w-[130px]">
-              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
-                Interval
-              </label>
-              <div className="relative">
-                <Sliders className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
-                <select
-                  value={selectedInterval}
-                  onChange={(e) => setSelectedInterval(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-blue-500 cursor-pointer"
-                  title="Select Sampling Interval"
-                >
-                  {INTERVAL_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => fetchTelemetryHistory()}
-              disabled={loading}
-              className="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
-            >
-              {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Apply
-            </button>
           </div>
+
+          {/* D. To Date & Time */}
+          <div className="flex-1 min-w-[170px]">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              To Date & Time
+            </label>
+            <div className="relative">
+              <Clock className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+              <input
+                type="datetime-local"
+                value={customEnd}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value);
+                  setActivePreset('custom');
+                }}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-medium focus:ring-1 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* E. Interval */}
+          <div className="w-full sm:w-32 shrink-0">
+            <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1.5">
+              Interval
+            </label>
+            <div className="relative">
+              <Sliders className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-400" />
+              <select
+                value={selectedInterval}
+                onChange={(e) => setSelectedInterval(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-100 font-semibold focus:ring-1 focus:ring-blue-500 cursor-pointer"
+                title="Select Sampling Interval"
+              >
+                {INTERVAL_OPTIONS.map(opt => (
+                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* F. Apply Button */}
+          <button
+            type="button"
+            onClick={() => fetchTelemetryHistory()}
+            disabled={loading}
+            className="w-full sm:w-auto h-[38px] px-6 bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
+          >
+            {loading ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Apply
+          </button>
         </div>
 
         {/* Quick Date Range Preset Pills */}
@@ -1165,35 +1166,17 @@ export default function FuelRawDataPage() {
               <ArrowUpDown className="w-3 h-3 text-slate-400" />
               <span>{sortOrder === 'desc' ? 'Newest First' : 'Oldest First'}</span>
             </button>
-
-            {/* Page Size Selector */}
-            <div className="flex items-center gap-1.5 text-slate-500 font-medium">
-              <span>Rows:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 focus:outline-hidden"
-              >
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-                <option value={250}>250</option>
-              </select>
-            </div>
           </div>
         </div>
 
         {/* Table Data Container */}
-        <div className="overflow-x-auto">
+        <div className="w-full overflow-x-auto min-w-0">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-400">
               <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
               <span className="text-sm font-semibold">Retrieving high-resolution telemetry packets...</span>
             </div>
-          ) : paginatedRows.length === 0 ? (
+          ) : filteredAndSortedRows.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center gap-2 text-slate-400">
               <Database className="w-10 h-10 opacity-30" />
               <span className="text-sm font-semibold">No telemetry packets found for this period</span>
@@ -1253,7 +1236,7 @@ export default function FuelRawDataPage() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedRows.map((row, idx) => (
+                {filteredAndSortedRows.map((row, idx) => (
                   <tr
                     key={row.index}
                     style={{
@@ -1367,38 +1350,10 @@ export default function FuelRawDataPage() {
           )}
         </div>
 
-        {/* Pagination Toolbar */}
-        <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
+        {/* Packets Count Footer */}
+        <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
           <div>
-            Showing <span className="font-bold text-slate-700 dark:text-slate-200">
-              {filteredAndSortedRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
-            </span> to <span className="font-bold text-slate-700 dark:text-slate-200">
-              {Math.min(currentPage * pageSize, filteredAndSortedRows.length)}
-            </span> of <span className="font-bold text-slate-700 dark:text-slate-200">
-              {filteredAndSortedRows.length.toLocaleString()}
-            </span> packets
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium disabled:opacity-40 hover:bg-slate-100 transition-colors"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="px-2 text-slate-600 dark:text-slate-400 font-semibold">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage >= totalPages}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium disabled:opacity-40 hover:bg-slate-100 transition-colors"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            Total <span className="font-bold text-slate-700 dark:text-slate-200">{filteredAndSortedRows.length.toLocaleString()}</span> packets
           </div>
         </div>
       </div>

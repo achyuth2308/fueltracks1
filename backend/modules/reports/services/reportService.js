@@ -350,9 +350,11 @@ class ReportService {
         if (sF != null && eF != null) {
           const delta = eF - sF;
           if (inv.status === 'Parked' || inv.status === 'Idle') {
-            if (delta >= 4.0) {
+            // Only count as refill if fuel rises by >= 5L (minimum meaningful refill)
+            if (delta >= 5.0) {
               sessionRefill += delta;
-            } else if (inv.status === 'Parked' && delta <= -4.0 && !v.is_dispenser) {
+            } else if (inv.status === 'Parked' && delta <= -5.0 && !v.is_dispenser) {
+              // Only count as theft if fuel drops >= 5L during parked (not sensor noise)
               sessionTheft += Math.abs(delta);
             }
           } else if (inv.status === 'Moving') {
@@ -365,9 +367,9 @@ class ReportService {
         // Detect fuel rise across inter-interval gaps (e.g. sensor unpowered during fueling)
         if (prevInv && prevInv.end_fuel != null && inv.start_fuel != null) {
           const gapDelta = parseFloat(inv.start_fuel) - parseFloat(prevInv.end_fuel);
-          if (gapDelta >= 4.0) {
+          if (gapDelta >= 5.0) {
             sessionRefill += gapDelta;
-          } else if (gapDelta <= -4.0 && !v.is_dispenser && inv.status === 'Parked' && prevInv.status === 'Parked') {
+          } else if (gapDelta <= -5.0 && !v.is_dispenser && inv.status === 'Parked' && prevInv.status === 'Parked') {
             sessionTheft += Math.abs(gapDelta);
           }
         }
@@ -400,15 +402,6 @@ class ReportService {
           netConsumed = Math.round((roundedDist / 2.5) * 10) / 10;
         } else {
           netConsumed = 0;
-        }
-      }
-
-      // Reconcile totalRefill with mass balance: endFuel cannot exceed (startFuel + totalRefill - netConsumed - deducted)
-      if (startFuel != null && endFuel != null) {
-        const deducted = v.is_dispenser ? totalDispensed : totalTheft;
-        const minReqRefill = (endFuel - startFuel) + netConsumed + deducted;
-        if (minReqRefill > totalRefill) {
-          totalRefill = Math.round(minReqRefill * 10) / 10;
         }
       }
 

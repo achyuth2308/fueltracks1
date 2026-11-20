@@ -148,7 +148,7 @@ export default function DeviceDataPage() {
   }, [urlVehicleId]);
 
   // 2. Fetch Packets
-  const fetchPackets = useCallback(async (targetPage = 1, customLimit = limit) => {
+  const fetchPackets = useCallback(async (targetPage = 1, customLimit = 5000) => {
     if (!selectedVehicle?.id && !selectedVehicle?.imei) return;
     setLoadingPackets(true);
     try {
@@ -156,7 +156,7 @@ export default function DeviceDataPage() {
       const res = await axiosInstance.get(`/api/vehicles/${idOrImei}/messages`, {
         params: {
           page: targetPage,
-          limit: customLimit,
+          limit: customLimit || 5000,
           startDate,
           endDate,
           startTime,
@@ -449,24 +449,6 @@ export default function DeviceDataPage() {
               Filter
             </button>
           </div>
-
-          {/* Rows per page selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 text-xs">Rows:</span>
-            <select
-              value={limit}
-              onChange={(e) => {
-                const newLimit = parseInt(e.target.value);
-                setLimit(newLimit);
-                fetchPackets(1, newLimit);
-              }}
-              className="px-2 py-1 text-xs rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500"
-            >
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-              <option value={250}>250</option>
-            </select>
-          </div>
         </div>
 
         {/* ── DATA TABLE (Exact columns matching legacy fuelProtocol) ── */}
@@ -553,36 +535,10 @@ export default function DeviceDataPage() {
           )}
         </div>
 
-        {/* ── PAGINATION TOOLBAR ── */}
-        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-500">
+        {/* ── FOOTER TOOLBAR ── */}
+        <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500">
           <div>
-            Showing <span className="font-bold text-slate-700 dark:text-slate-200">
-              {totalCount === 0 ? 0 : (page - 1) * limit + 1}
-            </span> to <span className="font-bold text-slate-700 dark:text-slate-200">
-              {Math.min(page * limit, totalCount)}
-            </span> of <span className="font-bold text-slate-700 dark:text-slate-200">
-              {totalCount.toLocaleString()}
-            </span> packets
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => fetchPackets(page - 1)}
-              disabled={page <= 1 || loadingPackets}
-              className="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 transition-colors"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-            <span className="px-2 font-semibold text-slate-600 dark:text-slate-300">
-              Page {page} of {totalPages}
-            </span>
-            <button
-              onClick={() => fetchPackets(page + 1)}
-              disabled={page >= totalPages || loadingPackets}
-              className="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 disabled:opacity-40 hover:bg-slate-100 transition-colors"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            Total <span className="font-bold text-slate-700 dark:text-slate-200">{packets.length.toLocaleString()}</span> packets
           </div>
         </div>
       </main>
