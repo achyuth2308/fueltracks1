@@ -15,6 +15,7 @@ const OrgModel = require('../models/orgModel');
 const bcrypt = require('bcryptjs');
 const { redis } = require('../config/redis');
 const db = require('../config/db');
+const fuelFilterEngine = require('../services/fuelFilterEngine');
 
 const VehicleController = {
   /**
@@ -1819,6 +1820,241 @@ const VehicleController = {
         }
       });
     } catch (err) {
+      next(err);
+    }
+  },
+
+  /**
+   * Reprocess vehicle fuel data for a given date
+   * POST /api/vehicles/:id/reprocess
+   * Body: { date: 'YYYY-MM-DD' }
+   *
+   * Fetches all raw GPS points for the vehicle on the given date,
+   * runs them through the Fuel Filter Engine (calibration + anti-slosh +
+   * ramp refuel/theft detection), updates gps_points.fuel with calibrated
+   * values, updates vehicle_latest_state, and returns the filtered results.
+   */
+  async reprocessVehicle(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { date } = req.body;
+
+      // Validate and normalize date input (supports DD-MM-YYYY, DD/MM/YYYY, and YYYY-MM-DD)
+      let normalizedDate = (date || '').toString().trim();
+      const dmyMatch = normalizedDate.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+      const ymdMatch = normalizedDate.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+
+      if (dmyMatch) {
+        const day = dmyMatch[1].padStart(2, '0');
+        const month = dmyMatch[2].padStart(2, '0');
+        const year = dmyMatch[3];
+        normalizedDate = `${year}-${month}-${day}`;
+      } else if (ymdMatch) {
+        const year = ymdMatch[1];
+        const month = ymdMatch[2].padStart(2, '0');
+        const day = ymdMatch[3].padStart(2, '0');
+        normalizedDate = `${year}-${month}-${day}`;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: 'A valid date in DD-MM-YYYY or YYYY-MM-DD format is required.',
+          code: 'VALIDATION_ERROR'
+        });
+      }
+
+      // Ownership check (unless superadmin)
+      if (req.user.role !== 'superadmin' && req.user.role !== 'dealer') {
+        const belongs = await VehicleModel.belongsToOrg(id, req.user.orgId, req.user.userId, req.user.role);
+        if (!belongs) {
+          return res.status(403).json({
+            success: false,
+            error: 'Access denied to vehicle.',
+            code: 'FORBIDDEN'
+          });
+        }
+      }
+
+      // Fetch vehicle with metadata (calibration config, tankSize, fuelConfig)
+      const vehicle = await VehicleModel.findById(id);
+      if (!vehicle) {
+        return res.status(404).json({
+          success: false,
+          error: 'Vehicle not found.',
+          code: 'VEHICLE_NOT_FOUND'
+        });
+      }
+
+      // Build date range: full day in IST (Asia/Kolkata)
+      const startDate = `${normalizedDate}T00:00:00+05:30`;
+      const endDate = `${normalizedDate}T23:59:59+05:30`;
+
+      // 1. Fetch ALL raw GPS points for the vehicle on the given date
+      const pointsResult = await db.query(
+        `SELECT id, device_time, fuel, speed, ignition, lat, lng, odometer
+         FROM gps_points
+         WHERE vehicle_id = $1 AND device_time BETWEEN $2 AND $3
+         ORDER BY device_time ASC`,
+        [id, startDate, endDate]
+      );
+
+      const rawPoints = pointsResult.rows;
+
+      if (rawPoints.length === 0) {
+        return res.status(200).json({
+          success: true,
+          message: 'No GPS data found for this vehicle on the given date.',
+          data: {
+            vehicleId: id,
+            vehicleName: vehicle.name || vehicle.plate,
+            date,
+            pointsProcessed: 0,
+            results: null
+          }
+        });
+      }
+
+      // 2. Run through the Fuel Filter Engine
+      const filterResults = fuelFilterEngine.processVehicleFuelHistory(rawPoints, vehicle);
+
+      // 3. Update gps_points with calibrated fuel values
+      //    Re-calibrate each raw point and batch-update
+      let updatedCount = 0;
+      const BATCH_SIZE = 500;
+      const updateBatches = [];
+
+      for (let i = 0; i < rawPoints.length; i++) {
+        const pt = rawPoints[i];
+        if (pt.fuel == null) continue;
+
+        const calibratedFuel = fuelFilterEngine.calibrateFuelValue(pt.fuel, pt.device_time, vehicle);
+        if (calibratedFuel != null && calibratedFuel !== parseFloat(pt.fuel)) {
+          updateBatches.push({ id: pt.id, fuel: calibratedFuel });
+        }
+      }
+
+      // Execute batch updates in chunks
+      for (let i = 0; i < updateBatches.length; i += BATCH_SIZE) {
+        const batch = updateBatches.slice(i, i + BATCH_SIZE);
+        const ids = batch.map(b => b.id);
+        const fuels = batch.map(b => b.fuel);
+
+        await db.query(
+          `UPDATE gps_points AS gp
+           SET fuel = batch.fuel
+           FROM (SELECT UNNEST($1::bigint[]) AS id, UNNEST($2::numeric[]) AS fuel) AS batch
+           WHERE gp.id = batch.id`,
+          [ids, fuels]
+        );
+        updatedCount += batch.length;
+      }
+
+      // 4. Update vehicle_latest_state with the last filtered fuel value
+      if (filterResults.end_fuel != null) {
+        const lastPoint = rawPoints[rawPoints.length - 1];
+        const today = new Date().toISOString().slice(0, 10);
+        const isToday = normalizedDate === today || normalizedDate === new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        // Only update latest state if the reprocess date is today (or the most recent date)
+        if (isToday) {
+          await db.query(
+            `UPDATE vehicle_latest_state
+             SET fuel = $2
+             WHERE vehicle_id = $1`,
+            [id, filterResults.end_fuel]
+          );
+        }
+      }
+
+      // 5. Invalidate Redis cache for this vehicle
+      try {
+        const cacheKeys = [
+          `vehicle:${id}:report`,
+          `vehicle:${id}:fuel`,
+          `vehicle:${id}:history`,
+          `vehicle:imei:${vehicle.imei}`
+        ];
+        for (const key of cacheKeys) {
+          await redis.del(key);
+        }
+      } catch (cacheErr) {
+        console.error('[REPROCESS] Cache invalidation error:', cacheErr.message);
+      }
+
+      // 6. Audit log
+      try {
+        await AuditService.log({
+          auditType: 'vehicle',
+          entityType: 'Vehicle',
+          entityId: id,
+          entityName: vehicle.name || vehicle.plate,
+          action: 'REPROCESS',
+          performedById: req.user.userId,
+          performedByRole: req.user.role,
+          orgId: vehicle.org_id,
+          vehicleId: id,
+          vehicleName: vehicle.name || vehicle.plate,
+          deviceId: vehicle.imei,
+          newData: {
+            date: normalizedDate,
+            pointsProcessed: rawPoints.length,
+            pointsUpdated: updatedCount,
+            start_fuel: filterResults.start_fuel,
+            end_fuel: filterResults.end_fuel,
+            total_refill: filterResults.total_refill,
+            total_theft: filterResults.total_theft,
+            consumption: filterResults.consumption,
+            kmpl: filterResults.kmpl,
+            distance_travelled: filterResults.distance_travelled
+          },
+          ipAddress: AuditService.getIp(req),
+          userAgent: AuditService.getUserAgent(req)
+        });
+      } catch (auditErr) {
+        console.error('[AUDIT]', auditErr.message);
+      }
+
+      // 7. Emit Socket.IO update if available
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`vehicle:${id}`).emit('vehicle:reprocessed', {
+          vehicleId: id,
+          date: normalizedDate,
+          filterResults
+        });
+      }
+
+      // 8. Return results
+      return res.status(200).json({
+        success: true,
+        message: `Reprocessing complete. ${rawPoints.length} GPS points processed, ${updatedCount} fuel values recalibrated.`,
+        data: {
+          vehicleId: id,
+          vehicleName: vehicle.name || vehicle.plate,
+          date: normalizedDate,
+          pointsProcessed: rawPoints.length,
+          pointsUpdated: updatedCount,
+          results: {
+            start_fuel: filterResults.start_fuel,
+            end_fuel: filterResults.end_fuel,
+            total_refill: filterResults.total_refill,
+            total_theft: filterResults.total_theft,
+            consumption: filterResults.consumption,
+            distance_travelled: filterResults.distance_travelled,
+            kmpl: filterResults.kmpl,
+            lph: filterResults.lph,
+            running_seconds: filterResults.running_seconds,
+            idle_seconds: filterResults.idle_seconds,
+            stopped_seconds: filterResults.stopped_seconds,
+            engine_on_seconds: filterResults.engine_on_seconds,
+            max_speed: filterResults.max_speed,
+            avg_speed: filterResults.avg_speed,
+            refuels: filterResults.refuels,
+            thefts: filterResults.thefts
+          }
+        }
+      });
+    } catch (err) {
+      console.error('[REPROCESS] Error:', err.message, err.stack);
       next(err);
     }
   },

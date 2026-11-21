@@ -1,5 +1,6 @@
 const reportRepository = require('../repositories/reportRepository');
 const db = require('../../../config/db');
+const fuelFilterEngine = require('../../../services/fuelFilterEngine');
 
 class ReportService {
   /**
@@ -286,7 +287,10 @@ class ReportService {
     if (!data || data.length === 0) return [];
 
     const vehicleIds = data.map(d => d.vehicle_id);
-    const intervalsMap = await reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate);
+    const [intervalsMap, pointsMap] = await Promise.all([
+      reportRepository.getVehicleIntervals(vehicleIds, startDate, endDate),
+      reportRepository.getGpsPointsForVehicles(vehicleIds, startDate, endDate)
+    ]);
 
     return data.map(v => {
       const vIntervals = intervalsMap[v.vehicle_id] || [];
@@ -414,19 +418,37 @@ class ReportService {
         ? Math.round((finalConsumed / engineHours) * 100) / 100
         : null;
 
+      const vPoints = pointsMap ? pointsMap[v.vehicle_id] : null;
+      const filteredFuel = (vPoints && vPoints.length > 0)
+        ? fuelFilterEngine.processVehicleFuelHistory(vPoints, v)
+        : null;
+
+      const effectiveStartFuel = filteredFuel && filteredFuel.start_fuel != null ? filteredFuel.start_fuel : startFuel;
+      const effectiveEndFuel = filteredFuel && filteredFuel.end_fuel != null ? filteredFuel.end_fuel : endFuel;
+      const effectiveRefill = filteredFuel ? filteredFuel.total_refill : Math.round(totalRefill * 10) / 10;
+      const effectiveTheft = filteredFuel ? filteredFuel.total_theft : Math.round(totalTheft * 10) / 10;
+      const effectiveConsumed = filteredFuel ? filteredFuel.consumption : finalConsumed;
+      const effectiveKmpl = filteredFuel && filteredFuel.kmpl != null ? filteredFuel.kmpl : finalKmpl;
+      const effectiveLph = filteredFuel && filteredFuel.lph != null ? filteredFuel.lph : finalLph;
+      const effectiveDist = filteredFuel && filteredFuel.distance_travelled > 0 ? filteredFuel.distance_travelled : roundedDist;
+
       return {
         ...v,
+        start_fuel: effectiveStartFuel,
+        end_fuel: effectiveEndFuel,
         running_seconds: runningSec,
         idle_seconds: idleSec,
         stopped_seconds: stoppedSec,
-        distance_travelled: roundedDist,
+        distance_travelled: effectiveDist,
         max_speed: Math.round(maxSpd),
         avg_speed: movingCount > 0 ? Math.round(speedSum / movingCount) : 0,
-        total_refill: Math.round(totalRefill * 10) / 10,
-        total_theft: Math.round(totalTheft * 10) / 10,
-        consumption: finalConsumed,
-        kmpl: finalKmpl,
-        lph: finalLph,
+        total_refill: effectiveRefill,
+        total_theft: effectiveTheft,
+        consumption: effectiveConsumed,
+        kmpl: effectiveKmpl,
+        lph: effectiveLph,
+        start_lat: (filteredFuel && filteredFuel.refill_lat) || v.start_lat,
+        start_lng: (filteredFuel && filteredFuel.refill_lng) || v.start_lng,
         intervals: vIntervals
       };
     });

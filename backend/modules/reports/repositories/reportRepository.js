@@ -749,6 +749,7 @@ class ReportRepository {
           v.id AS vehicle_id,
           v.name AS vehicle_name,
           v.plate,
+          v.metadata,
           CASE 
             WHEN a.is_dispenser THEN 'dispenser'
             WHEN a.is_generator THEN 'generator'
@@ -947,6 +948,31 @@ class ReportRepository {
       return map;
     } catch (err) {
       console.error('[REPORT_REPO] getVehicleIntervals error:', err.message);
+      return {};
+    }
+  }
+
+  /**
+   * Fetches raw GPS telemetry points for vehicles within a date range for Filtered Fuel calculation
+   */
+  async getGpsPointsForVehicles(vehicleIds, startDate, endDate) {
+    if (!vehicleIds || vehicleIds.length === 0) return {};
+    try {
+      const query = `
+        SELECT vehicle_id, device_time, fuel, speed, ignition, lat, lng, odometer
+        FROM gps_points
+        WHERE vehicle_id = ANY($1::uuid[]) AND device_time BETWEEN $2 AND $3
+        ORDER BY vehicle_id, device_time ASC
+      `;
+      const res = await db.query(query, [vehicleIds, startDate, endDate]);
+      const map = {};
+      for (const row of res.rows) {
+        if (!map[row.vehicle_id]) map[row.vehicle_id] = [];
+        map[row.vehicle_id].push(row);
+      }
+      return map;
+    } catch (err) {
+      console.error('[REPORT_REPO] getGpsPointsForVehicles error:', err.message);
       return {};
     }
   }
