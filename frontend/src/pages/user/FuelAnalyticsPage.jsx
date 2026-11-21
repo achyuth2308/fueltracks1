@@ -1240,9 +1240,8 @@ export default function FuelAnalyticsPage() {
             }
           } else {
             // C3. STOPPED + IGNITION OFF (vehicle parked)
-            // Allow gentle sensor settling convergence for small fluctuations.
-            // Large deviations without a confirmed theft window → slant parking or noise → ignore.
-            if (Math.abs(diff) < refuelThreshold) {
+            // Allow gentle sensor settling convergence for small fluctuations or downward burn
+            if (diff < 0 || Math.abs(diff) < refuelThreshold) {
               currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
             }
             // diff >= refuelThreshold while parked & not confirmed theft → likely slant → ignore

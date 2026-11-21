@@ -527,7 +527,7 @@ function processVehicleFuelHistory(points, vehicle) {
             currentNormalized = (0.92 * currentNormalized) + (0.08 * fVal);
           }
         } else {
-          if (Math.abs(diff) < refuelThreshold) {
+          if (diff < 0 || Math.abs(diff) < refuelThreshold) {
             currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
           }
         }
