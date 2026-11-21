@@ -359,7 +359,7 @@ function processVehicleFuelHistory(points, vehicle) {
         const fillDurationMs = tEnd - tStart;
 
         // Sustained rise check
-        if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 45 * 1000) {
+        if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 20 * 1000) {
           let isStable = true;
           let stableChecks = 0;
           for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
@@ -509,7 +509,21 @@ function processVehicleFuelHistory(points, vehicle) {
             currentNormalized = (0.88 * currentNormalized) + (0.12 * fVal);
           }
         } else if (ign) {
-          if (diff < 0) {
+          if (diff >= refuelThreshold) {
+            let sustainedCount = 0;
+            let sampleCount = 0;
+            const lookAhead = Math.min(sorted.length, i + 6);
+            for (let j = i + 1; j < lookAhead; j++) {
+              const fj = filteredFuels[j];
+              if (fj != null) {
+                sampleCount++;
+                if (fj >= currentNormalized + (refuelThreshold * 0.6)) sustainedCount++;
+              }
+            }
+            if (sampleCount === 0 || sustainedCount >= Math.ceil(sampleCount * 0.75)) {
+              currentNormalized = fVal;
+            }
+          } else if (diff < 0) {
             currentNormalized = (0.92 * currentNormalized) + (0.08 * fVal);
           }
         } else {

@@ -1000,10 +1000,10 @@ export default function FuelAnalyticsPage() {
           const fillDurationMs = tEnd - tStart;
 
           // PHYSICAL TELEMATICS LAW:
-          // A real fuel pump dispenses at ~25-45 L/min. To pump >= refuelThreshold (>= 9L),
-          // it must physically take at least 45 seconds across multiple consecutive packets (maxRampIdx > i).
-          // An instantaneous jump (fillDurationMs < 45s or maxRampIdx === i) is road tilt/slosh, NOT a refuel!
-          if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 45 * 1000) {
+          // A commercial fuel pump or onsite bowser dispenses at ~25-45 L/min.
+          // Across downsampled or raw telematics packets (where packets arrive 15-40s apart),
+          // a valid refuel >= refuelThreshold spanning multiple packets takes >= 20s.
+          if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 20 * 1000) {
             // Post-ramp stability: fuel must stay elevated (protects against single-packet noise spikes)
             let isStable = true;
             let stableChecks = 0;
@@ -1217,11 +1217,27 @@ export default function FuelAnalyticsPage() {
             // diff between 0 and refuelThreshold while moving: road slosh ripple -> silently rejected
           } else if (ign) {
             // C2. STOPPED + IGNITION ON (idling, genset, machinery running)
-            // Fuel is being consumed. Positive diff = sensor noise → REJECT.
-            if (diff < 0) {
+            if (diff >= refuelThreshold) {
+              // LATE CATCH: If vehicle/machinery refueled with engine running,
+              // check if higher fuel reading is sustained over next 5 packets (~1.5 min).
+              let sustainedCount = 0;
+              let sampleCount = 0;
+              const lookAhead = Math.min(sorted.length, i + 6);
+              for (let j = i + 1; j < lookAhead; j++) {
+                const fj = filteredFuels[j];
+                if (fj != null) {
+                  sampleCount++;
+                  if (fj >= currentNormalized + (refuelThreshold * 0.6)) {
+                    sustainedCount++;
+                  }
+                }
+              }
+              if (sampleCount === 0 || sustainedCount >= Math.ceil(sampleCount * 0.75)) {
+                currentNormalized = fVal;
+              }
+            } else if (diff < 0) {
               currentNormalized = (0.92 * currentNormalized) + (0.08 * fVal);
             }
-            // diff > 0 while idling → silently rejected
           } else {
             // C3. STOPPED + IGNITION OFF (vehicle parked)
             // Allow gentle sensor settling convergence for small fluctuations.

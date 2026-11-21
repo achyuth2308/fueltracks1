@@ -475,7 +475,7 @@ const FuelReportsPage = ({ type: propType }) => {
 
   return (
     <div style={{ padding: '8px 12px', background: '#F1F5F9', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      
+
       {/* 1. Header Box with Filter Controls (Compact Excel Ribbon) */}
       <div style={{
         background: '#FFFFFF',
