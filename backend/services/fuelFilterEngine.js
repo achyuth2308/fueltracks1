@@ -43,6 +43,32 @@ function calibrateFuelValue(rawFuel, pointDeviceTime, vehicle) {
   const calUpdatedAt = cal.updatedAt ? new Date(cal.updatedAt).getTime() : 0;
   const ptTime = pointDeviceTime ? new Date(pointDeviceTime).getTime() : 0;
 
+  const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+  let minCalibratedLtr = 0;
+  let minCalibratedAdc = 0;
+  let sortedPoints = [];
+  if (Array.isArray(points) && points.length >= 2) {
+    sortedPoints = points
+      .map(p => ({
+        adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
+        ltr: parseFloat(p.litres)
+      }))
+      .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
+      .sort((a, b) => a.adc - b.adc);
+
+    if (sortedPoints.length >= 2) {
+      minCalibratedLtr = sortedPoints[0].ltr;
+      minCalibratedAdc = sortedPoints[0].adc;
+    }
+  }
+
+  // Open-Circuit / Disconnected Sensor Floor:
+  // If the lowest calibration point is at ground / 0 ADC (<= 20 ADC), receiving num <= minCalibratedLtr
+  // represents an open circuit / unplugged probe (0 Volts), NOT real fuel!
+  if (minCalibratedLtr > 0 && minCalibratedAdc <= 20 && num <= minCalibratedLtr) {
+    return null;
+  }
+
   // If point was recorded after calibration was configured AND is within reasonable tank limits,
   // it was already calibrated by the ingestion pipeline.
   const isAfterCalibration = calUpdatedAt > 0 && ptTime >= calUpdatedAt;
@@ -65,35 +91,24 @@ function calibrateFuelValue(rawFuel, pointDeviceTime, vehicle) {
   }
 
   // 2. Manual Calibration (Points table)
-  const points = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
-  if (Array.isArray(points) && points.length >= 2) {
-    const sorted = points
-      .map(p => ({
-        adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
-        ltr: parseFloat(p.litres)
-      }))
-      .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
-      .sort((a, b) => a.adc - b.adc);
+  if (sortedPoints.length >= 2) {
+    if (sortedPoints[0].adc > 50 && num < sortedPoints[0].adc * 0.4) {
+      return null;
+    }
+    if (isAfterCalibration && num <= sortedPoints[sortedPoints.length - 1].ltr * 1.1) {
+      return Math.round(num * 10) / 10;
+    }
+    if (num <= sortedPoints[0].adc) return sortedPoints[0].ltr;
+    if (num >= sortedPoints[sortedPoints.length - 1].adc) return sortedPoints[sortedPoints.length - 1].ltr;
 
-    if (sorted.length >= 2) {
-      if (sorted[0].adc > 50 && num < sorted[0].adc * 0.4) {
-        return null;
-      }
-      if (isAfterCalibration && num <= sorted[sorted.length - 1].ltr * 1.1) {
-        return Math.round(num * 10) / 10;
-      }
-      if (num <= sorted[0].adc) return sorted[0].ltr;
-      if (num >= sorted[sorted.length - 1].adc) return sorted[sorted.length - 1].ltr;
-
-      for (let i = 0; i < sorted.length - 1; i++) {
-        const p1 = sorted[i];
-        const p2 = sorted[i + 1];
-        if (num >= p1.adc && num <= p2.adc) {
-          const range = p2.adc - p1.adc;
-          const ratio = range !== 0 ? (num - p1.adc) / range : 0;
-          const val = p1.ltr + ratio * (p2.ltr - p1.ltr);
-          return Math.max(0, Math.min(tankCapacity, Math.round(val * 10) / 10));
-        }
+    for (let i = 0; i < sortedPoints.length - 1; i++) {
+      const p1 = sortedPoints[i];
+      const p2 = sortedPoints[i + 1];
+      if (num >= p1.adc && num <= p2.adc) {
+        const range = p2.adc - p1.adc;
+        const ratio = range !== 0 ? (num - p1.adc) / range : 0;
+        const val = p1.ltr + ratio * (p2.ltr - p1.ltr);
+        return Math.max(0, Math.min(tankCapacity, Math.round(val * 10) / 10));
       }
     }
   }
@@ -154,6 +169,21 @@ function processVehicleFuelHistory(points, vehicle) {
   const meta = vehicle?.metadata || {};
   const tankCapacity = parseFloat(meta.tankSize) || 200;
   const fuelCfg = meta.fuelConfig || {};
+  const cal = meta.fuelCalibration || meta.fuel || {};
+  const calPoints = cal.calibrationPoints || cal.tanks?.['1']?.calibrationPoints || cal.tanks?.tank1?.calibrationPoints || [];
+  let minCalibratedLtr = 0;
+  if (Array.isArray(calPoints) && calPoints.length >= 2) {
+    const sp = calPoints
+      .map(p => ({
+        adc: parseFloat(p.adcValue !== undefined ? p.adcValue : (p.frequency !== undefined ? p.frequency : p.volt)),
+        ltr: parseFloat(p.litres)
+      }))
+      .filter(p => !isNaN(p.adc) && !isNaN(p.ltr))
+      .sort((a, b) => a.adc - b.adc);
+    if (sp.length >= 2) {
+      minCalibratedLtr = sp[0].ltr;
+    }
+  }
 
   // Configured thresholds: strictly enforce 5.0L minimum
   const configuredMinRefill = parseFloat(fuelCfg.minFilling);
@@ -176,7 +206,8 @@ function processVehicleFuelHistory(points, vehicle) {
   const filteredFuels = new Array(sorted.length).fill(null);
   let lastEma = null;
 
-  const firstValidRaw = rawFuels.find(f => f != null && f > 0);
+  // Seed lastEma with first valid non-null fuel point in dataset above calibration floor
+  const firstValidRaw = rawFuels.find(f => f != null && f > (minCalibratedLtr || 0));
   if (firstValidRaw != null) {
     lastEma = firstValidRaw;
   }
@@ -194,8 +225,14 @@ function processVehicleFuelHistory(points, vehicle) {
       if (lastEma == null) {
         lastEma = median;
       } else if (spd <= 6.0) {
-        // Stationary at bunk or parked: track median immediately if real change (>= 3L)
-        if (Math.abs(median - lastEma) >= 3.0) {
+        // Stationary at bunk or parked: no road slosh waves.
+        // Disconnect cliff drop guard:
+        // A stationary vehicle CANNOT drop > 35% of tank capacity in one step straight down to the calibration floor (<= minCalibratedLtr + 5).
+        // If median suddenly collapses while previous fuel was high, it is a disconnected sensor! Hold lastEma!
+        const isSuddenCollapse = (lastEma - median) > (tankCapacity * 0.35) && median <= (minCalibratedLtr + 5);
+        if (isSuddenCollapse) {
+          // Sensor disconnect artifact: hold lastEma
+        } else if (Math.abs(median - lastEma) >= 3.0) {
           lastEma = median;
         } else {
           lastEma = (0.5 * median) + (0.5 * lastEma);

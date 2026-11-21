@@ -71,12 +71,13 @@ const FuelReportsPage = ({ type: propType }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
-  const defaultYesterday = getYesterdayString();
+  const defaultToday = getTodayString();
+  const [activePreset, setActivePreset] = useState('today');
   const [filters, setFilters] = useState(() => ({
     vehicleId: searchParams.get('vehicleId') || '',
-    startDate: defaultYesterday,
+    startDate: defaultToday,
     startTime: '00:00',
-    endDate: defaultYesterday,
+    endDate: defaultToday,
     endTime: '23:59'
   }));
 
@@ -146,9 +147,12 @@ const FuelReportsPage = ({ type: propType }) => {
   }, [reportType]);
 
   const handlePreset = (preset) => {
-    let sDate = defaultYesterday;
-    let eDate = defaultYesterday;
-    if (preset === 'today') {
+    let sDate = getTodayString();
+    let eDate = getTodayString();
+    if (preset === 'yesterday') {
+      sDate = getYesterdayString();
+      eDate = getYesterdayString();
+    } else if (preset === 'today') {
       sDate = getTodayString();
       eDate = getTodayString();
     } else if (preset === 'last7') {
@@ -157,6 +161,7 @@ const FuelReportsPage = ({ type: propType }) => {
       sDate = getLocalDateString(d);
       eDate = getTodayString();
     }
+    setActivePreset(preset);
     const updated = {
       ...filters,
       startDate: sDate,
@@ -513,9 +518,9 @@ const FuelReportsPage = ({ type: propType }) => {
               style={{
                 padding: '4px 10px',
                 borderRadius: '5px',
-                border: '1px solid #CBD5E1',
-                background: '#FFFFFF',
-                color: '#334155',
+                border: activePreset === 'yesterday' ? '1px solid #059669' : '1px solid #CBD5E1',
+                background: activePreset === 'yesterday' ? '#059669' : '#FFFFFF',
+                color: activePreset === 'yesterday' ? '#FFFFFF' : '#334155',
                 fontSize: '11px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -530,12 +535,13 @@ const FuelReportsPage = ({ type: propType }) => {
               style={{
                 padding: '4px 10px',
                 borderRadius: '5px',
-                border: '1px solid #CBD5E1',
-                background: '#FFFFFF',
-                color: '#334155',
+                border: activePreset === 'today' ? '1px solid #059669' : '1px solid #CBD5E1',
+                background: activePreset === 'today' ? '#059669' : '#FFFFFF',
+                color: activePreset === 'today' ? '#FFFFFF' : '#334155',
                 fontSize: '11px',
                 fontWeight: 700,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
               Today
@@ -546,12 +552,13 @@ const FuelReportsPage = ({ type: propType }) => {
               style={{
                 padding: '4px 10px',
                 borderRadius: '5px',
-                border: '1px solid #CBD5E1',
-                background: '#FFFFFF',
-                color: '#334155',
+                border: activePreset === 'last7' ? '1px solid #059669' : '1px solid #CBD5E1',
+                background: activePreset === 'last7' ? '#059669' : '#FFFFFF',
+                color: activePreset === 'last7' ? '#FFFFFF' : '#334155',
                 fontSize: '11px',
                 fontWeight: 700,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                transition: 'all 0.15s ease'
               }}
             >
               Last 7 Days
@@ -620,25 +627,37 @@ const FuelReportsPage = ({ type: propType }) => {
           {/* From Date */}
           <TelematicsDatePicker
             value={filters.startDate}
-            onChange={(isoDate) => setFilters(prev => ({ ...prev, startDate: isoDate }))}
+            onChange={(isoDate) => {
+              setActivePreset(null);
+              setFilters(prev => ({ ...prev, startDate: isoDate }));
+            }}
           />
 
           {/* From Time */}
           <TelematicsTimePicker
             value={filters.startTime}
-            onChange={(time24) => setFilters(prev => ({ ...prev, startTime: time24 }))}
+            onChange={(time24) => {
+              setActivePreset(null);
+              setFilters(prev => ({ ...prev, startTime: time24 }));
+            }}
           />
 
           {/* To Date */}
           <TelematicsDatePicker
             value={filters.endDate}
-            onChange={(isoDate) => setFilters(prev => ({ ...prev, endDate: isoDate }))}
+            onChange={(isoDate) => {
+              setActivePreset(null);
+              setFilters(prev => ({ ...prev, endDate: isoDate }));
+            }}
           />
 
           {/* To Time */}
           <TelematicsTimePicker
             value={filters.endTime}
-            onChange={(time24) => setFilters(prev => ({ ...prev, endTime: time24 }))}
+            onChange={(time24) => {
+              setActivePreset(null);
+              setFilters(prev => ({ ...prev, endTime: time24 }));
+            }}
           />
 
           {/* Submit Button */}
