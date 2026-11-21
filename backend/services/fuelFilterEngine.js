@@ -356,26 +356,29 @@ function processVehicleFuelHistory(points, vehicle) {
 
         const cumRise = maxRampVal - currentNormalized;
         const tEnd = new Date(sorted[maxRampIdx].device_time).getTime();
-        const fillDurationMs = tEnd - tStart;
 
-        // Sustained rise check
-        if (cumRise >= refuelThreshold && maxRampIdx > i && fillDurationMs >= 20 * 1000) {
+        // 4-5 CONSECUTIVE PACKETS VERIFICATION:
+        // Strictly observe 4 to 5 consecutive packets instead of elapsed seconds.
+        // This eliminates discrepancies between raw and downsampled telematics packets.
+        if (cumRise >= refuelThreshold) {
           let isStable = true;
-          let stableChecks = 0;
-          for (let s = maxRampIdx + 1; s < sorted.length && stableChecks < 5; s++) {
+          let stableCount = 0;
+          const lookAhead = Math.min(sorted.length, maxRampIdx + 6);
+          for (let s = maxRampIdx + 1; s < lookAhead; s++) {
             const sf = filteredFuels[s];
             if (sf == null) continue;
             if (sf < currentNormalized + (cumRise * 0.5)) {
               isStable = false;
               break;
             }
-            stableChecks++;
+            stableCount++;
           }
 
-          if (isStable) {
+          const minRequired = Math.min(4, sorted.length - 1 - maxRampIdx);
+          if (isStable && stableCount >= minRequired) {
             rampHandled = true;
             const refuelLiters = Math.round(cumRise * 10) / 10;
-            const durMin = Math.max(1, Math.round(fillDurationMs / 60000));
+            const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
             const startFuelVal = Math.round(currentNormalized * 10) / 10;
             const endFuelVal = Math.round(maxRampVal * 10) / 10;
 
@@ -448,13 +451,29 @@ function processVehicleFuelHistory(points, vehicle) {
 
           const cumDrop = currentNormalized - minRampVal;
           const tEnd = new Date(sorted[minRampIdx].device_time).getTime();
-          const drainDurationMs = tEnd - tStart;
-          if (cumDrop >= theftThreshold && minRampIdx > i && drainDurationMs >= 30 * 1000) {
-            rampHandled = true;
-            const dropLiters = Math.round(cumDrop * 10) / 10;
-            const durMin = Math.max(1, Math.round(drainDurationMs / 60000));
-            const startFuelVal = Math.round(currentNormalized * 10) / 10;
-            const endFuelVal = Math.round(minRampVal * 10) / 10;
+
+          // 4-5 CONSECUTIVE PACKETS VERIFICATION FOR THEFT:
+          if (cumDrop >= theftThreshold) {
+            let isStable = true;
+            let stableCount = 0;
+            const lookAhead = Math.min(sorted.length, minRampIdx + 6);
+            for (let s = minRampIdx + 1; s < lookAhead; s++) {
+              const sf = filteredFuels[s];
+              if (sf == null) continue;
+              if (sf > currentNormalized - (cumDrop * 0.5)) {
+                isStable = false;
+                break;
+              }
+              stableCount++;
+            }
+
+            const minRequired = Math.min(4, sorted.length - 1 - minRampIdx);
+            if (isStable && stableCount >= minRequired) {
+              rampHandled = true;
+              const dropLiters = Math.round(cumDrop * 10) / 10;
+              const durMin = Math.max(1, Math.round((tEnd - tStart) / 60000));
+              const startFuelVal = Math.round(currentNormalized * 10) / 10;
+              const endFuelVal = Math.round(minRampVal * 10) / 10;
 
             const startPtTheft = pt;
             const endPtTheft = sorted[minRampIdx];
@@ -487,6 +506,7 @@ function processVehicleFuelHistory(points, vehicle) {
           }
         }
       }
+    }
 
       // Motion & consumption rules
       if (!rampHandled) {
