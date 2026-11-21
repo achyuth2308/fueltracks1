@@ -449,6 +449,10 @@ class ReportService {
         lph: effectiveLph,
         start_lat: (filteredFuel && filteredFuel.refill_lat) || v.start_lat,
         start_lng: (filteredFuel && filteredFuel.refill_lng) || v.start_lng,
+        refill_lat: (filteredFuel && filteredFuel.refill_lat) || null,
+        refill_lng: (filteredFuel && filteredFuel.refill_lng) || null,
+        refuels: (filteredFuel && filteredFuel.refuels) || [],
+        thefts: (filteredFuel && filteredFuel.thefts) || [],
         intervals: vIntervals
       };
     });
