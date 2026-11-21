@@ -87,7 +87,6 @@ module.exports = {
       merge_logs: true,
     },
     {
-      {
       name: 'fueltracks-raw-archiver',
       script: 'backend/jobs/archiveRawPacketsJob.js',
       instances: 1,
@@ -99,7 +98,8 @@ module.exports = {
       out_file: '/var/log/pm2/fueltracks-raw-archiver-out.log',
       merge_logs: true,
     },
-    name: 'fueltracks-restore-monitor',
+    {
+      name: 'fueltracks-restore-monitor',
       script: 'backend/jobs/restoreMonitorJob.js',
       instances: 1,
       exec_mode: 'fork',
