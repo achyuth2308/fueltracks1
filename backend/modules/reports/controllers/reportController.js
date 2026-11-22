@@ -137,8 +137,9 @@ class ReportController {
       const role = req.user?.role;
       const userId = req.user?.userId;
       const vehicleId = req.query.vehicleId || null;
+      const groupId = req.query.groupId || null;
       
-      const data = await reportService.getConsolidatedReport(orgId, role, userId, start, end, vehicleId);
+      const data = await reportService.getConsolidatedReport(orgId, role, userId, start, end, vehicleId, groupId);
       res.json({ success: true, data });
     } catch (err) {
       next(err);

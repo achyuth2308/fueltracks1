@@ -591,7 +591,7 @@ class ReportRepository {
    *         end_lat/end_lng (last GPS point) so the mobile app can
    *         reverse-geocode the From/To locations.
    */
-  async getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId) {
+  async getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId) {
     let vehicleFilter = '($1::uuid IS NULL OR v.org_id = $1) AND v.is_active = TRUE';
     const params = [orgId || null, startDate, endDate];
 
@@ -605,7 +605,16 @@ class ReportRepository {
       )`;
     }
 
-    if (vehicleId) {
+    if (groupId && groupId !== 'All' && groupId !== 'ALL') {
+      params.push(groupId);
+      vehicleFilter += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg 
+        WHERE vg.group_id = $${params.length}
+      )`;
+    }
+
+    if (vehicleId && vehicleId !== 'ALL') {
       params.push(vehicleId);
       vehicleFilter += ` AND v.id = $${params.length}`;
     }

@@ -142,6 +142,8 @@ const ConsolidatedReportPage = () => {
 
   // Default to yesterday full 24h
   const defaultYesterday = getYesterdayString();
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('All');
   const [filters, setFilters] = useState(() => ({
     vehicleId: '',
     startDate: defaultYesterday,
@@ -150,18 +152,46 @@ const ConsolidatedReportPage = () => {
     endTime: '23:59'
   }));
 
-  // Fetch vehicles for the dropdown
+  // Group options
+  const groupOptions = useMemo(() => {
+    const names = new Set();
+    groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
+    vehicles.forEach(v => {
+      const gn = v.group_name || v.group?.name;
+      if (gn) names.add(gn.trim());
+      if (Array.isArray(v.groups)) v.groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
+    });
+    return ['All', ...Array.from(names).sort()];
+  }, [groups, vehicles]);
+
+  // Filtered vehicles for dropdown
+  const groupFilteredVehicles = useMemo(() => {
+    if (selectedGroup === 'All') return vehicles;
+    return vehicles.filter(v => {
+      const gName = (v.group_name || v.group?.name || '').trim().toLowerCase();
+      const matchName = gName === selectedGroup.trim().toLowerCase();
+      const matchArr = Array.isArray(v.groups) && v.groups.some(g => (g.name || '').trim().toLowerCase() === selectedGroup.trim().toLowerCase());
+      return matchName || matchArr;
+    });
+  }, [vehicles, selectedGroup]);
+
+  // Fetch vehicles & groups
   useEffect(() => {
-    vehicleApi.getVehicles({ t: Date.now() })
-      .then(res => {
-        if (res.success && res.data) {
-          setVehicles(res.data);
-        }
-      })
-      .catch(console.error);
+    Promise.allSettled([
+      vehicleApi.getVehicles({ t: Date.now() }),
+      axiosInstance.get('/api/admin/groups')
+    ]).then(([vRes, gRes]) => {
+      if (gRes.status === 'fulfilled' && gRes.value?.data) {
+        const gData = gRes.value.data.data || gRes.value.data.groups || [];
+        setGroups(gData);
+      }
+      if (vRes.status === 'fulfilled' && vRes.value?.success && vRes.value?.data) {
+        setVehicles(vRes.value.data);
+      }
+    }).catch(console.error);
   }, []);
 
-  const handleFetchReport = async (overrideFilters = null) => {
+  const handleFetchReport = async (overrideFilters = null, overrideGroup = null) => {
     const activeFilters = overrideFilters || filters;
     if (!activeFilters.startDate || !activeFilters.endDate) return;
 
@@ -180,6 +210,14 @@ const ConsolidatedReportPage = () => {
       params.append('endDate', end.toISOString());
       if (activeFilters.vehicleId) {
         params.append('vehicleId', activeFilters.vehicleId);
+      }
+
+      const curGroup = overrideGroup !== null ? overrideGroup : selectedGroup;
+      if (curGroup !== 'All') {
+        const matchedG = groups.find(g => (g.name || '').trim().toLowerCase() === curGroup.trim().toLowerCase());
+        if (matchedG?.id) {
+          params.append('groupId', matchedG.id);
+        }
       }
 
       const res = await axiosInstance.get(`/api/reports/consolidated?${params.toString()}`);
@@ -208,10 +246,22 @@ const ConsolidatedReportPage = () => {
     handleFetchReport(updated);
   };
 
+  // Filter data according to selectedGroup
+  const filteredData = useMemo(() => {
+    if (selectedGroup === 'All') return data;
+    return data.filter(item => {
+      const vMeta = vehicles.find(v => String(v.id) === String(item.vehicle_id));
+      const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
+      const selG = selectedGroup.trim().toLowerCase();
+      const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
+      return gName === selG || matchArr;
+    });
+  }, [data, selectedGroup, vehicles]);
+
   // Build flattened export data for Excel & PDF
   const getExportData = () => {
     const rows = [];
-    data.forEach(v => {
+    filteredData.forEach(v => {
       const vName = v.vehicle_name || v.plate || 'Vehicle';
       const intervals = mergeTrafficIdles(v.intervals || [], 120);
       if (intervals && intervals.length > 0) {
@@ -304,13 +354,43 @@ const ConsolidatedReportPage = () => {
           </button>
         </div>
 
-        {/* Filters Row: Vehicle | From Date | From Time | To Date | To Time | Submit | Export */}
+        {/* Filters Row: Group | Vehicle | From Date | From Time | To Date | To Time | Submit | Export */}
         <div style={{
           display: 'flex',
           flexWrap: 'wrap',
           alignItems: 'center',
           gap: '10px'
         }}>
+          {/* Group Dropdown */}
+          <select
+            value={selectedGroup}
+            onChange={e => {
+              const newG = e.target.value;
+              setSelectedGroup(newG);
+              setFilters(prev => ({ ...prev, vehicleId: '' }));
+              handleFetchReport({ ...filters, vehicleId: '' }, newG);
+            }}
+            style={{
+              padding: '6px 10px',
+              borderRadius: '6px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '13px',
+              fontWeight: 500,
+              outline: 'none',
+              minWidth: '130px'
+            }}
+            title="Filter by Vehicle Group"
+          >
+            <option value="All">All Groups</option>
+            {groupOptions.filter(g => g !== 'All').map(gName => (
+              <option key={gName} value={gName}>
+                {gName}
+              </option>
+            ))}
+          </select>
+
           {/* Vehicle Dropdown */}
           <select
             value={filters.vehicleId}
@@ -327,8 +407,10 @@ const ConsolidatedReportPage = () => {
               minWidth: '160px'
             }}
           >
-            <option value="">All Vehicles</option>
-            {vehicles.map(v => (
+            <option value="">
+              {selectedGroup === 'All' ? 'All Vehicles' : `All in ${selectedGroup} (${groupFilteredVehicles.length})`}
+            </option>
+            {groupFilteredVehicles.map(v => (
               <option key={v.id} value={v.id}>
                 {v.name} {v.plate ? `(${v.plate})` : ''}
               </option>
@@ -485,7 +567,7 @@ const ConsolidatedReportPage = () => {
         <div style={{ width: '100%', overflowX: 'auto', background: '#FFFFFF', border: cellBorder }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', color: '#333333' }}>
             <tbody>
-              {data.map((vehicleItem) => {
+              {filteredData.map((vehicleItem) => {
                 const vName = vehicleItem.vehicle_name || vehicleItem.plate || 'Vehicle';
                 const distanceKm = Math.round(vehicleItem.distance_travelled || 0);
                 const intervals = mergeTrafficIdles(vehicleItem.intervals || [], 120);

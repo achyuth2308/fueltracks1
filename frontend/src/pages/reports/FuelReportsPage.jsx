@@ -65,9 +65,36 @@ const FuelReportsPage = ({ type: propType }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [vehicles, setVehicles] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [selectedGroup, setSelectedGroup] = useState('All');
   const fuelCapableVehicles = useMemo(() => {
     return vehicles.filter(v => hasVehicleFuelCapability(v));
   }, [vehicles]);
+
+  // Extract unique group names for the group dropdown
+  const groupOptions = useMemo(() => {
+    const names = new Set();
+    groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
+    vehicles.forEach(v => {
+      const gn = v.group_name || v.group?.name;
+      if (gn) names.add(gn.trim());
+      if (Array.isArray(v.groups)) v.groups.forEach(g => { if (g.name) names.add(g.name.trim()); });
+    });
+    return ['All', ...Array.from(names).sort()];
+  }, [groups, vehicles]);
+
+  // Filter vehicles according to selectedGroup
+  const groupFilteredVehicles = useMemo(() => {
+    const base = fuelCapableVehicles.length > 0 ? fuelCapableVehicles : vehicles;
+    if (selectedGroup === 'All') return base;
+    return base.filter(v => {
+      const gName = (v.group_name || v.group?.name || '').trim().toLowerCase();
+      const matchName = gName === selectedGroup.trim().toLowerCase();
+      const matchArr = Array.isArray(v.groups) && v.groups.some(g => (g.name || '').trim().toLowerCase() === selectedGroup.trim().toLowerCase());
+      return matchName || matchArr;
+    });
+  }, [fuelCapableVehicles, vehicles, selectedGroup]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
 
@@ -81,7 +108,7 @@ const FuelReportsPage = ({ type: propType }) => {
     endTime: '23:59'
   }));
 
-  const handleFetchReport = async (overrideFilters = null) => {
+  const handleFetchReport = async (overrideFilters = null, overrideGroup = null) => {
     const activeFilters = overrideFilters || filters;
     if (!activeFilters.startDate || !activeFilters.endDate) return;
 
@@ -102,6 +129,14 @@ const FuelReportsPage = ({ type: propType }) => {
         params.append('vehicleId', activeFilters.vehicleId);
       }
 
+      const curGroup = overrideGroup !== null ? overrideGroup : selectedGroup;
+      if (curGroup !== 'All') {
+        const matchedG = groups.find(g => (g.name || '').trim().toLowerCase() === curGroup.trim().toLowerCase());
+        if (matchedG?.id) {
+          params.append('groupId', matchedG.id);
+        }
+      }
+
       const res = await axiosInstance.get(`/api/reports/consolidated?${params.toString()}`);
       if (res.data?.success) {
         setData(res.data.data || []);
@@ -114,35 +149,42 @@ const FuelReportsPage = ({ type: propType }) => {
     }
   };
 
-  // Fetch vehicles for dropdown & auto-load initial vehicle (fast single-vehicle lookup)
+  // Fetch vehicles & groups for dropdown & auto-load initial vehicle
   useEffect(() => {
     let isMounted = true;
-    vehicleApi.getVehicles({ t: Date.now(), limit: 1000 })
-      .then(res => {
-        if (!isMounted) return;
-        if (res.success && res.data && res.data.length > 0) {
-          setVehicles(res.data);
-          const fuelOnly = res.data.filter(v => hasVehicleFuelCapability(v));
-          const urlVId = searchParams.get('vehicleId');
-          // Prioritize URL vehicleId if valid, otherwise default to first fuel-capable vehicle
-          const initialVId = (urlVId && res.data.some(v => String(v.id) === String(urlVId)))
-            ? urlVId
-            : (fuelOnly.length > 0 ? fuelOnly[0].id : res.data[0].id);
+    Promise.allSettled([
+      vehicleApi.getVehicles({ t: Date.now(), limit: 1000 }),
+      axiosInstance.get('/api/admin/groups')
+    ]).then(([vRes, gRes]) => {
+      if (!isMounted) return;
+      if (gRes.status === 'fulfilled' && gRes.value?.data) {
+        const gData = gRes.value.data.data || gRes.value.data.groups || [];
+        setGroups(gData);
+      }
 
-          setFilters(prev => {
-            const nextFilters = { ...prev, vehicleId: initialVId };
-            handleFetchReport(nextFilters);
-            return nextFilters;
-          });
-        } else if (res.success && res.data) {
-          setVehicles(res.data);
-          handleFetchReport();
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        if (isMounted) handleFetchReport();
-      });
+      if (vRes.status === 'fulfilled' && vRes.value?.success && vRes.value?.data && vRes.value.data.length > 0) {
+        const vList = vRes.value.data;
+        setVehicles(vList);
+        const fuelOnly = vList.filter(v => hasVehicleFuelCapability(v));
+        const urlVId = searchParams.get('vehicleId');
+        const initialVId = (urlVId && vList.some(v => String(v.id) === String(urlVId)))
+          ? urlVId
+          : (fuelOnly.length > 0 ? fuelOnly[0].id : vList[0].id);
+
+        setFilters(prev => {
+          const nextFilters = { ...prev, vehicleId: initialVId };
+          handleFetchReport(nextFilters);
+          return nextFilters;
+        });
+      } else if (vRes.status === 'fulfilled' && vRes.value?.success && vRes.value?.data) {
+        setVehicles(vRes.value.data);
+        handleFetchReport();
+      }
+    }).catch(err => {
+      console.error(err);
+      if (isMounted) handleFetchReport();
+    });
+
     return () => { isMounted = false; };
   }, [reportType]);
 
@@ -188,9 +230,18 @@ const FuelReportsPage = ({ type: propType }) => {
       if (categoryFilter === 'GENERATOR') matchesCat = cat === 'generator';
       if (categoryFilter === 'DISPENSER') matchesCat = cat === 'dispenser';
 
-      return matchesSearch && matchesCat;
+      let matchesGroup = true;
+      if (selectedGroup !== 'All') {
+        const vMeta = vehicles.find(v => String(v.id) === String(item.vehicle_id));
+        const gName = (vMeta?.group_name || vMeta?.group?.name || item.group_name || '').trim().toLowerCase();
+        const selG = selectedGroup.trim().toLowerCase();
+        const matchArr = Array.isArray(vMeta?.groups) && vMeta.groups.some(g => (g.name || '').trim().toLowerCase() === selG);
+        matchesGroup = gName === selG || matchArr;
+      }
+
+      return matchesSearch && matchesCat && matchesGroup;
     });
-  }, [data, searchQuery, categoryFilter]);
+  }, [data, searchQuery, categoryFilter, selectedGroup, vehicles]);
 
   // Aggregate Metrics based on report type
   const metrics = useMemo(() => {
@@ -573,6 +624,37 @@ const FuelReportsPage = ({ type: propType }) => {
           alignItems: 'center',
           gap: '6px'
         }}>
+          {/* Group Dropdown */}
+          <select
+            value={selectedGroup}
+            onChange={e => {
+              const newG = e.target.value;
+              setSelectedGroup(newG);
+              const updated = { ...filters, vehicleId: 'ALL' };
+              setFilters(updated);
+              handleFetchReport(updated, newG);
+            }}
+            style={{
+              padding: '5px 8px',
+              borderRadius: '5px',
+              border: '1px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#0F172A',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              outline: 'none',
+              minWidth: '130px'
+            }}
+            title="Filter by Vehicle Group"
+          >
+            <option value="All">All Groups</option>
+            {groupOptions.filter(g => g !== 'All').map(gName => (
+              <option key={gName} value={gName}>
+                {gName}
+              </option>
+            ))}
+          </select>
+
           {/* Vehicle Dropdown */}
           <select
             value={filters.vehicleId}
@@ -594,12 +676,16 @@ const FuelReportsPage = ({ type: propType }) => {
               minWidth: '160px'
             }}
           >
-            {(fuelCapableVehicles.length > 0 ? fuelCapableVehicles : vehicles).map(v => (
+            <option value="ALL">
+              {selectedGroup === 'All'
+                ? `── All Fuel Vehicles (${groupFilteredVehicles.length}) ──`
+                : `── All in ${selectedGroup} (${groupFilteredVehicles.length}) ──`}
+            </option>
+            {groupFilteredVehicles.map(v => (
               <option key={v.id} value={v.id}>
                 {v.name} {v.plate ? `(${v.plate})` : ''}
               </option>
             ))}
-            <option value="ALL">── All Fuel Vehicles ({fuelCapableVehicles.length || vehicles.length}) ──</option>
           </select>
 
           {/* Category Filter */}

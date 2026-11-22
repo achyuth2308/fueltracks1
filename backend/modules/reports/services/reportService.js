@@ -282,8 +282,8 @@ class ReportService {
     return allStoppages.sort((a, b) => new Date(b.start_time) - new Date(a.start_time));
   }
 
-  async getConsolidatedReport(orgId, role, userId, startDate, endDate, vehicleId) {
-    const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId);
+  async getConsolidatedReport(orgId, role, userId, startDate, endDate, vehicleId, groupId) {
+    const data = await reportRepository.getConsolidatedActivity(orgId, role, userId, startDate, endDate, vehicleId, groupId);
     if (!data || data.length === 0) return [];
 
     const vehicleIds = data.map(d => d.vehicle_id);

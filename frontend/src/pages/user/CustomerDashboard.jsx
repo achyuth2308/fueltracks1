@@ -76,6 +76,11 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const { vehicles, groups, loading, error, refetch } = useVehicles();
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const toggleGroupCollapse = (groupId) => setCollapsedGroups(prev => ({ ...prev, [groupId]: !prev[groupId] }));
+  const [selectedGroupId, setSelectedGroupId] = useState(null);
+  const handleGroupSelect = (groupId) => {
+    setSelectedGroupId(prev => prev === groupId ? null : groupId);
+    setSelectedVehicle(null);
+  };
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [statusFilter, setStatusFilter] = useState(null);
   const [mobileTab, setMobileTab] = useState('list'); // 'list' | 'map'
@@ -235,6 +240,14 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
     return groupMap;
   }, [groups, filtered]);
+
+  const mapVehicles = useMemo(() => {
+    if (selectedGroupId && groupedVehicles) {
+      const gm = groupedVehicles.find(g => g.group.id === selectedGroupId);
+      if (gm && gm.vehicles) return gm.vehicles;
+    }
+    return filtered;
+  }, [filtered, selectedGroupId, groupedVehicles]);
 
   const statusColors = { running: '#10b981', idle: '#f59e0b', parked: '#64748B', offline: '#ef4444', unreachable: '#94a3b8', unavailable: '#94a3b8' };
   const statusLabels = { running: 'Running', idle: 'Idle', parked: 'Parked', offline: 'No Data', unreachable: 'Unreachable', unavailable: 'Unreachable' };
@@ -955,6 +968,43 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
             {/* Vehicle List Items */}
             <div className="tracking-scroll" style={{ overflowY: 'auto', padding: '0', display: 'flex', flexDirection: 'column', flex: 1 }}>
+              {selectedGroupId && (
+                <div style={{
+                  padding: '7px 12px',
+                  background: '#EFF6FF',
+                  borderBottom: '1px solid #BFDBFE',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  color: '#1E40AF',
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 10
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <MapPin size={13} color="#0284C7" />
+                    <span>Group: <strong>{groupedVehicles?.find(g => g.group.id === selectedGroupId)?.group.name}</strong> ({mapVehicles.length})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedGroupId(null); setSelectedVehicle(null); }}
+                    style={{
+                      background: '#FFFFFF',
+                      border: '1px solid #93C5FD',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontSize: '10.5px',
+                      fontWeight: 700,
+                      color: '#0284C7',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Show All
+                  </button>
+                </div>
+              )}
               {loading ? (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '30px', gap: '8px', opacity: 0.7 }}>
                   <RefreshCw size={18} color="#0EA5E9" className="animate-spin" />
@@ -982,30 +1032,32 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                     <div key={gm.group.id} style={{ display: 'flex', flexDirection: 'column' }}>
                       {/* Modern Group Header */}
                       <div
-                        onClick={() => toggleGroupCollapse(gm.group.id)}
+                        onClick={() => handleGroupSelect(gm.group.id)}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           padding: '6px 12px',
-                          background: '#F8FAFC',
+                          background: selectedGroupId === gm.group.id ? '#EFF6FF' : '#F8FAFC',
                           borderTop: '1px solid #E2E8F0',
                           borderBottom: '1px solid #E2E8F0',
+                          borderLeft: selectedGroupId === gm.group.id ? '4px solid #0284C7' : '4px solid transparent',
                           cursor: 'pointer',
                           userSelect: 'none',
                           position: 'sticky',
-                          top: 0,
+                          top: selectedGroupId ? '30px' : 0,
                           zIndex: 5,
-                          transition: 'background 0.15s ease'
+                          transition: 'all 0.15s ease'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = '#F1F5F9'; }}
-                        onMouseLeave={e => { e.currentTarget.style.background = '#F8FAFC'; }}
+                        onMouseEnter={e => { if (selectedGroupId !== gm.group.id) e.currentTarget.style.background = '#F1F5F9'; }}
+                        onMouseLeave={e => { if (selectedGroupId !== gm.group.id) e.currentTarget.style.background = '#F8FAFC'; }}
+                        title="Click to plot ONLY this group on map"
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                           <span style={{
                             fontSize: '12px',
-                            fontWeight: 700,
-                            color: '#0F172A',
+                            fontWeight: selectedGroupId === gm.group.id ? 800 : 700,
+                            color: selectedGroupId === gm.group.id ? '#0284C7' : '#0F172A',
                             letterSpacing: '0.02em',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
@@ -1013,6 +1065,20 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                           }}>
                             {gm.group.name}
                           </span>
+                          {selectedGroupId === gm.group.id && (
+                            <span style={{
+                              fontSize: '9.5px',
+                              fontWeight: 700,
+                              background: '#0284C7',
+                              color: '#FFFFFF',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              letterSpacing: '0.03em',
+                              textTransform: 'uppercase'
+                            }}>
+                              On Map
+                            </span>
+                          )}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -1044,7 +1110,16 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                               {gm.onlineCount}
                             </span>
                           )}
-                          {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleGroupCollapse(gm.group.id);
+                            }}
+                            style={{ padding: '2px', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                            title={isCollapsed ? "Expand list" : "Collapse list"}
+                          >
+                            {isCollapsed ? <ChevronRight size={14} color="#94A3B8" /> : <ChevronDown size={14} color="#94A3B8" />}
+                          </div>
                         </div>
                       </div>
 
@@ -1106,7 +1181,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           )}
 
           <FleetMap
-            vehicles={currentSelected ? (isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected]) : filtered}
+            vehicles={currentSelected ? (isNearbyActive ? [currentSelected, ...nearbyVehicles] : [currentSelected]) : mapVehicles}
             selectedVehicles={currentSelected ? [currentSelected] : []}
             onMarkerClick={(v) => setSelectedVehicle(v)}
             onMultiTrackClick={(v) => navigate(`/tracking?multitrack=${v.id}`)}
