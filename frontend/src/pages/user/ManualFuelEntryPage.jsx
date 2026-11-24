@@ -70,6 +70,8 @@ const ManualFuelEntryPage = () => {
 
     setLoadingState(true);
     setError(null);
+    setFuelFilled('');
+    setRemarks('');
 
     Promise.allSettled([
       getVehicleFuelState(selectedVehicleId),
@@ -83,6 +85,8 @@ const ManualFuelEntryPage = () => {
         setFuelState(null);
       }
 
+      const activeVeh = vehicles?.find(v => v.id === selectedVehicleId);
+
       if (configRes.status === 'fulfilled' && configRes.value?.success && configRes.value.data) {
         const cfg = configRes.value.data;
         setFuelConfig(cfg);
@@ -91,7 +95,7 @@ const ManualFuelEntryPage = () => {
         setCustomMileage(String(cfg.initial_mileage || '4.5'));
         setNeedsConfig(false);
         // If config already exists, default to REFILL mode
-        setEntryType(prev => prev === 'INITIAL' ? 'REFILL' : prev);
+        setEntryType('REFILL');
       } else {
         setFuelConfig(null);
         setNeedsConfig(true);
@@ -99,11 +103,15 @@ const ManualFuelEntryPage = () => {
         setEntryType('INITIAL');
       }
 
-      if (sData?.last_known_odometer) {
-        setOdometer(String(sData.last_known_odometer));
-      }
+      // Automatically sync odometer to selected vehicle
+      const currentVehOdo = sData?.last_known_odometer || activeVeh?.odometer || activeVeh?.today_distance || 0;
+      setOdometer(currentVehOdo > 0 ? String(currentVehOdo) : '');
+
+      // Automatically sync current fuel to selected vehicle
       if (sData?.current_fuel != null) {
-        setCurrentTankFuel(String(Math.round(sData.current_fuel)));
+        setCurrentTankFuel(String(Math.round(sData.current_fuel * 10) / 10));
+      } else {
+        setCurrentTankFuel('');
       }
     }).finally(() => {
       setLoadingState(false);
@@ -130,9 +138,33 @@ const ManualFuelEntryPage = () => {
   const prevFuel = fuelState ? Number(fuelState.current_fuel) : 0;
   const currentMileage = fuelState?.current_mileage ? Number(fuelState.current_mileage) : (fuelConfig ? Number(fuelConfig.initial_mileage) : Number(customMileage || 4.5));
 
-  // Live preview calculation
+  // Baseline odometer for selected vehicle before user's trip input
+  const baseOdometer = useMemo(() => {
+    return Number(fuelState?.last_known_odometer || fuelConfig?.initial_odometer || activeVehicle?.odometer || 0);
+  }, [fuelState, fuelConfig, activeVehicle]);
+
+  // Incremental distance driven based on user's odometer input
+  const inputOdometer = parseFloat(odometer);
+  const incrementalDistance = useMemo(() => {
+    if (!isNaN(inputOdometer) && baseOdometer > 0 && inputOdometer > baseOdometer) {
+      return Math.round((inputOdometer - baseOdometer) * 10) / 10;
+    }
+    return 0;
+  }, [inputOdometer, baseOdometer]);
+
+  // Fuel consumed for the incremental distance
+  const incrementalFuelConsumed = useMemo(() => {
+    if (incrementalDistance > 0 && currentMileage > 0) {
+      return Math.round((incrementalDistance / currentMileage) * 10) / 10;
+    }
+    return 0;
+  }, [incrementalDistance, currentMileage]);
+
+  // Live preview calculation: accounts for distance driven AND fuel refilled
   const calculatedNewFuel = useMemo(() => {
     const cap = effectiveTankCapacity > 0 ? effectiveTankCapacity : 9999;
+    const fuelAfterTrip = Math.max(0, Math.round((prevFuel - incrementalFuelConsumed) * 10) / 10);
+
     if (entryType === 'INITIAL') {
       const q = parseFloat(currentTankFuel);
       return isNaN(q) ? 0 : Math.min(q, cap);
@@ -142,14 +174,14 @@ const ManualFuelEntryPage = () => {
       if (currentTankFuel && !isNaN(parseFloat(currentTankFuel))) {
         return Math.min(parseFloat(currentTankFuel), cap);
       }
-      return Math.min(prevFuel + filled, cap);
+      return Math.min(cap, Math.round((fuelAfterTrip + filled) * 10) / 10);
     }
     if (entryType === 'RECONCILIATION') {
       const actual = parseFloat(currentTankFuel);
-      return isNaN(actual) ? prevFuel : Math.min(actual, cap);
+      return isNaN(actual) ? fuelAfterTrip : Math.min(actual, cap);
     }
-    return prevFuel;
-  }, [entryType, fuelFilled, currentTankFuel, prevFuel, effectiveTankCapacity]);
+    return fuelAfterTrip;
+  }, [entryType, fuelFilled, currentTankFuel, prevFuel, incrementalFuelConsumed, effectiveTankCapacity]);
 
   const fuelFillPercentage = effectiveTankCapacity > 0 ? Math.min(100, Math.max(0, (calculatedNewFuel / effectiveTankCapacity) * 100)) : 0;
   const estimatedRange = Math.round(calculatedNewFuel * currentMileage);
@@ -284,7 +316,7 @@ const ManualFuelEntryPage = () => {
         }
         payload.fuelQuantity = afterRefill;
       } else {
-        payload.fuelQuantity = Math.min(prevFuel + filled, cap);
+        payload.fuelQuantity = calculatedNewFuel;
       }
     } else if (entryType === 'RECONCILIATION') {
       const actualQty = parseFloat(currentTankFuel);
@@ -641,6 +673,15 @@ const ManualFuelEntryPage = () => {
                   <TrendingUp size={16} className="absolute left-3.5 top-3 text-slate-400" />
                   <span className="absolute right-3.5 top-2.5 text-xs font-bold text-slate-400">KM</span>
                 </div>
+                {incrementalDistance > 0 && (
+                  <div className="flex items-center gap-1.5 mt-2 p-2 rounded-lg bg-orange-50 border border-orange-200/80 text-[11px] font-bold text-orange-950 flex-wrap">
+                    <span className="text-blue-700">+{incrementalDistance.toLocaleString()} KM driven</span>
+                    <span>•</span>
+                    <span className="text-rose-700">-{incrementalFuelConsumed} L consumed (at {currentMileage} km/l)</span>
+                    <span>•</span>
+                    <span className="text-emerald-700">Est. Remaining: {Math.round(calculatedNewFuel)} L</span>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -774,9 +815,19 @@ const ManualFuelEntryPage = () => {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-400 font-semibold">Total GPS Distance:</span>
                 <span className="font-extrabold text-sky-400">
-                  {fuelState?.total_distance_travelled ? Number(fuelState.total_distance_travelled).toFixed(1) : '0.0'} km
+                  {fuelState?.total_distance_travelled
+                    ? (Number(fuelState.total_distance_travelled) + incrementalDistance).toFixed(1)
+                    : incrementalDistance.toFixed(1)} km
                 </span>
               </div>
+              {incrementalFuelConsumed > 0 && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-slate-400 font-semibold">Trip Fuel Consumed:</span>
+                  <span className="font-extrabold text-rose-400">
+                    -{incrementalFuelConsumed.toFixed(1)} L
+                  </span>
+                </div>
+              )}
 
               <button
                 type="button"

@@ -299,7 +299,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     const status = getStatus(v);
     const isSelected = currentSelected?.id === v.id;
     const sc = isExpired ? '#DC2626' : (isExpiring ? '#D97706' : statusColors[status]);
-    const vHasFuel = hasVehicleFuelCapability(v);
+    const vHasFuel = hasVehicleFuelCapability(v) || (v.current_fuel !== undefined && v.current_fuel !== null) || v.manual_tank_capacity;
     const isIgnitionOn = !!v.current_ignition;
 
     return (
@@ -480,31 +480,58 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             <span style={{ fontWeight: 600, color: '#334155', fontSize: '9.5px' }}>
               {v.is_online ? `${Math.round(v.current_speed || 0)} km/h` : '0 km/h'}
             </span>
-            {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
-              <span
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedFuelVehicle(v);
-                  setIsFuelEntryOpen(true);
-                }}
-                title="Click to Log Manual Fuel Entry"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '2px',
-                  color: '#0284C7',
-                  fontWeight: 600,
-                  fontSize: '9.5px',
-                  cursor: 'pointer',
-                  borderRadius: '3px',
-                  padding: '0 2px'
-                }}
-                onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
-                onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
-              >
-                <Fuel size={8} />
-                {Math.round(Number(v.current_fuel))}L
-              </span>
+            {vHasFuel && (
+              (v.current_fuel !== undefined && v.current_fuel !== null && Number(v.current_fuel) >= 0) ? (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFuelVehicle(v);
+                    setIsFuelEntryOpen(true);
+                  }}
+                  title="Click to Log Fuel Transaction / Refill"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#0284C7',
+                    fontWeight: 600,
+                    fontSize: '9.5px',
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+                >
+                  <Fuel size={8} />
+                  {Math.round(Number(v.current_fuel))}L
+                </span>
+              ) : (
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFuelVehicle(v);
+                    setIsFuelEntryOpen(true);
+                  }}
+                  title="Click to Initialize Vehicle Fuel"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#94A3B8',
+                    fontWeight: 600,
+                    fontSize: '9px',
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#94A3B8'}
+                >
+                  <Fuel size={8} />
+                  Set Fuel
+                </span>
+              )
             )}
           </div>
 

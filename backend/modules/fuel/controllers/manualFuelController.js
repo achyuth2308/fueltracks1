@@ -76,6 +76,21 @@ class ManualFuelController {
   }
 
   /**
+   * GET /api/fuel/manual/chart/:vehicleId
+   * Chart timeline, refills & mileage history for manual fuel
+   */
+  async getChartData(req, res, next) {
+    try {
+      const { vehicleId } = req.params;
+      const { range } = req.query;
+      const data = await manualFuelService.getFuelChartData(vehicleId, range);
+      res.json({ success: true, data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * GET /api/fuel/manual/overview
    * Fleet-wide manual fuel monitoring summary for dashboard
    */
