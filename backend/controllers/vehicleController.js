@@ -574,7 +574,7 @@ const VehicleController = {
   async updateVehicleSettings(req, res, next) {
     try {
       const { id } = req.params;
-      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark } = req.body;
+      const { overSpeedLimit, overspeedDurationAlert, idleDurationAlert, parkingDurationAlert, parkDurationAlert, movingDurationAlert, stoppageThreshold, alertConfig, safetyPark, driverName, driverPhone } = req.body;
 
       // Ownership check (unless superadmin)
       if (req.user.role !== 'superadmin') {
@@ -650,7 +650,10 @@ const VehicleController = {
       }
 
       // Perform update
-      const updated = await VehicleModel.update(id, { metadata: newMetadata });
+      const updatePayload = { metadata: newMetadata };
+      if (driverName !== undefined) updatePayload.driverName = driverName;
+      if (driverPhone !== undefined) updatePayload.driverPhone = driverPhone;
+      const updated = await VehicleModel.update(id, updatePayload);
 
       // Invalidate vehicle caches
       try {

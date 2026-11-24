@@ -46,7 +46,45 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   const isImpersonating = hasAdminSession || (typeof window !== 'undefined' && !!(sessionStorage.getItem('adminToken') || localStorage.getItem('adminToken')));
   const navigate = useNavigate();
   const location = useLocation();
+  const isCustomer = user?.role === 'customer';
+  const isSuperAdminOrDealer = user?.role === 'superadmin' || user?.role === 'dealer';
+
+  // For customer: default to collapsed icon-only rail (64px)
+  // For superadmin/dealer: always keep full expanded sidebar (210px) as previous
+  const [customerCollapsed, setCustomerCollapsed] = useState(true);
+  const collapsed = isCustomer ? customerCollapsed : false;
+
   const [brandProfile, setBrandProfile] = useState(null);
+  const [activeFlyoutItem, setActiveFlyoutItem] = useState(null);
+  const [flyoutTop, setFlyoutTop] = useState(60);
+  const [showSupportFlyout, setShowSupportFlyout] = useState(false);
+  const [supportFlyoutTop, setSupportFlyoutTop] = useState(0);
+  const flyoutRef = useRef(null);
+
+  useEffect(() => {
+    if (isCustomer) {
+      setCustomerCollapsed(!isOpen);
+    }
+    setActiveFlyoutItem(null);
+    setShowSupportFlyout(false);
+  }, [isOpen, isCustomer]);
+
+  useEffect(() => {
+    setActiveFlyoutItem(null);
+    setShowSupportFlyout(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!activeFlyoutItem && !showSupportFlyout) return;
+    const handleOutsideClick = (e) => {
+      if (flyoutRef.current && !flyoutRef.current.contains(e.target)) {
+        setActiveFlyoutItem(null);
+        setShowSupportFlyout(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [activeFlyoutItem, showSupportFlyout]);
 
   // ── Sidebar Theme Customization ──────────────────────────────────
   const [themeId, setThemeId] = useState(() => {
@@ -119,8 +157,6 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
       p === '/admin/reports/daily-trip' ||
       p.startsWith('/admin/reports/geofence');
   };
-
-  const isSuperAdminOrDealer = user?.role === 'superadmin' || user?.role === 'dealer';
 
   const [openSubMenus, setOpenSubMenus] = useState(() => ({
     'Dashboard': !isSuperAdminOrDealer && (location.pathname === '/dashboard' || location.pathname === '/admin/reports/dashboard'),
@@ -351,7 +387,19 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
       )}
 
       <aside
-        style={{
+        style={isCustomer ? {
+          background: '#F8FAFC',
+          borderRight: '1px solid #E2E8F0',
+          boxShadow: '1px 0 4px rgba(0, 0, 0, 0.02)',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          flexShrink: 0,
+          zIndex: 10000,
+          width: collapsed ? '64px' : '210px',
+          position: 'relative',
+          transition: 'width 0.22s cubic-bezier(0.4, 0, 0.2, 1)'
+        } : {
           background: '#F8FAFC',
           borderRight: '1px solid #E2E8F0',
           boxShadow: '1px 0 4px rgba(0, 0, 0, 0.02)',
@@ -364,59 +412,83 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           width: '210px',
           position: 'relative',
           marginLeft: isOpen ? '0px' : '-210px',
-          transition: 'margin-left 0.25s cubic-bezier(0.4,0,0.2,1)'
+          transition: 'margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
-        className={`fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[210px] ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+        className={isCustomer
+          ? `fixed md:static top-0 bottom-0 left-0 ${isOpen && (typeof window !== 'undefined' && window.innerWidth <= 768) ? 'translate-x-0 w-[240px]' : ((typeof window !== 'undefined' && window.innerWidth <= 768) ? '-translate-x-full' : 'translate-x-0')}`
+          : `fixed md:static top-0 bottom-0 left-0 w-[240px] md:w-[210px] ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`
+        }
       >
         {/* Clean Sidebar Header - Tenant Identity Badge */}
         <div style={{
-          padding: '12px 10px 10px 10px',
+          padding: (isCustomer && collapsed) ? '14px 0' : '14px 14px 12px 14px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
+          justifyContent: (isCustomer && collapsed) ? 'center' : 'space-between',
           borderBottom: '1px solid #E2E8F0',
-          marginBottom: '4px',
+          marginBottom: '8px',
           position: 'relative',
-          zIndex: 2,
-          flexShrink: 0,
+          zIndex: 2
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
-            <div style={{
-              width: '28px', height: '28px', borderRadius: '8px',
-              background: 'linear-gradient(135deg, #0F172A, #334155)',
-              color: '#FFFFFF', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '12px', fontWeight: 800,
-              flexShrink: 0, boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
-            }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: (isCustomer && collapsed) ? 'center' : 'flex-start', gap: '9px', minWidth: 0, flex: (isCustomer && collapsed) ? 0 : 1 }}>
+            <div
+              title={(isCustomer && collapsed) ? (user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')) : undefined}
+              style={{
+                width: isCustomer ? '32px' : '28px',
+                height: isCustomer ? '32px' : '28px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, #0F172A, #334155)',
+                color: '#FFFFFF',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: isCustomer ? '13px' : '12px',
+                fontWeight: 800,
+                flexShrink: 0,
+                boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+              }}
+            >
               {(user?.name || (user?.role === 'superadmin' ? 'S' : 'C')).charAt(0).toUpperCase()}
             </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 800, color: '#0F172A', letterSpacing: '-0.01em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.2 }}>
-                {user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')}
+            {(!collapsed || !isCustomer) && (
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  color: '#0F172A',
+                  letterSpacing: '-0.01em',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  lineHeight: 1.2
+                }}>
+                  {user?.role === 'superadmin' ? 'Super Admin' : (user?.name || 'Customer')}
+                </div>
+                <div style={{ fontSize: '9.5px', color: '#94A3B8', fontWeight: 600, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {user?.role === 'superadmin' ? 'Platform Control' : 'Fleet Portal'}
+                </div>
               </div>
-              <div style={{ fontSize: '8.5px', color: '#94A3B8', fontWeight: 600, marginTop: '1px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {user?.role === 'superadmin' ? 'Platform Control' : 'Fleet Portal'}
-              </div>
-            </div>
+            )}
           </div>
+
+          {/* Close button for mobile */}
           <button
             onClick={() => toggleMobileSidebar && toggleMobileSidebar(false)}
-            className="md:hidden"
+            className="md:hidden p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer border-none bg-transparent"
             aria-label="Close menu"
-            style={{ flexShrink: 0, padding: '4px', borderRadius: '6px', background: 'transparent', border: 'none', color: '#64748B', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 6px', scrollbarWidth: 'thin', scrollbarColor: '#E2E8F0 transparent', position: 'relative', zIndex: 2 }}>
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 10px', scrollbarWidth: 'thin', scrollbarColor: '#E2E8F0 transparent', position: 'relative', zIndex: 2 }}>
           {navGroups.map((group) => {
             const visibleItems = group.items.filter(item => item.roles.includes(user?.role) || !user?.role);
             if (visibleItems.length === 0) return null;
             return (
               <div key={group.label || 'top'} style={{ marginBottom: '10px' }}>
-                {group.label && (
+                {!collapsed && group.label && (
                   <div
                     className="text-[9px] md:text-[10px] px-2 pb-1"
                     style={{
@@ -426,6 +498,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                     {group.label}
                   </div>
                 )}
+                {collapsed && group.label && <div style={{ height: '8px' }} />}
                 {visibleItems.map((item) => {
                   const Icon = item.icon;
 
@@ -434,18 +507,28 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                     return (
                       <div key={item.path} style={{ marginBottom: '3px' }}>
                         <div
-                          onClick={() => {
+                          onClick={(e) => {
+                            if (isCustomer && collapsed) {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setFlyoutTop(Math.max(10, Math.min(rect.top - 8, window.innerHeight - 360)));
+                              setShowSupportFlyout(false);
+                              setActiveFlyoutItem(prev => prev?.name === item.name ? null : item);
+                              return;
+                            }
                             setTripsExpanded(prev => !prev);
                           }}
+                          title={collapsed ? item.name : undefined}
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'flex-start',
-                            padding: '6px 8px',
-                            gap: '8px',
+                            justifyContent: collapsed ? 'center' : 'flex-start',
+                            padding: collapsed ? '8px 0' : '8px 10px',
+                            gap: '10px',
                             borderRadius: '8px',
                             cursor: 'pointer',
-                            fontSize: '12px',
+                            fontSize: '13px',
                             fontWeight: isParentActive ? 750 : 600,
                             color: isParentActive ? (currentTheme.primary || '#EA580C') : '#334155',
                             background: isParentActive
@@ -474,9 +557,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                         >
                           <div
                             style={{
-                              width: '24px',
-                              height: '24px',
-                              borderRadius: '6px',
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '8px',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -487,31 +570,32 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                             }}
                           >
                             <Icon
-                              size={13}
+                              size={14}
                               color={isParentActive ? '#FFFFFF' : '#64748B'}
                               strokeWidth={2.4}
                             />
                           </div>
-                          <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: isParentActive ? 800 : 700, lineHeight: 1.25, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                            {item.name}
-                          </span>
-                          <ChevronDown
-                            size={13}
-                            color={isParentActive ? '#FFFFFF' : '#94A3B8'}
-                            style={{
-                              transform: tripsExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition: 'transform 0.2s ease',
-                              opacity: 0.9,
-                              flexShrink: 0,
-                            }}
-                          />
+                          {!collapsed && (
+                            <>
+                              <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: isParentActive ? 800 : 700 }}>{item.name}</span>
+                              <ChevronDown
+                                size={14}
+                                color={isParentActive ? '#FFFFFF' : '#94A3B8'}
+                                style={{
+                                  transform: tripsExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s ease',
+                                  opacity: 0.9,
+                                }}
+                              />
+                            </>
+                          )}
                         </div>
 
                         {/* Dropdown Sub-Items Under Trips */}
-                        {tripsExpanded && (
+                        {tripsExpanded && !collapsed && (
                           <div style={{
-                            paddingLeft: '8px',
-                            marginLeft: '12px',
+                            paddingLeft: '10px',
+                            marginLeft: '16px',
                             borderLeft: '1.5px solid #E2E8F0',
                             display: 'flex',
                             flexDirection: 'column',
@@ -561,7 +645,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                 boxShadow: location.pathname === '/trips' ? `0 0 6px ${currentTheme.primary}` : 'none',
                                 flexShrink: 0,
                               }} />
-                              <span style={{ fontWeight: location.pathname === '/trips' ? 800 : 700, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>Add Geofence</span>
+                              <span style={{ fontWeight: location.pathname === '/trips' ? 800 : 700 }}>Add Geofence</span>
                             </NavLink>
 
                             {/* 2. Trip Report Submenu */}
@@ -605,7 +689,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                     boxShadow: isTripReportPath(location.pathname) ? `0 0 6px ${currentTheme.primary}` : 'none',
                                     flexShrink: 0,
                                   }} />
-                                  <span style={{ fontWeight: 800, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>Trip Report</span>
+                                  <span style={{ fontWeight: 800 }}>Trip Report</span>
                                 </div>
                                 <ChevronDown
                                   size={12}
@@ -649,9 +733,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                           padding: '4px 6px',
                                           borderRadius: '5px',
                                           fontSize: '11px',
-                                          whiteSpace: 'normal',
-                                          lineHeight: '1.25',
-                                          wordBreak: 'break-word',
+                                          whiteSpace: 'nowrap',
                                           textDecoration: 'none',
                                           color: isRActive ? (currentTheme.activeText || '#EA580C') : '#1E293B',
                                           background: isRActive ? (currentTheme.activeBg || '#FFF7ED') : 'transparent',
@@ -679,7 +761,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                           boxShadow: isRActive ? `0 0 6px ${currentTheme.primary}` : 'none',
                                           flexShrink: 0
                                         }} />
-                                        <span style={{ fontWeight: isRActive ? 800 : 700, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>{rItem.name}</span>
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isRActive ? 800 : 700 }}>{rItem.name}</span>
                                       </NavLink>
                                     );
                                   })}
@@ -732,6 +814,15 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                       <NavLink
                         to={item.path}
                         onClick={(e) => {
+                          if (isCustomer && collapsed) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            setFlyoutTop(Math.max(10, Math.min(rect.top - 8, window.innerHeight - 360)));
+                            setShowSupportFlyout(false);
+                            setActiveFlyoutItem(prev => prev?.name === item.name ? null : item);
+                            return;
+                          }
                           if (hasSubItems) {
                             e.preventDefault();
                             setOpenSubMenus(prev => ({
@@ -753,16 +844,17 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                           if (typeof window !== "undefined" && window.innerWidth <= 768 && toggleMobileSidebar) toggleMobileSidebar(false);
                           navigate(item.path);
                         }}
+                        title={collapsed ? item.name : undefined}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
                           textDecoration: 'none',
-                          justifyContent: 'flex-start',
-                          padding: '6px 8px',
-                          gap: '8px',
-                          marginBottom: '2px',
+                          justifyContent: collapsed ? 'center' : 'flex-start',
+                          padding: collapsed ? '8px 0' : '8px 10px',
+                          gap: '10px',
+                          marginBottom: '3px',
                           borderRadius: '8px',
-                          fontSize: '12px',
+                          fontSize: '13px',
                           fontWeight: customIsActive ? 750 : 600,
                           color: customIsActive ? (currentTheme.primary || '#EA580C') : '#334155',
                           background: customIsActive
@@ -773,6 +865,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                             : '1px solid transparent',
                           boxShadow: 'none',
                           position: 'relative',
+                          whiteSpace: 'nowrap',
                           transition: 'all 0.15s ease',
                           userSelect: 'none'
                         }}
@@ -791,9 +884,9 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                       >
                         <div
                           style={{
-                            width: '24px',
-                            height: '24px',
-                            borderRadius: '6px',
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '8px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -804,33 +897,34 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                           }}
                         >
                           <Icon
-                            size={13}
+                            size={16}
                             color={customIsActive ? '#FFFFFF' : '#64748B'}
-                            strokeWidth={2.4}
+                            strokeWidth={2.3}
                           />
                         </div>
-                        <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: customIsActive ? 800 : 700, lineHeight: 1.25, whiteSpace: 'normal', wordBreak: 'break-word' }}>
-                          {item.name}
-                        </span>
-                        {hasSubItems && (
-                          <ChevronDown
-                            size={13}
-                            color={customIsActive ? '#FFFFFF' : '#64748B'}
-                            style={{
-                              transform: isSubMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                              transition: 'transform 0.2s ease',
-                              opacity: 0.9,
-                              flexShrink: 0,
-                            }}
-                          />
+                        {!collapsed && (
+                          <>
+                            <span style={{ flex: 1, letterSpacing: '0.01em', fontWeight: customIsActive ? 800 : 700 }}>{item.name}</span>
+                            {hasSubItems && (
+                              <ChevronDown
+                                size={14}
+                                color={customIsActive ? '#FFFFFF' : '#64748B'}
+                                style={{
+                                  transform: isSubMenuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s ease',
+                                  opacity: 0.9,
+                                }}
+                              />
+                            )}
+                          </>
                         )}
                       </NavLink>
 
                       {/* Render nested sub-items */}
-                      {hasSubItems && isSubMenuOpen && (
+                      {!collapsed && hasSubItems && isSubMenuOpen && (
                         <div style={{
-                          marginLeft: '12px',
-                          paddingLeft: '8px',
+                          marginLeft: '16px',
+                          paddingLeft: '10px',
                           marginBottom: '6px',
                           borderLeft: '1.5px solid #E2E8F0',
                           display: 'flex',
@@ -860,7 +954,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                       background: isAnyChildActive
                                         ? (currentTheme.activeBg || '#FFF7ED')
                                         : 'transparent',
-
+                                      
                                       cursor: 'pointer',
                                       fontWeight: isAnyChildActive ? 800 : 700,
                                       userSelect: 'none',
@@ -888,7 +982,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                         boxShadow: isAnyChildActive ? `0 0 6px ${currentTheme.primary}` : 'none',
                                         flexShrink: 0
                                       }} />
-                                      <span style={{ fontWeight: isAnyChildActive ? 800 : 700, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>
+                                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isAnyChildActive ? 800 : 700 }}>
                                         {sub.name}
                                       </span>
                                     </div>
@@ -943,7 +1037,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                               background: isNestedActive
                                                 ? (currentTheme.activeBg || '#FFF7ED')
                                                 : 'transparent',
-
+                                              
                                               fontWeight: isNestedActive ? 800 : 600,
                                               transition: 'all 0.15s ease'
                                             }}
@@ -968,7 +1062,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                               boxShadow: isNestedActive ? `0 0 5px ${currentTheme.primary}` : 'none',
                                               flexShrink: 0
                                             }} />
-                                            <span style={{ whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                               {nested.name}
                                             </span>
                                           </NavLink>
@@ -1018,7 +1112,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                   background: isSubActive
                                     ? (currentTheme.activeBg || '#FFF7ED')
                                     : 'transparent',
-
+                                  
                                   fontWeight: isSubActive ? 750 : 600,
                                   transition: 'all 0.15s ease'
                                 }}
@@ -1043,7 +1137,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                                   boxShadow: isSubActive ? `0 0 6px ${currentTheme.primary}` : 'none',
                                   flexShrink: 0
                                 }} />
-                                <span style={{ fontWeight: isSubActive ? 800 : 700, whiteSpace: 'normal', wordBreak: 'break-word', lineHeight: '1.25' }}>{sub.name}</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isSubActive ? 800 : 700 }}>{sub.name}</span>
                               </NavLink>
                             );
                           })}
@@ -1059,18 +1153,18 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
 
         {/* Bottom Actions Dock */}
         <div style={{
-          padding: '8px',
+          padding: '10px',
           borderTop: '1px solid #E2E8F0',
           background: '#FFFFFF',
           display: 'flex',
           flexDirection: 'column',
-          gap: '5px',
+          gap: '6px',
           flexShrink: 0,
           position: 'relative',
           zIndex: 3
         }}>
           {/* Support Helpline Box - Only for non-admin users (customers) with available support contact */}
-          {!isAdmin && (supportPhone || supportEmail) && (
+          {!isAdmin && (supportPhone || supportEmail) && (!collapsed ? (
             <div
               style={{
                 width: '100%',
@@ -1136,16 +1230,44 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
                 )}
               </div>
             </div>
-          )}
+          ) : (
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const rect = e.currentTarget.getBoundingClientRect();
+                setSupportFlyoutTop(Math.max(10, Math.min(rect.top - 80, window.innerHeight - 220)));
+                setActiveFlyoutItem(null);
+                setShowSupportFlyout(prev => !prev);
+              }}
+              title={`Support: ${supportBrand}${supportPhone ? ` - ${supportPhone}` : ''}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px 0',
+                color: currentTheme.primary,
+                cursor: 'pointer',
+                borderRadius: '8px',
+                position: 'relative'
+              }}
+              onMouseEnter={e => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <Headphones size={18} />
+              <span style={{ position: 'absolute', top: '7px', right: '16px', width: '5px', height: '5px', borderRadius: '50%', background: '#10B981' }} />
+            </div>
+          ))}
 
           <button
             onClick={handleLogout}
+            title={collapsed ? 'Logout' : undefined}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               width: '100%',
-              padding: '7px 12px',
+              padding: collapsed ? '8px 0' : '7px 12px',
               borderRadius: '8px',
               background: '#F8FAFC',
               border: '1px solid #E2E8F0',
@@ -1153,7 +1275,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
               fontSize: '12.5px',
               fontWeight: 700,
               cursor: 'pointer',
-              justifyContent: 'flex-start',
+              justifyContent: collapsed ? 'center' : 'flex-start',
               transition: 'all 0.18s ease',
             }}
             onMouseEnter={(e) => {
@@ -1168,10 +1290,257 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
             }}
           >
             <LogOut size={16} className="shrink-0" />
-            <span>Logout</span>
+            {!collapsed && <span>Logout</span>}
           </button>
         </div>
       </aside>
+
+      {/* ── Floating Flyout Panel when Collapsed (Customer Only) ── */}
+      {isCustomer && activeFlyoutItem && collapsed && (
+        <div
+          ref={flyoutRef}
+          style={{
+            position: 'fixed',
+            left: '68px',
+            top: `${flyoutTop}px`,
+            minWidth: '220px',
+            maxWidth: '290px',
+            background: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.15), 0 4px 6px -2px rgba(15, 23, 42, 0.05)',
+            padding: '10px 12px',
+            zIndex: 10005,
+            animation: 'fadeIn 0.15s ease-out',
+            fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+          }}
+        >
+          {/* Flyout Header */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingBottom: '8px',
+            marginBottom: '8px',
+            borderBottom: '1px solid #F1F5F9'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{
+                width: '26px',
+                height: '26px',
+                borderRadius: '7px',
+                background: `${currentTheme.primary || '#EA580C'}14`,
+                color: currentTheme.primary || '#EA580C',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {React.createElement(activeFlyoutItem.icon, { size: 14, strokeWidth: 2.5 })}
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 800, color: '#0F172A' }}>
+                {activeFlyoutItem.name}
+              </span>
+            </div>
+            <button
+              onClick={() => setActiveFlyoutItem(null)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: '#94A3B8' }}
+              title="Close"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* Flyout Sub-items list or direct link */}
+          {activeFlyoutItem.subItems && activeFlyoutItem.subItems.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '300px', overflowY: 'auto' }}>
+              {activeFlyoutItem.subItems.map((sub) => {
+                if (sub.subItems && sub.subItems.length > 0) {
+                  return (
+                    <div key={sub.name} style={{ marginTop: '4px', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '10.5px', fontWeight: 800, color: '#94A3B8', textTransform: 'uppercase', padding: '4px 8px', letterSpacing: '0.04em' }}>
+                        {sub.name}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', paddingLeft: '4px' }}>
+                        {sub.subItems.map((nested) => {
+                          const isNestedActive = location.pathname === nested.path;
+                          return (
+                            <NavLink
+                              key={nested.path}
+                              to={nested.path}
+                              onClick={() => {
+                                setActiveFlyoutItem(null);
+                                if (toggleMobileSidebar) toggleMobileSidebar(false);
+                              }}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                padding: '6px 8px',
+                                borderRadius: '6px',
+                                fontSize: '11.5px',
+                                textDecoration: 'none',
+                                fontWeight: isNestedActive ? 800 : 600,
+                                color: isNestedActive ? (currentTheme.primary || '#EA580C') : '#334155',
+                                background: isNestedActive ? `${currentTheme.primary || '#EA580C'}14` : 'transparent',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isNestedActive) e.currentTarget.style.background = '#F8FAFC';
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isNestedActive) e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              <span style={{
+                                width: '5px',
+                                height: '5px',
+                                borderRadius: '50%',
+                                background: isNestedActive ? (currentTheme.primary || '#EA580C') : '#CBD5E1'
+                              }} />
+                              <span>{nested.name}</span>
+                            </NavLink>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                }
+                const isSubActive = location.pathname === sub.path || (sub.type && location.search.includes(sub.type));
+                return (
+                  <NavLink
+                    key={sub.path}
+                    to={sub.path}
+                    onClick={() => {
+                      setActiveFlyoutItem(null);
+                      if (toggleMobileSidebar) toggleMobileSidebar(false);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '7px 10px',
+                      borderRadius: '7px',
+                      fontSize: '12px',
+                      textDecoration: 'none',
+                      fontWeight: isSubActive ? 800 : 600,
+                      color: isSubActive ? (currentTheme.primary || '#EA580C') : '#334155',
+                      background: isSubActive ? `${currentTheme.primary || '#EA580C'}14` : 'transparent',
+                      transition: 'all 0.15s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isSubActive) e.currentTarget.style.background = '#F8FAFC';
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isSubActive) e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    <span style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: isSubActive ? (currentTheme.primary || '#EA580C') : '#CBD5E1',
+                      boxShadow: isSubActive ? `0 0 6px ${currentTheme.primary || '#EA580C'}` : 'none'
+                    }} />
+                    <span>{sub.name}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <NavLink
+                to={activeFlyoutItem.path}
+                onClick={() => {
+                  setActiveFlyoutItem(null);
+                  if (toggleMobileSidebar) toggleMobileSidebar(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  background: currentTheme.primary || '#EA580C',
+                  color: '#FFFFFF',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  boxShadow: `0 2px 8px ${currentTheme.primary || '#EA580C'}30`
+                }}
+              >
+                <span>Go to {activeFlyoutItem.name}</span>
+                <ChevronRight size={13} />
+              </NavLink>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Floating Support Helpline Card in Collapsed Mode (Customer Only) ── */}
+      {isCustomer && showSupportFlyout && collapsed && (
+        <div
+          ref={flyoutRef}
+          style={{
+            position: 'fixed',
+            left: '68px',
+            top: `${supportFlyoutTop}px`,
+            width: '240px',
+            background: '#FFFFFF',
+            borderRadius: '12px',
+            border: '1px solid #E2E8F0',
+            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.15)',
+            padding: '12px',
+            zIndex: 10005,
+            animation: 'fadeIn 0.15s ease-out'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: currentTheme.primary, display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <Headphones size={13} />
+              Support Helpline
+            </span>
+            <button
+              onClick={() => setShowSupportFlyout(false)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', color: '#94A3B8' }}
+            >
+              <X size={14} />
+            </button>
+          </div>
+          <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 600, marginBottom: '6px' }}>
+            {supportBrand}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {supportPhone && (
+              <a
+                href={`tel:${supportPhone}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 8px', borderRadius: '6px', background: '#F8FAFC',
+                  border: '1px solid #E2E8F0', color: '#0F172A', fontSize: '11.5px',
+                  fontWeight: 700, textDecoration: 'none'
+                }}
+              >
+                <Phone size={12} className="text-slate-500" />
+                <span>{supportPhone}</span>
+              </a>
+            )}
+            {supportEmail && (
+              <a
+                href={`mailto:${supportEmail}`}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '6px 8px', borderRadius: '6px', background: '#F8FAFC',
+                  border: '1px solid #E2E8F0', color: '#0F172A', fontSize: '11px',
+                  fontWeight: 600, textDecoration: 'none', wordBreak: 'break-all'
+                }}
+              >
+                <Mail size={12} className="text-slate-500" />
+                <span>{supportEmail}</span>
+              </a>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Floating Theme / Color Picker Popover Panel */}
       {showColorPicker && (
@@ -1179,7 +1548,7 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
           ref={colorPickerRef}
           style={{
             position: 'fixed',
-            left: '220px',
+            left: collapsed ? '65px' : '220px',
             bottom: '15px',
             width: '270px',
             background: '#FFFFFF',

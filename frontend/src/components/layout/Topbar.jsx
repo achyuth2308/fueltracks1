@@ -522,42 +522,45 @@ const Topbar = ({ onMenuClick, vehicles = [] }) => {
       {/* Right: stats + clock + socket */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
 
-        {/* Fleet stats */}
-        <div className="hidden md:flex" style={{
-          alignItems: 'center',
-          gap: '12px',
-          background: '#F8FAFC',
-          borderRadius: '999px',
-          padding: '4px 14px',
-          border: '1px solid #E2E8F0'
-        }}>
-          {[
-            { label: 'Total', value: stats.total, color: '#0F172A' },
-            { label: 'Online', value: stats.online, color: '#10B981', dot: true },
-            { label: 'No Data', value: stats.offline, color: '#0284C7', dot: true, isNoData: true },
-            { label: 'Unreachable', value: stats.unreachable || 0, color: '#64748B', dot: true },
-          ].map(({ label, value, color, dot, isNoData }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              {dot && (
-                <div style={{
-                  width: '6px', height: '6px', borderRadius: '50%', background: color,
-                  boxShadow: color === '#10B981' ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
-                }} />
-              )}
-              <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{label}</span>
-              <span style={{
-                fontSize: '12px', fontWeight: 800, color: dot ? color : '#0F172A',
-                fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
-              }}>
-                {value}
-              </span>
-              
+        {/* Fleet stats (Hidden on Customer Dashboard to prevent duplicate counters) */}
+        {(!isDashboard || user?.role !== 'customer') && (
+          <>
+            <div className="hidden md:flex" style={{
+              alignItems: 'center',
+              gap: '12px',
+              background: '#F8FAFC',
+              borderRadius: '999px',
+              padding: '4px 14px',
+              border: '1px solid #E2E8F0'
+            }}>
+              {[
+                { label: 'Total', value: stats.total, color: '#0F172A' },
+                { label: 'Online', value: stats.online, color: '#10B981', dot: true },
+                { label: 'No Data', value: stats.offline, color: '#0284C7', dot: true, isNoData: true },
+                { label: 'Unreachable', value: stats.unreachable || 0, color: '#64748B', dot: true },
+              ].map(({ label, value, color, dot, isNoData }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  {dot && (
+                    <div style={{
+                      width: '6px', height: '6px', borderRadius: '50%', background: color,
+                      boxShadow: color === '#10B981' ? '0 0 6px rgba(16,185,129,0.5)' : 'none',
+                    }} />
+                  )}
+                  <span style={{ fontSize: '11px', color: '#64748B', fontWeight: 600 }}>{label}</span>
+                  <span style={{
+                    fontSize: '12px', fontWeight: 800, color: dot ? color : '#0F172A',
+                    fontFamily: 'JetBrains Mono, monospace', letterSpacing: '-0.02em',
+                  }}>
+                    {value}
+                  </span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Divider */}
-        <div className="hidden md:block" style={{ width: '1px', height: '20px', background: '#E2E8F0' }} />
+            {/* Divider */}
+            <div className="hidden md:block" style={{ width: '1px', height: '20px', background: '#E2E8F0' }} />
+          </>
+        )}
 
         {/* Live clock */}
         <div className="hidden sm:flex" style={{ textAlign: 'right', alignItems: 'center', gap: '8px' }}>

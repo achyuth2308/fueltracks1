@@ -207,13 +207,14 @@ async function runDailyReport() {
           dateKey
         };
 
+        const templateName = payload.headerDocument ? 'daily_fleet_report_pdf' : 'daily_fleet_report';
         await db.query(
           `INSERT INTO whatsapp_messages (
              org_id, recipient_id, phone_masked, event_type, event_ref,
              template_name, language, payload, status, expires_at
-           ) VALUES ($1, $2, $3, 'daily_report', $4, 'daily_fleet_report', 'en', $5, 'queued', NOW() + INTERVAL '12 hours')
+           ) VALUES ($1, $2, $3, 'daily_report', $4, $5, 'en', $6, 'queued', NOW() + INTERVAL '12 hours')
            ON CONFLICT (event_type, event_ref, recipient_id) DO NOTHING`,
-          [org.id, r.id, masked, dateKey, JSON.stringify(payload)]
+          [org.id, r.id, masked, dateKey, templateName, JSON.stringify(payload)]
         );
       }
 

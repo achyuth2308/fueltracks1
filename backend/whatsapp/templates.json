@@ -6,7 +6,7 @@
     "components": [
       {
         "type": "BODY",
-        "text": "Fuel refill confirmed for {{1}}. Added {{2}} L. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Reply STOP to unsubscribe.",
+        "text": "⛽ Fuel refill confirmed for {{1}}. Added {{2}} L. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Reply STOP to unsubscribe.",
         "example": {
           "body_text": [
             [
@@ -29,7 +29,7 @@
     "components": [
       {
         "type": "BODY",
-        "text": "Fuel theft alert for {{1}}. Fuel dropped by {{2}} L while the vehicle was stationary. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Map: {{7}}. Please check immediately.",
+        "text": "🚨 Fuel theft alert for {{1}}. Fuel dropped by {{2}} L while the vehicle was stationary. Level changed from {{3}} L to {{4}} L. Time: {{5}}. Location: {{6}}. Map: {{7}}. Please check immediately.",
         "example": {
           "body_text": [
             [
@@ -53,7 +53,7 @@
     "components": [
       {
         "type": "BODY",
-        "text": "Daily fleet report for {{1}} on {{2}}. Vehicles: {{3}}. Distance: {{4}} km. Fuel used: {{5}} L. Refills: {{6}} ({{7}} L). Theft alerts: {{8}}. Idle time: {{9}}. Full report is available at app.fueltracks.in.",
+        "text": "📊 Daily fleet report for {{1}} on {{2}}. Vehicles: {{3}}. Distance: {{4}} km. Fuel used: {{5}} L. Refills: {{6}} ({{7}} L). Theft alerts: {{8}}. Idle time: {{9}}. Full report is available at app.fueltracks.in.",
         "example": {
           "body_text": [
             [
@@ -66,6 +66,85 @@
               "180.0",
               "0",
               "3h 15m"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "daily_fleet_report_pdf",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "HEADER",
+        "format": "DOCUMENT",
+        "example": {
+          "header_handle": [
+            "4::YXBwbGljYXRpb24vcGRm:ARYNfxOb1kFyC3EYijCffR8B-HtwPiYokV4VsYJeheeu1hBuf2_sak3kqXKO2o_Yx22QQvvmDQN6AD0eF-BFiSLpaFu4yaVFAaZYmDKfz2G76Q:e:1795600401:1717377512750300:61590419890625:ARZLDZs4va8jci_bde4"
+          ]
+        }
+      },
+      {
+        "type": "BODY",
+        "text": "📊 Daily fleet report for {{1}} on {{2}}. Attached is your official fleet activity summary PDF. Vehicles: {{3}}. Distance: {{4}} km. Fuel used: {{5}} L. Refills: {{6}} ({{7}} L). Theft alerts: {{8}}. Idle time: {{9}}. Full report is available at app.fueltracks.in.",
+        "example": {
+          "body_text": [
+            [
+              "Logistics Fleet Corp",
+              "28 Oct 2026",
+              "12",
+              "1245.5",
+              "310.2",
+              "4",
+              "180.0",
+              "0",
+              "3h 15m"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "battery_cut_alert",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "🔋 Battery disconnection alert for {{1}}. Main power or GPS tracker wiring was severed at {{2}}. Location: {{3}}. Map: {{4}}. Please inspect the vehicle immediately.",
+        "example": {
+          "body_text": [
+            [
+              "MH12AB1234",
+              "29 Oct, 11:30 AM",
+              "Industrial Estate, Pune",
+              "https://maps.google.com/?q=18.5204,73.8567"
+            ]
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "name": "overspeed_alert",
+    "category": "UTILITY",
+    "language": "en",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "⚡ Severe overspeeding alert for {{1}}. Vehicle reached {{2}} km/h (Limit: {{3}} km/h) at {{4}}. Location: {{5}}. Map: {{6}}. Please ensure driver safety.",
+        "example": {
+          "body_text": [
+            [
+              "MH12AB1234",
+              "95",
+              "80",
+              "29 Oct, 11:30 AM",
+              "Mumbai-Pune Expressway",
+              "https://maps.google.com/?q=18.5204,73.8567"
             ]
           ]
         }

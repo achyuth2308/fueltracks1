@@ -147,28 +147,27 @@ const NotificationService = {
 
     try {
       const alertType = String(alert.alert_type || alert.alertType || '').toLowerCase().trim();
-      if (alertType !== 'fuel_refill_final' && alertType !== 'fuel_theft') {
+      const isTheft = alertType === 'fuel_theft';
+      const isRefill = alertType === 'fuel_refill_final' || alertType === 'fuel_refill';
+      const isPowerCut = alertType === 'battery_cut' || alertType === 'power_cut' || alertType === 'power_disconnected' || alertType === 'main_battery_disconnected' || alertType === 'wire_tamper';
+
+      // Only dispatch mission-critical alerts: Theft, Refill, and Battery/Wire cut
+      if (!isTheft && !isRefill && !isPowerCut) {
         return;
       }
 
-      // Check alert matrix for org
-      const alertMatrix = org.settings?.alert_matrix || {};
-      const isWhatsAppEnabledForType = this.isChannelEnabled(alertMatrix, alertType, 'whatsapp');
-      if (!isWhatsAppEnabledForType) {
-        return;
-      }
-
-      // 10-minute theft cooldown check
-      if (alertType === 'fuel_theft') {
-        const cooldownKey = `whatsapp:cooldown:theft:${vehicle.id}`;
+      // 10-minute cooldown check for theft and wire tampering
+      if (isTheft || isPowerCut) {
+        const cdType = isTheft ? 'theft' : 'powercut';
+        const cooldownKey = `whatsapp:cooldown:${cdType}:${vehicle.id}`;
         const canSend = await redis.set(cooldownKey, '1', 'EX', 600, 'NX');
         if (!canSend) {
-          console.log(`[WHATSAPP-ALERTS] Cooldown active: skipping duplicate theft send for ${vehicle.plate || vehicle.imei}`);
+          console.log(`[WHATSAPP-ALERTS] Cooldown active: skipping duplicate ${cdType} send for ${vehicle.plate || vehicle.imei}`);
           return;
         }
       }
 
-      const recipientField = alertType === 'fuel_refill_final' ? 'receive_refill' : 'receive_theft';
+      const recipientField = isRefill ? 'receive_refill' : 'receive_theft';
       const recipientsRes = await db.query(
         `SELECT id, name, phone_e164, vehicle_scope
          FROM whatsapp_recipients
@@ -213,17 +212,24 @@ const NotificationService = {
 
       let templateName = '';
       let bodyParams = [];
-      const eventType = alertType === 'fuel_refill_final' ? 'fuel_refill' : 'fuel_theft';
+      let eventType = 'fuel_theft';
       const eventRef = String(alert.id || alert.alert_id || Date.now());
 
-      if (alertType === 'fuel_refill_final') {
+      if (isRefill) {
         templateName = 'fuel_refill_alert';
+        eventType = 'fuel_refill';
         const startL = alertPayload.startLevel != null ? alertPayload.startLevel : '?';
         const endL = alertPayload.endLevel != null ? alertPayload.endLevel : '?';
         const added = alertPayload.addedLitres != null ? alertPayload.addedLitres : '?';
         bodyParams = [vehicleDisplay, added, startL, endL, formattedTime, locationStr];
+      } else if (isPowerCut) {
+        templateName = 'battery_cut_alert';
+        eventType = 'battery_cut';
+        const mapUrl = (alert.lat && alert.lng) ? `https://maps.google.com/?q=${alert.lat},${alert.lng}` : 'https://app.fueltracks.in';
+        bodyParams = [vehicleDisplay, formattedTime, locationStr, mapUrl];
       } else {
         templateName = 'fuel_theft_alert';
+        eventType = 'fuel_theft';
         const drop = alertPayload.dropLitres != null ? alertPayload.dropLitres : '?';
         const startL = alertPayload.startLevel != null ? alertPayload.startLevel : '?';
         const endL = alertPayload.endLevel != null ? alertPayload.endLevel : '?';

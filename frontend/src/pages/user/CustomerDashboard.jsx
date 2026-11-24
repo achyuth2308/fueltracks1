@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Truck, Activity, MapPin, Navigation, RefreshCw, AlertCircle, ChevronRight,
   ChevronDown, ChevronLeft, Users2, X, AlertTriangle, User, Compass, Shield,
-  Cpu, Search, Maximize2, Minimize2, Fuel
+  Cpu, Search, Maximize2, Minimize2, Fuel, Key, Battery, History, Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useVehicles } from '../../hooks/useVehicles';
@@ -282,6 +282,16 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
   const warning = currentSelected && dismissedToastId !== currentSelected.id ? getExpiryWarning(currentSelected) : null;
 
+  const hasNoGpsVehicles = useMemo(() => {
+    if (!vehicles || vehicles.length === 0) return false;
+    const targetVehicles = currentSelected ? [currentSelected] : filtered;
+    return targetVehicles.length > 0 && targetVehicles.every(v => {
+      const lat = parseFloat(v.lat);
+      const lng = parseFloat(v.lng);
+      return isNaN(lat) || isNaN(lng) || lat < 6.5 || lat > 37.5 || lng < 68.0 || lng > 98.0;
+    });
+  }, [vehicles, currentSelected, filtered]);
+
   const renderVehicleCard = (v, groupKey = '') => {
     const vWarning = getExpiryWarning(v);
     const isExpired = vWarning && vWarning.type === 'expired';
@@ -290,6 +300,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
     const isSelected = currentSelected?.id === v.id;
     const sc = isExpired ? '#DC2626' : (isExpiring ? '#D97706' : statusColors[status]);
     const vHasFuel = hasVehicleFuelCapability(v);
+    const isIgnitionOn = !!v.current_ignition;
 
     return (
       <div
@@ -318,13 +329,12 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           background: isExpired ? '#FEF2F2' : (isExpiring ? '#FFFBEB' : (isSelected ? '#ECFDF5' : '#FFFFFF')),
           borderBottom: isExpired ? '1px solid #FECACA' : (isExpiring ? '1px solid #FDE68A' : (isSelected ? '1px solid #A7F3D0' : '1px solid #F1F5F9')),
           borderLeft: isExpired ? '3px solid #DC2626' : (isExpiring ? '3px solid #F59E0B' : (isSelected ? '3px solid #059669' : '3px solid transparent')),
-          padding: '8px 10px',
+          padding: '5px 8px',
           cursor: 'pointer',
           transition: 'background 0.15s ease',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '8px'
+          flexDirection: 'column',
+          gap: '3px'
         }}
         onMouseEnter={e => {
           setHoveredVehicleId(v.id);
@@ -336,7 +346,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               setHoverPosY(Math.max(12, Math.min(itemRect.top - containerRect.top, containerRect.height - 350)));
             }
           }
-          if (!isSelected && !isExpired && !isExpiring) e.currentTarget.style.background = '#F0FDF4';
+          if (!isSelected && !isExpired && !isExpiring) e.currentTarget.style.background = '#F8FAFC';
           if (isExpired) e.currentTarget.style.background = '#FEE2E2';
           if (isExpiring && !isSelected) e.currentTarget.style.background = '#FEF3C7';
         }}
@@ -347,130 +357,167 @@ const CustomerDashboard = ({ setAppVehicles }) => {
           if (isExpiring && !isSelected) e.currentTarget.style.background = '#FFFBEB';
         }}
       >
-        {/* Modern Vehicle Icon Squircle */}
-        <div style={{
-          width: '32px',
-          height: '32px',
-          borderRadius: '8px',
-          background: isExpired ? '#FEE2E2' : (isSelected ? '#D1FAE5' : '#F1F5F9'),
-          border: `1px solid ${isExpired ? '#FECACA' : (isSelected ? '#A7F3D0' : '#E2E8F0')}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0
-        }}>
-          {(() => {
-            const vType = getVehicleType(v);
-            const iconColor = isExpired ? '#DC2626' : (isSelected ? '#059669' : (v.is_online ? '#10B981' : '#64748B'));
-            if (vType === 'bike') {
-              return (
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="5.5" cy="17.5" r="3.5" />
-                  <circle cx="18.5" cy="17.5" r="3.5" />
-                  <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9H5" />
-                  <path d="M12 17.5V14l4-3 3 3" />
-                </svg>
-              );
-            }
-            if (vType === 'car') {
-              return (
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2" />
-                  <circle cx="7" cy="17" r="2" />
-                  <path d="M9 17h6" />
-                  <circle cx="17" cy="17" r="2" />
-                </svg>
-              );
-            }
-            return (
-              <Truck size={17} color={iconColor} />
-            );
-          })()}
+        {/* Top Row: Icon + Plate/Name + Status Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0, flex: 1 }}>
+            {/* Modern Vehicle Icon Squircle */}
+            <div style={{
+              width: '24px',
+              height: '24px',
+              borderRadius: '6px',
+              background: isExpired ? '#FEE2E2' : (isSelected ? '#D1FAE5' : '#F1F5F9'),
+              border: `1px solid ${isExpired ? '#FECACA' : (isSelected ? '#A7F3D0' : '#E2E8F0')}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              {(() => {
+                const vType = getVehicleType(v);
+                const iconColor = isExpired ? '#DC2626' : (isSelected ? '#059669' : (v.is_online ? '#10B981' : '#64748B'));
+                if (vType === 'bike') {
+                  return (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="5.5" cy="17.5" r="3.5" />
+                      <circle cx="18.5" cy="17.5" r="3.5" />
+                      <path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2zm-3 11.5L9 9H5" />
+                      <path d="M12 17.5V14l4-3 3 3" />
+                    </svg>
+                  );
+                }
+                if (vType === 'car') {
+                  return (
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={iconColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 11.2 2 11.8 2 12.3V16c0 .6.4 1 1 1h2" />
+                      <circle cx="7" cy="17" r="2" />
+                      <path d="M9 17h6" />
+                      <circle cx="17" cy="17" r="2" />
+                    </svg>
+                  );
+                }
+                return (
+                  <Truck size={13} color={iconColor} />
+                );
+              })()}
+            </div>
+
+            {/* Vehicle Plate & Optional Name */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontSize: '11.5px',
+                fontWeight: 800,
+                color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1.15
+              }}>
+                {v.plate || v.name}
+              </div>
+              {v.name && v.plate && v.name !== v.plate && (
+                <div style={{
+                  fontSize: '9.5px',
+                  fontWeight: 500,
+                  color: isExpired ? '#DC2626' : '#64748B',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  marginTop: '1px'
+                }}>
+                  {v.name}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Status Badge Pill */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
+              fontSize: '8.5px',
+              fontWeight: 700,
+              padding: '1.5px 4px',
+              borderRadius: '8px',
+              background: isExpired ? '#FEE2E2' : (isExpiring ? '#FEF3C7' : `${sc}15`),
+              color: isExpired ? '#DC2626' : (isExpiring ? '#D97706' : sc),
+              border: `1px solid ${isExpired ? '#FECACA' : (isExpiring ? '#FDE68A' : `${sc}30`)}`,
+              letterSpacing: '0.01em'
+            }}>
+              <span style={{ width: '4px', height: '4px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
+              <span>{isExpired ? 'EXPIRED' : (isExpiring ? `EXPIRING (${vWarning.diffDays}d)` : statusLabels[status])}</span>
+            </div>
+            <ChevronRight size={11} color={isExpired ? '#DC2626' : '#CBD5E1'} />
+          </div>
         </div>
 
-        {/* Middle Details - Clean Compact Typography (No Duplicate Name/Plate) */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: '11.5px',
-            fontWeight: 700,
-            color: isExpired ? '#B91C1C' : (isSelected ? '#065F46' : '#0F172A'),
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            lineHeight: 1.2
-          }}>
-            {v.plate || v.name}
-            {v.name && v.plate && v.name !== v.plate && (
-              <span style={{ fontSize: '11px', fontWeight: 500, color: isExpired ? '#DC2626' : '#64748B', marginLeft: '6px' }}>
-                ({v.name})
+        {/* Bottom Row: Key metrics (Ignition, Speed, Fuel, Last seen) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '9.5px',
+          color: '#64748B',
+          paddingTop: '2px',
+          borderTop: '1px dashed #F1F5F9'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '2px',
+              fontSize: '8.5px',
+              fontWeight: 700,
+              padding: '1px 3px',
+              borderRadius: '3px',
+              background: isIgnitionOn ? '#DCFCE7' : '#F1F5F9',
+              color: isIgnitionOn ? '#15803D' : '#64748B'
+            }}>
+              <Key size={8} />
+              {isIgnitionOn ? 'ON' : 'OFF'}
+            </span>
+            <span style={{ fontWeight: 600, color: '#334155', fontSize: '9.5px' }}>
+              {v.is_online ? `${Math.round(v.current_speed || 0)} km/h` : '0 km/h'}
+            </span>
+            {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedFuelVehicle(v);
+                  setIsFuelEntryOpen(true);
+                }}
+                title="Click to Log Manual Fuel Entry"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '2px',
+                  color: '#0284C7',
+                  fontWeight: 600,
+                  fontSize: '9.5px',
+                  cursor: 'pointer',
+                  borderRadius: '3px',
+                  padding: '0 2px'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+              >
+                <Fuel size={8} />
+                {Math.round(Number(v.current_fuel))}L
               </span>
             )}
           </div>
-          <div style={{
-            fontSize: '10.5px',
-            color: isExpired ? '#EF4444' : '#64748B',
-            fontWeight: 500,
-            marginTop: '3px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis'
-          }}>
-            <span>{formatSpeed(v.current_speed, v.is_online)}</span>
-            {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
-              <>
-                <span style={{ color: '#CBD5E1' }}>•</span>
-                <span
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setSelectedFuelVehicle(v);
-                    setIsFuelEntryOpen(true);
-                  }}
-                  title="Click to Log Manual Fuel Entry"
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '2px',
-                    color: '#0284C7',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                    borderRadius: '3px',
-                    padding: '0 2px'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
-                  onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
-                >
-                  <Fuel size={10} />
-                  {Math.round(Number(v.current_fuel))}L
-                </span>
-              </>
-            )}
-            <span style={{ color: '#CBD5E1' }}>•</span>
-            <span title={v.last_seen ? new Date(v.last_seen).toLocaleString() : 'Never communicated'} style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {v.last_seen ? getRelativeTime(v.last_seen) : 'Never'}
-            </span>
-          </div>
-        </div>
 
-        {/* Right Status Badge Pill */}
-        <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
           <div style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '4px',
-            fontSize: '10px',
-            fontWeight: 700,
-            padding: '2px 6px',
-            borderRadius: '12px',
-            background: isExpired ? '#FEE2E2' : (isExpiring ? '#FEF3C7' : `${sc}15`),
-            color: isExpired ? '#DC2626' : (isExpiring ? '#D97706' : sc),
-            border: `1px solid ${isExpired ? '#FECACA' : (isExpiring ? '#FDE68A' : `${sc}30`)}`,
-            letterSpacing: '0.01em'
+            fontSize: '9px',
+            color: '#94A3B8',
+            fontWeight: 500,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            maxWidth: '110px'
           }}>
-            <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: isExpired ? '#DC2626' : sc }} />
-            <span>{isExpired ? 'EXPIRED' : (isExpiring ? `EXPIRING (${vWarning.diffDays}d)` : statusLabels[status])}</span>
+            {v.last_seen ? getRelativeTime(v.last_seen) : 'Never connected'}
           </div>
         </div>
       </div>
@@ -706,21 +753,21 @@ const CustomerDashboard = ({ setAppVehicles }) => {
       })()}
 
       {/* ── Top Header Bar ── */}
-      <div className="bg-white border-b border-gray-200 px-3 py-2.5 sm:px-5 sm:py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5 shrink-0 shadow-xs">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="bg-white border-b border-gray-200 px-3 py-1.5 sm:px-4 sm:py-2 flex flex-col md:flex-row md:items-center justify-between gap-2 shrink-0 shadow-xs">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{
-              width: '36px', height: '36px', borderRadius: '10px',
+              width: '28px', height: '28px', borderRadius: '8px',
               background: 'linear-gradient(135deg, #064E3B, #059669)',
               display: 'flex', alignItems: 'center', justifyContent: 'center'
             }}>
-              <MapPin size={18} color="#fff" />
+              <MapPin size={15} color="#fff" />
             </div>
             <div>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111827', lineHeight: 1.2 }}>
                 {user?.name ? `${user.name}'s Dashboard` : 'Fleet Dashboard'}
               </div>
-              <div style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>
+              <div style={{ fontSize: '10px', color: '#9ca3af', fontWeight: 500 }}>
                 {vehicles.length} vehicle{vehicles.length !== 1 ? 's' : ''} in your fleet
               </div>
             </div>
@@ -759,13 +806,30 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             </div>
           ))}
 
-          <div style={{
-            padding: '6px 12px', borderRadius: '20px',
-            background: '#f97316', color: '#fff',
-            fontSize: '12px', fontWeight: 700, marginLeft: '4px', flexShrink: 0
-          }}>
-            Total {vehicles.length}
-          </div>
+          <button
+            onClick={() => setStatusFilter(null)}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '20px',
+              border: statusFilter === null ? '2px solid #ea580c' : '1px solid #fed7aa',
+              background: statusFilter === null ? '#ea580c' : '#fff7ed',
+              color: statusFilter === null ? '#ffffff' : '#c2410c',
+              fontSize: '12px',
+              fontWeight: 700,
+              marginLeft: '4px',
+              flexShrink: 0,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'all 0.2s',
+              boxShadow: statusFilter === null ? '0 2px 8px rgba(234,88,12,0.3)' : 'none'
+            }}
+            title={statusFilter ? "Clear filter & Show all" : "Showing all vehicles"}
+          >
+            <span>Total</span>
+            <span style={{ fontFamily: 'monospace', fontWeight: 800 }}>{vehicles.length}</span>
+          </button>
 
           <button
             onClick={() => refetch()}
@@ -809,7 +873,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         <div style={{
           position: 'absolute',
           top: window.innerWidth > 768 ? `${hoverPosY}px` : '20px',
-          left: window.innerWidth > 768 ? '250px' : '12px',
+          left: window.innerWidth > 768 ? '300px' : '12px',
           right: window.innerWidth > 768 ? 'auto' : '12px',
           width: window.innerWidth > 768 ? '360px' : 'auto',
           maxWidth: 'calc(100vw - 24px)',
@@ -934,7 +998,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
         {/* Left Panel: Fleet Vehicles List (Docked seamlessly matching Image 2) */}
         {!isSidebarCollapsed && (
           <div
-            className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[290px] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'
+            className={`h-full bg-white border-r border-slate-200 flex-col z-10 shrink-0 w-full md:w-[250px] ${mobileTab === 'list' ? 'flex' : 'hidden md:flex'
               }`}
             style={{ height: '100%', position: 'relative' }}
           >
@@ -1072,7 +1136,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          padding: '6px 12px',
+                          padding: '4px 10px',
                           background: selectedGroupId === gm.group.id ? '#EFF6FF' : '#F8FAFC',
                           borderTop: '1px solid #E2E8F0',
                           borderBottom: '1px solid #E2E8F0',
@@ -1090,7 +1154,7 @@ const CustomerDashboard = ({ setAppVehicles }) => {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                           <span style={{
-                            fontSize: '12px',
+                            fontSize: '11.5px',
                             fontWeight: selectedGroupId === gm.group.id ? 800 : 700,
                             color: selectedGroupId === gm.group.id ? '#0284C7' : '#0F172A',
                             letterSpacing: '0.02em',
@@ -1230,6 +1294,248 @@ const CustomerDashboard = ({ setAppVehicles }) => {
               bottom: typeof window !== 'undefined' && window.innerWidth > 768 ? '20px' : '75px'
             }}
           />
+
+          {/* Floating Notice when vehicle has no live GPS fix */}
+          {hasNoGpsVehicles && (
+            <div style={{
+              position: 'absolute',
+              top: '12px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              background: 'rgba(255, 255, 255, 0.96)',
+              backdropFilter: 'blur(8px)',
+              border: '1px solid #E2E8F0',
+              borderRadius: '20px',
+              padding: '6px 14px',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              pointerEvents: 'none'
+            }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#94A3B8' }} />
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#475569' }}>
+                {currentSelected 
+                  ? `${currentSelected.plate || currentSelected.name} has no GPS fix yet (Never connected). Showing default map.` 
+                  : (vehicles.length === 1 
+                      ? `${vehicles[0]?.plate || vehicles[0]?.name || 'Vehicle'} has no GPS fix yet. Showing default map.`
+                      : 'Vehicles have not sent GPS data yet. Showing default map.')}
+              </span>
+            </div>
+          )}
+
+          {/* ── Selected Vehicle Floating HUD Card (Bottom-Left) ── */}
+          {currentSelected && (
+            <div style={{
+              position: 'absolute',
+              bottom: window.innerWidth > 768 ? '20px' : '75px',
+              left: window.innerWidth > 768 ? '20px' : '12px',
+              zIndex: 1000,
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid #E2E8F0',
+              borderRadius: '14px',
+              padding: '12px 14px',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.12)',
+              width: window.innerWidth > 768 ? '330px' : 'calc(100% - 24px)',
+              maxWidth: '360px',
+              fontFamily: "'Inter', system-ui, -apple-system, sans-serif"
+            }}>
+              {/* Header: Name, Plate, Status pill & Close */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', gap: '8px' }}>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: '13.5px', fontWeight: 800, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {currentSelected.plate || currentSelected.name}
+                  </div>
+                  {currentSelected.plate && currentSelected.name && currentSelected.name !== currentSelected.plate && (
+                    <div style={{ fontSize: '10.5px', color: '#64748B', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {currentSelected.name}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                  <span style={{
+                    fontSize: '9.5px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '12px',
+                    background: `${statusColors[getStatus(currentSelected)]}18`,
+                    color: statusColors[getStatus(currentSelected)],
+                    border: `1px solid ${statusColors[getStatus(currentSelected)]}35`
+                  }}>
+                    {statusLabels[getStatus(currentSelected)]}
+                  </span>
+                  <button
+                    onClick={() => setSelectedVehicle(null)}
+                    style={{ background: '#F1F5F9', border: 'none', borderRadius: '50%', cursor: 'pointer', padding: '3px', color: '#64748B', display: 'flex' }}
+                    title="Deselect"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* No GPS Fix Alert inside card if coordinates missing */}
+              {(!currentSelected.lat || !currentSelected.lng || isNaN(parseFloat(currentSelected.lat)) || parseFloat(currentSelected.lat) < 6.5) && (
+                <div style={{
+                  background: '#FEF3C7',
+                  border: '1px solid #FCD34D',
+                  borderRadius: '6px',
+                  padding: '5px 8px',
+                  marginBottom: '8px',
+                  fontSize: '10.5px',
+                  color: '#92400E',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}>
+                  <Info size={13} className="shrink-0 text-amber-600" />
+                  <span>No live GPS fix recorded. Device is offline or never connected.</span>
+                </div>
+              )}
+
+              {/* Metrics grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', padding: '7px 0', borderTop: '1px solid #F1F5F9', borderBottom: '1px solid #F1F5F9' }}>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Activity size={10} /> Speed
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {formatSpeed(currentSelected.current_speed, currentSelected.is_online)}
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Key size={10} /> Ignition
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: currentSelected.current_ignition ? '#16A34A' : '#EF4444', marginTop: '1px' }}>
+                    {currentSelected.current_ignition ? 'ON' : 'OFF'}
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Navigation size={10} /> Today Dist
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {liveRouteMetrics[currentSelected.id]?.cDist !== undefined ? Number(liveRouteMetrics[currentSelected.id].cDist).toFixed(2) : (Number(currentSelected.today_distance) || 0).toFixed(2)} km
+                  </div>
+                </div>
+                <div style={{ background: '#F8FAFC', padding: '6px 8px', borderRadius: '6px', border: '1px solid #F1F5F9' }}>
+                  <div style={{ fontSize: '9.5px', color: '#64748B', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Battery size={10} /> Battery
+                  </div>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: '#0F172A', marginTop: '1px' }}>
+                    {formatVoltage(currentSelected.current_voltage || currentSelected.metadata?.batteryVoltage)}
+                  </div>
+                </div>
+              </div>
+
+              {/* FUEL METRICS */}
+              {hasVehicleFuelCapability(currentSelected) && (
+                <div style={{
+                  marginTop: '7px',
+                  padding: '7px 9px',
+                  borderRadius: '8px',
+                  background: '#F0F9FF',
+                  border: '1px solid #BAE6FD',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '5px', background: '#0284C7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Fuel size={13} color="#FFFFFF" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '9.5px', fontWeight: 700, color: '#0369A1', textTransform: 'uppercase' }}>Fuel Level</div>
+                      <div style={{ fontSize: '12px', fontWeight: 800, color: '#0C4A6E' }}>
+                        {currentSelected.current_fuel !== undefined && currentSelected.current_fuel !== null
+                          ? `${Math.round(Number(currentSelected.current_fuel))} L`
+                          : 'Monitoring'}
+                        {currentSelected.tank_capacity ? ` / ${currentSelected.tank_capacity} L` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  {currentSelected.tank_capacity && currentSelected.current_fuel != null && (
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0284C7', background: '#E0F2FE', padding: '1px 6px', borderRadius: '10px' }}>
+                      {Math.min(100, Math.round((Number(currentSelected.current_fuel) / Number(currentSelected.tank_capacity)) * 100))}%
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: 'grid', gridTemplateColumns: hasVehicleFuelCapability(currentSelected) ? 'repeat(3, 1fr)' : 'repeat(2, 1fr)', gap: '6px', marginTop: '8px' }}>
+                <button
+                  onClick={() => navigate(`/tracking?vehicle=${currentSelected.id}`)}
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '7px',
+                    background: '#0F172A',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  className="hover:opacity-90"
+                >
+                  <Navigation size={12} />
+                  <span>Live Track</span>
+                </button>
+                <button
+                  onClick={() => navigate(`/history?vehicle=${currentSelected.id}`)}
+                  style={{
+                    padding: '6px 8px',
+                    borderRadius: '7px',
+                    background: '#FFFFFF',
+                    color: '#334155',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '4px'
+                  }}
+                  className="hover:bg-slate-50"
+                >
+                  <History size={12} />
+                  <span>Playback</span>
+                </button>
+                {hasVehicleFuelCapability(currentSelected) && (
+                  <button
+                    onClick={() => navigate(`/fuel-analytics?vehicle=${currentSelected.id}`)}
+                    style={{
+                      padding: '6px 8px',
+                      borderRadius: '7px',
+                      background: '#0284C7',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '4px'
+                    }}
+                    className="hover:opacity-90"
+                  >
+                    <Activity size={12} />
+                    <span>Fuel</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Mobile Floating Button to switch back to List */}
           <div className="md:hidden" style={{ position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000 }}>

@@ -396,6 +396,83 @@ const AuthController = {
     } catch (err) {
       next(err);
     }
+  },
+
+  async getBotVehicleStatus(req, res, next) {
+    try {
+      const secret = req.headers['x-bot-secret'] || req.query.secret;
+      const expectedSecret = env.WHATSAPP_APP_SECRET || '6a28b7d0b5939c2ddce25a71847a3158';
+      if (!secret || secret !== expectedSecret) {
+        return res.status(401).json({ success: false, error: 'Unauthorized bot access' });
+      }
+
+      const rawPhone = req.query.phone;
+      const searchPlate = req.query.plate || req.query.vehicle;
+      if (!rawPhone) {
+        return res.status(400).json({ success: false, error: 'Phone number is required' });
+      }
+
+      const cleanDigits = String(rawPhone).replace(/\D/g, '');
+      const last10 = cleanDigits.slice(-10);
+
+      // Find user by phone
+      const uRes = await db.query(
+        `SELECT id, name, org_id FROM users
+         WHERE regexp_replace(COALESCE(phone, ''), '\\D', '', 'g') LIKE $1
+         LIMIT 1`,
+        [`%${last10}`]
+      );
+
+      if (uRes.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'No user found for this phone' });
+      }
+
+      const user = uRes.rows[0];
+
+      let query = `
+        SELECT DISTINCT
+          v.id,
+          v.name,
+          v.plate,
+          v.imei,
+          vls.lat,
+          vls.lng,
+          vls.speed,
+          vls.ignition,
+          vls.battery,
+          vls.voltage,
+          vls.fuel_level,
+          vls.fuel_percent,
+          vls.last_seen
+        FROM vehicles v
+        LEFT JOIN vehicle_groups vg ON vg.vehicle_id = v.id
+        LEFT JOIN user_groups ug ON ug.group_id = vg.group_id
+        LEFT JOIN vehicle_latest_state vls ON vls.vehicle_id = v.id
+        WHERE v.is_active = TRUE
+          AND (ug.user_id = $1 OR v.org_id = $2)
+      `;
+      const params = [user.id, user.org_id];
+
+      if (searchPlate) {
+        const cleanPlate = String(searchPlate).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        if (cleanPlate.length >= 4) {
+          params.push(`%${cleanPlate}%`);
+          query += ` AND regexp_replace(UPPER(COALESCE(v.plate, v.name, '')), '[^A-Z0-9]', '', 'g') LIKE $${params.length}`;
+        }
+      }
+
+      query += ` ORDER BY vls.last_seen DESC NULLS LAST LIMIT 5`;
+
+      const vRes = await db.query(query, params);
+
+      return res.json({
+        success: true,
+        count: vRes.rows.length,
+        vehicles: vRes.rows
+      });
+    } catch (err) {
+      next(err);
+    }
   }
 };
 

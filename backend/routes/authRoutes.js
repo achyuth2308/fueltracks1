@@ -14,5 +14,6 @@ router.get('/me', authenticate, AuthController.getMe);
 router.post('/forgot-password', AuthController.forgotPassword);
 router.post('/reset-password', AuthController.resetPassword);
 router.get('/customer-credentials', AuthController.getCustomerCredentialsByPhone);
+router.get('/bot-vehicle-status', AuthController.getBotVehicleStatus);
 
 module.exports = router;
