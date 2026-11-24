@@ -223,7 +223,12 @@ const Sidebar = ({ isOpen, toggleMobileSidebar, vehicles = [] }) => {
   }, [user]);
 
   // Hardware sensor fuel capability (for Fuel Analytics)
-  const hasFuelFeature = hasAnyFuelVehicle(vehicles) || isSuperAdminOrDealer;
+  // Physical hardware sensor fuel capability (Fuel Analytics only appears if fleet has physical sensors)
+  const hasFuelFeature = useMemo(() => {
+    if (hasAnyFuelVehicle(vehicles)) return true;
+    if (user?.role === 'superadmin') return true;
+    return false;
+  }, [vehicles, user]);
 
   const navGroups = useMemo(() => [
     {
