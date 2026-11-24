@@ -25,6 +25,7 @@ const reportRoutes = require('./modules/reports/routes/reportRoutes');
 const profileRoutes = require('./modules/profile/routes/profileRoutes');
 const billingRoutes = require('./routes/billingRoutes');
 const alertsRoutes = require('./routes/alertsRoutes');
+const manualFuelRoutes = require('./modules/fuel/routes/manualFuelRoutes');
 const tripRoutes = require('./modules/trips/routes/tripRoutes');
 const tripController = require('./modules/trips/controllers/tripController');
 const miningRegistrationRoutes = require('./routes/miningRegistrationRoutes');
@@ -197,6 +198,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/emails', emailRoutes);
 app.use('/api/alerts', alertsRoutes);
+app.use('/api/fuel/manual', manualFuelRoutes);
 // app.use('/api/trips', tripRoutes); // Manual trips removed per user request
 app.use('/api/mining-registrations', miningRegistrationRoutes);
 

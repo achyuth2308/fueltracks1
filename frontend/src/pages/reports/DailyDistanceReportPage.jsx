@@ -5,6 +5,7 @@ import { Search, Loader2, Calendar, FileSpreadsheet, FileText, Download, Play } 
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import ReportGroupVehicleSidebar from '../../components/reports/ReportGroupVehicleSidebar';
 
 const getTodayDateStr = () => {
   const now = new Date();
@@ -193,131 +194,16 @@ const DailyDistanceReportPage = () => {
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
     }}>
 
-      {/* ═══════════ LEFT: COMPACT 135px VEHICLE SIDEBAR ═══════════ */}
-      <div style={{
-        width: '135px',
-        minWidth: '135px',
-        maxWidth: '135px',
-        background: '#FFFFFF',
-        borderRight: '1px solid #CBD5E1',
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        boxSizing: 'border-box',
-        overflow: 'hidden'
-      }}>
-        {/* Search */}
-        <div style={{ padding: '6px', borderBottom: '1px solid #E2E8F0' }}>
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            background: '#F8FAFC',
-            border: '1px solid #CBD5E1',
-            borderRadius: '4px',
-            padding: '3px 6px'
-          }}>
-            <Search size={11} color="#64748B" />
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchVehicle}
-              onChange={e => setSearchVehicle(e.target.value)}
-              style={{
-                width: '100%',
-                border: 'none',
-                outline: 'none',
-                background: 'transparent',
-                fontSize: '11px',
-                color: '#0F172A'
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Group Filter */}
-        <div style={{ padding: '4px 6px', borderBottom: '1px solid #E2E8F0', background: '#F8FAFC' }}>
-          <select
-            value={selectedGroup}
-            onChange={e => setSelectedGroup(e.target.value)}
-            style={{
-              width: '100%',
-              fontSize: '11px',
-              padding: '2px 4px',
-              borderRadius: '4px',
-              border: '1px solid #CBD5E1',
-              background: '#FFFFFF',
-              color: '#0F172A',
-              outline: 'none',
-              cursor: 'pointer'
-            }}
-          >
-            {groupOptions.map(g => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Vehicle List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '4px' }}>
-          {filteredVehicles.length === 0 ? (
-            <div style={{ padding: '8px', fontSize: '10.5px', color: '#94A3B8', textAlign: 'center' }}>
-              No vehicles
-            </div>
-          ) : (
-            filteredVehicles.map(v => {
-              const isSelected = String(v.id) === String(selectedVehicleId);
-              const isOnline = v.online || v.status === 'Running' || v.status === 'Idle';
-              return (
-                <div
-                  key={v.id}
-                  onClick={() => {
-                    setSelectedVehicleId(v.id);
-                    handleGenerate(startDate, endDate, v.id);
-                  }}
-                  title={v.name || v.plate}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '5px 8px',
-                    borderRadius: '6px',
-                    marginBottom: '3px',
-                    cursor: 'pointer',
-                    background: isSelected ? '#D1FAE5' : 'transparent',
-                    borderLeft: isSelected ? '3px solid #059669' : '3px solid transparent',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) e.currentTarget.style.background = '#F0FDF4';
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: isOnline ? '#10B981' : '#94A3B8',
-                    flexShrink: 0
-                  }} />
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: isSelected ? 700 : 500,
-                    color: isSelected ? '#065F46' : '#1E293B',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {v.name || v.plate}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
+      <ReportGroupVehicleSidebar
+        vehicles={vehicles}
+        selectedVehicleId={selectedVehicleId}
+        onSelectVehicle={(id) => {
+          setSelectedVehicleId(id);
+          handleGenerate(startDate, endDate, id);
+        }}
+        width="175px"
+      />
 
       {/* ═══════════ RIGHT: EXCEL WORKSPACE ═══════════ */}
       <div style={{
@@ -339,7 +225,8 @@ const DailyDistanceReportPage = () => {
           flexWrap: 'wrap',
           gap: '8px',
           paddingBottom: '4px',
-          borderBottom: '1px solid #E2E8F0'
+          borderBottom: '1px solid #E2E8F0',
+          flexShrink: 0
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             {/* Start Date */}
@@ -465,7 +352,8 @@ const DailyDistanceReportPage = () => {
           background: 'transparent',
           borderRadius: '999px',
           width: 'fit-content',
-          margin: '0 auto'
+          margin: '0 auto',
+          flexShrink: 0
         }}>
           {[
             { id: 'today', label: 'Today' },
@@ -505,7 +393,8 @@ const DailyDistanceReportPage = () => {
           border: '1px solid #D1FAE5',
           background: '#F7FDF9',
           borderRadius: '8px',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          flexShrink: 0
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', lineHeight: '1.25' }}>
             <tbody>
@@ -561,12 +450,13 @@ const DailyDistanceReportPage = () => {
         {/* ── 4. Excel Format Data Table ── */}
         <div style={{
           flex: 1,
+          minHeight: 0,
           border: '1px solid #CBD5E1',
           overflow: 'auto',
           background: '#FFFFFF'
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', minWidth: '700px' }}>
-            <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+            <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
                 <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', width: '45px', textAlign: 'center' }}>#</th>
                 <th style={{ background: '#064E3B', color: '#FFFFFF', fontWeight: 800, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', padding: '8px 8px', border: '1px solid rgba(255,255,255,0.15)', textAlign: 'center' }}>Date</th>

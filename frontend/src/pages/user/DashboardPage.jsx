@@ -11,6 +11,7 @@ import { useVehicles } from '../../hooks/useVehicles';
 import { getDashboardStats, getOrgs } from '../../api/adminApi';
 import { useAuth } from '../../hooks/useAuth';
 import CustomerDashboard from './CustomerDashboard';
+import ManualFuelDashboardSection from '../../components/fuel/ManualFuelDashboardSection';
 import { getVehicleStatus, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import { getVehicleLicenseTier } from '../../utils/licenseUtils';
 
@@ -627,6 +628,8 @@ const DashboardPage = ({ setAppVehicles }) => {
           </div>
         </div>
       </div>
+      {/* Manual Fuel Monitoring & Mileage Prediction Section */}
+      <ManualFuelDashboardSection />
     </div>
   );
 };

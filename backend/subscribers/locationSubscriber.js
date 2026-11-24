@@ -17,6 +17,7 @@ const webhookService = require('../services/webhookService'); // Civil Supply we
 const sclenPushService = require('../services/sclenPushService'); // SCLEN Push
 const minesPushService = require('../services/minesPushService'); // Mines Server Push
 const FuelEventAggregator = require('../services/fuelEventAggregator');
+const manualFuelService = require('../modules/fuel/services/manualFuelService');
 let subscriber = null;
 
 // Bounded global queue for distance recomputes (concurrency 2, max 1000)

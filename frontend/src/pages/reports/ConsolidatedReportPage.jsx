@@ -10,6 +10,7 @@ import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 import AddressText from '../../components/ui/AddressText';
 import { getLocalDateString } from '../../utils/dateUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import ReportGroupVehicleSidebar from '../../components/reports/ReportGroupVehicleSidebar';
 
 // Format seconds into HH:MM:SS
 const formatHMS = (seconds) => {
@@ -311,135 +312,148 @@ const ConsolidatedReportPage = () => {
   const cellBorder = '1px solid #d9d9d9';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%', boxSizing: 'border-box', color: '#0F172A', padding: '16px' }}>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'row',
+      width: '100%',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+      background: '#F8FAFC',
+      boxSizing: 'border-box'
+    }}>
+      {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
+      <ReportGroupVehicleSidebar
+        vehicles={vehicles}
+        selectedVehicleId={filters.vehicleId}
+        selectedGroupId={selectedGroup}
+        showAllOption={true}
+        onSelectVehicle={(id, meta) => {
+          if (meta?.isAllInGroup) {
+            setSelectedGroup(meta.groupName);
+            const nextFilters = { ...filters, vehicleId: '' };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, meta.groupName);
+          } else if (meta?.isAll) {
+            setSelectedGroup('All');
+            const nextFilters = { ...filters, vehicleId: '' };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, 'All');
+          } else {
+            const nextFilters = { ...filters, vehicleId: id };
+            setFilters(nextFilters);
+            handleFetchReport(nextFilters, selectedGroup);
+          }
+        }}
+        onSelectGroup={(gName) => {
+          setSelectedGroup(gName);
+          const nextFilters = { ...filters, vehicleId: '' };
+          setFilters(nextFilters);
+          handleFetchReport(nextFilters, gName);
+        }}
+        width="175px"
+      />
 
-      {/* Top Filter Bar Matching Telematics Header Exactly */}
+      {/* ═══════════ RIGHT: REPORT WORKSPACE ═══════════ */}
       <div style={{
-        background: '#FFFFFF',
-        borderRadius: '6px',
-        padding: '12px 16px',
-        border: '1px solid #CBD5E1',
-        marginBottom: '16px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        flex: 1,
+        minWidth: 0,
         display: 'flex',
         flexDirection: 'column',
-        gap: '12px'
+        background: '#FFFFFF',
+        padding: '10px 14px',
+        overflow: 'hidden',
+        height: '100%',
+        minHeight: 0,
+        gap: '10px',
+        boxSizing: 'border-box'
       }}>
-        {/* Title row with Yesterday button */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1E293B' }}>
-              {pageTitle}
-            </h3>
-            <Info size={16} color="#059669" style={{ cursor: 'pointer' }} />
+        {/* Top Filter Bar Matching Telematics Header Exactly */}
+        <div style={{
+          background: '#FFFFFF',
+          borderRadius: '6px',
+          padding: '10px 14px',
+          border: '1px solid #CBD5E1',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px',
+          flexShrink: 0
+        }}>
+          {/* Title row with Yesterday button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#1E293B' }}>
+                {pageTitle}
+              </h3>
+              <Info size={15} color="#059669" style={{ cursor: 'pointer' }} />
+              {/* Active selection badge */}
+              <span style={{
+                background: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                color: '#1D4ED8',
+                fontSize: '11px',
+                fontWeight: 600,
+                padding: '2px 8px',
+                borderRadius: '4px',
+                marginLeft: '6px'
+              }}>
+                {filters.vehicleId
+                  ? `Vehicle: ${vehicles.find(v => String(v.id) === String(filters.vehicleId))?.name || filters.vehicleId}`
+                  : (selectedGroup && selectedGroup !== 'All' ? `Group: ${selectedGroup}` : 'All Vehicles')}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSetYesterday}
+              style={{
+                padding: '5px 14px',
+                borderRadius: '999px',
+                border: 'none',
+                background: '#064E3B',
+                color: '#FFFFFF',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                boxShadow: '0 2px 5px rgba(6, 78, 59, 0.25)'
+              }}
+              title="Set date range to Yesterday full 24h"
+            >
+              Yesterday
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={handleSetYesterday}
-            style={{
-              padding: '6px 16px',
-              borderRadius: '999px',
-              border: 'none',
-              background: '#064E3B',
-              color: '#FFFFFF',
-              fontSize: '12px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 2px 5px rgba(6, 78, 59, 0.25)'
-            }}
-            title="Set date range to Yesterday full 24h"
-          >
-            Yesterday
-          </button>
-        </div>
+          {/* Filters Row: From Date | From Time | To Date | To Time | Submit | Export */}
+          <div style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            {/* From Date: DD-MM-YYYY */}
+            <TelematicsDatePicker
+              value={filters.startDate}
+              onChange={(isoDate) => setFilters(prev => ({ ...prev, startDate: isoDate }))}
+            />
 
-        {/* Filters Row: Group | Vehicle | From Date | From Time | To Date | To Time | Submit | Export */}
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          gap: '10px'
-        }}>
-          {/* Group Dropdown */}
-          <select
-            value={selectedGroup}
-            onChange={e => {
-              const newG = e.target.value;
-              setSelectedGroup(newG);
-              setFilters(prev => ({ ...prev, vehicleId: '' }));
-              handleFetchReport({ ...filters, vehicleId: '' }, newG);
-            }}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              background: '#FFFFFF',
-              color: '#0F172A',
-              fontSize: '13px',
-              fontWeight: 500,
-              outline: 'none',
-              minWidth: '130px'
-            }}
-            title="Filter by Vehicle Group"
-          >
-            <option value="All">All Groups</option>
-            {groupOptions.filter(g => g !== 'All').map(gName => (
-              <option key={gName} value={gName}>
-                {gName}
-              </option>
-            ))}
-          </select>
+            {/* From Time: 12:00 AM */}
+            <TelematicsTimePicker
+              value={filters.startTime}
+              onChange={(time24) => setFilters(prev => ({ ...prev, startTime: time24 }))}
+            />
 
-          {/* Vehicle Dropdown */}
-          <select
-            value={filters.vehicleId}
-            onChange={e => setFilters(prev => ({ ...prev, vehicleId: e.target.value }))}
-            style={{
-              padding: '6px 10px',
-              borderRadius: '6px',
-              border: '1px solid #CBD5E1',
-              background: '#FFFFFF',
-              color: '#0F172A',
-              fontSize: '13px',
-              fontWeight: 500,
-              outline: 'none',
-              minWidth: '160px'
-            }}
-          >
-            <option value="">
-              {selectedGroup === 'All' ? 'All Vehicles' : `All in ${selectedGroup} (${groupFilteredVehicles.length})`}
-            </option>
-            {groupFilteredVehicles.map(v => (
-              <option key={v.id} value={v.id}>
-                {v.name} {v.plate ? `(${v.plate})` : ''}
-              </option>
-            ))}
-          </select>
+            {/* To Date: DD-MM-YYYY */}
+            <TelematicsDatePicker
+              value={filters.endDate}
+              onChange={(isoDate) => setFilters(prev => ({ ...prev, endDate: isoDate }))}
+            />
 
-          {/* From Date: DD-MM-YYYY */}
-          <TelematicsDatePicker
-            value={filters.startDate}
-            onChange={(isoDate) => setFilters(prev => ({ ...prev, startDate: isoDate }))}
-          />
-
-          {/* From Time: 12:00 AM */}
-          <TelematicsTimePicker
-            value={filters.startTime}
-            onChange={(time24) => setFilters(prev => ({ ...prev, startTime: time24 }))}
-          />
-
-          {/* To Date: DD-MM-YYYY */}
-          <TelematicsDatePicker
-            value={filters.endDate}
-            onChange={(isoDate) => setFilters(prev => ({ ...prev, endDate: isoDate }))}
-          />
-
-          {/* To Time: 11:59 PM */}
-          <TelematicsTimePicker
-            value={filters.endTime}
-            onChange={(time24) => setFilters(prev => ({ ...prev, endTime: time24 }))}
-          />
+            {/* To Time: 11:59 PM */}
+            <TelematicsTimePicker
+              value={filters.endTime}
+              onChange={(time24) => setFilters(prev => ({ ...prev, endTime: time24 }))}
+            />
 
           {/* Submit Button */}
           <button
@@ -564,7 +578,7 @@ const ConsolidatedReportPage = () => {
         </div>
       ) : (
         /* Unified Continuous Telematics Table Matching Classic Layout Exactly */
-        <div style={{ width: '100%', overflowX: 'auto', background: '#FFFFFF', border: cellBorder }}>
+        <div style={{ flex: 1, minHeight: 0, width: '100%', overflow: 'auto', background: '#FFFFFF', border: cellBorder }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'center', fontSize: '13px', color: '#333333' }}>
             <tbody>
               {filteredData.map((vehicleItem) => {
@@ -755,6 +769,7 @@ const ConsolidatedReportPage = () => {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 };

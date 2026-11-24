@@ -17,6 +17,7 @@ import SensorLogsPage from './pages/user/SensorLogsPage';
 import TrackingPage from './pages/user/TrackingPage';
 import FuelAnalyticsPage from './pages/user/FuelAnalyticsPage';
 import FuelRawDataPage from './pages/user/FuelRawDataPage';
+import ManualFuelEntryPage from './pages/user/ManualFuelEntryPage';
 import DeviceDataPage from './pages/user/DeviceDataPage';
 import VehiclesAdminPage from './pages/admin/VehiclesAdminPage';
 import OrgsAdminPage from './pages/admin/OrgsAdminPage';
@@ -106,6 +107,8 @@ function App() {
               <Route path="tracking" element={<TrackingPage setAppVehicles={setVehicles} />} />
               <Route path="fuel-analytics" element={<FuelAnalyticsPage />} />
               <Route path="fuel-raw-data" element={<FuelRawDataPage />} />
+              <Route path="fuel-entry" element={<ManualFuelEntryPage />} />
+              <Route path="manual-fuel-entry" element={<ManualFuelEntryPage />} />
               <Route path="device-data" element={<DeviceDataPage />} />
               <Route path="device-data/:id" element={<DeviceDataPage />} />
 

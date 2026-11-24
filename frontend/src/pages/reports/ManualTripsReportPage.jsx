@@ -10,6 +10,7 @@ import {
 import axiosInstance from '../../api/axios';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import ReportGroupVehicleSidebar from '../../components/reports/ReportGroupVehicleSidebar';
 import { MapContainer, TileLayer, Polyline, Circle, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -310,129 +311,17 @@ const ManualTripsReportPage = () => {
       boxSizing: 'border-box'
     }}>
 
-      {/* ═══════════ LEFT: MODERN COMPACT VEHICLE SIDEBAR (135px) ═══════════ */}
-      <div style={{
-        width: '135px',
-        minWidth: '135px',
-        maxWidth: '135px',
-        background: '#FFFFFF',
-        border: '1px solid #E2E8F0',
-        borderRadius: '10px',
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        overflow: 'hidden'
-      }}>
-        {/* Search Input with magnifying glass */}
-        <div style={{ padding: '6px 8px', borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'center', gap: '5px', background: '#F8FAFC' }}>
-          <Search size={12} color="#94A3B8" style={{ flexShrink: 0 }} />
-          <input
-            type="text"
-            placeholder="Search..."
-            value={searchVehicle}
-            onChange={e => setSearchVehicle(e.target.value)}
-            style={{
-              width: '100%',
-              border: 'none',
-              outline: 'none',
-              background: 'transparent',
-              fontSize: '11px',
-              color: '#0F172A',
-              padding: 0
-            }}
-          />
-        </div>
-
-        {/* Group Selector */}
-        {groupOptions.length > 1 && (
-          <div style={{ padding: '4px 6px', borderBottom: '1px solid #F1F5F9', background: '#FFFFFF' }}>
-            <select
-              value={selectedGroup}
-              onChange={e => setSelectedGroup(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '3px 4px',
-                fontSize: '10px',
-                fontWeight: 600,
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                color: '#334155',
-                background: '#F8FAFC',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                outline: 'none'
-              }}
-            >
-              {groupOptions.map(g => (
-                <option key={g} value={g}>{g}</option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {/* Scrollable Vehicle List with Sleek Squircle Rows */}
-        <div style={{ flex: 1, overflowY: 'auto', background: '#FFFFFF', padding: '4px' }}>
-          {filteredVehicles.length === 0 ? (
-            <div style={{ padding: '16px 6px', textAlign: 'center', color: '#94A3B8', fontSize: '10.5px' }}>
-              No vehicles
-            </div>
-          ) : (
-            filteredVehicles.map(v => {
-              const isSelected = String(v.id) === String(filters.vehicleId);
-              const isOnline = v.is_online || (v.speed && v.speed > 0) || v.ignition;
-
-              return (
-                <div
-                  key={v.id}
-                  onClick={() => {
-                    const newF = { ...filters, vehicleId: v.id, fromGeofenceId: '', toGeofenceId: '' };
-                    setFilters(newF);
-                    handleGenerate(newF);
-                  }}
-                  title={v.name || v.plate}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '5px 8px',
-                    borderRadius: '6px',
-                    marginBottom: '2px',
-                    cursor: 'pointer',
-                    background: isSelected ? '#D1FAE5' : 'transparent',
-                    borderLeft: isSelected ? '3px solid #059669' : '3px solid transparent',
-                    transition: 'all 0.15s ease'
-                  }}
-                  onMouseEnter={e => {
-                    if (!isSelected) e.currentTarget.style.background = '#F0FDF4';
-                  }}
-                  onMouseLeave={e => {
-                    if (!isSelected) e.currentTarget.style.background = 'transparent';
-                  }}
-                >
-                  <span style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: isOnline ? '#10B981' : '#94A3B8',
-                    flexShrink: 0
-                  }} />
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: isSelected ? 700 : 600,
-                    color: isSelected ? '#065F46' : '#1E293B',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  }}>
-                    {v.name || v.plate}
-                  </span>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
+      {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
+      <ReportGroupVehicleSidebar
+        vehicles={vehicles}
+        selectedVehicleId={filters.vehicleId}
+        onSelectVehicle={(id) => {
+          const newF = { ...filters, vehicleId: id, fromGeofenceId: '', toGeofenceId: '' };
+          setFilters(newF);
+          handleGenerate(newF);
+        }}
+        width="175px"
+      />
 
       {/* ═══════════ RIGHT: MODERN REPORT WORKSPACE ═══════════ */}
       <div style={{

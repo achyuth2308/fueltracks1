@@ -17,6 +17,7 @@ import { getDistance } from '../../utils/mapUtils';
 import { getVehicleStatus, getVehicleType, getNoDataThresholdHours, setNoDataThresholdHours, NO_DATA_OPTIONS } from '../../utils/markerUtils';
 import { hasVehicleFuelCapability } from '../../utils/licenseUtils';
 import * as vehicleApi from '../../api/vehicleApi';
+import ManualFuelEntryModal from '../../components/fuel/ManualFuelEntryModal';
 
 const getExpiryWarning = (vehicle) => {
   if (!vehicle || !vehicle.licence_expire_date) return null;
@@ -91,6 +92,8 @@ const CustomerDashboard = ({ setAppVehicles }) => {
   const [expiredModalVehicle, setExpiredModalVehicle] = useState(null);
   const [hoveredVehicleId, setHoveredVehicleId] = useState(null);
   const [hoverPosY, setHoverPosY] = useState(12);
+  const [isFuelEntryOpen, setIsFuelEntryOpen] = useState(false);
+  const [selectedFuelVehicle, setSelectedFuelVehicle] = useState(null);
   const [hoveredVehicleAddress, setHoveredVehicleAddress] = useState(null);
   const hoveredVehicle = useMemo(() => vehicles.find(v => v.id === hoveredVehicleId), [vehicles, hoveredVehicleId]);
 
@@ -419,7 +422,26 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             {vHasFuel && v.current_fuel !== undefined && v.current_fuel !== null && (
               <>
                 <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', color: '#0284C7', fontWeight: 600 }}>
+                <span
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedFuelVehicle(v);
+                    setIsFuelEntryOpen(true);
+                  }}
+                  title="Click to Log Manual Fuel Entry"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    color: '#0284C7',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    borderRadius: '3px',
+                    padding: '0 2px'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#EA580C'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#0284C7'}
+                >
                   <Fuel size={10} />
                   {Math.round(Number(v.current_fuel))}L
                 </span>
@@ -755,6 +777,19 @@ const CustomerDashboard = ({ setAppVehicles }) => {
             title="Refresh"
           >
             <RefreshCw size={14} />
+          </button>
+
+          {/* Manual Fuel Entry Button */}
+          <button
+            onClick={() => {
+              setSelectedFuelVehicle(selectedVehicle || null);
+              setIsFuelEntryOpen(true);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11.5px] font-bold rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-700 shadow-2xs transition-colors shrink-0 ml-1 cursor-pointer"
+            title="Log Fuel Entry for Vehicle"
+          >
+            <Fuel size={13} className="text-orange-600" />
+            <span>Log Fuel</span>
           </button>
 
           {/* Desktop Full Map / Show Fleet List Toggle */}
@@ -1315,6 +1350,22 @@ const CustomerDashboard = ({ setAppVehicles }) => {
 
         </div>
       </div>
+
+      {/* Manual Fuel Entry Modal */}
+      {isFuelEntryOpen && (
+        <ManualFuelEntryModal
+          isOpen={isFuelEntryOpen}
+          vehicle={selectedFuelVehicle}
+          vehicles={vehicles}
+          onClose={() => {
+            setIsFuelEntryOpen(false);
+            setSelectedFuelVehicle(null);
+          }}
+          onEntryAdded={() => {
+            if (typeof refetch === 'function') refetch();
+          }}
+        />
+      )}
 
       <style dangerouslySetInnerHTML={{
         __html: `

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader2, Zap, FileSpreadsheet, FileText, Download, ExternalLink } from 'lucide-react';
 import axiosInstance from '../../api/axios';
 import * as vehicleApi from '../../api/vehicleApi';
+import ReportGroupVehicleSidebar from '../../components/reports/ReportGroupVehicleSidebar';
 import { exportToExcel, exportToPDF, exportToCSV } from '../../utils/exportUtils';
 import { getAddressFromCoordinates } from '../../utils/geocodeUtils';
 
@@ -71,10 +72,15 @@ const IgnitionReportPage = () => {
 
         if (vList.length > 0) {
           setVehicles(vList);
-          setFilters(prev => ({
-            ...prev,
-            vehicleId: prev.vehicleId || vList[0].id
-          }));
+          const initialVId = vList[0].id;
+          setFilters(prev => {
+            const next = {
+              ...prev,
+              vehicleId: prev.vehicleId || initialVId
+            };
+            fetchReport(next);
+            return next;
+          });
         }
       })
       .catch(console.error);
@@ -231,68 +237,90 @@ const IgnitionReportPage = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', boxSizing: 'border-box', background: '#F8FAFC', fontFamily: "'Inter', sans-serif", color: '#0F172A', gap: '14px' }}>
-      
-      {/* Filters Control Bar */}
-      <div style={{ background: '#FFFFFF', padding: '12px 16px', border: '1px solid #CBD5E1', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          
-          {/* Vehicle Dropdown */}
-          <div style={{ flex: '1 1 200px', minWidth: '180px' }}>
-            <select value={filters.vehicleId} onChange={e => setFilters({ ...filters, vehicleId: e.target.value })} style={{ width: '100%', padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', background: '#FFFFFF', color: '#0F172A', fontSize: '13px', fontWeight: 600 }}>
-              <option value="">Select Vehicle...</option>
-              {vehicles.map(v => (
-                <option key={v.id} value={v.id}>
-                  {v.name} ({v.plate || 'No Plate'})
-                </option>
-              ))}
-            </select>
-          </div>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'row',
+      width: '100%',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+      background: '#F8FAFC',
+      fontFamily: "'Inter', sans-serif",
+      color: '#0F172A'
+    }}>
+      {/* ═══════════ LEFT: GROUP ACCORDION VEHICLE SIDEBAR ═══════════ */}
+      <ReportGroupVehicleSidebar
+        vehicles={vehicles}
+        selectedVehicleId={filters.vehicleId}
+        onSelectVehicle={(id) => {
+          const newF = { ...filters, vehicleId: id };
+          setFilters(newF);
+          fetchReport(newF);
+        }}
+        width="175px"
+      />
 
-          {/* Start Date & Time */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
-            <input type="time" value={filters.startTime} onChange={e => setFilters({ ...filters, startTime: e.target.value })} style={{ padding: '7px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
-          </div>
+      {/* ═══════════ RIGHT: REPORT WORKSPACE ═══════════ */}
+      <div style={{
+        flex: 1,
+        minWidth: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        background: '#FFFFFF',
+        padding: '10px 14px',
+        overflow: 'hidden',
+        height: '100%',
+        minHeight: 0,
+        gap: '10px',
+        boxSizing: 'border-box'
+      }}>
+        {/* Filters Control Bar */}
+        <div style={{ background: '#FFFFFF', padding: '10px 14px', border: '1px solid #CBD5E1', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {/* Start Date & Time */}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <input type="date" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} style={{ padding: '6px 9px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '12px', background: '#FFF' }} />
+              <input type="time" value={filters.startTime} onChange={e => setFilters({ ...filters, startTime: e.target.value })} style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '12px', background: '#FFF' }} />
+            </div>
 
-          <span style={{ color: '#94A3B8', fontSize: '13px' }}>to</span>
+            <span style={{ color: '#94A3B8', fontSize: '12px', fontWeight: 600 }}>to</span>
 
-          {/* End Date & Time */}
-          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-            <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '7px 10px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
-            <input type="time" value={filters.endTime} onChange={e => setFilters({ ...filters, endTime: e.target.value })} style={{ padding: '7px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '13px', background: '#FFF' }} />
-          </div>
+            {/* End Date & Time */}
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <input type="date" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} style={{ padding: '6px 9px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '12px', background: '#FFF' }} />
+              <input type="time" value={filters.endTime} onChange={e => setFilters({ ...filters, endTime: e.target.value })} style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #CBD5E1', outline: 'none', fontSize: '12px', background: '#FFF' }} />
+            </div>
 
-          {/* Submit Button */}
-          <button onClick={() => fetchReport()} disabled={loading} style={{ padding: '8px 22px', borderRadius: '999px', background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', border: 'none', fontWeight: 700, fontSize: '13px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 6px rgba(5,150,105,0.25)' }}>
-            {loading ? <Loader2 size={15} className="animate-spin" /> : null}
-            Submit
-          </button>
-        </div>
-
-        {/* Quick Presets Bar */}
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
-          {[
-            { id: 'today', label: 'Today' },
-            { id: 'yesterday', label: 'Yesterday' },
-            { id: 'thisWeek', label: 'This Week' },
-            { id: 'lastWeek', label: 'Last Week' },
-            { id: 'thisMonth', label: 'This Month' },
-            { id: 'lastMonth', label: 'Last Month' }
-          ].map(p => (
-            <button key={p.id} onClick={() => handleQuickPreset(p.id)} style={{ background: 'none', border: 'none', color: '#047857', fontSize: '13px', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'none' }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
-              {p.label}
+            {/* Submit Button */}
+            <button onClick={() => fetchReport()} disabled={loading} style={{ padding: '6px 18px', borderRadius: '999px', background: 'linear-gradient(135deg, #059669 0%, #047857 100%)', color: '#FFFFFF', border: 'none', fontWeight: 700, fontSize: '12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', boxShadow: '0 2px 6px rgba(5,150,105,0.25)' }}>
+              {loading ? <Loader2 size={13} className="animate-spin" /> : null}
+              Submit
             </button>
-          ))}
+          </div>
+
+          {/* Quick Presets Bar */}
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
+            {[
+              { id: 'today', label: 'Today' },
+              { id: 'yesterday', label: 'Yesterday' },
+              { id: 'thisWeek', label: 'This Week' },
+              { id: 'lastWeek', label: 'Last Week' },
+              { id: 'thisMonth', label: 'This Month' },
+              { id: 'lastMonth', label: 'Last Month' }
+            ].map(p => (
+              <button key={p.id} onClick={() => handleQuickPreset(p.id)} style={{ background: 'none', border: 'none', color: '#047857', fontSize: '12px', fontWeight: 700, cursor: 'pointer', padding: 0, textDecoration: 'none' }} onMouseEnter={e => e.target.style.textDecoration = 'underline'} onMouseLeave={e => e.target.style.textDecoration = 'none'}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       {/* Main Content Area */}
       {reportData && (
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ flex: 1, minHeight: 0, width: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
           
           {/* Top Export Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexShrink: 0 }}>
             <button title="Export to Excel" onClick={() => exportToExcel(getExportData(), 'Engine_ON_Report')} disabled={!reportData.events?.length} style={{ padding: '5px 12px', borderRadius: '4px', background: '#22C55E', color: '#FFF', border: 'none', cursor: reportData.events?.length ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 700, opacity: reportData.events?.length ? 1 : 0.5 }}>
               <FileSpreadsheet size={15} /> Excel
             </button>
@@ -305,7 +333,7 @@ const IgnitionReportPage = () => {
           </div>
 
           {/* Summary Box */}
-          <div style={{ width: '100%', border: '1px solid #00A3AD', borderRadius: '2px', overflow: 'hidden', background: '#FFFFFF' }}>
+          <div style={{ width: '100%', border: '1px solid #00A3AD', borderRadius: '2px', overflow: 'hidden', background: '#FFFFFF', flexShrink: 0 }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <tbody>
                 <tr style={{ borderBottom: '1px solid #E0F2FE' }}>
@@ -331,9 +359,9 @@ const IgnitionReportPage = () => {
           </div>
 
           {/* Engine ON Events Main Data Table */}
-          <div style={{ overflowX: 'auto', border: '1px solid #CBD5E1', borderRadius: '2px', background: '#FFFFFF' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto', border: '1px solid #CBD5E1', borderRadius: '2px', background: '#FFFFFF' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'center' }}>
-              <thead>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr style={{ background: '#064E3B', borderBottom: '1px solid rgba(255,255,255,0.15)' }}>
                   <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '20%' }}>Date & Time</th>
                   <th style={{ padding: '8px 12px', borderRight: '1px solid rgba(255,255,255,0.15)', fontWeight: 800, color: '#FFFFFF', fontSize: '11.5px', textTransform: 'uppercase', letterSpacing: '0.04em', width: '12%' }}>Engine Status</th>
@@ -402,6 +430,7 @@ const IgnitionReportPage = () => {
 
         </div>
       )}
+      </div>
     </div>
   );
 };

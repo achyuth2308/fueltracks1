@@ -1,0 +1,589 @@
+
+const db = require('../../../config/db');
+const { redis } = require('../../../config/redis');
+
+class ManualFuelService {
+  /**
+   * Determine Fuel Status based on remaining fuel & thresholds
+   */
+  static determineFuelStatus(currentFuel, config) {
+    if (currentFuel === null || currentFuel === undefined) return 'No Fuel Data';
+    const numFuel = Number(currentFuel);
+    const criticalThreshold = Number(config?.critical_fuel_alert_threshold ?? 8);
+    const lowThreshold = Number(config?.low_fuel_alert_threshold ?? 15);
+    const tankCapacity = Number(config?.tank_capacity ?? 100);
+
+    if (numFuel <= criticalThreshold) return 'Critical Fuel';
+    if (numFuel <= lowThreshold) return 'Low Fuel';
+    if (numFuel >= tankCapacity * 0.5) return 'Healthy';
+    return 'Normal';
+  }
+
+  /**
+   * Get or initialize Fuel Configuration for a vehicle
+   */
+  async getVehicleFuelConfig(vehicleId) {
+    const res = await db.query(
+      `SELECT vfc.*, v.plate, v.name as vehicle_name, v.category
+       FROM vehicle_fuel_configs vfc
+       JOIN vehicles v ON v.id = vfc.vehicle_id
+       WHERE vfc.vehicle_id = $1`,
+      [vehicleId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Save or update Vehicle Fuel Configuration
+   */
+  async upsertVehicleFuelConfig(vehicleId, orgId, configData) {
+    const {
+      fuelType = 'Diesel',
+      tankCapacity,
+      initialFuel = 0,
+      initialOdometer = 0,
+      initialMileage = 8.0,
+      reserveFuelLevel = 10.0,
+      lowFuelAlertThreshold = 15.0,
+      criticalFuelAlertThreshold = 8.0,
+    } = configData;
+
+    if (!tankCapacity || Number(tankCapacity) <= 0) {
+      throw new Error('Valid tank capacity in litres is required.');
+    }
+    if (Number(initialFuel) > Number(tankCapacity)) {
+      throw new Error('Initial fuel cannot exceed vehicle tank capacity.');
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const configRes = await client.query(
+        `INSERT INTO vehicle_fuel_configs
+           (vehicle_id, org_id, fuel_type, tank_capacity, initial_fuel,
+            initial_odometer, initial_mileage, reserve_fuel_level,
+            low_fuel_alert_threshold, critical_fuel_alert_threshold, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
+         ON CONFLICT (vehicle_id) DO UPDATE SET
+           fuel_type = EXCLUDED.fuel_type,
+           tank_capacity = EXCLUDED.tank_capacity,
+           initial_fuel = EXCLUDED.initial_fuel,
+           initial_odometer = EXCLUDED.initial_odometer,
+           initial_mileage = EXCLUDED.initial_mileage,
+           reserve_fuel_level = EXCLUDED.reserve_fuel_level,
+           low_fuel_alert_threshold = EXCLUDED.low_fuel_alert_threshold,
+           critical_fuel_alert_threshold = EXCLUDED.critical_fuel_alert_threshold,
+           updated_at = NOW()
+         RETURNING *`,
+        [
+          vehicleId,
+          orgId,
+          fuelType,
+          tankCapacity,
+          initialFuel,
+          initialOdometer,
+          initialMileage,
+          reserveFuelLevel,
+          lowFuelAlertThreshold,
+          criticalFuelAlertThreshold,
+        ]
+      );
+
+      const config = configRes.rows[0];
+
+      // Check if fuel state exists; if not, initialize it from initial config
+      const stateRes = await client.query(
+        'SELECT * FROM vehicle_fuel_states WHERE vehicle_id = $1',
+        [vehicleId]
+      );
+
+      if (stateRes.rows.length === 0) {
+        const estRange = Math.round(Number(initialFuel) * Number(initialMileage));
+        const status = ManualFuelService.determineFuelStatus(initialFuel, config);
+
+        await client.query(
+          `INSERT INTO vehicle_fuel_states
+             (vehicle_id, current_fuel, current_mileage, total_distance_travelled,
+              total_fuel_consumed, total_fuel_refilled, estimated_range_km,
+              last_known_odometer, fuel_status, updated_at)
+           VALUES ($1, $2, $3, 0, 0, 0, $4, $5, $6, NOW())`,
+          [vehicleId, initialFuel, initialMileage, estRange, initialOdometer, status]
+        );
+      }
+
+      await client.query('COMMIT');
+      return config;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get Current Fuel State for a vehicle
+   */
+  async getVehicleFuelState(vehicleId) {
+    const res = await db.query(
+      `SELECT vfs.*, vfc.tank_capacity, vfc.fuel_type, vfc.low_fuel_alert_threshold,
+              vfc.critical_fuel_alert_threshold, v.plate, v.name as vehicle_name
+       FROM vehicle_fuel_states vfs
+       JOIN vehicle_fuel_configs vfc ON vfc.vehicle_id = vfs.vehicle_id
+       JOIN vehicles v ON v.id = vfs.vehicle_id
+       WHERE vfs.vehicle_id = $1`,
+      [vehicleId]
+    );
+    return res.rows[0] || null;
+  }
+
+  /**
+   * Process a Manual Fuel Entry by driver
+   * Types: INITIAL, REFILL, RECONCILIATION
+   */
+  async addManualFuelEntry(vehicleId, driverUser, entryData) {
+    const {
+      entryType, // 'INITIAL', 'REFILL', 'RECONCILIATION'
+      fuelQuantity, // Tank level after entry (L)
+      fuelFilled = 0, // Filled quantity if REFILL (L)
+      odometer,
+      receiptUrl = null,
+      remarks = null,
+      entryDate = null,
+    } = entryData;
+
+    if (!entryType || !['INITIAL', 'REFILL', 'RECONCILIATION'].includes(entryType)) {
+      throw new Error("Invalid entry type. Must be 'INITIAL', 'REFILL', or 'RECONCILIATION'.");
+    }
+
+    const config = await this.getVehicleFuelConfig(vehicleId);
+    if (!config) {
+      throw new Error('Vehicle fuel configuration not found. Please configure vehicle fuel settings first.');
+    }
+
+    const tankCap = Number(config.tank_capacity);
+    const numFuelQty = Number(fuelQuantity);
+    const numFuelFilled = (entryType === 'INITIAL' && (!fuelFilled || Number(fuelFilled) === 0))
+      ? numFuelQty
+      : Number(fuelFilled || 0);
+    const numOdo = Number(odometer);
+
+    if (isNaN(numFuelQty) || numFuelQty < 0) {
+      throw new Error('Fuel quantity cannot be negative.');
+    }
+    if (numFuelQty > tankCap) {
+      throw new Error(`Fuel quantity (${numFuelQty} L) cannot exceed vehicle tank capacity (${tankCap} L).`);
+    }
+    if (isNaN(numOdo) || numOdo < 0) {
+      throw new Error('Valid odometer reading is required.');
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      // Get current fuel state (or baseline)
+      const stateRes = await client.query(
+        'SELECT * FROM vehicle_fuel_states WHERE vehicle_id = $1 FOR UPDATE',
+        [vehicleId]
+      );
+
+      let currentState = stateRes.rows[0];
+      const prevEstFuel = currentState ? Number(currentState.current_fuel) : Number(config.initial_fuel);
+      let newFuel = prevEstFuel;
+      let fuelDifference = 0;
+
+      if (entryType === 'INITIAL') {
+        newFuel = numFuelQty;
+        fuelDifference = 0;
+      } else if (entryType === 'REFILL') {
+        // Driver refilled fuelFilled litres.
+        // If driver also provided actual tank level (fuelQuantity), use that as the reconciled ground truth!
+        if (numFuelQty > 0 && Math.abs(numFuelQty - (prevEstFuel + numFuelFilled)) > 0.1) {
+          newFuel = numFuelQty;
+          fuelDifference = Math.round((numFuelQty - (prevEstFuel + numFuelFilled)) * 100) / 100;
+        } else {
+          newFuel = Math.min(tankCap, Math.round((prevEstFuel + numFuelFilled) * 100) / 100);
+          fuelDifference = 0;
+        }
+      } else if (entryType === 'RECONCILIATION') {
+        // Periodic manual check: reconcile system estimate to actual measured fuel
+        newFuel = numFuelQty;
+        fuelDifference = Math.round((numFuelQty - prevEstFuel) * 100) / 100;
+      }
+
+      // 1. Audit trail: insert into manual_fuel_entries
+      const rawDriverId = driverUser?.userId || driverUser?.id || null;
+      const driverId = (rawDriverId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawDriverId)) ? rawDriverId : null;
+
+      const customEntryTime = (entryDate && !isNaN(new Date(entryDate).getTime())) ? new Date(entryDate) : new Date();
+
+      const insertEntryRes = await client.query(
+        `INSERT INTO manual_fuel_entries
+           (vehicle_id, org_id, driver_id, driver_name, entry_type,
+            fuel_quantity, fuel_filled, odometer, estimated_fuel_before,
+            fuel_difference, receipt_url, remarks, entry_time)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         RETURNING *`,
+        [
+          vehicleId,
+          config.org_id,
+          driverId,
+          driverUser?.name || 'Driver / Admin',
+          entryType,
+          newFuel,
+          numFuelFilled,
+          numOdo,
+          prevEstFuel,
+          fuelDifference,
+          receiptUrl,
+          remarks,
+          customEntryTime,
+        ]
+      );
+      const entryRecord = insertEntryRes.rows[0];
+
+      // 2. Mileage learning: calculate actual mileage between consecutive verified entries
+      let updatedMileage = currentState ? Number(currentState.current_mileage) : Number(config.initial_mileage);
+
+      if (entryType === 'REFILL' || entryType === 'RECONCILIATION') {
+        const lastEntryRes = await client.query(
+          `SELECT * FROM manual_fuel_entries
+           WHERE vehicle_id = $1 AND id != $2
+           ORDER BY entry_time DESC LIMIT 1`,
+          [vehicleId, entryRecord.id]
+        );
+
+        if (lastEntryRes.rows.length > 0) {
+          const lastEntry = lastEntryRes.rows[0];
+          const distCovered = numOdo - Number(lastEntry.odometer);
+
+          // Formula: Actual Fuel Consumed = (Previous Tank Fuel) + (Fuel Refilled) - (Current Tank Fuel)
+          const actualConsumed = Number(lastEntry.fuel_quantity) + numFuelFilled - newFuel;
+
+          if (distCovered > 30 && actualConsumed > 3) {
+            const calculatedMileage = Math.round((distCovered / actualConsumed) * 100) / 100;
+            // Realistic bounds (2.0 to 35.0 km/l)
+            if (calculatedMileage >= 2.0 && calculatedMileage <= 35.0) {
+              // Rolling average: 70% current rolling avg + 30% new verified observation
+              updatedMileage = Math.round((updatedMileage * 0.7 + calculatedMileage * 0.3) * 100) / 100;
+
+              await client.query(
+                `INSERT INTO vehicle_mileage_history
+                   (vehicle_id, previous_entry_id, current_entry_id,
+                    distance_travelled, actual_fuel_consumed, calculated_mileage,
+                    rolling_average_mileage)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  vehicleId,
+                  lastEntry.id,
+                  entryRecord.id,
+                  distCovered,
+                  actualConsumed,
+                  calculatedMileage,
+                  updatedMileage,
+                ]
+              );
+            }
+          }
+        }
+      }
+
+      // 3. Update vehicle_fuel_states
+      const estRange = Math.round(newFuel * updatedMileage);
+      const status = ManualFuelService.determineFuelStatus(newFuel, config);
+      const addedRefill = entryType === 'REFILL' ? numFuelFilled : 0;
+
+      await client.query(
+        `INSERT INTO vehicle_fuel_states
+           (vehicle_id, current_fuel, current_mileage, total_distance_travelled,
+            total_fuel_consumed, total_fuel_refilled, estimated_range_km,
+            last_known_odometer, last_refill_date, last_entry_date, fuel_status, updated_at)
+         VALUES ($1, $2, $3, 0, 0, $4, $5, $6, $7, NOW(), $8, NOW())
+         ON CONFLICT (vehicle_id) DO UPDATE SET
+           current_fuel = $2,
+           current_mileage = $3,
+           total_fuel_refilled = vehicle_fuel_states.total_fuel_refilled + $4,
+           estimated_range_km = $5,
+           last_known_odometer = $6,
+           last_refill_date = CASE WHEN $4 > 0 THEN NOW() ELSE vehicle_fuel_states.last_refill_date END,
+           last_entry_date = NOW(),
+           fuel_status = $8,
+           updated_at = NOW()`,
+        [
+          vehicleId,
+          newFuel,
+          updatedMileage,
+          addedRefill,
+          estRange,
+          numOdo,
+          addedRefill > 0 ? new Date() : null,
+          status,
+        ]
+      );
+
+      await client.query('COMMIT');
+
+      // 4. Publish real-time notification & check for unusual fuel entry alert
+      try {
+        if (redis) {
+          if (Math.abs(fuelDifference) >= 25) {
+            await redis.publish('alerts', JSON.stringify({
+              vehicleId,
+              imei: config.plate,
+              alertType: 'unusual_fuel_entry',
+              alertText: `Unusual Fuel Entry: Vehicle ${config.plate} has a difference of ${fuelDifference > 0 ? '+' : ''}${fuelDifference.toFixed(1)}L between system estimate (${prevEstFuel}L) and driver measurement (${newFuel}L).`,
+              deviceTime: new Date().toISOString(),
+            }));
+          }
+
+          await redis.publish('manual_fuel_update', JSON.stringify({
+            vehicleId,
+            current_fuel: newFuel,
+            current_mileage: updatedMileage,
+            estimated_range_km: estRange,
+            fuel_status: status,
+            entryType,
+          }));
+        }
+      } catch (notifyErr) {
+        console.warn('[MANUAL-FUEL] Alert publishing error:', notifyErr.message);
+      }
+
+      return {
+        entry: entryRecord,
+        newFuelRemaining: newFuel,
+        updatedMileage,
+        estimatedRangeKm: estRange,
+        status,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Deduct fuel consumption based on incremental GPS distance travelled
+   * Called safely from locationSubscriber when vehicle moves
+   */
+  async deductGpsDistanceFuel(vehicleId, distanceKm, currentOdometer) {
+    if (!distanceKm || Number(distanceKm) <= 0.005) return null; // skip sub-5-metre micro-drift
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const stateRes = await client.query(
+        `SELECT vfs.*, vfc.tank_capacity, vfc.low_fuel_alert_threshold,
+                vfc.critical_fuel_alert_threshold, v.plate, v.name as vehicle_name
+         FROM vehicle_fuel_states vfs
+         JOIN vehicle_fuel_configs vfc ON vfc.vehicle_id = vfs.vehicle_id
+         JOIN vehicles v ON v.id = vfs.vehicle_id
+         WHERE vfs.vehicle_id = $1 FOR UPDATE`,
+        [vehicleId]
+      );
+
+      if (stateRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const state = stateRes.rows[0];
+      const mileage = Number(state.current_mileage || 8.0);
+      const fuelBefore = Number(state.current_fuel);
+      const dist = Number(distanceKm);
+
+      // Fuel Consumed = Distance Travelled / Average Mileage
+      const fuelConsumed = Math.round((dist / mileage) * 1000) / 1000;
+      const fuelAfter = Math.max(0, Math.round((fuelBefore - fuelConsumed) * 100) / 100);
+      const estRange = Math.round(fuelAfter * mileage);
+      const status = ManualFuelService.determineFuelStatus(fuelAfter, state);
+
+      // 1. Update fuel state
+      await client.query(
+        `UPDATE vehicle_fuel_states SET
+           current_fuel = $1,
+           total_distance_travelled = total_distance_travelled + $2,
+           total_fuel_consumed = total_fuel_consumed + $3,
+           estimated_range_km = $4,
+           last_known_odometer = COALESCE($5, last_known_odometer),
+           fuel_status = $6,
+           updated_at = NOW()
+         WHERE vehicle_id = $7`,
+        [fuelAfter, dist, fuelConsumed, estRange, currentOdometer || null, status, vehicleId]
+      );
+
+      // 2. Log consumption transaction
+      await client.query(
+        `INSERT INTO fuel_consumption_logs
+           (vehicle_id, distance_km, mileage_applied, fuel_consumed,
+            fuel_before, fuel_after, end_odometer)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [vehicleId, dist, mileage, fuelConsumed, fuelBefore, fuelAfter, currentOdometer || null]
+      );
+
+      await client.query('COMMIT');
+
+      // 3. Configurable Alerts with Redis Throttle Cooldown (6 hours = 21600 seconds)
+      if (redis) {
+        const vehName = state.vehicle_name || state.plate || 'Vehicle';
+        const lowThresh = Number(state.low_fuel_alert_threshold ?? 15);
+        const critThresh = Number(state.critical_fuel_alert_threshold ?? 8);
+
+        // Critical Fuel Alert
+        if (fuelAfter <= critThresh) {
+          const critKey = `fuel:crit_alert_throttle:${vehicleId}`;
+          const alreadySent = await redis.get(critKey);
+          if (!alreadySent) {
+            await redis.set(critKey, '1', 'EX', 21600);
+            await redis.publish('alerts', JSON.stringify({
+              vehicleId,
+              imei: state.plate,
+              alertType: 'critical_fuel',
+              alertText: `Critical Fuel Alert: Estimated fuel for ${vehName} is critically low at ${fuelAfter.toFixed(1)}L. Refill immediately. [ESTIMATED VALUE]`,
+              deviceTime: new Date().toISOString(),
+            }));
+          }
+        }
+        // Low Fuel Alert
+        else if (fuelAfter <= lowThresh) {
+          const lowKey = `fuel:low_alert_throttle:${vehicleId}`;
+          const alreadySent = await redis.get(lowKey);
+          if (!alreadySent) {
+            await redis.set(lowKey, '1', 'EX', 21600);
+            await redis.publish('alerts', JSON.stringify({
+              vehicleId,
+              imei: state.plate,
+              alertType: 'low_fuel',
+              alertText: `Low Fuel Alert: Estimated fuel for ${vehName} is low at ${fuelAfter.toFixed(1)}L (Range: ${estRange} km). [ESTIMATED VALUE]`,
+              deviceTime: new Date().toISOString(),
+            }));
+          }
+        }
+
+        // Low Range Alert (< 50 km)
+        if (estRange <= 50 && estRange > 0 && fuelAfter > critThresh) {
+          const rangeKey = `fuel:range_alert_throttle:${vehicleId}`;
+          const alreadySent = await redis.get(rangeKey);
+          if (!alreadySent) {
+            await redis.set(rangeKey, '1', 'EX', 21600);
+            await redis.publish('alerts', JSON.stringify({
+              vehicleId,
+              imei: state.plate,
+              alertType: 'low_range',
+              alertText: `Low Range Alert: Estimated range for ${vehName} has dropped to ${estRange} km. [ESTIMATED VALUE]`,
+              deviceTime: new Date().toISOString(),
+            }));
+          }
+        }
+      }
+
+      return {
+        vehicleId,
+        fuelBefore,
+        fuelAfter,
+        fuelConsumed,
+        distanceKm: dist,
+        estimatedRangeKm: estRange,
+        status,
+      };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.warn(`[MANUAL-FUEL] Error deducting fuel for vehicle ${vehicleId}:`, err.message);
+      return null;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * Get Fuel Entries History for a vehicle
+   */
+  async getFuelEntries(vehicleId, options = {}) {
+    const { page = 1, limit = 50, entryType } = options;
+    const offset = (page - 1) * limit;
+    const params = [vehicleId, limit, offset];
+    let typeClause = '';
+    if (entryType) {
+      params.push(entryType);
+      typeClause = `AND entry_type = $${params.length}`;
+    }
+
+    const res = await db.query(
+      `SELECT * FROM manual_fuel_entries
+       WHERE vehicle_id = $1 ${typeClause}
+       ORDER BY entry_time DESC
+       LIMIT $2 OFFSET $3`,
+      params
+    );
+
+    const countRes = await db.query(
+      `SELECT COUNT(*) FROM manual_fuel_entries WHERE vehicle_id = $1 ${typeClause}`,
+      typeClause ? [vehicleId, entryType] : [vehicleId]
+    );
+
+    return {
+      entries: res.rows,
+      total: parseInt(countRes.rows[0]?.count || 0),
+      page: Number(page),
+      limit: Number(limit),
+    };
+  }
+
+  /**
+   * Fleet Fuel Overview Dashboard Summary
+   */
+  async getFleetFuelOverview(orgId, role, userId) {
+    let whereClause = 'v.is_active = TRUE';
+    const params = [];
+
+    if (role !== 'superadmin' && orgId) {
+      params.push(orgId);
+      whereClause += ` AND (o.id = $${params.length} OR o.parent_id = $${params.length})`;
+    }
+
+    const query = `
+      SELECT
+        v.id as vehicle_id,
+        v.plate,
+        COALESCE(v.name, v.plate) as vehicle_name,
+        v.category,
+        vfc.tank_capacity,
+        vfc.fuel_type,
+        vfc.initial_mileage,
+        vfc.low_fuel_alert_threshold,
+        vfc.critical_fuel_alert_threshold,
+        vfs.current_fuel,
+        vfs.current_mileage,
+        vfs.total_distance_travelled,
+        vfs.total_fuel_consumed,
+        vfs.total_fuel_refilled,
+        vfs.estimated_range_km,
+        vfs.last_known_odometer,
+        vfs.last_refill_date,
+        vfs.last_entry_date,
+        COALESCE(vfs.fuel_status, 'No Fuel Data') as fuel_status,
+        mfe.fuel_difference as last_reconciliation_difference
+      FROM vehicles v
+      JOIN organizations o ON v.org_id = o.id
+      LEFT JOIN vehicle_fuel_configs vfc ON vfc.vehicle_id = v.id
+      LEFT JOIN vehicle_fuel_states vfs ON vfs.vehicle_id = v.id
+      LEFT JOIN LATERAL (
+        SELECT fuel_difference FROM manual_fuel_entries
+        WHERE vehicle_id = v.id
+        ORDER BY entry_time DESC LIMIT 1
+      ) mfe ON true
+      WHERE ${whereClause}
+      ORDER BY v.name ASC
+    `;
+
+    const res = await db.query(query, params);
+    return res.rows;
+  }
+}
+
+module.exports = new ManualFuelService();

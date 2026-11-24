@@ -525,7 +525,7 @@ const FuelReportsPage = ({ type: propType }) => {
   const IconComp = config.icon;
 
   return (
-    <div style={{ padding: '8px 12px', background: '#F1F5F9', minHeight: '100%', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div style={{ padding: '8px 12px', background: '#F1F5F9', height: '100%', minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '8px', boxSizing: 'border-box' }}>
 
       {/* 1. Header Box with Filter Controls (Compact Excel Ribbon) */}
       <div style={{
@@ -536,7 +536,8 @@ const FuelReportsPage = ({ type: propType }) => {
         boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '8px'
+        gap: '8px',
+        flexShrink: 0
       }}>
         {/* Title row with Quick Presets */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
@@ -844,7 +845,8 @@ const FuelReportsPage = ({ type: propType }) => {
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: '6px'
+        gap: '6px',
+        flexShrink: 0
       }}>
         {config.cards.map((card, cIdx) => (
           <div
@@ -873,11 +875,15 @@ const FuelReportsPage = ({ type: propType }) => {
 
       {/* 3. Excel Format Data Table */}
       <div style={{
+        flex: 1,
+        minHeight: 0,
         background: '#FFFFFF',
         borderRadius: '5px',
         border: '1px solid #CBD5E1',
-        overflow: 'auto',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+        overflow: 'hidden',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+        display: 'flex',
+        flexDirection: 'column'
       }}>
         {loading ? (
           <div style={{ padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
@@ -891,9 +897,9 @@ const FuelReportsPage = ({ type: propType }) => {
             <div style={{ fontSize: '11.5px', color: '#64748B' }}>Try selecting another date range or vehicle.</div>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '11px', color: '#0F172A', minWidth: '850px' }}>
-              <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
+              <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                 <tr style={{ background: '#0F172A' }}>
                   <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)', width: '38px', textAlign: 'center' }}>#</th>
                   <th style={{ padding: '6px 8px', background: '#0F172A', color: '#FFFFFF', fontWeight: 800, fontSize: '10.5px', textTransform: 'uppercase', letterSpacing: '0.03em', border: '1px solid rgba(255,255,255,0.18)' }}>Vehicle Name</th>
