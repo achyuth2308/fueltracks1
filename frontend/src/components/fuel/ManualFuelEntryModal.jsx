@@ -128,7 +128,7 @@ const ManualFuelEntryModal = ({
   // Effective Calculations
   const effectiveTankCapacity = fuelConfig ? Number(fuelConfig.tank_capacity) : Number(customTankCapacity || 0);
   const prevFuel = fuelState ? Number(fuelState.current_fuel) : 0;
-  const currentMileage = fuelState?.current_mileage ? Number(fuelState.current_mileage) : (fuelConfig ? Number(fuelConfig.initial_mileage) : Number(customMileage || 4.5));
+  const currentMileage = fuelConfig?.initial_mileage ? Number(fuelConfig.initial_mileage) : (fuelState?.current_mileage ? Number(fuelState.current_mileage) : Number(customMileage || 8.0));
 
   // Baseline odometer for selected vehicle before user's trip input
   const baseOdometer = useMemo(() => {

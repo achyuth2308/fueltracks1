@@ -98,8 +98,9 @@ class ManualFuelService {
         [vehicleId]
       );
 
+      const fixedMileage = Number(initialMileage || 8.0);
       if (stateRes.rows.length === 0) {
-        const estRange = Math.round(Number(initialFuel) * Number(initialMileage));
+        const estRange = Math.round(Number(initialFuel) * fixedMileage);
         const status = ManualFuelService.determineFuelStatus(initialFuel, config);
 
         await client.query(
@@ -108,9 +109,26 @@ class ManualFuelService {
               total_fuel_consumed, total_fuel_refilled, estimated_range_km,
               last_known_odometer, fuel_status, updated_at)
            VALUES ($1, $2, $3, 0, 0, 0, $4, $5, $6, NOW())`,
-          [vehicleId, initialFuel, initialMileage, estRange, initialOdometer, status]
+          [vehicleId, initialFuel, fixedMileage, estRange, initialOdometer, status]
+        );
+      } else {
+        // Vehicle state already exists: update to the FIXED user-configured mileage and recompute range
+        const curFuel = Number(stateRes.rows[0].current_fuel);
+        const estRange = Math.round(curFuel * fixedMileage);
+        await client.query(
+          `UPDATE vehicle_fuel_states SET
+             current_mileage = $1,
+             estimated_range_km = $2,
+             updated_at = NOW()
+           WHERE vehicle_id = $3`,
+          [fixedMileage, estRange, vehicleId]
         );
       }
+
+      await client.query(
+        'UPDATE vehicles SET manual_tank_capacity = $1 WHERE id = $2',
+        [tankCapacity, vehicleId]
+      );
 
       await client.query('COMMIT');
       return config;
@@ -245,7 +263,7 @@ class ManualFuelService {
       const entryRecord = insertEntryRes.rows[0];
 
       // 2. Mileage learning: calculate actual mileage between consecutive verified entries
-      let updatedMileage = currentState ? Number(currentState.current_mileage) : Number(config.initial_mileage);
+      let updatedMileage = Number(config.initial_mileage || (currentState ? currentState.current_mileage : 8.0));
 
       if (entryType === 'REFILL' || entryType === 'RECONCILIATION') {
         const lastEntryRes = await client.query(

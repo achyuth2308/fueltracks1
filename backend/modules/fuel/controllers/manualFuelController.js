@@ -9,7 +9,7 @@ class ManualFuelController {
     try {
       const { vehicleId } = req.params;
       const config = await manualFuelService.getVehicleFuelConfig(vehicleId);
-      res.json({ success: true, data: config });
+      res.json({ success: true, data: config, config: config });
     } catch (err) {
       next(err);
     }
