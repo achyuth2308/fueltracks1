@@ -304,6 +304,8 @@ class ManualFuelService {
          ON CONFLICT (vehicle_id) DO UPDATE SET
            current_fuel = $2,
            current_mileage = $3,
+           total_distance_travelled = CASE WHEN $9 = 'INITIAL' OR $9 = 'REFILL' THEN 0 ELSE vehicle_fuel_states.total_distance_travelled END,
+           total_fuel_consumed = CASE WHEN $9 = 'INITIAL' OR $9 = 'REFILL' THEN 0 ELSE vehicle_fuel_states.total_fuel_consumed END,
            total_fuel_refilled = vehicle_fuel_states.total_fuel_refilled + $4,
            estimated_range_km = $5,
            last_known_odometer = $6,
@@ -320,6 +322,7 @@ class ManualFuelService {
           numOdo,
           addedRefill > 0 ? new Date() : null,
           status,
+          entryType,
         ]
       );
 
@@ -406,8 +409,8 @@ class ManualFuelService {
       const dist = Number(distanceKm);
 
       // Fuel Consumed = Distance Travelled / Average Mileage
-      const fuelConsumed = Math.round((dist / mileage) * 1000) / 1000;
-      const fuelAfter = Math.max(0, Math.round((fuelBefore - fuelConsumed) * 100) / 100);
+      const fuelConsumed = Math.round((dist / mileage) * 10000) / 10000;
+      const fuelAfter = Math.max(0, Math.round((fuelBefore - fuelConsumed) * 10000) / 10000);
       const estRange = Math.round(fuelAfter * mileage);
       const status = ManualFuelService.determineFuelStatus(fuelAfter, state);
 
