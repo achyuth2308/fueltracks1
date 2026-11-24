@@ -323,6 +323,14 @@ class ManualFuelService {
         ]
       );
 
+      // 3b. Sync vehicle_latest_state.fuel so dashboard & live maps see it immediately
+      await client.query(
+        `INSERT INTO vehicle_latest_state (vehicle_id, fuel, last_seen)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (vehicle_id) DO UPDATE SET fuel = $2`,
+        [vehicleId, newFuel]
+      );
+
       await client.query('COMMIT');
 
       // 4. Publish real-time notification & check for unusual fuel entry alert
@@ -415,6 +423,12 @@ class ManualFuelService {
            updated_at = NOW()
          WHERE vehicle_id = $7`,
         [fuelAfter, dist, fuelConsumed, estRange, currentOdometer || null, status, vehicleId]
+      );
+
+      // 1b. Sync vehicle_latest_state.fuel
+      await client.query(
+        `UPDATE vehicle_latest_state SET fuel = $1 WHERE vehicle_id = $2`,
+        [fuelAfter, vehicleId]
       );
 
       // 2. Log consumption transaction
@@ -535,13 +549,108 @@ class ManualFuelService {
   }
 
   /**
+   * Get Fuel Trend & Mileage Graph data for a vehicle
+   */
+  async getFuelChartData(vehicleId, range = '30d') {
+    const config = await this.getVehicleFuelConfig(vehicleId);
+    const state = await this.getVehicleFuelState(vehicleId);
+
+    let intervalClause = '';
+    if (range === '7d') intervalClause = "AND entry_time >= NOW() - INTERVAL '7 days'";
+    else if (range === '30d') intervalClause = "AND entry_time >= NOW() - INTERVAL '30 days'";
+    else if (range === '90d') intervalClause = "AND entry_time >= NOW() - INTERVAL '90 days'";
+
+    const entriesRes = await db.query(
+      `SELECT * FROM manual_fuel_entries
+       WHERE vehicle_id = $1 ${intervalClause}
+       ORDER BY entry_time ASC`,
+      [vehicleId]
+    );
+
+    const mileageRes = await db.query(
+      `SELECT * FROM vehicle_mileage_history
+       WHERE vehicle_id = $1
+       ORDER BY created_at ASC`,
+      [vehicleId]
+    );
+
+    const entries = entriesRes.rows;
+    const timeline = [];
+
+    entries.forEach((e) => {
+      const d = new Date(e.entry_time);
+      timeline.push({
+        timestamp: e.entry_time,
+        date: isNaN(d.getTime()) ? 'Entry' : d.toLocaleDateString('en-IN', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        fuelLevel: Number(e.fuel_quantity),
+        fuelFilled: Number(e.fuel_filled || 0),
+        odometer: Number(e.odometer || 0),
+        entryType: e.entry_type,
+        remarks: e.remarks || '',
+        driverName: e.driver_name || 'Driver',
+        isRefill: e.entry_type === 'REFILL',
+        isInitial: e.entry_type === 'INITIAL',
+      });
+    });
+
+    if (state && timeline.length > 0) {
+      const curFuel = Number(state.current_fuel);
+      timeline.push({
+        timestamp: new Date().toISOString(),
+        date: 'Now (Live)',
+        fuelLevel: Math.round(curFuel * 10) / 10,
+        fuelFilled: 0,
+        odometer: Number(state.last_known_odometer || 0),
+        entryType: 'CURRENT_ESTIMATE',
+        remarks: 'Live Telemetry Estimate',
+        driverName: 'System GPS',
+        isRefill: false,
+        isInitial: false,
+      });
+    }
+
+    return {
+      vehicleId,
+      tankCapacity: config ? Number(config.tank_capacity) : 100,
+      lowFuelThreshold: config ? Number(config.low_fuel_alert_threshold || 15) : 15,
+      criticalThreshold: config ? Number(config.critical_fuel_alert_threshold || 8) : 8,
+      currentFuel: state ? Number(state.current_fuel) : 0,
+      currentMileage: state ? Number(state.current_mileage) : (config ? Number(config.initial_mileage) : 4.5),
+      totalDistance: state ? Number(state.total_distance_travelled) : 0,
+      totalFuelConsumed: state ? Number(state.total_fuel_consumed) : 0,
+      totalFuelRefilled: state ? Number(state.total_fuel_refilled) : 0,
+      timeline,
+      mileageHistory: mileageRes.rows.map(m => ({
+        date: new Date(m.created_at).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
+        calculatedMileage: Number(m.calculated_mileage),
+        rollingAverage: Number(m.rolling_average_mileage),
+        distance: Number(m.distance_travelled),
+        fuelConsumed: Number(m.actual_fuel_consumed),
+      })),
+    };
+  }
+
+  /**
    * Fleet Fuel Overview Dashboard Summary
    */
   async getFleetFuelOverview(orgId, role, userId) {
     let whereClause = 'v.is_active = TRUE';
     const params = [];
 
-    if (role !== 'superadmin' && orgId) {
+    if (role === 'customer' && userId) {
+      params.push(userId);
+      whereClause += ` AND v.id IN (
+        SELECT vg.vehicle_id 
+        FROM vehicle_groups vg
+        JOIN user_groups ug ON vg.group_id = ug.group_id
+        WHERE ug.user_id = $${params.length}
+      )`;
+    } else if (role !== 'superadmin' && orgId) {
       params.push(orgId);
       whereClause += ` AND (o.id = $${params.length} OR o.parent_id = $${params.length})`;
     }

@@ -88,6 +88,8 @@ const ManualFuelDashboardSection = () => {
 
   useEffect(() => {
     fetchOverview();
+    const interval = setInterval(fetchOverview, 5000); // Live poll every 5s for real-time distance & fuel consumption
+    return () => clearInterval(interval);
   }, []);
 
   const filteredVehicles = useMemo(() => {

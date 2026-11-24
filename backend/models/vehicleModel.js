@@ -16,6 +16,10 @@ function enrichVehicleFuel(v) {
     const sumCap = tVals.reduce((sum, t) => sum + (parseFloat(t.tankSize) || 0), 0);
     if (sumCap > 0) tankCap = Math.round(sumCap * 10) / 10;
   }
+  if (!tankCap && v.manual_tank_capacity) {
+    const mCap = parseFloat(v.manual_tank_capacity);
+    if (!isNaN(mCap) && mCap > 0) tankCap = Math.round(mCap * 10) / 10;
+  }
   if (!tankCap) {
     const rawCap = parseFloat(fuelCal.tankSize || meta.tankSize || meta.tankCapacity);
     if (!isNaN(rawCap) && rawCap > 0) tankCap = Math.round(rawCap * 10) / 10;
@@ -78,7 +82,9 @@ const VehicleModel = {
               o.name as org_name,
               d.device_type, d.licence_id,
               vls.lat, vls.lng, vls.speed as current_speed,
-              vls.fuel as current_fuel, vls.ignition as current_ignition,
+              COALESCE(vls.fuel, vfs.current_fuel) as current_fuel,
+              COALESCE(vfc.tank_capacity, NULL) as manual_tank_capacity,
+              vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
               CASE 
                 -- 1. Active telemetry within 1 hour: Live / Online
@@ -103,6 +109,8 @@ const VehicleModel = {
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN devices d ON v.imei = d.device_id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+       LEFT JOIN vehicle_fuel_states vfs ON v.id = vfs.vehicle_id
+       LEFT JOIN vehicle_fuel_configs vfc ON v.id = vfc.vehicle_id
        WHERE v.id = $1`,
       [vehicleId]
     );
@@ -201,7 +209,9 @@ const VehicleModel = {
               STRING_AGG(DISTINCT g.name, ', ' ORDER BY g.name) as group_name,
               JSON_AGG(DISTINCT jsonb_build_object('id', g.id, 'name', g.name)) FILTER (WHERE g.id IS NOT NULL) as groups,
               vls.lat, vls.lng, vls.speed as current_speed,
-              vls.fuel as current_fuel, vls.ignition as current_ignition,
+              COALESCE(vls.fuel, vfs.current_fuel) as current_fuel,
+              COALESCE(vfc.tank_capacity, NULL) as manual_tank_capacity,
+              vls.ignition as current_ignition,
               vls.voltage as current_voltage, vls.battery as current_battery,
               CASE 
                 -- 1. Active telemetry within 1 hour: Live / Online
@@ -223,6 +233,8 @@ const VehicleModel = {
        FROM vehicles v
        JOIN organizations o ON v.org_id = o.id
        LEFT JOIN vehicle_latest_state vls ON v.id = vls.vehicle_id
+       LEFT JOIN vehicle_fuel_states vfs ON v.id = vfs.vehicle_id
+       LEFT JOIN vehicle_fuel_configs vfc ON v.id = vfc.vehicle_id
        LEFT JOIN vehicle_groups vg ON v.id = vg.vehicle_id
        LEFT JOIN groups g ON vg.group_id = g.id
        LEFT JOIN devices d ON v.imei = d.device_id
@@ -232,7 +244,7 @@ const VehicleModel = {
                 v.server_name, v.gps_sim_no, v.device_version, v.timezone,
                 v.apn, v.licence_issued_date, v.licence_expire_date, v.metadata,
                 v.category,
-                o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vls.ignition,
+                o.name, d.licence_id, d.device_type, vls.lat, vls.lng, vls.speed, vls.fuel, vfs.current_fuel, vfc.tank_capacity, vls.ignition,
                 vls.voltage, vls.battery, vls.is_immobilized, vls.immobilizer_updated_at, vls.last_seen, vls.direction, vls.odometer, vls.today_distance, vls.today_start_odometer
        ORDER BY v.created_at DESC NULLS LAST, v.id DESC
        LIMIT $${paramIndex++} OFFSET $${paramIndex}`,
