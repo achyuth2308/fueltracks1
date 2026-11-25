@@ -35,6 +35,7 @@ const protocolStats = {
   'V54G':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'VOLTYFUEL':  { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
   'APMK':       { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
+  'B20':        { totalConnectionAttempts: 0, lastSuccessfulPacketAt: null, connections: 0 },
 };
 const Redis = require('ioredis');
 const { validateNormalPacket, validateAlertPacket, validateAis140EmergencyPacket } = require('./utils/packetValidator');
@@ -54,6 +55,7 @@ const EC08_PORT        = process.env.EC08_TCP_PORT || 5007;
 const V54G_PORT        = process.env.V5_4G_TCP_PORT || 5009;
 const VOLTYFUEL_PORT   = parseInt(process.env.VOLTYFUEL_TCP_PORT) || 5011;
 const APMK_PORT        = parseInt(process.env.APMK_TCP_PORT) || 5012;
+const B20_PORT         = parseInt(process.env.B20_TCP_PORT) || 5013;
 
 // Concox binary parser + ACK & command builders
 const {
@@ -86,6 +88,9 @@ const { initVoltyFuelServer, nextSeq: voltyFuelNextSeq } = require('./voltyFuelS
 
 // VoltyFuel binary command builder (for relay dispatch)
 const { buildCommandFrame: buildVoltyFuelCommandFrame } = require('./parser/voltyFuelParser');
+
+// B20 (JT808 / GB/T 19056) OBD-II GPS tracker server handler
+const { initB20Server } = require('./b20ServerHandler');
 
 // Track connected devices
 const connectedDevices = new Map(); // imei → { socket, clientId, protocolName, lastPacket }
@@ -296,6 +301,9 @@ const apmkServer = createProtocolServer(
   'APMK',
   ['$PVT,APMK', '$HEL,APMK', '$PVT,apmk', '$HEL,apmk']
 );
+
+// Start B20 OBD-II GPS Tracker Server on Port 5013
+const b20Server = initB20Server(B20_PORT, protocolStats, connectedDevices, publisher);
 
 /**
  * Factory to create a TCP server for a specific protocol configuration
@@ -1843,6 +1851,7 @@ const healthServer = http.createServer((req, res) => {
       ec08Connections:        protocolStats['EC08'].connections,
       v54gConnections:        protocolStats['V54G'].connections,
       voltyFuelConnections:   protocolStats['VOLTYFUEL'].connections,
+      b20Connections:         protocolStats['B20'] ? protocolStats['B20'].connections : 0,
       stats: protocolStats
     }));
   } else {
@@ -1871,6 +1880,7 @@ function shutdown() {
   pt06Server.close();
   pn02Server.close();
   voltyFuelServer.close();
+  b20Server.close();
   healthServer.close();
   setTimeout(() => process.exit(0), 1000);
 }
@@ -2252,4 +2262,4 @@ function startV54GServer(port) {
   return server;
 }
 
-module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, v54gServer, voltyFuelServer, healthServer };
+module.exports = { bstplServer, ais140Server, ais140V2Server, concoxServer, voltyServer, fmb920Server, ec08Server, pt06Server, pn02Server, v54gServer, voltyFuelServer, b20Server, healthServer };
