@@ -58,17 +58,21 @@ const CustomTooltip = ({ active, payload, showRefills, showThefts, tankCapacity 
               <span className="font-mono text-slate-200 font-semibold">{data.date}</span>
             </div>
             <div>
-              <span className="text-slate-400 text-[10px] block">New Level:</span>
+              <span className="text-slate-400 text-[10px] block">After Refill:</span>
               <span className="font-mono text-emerald-300 font-bold">{Number(data.fuelLevel).toFixed(1)} L</span>
             </div>
             {data.refillEvent?.startFuel != null && (
               <div>
-                <span className="text-slate-400 text-[10px] block">Before:</span>
+                <span className="text-slate-400 text-[10px] block">Before Refill:</span>
                 <span className="font-mono text-slate-300">{Number(data.refillEvent.startFuel).toFixed(1)} L</span>
               </div>
             )}
+            <div>
+              <span className="text-slate-400 text-[10px] block">Fuel Added:</span>
+              <span className="font-mono text-emerald-400 font-bold">+{Number(data.refillLiters || data.fuelFilled).toFixed(1)} L</span>
+            </div>
             {data.driverName && (
-              <div>
+              <div className="col-span-2">
                 <span className="text-slate-400 text-[10px] block">Logged by:</span>
                 <span className="text-slate-200 truncate">{data.driverName}</span>
               </div>

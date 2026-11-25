@@ -217,9 +217,12 @@ class ManualFuelService {
         fuelDifference = 0;
       } else if (entryType === 'REFILL') {
         // Driver refilled fuelFilled litres.
-        // If driver also provided actual tank level (fuelQuantity), use that as the reconciled ground truth!
-        if (numFuelQty > 0 && Math.abs(numFuelQty - (prevEstFuel + numFuelFilled)) > 0.1) {
-          newFuel = numFuelQty;
+        // If driver provided a fuel level less than fuelFilled, they entered pre-refill fuel!
+        if (numFuelQty > 0 && numFuelQty < numFuelFilled) {
+          newFuel = Math.min(tankCap, Math.round((numFuelQty + numFuelFilled) * 100) / 100);
+          fuelDifference = 0;
+        } else if (numFuelQty > 0) {
+          newFuel = Math.min(tankCap, numFuelQty);
           fuelDifference = Math.round((numFuelQty - (prevEstFuel + numFuelFilled)) * 100) / 100;
         } else {
           newFuel = Math.min(tankCap, Math.round((prevEstFuel + numFuelFilled) * 100) / 100);
@@ -729,7 +732,7 @@ class ManualFuelService {
     // Add manual refill, level check & audit entries
     entriesRes.rows.forEach((e) => {
       const d = new Date(e.entry_time);
-      const isRefill = e.entry_type === 'REFILL' || Number(e.fuel_filled || 0) > 0;
+      const isRefill = e.entry_type === 'REFILL';
       const isTheft = (e.entry_type === 'LEVEL_CHECK' || e.entry_type === 'RECONCILIATION') && Number(e.fuel_difference || 0) <= -2;
       const timeFormatted = isNaN(d.getTime()) ? 'Entry' : d.toLocaleDateString('en-IN', {
         month: 'short',
@@ -739,15 +742,65 @@ class ManualFuelService {
       });
 
       if (isRefill) {
+        let fuelBefore = Number(e.estimated_fuel_before || 0);
+        let fuelAfter = Number(e.fuel_quantity || 0);
+        const refilled = Number(e.fuel_filled || 0);
+
+        // Recalculate if fuelAfter <= refilled (anomaly where pre-refill fuel was recorded)
+        if (fuelAfter <= refilled) {
+          fuelAfter = Math.min(config ? Number(config.tank_capacity) : 100, fuelBefore + refilled);
+        }
+
         refillEvents.push({
           time: e.entry_time,
           formattedTime: timeFormatted,
-          liters: Number(e.fuel_filled || 0),
-          fuelBefore: Number(e.estimated_fuel_before || 0),
-          fuelAfter: Number(e.fuel_quantity || 0),
+          liters: refilled,
+          fuelBefore: fuelBefore,
+          fuelAfter: fuelAfter,
           driverName: e.driver_name || 'Driver',
           remarks: e.remarks || 'Fuel Refill Entry'
         });
+
+        // 1. Point immediately prior to refill (shows baseline before pump)
+        const preTime = new Date(d.getTime() - 2000);
+        timeline.push({
+          timestamp: preTime.toISOString(),
+          date: timeFormatted,
+          fuelLevel: fuelBefore,
+          fuelFilled: 0,
+          odometer: Number(e.odometer || 0),
+          entryType: 'PRE_REFILL',
+          remarks: 'Before Refill',
+          driverName: e.driver_name || 'Driver',
+          isRefill: false,
+          isTheft: false,
+          isInitial: false,
+        });
+
+        // 2. Refill peak point (shows the jump from +L fuel)
+        timeline.push({
+          timestamp: e.entry_time,
+          date: timeFormatted,
+          fuelLevel: fuelAfter,
+          fuelFilled: refilled,
+          odometer: Number(e.odometer || 0),
+          entryType: e.entry_type,
+          remarks: e.remarks || '',
+          driverName: e.driver_name || 'Driver',
+          isRefill: true,
+          refillLiters: refilled,
+          refillEvent: {
+            liters: refilled,
+            startTime: timeFormatted,
+            startFuel: fuelBefore,
+            endFuel: fuelAfter,
+            driverName: e.driver_name || 'Driver',
+            remarks: e.remarks || 'Fuel Refill Entry'
+          },
+          isTheft: false,
+          isInitial: false,
+        });
+        return;
       }
 
       if (isTheft) {
@@ -772,16 +825,9 @@ class ManualFuelService {
         entryType: e.entry_type,
         remarks: e.remarks || '',
         driverName: e.driver_name || 'Driver',
-        isRefill,
-        refillLiters: isRefill ? Number(e.fuel_filled || 0) : 0,
-        refillEvent: isRefill ? {
-          liters: Number(e.fuel_filled || 0),
-          startTime: timeFormatted,
-          startFuel: Number(e.estimated_fuel_before || 0),
-          endFuel: Number(e.fuel_quantity || 0),
-          driverName: e.driver_name || 'Driver',
-          remarks: e.remarks || 'Fuel Refill Entry'
-        } : null,
+        isRefill: false,
+        refillLiters: 0,
+        refillEvent: null,
         isTheft,
         theftLiters: isTheft ? Math.abs(Number(e.fuel_difference || 0)) : 0,
         theftEvent: isTheft ? {
